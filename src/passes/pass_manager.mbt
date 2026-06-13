@@ -11889,6 +11889,50 @@ fn run_hot_pipeline_raw_rewrite_local_refs(
 }
 
 ///|
+fn run_hot_pipeline_raw_instr_writes_local(
+  instr : @lib.Instruction,
+  local_id : Int,
+) -> Bool {
+  match instr {
+    @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) =>
+      raw.reinterpret_as_int() == local_id
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_local_refs_before_last_write(
+  instrs : Array[@lib.Instruction],
+  old_local : Int,
+  new_local : @lib.LocalIdx,
+) -> Array[@lib.Instruction] {
+  let mut last_write_idx = -1
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if run_hot_pipeline_raw_instr_writes_local(instrs[idx], old_local) {
+      last_write_idx = idx
+    }
+  }
+  if last_write_idx < 0 {
+    return run_hot_pipeline_raw_rewrite_local_refs(instrs, old_local, new_local)
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx < last_write_idx {
+      rewritten.push(
+        run_hot_pipeline_raw_rewrite_local_refs(
+          [instrs[idx]],
+          old_local,
+          new_local,
+        )[0],
+      )
+    } else {
+      rewritten.push(instrs[idx])
+    }
+  }
+  rewritten
+}
+
+///|
 fn run_hot_pipeline_raw_instrs_have_memory_store(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -12108,6 +12152,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let mut previous_was_call = false
   let mut previous_was_table_size = false
   let mut previous_was_value_if = false
+  let mut previous_was_memory_load = false
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(idx)) => {
@@ -12125,6 +12170,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = false
         previous_was_table_size = false
         previous_was_value_if = false
+        previous_was_memory_load = false
       }
       @lib.LocalSet(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
@@ -12134,6 +12180,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             (local_id < params.length() && !previous_was_call) ||
             previous_was_local_tee ||
             previous_was_table_size ||
+            previous_was_memory_load ||
             (
               freshen_repeated_non_loop_sets &&
               local_id < base_local_count &&
@@ -12158,6 +12205,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = false
         previous_was_table_size = false
         previous_was_value_if = false
+        previous_was_memory_load = false
       }
       @lib.LocalTee(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
@@ -12170,6 +12218,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               local_id < base_local_count &&
               (
                 previous_was_value_if ||
+                previous_was_memory_load ||
                 run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) >
                 1
               )
@@ -12192,12 +12241,14 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = false
         previous_was_table_size = false
         previous_was_value_if = false
+        previous_was_memory_load = false
       }
       @lib.GlobalGet(_) => {
         previous_was_local_tee = false
         previous_was_call = false
         previous_was_table_size = false
         previous_was_value_if = false
+        previous_was_memory_load = false
         rewritten.push(instr)
       }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
@@ -12205,12 +12256,14 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = true
         previous_was_table_size = false
         previous_was_value_if = false
+        previous_was_memory_load = false
         rewritten.push(instr)
       }
       @lib.TableSize(_) => {
         previous_was_local_tee = false
         previous_was_call = false
         previous_was_table_size = true
+        previous_was_memory_load = false
         rewritten.push(instr)
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
@@ -12218,6 +12271,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = false
         previous_was_table_size = false
         previous_was_value_if = false
+        previous_was_memory_load = false
         rewritten.push(
           @lib.Instruction::block(
             block_type,
@@ -12239,6 +12293,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = false
         previous_was_table_size = false
         previous_was_value_if = false
+        previous_was_memory_load = false
         rewritten.push(
           @lib.Instruction::loop_(
             block_type,
@@ -12260,6 +12315,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = false
         previous_was_table_size = false
         previous_was_value_if = false
+        previous_was_memory_load = false
         rewritten.push(
           @lib.Instruction::try_table(
             block_type,
@@ -12282,6 +12338,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = false
         previous_was_table_size = false
         previous_was_value_if = block_type != @lib.BlockType::void_()
+        previous_was_memory_load = false
         rewritten.push(
           @lib.Instruction::if_(
             block_type,
@@ -12315,6 +12372,9 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = false
         previous_was_table_size = false
         previous_was_value_if = false
+        previous_was_memory_load = run_hot_pipeline_optimize_instructions_instr_is_plain_load(
+          instr,
+        )
         rewritten.push(instr)
       }
     }
@@ -12369,9 +12429,15 @@ fn run_hot_pipeline_raw_freshen_value_if_arm_body_scratch(
     let fresh_local = run_hot_pipeline_raw_fresh_local(
       params, locals, local_id, extra_local_types,
     )
-    rewritten = run_hot_pipeline_raw_rewrite_local_refs(
-      rewritten, local_id, fresh_local,
-    )
+    if run_hot_pipeline_raw_count_local_writes(rewritten, local_id) > 1 {
+      rewritten = run_hot_pipeline_raw_rewrite_local_refs_before_last_write(
+        rewritten, local_id, fresh_local,
+      )
+    } else {
+      rewritten = run_hot_pipeline_raw_rewrite_local_refs(
+        rewritten, local_id, fresh_local,
+      )
+    }
   }
   rewritten
 }

@@ -1194,6 +1194,129 @@ test "ssa-nomerge artifact parity freshens allocator searchBlock temps" {
 }
 
 ///|
+test "ssa-nomerge artifact parity freshens allocator unlink load temps" {
+  // Artifact repro from the checked-in debug-WASI artifact, current first
+  // canonical difference after `tlsf/searchBlock`, `defined=1 abs=28`. Binaryen
+  // freshens the allocator unlink loads and bitmap update temps into appended
+  // locals; Starshine must not keep reusing earlier value-if/body scratch locals
+  // unless a measured Starshine win is documented.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param $0 i32) (param $1 i32)
+    #|    (local $2 i32) (local $3 i32) (local $4 i32) (local $5 i32)
+    #|    local.get $1
+    #|    i32.load align=1
+    #|    i32.const -4
+    #|    i32.and
+    #|    local.tee $2
+    #|    i32.const 256
+    #|    i32.lt_u
+    #|    if (result i32)
+    #|      local.get $2
+    #|      i32.const 4
+    #|      i32.shr_u
+    #|      local.set $3
+    #|      i32.const 0
+    #|    else
+    #|      i32.const 31
+    #|      i32.const 1073741820
+    #|      local.get $2
+    #|      local.get $2
+    #|      i32.const 1073741820
+    #|      i32.ge_u
+    #|      select
+    #|      local.tee $3
+    #|      i32.clz
+    #|      i32.sub
+    #|      local.set $2
+    #|      local.get $3
+    #|      local.get $2
+    #|      i32.const 4
+    #|      i32.sub
+    #|      i32.shr_u
+    #|      i32.const 16
+    #|      i32.xor
+    #|      local.set $3
+    #|      local.get $2
+    #|      i32.const 7
+    #|      i32.sub
+    #|    end
+    #|    local.set $5
+    #|    local.get $1
+    #|    i32.load offset=8 align=1
+    #|    local.set $2
+    #|    local.get $1
+    #|    i32.load offset=4 align=1
+    #|    local.tee $4
+    #|    if
+    #|      local.get $4
+    #|      local.get $2
+    #|      i32.store offset=8 align=1
+    #|    end
+    #|    local.get $2
+    #|    if
+    #|      local.get $2
+    #|      local.get $4
+    #|      i32.store offset=4 align=1
+    #|    end
+    #|    local.get $1
+    #|    local.get $0
+    #|    local.get $5
+    #|    i32.const 4
+    #|    i32.shl
+    #|    local.get $3
+    #|    i32.add
+    #|    i32.const 2
+    #|    i32.shl
+    #|    i32.add
+    #|    local.tee $4
+    #|    i32.load offset=96 align=1
+    #|    i32.eq
+    #|    if
+    #|      local.get $4
+    #|      local.get $2
+    #|      i32.store offset=96 align=1
+    #|      local.get $2
+    #|      i32.eqz
+    #|      if
+    #|        local.get $0
+    #|        local.get $5
+    #|        i32.const 2
+    #|        i32.shl
+    #|        i32.add
+    #|        local.tee $1
+    #|        local.get $1
+    #|        i32.load offset=4 align=1
+    #|        i32.const -2
+    #|        local.get $3
+    #|        i32.rotl
+    #|        i32.and
+    #|        local.tee $1
+    #|        i32.store offset=4 align=1
+    #|        local.get $1
+    #|        i32.eqz
+    #|        if
+    #|          local.get $0
+    #|          local.get $0
+    #|          i32.load align=1
+    #|          i32.const -2
+    #|          local.get $5
+    #|          i32.rotl
+    #|          i32.and
+    #|          i32.store align=1
+    #|        end
+    #|      end
+    #|    end)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() >= 11, msg=locals.to_string())
+  let write_indices = ssa_test_local_write_indices(instrs)
+  assert_true(write_indices.any(fn(idx) { idx == 12U }), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge artifact parity freshens parameter scratch writes in nested unlink" {
   // Artifact repro reduced from
   // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled

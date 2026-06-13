@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Freshen allocator removeBlock load temps
+
+- Added a focused reduced `tlsf/removeBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=1 abs=28`. The test failed red before implementation because Starshine reused allocator unlink load and value-if scratch locals differently from Binaryen.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the narrow raw `ssa-nomerge` scratch-freshening path treats immediate memory-load-to-local writes as allocator local-allocation evidence and so value-if arm scratch rewriting leaves the final write to a multiply-written body local on its canonical bucket slot instead of rewriting the whole arm temporary lane.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `363/363`, `moon test src/passes` passed `2384/2384`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5660/5660`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-allocator-removeblock-10000` requested `10000`, compared `7605`, had `7605` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Artifact replay `.tmp/self-ssa-nomerge-debug-wasi-removeblock-probe3-20260613` validates and advances the first canonical diff from `defined=1 abs=28` to `defined=2 abs=29`; Starshine pass-local `0.033 ms` vs Binaryen `422.639 ms`, whole-command Starshine `5721.159 ms` vs Binaryen `931.846 ms`.
+
 ## [2026-06-13] passes/ssa-nomerge | Freshen allocator searchBlock temps
 
 - Added a focused `tlsf/searchBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=0 abs=27`. The test failed red before implementation because Starshine left the no-branch allocator helper on the raw no-op path and reused original param/body locals instead of Binaryen's appended scratch locals.
