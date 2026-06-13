@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Prove default-ref replacement type repair
+
+- Completed `[SSA-REFINALIZE]001` in [`../../agent-todo.md`](../../agent-todo.md) as a proof/test slice over the existing no-local-write raw default-replacement path; no pass mutation or raw rewrite code changed.
+- Added focused guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for exact nullable child refs under a parent block result, exact nullable struct refs flowing through `ref.as_non_null -> struct.get`, and nullable array refs flowing into `array.get`; each fixture proves the body-local `local.get` is gone, the expected `ref.null` payload is present, and final validation accepts the repaired parent stack types.
+- Refreshed [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`index.md`](index.md). Evidence: red `moon test src/passes --target native --filter 'ssa-nomerge default ref replacement'` failed on missing test helper identifiers; after adding helpers and fixtures, `moon test src/passes` passed `2395/2395`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, and full `moon test` passed `5698/5698`. Direct `ssa-nomerge` fuzz was not run because the slice changed tests/docs only.
+
 ## [2026-06-13] ir/local-graph | Add default-entry defaultability facts
 
 - Completed `[SSA-LG]005` in [`../../agent-todo.md`](../../agent-todo.md) as an analysis-only LocalGraph slice; `ssa-nomerge` mutation still does not consume these facts.

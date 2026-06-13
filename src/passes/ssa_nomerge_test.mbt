@@ -203,6 +203,92 @@ fn ssa_test_has_ssa_temp_local_writes(
 }
 
 ///|
+fn ssa_test_instrs_have_ref_null_type(
+  instrs : Array[@lib.Instruction],
+  expected : @lib.RefType,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.RefNull(rt) => if rt == expected { return true }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_ref_null_type(then_body, expected) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if ssa_test_instrs_have_ref_null_type(else_body, expected) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_ref_null_type(body, expected) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_test_instrs_have_local_get(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(_) => return true
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_local_get(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if ssa_test_instrs_have_local_get(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_local_get(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_test_assert_no_local_gets(
+  instrs : Array[@lib.Instruction],
+  context : String,
+) -> Unit raise {
+  let text = instrs.to_string()
+  assert_false(
+    ssa_test_instrs_have_local_get(instrs),
+    msg="\{context}; output still had local.get: \{text}",
+  )
+}
+
+///|
+fn ssa_test_assert_default_read_replaced_with_ref_null(
+  instrs : Array[@lib.Instruction],
+  expected : @lib.RefType,
+  context : String,
+) -> Unit raise {
+  let text = instrs.to_string()
+  assert_true(
+    ssa_test_instrs_have_ref_null_type(instrs, expected),
+    msg="\{context}; expected ref.null \{expected}, output: \{text}",
+  )
+}
+
+///|
 fn ssa_test_instrs_have_br_on_null(instrs : Array[@lib.Instruction]) -> Bool {
   for instr in instrs {
     match instr {
@@ -18497,6 +18583,120 @@ test "ssa-nomerge rewrites default local reads after branchy control without hot
   let text = instrs.to_string()
   assert_true(text.contains("i32.const I32(0)"), msg=text)
   assert_false(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge default ref replacement preserves exact nullable subtype under parent block" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $child (sub $base (struct)))
+    #|  (func (result (ref null $base))
+    #|    (local (ref null (exact $child)))
+    #|    (block (result (ref null $base))
+    #|      local.get 0)))
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected exact default-ref replacement success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  ssa_test_assert_no_local_gets(
+    instrs, "exact nullable default-ref replacement should remove body-local read",
+  )
+  ssa_test_assert_default_read_replaced_with_ref_null(
+    instrs,
+    @lib.RefType::new(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+    "exact nullable subtype default should keep the child exact ref.null type",
+  )
+}
+
+///|
+test "ssa-nomerge default ref replacement validates struct.get parent type repair" {
+  let source =
+    #|(module
+    #|  (type $box (sub (struct (field i32))))
+    #|  (func (result i32)
+    #|    (local (ref null (exact $box)))
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    struct.get $box 0))
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected struct.get default-ref replacement success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  ssa_test_assert_no_local_gets(
+    instrs, "struct.get parent repair fixture should remove body-local read",
+  )
+  ssa_test_assert_default_read_replaced_with_ref_null(
+    instrs,
+    @lib.RefType::new(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      exact=true,
+    ),
+    "struct aggregate default should keep the exact ref.null payload",
+  )
+}
+
+///|
+test "ssa-nomerge default ref replacement validates array.get parent type repair" {
+  let array_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([array_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([
+            @lib.ValType::ref_array_nullable(array_type_idx),
+          ]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32::new(0)),
+            @lib.Instruction::array_get(array_type_idx),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected array.get default-ref replacement success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  ssa_test_assert_no_local_gets(
+    instrs, "array.get parent repair fixture should remove body-local read",
+  )
+  ssa_test_assert_default_read_replaced_with_ref_null(
+    instrs,
+    @lib.RefType::new(true, @lib.HeapType::new(array_type_idx), exact=false),
+    "array aggregate default should keep the array ref.null payload",
+  )
 }
 
 ///|
