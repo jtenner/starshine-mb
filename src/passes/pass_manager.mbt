@@ -9208,6 +9208,7 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
       extra_local_types,
       true,
       allow_direct_call=true,
+      allow_direct_call_operands=true,
     ) {
     Some(spilled) => spilled
     None => return false
