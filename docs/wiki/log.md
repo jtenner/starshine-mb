@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover segment-backed typed-loop producers
+
+- Added focused positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `array.new_data` and `array.new_elem` final producers feeding current typed-loop store-model `br_on_non_null` backedges.
+- No behavior-code widening was needed after the segment-backed final-producer implementation: these tests lock the existing composition of final-reference spilling with the typed-loop store lowering while preserving source/length operands and passive segment effects before the synthetic spill.
+- TDD note: the positives were green on first focused run because commit `cbcd6ce89` had already admitted the immediate final-producer family. Signoff: focused `ssa_nomerge_test.mbt` passed `318/318`, `moon test src/passes` passed `2339/2339`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5615/5615`, native `src/cmd` build reported no work to do, and direct compare `.tmp/pass-fuzz-ssa-nomerge-segment-loop-coverage-10000` requested `10000`, compared `7602`, had `7602` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover segment-backed final producers
 
 - Converted the problem-1 `br_on_non_null` fixtures for `array.new_data` and `array.new_elem` in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) from fail-closed boundaries into positives requiring mutation, valid output, temp-local writes, and removal of the raw branch.
