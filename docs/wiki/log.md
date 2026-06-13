@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover call/ref.cast br_on_null sibling
+
+- Added an operandful direct-call problem-1 positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the narrow `call` then `ref.cast` then `br_on_null` suffix.
+- No behavior-code widening was needed: the previous call/ref.cast branch-input implementation already admitted the `br_on_null` suffix, and this test locks the null-edge prefix-payload/fallthrough shape while still requiring mutation, validation, temp-local writes, and removal of the raw branch.
+- TDD note: the positive was already green (`308/308`) because commit `99335ba12` intentionally admitted the `br_on_null` sibling while testing only `br_on_non_null` direct calls. Signoff: `moon test src/passes` passed `2329/2329`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5604/5604`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-call-refcast-bronull-coverage-10000` requested `10000`, compared `7607`, had `7607` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover call-family ref.cast siblings
 
 - Added operandful `call_ref` and `call_indirect` problem-1 positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the narrow `call_*` then `ref.cast` then `br_on_non_null` suffix.

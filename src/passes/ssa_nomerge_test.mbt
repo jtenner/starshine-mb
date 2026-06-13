@@ -9462,6 +9462,77 @@ test "ssa-nomerge rewrites problem1 direct call operands then ref-cast br_on_non
 }
 
 ///|
+test "ssa-nomerge rewrites problem1 direct call operands then ref-cast br_on_null input" {
+  // Br_on_null sibling for the operandful direct-call/ref.cast suffix: the
+  // null-edge prefix payload is already on the stack, while the non-null
+  // fallthrough keeps the cast result. The rewrite spills only the final cast.
+  let anyref = @lib.ValType::anyref()
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let id_type_idx = @lib.TypeIdx::new(0U)
+  let test_type_idx = @lib.TypeIdx::new(1U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), anyref], [anyref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([anyref], [anyref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([id_type_idx, test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(anyref),
+              @lib.Expr::new([
+                @lib.Instruction::ref_null(any_heap),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::ref_cast(true, any_heap),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_null(any_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "direct call operands then ref-cast br_on_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(ssa_test_instrs_have_br_on_null(instrs), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge rewrites problem1 call_ref operands then ref-cast br_on_non_null input" {
   // Coverage for the operandful call_ref/ref.cast/branch suffix admitted by the
   // narrow call-family recognizer: operands and the function reference are
