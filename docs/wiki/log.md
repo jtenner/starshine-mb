@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Admit zero-param call br_on_non_null loop-store inputs
+
+- Added a red/green regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for a zero-param `call (result externref)` feeding a current typed-loop store-model `br_on_non_null`.
+- Narrowed [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so only this zero-param single-reference-result call subset is admitted: the call result type is resolved from module context, the already-evaluated call result is spilled once, and the existing non-null loop-store branch lowering runs from that scratch.
+- Red evidence: the new test initially failed with HOT lift `UnsupportedInstruction((br_on_non_null (Label 0)))`; after the fix, focused `ssa_nomerge_test.mbt` passed `286/286`, `moon test src/passes` passed `2307/2307`, `moon info` passed with the three pre-existing GenValid warnings, full `moon test` passed `5582/5582`, native `src/cmd` build passed with pre-existing warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-zero-param-call-10000-rerun` requested `10000`, compared `7605`, had `7605` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- This does not implement broad expression scanning across call operands; final raw calls with operands, non-current call inputs, call_ref/return_call_ref inputs, and broader aggregate/data constructors remain fail-closed or open.
+
 ## [2026-06-12] passes/ssa-nomerge | Cover arbitrary reference branch-input gap breadth
 
 - Added a green problem-1 coverage slice in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for arbitrary multi-instruction reference branch inputs beyond the admitted trailing typed/direct producer subset.

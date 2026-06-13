@@ -8947,6 +8947,7 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
   allow_local_tee : Bool,
+  allow_zero_param_call? : Bool = false,
 ) -> (@lib.ValType, @lib.LocalIdx)? {
   let (ref_type, source_local, keep_trailing_value, keep_ref_null) = match
     rewritten.last() {
@@ -9021,6 +9022,21 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     Some(@lib.AnyConvertExtern) => (@lib.ValType::anyref(), None, true, false)
     Some(@lib.ExternConvertAny) =>
       (@lib.ValType::externref(), None, true, false)
+    Some(@lib.Call(func_idx)) if allow_zero_param_call => {
+      let @lib.FuncType(call_params, call_results) = match
+        @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(func_type) => func_type
+        None => return None
+      }
+      if call_params.length() != 0 || call_results.length() != 1 {
+        return None
+      }
+      let ref_type = match call_results.get(0) {
+        Some(ref_type) => ref_type
+        None => return None
+      }
+      (ref_type, None, true, false)
+    }
     _ => return None
   }
   if run_hot_pipeline_raw_non_null_ref_type(ref_type) is None {
@@ -9195,7 +9211,13 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
   }
   let (nullable_ref_type, scratch_ref) = match
     run_hot_pipeline_raw_spill_trailing_ref_branch_input(
-      rewritten, module_ctx, params, locals, extra_local_types, true,
+      rewritten,
+      module_ctx,
+      params,
+      locals,
+      extra_local_types,
+      true,
+      allow_zero_param_call=true,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -12544,6 +12566,65 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  inside_typeidx_loop : Bool,
+) -> Bool {
+  let mut previous_is_call = false
+  for instr in instrs {
+    match instr {
+      @lib.BrOnNonNull(_) =>
+        if inside_typeidx_loop && previous_is_call {
+          return true
+        }
+      @lib.Call(func_idx) => {
+        let is_zero_param_ref_call = match
+          @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+          Some(@lib.FuncType(call_params, [@lib.RefTypeValType(_)])) =>
+            call_params.length() == 0
+          _ => false
+        }
+        previous_is_call = is_zero_param_ref_call
+        continue
+      }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+            then_body, module_ctx, inside_typeidx_loop,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+                body, module_ctx, inside_typeidx_loop,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Loop(@lib.TypeIdxBlockType(_), @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+            body, module_ctx, true,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+            body, module_ctx, inside_typeidx_loop,
+          ) {
+          return true
+        }
+      _ => previous_is_call = false
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -12933,6 +13014,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
   func : @lib.Func,
+  module_ctx : @ir.HotModuleContext,
 ) -> String {
   let @lib.Func(_, @lib.Expr(instrs)) = func
   if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(instrs) ||
@@ -12942,6 +13024,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
     ) ||
     run_hot_pipeline_raw_ssa_nomerge_has_local_tee_ref_branch_copy_shape(
       instrs, false,
+    ) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+      instrs, module_ctx, false,
     ) ||
     run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(instrs) ||
     run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
@@ -13122,7 +13207,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         } else {
           Some({
             reason: run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
-              original,
+              original, module_ctx,
             ),
             func: rewritten,
             unchanged_original: false,
