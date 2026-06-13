@@ -565,6 +565,31 @@ pub fn local_graph_influenced_gets_for_write(
 }
 
 ///|
+pub fn local_graph_write_has_merge_influences(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> Bool {
+  local_graph_require_write(graph, node_id)
+  for get_id in graph.set_influence_gets[node_id] {
+    if local_graph_get_is_merge(graph, get_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+pub fn local_graph_write_is_no_merge_freshenable(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> Bool {
+  local_graph_require_write(graph, node_id)
+  let local_id = graph.write_local_ids[node_id]
+  !graph.local_is_already_ssa[local_id] &&
+  !local_graph_write_has_merge_influences(graph, node_id)
+}
+
+///|
 pub fn local_graph_influenced_gets_for_set(
   graph : HotLocalGraph,
   node_id : NodeId,

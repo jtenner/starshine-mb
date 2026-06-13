@@ -243,6 +243,182 @@ test "local graph rejects no-read and dead-write locals as already SSA" {
 }
 
 ///|
+test "local graph marks overwrites as no-merge freshenable but skips already SSA locals" {
+  let ssa_func = HotFunc::new(
+    locals=HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let ssa_set = hot_build_local_set(
+    ssa_func,
+    0,
+    hot_build_const_i32(ssa_func, @lib.I32(1)),
+  )
+  let ssa_get = hot_build_local_get(ssa_func, 0)
+  hot_root_append(ssa_func, ssa_set)
+  hot_root_append(ssa_func, hot_build_drop(ssa_func, ssa_get))
+
+  let ssa_graph = local_graph_build(ssa_func, cfg_build(ssa_func))
+
+  assert_true(local_graph_local_is_already_ssa(ssa_graph, 0))
+  assert_false(local_graph_write_has_merge_influences(ssa_graph, ssa_set))
+  assert_false(local_graph_write_is_no_merge_freshenable(ssa_graph, ssa_set))
+
+  let split_func = HotFunc::new(
+    locals=HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let first_set = hot_build_local_set(
+    split_func,
+    0,
+    hot_build_const_i32(split_func, @lib.I32(1)),
+  )
+  let first_get = hot_build_local_get(split_func, 0)
+  let second_set = hot_build_local_set(
+    split_func,
+    0,
+    hot_build_const_i32(split_func, @lib.I32(2)),
+  )
+  let second_get = hot_build_local_get(split_func, 0)
+  hot_root_append(split_func, first_set)
+  hot_root_append(split_func, hot_build_drop(split_func, first_get))
+  hot_root_append(split_func, second_set)
+  hot_root_append(split_func, hot_build_drop(split_func, second_get))
+
+  let split_graph = local_graph_build(split_func, cfg_build(split_func))
+
+  assert_false(local_graph_local_is_already_ssa(split_graph, 0))
+  assert_false(local_graph_write_has_merge_influences(split_graph, first_set))
+  assert_false(local_graph_write_has_merge_influences(split_graph, second_set))
+  assert_true(local_graph_write_is_no_merge_freshenable(split_graph, first_set))
+  assert_true(
+    local_graph_write_is_no_merge_freshenable(split_graph, second_set),
+  )
+}
+
+///|
+test "local graph marks only non-merge-feeding writes freshenable per original local" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let first_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(1)),
+  )
+  let first_get = hot_build_local_get(func, 1)
+  let then_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(2)),
+  )
+  let if_id = hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    hot_build_local_get(func, 0),
+    [then_set],
+    else_body=Some([hot_build_nop(func)]),
+  )
+  let merge_get = hot_build_local_get(func, 1)
+  let final_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(3)),
+  )
+  let final_get = hot_build_local_get(func, 1)
+  hot_root_append(func, first_set)
+  hot_root_append(func, hot_build_drop(func, first_get))
+  hot_root_append(func, if_id)
+  hot_root_append(func, hot_build_drop(func, merge_get))
+  hot_root_append(func, final_set)
+  hot_root_append(func, hot_build_drop(func, final_get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_false(local_graph_local_is_already_ssa(graph, 1))
+  assert_true(local_graph_get_is_merge(graph, merge_get))
+  assert_false(local_graph_get_is_merge(graph, final_get))
+  assert_true(local_graph_write_has_merge_influences(graph, first_set))
+  assert_true(local_graph_write_has_merge_influences(graph, then_set))
+  assert_false(local_graph_write_has_merge_influences(graph, final_set))
+  assert_false(local_graph_write_is_no_merge_freshenable(graph, first_set))
+  assert_false(local_graph_write_is_no_merge_freshenable(graph, then_set))
+  assert_true(local_graph_write_is_no_merge_freshenable(graph, final_set))
+}
+
+///|
+test "local graph no-merge eligibility treats default and param entries as merge sources" {
+  let default_func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let default_set = hot_build_local_set(
+    default_func,
+    1,
+    hot_build_const_i32(default_func, @lib.I32(7)),
+  )
+  let default_if = hot_build_if(
+    default_func,
+    @lib.BlockType::void_(),
+    hot_build_local_get(default_func, 0),
+    [default_set],
+    else_body=Some([hot_build_nop(default_func)]),
+  )
+  let default_merge_get = hot_build_local_get(default_func, 1)
+  hot_root_append(default_func, default_if)
+  hot_root_append(default_func, hot_build_drop(default_func, default_merge_get))
+
+  let default_graph = local_graph_build(default_func, cfg_build(default_func))
+  let default_sources = local_graph_reaching_sources_for_get(
+    default_graph, default_merge_get,
+  )
+
+  @debug.assert_eq(default_sources.length(), 2)
+  assert_true(
+    local_graph_test_has_default_entry_source(default_graph, default_sources, 1),
+  )
+  assert_true(
+    local_graph_write_has_merge_influences(default_graph, default_set),
+  )
+  assert_false(
+    local_graph_write_is_no_merge_freshenable(default_graph, default_set),
+  )
+
+  let param_func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  let param_set = hot_build_local_set(
+    param_func,
+    0,
+    hot_build_const_i32(param_func, @lib.I32(9)),
+  )
+  let param_if = hot_build_if(
+    param_func,
+    @lib.BlockType::void_(),
+    hot_build_local_get(param_func, 0),
+    [param_set],
+    else_body=Some([hot_build_nop(param_func)]),
+  )
+  let param_merge_get = hot_build_local_get(param_func, 0)
+  hot_root_append(param_func, param_if)
+  hot_root_append(param_func, hot_build_drop(param_func, param_merge_get))
+
+  let param_graph = local_graph_build(param_func, cfg_build(param_func))
+  let param_sources = local_graph_reaching_sources_for_get(
+    param_graph, param_merge_get,
+  )
+
+  @debug.assert_eq(param_sources.length(), 2)
+  assert_true(
+    local_graph_test_has_param_entry_source(param_graph, param_sources, 0),
+  )
+  assert_true(local_graph_write_has_merge_influences(param_graph, param_set))
+  assert_false(
+    local_graph_write_is_no_merge_freshenable(param_graph, param_set),
+  )
+}
+
+///|
 test "local graph records a simple set reaching a later get" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let set = hot_build_local_set(func, 0, hot_build_const_i32(func, @lib.I32(1)))

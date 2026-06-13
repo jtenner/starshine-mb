@@ -191,9 +191,11 @@ Preset behavior inventory:
       - Goal: identify locals that Binaryen would consider already effectively SSA and therefore keep canonical.
       - Deliverables: straight-line, branch, loop, param, body-local, tee, no-read, and dead-write fixtures; no `ssa-nomerge` rewrite changes until shadow comparison lands.
       - Evidence: red `moon test src/ir` failed on missing `local_graph_local_is_already_ssa`; after implementation, `moon fmt` passed, `moon test src/ir` passed `303/303`, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5689/5689`. Direct `ssa-nomerge` fuzz was not run because this slice is analysis-only and does not change pass mutation.
-    - [ ] [SSA-LG]004 - LocalGraph per-set no-merge eligibility
+    - [x] [SSA-LG]004 - LocalGraph per-set no-merge eligibility
+      - Status: done on 2026-06-13.
       - Goal: compute whether each explicit local write can be freshened in no-merge mode by requiring all influenced gets to stay single-source.
       - Deliverables: tests where one original local has both freshenable and merge-feeding writes; merge/default/param source classification; query helpers consumed only by shadow tests at first.
+      - Evidence: red `moon test src/ir` failed on missing `local_graph_write_has_merge_influences` and `local_graph_write_is_no_merge_freshenable`; after implementation, `moon fmt` passed, `moon test src/ir` passed `306/306`, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5692/5692`. Direct `ssa-nomerge` fuzz was not run because this slice is analysis-only and does not change pass mutation.
     - [ ] [SSA-LG]005 - LocalGraph default-entry defaultability facts
       - Goal: model body-local defaults as replacement candidates only when the local type has a legal default and preserve param-entry distinction for future full `ssa` entry prepends.
       - Deliverables: scalar numeric, v128/SIMD, nullable ref, tuple/GC defaultable, and no-default/nondefaultable boundary fixtures.

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] ir/local-graph | Add per-write no-merge eligibility
+
+- Completed `[SSA-LG]004` in [`../../agent-todo.md`](../../agent-todo.md) as an analysis-only LocalGraph slice; `ssa-nomerge` mutation still does not consume these facts.
+- Updated [`../../src/ir/local_graph.mbt`](../../src/ir/local_graph.mbt) with `local_graph_write_has_merge_influences(...)` and `local_graph_write_is_no_merge_freshenable(...)`, mirroring Binaryen `createNewIndexes(...)` no-merge policy over existing influenced-get and already-SSA facts.
+- Added red-first focused checks in [`../../src/ir/local_graph_test.mbt`](../../src/ir/local_graph_test.mbt) for already-SSA skip behavior, split overwrite freshening, one original local with both merge-feeding and freshenable writes, and param/default entry merges that block freshening.
+- Refreshed [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`index.md`](index.md). Evidence: red `moon test src/ir` failed on missing helper identifiers; after implementation, `moon fmt` passed, `moon test src/ir` passed `306/306`, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5692/5692`. Direct `ssa-nomerge` fuzz was not run because this was analysis-only.
+
 ## [2026-06-13] ir/local-graph | Add already-SSA local classifier
 
 - Completed `[SSA-LG]003` in [`../../agent-todo.md`](../../agent-todo.md) as an analysis-only LocalGraph slice; `ssa-nomerge` mutation still does not consume these facts.

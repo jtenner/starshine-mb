@@ -726,6 +726,10 @@ pub fn local_graph_source_is_default_entry(HotLocalGraph, HotLocalGraphSource) -
 
 pub fn local_graph_source_is_param_entry(HotLocalGraph, HotLocalGraphSource) -> Bool
 
+pub fn local_graph_write_has_merge_influences(HotLocalGraph, Int) -> Bool
+
+pub fn local_graph_write_is_no_merge_freshenable(HotLocalGraph, Int) -> Bool
+
 pub fn local_graph_write_is_set(HotLocalGraph, Int) -> Bool
 
 pub fn local_graph_write_is_tee(HotLocalGraph, Int) -> Bool
