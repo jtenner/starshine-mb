@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Add LocalGraph no-merge planner
+
+- Completed `[SSANM-002a]` in [`../../agent-todo.md`](../../agent-todo.md) by adding an analysis-only `SsaNoMergeRewritePlan` in [`../../src/passes/ssa_nomerge.mbt`](../../src/passes/ssa_nomerge.mbt).
+- The planner consumes `HotLocalGraph` to classify explicit `local.set` / `local.tee` writes as future fresh locals or canonical keeps, and `local.get` reads as retarget, legal body-default materialization, or canonical keep. It does not mutate the pass, allocate real locals, create merge locals, insert predecessor copies, or change public CLI behavior.
+- Added red-first focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for already-SSA straight-line locals, overwritten freshenable writes, parameter-entry and body-default reads, one-arm branch merges, loop-carried merges, no-read dead `local.set`, and dead `local.tee`.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md). Evidence: red-first planner test compile failure, `moon info`, `moon fmt`, focused `ssa_nomerge_test.mbt` (`379/379`), `moon test src/passes` (`2409/2409`), full `moon test` (`5714/5714`), and native `src/cmd` build with pre-existing pass-manager warnings. Direct `ssa-nomerge` compare/fuzz was not run because no observable pass mutation changed.
+
 ## [2026-06-13] passes/ssa-nomerge | Refresh fixture baseline matrix
 
 - Completed `[SSANM-001b]` in [`../../agent-todo.md`](../../agent-todo.md) by mapping the refreshed Binaryen `version_130` no-merge source/test surface to `[SSANM-002a]` through `[SSANM-007b]` implementation owners.

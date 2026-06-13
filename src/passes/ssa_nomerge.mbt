@@ -17,6 +17,137 @@ pub fn ssa_nomerge_summary() -> String {
 }
 
 ///|
+/// Planned local-write action for Binaryen-style `ssa-nomerge` rewriting.
+pub(all) enum SsaNoMergeWriteDecision {
+  Freshen(@ir.LocalId)
+  KeepCanonical
+} derive(Eq, Debug)
+
+///|
+/// Planned local-get action for Binaryen-style `ssa-nomerge` rewriting.
+pub(all) enum SsaNoMergeGetDecision {
+  Retarget(@ir.LocalId)
+  MaterializeDefault
+  KeepCanonical
+} derive(Eq, Debug)
+
+///|
+/// Analysis-only write rewrite entry. This does not mutate the function.
+pub(all) struct SsaNoMergeWriteRewrite {
+  write_id : @ir.NodeId
+  original_local : @ir.LocalId
+  influenced_gets : Array[@ir.NodeId]
+  decision : SsaNoMergeWriteDecision
+} derive(Eq, Debug)
+
+///|
+/// Analysis-only get rewrite entry. This does not mutate the function.
+pub(all) struct SsaNoMergeGetRewrite {
+  get_id : @ir.NodeId
+  original_local : @ir.LocalId
+  decision : SsaNoMergeGetDecision
+} derive(Eq, Debug)
+
+///|
+/// Analysis-only no-merge rewrite plan built from `HotLocalGraph` facts.
+pub(all) struct SsaNoMergeRewritePlan {
+  write_rewrites : Array[SsaNoMergeWriteRewrite]
+  get_rewrites : Array[SsaNoMergeGetRewrite]
+} derive(Eq, Debug)
+
+///|
+fn ssa_nomerge_fresh_local_for_write(
+  writes : Array[SsaNoMergeWriteRewrite],
+  write_id : @ir.NodeId,
+) -> @ir.LocalId? {
+  for rewrite in writes {
+    if rewrite.write_id == write_id {
+      match rewrite.decision {
+        SsaNoMergeWriteDecision::Freshen(local_id) => return Some(local_id)
+        SsaNoMergeWriteDecision::KeepCanonical => return None
+      }
+    }
+  }
+  None
+}
+
+///|
+fn ssa_nomerge_plan_get_decision(
+  graph : @ir.HotLocalGraph,
+  writes : Array[SsaNoMergeWriteRewrite],
+  get_id : @ir.NodeId,
+) -> SsaNoMergeGetDecision {
+  if @ir.local_graph_get_is_merge(graph, get_id) {
+    return SsaNoMergeGetDecision::KeepCanonical
+  }
+  let sources = @ir.local_graph_reaching_sources_for_get(graph, get_id)
+  if sources.length() != 1 {
+    return SsaNoMergeGetDecision::KeepCanonical
+  }
+  match sources[0] {
+    @ir.HotLocalGraphSource::SetSource(write_id) =>
+      match ssa_nomerge_fresh_local_for_write(writes, write_id) {
+        Some(local_id) => SsaNoMergeGetDecision::Retarget(local_id)
+        None => SsaNoMergeGetDecision::KeepCanonical
+      }
+    @ir.HotLocalGraphSource::EntrySource(local_id) =>
+      if @ir.local_graph_entry_source_has_legal_default(graph, local_id) {
+        SsaNoMergeGetDecision::MaterializeDefault
+      } else {
+        SsaNoMergeGetDecision::KeepCanonical
+      }
+  }
+}
+
+///|
+/// Build the analysis-only no-merge rewrite plan from LocalGraph facts.
+pub fn ssa_nomerge_build_rewrite_plan(
+  func : @ir.HotFunc,
+  graph : @ir.HotLocalGraph,
+) -> SsaNoMergeRewritePlan {
+  let writes : Array[SsaNoMergeWriteRewrite] = []
+  let mut next_fresh_local = @ir.hot_local_count(func)
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) ||
+      !@ir.local_graph_node_is_write(graph, node_id) {
+      continue
+    }
+    let decision = if @ir.local_graph_write_is_no_merge_freshenable(
+        graph, node_id,
+      ) {
+      let fresh_local = next_fresh_local
+      next_fresh_local = next_fresh_local + 1
+      SsaNoMergeWriteDecision::Freshen(fresh_local)
+    } else {
+      SsaNoMergeWriteDecision::KeepCanonical
+    }
+    writes.push({
+      write_id: node_id,
+      original_local: @ir.local_graph_write_local_id(graph, node_id),
+      influenced_gets: @ir.local_graph_influenced_gets_for_write(graph, node_id),
+      decision,
+    })
+  }
+  let gets : Array[SsaNoMergeGetRewrite] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalGet =>
+        gets.push({
+          get_id: node_id,
+          original_local: node.imm0,
+          decision: ssa_nomerge_plan_get_decision(graph, writes, node_id),
+        })
+      _ => ()
+    }
+  }
+  { write_rewrites: writes, get_rewrites: gets }
+}
+
+///|
 fn ssa_nomerge_has_local_writes(func : @ir.HotFunc) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {

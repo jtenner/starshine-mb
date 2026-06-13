@@ -301,6 +301,8 @@ pub fn ssa_full_descriptor() -> @ir.HotPassDescriptor
 
 pub fn ssa_full_summary() -> String
 
+pub fn ssa_nomerge_build_rewrite_plan(@ir.HotFunc, @ir.HotLocalGraph) -> SsaNoMergeRewritePlan
+
 pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor
 
 pub fn ssa_nomerge_summary() -> String
@@ -453,6 +455,35 @@ pub(all) enum SsaFullMergeInput {
 
 pub(all) struct SsaFullRewritePlan {
   merge_gets : Array[SsaFullMergeGetRewrite]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SsaNoMergeGetDecision {
+  Retarget(Int)
+  MaterializeDefault
+  KeepCanonical
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SsaNoMergeGetRewrite {
+  get_id : Int
+  original_local : Int
+  decision : SsaNoMergeGetDecision
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SsaNoMergeRewritePlan {
+  write_rewrites : Array[SsaNoMergeWriteRewrite]
+  get_rewrites : Array[SsaNoMergeGetRewrite]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SsaNoMergeWriteDecision {
+  Freshen(Int)
+  KeepCanonical
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SsaNoMergeWriteRewrite {
+  write_id : Int
+  original_local : Int
+  influenced_gets : Array[Int]
+  decision : SsaNoMergeWriteDecision
 } derive(Eq, @debug.Debug)
 
 // Type aliases

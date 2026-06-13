@@ -102,7 +102,8 @@ Starshine implements an active pass with the same public goal, but the owner spl
 | --- | --- |
 | `src/passes/ssa_nomerge.mbt:2` | `ssa_nomerge_descriptor()` declares the active HOT pass name, required analyses, and invalidation contract. |
 | `src/passes/ssa_nomerge.mbt:15` | Summary/help text; currently says the pass untangles locals and lowers overlay phis through predecessor copies. |
-| `src/passes/ssa_nomerge.mbt:20` | Cheap local-write gate. |
+| `src/passes/ssa_nomerge.mbt:20` | `[SSANM-002a]` analysis-only `SsaNoMergeRewritePlan`: consumes `HotLocalGraph` to classify freshen/keep write decisions and retarget/default/keep get decisions without mutating the function. |
+| `src/passes/ssa_nomerge.mbt:151` | Cheap local-write gate. |
 | `src/passes/ssa_nomerge.mbt:34` | Rewrite-needed check over overlay phis and concrete local write defs. |
 | `src/passes/ssa_nomerge.mbt:49` | Main HOT pass wrapper; requires CFG and local SSA, then delegates to `@ir.ssa_destroy_into_hot(...)`. |
 | `src/ir/ssa_destroy.mbt:33` | `HotSsaDestroyPolicy`; current policy surface exposes `ReusePhiLocals`. |
@@ -126,6 +127,7 @@ The important local-vs-upstream lesson is the same as in [`./starshine-hot-ir-st
 
 | Local test surface | What it proves |
 | --- | --- |
+| `src/passes/ssa_nomerge_test.mbt:235` | `[SSANM-002a]` planner fixtures cover already-SSA straight-line locals, overwritten freshenable writes, parameter-entry and body-default reads, one-arm branch merges, loop-carried merges, no-read dead `local.set`, and dead `local.tee`. |
 | `src/passes/ssa_nomerge_test.mbt:48` | Straight-line local traffic can stay canonical. |
 | `src/passes/ssa_nomerge_test.mbt:68` | Latest straight-line alias stays live. |
 | `src/passes/ssa_nomerge_test.mbt:99` and `:119` | Dead param set/tee rewrites spill through fresh locals. |

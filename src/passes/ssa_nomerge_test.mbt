@@ -203,6 +203,258 @@ fn ssa_test_has_ssa_temp_local_writes(
 }
 
 ///|
+fn ssa_nomerge_test_plan(func : @ir.HotFunc) -> SsaNoMergeRewritePlan {
+  let graph = @ir.local_graph_build(func, @ir.cfg_build(func))
+  ssa_nomerge_build_rewrite_plan(func, graph)
+}
+
+///|
+fn ssa_nomerge_test_write_decision(
+  plan : SsaNoMergeRewritePlan,
+  write_id : @ir.NodeId,
+) -> SsaNoMergeWriteDecision? {
+  for rewrite in plan.write_rewrites {
+    if rewrite.write_id == write_id {
+      return Some(rewrite.decision)
+    }
+  }
+  None
+}
+
+///|
+fn ssa_nomerge_test_get_decision(
+  plan : SsaNoMergeRewritePlan,
+  get_id : @ir.NodeId,
+) -> SsaNoMergeGetDecision? {
+  for rewrite in plan.get_rewrites {
+    if rewrite.get_id == get_id {
+      return Some(rewrite.decision)
+    }
+  }
+  None
+}
+
+///|
+test "ssa-nomerge planner keeps already-ssa straight-line locals canonical" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let set = @ir.hot_build_local_set(
+    func,
+    0,
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let get = @ir.hot_build_local_get(func, 0)
+  @ir.hot_root_append(func, set)
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, get))
+
+  let plan = ssa_nomerge_test_plan(func)
+
+  @debug.assert_eq(plan.write_rewrites.length(), 1)
+  @debug.assert_eq(plan.get_rewrites.length(), 1)
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(plan, set),
+    Some(SsaNoMergeWriteDecision::KeepCanonical),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_get_decision(plan, get),
+    Some(SsaNoMergeGetDecision::KeepCanonical),
+  )
+}
+
+///|
+test "ssa-nomerge planner freshens overwritten writes and retargets single-source gets" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let first_set = @ir.hot_build_local_set(
+    func,
+    0,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  let first_get = @ir.hot_build_local_get(func, 0)
+  let second_set = @ir.hot_build_local_set(
+    func,
+    0,
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+  )
+  let second_get = @ir.hot_build_local_get(func, 0)
+  @ir.hot_root_append(func, first_set)
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, first_get))
+  @ir.hot_root_append(func, second_set)
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, second_get))
+
+  let plan = ssa_nomerge_test_plan(func)
+
+  @debug.assert_eq(plan.write_rewrites.length(), 2)
+  @debug.assert_eq(plan.get_rewrites.length(), 2)
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(plan, first_set),
+    Some(SsaNoMergeWriteDecision::Freshen(1)),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(plan, second_set),
+    Some(SsaNoMergeWriteDecision::Freshen(2)),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_get_decision(plan, first_get),
+    Some(SsaNoMergeGetDecision::Retarget(1)),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_get_decision(plan, second_get),
+    Some(SsaNoMergeGetDecision::Retarget(2)),
+  )
+}
+
+///|
+test "ssa-nomerge planner materializes body defaults and keeps param entries" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let param_get = @ir.hot_build_local_get(func, 0)
+  let default_get = @ir.hot_build_local_get(func, 1)
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, param_get))
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, default_get))
+
+  let plan = ssa_nomerge_test_plan(func)
+
+  @debug.assert_eq(plan.write_rewrites.length(), 0)
+  @debug.assert_eq(plan.get_rewrites.length(), 2)
+  @debug.assert_eq(
+    ssa_nomerge_test_get_decision(plan, param_get),
+    Some(SsaNoMergeGetDecision::KeepCanonical),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_get_decision(plan, default_get),
+    Some(SsaNoMergeGetDecision::MaterializeDefault),
+  )
+}
+
+///|
+test "ssa-nomerge planner keeps merge-feeding branch writes canonical" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let then_set = @ir.hot_build_local_set(
+    func,
+    1,
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let if_id = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_local_get(func, 0),
+    [then_set],
+    else_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let merge_get = @ir.hot_build_local_get(func, 1)
+  @ir.hot_root_append(func, if_id)
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, merge_get))
+
+  let plan = ssa_nomerge_test_plan(func)
+
+  @debug.assert_eq(plan.write_rewrites.length(), 1)
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(plan, then_set),
+    Some(SsaNoMergeWriteDecision::KeepCanonical),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_get_decision(plan, merge_get),
+    Some(SsaNoMergeGetDecision::KeepCanonical),
+  )
+}
+
+///|
+test "ssa-nomerge planner classifies loop-carried no-read set and dead tee writes" {
+  let loop_func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let entry_set = @ir.hot_build_local_set(
+    loop_func,
+    0,
+    @ir.hot_build_const_i32(loop_func, @lib.I32(1)),
+  )
+  let loop_get = @ir.hot_build_local_get(loop_func, 0)
+  let loop_set = @ir.hot_build_local_set(
+    loop_func,
+    0,
+    @ir.hot_build_const_i32(loop_func, @lib.I32(2)),
+  )
+  let loop_id = @ir.hot_build_loop(loop_func, @lib.BlockType::void_(), [])
+  let label = @ir.hot_control_node_label(loop_func, loop_id)
+  @ir.hot_region_replace_body(
+    loop_func,
+    @ir.hot_region_body_ref(loop_func, loop_id),
+    [
+      @ir.hot_build_drop(loop_func, loop_get),
+      loop_set,
+      @ir.hot_build_br_if(
+        loop_func,
+        label,
+        @ir.hot_build_const_i32(loop_func, @lib.I32(1)),
+      ),
+    ],
+  )
+  @ir.hot_root_append(loop_func, entry_set)
+  @ir.hot_root_append(loop_func, loop_id)
+
+  let loop_plan = ssa_nomerge_test_plan(loop_func)
+
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(loop_plan, entry_set),
+    Some(SsaNoMergeWriteDecision::KeepCanonical),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(loop_plan, loop_set),
+    Some(SsaNoMergeWriteDecision::KeepCanonical),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_get_decision(loop_plan, loop_get),
+    Some(SsaNoMergeGetDecision::KeepCanonical),
+  )
+
+  let dead_set_func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let dead_set = @ir.hot_build_local_set(
+    dead_set_func,
+    0,
+    @ir.hot_build_const_i32(dead_set_func, @lib.I32(3)),
+  )
+  @ir.hot_root_append(dead_set_func, dead_set)
+
+  let dead_set_plan = ssa_nomerge_test_plan(dead_set_func)
+
+  @debug.assert_eq(dead_set_plan.write_rewrites.length(), 1)
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(dead_set_plan, dead_set),
+    Some(SsaNoMergeWriteDecision::Freshen(1)),
+  )
+
+  let tee_func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let tee = @ir.hot_build_local_tee(
+    tee_func,
+    0,
+    @ir.hot_build_const_i32(tee_func, @lib.I32(4)),
+  )
+  @ir.hot_root_append(tee_func, @ir.hot_build_drop(tee_func, tee))
+
+  let tee_plan = ssa_nomerge_test_plan(tee_func)
+
+  @debug.assert_eq(tee_plan.write_rewrites.length(), 1)
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(tee_plan, tee),
+    Some(SsaNoMergeWriteDecision::Freshen(1)),
+  )
+}
+
+///|
 fn ssa_test_instrs_have_ref_null_type(
   instrs : Array[@lib.Instruction],
   expected : @lib.RefType,
