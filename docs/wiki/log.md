@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Admit non-current call_ref operands for br_on_non_null
+
+- Added a no-prefix non-current `call_ref (param i32 externref) (result externref)` / `br_on_non_null` problem-1 positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) that requires mutation, validation, temp-local writes, and removal of the raw branch.
+- Widened [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so `call_ref` instructions whose type use resolves to exactly one reference result can feed single-result non-current `br_on_non_null` exits. The rewrite spills only the already-evaluated call result, without scanning backward over call operands or duplicating the function reference operand; `br_on_null` `call_ref`, prefix-payload `call_ref`, return-call inputs, and multi-result calls remain fail-closed or open.
+- Red evidence: the positive test initially failed with `expected ... to mutate` after `skip-raw reason=structured-local-writes`; after the fix, focused `ssa_nomerge_test.mbt` passed `291/291`, `moon test src/passes` passed `2312/2312`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5587/5587`, native `src/cmd` build passed with pre-existing warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-noncurrent-call-ref-operands-nonnull-10000` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-12] passes/ssa-nomerge | Admit prefix direct call operands for br_on_null
 
 - Added a prefix-payload non-current `call (param i32 externref) (result externref)` / `br_on_null` problem-1 positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) that requires mutation, validation, temp-local writes, and removal of the raw branch.

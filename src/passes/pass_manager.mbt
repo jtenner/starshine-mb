@@ -8955,6 +8955,11 @@ fn run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill_for_non_nul
         Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
         _ => false
       }
+    Some(@lib.CallRef(type_idx)) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
+        _ => false
+      }
     _ => false
   }
 }
@@ -9046,6 +9051,18 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     Some(@lib.Call(func_idx)) if allow_direct_call => {
       let (call_params, ref_type) = match
         @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(call_params, [@lib.RefTypeValType(ref_type)])) =>
+          (call_params, ref_type)
+        _ => return None
+      }
+      if !allow_direct_call_operands && call_params.length() != 0 {
+        return None
+      }
+      (@lib.ValType::ref_type(ref_type), None, true, false)
+    }
+    Some(@lib.CallRef(type_idx)) if allow_direct_call => {
+      let (call_params, ref_type) = match
+        @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
         Some(@lib.FuncType(call_params, [@lib.RefTypeValType(ref_type)])) =>
           (call_params, ref_type)
         _ => return None
@@ -12714,6 +12731,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_branch_sequence(
       @lib.Call(func_idx) => {
         previous_is_call = match
           @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+          Some(@lib.FuncType(call_params, [@lib.RefTypeValType(_)])) =>
+            call_params.length() == 0 || allow_direct_call_operands
+          _ => false
+        }
+        continue
+      }
+      @lib.CallRef(type_idx) => {
+        previous_is_call = match
+          @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
           Some(@lib.FuncType(call_params, [@lib.RefTypeValType(_)])) =>
             call_params.length() == 0 || allow_direct_call_operands
           _ => false
