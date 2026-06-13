@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover loop-store call br_on_null
+
+- Converted the problem-1 current typed-loop store-model `call` / `br_on_null` fixture in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) from a fail-closed boundary into a positive requiring mutation, valid output, temp-local writes, and removal of the raw branch.
+- Widened [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) narrowly for zero-param, single-reference-result direct calls feeding typed-loop store-model `br_on_null`: the branch-input spill happens immediately after the call result is produced, then the existing null-edge loop-scratch/canonical-copy lowering stores label payloads only before the synthetic branch. The rewrite still does not scan backward or duplicate call operands; explicit-operand `br_on_null` loop-store calls remain unclaimed.
+- TDD note: the converted positive failed first with `skip-raw reason=no-local-writes`; after adding a null-loop direct-call structured recognizer and allowing direct-call spills in the loop-store `br_on_null` path, focused `ssa_nomerge_test.mbt` passed `318/318`. Signoff: `moon test src/passes` passed `2339/2339`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5615/5615`, native `src/cmd` build passed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-loop-call-bronull-10000` requested `10000`, compared `7602`, had `7602` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover segment-backed typed-loop producers
 
 - Added focused positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `array.new_data` and `array.new_elem` final producers feeding current typed-loop store-model `br_on_non_null` backedges.

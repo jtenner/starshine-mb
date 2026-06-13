@@ -7577,14 +7577,14 @@ test "ssa-nomerge rewrites non-current select-result br_on_non_null branch input
 }
 
 ///|
-// Problem 1 matrix: deliberately fail-closed arbitrary reference branch inputs.
-// These fixtures cover representative expression families that Binaryen can
-// SSAify but Starshine SSA v1 must not lower by broad stack scanning: direct
-// calls, calls with operands, allocation with operand evaluation, and prefix
-// payload exits. Supported typed-control/select/direct final producers are
-// covered by the positive tests immediately above and by the block-exit tests
-// later in this file.
-test "ssa-nomerge fail-closed problem1 call br_on_null loop-store input" {
+// Problem 1 matrix: narrow final-producer positives plus deliberately
+// fail-closed arbitrary reference branch inputs. These fixtures cover
+// representative expression families that Binaryen can SSAify but Starshine SSA
+// v1 must not lower by broad stack scanning: direct calls, calls with operands,
+// allocation with operand evaluation, and prefix payload exits. Supported
+// typed-control/select/direct final producers are covered by the positive tests
+// immediately above and by the block-exit tests later in this file.
+test "ssa-nomerge rewrites problem1 zero-param call br_on_null loop-store input" {
   let externref = @lib.ValType::externref()
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let helper_type_idx = @lib.TypeIdx::new(0U)
@@ -7631,9 +7631,16 @@ test "ssa-nomerge fail-closed problem1 call br_on_null loop-store input" {
         ),
       ]),
     )
-  ssa_test_problem1_fail_closed_reference_branch_input(
-    input, 1, "call br_on_null loop-store input", ssa_test_instrs_have_br_on_null,
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "call br_on_null loop-store input",
   )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(ssa_test_instrs_have_br_on_null(instrs), msg=instrs.to_string())
 }
 
 ///|

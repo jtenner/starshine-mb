@@ -9201,7 +9201,13 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
   }
   let (_, scratch_ref) = match
     run_hot_pipeline_raw_spill_trailing_ref_branch_input(
-      rewritten, module_ctx, params, locals, extra_local_types, true,
+      rewritten,
+      module_ctx,
+      params,
+      locals,
+      extra_local_types,
+      true,
+      allow_direct_call=true,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -12676,15 +12682,20 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
 }
 
 ///|
-fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
+fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_loop_shape(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
   inside_typeidx_loop : Bool,
+  branch_on_null : Bool,
 ) -> Bool {
   let mut previous_is_call = false
   for instr in instrs {
     match instr {
-      @lib.BrOnNonNull(_) =>
+      @lib.BrOnNull(_) if branch_on_null =>
+        if inside_typeidx_loop && previous_is_call {
+          return true
+        }
+      @lib.BrOnNonNull(_) if !branch_on_null =>
         if inside_typeidx_loop && previous_is_call {
           return true
         }
@@ -12698,15 +12709,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
         continue
       }
       @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
-            then_body, module_ctx, inside_typeidx_loop,
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_loop_shape(
+            then_body, module_ctx, inside_typeidx_loop, branch_on_null,
           ) {
           return true
         }
         match else_body {
           Some(body) =>
-            if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
-                body, module_ctx, inside_typeidx_loop,
+            if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_loop_shape(
+                body, module_ctx, inside_typeidx_loop, branch_on_null,
               ) {
               return true
             }
@@ -12714,16 +12725,16 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
         }
       }
       @lib.Loop(@lib.TypeIdxBlockType(_), @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
-            body, module_ctx, true,
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_loop_shape(
+            body, module_ctx, true, branch_on_null,
           ) {
           return true
         }
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
-            body, module_ctx, inside_typeidx_loop,
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_loop_shape(
+            body, module_ctx, inside_typeidx_loop, branch_on_null,
           ) {
           return true
         }
@@ -12731,6 +12742,28 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
     }
   }
   false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  inside_typeidx_loop : Bool,
+) -> Bool {
+  run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_loop_shape(
+    instrs, module_ctx, inside_typeidx_loop, false,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_null_loop_shape(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  inside_typeidx_loop : Bool,
+) -> Bool {
+  run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_loop_shape(
+    instrs, module_ctx, inside_typeidx_loop, true,
+  )
 }
 
 ///|
@@ -13320,6 +13353,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
     ) ||
     run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_single_result_block_shape(
       instrs, module_ctx,
+    ) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_direct_call_null_loop_shape(
+      instrs, module_ctx, false,
     ) ||
     run_hot_pipeline_raw_ssa_nomerge_has_direct_call_null_single_result_block_shape(
       instrs, module_ctx,
