@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Refresh fixture baseline matrix
+
+- Completed `[SSANM-001b]` in [`../../agent-todo.md`](../../agent-todo.md) by mapping the refreshed Binaryen `version_130` no-merge source/test surface to `[SSANM-002a]` through `[SSANM-007b]` implementation owners.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) with a fixture baseline matrix covering planner/shadow work, straight-line `local.set`, `local.tee`, default-entry materialization, one-arm and multi-source merges, mixed per-write locals, normal structured control, predecessor-copy retirement, EH boundaries, and typed-control boundaries.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) with the signoff note. Evidence was docs/source review only: local `wasm-opt --version` still reported `version_130`; `.tmp/ssanm001a/version_130` anchors confirmed the dedicated no-merge fixture functions, LocalGraph gtest names, and unchanged `SSAify.cpp` no-merge anchors. Tests/fuzz were not run because no executable behavior or generated contracts changed.
+
 ## [2026-06-13] passes/ssa-nomerge | Refresh Binaryen version_130 source surface
 
 - Completed `[SSANM-001a]` in [`../../agent-todo.md`](../../agent-todo.md) after checking local `wasm-opt --version` (`wasm-opt version 130 (version_130)`) and comparing downloaded official `version_129` / `version_130` sources under `.tmp/ssanm001a`.
