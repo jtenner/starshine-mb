@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover call-family ref.cast siblings
+
+- Added operandful `call_ref` and `call_indirect` problem-1 positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the narrow `call_*` then `ref.cast` then `br_on_non_null` suffix.
+- No behavior-code widening was needed: the previous call/ref.cast branch-input implementation already admitted module-context-resolved single-reference-result `call`, `call_ref`, and `call_indirect` followed immediately by `ref.cast`; these tests lock the sibling operandful call-family shapes and require mutation, validation, temp-local writes, and removal of the raw branch while still avoiding backward scans or operand/table/function-reference duplication.
+- TDD note: both positives were already green (`307/307`) because commit `99335ba12` intentionally admitted these siblings while only testing direct calls. Signoff: `moon test src/passes` passed `2328/2328`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5603/5603`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-call-family-refcast-coverage-10000` requested `10000`, compared `7605`, had `7605` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover call/ref.cast branch inputs
 
 - Widened the raw structured `ssa-nomerge` direct-call branch-input recognizer in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to admit the narrow `call` / `call_ref` / `call_indirect` then `ref.cast` then `br_on_null`/`br_on_non_null` suffix when the call is module-context-resolved to exactly one reference result; the rewrite still spills only the already-produced cast result and does not scan backward or duplicate call operands.
