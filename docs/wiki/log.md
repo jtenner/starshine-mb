@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice O4z scheduling decision backlog
+
+- Split `[SSANM-010]` in [`../../agent-todo.md`](../../agent-todo.md) into epic-only O4z/preset scheduling work plus child slices `[SSANM-010a]` through `[SSANM-010d]` for source/preset anchor refresh, early-neighborhood replay, the explicit user scheduling decision, and approved preset-order implementation/testing.
+- No implementation behavior changed; this is a backlog-only planning update so tests were not required.
+
 ## [2026-06-13] passes/ssa-nomerge | Add boundary GenValid coverage
 
 - Completed `[SSANM-011e]` in [`../../agent-todo.md`](../../agent-todo.md) as the final planned generator/profile coverage slice after adding explicit boundary feature labels: `ssa-branch-operand-local-boundary`, `ssa-nested-loop-target-boundary`, and `ssa-large-structured-local-mix`.

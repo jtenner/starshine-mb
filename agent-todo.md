@@ -282,7 +282,24 @@ Preset behavior inventory:
       - Suggested evidence: docs/wiki update, wiki log entry, targeted replay command, and final direct/pass-profile compare links from `[SSANM-012*]` when available.
     - [ ] [SSANM-010] - Decide O4z and preset `ssa-nomerge` scheduling
       - Goal: reconcile Starshine’s `o4z-ssa-nomerge-noop` guard with Binaryen’s early no-DWARF `ssa-nomerge` scheduling and nested reruns.
+      - Status: epic only; execute through child slices so replay evidence, the explicit scheduling decision, and any preset-order mutation stay reviewable.
       - Deliverables: early slot replay, downstream `dead-code-elimination` / `remove-unused-names` / `remove-unused-brs` neighborhood replay, explicit decision to remove, narrow, or retain the O4z no-op with reopening criteria, and preset-order tests for any scheduling change.
+    - [ ] [SSANM-010a] - Refresh O4z `ssa-nomerge` scheduling anchors
+      - Goal: confirm the current Starshine no-DWARF/O4z preset position and Binaryen `version_130` no-DWARF scheduling facts before asking for or applying a scheduling decision.
+      - Deliverables: source-backed table with Binaryen early `ssa-nomerge` slot, Starshine preset/no-op guard location, related repeated/nested reruns, and which local tests currently lock the public preset shape.
+      - Suggested evidence: docs/wiki/source review, `wasm-opt --version`, local optimizer registry/preset tests when executable expectations are touched; no preset mutation.
+    - [ ] [SSANM-010b] - Replay the early `ssa-nomerge` neighborhood
+      - Goal: measure the effect of admitting or bypassing the early O4z `ssa-nomerge` slot before deciding public preset behavior.
+      - Deliverables: ordered-prefix or artifact replay covering `ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs`, validation/runtime status, output-size deltas, pass-local timing, and mismatch classification against Binaryen where practical.
+      - Suggested evidence: native `src/cmd` build, targeted preset/prefix replay dirs, direct `--pass ssa-nomerge` compare evidence when mutation changes, and docs/wiki update.
+    - [ ] [SSANM-010c] - Make the O4z scheduling decision
+      - Goal: choose whether to remove, narrow, or retain the `o4z-ssa-nomerge-noop` guard after source and replay evidence are available.
+      - Deliverables: explicit user-approved decision with reopening criteria, recorded in the parity page/backlog/wiki log; stop and ask the user before deciding because this is a top-level scheduling choice.
+      - Suggested evidence: decision note only unless executable docs or tests change.
+    - [ ] [SSANM-010d] - Apply and test the chosen preset scheduling policy
+      - Goal: implement the approved scheduling outcome without widening public presets before direct-pass and neighborhood evidence justify it.
+      - Deliverables: preset/no-op guard code changes if approved, exact-order tests, artifact/neighborhood replay, updated docs/backlog, and clear rollback criteria.
+      - Suggested evidence: focused `src/passes/optimize.mbt` / `src/cmd` tests, `moon test src/passes`, native build, direct `--pass ssa-nomerge` compare when behavior changes, and targeted O4z replay.
     - [ ] [SSANM-011] - Add LocalGraph-driven GenValid coverage
       - Goal: generate inputs that exercise the LocalGraph no-merge decision table directly.
       - Status: epic only; execute through the child slices below so generator changes stay reviewable and each profile widening has its own evidence.
