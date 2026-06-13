@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover non-current call_indirect operands for br_on_null
+
+- Added a no-prefix non-current `call_indirect (param i32 externref) (result externref)` / `br_on_null` problem-1 positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) that requires mutation, validation, temp-local writes, and removal of the raw branch.
+- No behavior-code widening was needed in this slice: the prior `call_indirect` recognizer/spill-helper widening plus the existing result-carrying `br_on_null` rewrite already spill only the already-evaluated call result and preserve the null-edge label payload without scanning backward over operands or duplicating the table index operand. Prefix-payload `call_indirect`, return-call inputs, and multi-result calls remain fail-closed or open.
+- TDD note: the new positive was already green (`294/294`) because commit `614fbd46e` incidentally covered this sibling `br_on_null` shape; the slice locks and documents the behavior. Signoff: focused `ssa_nomerge_test.mbt` passed `294/294`, `moon test src/passes` passed `2315/2315`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5590/5590`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-noncurrent-call-indirect-operands-bronull-10000` requested `10000`, compared `7608`, had `7608` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover non-current call_ref operands for br_on_null
 
 - Added a no-prefix non-current `call_ref (param i32 externref) (result externref)` / `br_on_null` problem-1 positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) that requires mutation, validation, temp-local writes, and removal of the raw branch.
