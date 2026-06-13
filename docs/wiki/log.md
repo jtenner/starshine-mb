@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] ir/local-graph | Add default-entry defaultability facts
+
+- Completed `[SSA-LG]005` in [`../../agent-todo.md`](../../agent-todo.md) as an analysis-only LocalGraph slice; `ssa-nomerge` mutation still does not consume these facts.
+- Updated [`../../src/ir/local_graph.mbt`](../../src/ir/local_graph.mbt) so `HotLocalGraph` records per-local legal-default facts from `@lib.has_default(...)` and exposes `local_graph_entry_source_has_legal_default(...)` plus `local_graph_source_is_defaultable_entry(...)`.
+- Added red-first focused checks in [`../../src/ir/local_graph_test.mbt`](../../src/ir/local_graph_test.mbt) for scalar numeric defaults, SIMD `v128`, nullable nominal/exact GC refs, parameter-entry rejection, set-source rejection, and non-null reference nondefaultable boundaries. Documented that Binaryen internal tuple values are not a distinct Starshine HOT local `ValType` fixture.
+- Refreshed [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`index.md`](index.md). Evidence: red `moon test src/ir` failed on missing helper identifiers; after implementation, `moon fmt` passed, `moon test src/ir` passed `309/309`, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5695/5695`. Direct `ssa-nomerge` fuzz was not run because this was analysis-only.
+
 ## [2026-06-13] ir/local-graph | Add per-write no-merge eligibility
 
 - Completed `[SSA-LG]004` in [`../../agent-todo.md`](../../agent-todo.md) as an analysis-only LocalGraph slice; `ssa-nomerge` mutation still does not consume these facts.

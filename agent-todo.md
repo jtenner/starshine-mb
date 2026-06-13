@@ -196,9 +196,11 @@ Preset behavior inventory:
       - Goal: compute whether each explicit local write can be freshened in no-merge mode by requiring all influenced gets to stay single-source.
       - Deliverables: tests where one original local has both freshenable and merge-feeding writes; merge/default/param source classification; query helpers consumed only by shadow tests at first.
       - Evidence: red `moon test src/ir` failed on missing `local_graph_write_has_merge_influences` and `local_graph_write_is_no_merge_freshenable`; after implementation, `moon fmt` passed, `moon test src/ir` passed `306/306`, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5692/5692`. Direct `ssa-nomerge` fuzz was not run because this slice is analysis-only and does not change pass mutation.
-    - [ ] [SSA-LG]005 - LocalGraph default-entry defaultability facts
+    - [x] [SSA-LG]005 - LocalGraph default-entry defaultability facts
+      - Status: done on 2026-06-13.
       - Goal: model body-local defaults as replacement candidates only when the local type has a legal default and preserve param-entry distinction for future full `ssa` entry prepends.
       - Deliverables: scalar numeric, v128/SIMD, nullable ref, tuple/GC defaultable, and no-default/nondefaultable boundary fixtures.
+      - Evidence: red `moon test src/ir` failed on missing `local_graph_entry_source_has_legal_default` and `local_graph_source_is_defaultable_entry`; after implementation, `moon fmt` passed, `moon test src/ir` passed `309/309`, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5695/5695`. LocalGraph operates on Starshine HOT `ValType` locals, so Binaryen internal tuple values are documented as not a distinct local-type fixture here. Direct `ssa-nomerge` fuzz was not run because this slice is analysis-only and does not change pass mutation.
     - [ ] [SSA-REFINALIZE]001 - Default reference replacement type repair
       - Goal: prove whether Starshine lowering/validation already repairs parent expression types when default/null ref gets are replaced, or add an explicit repair path.
       - Deliverables: nullable/exact refs, GC aggregates, and parent-expression type-sharpening fixtures; docs stating whether this matches Binaryen `ReFinalize` or a Starshine-local equivalent.

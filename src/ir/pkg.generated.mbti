@@ -704,6 +704,8 @@ pub fn local_graph_build(HotFunc, HotCfg) -> HotLocalGraph
 
 pub fn local_graph_can_move_set_past_node(HotFunc, HotCfg, HotLocalGraph, Int, Int) -> Array[Int]
 
+pub fn local_graph_entry_source_has_legal_default(HotLocalGraph, Int) -> Bool
+
 pub fn local_graph_entry_source_is_default(HotLocalGraph, Int) -> Bool
 
 pub fn local_graph_entry_source_is_param(HotLocalGraph, Int) -> Bool
@@ -723,6 +725,8 @@ pub fn local_graph_node_is_write(HotLocalGraph, Int) -> Bool
 pub fn local_graph_reaching_sources_for_get(HotLocalGraph, Int) -> Array[HotLocalGraphSource]
 
 pub fn local_graph_source_is_default_entry(HotLocalGraph, HotLocalGraphSource) -> Bool
+
+pub fn local_graph_source_is_defaultable_entry(HotLocalGraph, HotLocalGraphSource) -> Bool
 
 pub fn local_graph_source_is_param_entry(HotLocalGraph, HotLocalGraphSource) -> Bool
 
@@ -1136,6 +1140,7 @@ pub struct HotLocalGraph {
   write_local_ids : Array[Int]
   write_is_tees : Array[Bool]
   local_is_already_ssa : Array[Bool]
+  local_has_legal_default : Array[Bool]
 } derive(Eq, @debug.Debug)
 
 pub enum HotLocalGraphSource {

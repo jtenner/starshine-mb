@@ -89,6 +89,124 @@ test "local graph distinguishes parameter and body default entry sources" {
 }
 
 ///|
+fn local_graph_test_default_entry_for_type(
+  val_type : @lib.ValType,
+) -> (HotLocalGraph, HotLocalGraphSource) {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[val_type]))
+  let get = hot_build_local_get(func, 0)
+  hot_root_append(func, hot_build_drop(func, get))
+  let graph = local_graph_build(func, cfg_build(func))
+  let sources = local_graph_reaching_sources_for_get(graph, get)
+  if sources.length() != 1 {
+    abort("expected one default entry source")
+  }
+  (graph, sources[0])
+}
+
+///|
+test "local graph marks scalar and SIMD body defaults defaultable" {
+  let (i32_graph, i32_source) = local_graph_test_default_entry_for_type(
+    @lib.ValType::i32(),
+  )
+  assert_true(local_graph_entry_source_has_legal_default(i32_graph, 0))
+  assert_true(local_graph_source_is_defaultable_entry(i32_graph, i32_source))
+
+  let (i64_graph, i64_source) = local_graph_test_default_entry_for_type(
+    @lib.ValType::i64(),
+  )
+  assert_true(local_graph_entry_source_has_legal_default(i64_graph, 0))
+  assert_true(local_graph_source_is_defaultable_entry(i64_graph, i64_source))
+
+  let (f32_graph, f32_source) = local_graph_test_default_entry_for_type(
+    @lib.ValType::f32(),
+  )
+  assert_true(local_graph_entry_source_has_legal_default(f32_graph, 0))
+  assert_true(local_graph_source_is_defaultable_entry(f32_graph, f32_source))
+
+  let (f64_graph, f64_source) = local_graph_test_default_entry_for_type(
+    @lib.ValType::f64(),
+  )
+  assert_true(local_graph_entry_source_has_legal_default(f64_graph, 0))
+  assert_true(local_graph_source_is_defaultable_entry(f64_graph, f64_source))
+
+  let (v128_graph, v128_source) = local_graph_test_default_entry_for_type(
+    @lib.ValType::v128(),
+  )
+  assert_true(local_graph_entry_source_has_legal_default(v128_graph, 0))
+  assert_true(local_graph_source_is_defaultable_entry(v128_graph, v128_source))
+}
+
+///|
+test "local graph marks nullable GC reference body defaults defaultable" {
+  let nominal_heap = @lib.HeapType::new(@lib.TypeIdx::new(0U))
+  let nullable_struct = @lib.ValType::ref_null(nominal_heap)
+  let exact_nullable_struct = @lib.ValType::ref_type(
+    @lib.RefType::new(true, nominal_heap, exact=true),
+  )
+
+  let (struct_graph, struct_source) = local_graph_test_default_entry_for_type(
+    nullable_struct,
+  )
+  assert_true(local_graph_entry_source_has_legal_default(struct_graph, 0))
+  assert_true(
+    local_graph_source_is_defaultable_entry(struct_graph, struct_source),
+  )
+
+  let (exact_graph, exact_source) = local_graph_test_default_entry_for_type(
+    exact_nullable_struct,
+  )
+  assert_true(local_graph_entry_source_has_legal_default(exact_graph, 0))
+  assert_true(
+    local_graph_source_is_defaultable_entry(exact_graph, exact_source),
+  )
+}
+
+///|
+test "local graph rejects params sets and non-null refs as default replacements" {
+  let param_func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let param_get = hot_build_local_get(param_func, 0)
+  let set = hot_build_local_set(
+    param_func,
+    1,
+    hot_build_const_i32(param_func, @lib.I32(1)),
+  )
+  let set_get = hot_build_local_get(param_func, 1)
+  hot_root_append(param_func, hot_build_drop(param_func, param_get))
+  hot_root_append(param_func, set)
+  hot_root_append(param_func, hot_build_drop(param_func, set_get))
+
+  let param_graph = local_graph_build(param_func, cfg_build(param_func))
+  let param_sources = local_graph_reaching_sources_for_get(
+    param_graph, param_get,
+  )
+  let set_sources = local_graph_reaching_sources_for_get(param_graph, set_get)
+
+  assert_false(local_graph_entry_source_has_legal_default(param_graph, 0))
+  assert_true(local_graph_entry_source_has_legal_default(param_graph, 1))
+  assert_false(
+    local_graph_source_is_defaultable_entry(param_graph, param_sources[0]),
+  )
+  assert_false(
+    local_graph_source_is_defaultable_entry(param_graph, set_sources[0]),
+  )
+
+  let nonnull_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let (nonnull_graph, nonnull_source) = local_graph_test_default_entry_for_type(
+    nonnull_ref,
+  )
+  assert_false(local_graph_entry_source_has_legal_default(nonnull_graph, 0))
+  assert_false(
+    local_graph_source_is_defaultable_entry(nonnull_graph, nonnull_source),
+  )
+}
+
+///|
 test "local graph classifies single-source and merge gets" {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[

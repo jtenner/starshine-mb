@@ -13,6 +13,7 @@ pub struct HotLocalGraph {
   write_local_ids : Array[LocalId]
   write_is_tees : Array[Bool]
   local_is_already_ssa : Array[Bool]
+  local_has_legal_default : Array[Bool]
 } derive(Eq, Debug)
 
 ///|
@@ -360,6 +361,21 @@ fn local_graph_build_write_is_tees(func : HotFunc) -> Array[Bool] {
 }
 
 ///|
+fn local_graph_build_local_defaultability(
+  func : HotFunc,
+  local_count : Int,
+) -> Array[Bool] {
+  let out : Array[Bool] = []
+  for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+    match hot_local_type(func, local_id) {
+      Some(val_type) => out.push(@lib.has_default(val_type))
+      None => out.push(false)
+    }
+  }
+  out
+}
+
+///|
 fn local_graph_build_local_already_ssa(
   func : HotFunc,
   local_count : Int,
@@ -436,6 +452,9 @@ pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
     local_is_already_ssa: local_graph_build_local_already_ssa(
       func, local_count, get_sources,
     ),
+    local_has_legal_default: local_graph_build_local_defaultability(
+      func, local_count,
+    ),
   }
 }
 
@@ -488,6 +507,28 @@ pub fn local_graph_source_is_default_entry(
   match source {
     HotLocalGraphSource::EntrySource(local_id) =>
       local_graph_entry_source_is_default(graph, local_id)
+    _ => false
+  }
+}
+
+///|
+pub fn local_graph_entry_source_has_legal_default(
+  graph : HotLocalGraph,
+  local_id : LocalId,
+) -> Bool {
+  local_graph_require_local_range(graph, local_id)
+  local_graph_entry_source_is_default(graph, local_id) &&
+  graph.local_has_legal_default[local_id]
+}
+
+///|
+pub fn local_graph_source_is_defaultable_entry(
+  graph : HotLocalGraph,
+  source : HotLocalGraphSource,
+) -> Bool {
+  match source {
+    HotLocalGraphSource::EntrySource(local_id) =>
+      local_graph_entry_source_has_legal_default(graph, local_id)
     _ => false
   }
 }
