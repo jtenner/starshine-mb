@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Refresh debug artifact first-diff replay
+
+- Replayed direct source-mode `--ssa-nomerge` on `tests/node/dist/starshine-debug-wasi.wasm` with current native `target/native/release/build/cmd/cmd.exe`; artifacts live in `.tmp/self-ssa-nomerge-debug-wasi-current-20260613095412`. The output validates but still differs from Binaryen at first canonical function `defined=0 abs=27`.
+- Inspected the current first diff: Binaryen freshens the allocator-size value-if result and following mask temps into `Local3`..`Local6`, while Starshine reuses existing `Local2`/`Local1`. This remains an open exact-artifact parity gap, not an accepted Starshine win, because no measured benefit beyond fewer local temporaries was established.
+- Evidence: Starshine pass-local `0.289 ms` vs Binaryen pass-local `462.169 ms`; whole-command Starshine `5363.484 ms` vs Binaryen `984.355 ms` remains outside pass-local closeout. No tests or behavior code changed in this investigation slice. Signoff: `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5659/5659`, native `src/cmd` release build reported no work to do, and direct compare `.tmp/pass-fuzz-ssa-nomerge-artifact-replay-refresh-10000` requested `10000`, compared `7601`, had `7601` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover prefix call/ref.cast br_on_non_null branch inputs
 
 - Added three positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for prefix-payload `br_on_non_null` block exits where an operandful single-reference-result `call`, `call_ref`, or `call_indirect` is immediately refined by `ref.cast` before the branch.
