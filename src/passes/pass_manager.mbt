@@ -8960,7 +8960,10 @@ fn run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill_for_non_nul
         Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
         _ => false
       }
-    Some(@lib.RefCast(_, _)) => true
+    Some(@lib.RefCast(_, _))
+    | Some(@lib.StructNew(_))
+    | Some(@lib.ArrayNew(_))
+    | Some(@lib.ArrayNewFixed(_, _)) => true
     _ => false
   }
 }
@@ -9029,6 +9032,17 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
         false,
       )
     Some(@lib.ArrayNewDefault(type_idx)) =>
+      (@lib.ValType::ref_array_nonnull(type_idx), None, true, false)
+    Some(@lib.StructNew(type_idx)) =>
+      (
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+        ),
+        None,
+        true,
+        false,
+      )
+    Some(@lib.ArrayNew(type_idx)) | Some(@lib.ArrayNewFixed(type_idx, _)) =>
       (@lib.ValType::ref_array_nonnull(type_idx), None, true, false)
     Some(@lib.RefI31) => (@lib.ValType::i31ref(), None, true, false)
     Some(@lib.RefFunc(func_idx)) => {
@@ -12947,7 +12961,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
       @lib.BrOnNonNull(_) =>
         match (block_type, previous_constructed_ref) {
           (@lib.ValTypeBlockType(target_type), Some(constructed_type)) =>
-            if current_seen_if && target_type == constructed_type {
+            if current_seen_if &&
+              run_hot_pipeline_raw_reference_type_matches_same_heap(
+                constructed_type, target_type,
+              ) {
               return true
             }
           _ => ()
@@ -12956,11 +12973,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
         previous_constructed_ref = Some(@lib.ValType::i31ref())
         continue
       }
-      @lib.StructNewDefault(type_idx) => {
+      @lib.StructNewDefault(type_idx) | @lib.StructNew(type_idx) => {
         previous_constructed_ref = Some(
           @lib.ValType::ref_type(
             @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
           ),
+        )
+        continue
+      }
+      @lib.ArrayNew(type_idx) | @lib.ArrayNewFixed(type_idx, _) => {
+        previous_constructed_ref = Some(
+          @lib.ValType::ref_array_nonnull(type_idx),
         )
         continue
       }

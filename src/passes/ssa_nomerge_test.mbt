@@ -9437,7 +9437,7 @@ test "ssa-nomerge fail-closed problem1 return-call-indirect br_on_non_null unrea
 }
 
 ///|
-test "ssa-nomerge fail-closed problem1 struct-new operands br_on_non_null input" {
+test "ssa-nomerge rewrites problem1 struct-new operands br_on_non_null input" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
   let nullable_struct_ref = @lib.ValType::ref_type(
@@ -9488,13 +9488,23 @@ test "ssa-nomerge fail-closed problem1 struct-new operands br_on_non_null input"
         ),
       ]),
     )
-  ssa_test_problem1_fail_closed_reference_branch_input(
-    input, 0, "struct-new operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "struct-new operands br_on_non_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 0)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge fail-closed problem1 array-new operands br_on_non_null input" {
+test "ssa-nomerge rewrites problem1 array-new operands br_on_non_null input" {
   let externref = @lib.ValType::externref()
   let array_idx = @lib.TypeIdx::new(0U)
   let array_heap = @lib.HeapType::new(array_idx)
@@ -9545,16 +9555,26 @@ test "ssa-nomerge fail-closed problem1 array-new operands br_on_non_null input" 
         ),
       ]),
     )
-  ssa_test_problem1_fail_closed_reference_branch_input(
-    input, 0, "array-new operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "array-new operands br_on_non_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 0)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge fail-closed problem1 array-new-fixed operands br_on_non_null input" {
-  // Boundary: `array.new_fixed` consumes an operand sequence before producing
-  // the tested reference. Until aggregate operand preservation is designed, do
-  // not rewrite the adjacent ref branch.
+test "ssa-nomerge rewrites problem1 array-new-fixed operands br_on_non_null input" {
+  // Narrow problem-1 implementation: `array.new_fixed` consumes its element
+  // operands before producing the tested reference, so the rewrite spills only
+  // the already-produced final array reference.
   let array_idx = @lib.TypeIdx::new(0U)
   let array_heap = @lib.HeapType::new(array_idx)
   let nullable_array_ref = @lib.ValType::ref_type(
@@ -9602,8 +9622,18 @@ test "ssa-nomerge fail-closed problem1 array-new-fixed operands br_on_non_null i
         ),
       ]),
     )
-  ssa_test_problem1_fail_closed_reference_branch_input(
-    input, 0, "array-new-fixed operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "array-new-fixed operands br_on_non_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 0)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
   )
 }
 

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover operandful aggregate final producers
+
+- Converted the problem-1 `br_on_non_null` fixtures for operandful `struct.new`, `array.new`, and `array.new_fixed` in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) from fail-closed boundaries into positives requiring mutation, valid output, temp-local writes, and removal of the raw branch.
+- Widened the raw structured final-producer path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) only for already-produced aggregate references: the spill helper now recognizes `struct.new`, `array.new`, and `array.new_fixed`, and the structured local-write recognizer admits those adjacent constructor/`br_on_non_null` suffixes without broad expression-stack scanning. Segment-backed `array.new_data` / `array.new_elem` remain fail-closed.
+- TDD note: the converted positives failed first with `skip-raw reason=structured-local-writes`; after the narrow recognizer/spill widening, focused `ssa_nomerge_test.mbt` passed `316/316`. Signoff: `moon test src/passes` passed `2337/2337`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5613/5613`, native `src/cmd` build passed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-aggregate-final-producers-10000` requested `10000`, compared `7603`, had `7603` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Guard multi-result br_on_null branch inputs
 
 - Added fail-closed problem-1 boundary guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for multi-result direct `call`, `call_ref`, and `call_indirect` followed by `br_on_null`.
