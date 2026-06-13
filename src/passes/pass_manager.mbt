@@ -12134,6 +12134,33 @@ fn run_hot_pipeline_raw_set_param_alias(
 }
 
 ///|
+fn run_hot_pipeline_raw_count_call_like(
+  instrs : Array[@lib.Instruction],
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+        count = count + 1
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count = count + run_hot_pipeline_raw_count_call_like(body)
+      @lib.If(_, then_body, else_body) => {
+        count = count + run_hot_pipeline_raw_count_call_like(then_body)
+        match else_body {
+          Some(body) =>
+            count = count + run_hot_pipeline_raw_count_call_like(body)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   instrs : Array[@lib.Instruction],
   root_instrs : Array[@lib.Instruction],
@@ -12147,6 +12174,16 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let freshen_repeated_non_loop_sets = run_hot_pipeline_raw_instrs_have_table_update(
     instrs,
   )
+  // Binaryen keeps the top-level scratch lanes of two-call allocator unlink
+  // helpers closer to the canonical locals, while still freshening nested
+  // memory-load/value-if scratch writes. Keep this gate narrow so the older
+  // split-memory and malloc call-bearing guards continue to get their nested
+  // repeated body-local temps freshened.
+  let freshen_repeated_body_scratch = !(run_hot_pipeline_raw_count_call_like(
+      root_instrs,
+    ) ==
+    2 &&
+    instrs.length() == root_instrs.length())
   let base_local_count = params.length() + locals.length()
   let mut previous_was_local_tee = false
   let mut previous_was_call = false
@@ -12178,7 +12215,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           local_id >= 0 &&
           (
             (local_id < params.length() && !previous_was_call) ||
-            previous_was_local_tee ||
+            (freshen_repeated_body_scratch && previous_was_local_tee) ||
             previous_was_table_size ||
             previous_was_memory_load ||
             (
@@ -12219,8 +12256,11 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               (
                 previous_was_value_if ||
                 previous_was_memory_load ||
-                run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) >
-                1
+                (
+                  freshen_repeated_body_scratch &&
+                  run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) >
+                  1
+                )
               )
             )
           ) {

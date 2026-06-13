@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Limit allocator insertBlock call scratch temps
+
+- Added a focused reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The test failed red before implementation because Starshine kept over-freshening the call-bearing allocator unlink prefix into 18 body locals; the guard keeps the reduced neighborhood at 14 or fewer locals while still requiring the later Binaryen-style bitmap-address scratch temp.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the narrow raw `ssa-nomerge` scratch-freshening pass does not apply repeated body-local tee/set freshening to the top-level body of exactly two-call allocator helpers. Nested structured bodies and memory-load/value-if scratch freshening remain enabled, preserving the earlier allocator and split-memory guards without broad expression-stack scanning.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `364/364`, `moon test src/passes` passed `2385/2385`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5661/5661`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-allocator-insertblock-10000` requested `10000`, compared `7602`, had `7602` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Artifact replay `.tmp/self-ssa-nomerge-debug-wasi-insertblock-20260613` validates but still differs first at `defined=2 abs=29`; Starshine pass-local `0.032 ms` vs Binaryen `460.506 ms`, whole-command Starshine `5969.006 ms` vs Binaryen `982.412 ms`. Exact artifact parity remains open.
+
 ## [2026-06-13] passes/ssa-nomerge | Freshen allocator removeBlock load temps
 
 - Added a focused reduced `tlsf/removeBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=1 abs=28`. The test failed red before implementation because Starshine reused allocator unlink load and value-if scratch locals differently from Binaryen.

@@ -1317,6 +1317,199 @@ test "ssa-nomerge artifact parity freshens allocator unlink load temps" {
 }
 
 ///|
+test "ssa-nomerge artifact parity limits allocator insertBlock call scratch temps" {
+  // Artifact repro from the checked-in debug-WASI artifact, current first
+  // canonical difference after `tlsf/removeBlock`, `defined=2 abs=29`
+  // (`tlsf/insertBlock`). Binaryen freshens the allocator size-class and
+  // bitmap-update temps, but does not keep freshening every repeated body-local
+  // scratch write across the call-bearing unlink prefix. The broader shape has
+  // no measured Starshine win and bloats the artifact, so keep this neighborhood
+  // from over-allocating scratch locals while exact artifact parity remains open.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param $0 i32) (param $1 i32)
+    #|    (local $2 i32) (local $3 i32) (local $4 i32) (local $5 i32)
+    #|    local.get $1
+    #|    i32.load align=1
+    #|    local.tee $4
+    #|    local.set $3
+    #|    local.get $1
+    #|    i32.const 4
+    #|    i32.add
+    #|    local.tee $5
+    #|    local.get $4
+    #|    i32.const -4
+    #|    i32.and
+    #|    i32.add
+    #|    local.tee $2
+    #|    i32.load align=1
+    #|    local.tee $4
+    #|    i32.const 1
+    #|    i32.and
+    #|    if
+    #|      local.get $0
+    #|      local.get $2
+    #|      call $removeBlock
+    #|      local.get $1
+    #|      local.get $3
+    #|      i32.const 4
+    #|      i32.add
+    #|      local.get $4
+    #|      i32.const -4
+    #|      i32.and
+    #|      i32.add
+    #|      local.tee $3
+    #|      i32.store align=1
+    #|      local.get $1
+    #|      i32.load align=1
+    #|      i32.const -4
+    #|      i32.and
+    #|      local.get $5
+    #|      i32.add
+    #|      local.tee $2
+    #|      i32.load align=1
+    #|      local.set $4
+    #|    end
+    #|    local.get $3
+    #|    i32.const 2
+    #|    i32.and
+    #|    if
+    #|      local.get $1
+    #|      i32.const 4
+    #|      i32.sub
+    #|      i32.load align=1
+    #|      local.tee $1
+    #|      i32.load align=1
+    #|      local.set $5
+    #|      local.get $0
+    #|      local.get $1
+    #|      call $removeBlock
+    #|      local.get $1
+    #|      local.get $5
+    #|      i32.const 4
+    #|      i32.add
+    #|      local.get $3
+    #|      i32.const -4
+    #|      i32.and
+    #|      i32.add
+    #|      local.tee $3
+    #|      i32.store align=1
+    #|    end
+    #|    local.get $2
+    #|    local.get $4
+    #|    i32.const 2
+    #|    i32.or
+    #|    i32.store align=1
+    #|    local.get $2
+    #|    i32.const 4
+    #|    i32.sub
+    #|    local.get $1
+    #|    i32.store align=1
+    #|    local.get $3
+    #|    i32.const -4
+    #|    i32.and
+    #|    local.tee $2
+    #|    i32.const 256
+    #|    i32.lt_u
+    #|    if (result i32)
+    #|      local.get $2
+    #|      i32.const 4
+    #|      i32.shr_u
+    #|      local.set $2
+    #|      i32.const 0
+    #|    else
+    #|      i32.const 31
+    #|      i32.const 1073741820
+    #|      local.get $2
+    #|      local.get $2
+    #|      i32.const 1073741820
+    #|      i32.ge_u
+    #|      select
+    #|      local.tee $2
+    #|      i32.clz
+    #|      i32.sub
+    #|      local.set $3
+    #|      local.get $2
+    #|      local.get $3
+    #|      i32.const 4
+    #|      i32.sub
+    #|      i32.shr_u
+    #|      i32.const 16
+    #|      i32.xor
+    #|      local.set $2
+    #|      local.get $3
+    #|      i32.const 7
+    #|      i32.sub
+    #|    end
+    #|    local.set $3
+    #|    local.get $0
+    #|    local.get $3
+    #|    i32.const 4
+    #|    i32.shl
+    #|    local.get $2
+    #|    i32.add
+    #|    i32.const 2
+    #|    i32.shl
+    #|    i32.add
+    #|    i32.load offset=96 align=1
+    #|    local.set $4
+    #|    local.get $1
+    #|    i32.const 0
+    #|    i32.store offset=4 align=1
+    #|    local.get $1
+    #|    local.get $4
+    #|    i32.store offset=8 align=1
+    #|    local.get $4
+    #|    if
+    #|      local.get $4
+    #|      local.get $1
+    #|      i32.store offset=4 align=1
+    #|    end
+    #|    local.get $0
+    #|    local.get $3
+    #|    i32.const 4
+    #|    i32.shl
+    #|    local.get $2
+    #|    i32.add
+    #|    i32.const 2
+    #|    i32.shl
+    #|    i32.add
+    #|    local.get $1
+    #|    i32.store offset=96 align=1
+    #|    local.get $0
+    #|    local.get $0
+    #|    i32.load align=1
+    #|    i32.const 1
+    #|    local.get $3
+    #|    i32.shl
+    #|    i32.or
+    #|    i32.store align=1
+    #|    local.get $0
+    #|    local.get $3
+    #|    i32.const 2
+    #|    i32.shl
+    #|    i32.add
+    #|    local.tee $0
+    #|    local.get $0
+    #|    i32.load offset=4 align=1
+    #|    i32.const 1
+    #|    local.get $2
+    #|    i32.shl
+    #|    i32.or
+    #|    i32.store offset=4 align=1)
+    #|  (func $removeBlock (param i32 i32))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() <= 14, msg=locals.to_string())
+  assert_true(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 14U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity freshens parameter scratch writes in nested unlink" {
   // Artifact repro reduced from
   // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
