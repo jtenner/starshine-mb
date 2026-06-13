@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover prefix typed-control/select branch inputs
+
+- Added three positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for non-current prefix-payload branch inputs where a final `if (result externref)` feeds `br_on_null`, a typed-reference `select` feeds `br_on_null`, and a typed-reference `select` feeds `br_on_non_null`.
+- No behavior-code widening was needed: existing typed-control/select final-producer spilling and non-current prefix-payload branch rewriting already admitted these variants without broad expression-stack scanning.
+- TDD/coverage note: all three positives were green on first focused run (`356/356`), so this is coverage for stale problem-1 typed-control/select wording rather than implementation widening. Signoff: `moon test src/passes` passed `2377/2377`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5653/5653`, native `src/cmd` release build reported no work to do, and direct compare `.tmp/pass-fuzz-ssa-nomerge-prefix-typed-control-select-10000` requested `10000`, compared `7606`, had `7606` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover try-table and nested-control variants
 
 - Added four positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for scalar-proxy `try_table` `br_table` catch-label relabeling, single-result store-model `try_table` `br_table` fallthrough, nested non-void loop direct self-backedges, and nested other-label `br_if` control under typed loop params.
