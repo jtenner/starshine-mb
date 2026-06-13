@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover loop-store call_indirect br_on_non_null
+
+- Added a positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for an explicit-operand, single-reference-result `call_indirect` feeding current typed-loop store-model `br_on_non_null`, requiring mutation, valid output, temp-local writes, and removal of the raw branch.
+- No behavior-code widening was needed after the preceding call-family recognizer work: the table index and value operands are consumed before the non-null branch result is spilled/tested, and the rewrite still does not scan backward or duplicate operands.
+- TDD/coverage note: the new positive was green on first focused run because earlier call-family loop recognizers already admitted module-context-resolved `call_indirect` single-reference-result loop producers. Signoff: focused `ssa_nomerge_test.mbt` passed `323/323`, `moon test src/passes` passed `2344/2344`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5620/5620`, native `src/cmd` build reported no work to do, and direct compare `.tmp/pass-fuzz-ssa-nomerge-loop-call-indirect-brononnull-10000` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover loop-store call_ref br_on_non_null
 
 - Added a positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for an explicit-operand, single-reference-result `call_ref` feeding current typed-loop store-model `br_on_non_null`, requiring mutation, valid output, temp-local writes, and removal of the raw branch.
