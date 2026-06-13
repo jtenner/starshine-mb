@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Preserve adapter error sibling-block state
+
+- Added a focused debug-WASI `abs=100` reduced guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `lower_text_module_for_pipeline`-like adapter/in-process sibling-block path. The guard failed red before implementation because Starshine wrote the branch-carried adapter error in the nested block but later sibling-block cleanup and final formatting reads still saw default zero.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so non-fallthrough `if` arms that exit outer labels retain initialized-local state for the enclosing continuation, and so the call-heavy branch-result preservation remains broad enough for the matched canonical branch-local writes without table/table.grow widening. This advances the direct artifact chain without broad expression-stack scanning.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `368/368`, `moon test src/passes` passed `2389/2389`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5665/5665`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-adapter-error-10000` requested `10000`, compared `7609`, had `7609` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-adapter-error-20260613` validates and advances the first canonical diff from `defined=73 abs=100` to `defined=109 abs=136`. Artifact timing was Starshine pass-local `0.227 ms` vs Binaryen `409.028 ms`; whole-command Starshine `6081.715 ms` vs Binaryen `877.990 ms`. Exact artifact parity remains open at the new `defined=109 abs=136` structured local-allocation diff.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve startup error branch local
 
 - Added a focused debug-WASI `abs=97` reduced guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `cmd_try_trivial_startup_exit`-like nested help/version output path. The guard failed red before implementation because the post-block error formatting suffix needed to consume the canonical branch-carried error local instead of a fresh branch-local scratch/default lane.

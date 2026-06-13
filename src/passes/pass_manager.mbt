@@ -10952,7 +10952,19 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 }
                 fallthrough = true
               }
-              (false, false) => fallthrough = false
+              (false, false) => {
+                if run_hot_pipeline_raw_exit_depths_have_outer_exit(
+                    then_exit_depths,
+                  ) ||
+                  run_hot_pipeline_raw_exit_depths_have_outer_exit(
+                    else_exit_depths,
+                  ) {
+                  initialized = run_hot_pipeline_raw_bitset_union(
+                    then_initialized, else_initialized,
+                  )
+                }
+                fallthrough = false
+              }
             }
           }
         }
@@ -12423,9 +12435,6 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           local_id >= params.length() &&
           local_id < base_local_count &&
           run_hot_pipeline_raw_count_call_like(root_instrs) > 2 &&
-          run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) == 1 &&
-          run_hot_pipeline_raw_count_local_gets(root_instrs, local_id) >
-          run_hot_pipeline_raw_count_local_gets(instrs, local_id) &&
           run_hot_pipeline_raw_instrs_have_branch(instrs)
         if (
             freshen_params ||
