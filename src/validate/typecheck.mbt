@@ -1090,32 +1090,49 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(pair) => pair
   }
-  let (ht, rt_in) = match expect_branch_ref(v) {
-    Err(e) => return Err(e)
-    Ok(x) => x
-  }
-  if Validate::validate(ht, st.env) is Err(t) {
-    return Err("Invalid heap type in br_on_non_null operand: " + t)
-  }
   let end = match latest_stack_index(label_ts.length()) {
     Some(end) => end
     None => return Err("br_on_non_null label type too short")
   }
+  match v {
+    BotValType => {
+      match label_ts[end] {
+        RefTypeValType(_) => ()
+        _ =>
+          return Err("br_on_non_null label must end with non-nullable ref type")
+      }
+      if st.reachable {
+        if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
+          return Err(t)
+        }
+      }
+      Ok(st1)
+    }
+    _ => {
+      let (ht, rt_in) = match expect_branch_ref(v) {
+        Err(e) => return Err(e)
+        Ok(x) => x
+      }
+      if Validate::validate(ht, st.env) is Err(t) {
+        return Err("Invalid heap type in br_on_non_null operand: " + t)
+      }
 
-  // The taken edge contributes the tested ref as non-null. The actual branch
-  // payload must match the label's final expected type.
-  let non_null_rt = RefType::new(false, ht, exact=rt_in.is_exact())
-  let want_last = ValType::ref_type(non_null_rt)
-  let last = label_ts[end]
-  if !Match::matches(want_last, last, st.env) {
-    return Err("br_on_non_null label must end with non-nullable ref type")
-  }
-  if st.reachable {
-    if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
-      return Err(t)
+      // The taken edge contributes the tested ref as non-null. The actual branch
+      // payload must match the label's final expected type.
+      let non_null_rt = RefType::new(false, ht, exact=rt_in.is_exact())
+      let want_last = ValType::ref_type(non_null_rt)
+      let last = label_ts[end]
+      if !Match::matches(want_last, last, st.env) {
+        return Err("br_on_non_null label must end with non-nullable ref type")
+      }
+      if st.reachable {
+        if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
+          return Err(t)
+        }
+      }
+      Ok(st1)
     }
   }
-  Ok(st1)
 }
 
 ///|
@@ -5998,6 +6015,21 @@ test "Typecheck BrOnNonNull accepts statically non-null ref operand" {
     state,
   )
   let new_state = assert_ok(result)
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck BrOnNonNull accepts unreachable polymorphic operand" {
+  let env = empty_env().with_labels([[non_nullable_externref()]])
+  let unreachable_state = assert_ok(
+    Typecheck::typecheck(Instruction::unreachable_(), make_state(env, [])),
+  )
+  let result = Typecheck::typecheck(
+    Instruction::br_on_non_null(LabelIdx::new(0)),
+    unreachable_state,
+  )
+  let new_state = assert_ok(result)
+  @debug.assert_eq(new_state.reachable, false)
   assert_stack(new_state, [])
 }
 

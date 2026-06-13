@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Guard return-call unreachable branch inputs
+
+- Fixed the Starshine typechecker in [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) to accept `br_on_non_null` when the tested reference is supplied by unreachable-stack polymorphism (`BotValType`), matching the local `wasm-tools validate --features all` evidence for tail-call-terminated suffixes.
+- Added fail-closed problem-1 boundary guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `return_call`, `return_call_ref`, and `return_call_indirect` followed by `br_on_non_null`. These suffixes are valid only because the tail call terminates and the later branch consumes a polymorphic unreachable value; `ssa-nomerge` must preserve the raw branch rather than treating a return-call as a spillable reference producer.
+- TDD note: the typechecker test failed first (`535/536`) with `expected a reference type`; after the narrow `BotValType` handling, focused validation passed (`536/536`). The three `ssa-nomerge` fail-closed guards were green after the validator fix and do not claim a red implementation failure. Signoff: focused `ssa_nomerge_test.mbt` passed `313/313`, `moon test src/passes` passed `2334/2334`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5610/5610`, native `src/cmd` build passed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-return-call-unreachable-guards-10000-rerun` requested `10000`, compared `7601`, had `7601` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover call-family ref.cast br_on_null siblings
 
 - Added operandful `call_ref` and `call_indirect` problem-1 positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the narrow `call_*` then `ref.cast` then `br_on_null` suffix.

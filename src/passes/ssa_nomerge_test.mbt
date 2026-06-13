@@ -9023,6 +9023,189 @@ test "ssa-nomerge fail-closed problem1 multi-result call_indirect br_on_non_null
 }
 
 ///|
+test "ssa-nomerge fail-closed problem1 return-call br_on_non_null unreachable input" {
+  // Boundary: `return_call` is terminal and produces no normal stack value for
+  // the following branch. Validation accepts the suffix only through
+  // unreachable-stack polymorphism; ssa-nomerge must not treat the tail call as
+  // a spillable reference producer.
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let non_null_externref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, extern_heap),
+  )
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [non_null_externref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type_idx, func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::unreachable_()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(non_null_externref),
+              @lib.Expr::new([
+                @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 1, "return-call br_on_non_null unreachable input", ssa_test_instrs_have_br_on_non_null,
+  )
+}
+
+///|
+test "ssa-nomerge fail-closed problem1 return-call-ref br_on_non_null unreachable input" {
+  // Boundary: `return_call_ref` consumes its function reference and terminates;
+  // the later branch sees only unreachable-stack polymorphism, not a concrete
+  // reference producer that ssa-nomerge can safely spill.
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let non_null_externref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, extern_heap),
+  )
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let helper_idx = @lib.FuncIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [non_null_externref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type_idx, func_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([helper_idx]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::unreachable_()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(non_null_externref),
+              @lib.Expr::new([
+                @lib.Instruction::ref_func(helper_idx),
+                @lib.Instruction::return_call_ref(func_type_idx),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 1, "return-call-ref br_on_non_null unreachable input", ssa_test_instrs_have_br_on_non_null,
+  )
+}
+
+///|
+test "ssa-nomerge fail-closed problem1 return-call-indirect br_on_non_null unreachable input" {
+  // Boundary: `return_call_indirect` consumes its table index and terminates;
+  // do not reinterpret the unreachable suffix as a normal branch-input value.
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let non_null_externref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, extern_heap),
+  )
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [non_null_externref])),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(non_null_externref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(0),
+                @lib.Instruction::return_call_indirect(
+                  func_type_idx,
+                  @lib.TableIdx::new(0U),
+                ),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 0, "return-call-indirect br_on_non_null unreachable input", ssa_test_instrs_have_br_on_non_null,
+  )
+}
+
+///|
 test "ssa-nomerge fail-closed problem1 struct-new operands br_on_non_null input" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
