@@ -13051,6 +13051,36 @@ fn run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch(
 }
 
 ///|
+fn run_hot_pipeline_raw_plain_load_result_type(
+  instr : @lib.Instruction,
+) -> @lib.ValType? {
+  match instr {
+    @lib.I32Load(_)
+    | @lib.I32Load8S(_)
+    | @lib.I32Load8U(_)
+    | @lib.I32Load16S(_)
+    | @lib.I32Load16U(_)
+    | @lib.I32AtomicLoad(_)
+    | @lib.I32AtomicLoad8U(_)
+    | @lib.I32AtomicLoad16U(_) => Some(@lib.ValType::i32())
+    @lib.I64Load(_)
+    | @lib.I64Load8S(_)
+    | @lib.I64Load8U(_)
+    | @lib.I64Load16S(_)
+    | @lib.I64Load16U(_)
+    | @lib.I64Load32S(_)
+    | @lib.I64Load32U(_)
+    | @lib.I64AtomicLoad(_)
+    | @lib.I64AtomicLoad8U(_)
+    | @lib.I64AtomicLoad16U(_)
+    | @lib.I64AtomicLoad32U(_) => Some(@lib.ValType::i64())
+    @lib.F32Load(_) => Some(@lib.ValType::f32())
+    @lib.F64Load(_) => Some(@lib.ValType::f64())
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_spill_call_result_across_following_call(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -13058,9 +13088,10 @@ fn run_hot_pipeline_raw_spill_call_result_across_following_call(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
 ) -> Array[@lib.Instruction] {
-  if params.length() != 1 || params.length() + locals.length() > 20 {
+  if params.length() != 1 {
     return instrs
   }
+  let base_local_count = params.length() + locals.length()
   let rewritten : Array[@lib.Instruction] = []
   let mut idx = 0
   while idx < instrs.length() {
@@ -13074,6 +13105,11 @@ fn run_hot_pipeline_raw_spill_call_result_across_following_call(
           | @lib.CallRef(_) as follower,
           @lib.LocalTee(@lib.LocalIdx(raw)),
         ) => {
+          if base_local_count > 20 {
+            rewritten.push(instrs[idx])
+            idx = idx + 1
+            continue
+          }
           let target_id = raw.reinterpret_as_int()
           let value_type = match
             run_hot_pipeline_raw_rewritten_local_type(
@@ -13105,6 +13141,43 @@ fn run_hot_pipeline_raw_spill_call_result_across_following_call(
           rewritten.push(instrs[idx + 3])
           idx = idx + 4
           continue
+        }
+        (load, @lib.LocalGet(_), follower, @lib.LocalTee(@lib.LocalIdx(raw))) => {
+          if base_local_count > 128 ||
+            !run_hot_pipeline_optimize_instructions_instr_is_plain_load(load) ||
+            !run_hot_pipeline_optimize_instructions_instr_is_call(follower) {
+            rewritten.push(instrs[idx])
+            idx = idx + 1
+            continue
+          }
+          let target_id = raw.reinterpret_as_int()
+          let value_type = match
+            run_hot_pipeline_raw_rewritten_local_type(
+              params, locals, extra_local_types, target_id,
+            ) {
+            Some(type_) => type_
+            None => {
+              rewritten.push(instrs[idx])
+              idx = idx + 1
+              continue
+            }
+          }
+          match run_hot_pipeline_raw_plain_load_result_type(load) {
+            Some(load_type) if load_type == value_type => {
+              let scratch = run_hot_pipeline_raw_fresh_typed_local(
+                params, locals, value_type, extra_local_types,
+              )
+              rewritten.push(load)
+              rewritten.push(@lib.Instruction::local_set(scratch))
+              rewritten.push(instrs[idx + 1])
+              rewritten.push(follower)
+              rewritten.push(@lib.Instruction::local_get(scratch))
+              rewritten.push(instrs[idx + 3])
+              idx = idx + 4
+              continue
+            }
+            _ => ()
+          }
         }
         _ => ()
       }

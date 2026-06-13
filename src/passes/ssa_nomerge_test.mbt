@@ -1412,6 +1412,87 @@ test "ssa-nomerge does not freshen multi-param branch-carried body locals" {
 }
 
 ///|
+test "ssa-nomerge spills br_table arm load across following call" {
+  // Reduced from the debug-WASI `defined=161 abs=188` br_table dispatcher
+  // shape. Binaryen spills a loaded branch payload before a following decref-like
+  // call even when the payload is immediately written through a local.tee and
+  // consumed only by that arm's suffix block.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $tag (param i32) (result i32) local.get 0)
+    #|  (func $decref (param i32))
+    #|  (func $fmt (param i32) (result i32) local.get 0)
+    #|  (func (param $err i32) (result i32)
+    #|    (local $taglocal i32) (local $flag0 i32) (local $flag1 i32)
+    #|    (local $obj0 i32) (local $obj1 i32) (local $cnt i32)
+    #|    (local $newcnt i32) (local $field0 i32) (local $suffix0 i32) (local $suffix1 i32)
+    #|    local.get $err
+    #|    call $tag
+    #|    local.set $taglocal
+    #|    block $suffix1block
+    #|      block $suffix0block
+    #|        block $case1
+    #|          block $case0
+    #|            local.get $taglocal
+    #|            br_table $case0 $case1
+    #|          end
+    #|          local.get $err
+    #|          local.tee $obj0
+    #|          i32.load offset=8
+    #|          local.set $field0
+    #|          local.get $obj0
+    #|          i32.load
+    #|          local.tee $cnt
+    #|          i32.const 1
+    #|          i32.gt_s
+    #|          if
+    #|            local.get $cnt
+    #|            i32.const 1
+    #|            i32.sub
+    #|            local.set $newcnt
+    #|            local.get $obj0
+    #|            local.get $newcnt
+    #|            i32.store
+    #|            local.get $field0
+    #|            call $decref
+    #|          end
+    #|          local.get $field0
+    #|          local.tee $flag0
+    #|          br $suffix0block
+    #|        end
+    #|        local.get $err
+    #|        local.tee $obj1
+    #|        i32.load offset=8
+    #|        local.get $obj1
+    #|        call $decref
+    #|        local.tee $flag1
+    #|        br $suffix1block
+    #|      end
+    #|      local.get $flag0
+    #|      call $fmt
+    #|      local.set $suffix0
+    #|      local.get $suffix0
+    #|      return
+    #|    end
+    #|    local.get $flag1
+    #|    call $fmt
+    #|    local.set $suffix1
+    #|    local.get $suffix1))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 3)
+  assert_true(
+    locals.length() >= 12,
+    msg=locals.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_true(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 12U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity preserves selector formatter local budget" {
   // Binary fixture reduced from the checked-in debug-WASI first diff
   // `.tmp/self-ssa-nomerge-debug-wasi-adapter-error-20260613`, defined=109
