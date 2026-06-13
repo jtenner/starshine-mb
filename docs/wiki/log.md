@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover prefix call/ref.cast br_on_non_null branch inputs
+
+- Added three positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for prefix-payload `br_on_non_null` block exits where an operandful single-reference-result `call`, `call_ref`, or `call_indirect` is immediately refined by `ref.cast` before the branch.
+- No behavior-code widening was needed: the existing call/ref.cast suffix recognizer and prefix-payload non-null branch rewrite already admitted these variants without broad expression-stack scanning or operand duplication.
+- TDD/coverage note: all three positives were green on first focused run (`362/362`), so this is coverage for a stale low-risk problem-1 prefix sibling rather than implementation widening. Signoff: `moon test src/passes` passed `2383/2383`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5659/5659`, native `src/cmd` release build reported no work to do, and direct compare `.tmp/pass-fuzz-ssa-nomerge-prefix-refcast-nonnull-10000` requested `10000`, compared `7605`, had `7605` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover prefix call/ref.cast br_on_null branch inputs
 
 - Added three positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for prefix-payload `br_on_null` block exits where an operandful single-reference-result `call`, `call_ref`, or `call_indirect` is immediately refined by `ref.cast` before the branch.
