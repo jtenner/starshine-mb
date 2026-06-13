@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice final closeout backlog
+
+- Split `[SSANM-012]` in [`../../agent-todo.md`](../../agent-todo.md) into epic-only final-closeout work plus child slices `[SSANM-012a]` through `[SSANM-012e]` for prerequisite census, `100000`-case direct oracle triage, dedicated GenValid closeout lanes, artifact/huge-function/O4z scheduling evidence, and final documentation/backlog publication.
+- No implementation behavior changed; this is a backlog-only planning update so tests were not required.
+
 ## [2026-06-13] passes/ssa-nomerge | Add straight-line/default-entry GenValid coverage
 
 - Completed `[SSANM-011b]` in [`../../agent-todo.md`](../../agent-todo.md) as a generator/profile coverage slice after adding explicit `ssa-already-ssa-local` and `ssa-param-entry-read` feature labels.

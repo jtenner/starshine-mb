@@ -273,8 +273,29 @@ Preset behavior inventory:
       - Deliverables: feature labels/floors that distinguish intended fail-closed boundaries from positive LocalGraph rewrite cases, profile evidence, and updated reopening criteria for any generator-only gaps.
     - [ ] [SSANM-012] - Final direct `ssa-nomerge` closeout
       - Goal: close direct `ssa-nomerge` only after every known Binaryen-visible gap is matched, measured as a Starshine win, or explicitly deferred.
+      - Status: epic only; execute through child slices after the LocalGraph rewrite, generator, huge-function, artifact, and preset-decision work is complete.
       - Deliverables: focused tests, `moon test src/passes`, full `moon test`, native build, `100000`-case direct compare, relevant GenValid profile lanes, huge-function classification, debug-WASI classification, O4z scheduling decision, docs/wiki updates, and a final mismatch/boundary report.
       - Non-goal: full `ssa` merge-local closeout; that sibling pass needs separate signoff.
+    - [ ] [SSANM-012a] - Closeout prerequisite census
+      - Goal: before declaring final direct parity, verify that source refresh, fixture matrix, LocalGraph mutation slices, tee/default/merge/control coverage, huge-function classification, debug-WASI replay, and preset decision slices are all complete or explicitly deferred.
+      - Deliverables: checklist in the parity page tying each prerequisite slice to evidence or an approved deferral; no implementation mutation.
+      - Suggested evidence: docs/wiki review, `agent-todo.md` cross-check, and targeted source/test links; tests are not required unless executable examples change.
+    - [ ] [SSANM-012b] - Run and triage the final direct oracle lane
+      - Goal: run the final direct `ssa-nomerge` `100000`-case compare after implementation prerequisites are complete.
+      - Deliverables: exact command, seed, out dir, compared count, normalized/cleanup-normalized counts, command-failure classes, cache counters, sampled mismatch classification, and replayed reduced cases for any remaining non-green family.
+      - Suggested evidence: `moon info`, `moon fmt`, focused pass tests, `moon test src/passes`, full `moon test`, native `src/cmd` build, and `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass ssa-nomerge --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`.
+    - [ ] [SSANM-012c] - Run dedicated GenValid closeout lanes
+      - Goal: prove the SSA-specific generator profiles no longer expose unclassified no-merge behavior gaps.
+      - Deliverables: smoke, coverage, and any intentionally retained parity/stress profile lanes with feature-floor evidence, mismatch classification, timeout notes, and a decision to keep or rename `ssa-nomerge-parity`.
+      - Suggested evidence: required-feature manifest probes plus at least `10000` requested cases for ordinary dedicated-profile lanes, using the native binary and persistent compare cache.
+    - [ ] [SSANM-012d] - Close artifact, huge-function, and preset scheduling evidence
+      - Goal: tie the final LocalGraph policy back to the checked-in debug-WASI artifact, the nine large structured-local-write functions, and the O4z `ssa-nomerge` scheduling/no-op decision.
+      - Deliverables: debug-WASI replay from the latest first-diff anchor, classification for the nine huge functions, pass-local timing, output-size/validation evidence, and an explicit O4z scheduling decision with preset-order tests for any public preset change.
+      - Suggested evidence: artifact/function replay commands, native build, direct pass compare evidence as needed, and `src/cmd`/`src/passes/optimize.mbt` tests if preset behavior changes.
+    - [ ] [SSANM-012e] - Publish the final `ssa-nomerge` closeout report
+      - Goal: close the audit only after every result and remaining boundary is durable in docs.
+      - Deliverables: final parity-page closeout note, wiki log entry, backlog pruning, links to raw/research artifacts if substantial, and explicit reopening criteria for any accepted non-goal or tool-blocked boundary.
+      - Suggested evidence: docs diff review plus `moon fmt` / `moon info` / full tests only when executable examples or generated contracts changed.
 
 - [O4Z-AUDIT-DCE] - Deep audit `dead-code-elimination`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
