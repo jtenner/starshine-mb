@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover mixed br_table/br_if reference typed-loop backedges
+
+- Added two positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for flat and nested type-indexed single-reference-param loops that mix an all-current-target `br_table` current-loop backedge in a conditional arm with a sibling current-loop `br_if` reference backedge.
+- No behavior-code widening was needed after the preceding mixed-reference classifier and existing `br_table` / `br_if` proxy lowerings; the guards assert valid mutation plus removal of the raw `br_table` and `br_if` instructions.
+- TDD note: the first focused run failed only because the fixtures over-asserted the exact scalar `br_if` proxy helper after lowering rewrote the branch into edge-local `if`/`br` control. After narrowing to raw-branch removal, focused `ssa_nomerge_test.mbt` passed `337/337`; broader signoff is recorded in the matching parity entry.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover nested mixed br_table/null reference typed-loop backedges
 
 - Added three positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for nested type-indexed single-reference-param loops that mix an all-current-target `br_table` current-loop backedge in a conditional arm with following current-loop reference branches: `br_table` plus `br_on_non_null`, `br_table` plus `br_on_null`, and `br_table` plus both `br_on_null` and `br_on_non_null`.
