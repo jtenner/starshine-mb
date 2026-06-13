@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover remaining prefix call-family operands
+
+- Added three problem-1 prefix-payload call-family positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): operandful `call_indirect` / `br_on_non_null`, operandful `call_ref` / `br_on_null`, and operandful `call_indirect` / `br_on_null`. Each requires mutation, validation, temp-local writes, and removal of the raw branch.
+- No behavior-code widening was needed: existing single-reference-result `call_ref` / `call_indirect` recognizers and branch-input spill helpers already compose with the prefix-payload `br_on_null` / `br_on_non_null` rewrites, spill only the already-evaluated call result, and avoid scanning backward over operands or duplicating table/function-reference operands. Return-call inputs, multi-result calls, broader arbitrary expressions, and remaining aggregate/data constructors stay open or fail-closed.
+- TDD note: the three positives were already green (`298/298`) because earlier call-family and prefix-payload slices already covered these sibling shapes. Signoff: focused `ssa_nomerge_test.mbt` passed `298/298`, `moon test src/passes` passed `2319/2319`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5594/5594`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-prefix-call-family-operands-10000` requested `10000`, compared `7611`, had `7611` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover prefix call_ref operands for br_on_non_null
 
 - Added a prefix-payload non-current `call_ref (param i32 externref) (result externref)` / `br_on_non_null` problem-1 positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) that requires mutation, validation, temp-local writes, and removal of the raw branch.
@@ -1169,6 +1175,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`../../agent-todo.md`](../../agent-todo.md) so `[O4Z-AUDIT-CF]` points at the initial audit note and keeps direct compare / late-slot evidence as open closeout work. No Moon or compare command was run in this thread because this runtime has no shell/process-execution tool.
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
+
+## [2026-06-13] passes/ssa-nomerge | Cover remaining prefix call-family operands
+
+- Added three problem-1 prefix-payload call-family positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): operandful `call_indirect` / `br_on_non_null`, operandful `call_ref` / `br_on_null`, and operandful `call_indirect` / `br_on_null`. Each requires mutation, validation, temp-local writes, and removal of the raw branch.
+- No behavior-code widening was needed: existing single-reference-result `call_ref` / `call_indirect` recognizers and branch-input spill helpers already compose with the prefix-payload `br_on_null` / `br_on_non_null` rewrites, spill only the already-evaluated call result, and avoid scanning backward over operands or duplicating table/function-reference operands. Return-call inputs, multi-result calls, broader arbitrary expressions, and remaining aggregate/data constructors stay open or fail-closed.
+- TDD note: the three positives were already green (`298/298`) because earlier call-family and prefix-payload slices already covered these sibling shapes. Signoff: focused `ssa_nomerge_test.mbt` passed `298/298`, `moon test src/passes` passed `2319/2319`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5594/5594`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-prefix-call-family-operands-10000` requested `10000`, compared `7611`, had `7611` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
 
 ## [2026-06-05] local-cse/wiki | ref.null tiny roots
 
@@ -12724,6 +12736,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 # Wasm Knowledge Base Log
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
+
+## [2026-06-13] passes/ssa-nomerge | Cover remaining prefix call-family operands
+
+- Added three problem-1 prefix-payload call-family positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): operandful `call_indirect` / `br_on_non_null`, operandful `call_ref` / `br_on_null`, and operandful `call_indirect` / `br_on_null`. Each requires mutation, validation, temp-local writes, and removal of the raw branch.
+- No behavior-code widening was needed: existing single-reference-result `call_ref` / `call_indirect` recognizers and branch-input spill helpers already compose with the prefix-payload `br_on_null` / `br_on_non_null` rewrites, spill only the already-evaluated call result, and avoid scanning backward over operands or duplicating table/function-reference operands. Return-call inputs, multi-result calls, broader arbitrary expressions, and remaining aggregate/data constructors stay open or fail-closed.
+- TDD note: the three positives were already green (`298/298`) because earlier call-family and prefix-payload slices already covered these sibling shapes. Signoff: focused `ssa_nomerge_test.mbt` passed `298/298`, `moon test src/passes` passed `2319/2319`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5594/5594`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-prefix-call-family-operands-10000` requested `10000`, compared `7611`, had `7611` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
 
 ## [2026-06-11] passes/ssa-nomerge | Audit typed-loop br_on_null boundaries
 
