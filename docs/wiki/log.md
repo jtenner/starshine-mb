@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Probe insertBlock value-if allocation
+
+- Inspected the still-open debug-WASI direct `--ssa-nomerge` artifact first diff in `.tmp/self-ssa-nomerge-debug-wasi-insertblock-tee-20260613` (`defined=2 abs=29`, `tlsf/insertBlock`). The remaining drift is coupled across the allocator prefix and size-class value-if allocation schedule: Binaryen freshens the early `block + 4` address, nested unlink-load temps, value-if scratch lanes, and final bitmap-address temp differently from Starshine.
+- Tried a focused red probe for the value-producing `if` result local-set. The test failed red on current code as expected, but a naive `previous_was_value_if` local-set freshening exceeded the existing reduced guard's 13-body-local budget; broadening the two-call allocator gate into nested arms kept the budget but removed the later `$14` bitmap-address scratch. No behavior code was kept from that experiment.
+- Evidence kept for future work: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passes `364/364` after reverting the unsuccessful probe. Exact `abs=29` artifact parity remains open and should be handled as a coupled allocator prefix/value-if allocation slice rather than accepted as practical drift.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve insertBlock repeated load tee
 
 - Tightened the focused reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The test failed red before implementation when the guard required 13 or fewer body locals and no extra `$15` scratch; this locks the next allocator-local-allocation reduction rather than accepting practical drift.
