@@ -912,6 +912,9 @@ pub struct GenValidFeatureFacts {
   has_ssa_immediate_block_exit_canonical_set_br : Bool
   has_ssa_enclosing_label_copy_before_exit : Bool
   has_ssa_void_br_table_canonical_copies : Bool
+  has_ssa_branch_operand_local_boundary : Bool
+  has_ssa_nested_loop_target_boundary : Bool
+  has_ssa_large_structured_local_mix : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 
@@ -1024,6 +1027,9 @@ pub struct GenValidFeatureStats {
   ssa_immediate_block_exit_canonical_set_br : Int
   ssa_enclosing_label_copy_before_exit : Int
   ssa_void_br_table_canonical_copies : Int
+  ssa_branch_operand_local_boundary : Int
+  ssa_nested_loop_target_boundary : Int
+  ssa_large_structured_local_mix : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
@@ -1207,6 +1213,9 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_immediate_block_exit_canonical_set_br : Bool
   has_ssa_enclosing_label_copy_before_exit : Bool
   has_ssa_void_br_table_canonical_copies : Bool
+  has_ssa_branch_operand_local_boundary : Bool
+  has_ssa_nested_loop_target_boundary : Bool
+  has_ssa_large_structured_local_mix : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidSsaFuncFacts::empty() -> Self
 
@@ -1684,6 +1693,9 @@ pub enum ValidateValidFeatureKey {
   SsaImmediateBlockExitCanonicalSetBr
   SsaEnclosingLabelCopyBeforeExit
   SsaVoidBrTableCanonicalCopies
+  SsaBranchOperandLocalBoundary
+  SsaNestedLoopTargetBoundary
+  SsaLargeStructuredLocalMix
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidateValidFeatureKey
 

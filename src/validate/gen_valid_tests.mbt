@@ -7423,6 +7423,18 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     facts.has_ssa_void_br_table_canonical_copies,
     msg="expected void br_table canonical-copy variant",
   )
+  assert_true(
+    facts.has_ssa_branch_operand_local_boundary,
+    msg="expected branch-operand local boundary variant",
+  )
+  assert_true(
+    facts.has_ssa_nested_loop_target_boundary,
+    msg="expected nested-loop target boundary variant",
+  )
+  assert_true(
+    facts.has_ssa_large_structured_local_mix,
+    msg="expected large structured local-write mix variant",
+  )
 }
 
 ///|
@@ -7554,6 +7566,18 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
     facts.has_ssa_nested_result_if_mixed_arm_value_block,
     msg="smoke profile keeps dense mixed-arm result-if coverage in coverage/stress lanes",
   )
+  assert_true(
+    facts.has_ssa_branch_operand_local_boundary,
+    msg="smoke profile already exercises local-fed br_if operands in structured branch slices",
+  )
+  assert_false(
+    facts.has_ssa_nested_loop_target_boundary,
+    msg="smoke profile keeps nested-loop target boundary coverage in coverage/stress lanes",
+  )
+  assert_false(
+    facts.has_ssa_large_structured_local_mix,
+    msg="smoke profile keeps large structured local-write mixes in coverage/stress lanes",
+  )
 }
 
 ///|
@@ -7672,6 +7696,18 @@ test "ssa-nomerge compare-clean generated modules omit unsupported-boundary cove
     facts.has_ssa_void_br_table_canonical_copies,
     msg="compare-clean profile must not emit void br_table copy structured slices",
   )
+  assert_false(
+    facts.has_ssa_branch_operand_local_boundary,
+    msg="compare-clean profile must not emit branch-operand boundary slices",
+  )
+  assert_false(
+    facts.has_ssa_nested_loop_target_boundary,
+    msg="compare-clean profile must not emit nested-loop target boundary slices",
+  )
+  assert_false(
+    facts.has_ssa_large_structured_local_mix,
+    msg="compare-clean profile must not emit large structured local-write mixes",
+  )
 }
 
 ///|
@@ -7708,6 +7744,9 @@ test "ssa-nomerge stress generated modules record dense unsupported-boundary SSA
   assert_true(facts.has_ssa_immediate_block_exit_canonical_set_br)
   assert_true(facts.has_ssa_enclosing_label_copy_before_exit)
   assert_true(facts.has_ssa_void_br_table_canonical_copies)
+  assert_true(facts.has_ssa_branch_operand_local_boundary)
+  assert_true(facts.has_ssa_nested_loop_target_boundary)
+  assert_true(facts.has_ssa_large_structured_local_mix)
 }
 
 ///|
@@ -7731,7 +7770,8 @@ test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
       "ssa-branch-local-not-read-later", "ssa-default-local-read-after-branchy-control",
       "ssa-dropped-unreachable-debris-before-hard-unreachable", "ssa-canonical-body-local-next-read",
       "ssa-immediate-block-exit-canonical-set-br", "ssa-enclosing-label-copy-before-exit",
-      "ssa-void-br-table-canonical-copies",
+      "ssa-void-br-table-canonical-copies", "ssa-branch-operand-local-boundary",
+      "ssa-nested-loop-target-boundary", "ssa-large-structured-local-mix",
     ] {
     match validate_valid_feature_floor_by_label(label, 1) {
       Ok(_) => ()

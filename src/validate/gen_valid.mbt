@@ -1307,6 +1307,9 @@ pub struct GenValidFeatureFacts {
   has_ssa_immediate_block_exit_canonical_set_br : Bool
   has_ssa_enclosing_label_copy_before_exit : Bool
   has_ssa_void_br_table_canonical_copies : Bool
+  has_ssa_branch_operand_local_boundary : Bool
+  has_ssa_nested_loop_target_boundary : Bool
+  has_ssa_large_structured_local_mix : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1472,6 +1475,9 @@ pub struct GenValidFeatureStats {
   ssa_immediate_block_exit_canonical_set_br : Int
   ssa_enclosing_label_copy_before_exit : Int
   ssa_void_br_table_canonical_copies : Int
+  ssa_branch_operand_local_boundary : Int
+  ssa_nested_loop_target_boundary : Int
+  ssa_large_structured_local_mix : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1695,6 +1701,12 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.ssa_enclosing_label_copy_before_exit.output(logger)
   logger.write_string(", ssa_void_br_table_canonical_copies: ")
   self.ssa_void_br_table_canonical_copies.output(logger)
+  logger.write_string(", ssa_branch_operand_local_boundary: ")
+  self.ssa_branch_operand_local_boundary.output(logger)
+  logger.write_string(", ssa_nested_loop_target_boundary: ")
+  self.ssa_nested_loop_target_boundary.output(logger)
+  logger.write_string(", ssa_large_structured_local_mix: ")
+  self.ssa_large_structured_local_mix.output(logger)
   logger.write_string(", exact_opcode_counts: ")
   self.exact_opcode_counts.output(logger)
   logger.write_char('}')
@@ -1811,6 +1823,9 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     ssa_immediate_block_exit_canonical_set_br: 0,
     ssa_enclosing_label_copy_before_exit: 0,
     ssa_void_br_table_canonical_copies: 0,
+    ssa_branch_operand_local_boundary: 0,
+    ssa_nested_loop_target_boundary: 0,
+    ssa_large_structured_local_mix: 0,
     exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
   }
 }
@@ -2014,6 +2029,12 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_ssa_enclosing_label_copy_before_exit),
     ssa_void_br_table_canonical_copies: self.ssa_void_br_table_canonical_copies +
     gen_valid_bool_count(facts.has_ssa_void_br_table_canonical_copies),
+    ssa_branch_operand_local_boundary: self.ssa_branch_operand_local_boundary +
+    gen_valid_bool_count(facts.has_ssa_branch_operand_local_boundary),
+    ssa_nested_loop_target_boundary: self.ssa_nested_loop_target_boundary +
+    gen_valid_bool_count(facts.has_ssa_nested_loop_target_boundary),
+    ssa_large_structured_local_mix: self.ssa_large_structured_local_mix +
+    gen_valid_bool_count(facts.has_ssa_large_structured_local_mix),
     exact_opcode_counts: self.exact_opcode_counts.add(facts.exact_opcode_counts),
   }
 }
@@ -15816,6 +15837,9 @@ pub fn gen_valid_feature_facts(
     has_ssa_immediate_block_exit_canonical_set_br: ssa_facts.has_ssa_immediate_block_exit_canonical_set_br,
     has_ssa_enclosing_label_copy_before_exit: ssa_facts.has_ssa_enclosing_label_copy_before_exit,
     has_ssa_void_br_table_canonical_copies: ssa_facts.has_ssa_void_br_table_canonical_copies,
+    has_ssa_branch_operand_local_boundary: ssa_facts.has_ssa_branch_operand_local_boundary,
+    has_ssa_nested_loop_target_boundary: ssa_facts.has_ssa_nested_loop_target_boundary,
+    has_ssa_large_structured_local_mix: ssa_facts.has_ssa_large_structured_local_mix,
     exact_opcode_counts,
   }
 }

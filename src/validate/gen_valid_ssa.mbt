@@ -45,6 +45,9 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_immediate_block_exit_canonical_set_br : Bool
   has_ssa_enclosing_label_copy_before_exit : Bool
   has_ssa_void_br_table_canonical_copies : Bool
+  has_ssa_branch_operand_local_boundary : Bool
+  has_ssa_nested_loop_target_boundary : Bool
+  has_ssa_large_structured_local_mix : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -95,6 +98,9 @@ pub fn GenValidSsaFuncFacts::empty() -> GenValidSsaFuncFacts {
     has_ssa_immediate_block_exit_canonical_set_br: false,
     has_ssa_enclosing_label_copy_before_exit: false,
     has_ssa_void_br_table_canonical_copies: false,
+    has_ssa_branch_operand_local_boundary: false,
+    has_ssa_nested_loop_target_boundary: false,
+    has_ssa_large_structured_local_mix: false,
   }
 }
 
@@ -193,6 +199,12 @@ pub fn gen_valid_merge_ssa_func_facts(
     right.has_ssa_enclosing_label_copy_before_exit,
     has_ssa_void_br_table_canonical_copies: left.has_ssa_void_br_table_canonical_copies ||
     right.has_ssa_void_br_table_canonical_copies,
+    has_ssa_branch_operand_local_boundary: left.has_ssa_branch_operand_local_boundary ||
+    right.has_ssa_branch_operand_local_boundary,
+    has_ssa_nested_loop_target_boundary: left.has_ssa_nested_loop_target_boundary ||
+    right.has_ssa_nested_loop_target_boundary,
+    has_ssa_large_structured_local_mix: left.has_ssa_large_structured_local_mix ||
+    right.has_ssa_large_structured_local_mix,
   }
 }
 
@@ -1011,6 +1023,10 @@ fn gen_valid_ssa_scan_linear(
           param_count, bt, body, def_counts, has_local_write, has_exceptional,
         )
         out = gen_valid_merge_ssa_func_facts(out, loop_facts)
+        if gen_valid_ssa_expr_has_enclosing_exit(body) &&
+          gen_valid_ssa_func_has_local_write(body) {
+          out = { ..out, has_ssa_nested_loop_target_boundary: true }
+        }
         if gen_valid_ssa_expr_has_branch_exit(body) {
           saw_branchy_control = true
         }
@@ -1064,10 +1080,23 @@ fn gen_valid_ssa_scan_linear(
         }
         saw_structured_control = true
       }
+      BrIf(_) => {
+        if has_local_write &&
+          i > 0 &&
+          gen_valid_ssa_instr_is_local_branch_operand_source(instrs[i - 1]) {
+          out = { ..out, has_ssa_branch_operand_local_boundary: true }
+        }
+        saw_branchy_control = true
+      }
       BrTable(_, _) => {
         let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
         if has_local_write && gen_valid_ssa_expr_has_local_read(tail) {
           out = { ..out, has_ssa_br_table_phi_candidate: true }
+        }
+        if has_local_write &&
+          i > 0 &&
+          gen_valid_ssa_instr_is_local_branch_operand_source(instrs[i - 1]) {
+          out = { ..out, has_ssa_branch_operand_local_boundary: true }
         }
         saw_branchy_control = true
       }
@@ -1086,6 +1115,12 @@ fn gen_valid_ssa_scan_linear(
   }
   if has_exceptional && has_local_write {
     out = { ..out, has_ssa_exceptional_fail_closed_shape: true }
+  }
+  let whole_expr = Expr::new(instrs)
+  if gen_valid_ssa_expr_local_write_count(whole_expr) >= 8 &&
+    gen_valid_ssa_expr_structured_control_count(whole_expr) >= 3 &&
+    gen_valid_ssa_expr_has_br_table(whole_expr) {
+    out = { ..out, has_ssa_large_structured_local_mix: true }
   }
   out
 }
@@ -1248,6 +1283,68 @@ fn gen_valid_ssa_expr_has_enclosing_br_table_exit(expr : Expr) -> Bool {
     }
   }
   false
+}
+
+///|
+fn gen_valid_ssa_instr_is_local_branch_operand_source(
+  instr : Instruction,
+) -> Bool {
+  match instr {
+    LocalGet(_) | LocalTee(_) => true
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_ssa_expr_local_write_count(expr : Expr) -> Int {
+  let Expr(instrs) = expr
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      LocalSet(_) | LocalTee(_) => count += 1
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        count += gen_valid_ssa_expr_local_write_count(body)
+      If(_, then_body, else_body) => {
+        count += gen_valid_ssa_expr_local_write_count(Expr::new(then_body))
+        match else_body {
+          Some(body) =>
+            count += gen_valid_ssa_expr_local_write_count(Expr::new(body))
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn gen_valid_ssa_expr_structured_control_count(expr : Expr) -> Int {
+  let Expr(instrs) = expr
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) => {
+        count += 1
+        count += gen_valid_ssa_expr_structured_control_count(body)
+      }
+      If(_, then_body, else_body) => {
+        count += 1
+        count += gen_valid_ssa_expr_structured_control_count(
+          Expr::new(then_body),
+        )
+        match else_body {
+          Some(body) =>
+            count += gen_valid_ssa_expr_structured_control_count(
+              Expr::new(body),
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
 }
 
 ///|
@@ -2930,6 +3027,66 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
       ),
     )
     out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // AE. branch operands sourced from locals after local traffic.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::i32_const(I32(50)),
+          Instruction::local_set(l0),
+          Instruction::local_get(l0),
+          Instruction::br_if(LabelIdx::new(0U)),
+        ]),
+      ),
+    )
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::i32_const(I32(51)),
+          Instruction::local_set(l0),
+          Instruction::local_get(l0),
+          Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+        ]),
+      ),
+    )
+  }
+  // AF. nested-loop target boundary exits an enclosing block over local traffic.
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::loop_(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::i32_const(I32(52)),
+            Instruction::local_set(l0),
+            Instruction::br(LabelIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // AG. large structured local-write mix for huge-function guardrail coverage.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    for n in 0..<4 {
+      out.push(Instruction::local_get(p0))
+      out.push(
+        Instruction::if_(
+          BlockType::void_(),
+          [Instruction::i32_const(I32(60 + n)), Instruction::local_set(l0)],
+          Some([Instruction::i32_const(I32(70 + n)), Instruction::local_set(l1)]),
+        ),
+      )
+    }
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(l1))
     out.push(Instruction::drop())
   }
   gen_valid_append_ssa_nomerge_tee_body_slice(out, l2, l4, l1)

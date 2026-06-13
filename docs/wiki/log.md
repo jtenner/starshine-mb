@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Add boundary GenValid coverage
+
+- Completed `[SSANM-011e]` in [`../../agent-todo.md`](../../agent-todo.md) as the final planned generator/profile coverage slice after adding explicit boundary feature labels: `ssa-branch-operand-local-boundary`, `ssa-nested-loop-target-boundary`, and `ssa-large-structured-local-mix`.
+- Updated [`../../src/validate/gen_valid_ssa.mbt`](../../src/validate/gen_valid_ssa.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), and [`../../src/fuzz/main.mbt`](../../src/fuzz/main.mbt) so SSA scanning, stats, feature floors, and GenValid manifest JSON expose the new facts; coverage/stress templates now append deterministic branch-operand, nested-loop target, and large structured local-write mix slices while parity keeps unsupported-boundary slices out.
+- Evidence: red-first `gen_valid_tests.mbt` failed on missing fields; `moon fmt`; `moon info` passed with pre-existing GenValid warnings; focused GenValid tests (`74/74`, `36/36`); fuzz wbtests (`90/90`); full `moon test` (`5709/5709`); native `src/cmd` build with pre-existing pass-manager warnings; coverage/stress one-artifact required-floor probes with no skips; direct mixed-generator compare green over `9977/10000` compared cases with `0` mismatches and `23` Binaryen/tool command failures; direct profile probes still expose the known `ssa-nomerge` local-allocation behavior gap (`smoke`: `215/215` mismatches before the cap; `coverage`: `65/65`; `stress`: `65/65`; no validation/generator/command failures).
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) with the exact commands, counts, cache counters, and mismatch classification.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice debug-WASI artifact replay backlog
 
 - Split `[SSANM-009]` in [`../../agent-todo.md`](../../agent-todo.md) into epic-only debug-WASI artifact replay work plus child slices `[SSANM-009a]` through `[SSANM-009d]` for anchor refresh, post-LocalGraph first-diff classification, retirement/narrowing of obsolete artifact-specific heuristics, and final artifact parity publication.

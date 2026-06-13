@@ -3494,6 +3494,9 @@ pub enum ValidateValidFeatureKey {
   SsaImmediateBlockExitCanonicalSetBr
   SsaEnclosingLabelCopyBeforeExit
   SsaVoidBrTableCanonicalCopies
+  SsaBranchOperandLocalBoundary
+  SsaNestedLoopTargetBoundary
+  SsaLargeStructuredLocalMix
 } derive(Eq, Debug)
 
 ///|
@@ -3625,6 +3628,12 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
       logger.write_string("SsaEnclosingLabelCopyBeforeExit")
     SsaVoidBrTableCanonicalCopies =>
       logger.write_string("SsaVoidBrTableCanonicalCopies")
+    SsaBranchOperandLocalBoundary =>
+      logger.write_string("SsaBranchOperandLocalBoundary")
+    SsaNestedLoopTargetBoundary =>
+      logger.write_string("SsaNestedLoopTargetBoundary")
+    SsaLargeStructuredLocalMix =>
+      logger.write_string("SsaLargeStructuredLocalMix")
   }
 }
 
@@ -3841,6 +3850,9 @@ pub fn validate_valid_feature_actual_count(
     SsaEnclosingLabelCopyBeforeExit =>
       stats.ssa_enclosing_label_copy_before_exit
     SsaVoidBrTableCanonicalCopies => stats.ssa_void_br_table_canonical_copies
+    SsaBranchOperandLocalBoundary => stats.ssa_branch_operand_local_boundary
+    SsaNestedLoopTargetBoundary => stats.ssa_nested_loop_target_boundary
+    SsaLargeStructuredLocalMix => stats.ssa_large_structured_local_mix
   }
 }
 
@@ -3948,6 +3960,9 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     SsaImmediateBlockExitCanonicalSetBr,
     SsaEnclosingLabelCopyBeforeExit,
     SsaVoidBrTableCanonicalCopies,
+    SsaBranchOperandLocalBoundary,
+    SsaNestedLoopTargetBoundary,
+    SsaLargeStructuredLocalMix,
   ]
 }
 
@@ -4116,6 +4131,9 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
       "ssa-immediate-block-exit-canonical-set-br"
     SsaEnclosingLabelCopyBeforeExit => "ssa-enclosing-label-copy-before-exit"
     SsaVoidBrTableCanonicalCopies => "ssa-void-br-table-canonical-copies"
+    SsaBranchOperandLocalBoundary => "ssa-branch-operand-local-boundary"
+    SsaNestedLoopTargetBoundary => "ssa-nested-loop-target-boundary"
+    SsaLargeStructuredLocalMix => "ssa-large-structured-local-mix"
   }
 }
 
@@ -4236,6 +4254,9 @@ fn validate_valid_feature_key_from_label(
     "ssa-enclosing-label-copy-before-exit" =>
       Some(SsaEnclosingLabelCopyBeforeExit)
     "ssa-void-br-table-canonical-copies" => Some(SsaVoidBrTableCanonicalCopies)
+    "ssa-branch-operand-local-boundary" => Some(SsaBranchOperandLocalBoundary)
+    "ssa-nested-loop-target-boundary" => Some(SsaNestedLoopTargetBoundary)
+    "ssa-large-structured-local-mix" => Some(SsaLargeStructuredLocalMix)
     _ => None
   }
 }
