@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Preserve insertBlock second unlink tee
+
+- Tightened the reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The new set-index assertion failed red before implementation because Starshine put the second nested unlink load result on the shifted lane after freshening its address-load `local.tee`.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so exactly two-call allocator helper scratch freshening preserves nested memory-load `local.tee` writes to param lanes, and so the coupled value-if `select` carrier still receives a narrow fresh lane. This matches the next visible Binaryen `insertBlock` sub-diff without broad expression-stack scanning.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `364/364`, `moon test src/passes` passed `2385/2385`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5661/5661`, native `src/cmd` release build completed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-insertblock-second-unlink-10000` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-insertblock-second-unlink-20260613` validates but still first-diffs at `defined=2 abs=29`; remaining value-if/bitmap local-allocation drift is not accepted as safe. Artifact timing: Starshine pass-local `0.034 ms` vs Binaryen `452.600 ms`; whole-command Starshine `5857.983 ms` vs Binaryen `982.029 ms`.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve insertBlock nested load set
 
 - Tightened the reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The new set-index assertion failed red before implementation because Starshine freshened the first nested post-call memory-load `local.set` into local `8` instead of preserving Binaryen's canonical unlink-result lane.
