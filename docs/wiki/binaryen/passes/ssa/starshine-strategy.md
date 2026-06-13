@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-06-13
 sources:
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
@@ -9,8 +9,12 @@ sources:
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
+  - ../../../../../src/ir/local_graph.mbt
   - ../../../../../src/passes/pass_common.mbt
   - ../../../../../src/ir/ssa_policy.mbt
   - ../../../../../src/ir/ssa_local.mbt
@@ -35,9 +39,9 @@ This page describes the **current local Starshine status** for upstream Binaryen
 
 The short version:
 
-- Starshine does **not** currently expose a full `ssa` pass.
+- Starshine now records full `ssa` as a known **boundary-only** registry name and rejects direct `--ssa` requests explicitly; it is not an active pass.
 - Starshine does expose and actively run the sibling [`ssa-nomerge`](../ssa-nomerge/index.md).
-- Starshine also has a HOT SSA overlay/destruction infrastructure that is useful for the active sibling and for future local work, but it is not the same as Binaryen full `ssa`.
+- Starshine has both a HOT SSA overlay/destruction infrastructure and a Binaryen-facing `LocalGraph` reaching-source analysis that are useful prerequisites for a future full `ssa` port, but neither is currently wired as the public full-`ssa` rewrite.
 
 ## Current local registry status
 
@@ -46,14 +50,11 @@ The short version:
 Current facts:
 
 - `ssa-nomerge` is an active hot-pass registry entry.
-- `ssa` is not present in the active hot-pass entries.
-- `ssa` is not present in the boundary-only name list.
-- `ssa` is not present in the removed-name list.
+- `ssa` is present as a boundary-only registry entry with the summary that full SSA is intentionally unsupported until the LocalGraph merge-source rewrite model lands.
+- direct `--ssa` CLI requests parse as registry-owned pass flags, then fail in the optimizer with the boundary-only message instead of falling through as an unknown pass.
 - the public `optimize` and `shrink` presets contain `ssa-nomerge`, not full `ssa`.
 
-That means an explicit local `--ssa` request is not a known-but-disabled pass request. It falls through as an unknown pass name.
-
-This is different from many other upstream-only pages in the wiki, where Starshine already has a boundary-only or removed registry entry.
+That means an explicit local `--ssa` request is a known-but-disabled pass request. This status is intentionally narrower than implementation: it prevents silent aliasing to `ssa-nomerge` while keeping the future sibling visible in tests and docs.
 
 ## Why Starshine still has relevant SSA code
 
@@ -88,7 +89,7 @@ Use this map when following along in-tree:
 
 - `src/passes/optimize.mbt`
   - owns pass categories, presets, and request lookup.
-  - active entries start with `ssa-nomerge`; no sibling `ssa` entry exists in active, module, boundary-only, removed, or preset lists.
+  - active entries start with `ssa-nomerge`; sibling `ssa` is boundary-only, not active, module, removed, or preset.
   - `optimize` and `shrink` presets both include `ssa-nomerge` in the early hot-pass slot.
 - `src/passes/ssa_nomerge.mbt`
   - descriptor for the active sibling, including broad invalidation of CFG, dominance, liveness, use-def, effects, loop info, and SSA.
@@ -108,15 +109,17 @@ Use this map when following along in-tree:
 - `src/passes/ssa_nomerge_test.mbt`
   - branch-join coverage for the active local sibling's predecessor-copy style.
 - `src/passes/registry_test.mbt`
-  - registry test coverage for the active `ssa-nomerge` descriptor.
+  - registry test coverage for the active `ssa-nomerge` descriptor and the boundary-only full `ssa` sibling rejection.
+- `src/cmd/cmd.mbt` / `src/cmd/cmd_wbtest.mbt`
+  - CLI pass-flag parsing admits boundary-only `ssa` as a registry-owned flag so direct `--ssa` reports an explicit unsupported/boundary-only optimizer error rather than an unknown flag.
 - `agent-todo.md`
-  - current parity notes use shorthand `SSA` for the active local `ssa-nomerge` slot, not a separate full-`ssa` implementation slice.
+  - `[O4Z-AUDIT-SSA]` tracks both active `ssa-nomerge` parity slices and separate full-`ssa` sibling slices; `[SSA-FULL]001` is only the boundary-only registry decision, while `[SSA-FULL]002` owns the future merge-local rewrite model.
 
 ## Current behavior versus Binaryen full `ssa`
 
 | Topic | Binaryen full `ssa` | Current Starshine |
 | --- | --- | --- |
-| Public pass name | `ssa` registered in Binaryen `pass.cpp` | no `ssa` registry entry |
+| Public pass name | `ssa` registered in Binaryen `pass.cpp` | boundary-only `ssa` registry entry; direct requests reject explicitly |
 | Default no-DWARF sibling | Binaryen's canonical path here uses `ssa-nomerge`, not full `ssa` | Starshine presets also use `ssa-nomerge` |
 | Merge handling | create a merge local for a multi-source get | HOT SSA destruction lowers phis through predecessor copies |
 | Explicit incoming sets | rewrite values through `local.tee mergeLocal` | concrete local assignment plus inserted predecessor `local.set` copies |
@@ -162,7 +165,7 @@ For parity signoff, compare explicit `--pass ssa` output against Binaryen on tar
 Do not claim any of these today:
 
 - Starshine implements upstream Binaryen full `ssa`.
-- `ssa` is a boundary-only name in the local registry.
+- `ssa` is active or implemented.
 - the local `ssa-nomerge` predecessor-copy output is Binaryen full `ssa`'s merge-local + incoming-tee output.
 - the default `optimize` / `shrink` presets are missing full `ssa`.
 
@@ -171,5 +174,5 @@ Do not claim any of these today:
 The Starshine codebase has useful SSA infrastructure, but the pass surface remains sibling-specific:
 
 - `ssa-nomerge` is active and documented as a local HOT-SSA roundtrip/destruction strategy.
-- full `ssa` is upstream-only knowledge in this repo today.
-- any future full-`ssa` implementation must consciously bridge from Starshine's overlay/predecessor-copy model to Binaryen's merge-local/`local.tee`/entry-prepend contract.
+- full `ssa` is known and boundary-only in the local registry today.
+- any future full-`ssa` implementation must consciously bridge from Starshine's overlay/predecessor-copy model and the newer LocalGraph merge/source facts to Binaryen's merge-local/`local.tee`/entry-prepend contract.

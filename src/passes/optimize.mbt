@@ -156,6 +156,10 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       ssa_nomerge_summary(),
       ssa_nomerge_descriptor(),
     ),
+    pass_registry_entry_boundary_only(
+      "ssa",
+      summary="Full SSA sibling is known but intentionally unsupported until the LocalGraph merge-source rewrite model lands.",
+    ),
     pass_registry_entry_hot(
       "vacuum",
       "Remove `nop` roots and region entries through hot IR cleanup.",
@@ -575,11 +579,11 @@ fn run_hot_pipeline_expand_passes(
       HotPassRegistryCategory::ModulePass => expanded.push(entry)
       HotPassRegistryCategory::BoundaryOnly =>
         return Err(
-          "pass flag \{name} is boundary-only and is not implemented in the hot pipeline",
+          "pass flag \{name} is boundary-only and is not implemented in the hot pipeline: \{entry.summary}",
         )
       HotPassRegistryCategory::Removed =>
         return Err(
-          "pass flag \{name} is removed from the active hot pipeline registry",
+          "pass flag \{name} is removed from the active hot pipeline registry: \{entry.summary}",
         )
       HotPassRegistryCategory::Preset => {
         let preset_passes = if name == "optimize" {

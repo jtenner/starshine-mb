@@ -13,6 +13,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   @debug.assert_eq(
+    pass_registry_category("ssa"),
+    Some(HotPassRegistryCategory::boundary_only()),
+  )
+  @debug.assert_eq(
     pass_registry_category("dead-code-elimination"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -264,6 +268,21 @@ test "run_hot_pipeline rejects removed registry names" {
   match run_hot_pipeline(input, HotPipelineOptions::new(), ["de-nan"]) {
     Ok(_) => fail("expected removed registry name to reject in hot pipeline")
     Err(err) => assert_true(err.contains("removed"))
+  }
+}
+
+///|
+test "run_hot_pipeline rejects full ssa as an explicit boundary-only sibling" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) (local i32) i32.const 1 local.set 0 local.get 0))",
+  )
+
+  match run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa"]) {
+    Ok(_) => fail("expected full ssa to reject until its IR2 port lands")
+    Err(err) => {
+      assert_true(err.contains("boundary-only"), msg=err)
+      assert_true(err.contains("Full SSA"), msg=err)
+    }
   }
 }
 

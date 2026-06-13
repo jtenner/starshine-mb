@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-06-13
 sources:
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
@@ -9,6 +9,9 @@ sources:
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/ir/ssa_local.mbt
   - ../../../../../src/ir/ssa_destroy.mbt
@@ -38,8 +41,8 @@ related:
 ## Role
 
 - `ssa` is a real public upstream Binaryen pass.
-- It is **not** currently part of the local Starshine pass registry; there is no active, boundary-only, or removed `ssa` entry today.
-- It is still worth tracking here because the repo already has a deep dossier for the implemented sibling [`ssa-nomerge`](../ssa-nomerge/index.md), and that dossier repeatedly depends on a correct explanation of what full `ssa` would do differently.
+- It is part of the local Starshine pass registry as a **boundary-only** name, not an active pass.
+- It is worth tracking here because the repo already has a deep dossier for the implemented sibling [`ssa-nomerge`](../ssa-nomerge/index.md), and that dossier repeatedly depends on a correct explanation of what full `ssa` would do differently.
 
 The beginner summary is:
 
@@ -103,9 +106,7 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
 
 ## Agent-todo note
 
-`agent-todo.md` currently has **no dedicated `ssa` slice**.
-Only `ssa-nomerge` appears through pipeline, replay, and perf notes.
-That absence is intentional context for this folder: it is a documentation expansion, not a statement that an implementation slice already exists locally.
+`agent-todo.md` now tracks dedicated full-`ssa` slices under `[O4Z-AUDIT-SSA]`. `[SSA-FULL]001` chose the registry/request behavior: full `ssa` is known but boundary-only until the merge-local rewrite model lands. The remaining implementation slice `[SSA-FULL]002` owns the real Binaryen full-`ssa` merge-local model and must not alias to `ssa-nomerge`.
 
 ## Page map
 
@@ -118,7 +119,7 @@ That absence is intentional context for this folder: it is a documentation expan
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog, with direct `ssa.wast` positives clearly separated from source-derived merge-local families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Current Starshine status and port map: no local `ssa` registry entry, active `ssa-nomerge` sibling only, reusable HOT SSA overlay/destruction infrastructure, and the exact code locations a future faithful port would need to bridge.
+  - Current Starshine status and port map: boundary-only local `ssa` registry entry, active `ssa-nomerge` sibling, reusable HOT SSA overlay/destruction infrastructure plus LocalGraph facts, and the exact code locations a future faithful port would need to bridge.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Future implementation bridge: registry honesty, source classifier requirements, merge-local rewrite order, `ssa-nomerge` sibling-stability checks, and validation ladder.
 

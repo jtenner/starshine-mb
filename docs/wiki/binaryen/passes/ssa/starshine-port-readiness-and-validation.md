@@ -1,15 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-06-13
 sources:
   - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
+  - ../../../../../src/ir/local_graph.mbt
   - ../../../../../src/ir/ssa_policy.mbt
   - ../../../../../src/ir/ssa_local.mbt
   - ../../../../../src/ir/ssa_destroy.mbt
@@ -35,7 +39,7 @@ It does **not** say Starshine should prioritize full `ssa` now. It says that if 
 
 ## Current status in one paragraph
 
-Starshine currently has an active hot pass named `ssa-nomerge` and no known local pass named `ssa`. The local SSA infrastructure is real: it builds a HOT-local SSA overlay, represents phi-like values, chooses concrete locals, and inserts predecessor copies while destroying the overlay. But Binaryen full `ssa` encodes merges differently: it creates fresh merge locals, wraps explicit incoming definitions with `local.tee`, and prepends parameter-entry copies. Those are user-visible rewrite shapes under `wasm-opt --ssa`, so a faithful local full-`ssa` port needs a sibling path with dedicated tests.
+Starshine currently has an active hot pass named `ssa-nomerge` and a known boundary-only local pass name `ssa`. Direct `--ssa` requests reject explicitly instead of aliasing to `ssa-nomerge` or falling through as unknown. The local SSA infrastructure is real: it builds a HOT-local SSA overlay, represents phi-like values, chooses concrete locals, and inserts predecessor copies while destroying the overlay. The newer `LocalGraph` analysis also exposes parameter/default entry sources, merge gets, influenced writes, already-SSA local classification, no-merge freshening eligibility, and defaultability facts. But Binaryen full `ssa` still encodes merges differently: it creates fresh merge locals, wraps explicit incoming definitions with `local.tee`, and prepends parameter-entry copies. Those are user-visible rewrite shapes under `wasm-opt --ssa`, so a faithful local full-`ssa` port needs a sibling path with dedicated tests.
 
 ## Why full `ssa` is not just `ssa-nomerge` plus more cleanup
 
@@ -54,18 +58,23 @@ A safe future port should be staged in small, reviewable slices.
 
 ### Slice 0: registry honesty
 
-Before rewriting anything, make the public request behavior explicit:
+Status: done for `[SSA-FULL]001` on 2026-06-13.
 
-- either keep `ssa` unknown and document that choice, or
-- add a known boundary/removed/active status with tests.
+Before rewriting anything, the public request behavior is now explicit:
+
+- `ssa` is a known boundary-only registry entry.
+- direct CLI `--ssa` requests are registry-owned and reject with the boundary-only full-SSA message.
+- `ssa` remains out of `optimize` and `shrink`; those presets keep the Binaryen no-DWARF sibling `ssa-nomerge` slot.
 
 Do **not** silently treat `--pass ssa` as `ssa-nomerge`. That would teach the wrong upstream contract and make Binaryen-oracle diffs confusing.
 
 Relevant local surface:
 
 - `src/passes/optimize.mbt` owns active hot passes, module passes, boundary-only names, removed names, and presets.
+- `src/passes/registry_test.mbt` locks the boundary-only full `ssa` registry and pipeline rejection behavior.
+- `src/cmd/cmd.mbt` / `src/cmd/cmd_wbtest.mbt` lock direct CLI `--ssa` request behavior.
 - Today `ssa-nomerge` is active and appears in both `optimize` and `shrink` presets.
-- Today `ssa` is absent from every registry category.
+- Today `ssa` is boundary-only and inactive.
 
 ### Slice 1: analyzer / no-rewrite classifier
 
@@ -83,11 +92,12 @@ Add a no-rewrite analyzer that can classify each `local.get` by reaching sources
 
 Local infrastructure already has useful raw material:
 
+- `src/ir/local_graph.mbt` now exposes the Binaryen-facing reaching-source facts needed by the next slices: parameter/default entry classification, single-source versus merge gets, explicit write kind/local id, influenced gets, already-SSA local classification, no-merge freshening eligibility, and legal-default entry facts.
 - `src/ir/ssa_policy.mbt` has value-origin vocabulary for entry params, entry defaults, local-set defs, local-tee defs, and phis.
 - `src/ir/ssa_local.mbt` seeds entry params/defaults and places block phis.
 - `src/passes/pass_common.mbt` and `src/ir/analysis_cache.mbt` can cache the HOT SSA overlay.
 
-The open design choice is whether to reuse `HotLocalSsa` directly or build a Binaryen-shaped adapter over it. The validation requirement is the same either way: the classifier must distinguish parameter entry from ordinary default entry.
+The open design choice is whether to reuse `HotLocalSsa` directly, drive from `LocalGraph`, or bridge the two. The validation requirement is the same either way: the classifier must distinguish parameter entry from ordinary default entry and preserve exceptional-edge boundaries.
 
 ### Slice 2: direct lit-compatible families
 
@@ -127,7 +137,7 @@ After every full-`ssa` slice, keep [`ssa-nomerge`](../ssa-nomerge/index.md) stab
 
 Use this order for a future implementation:
 
-1. Unit tests for registry/request behavior.
+1. Unit tests for registry/request behavior. Done for boundary-only `[SSA-FULL]001`; rerun or revise if `ssa` becomes active.
 2. Focused local tests for direct `ssa.wast` families.
 3. Focused local tests for source-derived merge-local families.
 4. Sibling regression tests for `ssa-nomerge` predecessor-copy lowering.
@@ -140,7 +150,9 @@ Do not add full `ssa` to presets as part of the first implementation. Binaryen's
 ## Code locations to read before implementing
 
 - `src/passes/optimize.mbt`
-  - registry categories, active `ssa-nomerge` entry, and preset expansion.
+  - registry categories, active `ssa-nomerge` entry, boundary-only `ssa` entry, and preset expansion.
+- `src/passes/registry_test.mbt` and `src/cmd/cmd_wbtest.mbt`
+  - request-behavior tests proving full `ssa` is known-but-unsupported before implementation.
 - `src/passes/ssa_nomerge.mbt`
   - current sibling runner: requires CFG + SSA and delegates to `ssa_destroy_into_hot(...)`.
 - `src/ir/ssa_policy.mbt`
@@ -153,6 +165,8 @@ Do not add full `ssa` to presets as part of the first implementation. Binaryen's
   - `pass_require_ssa(...)` cache access for hot passes.
 - `src/ir/analysis_cache.mbt`
   - storage for `HotLocalSsa`.
+- `src/ir/local_graph.mbt`
+  - Binaryen-facing source/merge/defaultability facts that future full-`ssa` rewrite planning should consume or shadow.
 - `src/passes/ssa_nomerge_test.mbt`
   - sibling regression cases that must stay stable.
 
@@ -168,4 +182,4 @@ A first faithful port should not:
 
 ## Uncertainty
 
-The main unresolved design question is internal representation, not semantics: should the implementation adapt the existing `HotLocalSsa` overlay, or should it build a smaller LocalGraph-like reaching-set view for this pass? Both are plausible. The required public contract remains the Binaryen shape mapping above.
+The main unresolved design question is internal representation, not semantics: should the implementation adapt the existing `HotLocalSsa` overlay, drive directly from `LocalGraph`, or bridge both? The recent LocalGraph slices make the Binaryen-shaped reaching-set view more plausible, but no mutation consumes those facts yet. The required public contract remains the Binaryen shape mapping above.

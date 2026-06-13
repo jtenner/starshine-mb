@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa | Record full SSA boundary-only request status
+
+- Completed `[SSA-FULL]001` in [`../../agent-todo.md`](../../agent-todo.md) as a registry/request-decision slice, not a full-`ssa` implementation slice.
+- Updated [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) so `ssa` is a known boundary-only registry entry with an explicit unsupported full-SSA summary while `ssa-nomerge` remains the active sibling in presets.
+- Updated [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt) so direct CLI `--ssa` reaches the optimizer's boundary-only rejection instead of being reported as an unknown flag; removed registry names still keep the existing unknown-flag CLI behavior.
+- Added red-first tests in [`../../src/passes/registry_test.mbt`](../../src/passes/registry_test.mbt) and [`../../src/cmd/cmd_wbtest.mbt`](../../src/cmd/cmd_wbtest.mbt) for the explicit full-`ssa` request behavior.
+- Refreshed [`binaryen/passes/ssa/index.md`](binaryen/passes/ssa/index.md), [`binaryen/passes/ssa/starshine-strategy.md`](binaryen/passes/ssa/starshine-strategy.md), [`binaryen/passes/ssa/starshine-port-readiness-and-validation.md`](binaryen/passes/ssa/starshine-port-readiness-and-validation.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`index.md`](index.md). Evidence: red `moon test src/passes --target native` showed the intended new `ssa` registry/pipeline failures before implementation, alongside unrelated native debug-artifact wbtest failures; after implementation, `moon test --package jtenner/starshine/passes --file registry_test.mbt` passed `6/6` and `moon test --package jtenner/starshine/cmd --file cmd_wbtest.mbt` passed `105/105`. Direct compare/fuzz was not run because no pass mutation or rewrite behavior changed.
+
 ## [2026-06-13] passes/ssa-nomerge | Prove default-ref replacement type repair
 
 - Completed `[SSA-REFINALIZE]001` in [`../../agent-todo.md`](../../agent-todo.md) as a proof/test slice over the existing no-local-write raw default-replacement path; no pass mutation or raw rewrite code changed.

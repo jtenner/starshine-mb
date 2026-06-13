@@ -1981,9 +1981,11 @@ fn cmd_resolve_pipeline_steps(
     match @passes.pass_registry_category(registry_flag) {
       Some(@passes.HotPassRegistryCategory::HotPass)
       | Some(@passes.HotPassRegistryCategory::ModulePass)
-      | Some(@passes.HotPassRegistryCategory::Preset) =>
+      | Some(@passes.HotPassRegistryCategory::Preset)
+      | Some(@passes.HotPassRegistryCategory::BoundaryOnly) =>
         out.push(CmdPipelineStep::PipelinePass(flag))
-      _ => return Err(CmdError::unknown_pass_flag(flag))
+      Some(@passes.HotPassRegistryCategory::Removed) | None =>
+        return Err(CmdError::unknown_pass_flag(flag))
     }
   }
   Ok(out)

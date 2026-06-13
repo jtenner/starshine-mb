@@ -1702,6 +1702,36 @@ test "run_cmd_with_adapter rejects unknown pass flags once the hot pass registry
 }
 
 ///|
+test "run_cmd_with_adapter reports full ssa as unsupported instead of unknown" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(1))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["--ssa", "--out", "out.wasm", "a.wasm"], io) {
+    Ok(summary) => fail("expected full ssa rejection, got \{summary}")
+    Err(CmdError::OptimizeFailed(msg)) => {
+      assert_true(msg.contains("boundary-only"), msg~)
+      assert_true(msg.contains("Full SSA"), msg~)
+    }
+    Err(err) => fail("expected explicit full ssa unsupported error, got \{err}")
+  }
+  @debug.assert_eq(writes.length(), 0)
+}
+
+///|
 test "run_cmd_with_adapter processes every input through generated optimize pipeline" {
   let wasm = encode_module_bytes(fixture_i32_const_module(10))
   let writes : Array[(String, Bytes)] = []
