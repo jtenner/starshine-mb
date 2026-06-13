@@ -8013,6 +8013,87 @@ test "ssa-nomerge rewrites problem1 prefix direct call operands br_on_non_null i
 }
 
 ///|
+test "ssa-nomerge rewrites problem1 prefix direct call operands br_on_null input" {
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let id_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), externref], [externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), externref], [
+              @lib.ValType::i32(),
+              externref,
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([id_type_idx, test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(5),
+                @lib.Instruction::ref_null(extern_heap),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+                @lib.Instruction::ref_null(extern_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "prefix direct call operands br_on_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(ssa_test_instrs_have_br_on_null(instrs), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge fail-closed problem1 struct-new operands br_on_non_null input" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)

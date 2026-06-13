@@ -9678,8 +9678,7 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
   }
   match rewritten.last() {
     Some(@lib.Call(func_idx)) => {
-      let supported_non_current_call = if label_target.result_types.length() ==
-        1 {
+      let supported_non_current_call = if label_target.result_types.length() > 0 {
         match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
           Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
           _ => false
@@ -9702,8 +9701,8 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
       locals,
       extra_local_types,
       true,
-      allow_direct_call=label_target.result_types.length() == 1,
-      allow_direct_call_operands=label_target.result_types.length() == 1,
+      allow_direct_call=label_target.result_types.length() > 0,
+      allow_direct_call_operands=label_target.result_types.length() > 0,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -12736,7 +12735,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_direct_call_block_type_supported(
   match @ir.hot_module_resolve_block_results(module_ctx, block_type) {
     Some(result_types) =>
       if branch_on_null {
-        result_types.length() == 1
+        result_types.length() > 0
       } else {
         match result_types.last() {
           Some(@lib.RefTypeValType(_)) => true
@@ -12756,7 +12755,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_direct_call_block_allows_operands(
   match @ir.hot_module_resolve_block_results(module_ctx, block_type) {
     Some(result_types) =>
       if branch_on_null {
-        result_types.length() == 1
+        result_types.length() > 0
       } else {
         match result_types.last() {
           Some(@lib.RefTypeValType(_)) => true
