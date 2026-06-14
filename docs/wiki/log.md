@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Close ordinary structured merge-adjacent sets
+
+- Completed `[SSANM-006a2b]`, `[SSANM-006a2c]`, and parent `[SSANM-006a2]` in [`../../agent-todo.md`](../../agent-todo.md).
+- Added explicit public-pipeline coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for ordinary merge-adjacent `local.set` traffic: freshenable writes before/after a canonical both-arm merge use planned locals while merge-feeding writes and the merge read stay on the original local.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md) to narrow legacy `structured-local-writes` / `structured-local-writes-mutated` ownership to branch/table, typed-control, EH, huge-function, and artifact/debug boundary helpers. Evidence: `moon fmt`, `moon info`, focused `ssa_nomerge_test.mbt` (`409/409`), `moon test src/passes` (`2439/2439`), full `moon test` (`5744/5744`), native `src/cmd` build, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm006a2b-merge-adjacent-10000` (`7605/10000` compared, `7605` normalized, `0` mismatches, `20` Binaryen/tool command failures) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice branch/table structured-control work
 
 - Split hidden work under `[SSANM-006a3]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for ordinary branch-exit helper inventory, plain `br` / `br_if` classification, `br_table` classification, and nested branch-target expansion.

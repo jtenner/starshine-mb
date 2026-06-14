@@ -19481,6 +19481,73 @@ test "ssa-nomerge LocalGraph freshens mixed structured non-merge writes" {
 }
 
 ///|
+test "ssa-nomerge LocalGraph preserves merge sets between ordinary fresh sets" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    block
+    #|      i32.const 10
+    #|      local.set 1
+    #|      local.get 1
+    #|      drop
+    #|      local.get 0
+    #|      if
+    #|        i32.const 20
+    #|        local.set 1
+    #|      else
+    #|        i32.const 30
+    #|        local.set 1
+    #|      end
+    #|      local.get 1
+    #|      drop
+    #|      block
+    #|        i32.const 40
+    #|        local.set 1
+    #|        local.get 1
+    #|        drop
+    #|      end
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected mixed ordinary set success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [2U, 1U, 1U, 3U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [
+    2U, 0U, 1U, 3U, 3U,
+  ])
+  assert_false(
+    ssa_test_has_ssa_temp_local_writes(instrs, 3U),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge LocalGraph freshens mixed structured tee writes" {
   let trace : Array[String] = []
   let source =
