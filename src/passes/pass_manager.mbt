@@ -8581,6 +8581,24 @@ fn run_hot_pipeline_raw_loop_param_store_label_target(
 }
 
 ///|
+fn run_hot_pipeline_raw_loop_param_carrier_label_target(
+  block_type : @lib.BlockType,
+  param_types : Array[@lib.ValType],
+  needed_alias_copies : @bitset.BitSet,
+) -> RawSsaLabelTarget {
+  {
+    block_type,
+    result_types: param_types,
+    is_loop: false,
+    is_loop_param_proxy: false,
+    is_loop_param_store: false,
+    loop_param_scratch: None,
+    loop_param_scratches: [],
+    needed_alias_copies,
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_br_table_alias_copies(
   labels : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
@@ -11236,9 +11254,34 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 loop_initialized[local_id] = true
               }
             }
-            let loop_label_target = run_hot_pipeline_raw_loop_param_store_label_target(
-              loop_param_types, loop_scratches, loop_header_reads_before_writes,
-            )
+            let plain_result_loop_carrier_type_idx = if loop_result_types.length() ==
+              1 &&
+              loop_param_types.length() > 1 &&
+              run_hot_pipeline_raw_val_types_are_gc_free(loop_param_types) &&
+              run_hot_pipeline_raw_val_types_are_gc_free(loop_result_types) &&
+              !run_hot_pipeline_raw_instrs_have_try_table(body) &&
+              run_hot_pipeline_raw_instrs_current_loop_backedges_are_plain_br(
+                body, 0U,
+              ) {
+              @ir.hot_module_find_block_result_type_idx(
+                module_ctx, loop_param_types,
+              )
+            } else {
+              None
+            }
+            let rewrite_label_target = match
+              plain_result_loop_carrier_type_idx {
+              Some(carrier_type_idx) =>
+                run_hot_pipeline_raw_loop_param_carrier_label_target(
+                  @lib.BlockType::type_idx(carrier_type_idx),
+                  loop_param_types,
+                  loop_header_reads_before_writes,
+                )
+              None =>
+                run_hot_pipeline_raw_loop_param_store_label_target(
+                  loop_param_types, loop_scratches, loop_header_reads_before_writes,
+                )
+            }
             match
               run_hot_pipeline_raw_rewrite_instrs(
                 body,
@@ -11249,7 +11292,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 canonical_aliases,
                 loop_initialized,
                 run_hot_pipeline_raw_push_label_target(
-                  label_stack, loop_label_target,
+                  label_stack, rewrite_label_target,
                 ),
                 child_future_reads,
                 child_future_writes,
@@ -11311,12 +11354,51 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                       body, 0U,
                     )
                   if preserve_plain_result_loop_carrier {
-                    rewritten.push(
-                      @lib.Instruction::loop_(
-                        result_block_type,
-                        @lib.Expr::new(loop_body),
-                      ),
-                    )
+                    match plain_result_loop_carrier_type_idx {
+                      Some(carrier_type_idx) => {
+                        if body_fallthrough {
+                          loop_body.push(
+                            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                          )
+                        }
+                        let outer_body : Array[@lib.Instruction] = [
+                          @lib.Instruction::block(
+                            @lib.BlockType::type_idx(carrier_type_idx),
+                            @lib.Expr::new(loop_body),
+                          ),
+                        ]
+                        for scratch_idx = loop_scratches.length() - 1
+                            scratch_idx >= 0
+                            scratch_idx = scratch_idx - 1 {
+                          outer_body.push(
+                            @lib.Instruction::local_set(
+                              loop_scratches[scratch_idx],
+                            ),
+                          )
+                        }
+                        outer_body.push(
+                          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                        )
+                        rewritten.push(
+                          @lib.Instruction::loop_(
+                            result_block_type,
+                            @lib.Expr::new([
+                              @lib.Instruction::block(
+                                result_block_type,
+                                @lib.Expr::new(outer_body),
+                              ),
+                            ]),
+                          ),
+                        )
+                      }
+                      None =>
+                        rewritten.push(
+                          @lib.Instruction::loop_(
+                            result_block_type,
+                            @lib.Expr::new(loop_body),
+                          ),
+                        )
+                    }
                     if was_reachable {
                       if body_fallthrough {
                         aliases = body_aliases
@@ -16464,7 +16546,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_multiparam_value_if_branch_carrier(
 }
 
 ///|
-fn run_hot_pipeline_raw_ssa_nomerge(
+fn run_hot_pipeline_raw_ssa_nomerge_impl(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   module_state : HotPipelineModuleState,
@@ -16596,6 +16678,31 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     return None
   }
   if has_structured_control {
+    let base_local_count = params.length() + locals.length()
+    let structured_instr_limit = if has_branches {
+      structured_branch_raw_instr_limit
+    } else {
+      structured_no_branch_raw_instr_limit
+    }
+    if instr_count > structured_instr_limit ||
+      (has_branches && base_local_count > structured_branch_raw_local_limit) {
+      return Some({
+        reason: "large-structured-local-writes func=\{func_idx} instrs=\{instr_count} locals=\{base_local_count}",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_instrs_have_memory_access(instrs) &&
+      run_hot_pipeline_raw_count_call_like(instrs) >= 24 &&
+      instr_count >= 128 {
+      return Some({
+        reason: "call-heavy-memory-structured-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_merge_supported_control(
         instrs,
       ) {
@@ -16630,7 +16737,6 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       }
       return None
     }
-    let base_local_count = params.length() + locals.length()
     if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
         instrs,
         module_ctx,
@@ -16701,20 +16807,6 @@ fn run_hot_pipeline_raw_ssa_nomerge(
             trace_skip_raw: true,
           })
       }
-    }
-    let structured_instr_limit = if has_branches {
-      structured_branch_raw_instr_limit
-    } else {
-      structured_no_branch_raw_instr_limit
-    }
-    if instr_count > structured_instr_limit ||
-      (has_branches && base_local_count > structured_branch_raw_local_limit) {
-      return Some({
-        reason: "large-structured-local-writes func=\{func_idx} instrs=\{instr_count} locals=\{base_local_count}",
-        func: original,
-        unchanged_original: true,
-        trace_skip_raw: true,
-      })
     }
     if run_hot_pipeline_raw_ssa_nomerge_one_arm_merge_supported_control(instrs) {
       let hot_func = @ir.hot_lift_func(mod_, func_idx)
@@ -16855,6 +16947,33 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       trace_skip_raw: true,
     })
   }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
+) -> HotPipelineFuncResult? {
+  let should_time = descriptor.name == "ssa-nomerge" ||
+    descriptor.name == "ssa" ||
+    descriptor.name == "dead-code-elimination"
+  let @lib.FuncIdx(raw_func_idx) = func_idx
+  let timer_name = "raw:\{descriptor.name}:func:\{raw_func_idx.reinterpret_as_int()}"
+  let start_us = if should_time {
+    perf_start_timer_opt(options.perf, timer_name)
+  } else {
+    0UL
+  }
+  let result = run_hot_pipeline_raw_ssa_nomerge_impl(
+    mod_, func_idx, module_state, descriptor, options,
+  )
+  if should_time {
+    perf_stop_timer_opt(options.perf, timer_name, start_us)
+  }
+  result
 }
 
 ///|

@@ -422,6 +422,8 @@ pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
 
 pub fn hot_module_context_from_module(@lib.Module) -> HotModuleContext
 
+pub fn hot_module_find_block_result_type_idx(HotModuleContext, Array[@lib.ValType]) -> @lib.TypeIdx?
+
 pub fn hot_module_resolve_array_field(HotModuleContext, @lib.TypeIdx) -> @lib.FieldType?
 
 pub fn hot_module_resolve_block_results(HotModuleContext, @lib.BlockType) -> Array[@lib.ValType]?

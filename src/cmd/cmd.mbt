@@ -2845,6 +2845,33 @@ fn cmd_trace_emit(io : CmdIO, enabled : Bool, msg : String) -> Unit {
 }
 
 ///|
+fn cmd_trace_timer_start(enabled : Bool) -> UInt64 {
+  if enabled {
+    @lib.trace_now_us()
+  } else {
+    0UL
+  }
+}
+
+///|
+fn cmd_trace_timer_stop(
+  io : CmdIO,
+  enabled : Bool,
+  name : String,
+  start_us : UInt64,
+) -> Unit {
+  if !enabled {
+    return
+  }
+  let elapsed_us = @lib.trace_elapsed_us_since(start_us)
+  cmd_trace_emit(
+    io,
+    true,
+    "perf:timer name=cmd:\{name} elapsed_us=\{elapsed_us} total_us=\{elapsed_us}",
+  )
+}
+
+///|
 fn append_help_line(out : StringBuilder, flag : String, desc : String) -> Unit {
   for c in "  \{flag}\n      \{desc}\n" {
     out.write_char(c)
@@ -3652,10 +3679,12 @@ pub fn run_cmd_with_adapter(
         }
     }
 
+    let read_start_us = cmd_trace_timer_start(trace_optimize)
     let raw_bytes = match (io.read_file)(input_path) {
       Ok(bytes) => bytes
       Err(e) => return Err(CmdError::InputReadFailed("\{input_path}: \{e}"))
     }
+    cmd_trace_timer_stop(io, trace_optimize, "read-input", read_start_us)
     cmd_trace_emit(
       io,
       trace_optimize,
@@ -3701,10 +3730,12 @@ pub fn run_cmd_with_adapter(
       continue
     }
 
+    let decode_start_us = cmd_trace_timer_start(trace_optimize)
     let mod = match decode_module_for_pipeline(input_path, wasm_bytes) {
       Ok(mod) => mod
       Err(e) => return Err(e)
     }
+    cmd_trace_timer_stop(io, trace_optimize, "decode", decode_start_us)
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:decode done")
 
     let pipeline_steps = match cmd_resolve_pipeline_steps(resolved_passes) {
@@ -3861,11 +3892,15 @@ pub fn run_cmd_with_adapter(
       trace_optimize,
       "input \{input_path}:final-validate:start",
     )
+    let final_validate_start_us = cmd_trace_timer_start(trace_optimize)
     match
       validate_module_for_pipeline_step(optimized, "final module validate") {
       Ok(_) => ()
       Err(err) => return Err(err)
     }
+    cmd_trace_timer_stop(
+      io, trace_optimize, "validate:final-module", final_validate_start_us,
+    )
     cmd_trace_emit(
       io,
       trace_optimize,
@@ -3873,19 +3908,28 @@ pub fn run_cmd_with_adapter(
     )
     cmd_trace_emit(io, trace_optimize, "input \{input_path}:optimize done")
 
-    let out_bytes = if should_reuse_input_wasm_bytes(
-        format,
-        effective_pass_count,
-        merged.debug_serial_passes,
-        mod,
-        optimized,
-      ) {
+    let reuse_check_start_us = cmd_trace_timer_start(trace_optimize)
+    let reuse_input_wasm_bytes = should_reuse_input_wasm_bytes(
+      format,
+      effective_pass_count,
+      merged.debug_serial_passes,
+      mod,
+      optimized,
+    )
+    cmd_trace_timer_stop(
+      io, trace_optimize, "reuse-input-check", reuse_check_start_us,
+    )
+    let out_bytes = if reuse_input_wasm_bytes {
       wasm_bytes
     } else {
-      match encode_module_for_pipeline(io, input_path, optimized) {
+      let encode_start_us = cmd_trace_timer_start(trace_optimize)
+      let encoded = match
+        encode_module_for_pipeline(io, input_path, optimized) {
         Ok(bytes) => bytes
         Err(e) => return Err(e)
       }
+      cmd_trace_timer_stop(io, trace_optimize, "encode", encode_start_us)
+      encoded
     }
     cmd_trace_emit(
       io,
@@ -3920,6 +3964,7 @@ pub fn run_cmd_with_adapter(
       )
     }
 
+    let write_start_us = cmd_trace_timer_start(trace_optimize)
     match
       write_output_bytes_for_input(
         io,
@@ -3933,6 +3978,7 @@ pub fn run_cmd_with_adapter(
       Ok(_) => ()
       Err(err) => return Err(err)
     }
+    cmd_trace_timer_stop(io, trace_optimize, "write-output", write_start_us)
   }
 
   Ok(

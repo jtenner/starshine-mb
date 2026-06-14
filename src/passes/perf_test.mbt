@@ -3718,8 +3718,54 @@ test "ssa-nomerge skips raw lift when the original function has no local writes"
 
   let text = perf_test_join_lines(lines)
   assert_true(text.contains("pass[ssa-nomerge]:skip-raw"))
+  // Raw fast-path skips are timed so whole-command attribution cannot hide here.
+  assert_true(text.contains("perf:timer name=raw:ssa-nomerge"), msg=text)
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=pass:ssa-nomerge"))
+}
+
+///|
+test "ssa-nomerge skips call-heavy memory structured raw path before expensive rewrite" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let wat = StringBuilder::new()
+  wat.write_string(
+    "(module (memory 1) (func (param i32) (result i32) local.get 0) (func (param i32) (result i32) (local",
+  )
+  let mut local_idx = 0
+  while local_idx < 64 {
+    wat.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  wat.write_string(") local.get 0 if")
+  for i = 0; i < 25; i = i + 1 {
+    wat.write_string(" i32.const 0 local.get 0 call 0 local.tee ")
+    wat.write_string((i + 1).to_string())
+    wat.write_string(" i32.store local.get 0 call 0 local.set ")
+    wat.write_string((i + 33).to_string())
+  }
+  wat.write_string(" end local.get 0))")
+
+  match
+    pass_test_run_pipeline(
+      wat.to_string(),
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected call-heavy memory ssa-nomerge success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[ssa-nomerge]:skip-raw reason=call-heavy-memory-structured-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=pass:ssa-nomerge"), msg=text)
 }
 
 ///|

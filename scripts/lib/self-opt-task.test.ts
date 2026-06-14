@@ -5,6 +5,23 @@ import path from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { parseSelfOptArtifactOptimizerCompareArgs, parseSelfOptCheckArgs, runSelfOptArtifactOptimizerCompare, runSelfOptCheck } from "./self-opt-task";
+import { parseStarshinePerfTimingSummary } from "./self-optimize-compare-task";
+
+describe("self-optimize compare timing parsing", () => {
+  test("separates raw pass timers from pass-local timers", () => {
+    const summary = parseStarshinePerfTimingSummary([
+      "perf:timer name=raw:ssa-nomerge:func:5539 elapsed_us=61000000 total_us=61000000",
+      "perf:timer name=pass:ssa-nomerge elapsed_us=367 total_us=367",
+      "perf:timer name=validate:final-module elapsed_us=5000 total_us=5000",
+      "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
+    ].join("\n"));
+
+    expect(summary.passElapsedMs).toBe(0.367);
+    expect(summary.rawElapsedMs).toBe(61000);
+    expect(summary.otherTimedElapsedMs).toBe(5);
+    expect(summary.passSkippedRaw).toBe(true);
+  });
+});
 
 describe("self-opt artifact check lane", () => {
   test("defaults to a fast spec smoke while still selecting the generated self-optimized artifact", () => {

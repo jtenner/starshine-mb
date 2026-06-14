@@ -46,6 +46,9 @@ type ComparisonSummary = {
   binaryenElapsedMs: number;
   starshineAtLeastAsFast: boolean;
   starshinePassElapsedMs: number;
+  starshineRawElapsedMs: number;
+  starshineOtherTimedElapsedMs: number;
+  starshineUntimedElapsedMs: number;
   starshinePassSkippedRaw: boolean;
   binaryenPassElapsedMs: number;
   starshinePassAtLeastAsFast: boolean;
@@ -1788,10 +1791,28 @@ function runTimedOrThrow(
   return { ...result, elapsedMs };
 }
 
-function parseStarshinePassElapsedMs(stderr: string): number {
-  const matches = Array.from(stderr.matchAll(/perf:timer name=pass:[^\s]+ elapsed_us=(\d+)/g));
-  if (matches.length !== 0) {
-    return matches.reduce((sum, match) => sum + Number(match[1]), 0) / 1000;
+export type StarshinePerfTimingSummary = {
+  passElapsedMs: number;
+  rawElapsedMs: number;
+  otherTimedElapsedMs: number;
+  totalTimedElapsedMs: number;
+  passSkippedRaw: boolean;
+};
+
+function sumStarshinePerfTimersMs(stderr: string, predicate: (name: string) => boolean): number {
+  let elapsedUs = 0;
+  for (const match of stderr.matchAll(/perf:timer name=([^\s]+) elapsed_us=(\d+)/g)) {
+    if (predicate(match[1])) {
+      elapsedUs += Number(match[2]);
+    }
+  }
+  return elapsedUs / 1000;
+}
+
+export function parseStarshinePassElapsedMs(stderr: string): number {
+  const elapsedMs = sumStarshinePerfTimersMs(stderr, (name) => name.startsWith("pass:"));
+  if (elapsedMs !== 0 || /perf:timer name=pass:[^\s]+ elapsed_us=0\b/.test(stderr)) {
+    return elapsedMs;
   }
   if (starshinePassSkippedRaw(stderr)) {
     return 0;
@@ -1799,8 +1820,22 @@ function parseStarshinePassElapsedMs(stderr: string): number {
   fail("failed to parse Starshine pass timing from traced stderr");
 }
 
-function starshinePassSkippedRaw(stderr: string): boolean {
+export function starshinePassSkippedRaw(stderr: string): boolean {
   return /pass\[[^\]]+\]:skip-raw\b/.test(stderr);
+}
+
+export function parseStarshinePerfTimingSummary(stderr: string): StarshinePerfTimingSummary {
+  const passElapsedMs = parseStarshinePassElapsedMs(stderr);
+  const rawElapsedMs = sumStarshinePerfTimersMs(stderr, (name) => name.startsWith("raw:"));
+  const totalTimedElapsedMs = sumStarshinePerfTimersMs(stderr, () => true);
+  const otherTimedElapsedMs = Math.max(0, totalTimedElapsedMs - passElapsedMs - rawElapsedMs);
+  return {
+    passElapsedMs,
+    rawElapsedMs,
+    otherTimedElapsedMs,
+    totalTimedElapsedMs,
+    passSkippedRaw: starshinePassSkippedRaw(stderr),
+  };
 }
 
 function parseBinaryenPassElapsedMs(stdout: string, stderr: string): number {
@@ -2147,12 +2182,21 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     },
     stdio: "pipe",
   });
+  fs.writeFileSync(path.join(outDir, "starshine.stdout.txt"), starshineRun.stdout);
+  fs.writeFileSync(path.join(outDir, "starshine.stderr.txt"), starshineRun.stderr);
   const binaryenRun = runTimedOrThrow(options.wasmOptBin, binaryenArgs, {
     cwd: repoRoot,
     stdio: "pipe",
   });
-  const starshinePassElapsedMs = parseStarshinePassElapsedMs(starshineRun.stderr);
-  const starshinePassSkipped = starshinePassSkippedRaw(starshineRun.stderr);
+  fs.writeFileSync(path.join(outDir, "binaryen.stdout.txt"), binaryenRun.stdout);
+  fs.writeFileSync(path.join(outDir, "binaryen.stderr.txt"), binaryenRun.stderr);
+  const starshineTiming = parseStarshinePerfTimingSummary(starshineRun.stderr);
+  const starshinePassElapsedMs = starshineTiming.passElapsedMs;
+  const starshinePassSkipped = starshineTiming.passSkippedRaw;
+  const starshineUntimedElapsedMs = Math.max(
+    0,
+    starshineRun.elapsedMs - starshineTiming.totalTimedElapsedMs,
+  );
   const binaryenPassElapsedMs = parseBinaryenPassElapsedMs(
     binaryenRun.stdout,
     binaryenRun.stderr,
@@ -2247,6 +2291,9 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenElapsedMs: binaryenRun.elapsedMs,
     starshineAtLeastAsFast: starshineRun.elapsedMs <= binaryenRun.elapsedMs,
     starshinePassElapsedMs,
+    starshineRawElapsedMs: starshineTiming.rawElapsedMs,
+    starshineOtherTimedElapsedMs: starshineTiming.otherTimedElapsedMs,
+    starshineUntimedElapsedMs,
     starshinePassSkippedRaw: starshinePassSkipped,
     binaryenPassElapsedMs,
     starshinePassAtLeastAsFast: starshinePassElapsedMs <= binaryenPassElapsedMs,
@@ -2292,6 +2339,9 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Binaryen runtime (ms): ${summary.binaryenElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine at least as fast: ${summary.starshineAtLeastAsFast ? "yes" : "no"}\n`);
   process.stdout.write(`Starshine pass runtime (ms): ${summary.starshinePassElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine raw runtime (ms): ${summary.starshineRawElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine other traced runtime (ms): ${summary.starshineOtherTimedElapsedMs.toFixed(3)}\n`);
+  process.stdout.write(`Starshine untraced/runtime overhead (ms): ${summary.starshineUntimedElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine pass skipped raw: ${summary.starshinePassSkippedRaw ? "yes" : "no"}\n`);
   process.stdout.write(`Binaryen pass runtime (ms): ${summary.binaryenPassElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine pass at least as fast: ${summary.starshinePassAtLeastAsFast ? "yes" : "no"}\n`);
