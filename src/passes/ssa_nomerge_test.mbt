@@ -5475,10 +5475,11 @@ fn ssa_test_expect_scalar_loop_param_br_if_proxy(
 }
 
 ///|
-fn ssa_test_expect_loop_param_store_model(
+fn ssa_test_expect_typed_loop_boundary_output(
   source : String,
   min_local_count : Int,
-) -> Unit raise {
+  context : String,
+) -> (@lib.Locals, Array[@lib.Instruction]) raise {
   let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
@@ -5489,14 +5490,14 @@ fn ssa_test_expect_loop_param_store_model(
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected typed loop-param store-model ssa-nomerge success, got \{err}",
+        "expected typed loop-param \{context} ssa-nomerge success, got \{err}",
       )
   }
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected typed loop-param store-model ssa-nomerge output to validate, got \{@validate.validation_error_message(err)}",
+        "expected typed loop-param \{context} ssa-nomerge output to validate, got \{@validate.validation_error_message(err)}",
       )
   }
   ssa_test_assert_ssa_nomerge_raw_reason(
@@ -5504,8 +5505,67 @@ fn ssa_test_expect_loop_param_store_model(
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() >= min_local_count, msg=locals.to_string())
+  (locals, instrs)
+}
+
+///|
+fn ssa_test_expect_typed_loop_module_boundary_output(
+  input : @lib.Module,
+  min_local_count : Int,
+  context : String,
+) -> (@lib.Locals, Array[@lib.Instruction]) raise {
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected typed loop-param \{context} ssa-nomerge success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected typed loop-param \{context} ssa-nomerge output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ssa_test_assert_ssa_nomerge_raw_reason(
+    trace, "structured-local-writes-mutated",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() >= min_local_count, msg=locals.to_string())
+  (locals, instrs)
+}
+
+///|
+fn ssa_test_expect_loop_param_store_model(
+  source : String,
+  min_local_count : Int,
+) -> Unit raise {
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, min_local_count, "store-model",
+  )
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+fn ssa_test_expect_loop_param_br_table_proxy(
+  source : String,
+  min_local_count : Int,
+) -> Unit raise {
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, min_local_count, "br_table proxy",
+  )
+  assert_true(
+    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
     msg=instrs.to_string(),
   )
 }
@@ -6082,13 +6142,7 @@ test "ssa-nomerge rewrites scalar typed loop br_table backedges" {
     #|    end
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_expect_loop_param_br_table_proxy(source, 2)
 }
 
 ///|
@@ -6120,13 +6174,7 @@ test "ssa-nomerge rewrites copy-needing scalar typed loop br_table backedges" {
     #|    end
     #|    local.get 2))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_expect_loop_param_br_table_proxy(source, 3)
 }
 
 ///|
@@ -6151,13 +6199,7 @@ test "ssa-nomerge rewrites multi-param typed loop br_table backedges" {
     #|    end
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_expect_loop_param_store_model(source, 3)
 }
 
 ///|
@@ -6177,9 +6219,9 @@ test "ssa-nomerge rewrites mixed-target single-result typed loop br_table backed
     #|      end
     #|    end)
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 2, "mixed-target single-result br_table",
+  )
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
     msg=instrs.to_string(),
@@ -6205,9 +6247,9 @@ test "ssa-nomerge rewrites mixed-target single-param no-result typed loop br_tab
     #|      unreachable
     #|    end)
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 2, "mixed-target single-param br_table",
+  )
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
     msg=instrs.to_string(),
@@ -6246,9 +6288,9 @@ test "ssa-nomerge rewrites copy-needing mixed-target single-param no-result type
     #|      unreachable
     #|    end)
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 3, "copy-needing mixed-target single-param br_table",
+  )
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
     msg=instrs.to_string(),
@@ -6281,9 +6323,9 @@ test "ssa-nomerge rewrites mixed-target multi-param typed loop br_table backedge
     #|      unreachable
     #|    end)
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 3, "mixed-target multi-param br_table",
+  )
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
     msg=instrs.to_string(),
@@ -6319,9 +6361,9 @@ test "ssa-nomerge rewrites copy-needing mixed-target single-result typed loop br
     #|      end
     #|    end)
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 3, "copy-needing mixed-target single-result br_table",
+  )
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
     msg=instrs.to_string(),
@@ -14251,13 +14293,7 @@ test "ssa-nomerge rewrites non-current scalar typed loop br_table targets" {
     #|    end
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_expect_loop_param_br_table_proxy(source, 2)
 }
 
 ///|
@@ -14307,15 +14343,7 @@ test "ssa-nomerge rewrites try_table scalar proxy br_table catch-relabeling" {
     #|          drop)))
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    source, "try_table scalar proxy br_table catch-label relabeling",
-  )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_expect_loop_param_br_table_proxy(source, 2)
 }
 
 ///|
@@ -14379,15 +14407,7 @@ test "ssa-nomerge rewrites try_table single-result br_table fallthrough store mo
     #|      return)
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    source, "try_table single-result br_table fallthrough store model",
-  )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_expect_loop_param_store_model(source, 3)
 }
 
 ///|
@@ -14417,11 +14437,9 @@ test "ssa-nomerge rewrites nested non-void loop self-backedges" {
     #|    end
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    source, "nested non-void loop self-backedge",
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 3, "nested non-void loop self-backedge",
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
     msg=instrs.to_string(),
@@ -14453,11 +14471,9 @@ test "ssa-nomerge rewrites nested non-void loop direct self-backedges" {
     #|    end
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    source, "nested non-void loop direct self-backedge",
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 3, "nested non-void loop direct self-backedge",
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
     msg=instrs.to_string(),
@@ -14483,11 +14499,9 @@ test "ssa-nomerge rewrites nested other-label branches under typed loop params" 
     #|    end
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    source, "nested other-label branch under typed loop param",
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 2, "nested other-label branch under typed loop param",
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
     msg=instrs.to_string(),
@@ -14514,11 +14528,9 @@ test "ssa-nomerge rewrites nested other-label br_if branches under typed loop pa
     #|    end
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    source, "nested other-label br_if under typed loop param",
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 2, "nested other-label br_if under typed loop param",
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
     msg=instrs.to_string(),
@@ -14556,13 +14568,7 @@ test "ssa-nomerge rewrites copy-needing non-current scalar typed loop br_table t
     #|    end
     #|    local.get 2))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_expect_loop_param_br_table_proxy(source, 3)
 }
 
 ///|
@@ -14587,13 +14593,7 @@ test "ssa-nomerge rewrites non-current multi-param typed loop br_table targets" 
     #|    end
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_expect_loop_param_store_model(source, 3)
 }
 
 ///|
@@ -14618,13 +14618,7 @@ test "ssa-nomerge rewrites non-current single-result typed loop br_table targets
     #|      local.get 1
     #|    end))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
-    msg=instrs.to_string(),
-  )
+  ssa_test_expect_loop_param_store_model(source, 3)
 }
 
 ///|
@@ -14649,9 +14643,9 @@ test "ssa-nomerge rewrites non-current mixed-target scalar typed loop br_table t
     #|      unreachable
     #|    end))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 2, "non-current mixed-target scalar br_table",
+  )
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
     msg=instrs.to_string(),
@@ -14687,9 +14681,9 @@ test "ssa-nomerge rewrites non-current mixed-target multi-param typed loop br_ta
     #|      unreachable
     #|    end))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 2, msg=locals.to_string())
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 3, "non-current mixed-target multi-param br_table",
+  )
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
     msg=instrs.to_string(),
@@ -14727,9 +14721,9 @@ test "ssa-nomerge rewrites mixed scalar typed loop br_table and br_if backedges"
     #|    end
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 2, "mixed scalar br_table and br_if",
+  )
   assert_true(
     ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
     msg=instrs.to_string(),
@@ -14783,21 +14777,9 @@ test "ssa-nomerge rewrites concrete reference typed loop br_table backedges" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected reference typed-loop br_table success, got \{err}")
-  }
-  match @validate.validate_module(optimized) {
-    Ok(_) => ()
-    Err(err) =>
-      fail(
-        "expected output to validate, got \{@validate.validation_error_message(err)}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
+  let (_, instrs) = try! ssa_test_expect_typed_loop_module_boundary_output(
+    input, 2, "reference br_table",
+  )
   assert_true(
     ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
     msg=instrs.to_string(),

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Close typed loop/result boundaries
+
+- Completed `[SSANM-007b2c]`, `[SSANM-007b2d]`, and parent `[SSANM-007b2]` in [`../../agent-todo.md`](../../agent-todo.md); typed branch/cast/null operand locks remain open in `[SSANM-007b3]`.
+- Strengthened focused trace/output coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): all-current, mixed-target, copy-needing, single-result, non-current/nested, no-throw `try_table`, reference, and nested-loop typed `br_table` / target fixtures now require `structured-local-writes-mutated` through shared typed-loop boundary helpers.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence so far: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `420/420`. Direct compare was not run because this regression/classification closeout changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Lock typed loop/result boundaries
 
 - Completed `[SSANM-007b2a]` and `[SSANM-007b2b]` in [`../../agent-todo.md`](../../agent-todo.md); `[SSANM-007b2]` remains open for `br_table` / nested-target closeout slices.
