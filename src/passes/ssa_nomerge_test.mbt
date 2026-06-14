@@ -19778,6 +19778,426 @@ test "ssa-nomerge artifact value-if carrier does not read unwritten fresh locals
 }
 
 ///|
+test "ssa-nomerge artifact branch carrier keeps canonical merged label writes" {
+  // Reduced standalone module for the post-`[SSANM-009b2]` debug-WASI
+  // first diff, `defined=363 abs=390` (`dae_instr_has_escaping_branch`).
+  // Binaryen keeps the shared branch label local canonical because two tag arms
+  // feed later branch-target checks. Starshine must not freshen those writes into
+  // private arm locals while leaving the outer reads on the original body local.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $moonbit.decref (param i32))
+    #|  (func $moonbit.incref (param i32))
+    #|  (func $moonbit.free (param i32))
+    #|  (func $_M0FP37jtenner9starshine6passes36dae__branch__targets__outside__depth (param i32 i32) (result i32) (local.get 0))
+    #|  (func $_M0FP37jtenner9starshine6passes35dae__instrs__have__escaping__branch (param i32 i32) (result i32) (local.get 0))
+    #|  (func $f (export "f") (param $_M0L5instrS93868 i32) (param $_M0L5depthS93853 i32) (result i32)
+    #|    (local $_M0L10then__bodyS93852 i32) (local $_M0L10then__bodyS93855 i32) (local $_M0L10else__bodyS93856 i32) (local $_M0L4bodyS93858 i32) (local $_M0L6labelsS93860 i32) (local $_M0L8fallbackS93861 i32) (local $_M0L7_2abindS93862 i32) (local $_M0L2__S93863 i32) (local $_M0L10label__idxS93864 i32) (local $_M0L10label__idxS93867 i32) (local $_M0L5_2aBrS93869 i32) (local $_M0L13_2alabel__idxS93870 i32) (local $_M0L7_2aBrIfS93871 i32) (local $_M0L13_2alabel__idxS93872 i32) (local $_M0L10_2aBrTableS93873 i32) (local $_M0L9_2alabelsS93874 i32) (local $_M0L11_2afallbackS93875 i32) (local $_M0L8_2aBlockS93876 i32) (local $_M0L4_2axS93877 i32) (local $_M0L7_2abodyS93878 i32) (local $_M0L7_2aLoopS93879 i32) (local $_M0L4_2axS93880 i32) (local $_M0L7_2abodyS93881 i32) (local $_M0L11_2aTryTableS93882 i32) (local $_M0L4_2axS93883 i32) (local $_M0L7_2abodyS93884 i32) (local $_M0L5_2aIfS93885 i32) (local $_M0L13_2athen__bodyS93886 i32) (local $_M0L4_2axS93887 i32) (local $_M0L7_2aSomeS93888 i32) (local $_M0L13_2aelse__bodyS93889 i32) (local $_M0L6_2atmpS152630 i32) (local $_M0L6_2atmpS152631 i32) (local $_M0L6_2atmpS152632 i32) (local $_M0L6_2atmpS152633 i32) (local $_M0L6_2atmpS152634 i32) (local $_M0L3bufS152635 i32) (local $_M0L8_2afieldS159536 i32) (local $_M0L8_2afieldS159537 i32) (local $_M0L8_2afieldS159538 i32) (local $_M0L8_2afieldS159539 i32) (local $_M0L6_2acntS177856 i32) (local $_M0L11_2anew__cntS177857 i32) (local $_M0L6_2acntS177858 i32) (local $_M0L8_2afieldS177859 i32) (local $_M0L11_2anew__cntS177860 i32) (local $_M0L6_2acntS177861 i32) (local $_M0L8_2afieldS177862 i32) (local $_M0L11_2anew__cntS177863 i32) (local $_M0L6_2acntS177864 i32) (local $_M0L8_2afieldS177865 i32) (local $_M0L8_2afieldS177866 i32) (local $_M0L11_2anew__cntS177867 i32) (local $_M0L6_2acntS177868 i32) (local $_M0L8_2afieldS177869 i32) (local $_M0L11_2anew__cntS177870 i32) (local $_M0L6_2atagS201047 i32)
+    #|    block ;; label = @1
+    #|      block ;; label = @2
+    #|        block ;; label = @3
+    #|          block ;; label = @4
+    #|            block ;; label = @5
+    #|              local.get $_M0L5instrS93868
+    #|              i32.load offset=8 align=1
+    #|              local.tee $_M0L6_2atagS201047
+    #|              i32.const 7
+    #|              i32.eq
+    #|              if (result i32) ;; label = @6
+    #|                local.get $_M0L5instrS93868
+    #|                local.tee $_M0L5_2aBrS93869
+    #|                i32.load offset=12 align=1
+    #|                local.get $_M0L5_2aBrS93869
+    #|                call $moonbit.decref
+    #|                local.tee $_M0L13_2alabel__idxS93870
+    #|                local.set $_M0L10label__idxS93867
+    #|                br 1 (;@5;)
+    #|              else
+    #|                local.get $_M0L6_2atagS201047
+    #|                i32.const 8
+    #|                i32.eq
+    #|                if (result i32) ;; label = @7
+    #|                  local.get $_M0L5instrS93868
+    #|                  local.tee $_M0L7_2aBrIfS93871
+    #|                  i32.load offset=12 align=1
+    #|                  local.get $_M0L7_2aBrIfS93871
+    #|                  call $moonbit.decref
+    #|                  local.tee $_M0L13_2alabel__idxS93872
+    #|                  local.set $_M0L10label__idxS93867
+    #|                  br 2 (;@5;)
+    #|                else
+    #|                  local.get $_M0L6_2atagS201047
+    #|                  i32.const 9
+    #|                  i32.eq
+    #|                  if (result i32) ;; label = @8
+    #|                    local.get $_M0L5instrS93868
+    #|                    local.tee $_M0L10_2aBrTableS93873
+    #|                    i32.load offset=16 align=1
+    #|                    local.set $_M0L9_2alabelsS93874
+    #|                    local.get $_M0L10_2aBrTableS93873
+    #|                    i32.load offset=12 align=1
+    #|                    local.get $_M0L10_2aBrTableS93873
+    #|                    i32.load align=1
+    #|                    local.tee $_M0L6_2acntS177856
+    #|                    i32.const 1
+    #|                    i32.gt_s
+    #|                    if ;; label = @9
+    #|                      local.get $_M0L6_2acntS177856
+    #|                      i32.const 1
+    #|                      i32.sub
+    #|                      local.set $_M0L11_2anew__cntS177857
+    #|                      local.get $_M0L10_2aBrTableS93873
+    #|                      local.get $_M0L11_2anew__cntS177857
+    #|                      i32.store align=1
+    #|                      local.get $_M0L9_2alabelsS93874
+    #|                      call $moonbit.incref
+    #|                    else
+    #|                      local.get $_M0L6_2acntS177856
+    #|                      i32.const 1
+    #|                      i32.eq
+    #|                      if ;; label = @10
+    #|                        local.get $_M0L10_2aBrTableS93873
+    #|                        call $moonbit.free
+    #|                      end
+    #|                    end
+    #|                    local.set $_M0L11_2afallbackS93875
+    #|                    local.get $_M0L9_2alabelsS93874
+    #|                    local.get $_M0L11_2afallbackS93875
+    #|                    local.set $_M0L8fallbackS93861
+    #|                    local.set $_M0L6labelsS93860
+    #|                    br 4 (;@4;)
+    #|                  else
+    #|                    local.get $_M0L6_2atagS201047
+    #|                    i32.const 2
+    #|                    i32.eq
+    #|                    if (result i32) ;; label = @9
+    #|                      local.get $_M0L5instrS93868
+    #|                      local.tee $_M0L8_2aBlockS93876
+    #|                      i32.load offset=16 align=1
+    #|                      local.set $_M0L8_2afieldS159536
+    #|                      local.get $_M0L8_2aBlockS93876
+    #|                      i32.load align=1
+    #|                      local.tee $_M0L6_2acntS177858
+    #|                      i32.const 1
+    #|                      i32.gt_s
+    #|                      if ;; label = @10
+    #|                        local.get $_M0L6_2acntS177858
+    #|                        i32.const 1
+    #|                        i32.sub
+    #|                        local.set $_M0L11_2anew__cntS177860
+    #|                        local.get $_M0L8_2aBlockS93876
+    #|                        local.get $_M0L11_2anew__cntS177860
+    #|                        i32.store align=1
+    #|                        local.get $_M0L8_2afieldS159536
+    #|                        call $moonbit.incref
+    #|                      else
+    #|                        local.get $_M0L6_2acntS177858
+    #|                        i32.const 1
+    #|                        i32.eq
+    #|                        if ;; label = @11
+    #|                          local.get $_M0L8_2aBlockS93876
+    #|                          i32.load offset=12 align=1
+    #|                          local.tee $_M0L8_2afieldS177859
+    #|                          call $moonbit.decref
+    #|                          local.get $_M0L8_2aBlockS93876
+    #|                          call $moonbit.free
+    #|                        end
+    #|                      end
+    #|                      local.get $_M0L8_2afieldS159536
+    #|                      local.tee $_M0L4_2axS93877
+    #|                      local.tee $_M0L7_2abodyS93878
+    #|                      local.set $_M0L4bodyS93858
+    #|                      br 6 (;@3;)
+    #|                    else
+    #|                      local.get $_M0L6_2atagS201047
+    #|                      i32.const 3
+    #|                      i32.eq
+    #|                      if (result i32) ;; label = @10
+    #|                        local.get $_M0L5instrS93868
+    #|                        local.tee $_M0L7_2aLoopS93879
+    #|                        i32.load offset=16 align=1
+    #|                        local.set $_M0L8_2afieldS159537
+    #|                        local.get $_M0L7_2aLoopS93879
+    #|                        i32.load align=1
+    #|                        local.tee $_M0L6_2acntS177861
+    #|                        i32.const 1
+    #|                        i32.gt_s
+    #|                        if ;; label = @11
+    #|                          local.get $_M0L6_2acntS177861
+    #|                          i32.const 1
+    #|                          i32.sub
+    #|                          local.set $_M0L11_2anew__cntS177863
+    #|                          local.get $_M0L7_2aLoopS93879
+    #|                          local.get $_M0L11_2anew__cntS177863
+    #|                          i32.store align=1
+    #|                          local.get $_M0L8_2afieldS159537
+    #|                          call $moonbit.incref
+    #|                        else
+    #|                          local.get $_M0L6_2acntS177861
+    #|                          i32.const 1
+    #|                          i32.eq
+    #|                          if ;; label = @12
+    #|                            local.get $_M0L7_2aLoopS93879
+    #|                            i32.load offset=12 align=1
+    #|                            local.tee $_M0L8_2afieldS177862
+    #|                            call $moonbit.decref
+    #|                            local.get $_M0L7_2aLoopS93879
+    #|                            call $moonbit.free
+    #|                          end
+    #|                        end
+    #|                        local.get $_M0L8_2afieldS159537
+    #|                        local.tee $_M0L4_2axS93880
+    #|                        local.tee $_M0L7_2abodyS93881
+    #|                        local.set $_M0L4bodyS93858
+    #|                        br 7 (;@3;)
+    #|                      else
+    #|                        local.get $_M0L6_2atagS201047
+    #|                        i32.const 19
+    #|                        i32.eq
+    #|                        if (result i32) ;; label = @11
+    #|                          local.get $_M0L5instrS93868
+    #|                          local.tee $_M0L11_2aTryTableS93882
+    #|                          i32.load offset=20 align=1
+    #|                          local.set $_M0L8_2afieldS159538
+    #|                          local.get $_M0L11_2aTryTableS93882
+    #|                          i32.load align=1
+    #|                          local.tee $_M0L6_2acntS177864
+    #|                          i32.const 1
+    #|                          i32.gt_s
+    #|                          if ;; label = @12
+    #|                            local.get $_M0L6_2acntS177864
+    #|                            i32.const 1
+    #|                            i32.sub
+    #|                            local.set $_M0L11_2anew__cntS177867
+    #|                            local.get $_M0L11_2aTryTableS93882
+    #|                            local.get $_M0L11_2anew__cntS177867
+    #|                            i32.store align=1
+    #|                            local.get $_M0L8_2afieldS159538
+    #|                            call $moonbit.incref
+    #|                          else
+    #|                            local.get $_M0L6_2acntS177864
+    #|                            i32.const 1
+    #|                            i32.eq
+    #|                            if ;; label = @13
+    #|                              local.get $_M0L11_2aTryTableS93882
+    #|                              i32.load offset=16 align=1
+    #|                              local.tee $_M0L8_2afieldS177866
+    #|                              call $moonbit.decref
+    #|                              local.get $_M0L11_2aTryTableS93882
+    #|                              i32.load offset=12 align=1
+    #|                              local.tee $_M0L8_2afieldS177865
+    #|                              call $moonbit.decref
+    #|                              local.get $_M0L11_2aTryTableS93882
+    #|                              call $moonbit.free
+    #|                            end
+    #|                          end
+    #|                          local.get $_M0L8_2afieldS159538
+    #|                          local.tee $_M0L4_2axS93883
+    #|                          local.tee $_M0L7_2abodyS93884
+    #|                          local.set $_M0L4bodyS93858
+    #|                          br 8 (;@3;)
+    #|                        else
+    #|                          local.get $_M0L6_2atagS201047
+    #|                          i32.const 4
+    #|                          i32.eq
+    #|                          if (result i32) ;; label = @12
+    #|                            local.get $_M0L5instrS93868
+    #|                            local.tee $_M0L5_2aIfS93885
+    #|                            i32.load offset=16 align=1
+    #|                            local.set $_M0L13_2athen__bodyS93886
+    #|                            local.get $_M0L5_2aIfS93885
+    #|                            i32.load offset=20 align=1
+    #|                            local.set $_M0L8_2afieldS159539
+    #|                            local.get $_M0L5_2aIfS93885
+    #|                            i32.load align=1
+    #|                            local.tee $_M0L6_2acntS177868
+    #|                            i32.const 1
+    #|                            i32.gt_s
+    #|                            if ;; label = @13
+    #|                              local.get $_M0L6_2acntS177868
+    #|                              i32.const 1
+    #|                              i32.sub
+    #|                              local.set $_M0L11_2anew__cntS177870
+    #|                              local.get $_M0L5_2aIfS93885
+    #|                              local.get $_M0L11_2anew__cntS177870
+    #|                              i32.store align=1
+    #|                              local.get $_M0L8_2afieldS159539
+    #|                              if ;; label = @14
+    #|                                local.get $_M0L8_2afieldS159539
+    #|                                call $moonbit.incref
+    #|                              end
+    #|                              local.get $_M0L13_2athen__bodyS93886
+    #|                              call $moonbit.incref
+    #|                            else
+    #|                              local.get $_M0L6_2acntS177868
+    #|                              i32.const 1
+    #|                              i32.eq
+    #|                              if ;; label = @14
+    #|                                local.get $_M0L5_2aIfS93885
+    #|                                i32.load offset=12 align=1
+    #|                                local.tee $_M0L8_2afieldS177869
+    #|                                call $moonbit.decref
+    #|                                local.get $_M0L5_2aIfS93885
+    #|                                call $moonbit.free
+    #|                              end
+    #|                            end
+    #|                            local.get $_M0L8_2afieldS159539
+    #|                            local.tee $_M0L4_2axS93887
+    #|                            i32.const 0
+    #|                            i32.eq
+    #|                            if (result i32) ;; label = @13
+    #|                              local.get $_M0L4_2axS93887
+    #|                              if ;; label = @14
+    #|                                local.get $_M0L4_2axS93887
+    #|                                call $moonbit.decref
+    #|                              end
+    #|                              local.get $_M0L13_2athen__bodyS93886
+    #|                              local.set $_M0L10then__bodyS93852
+    #|                              br 12 (;@1;)
+    #|                            else
+    #|                              local.get $_M0L4_2axS93887
+    #|                              local.tee $_M0L7_2aSomeS93888
+    #|                              local.set $_M0L13_2aelse__bodyS93889
+    #|                              local.get $_M0L13_2athen__bodyS93886
+    #|                              local.get $_M0L13_2aelse__bodyS93889
+    #|                              local.set $_M0L10else__bodyS93856
+    #|                              local.set $_M0L10then__bodyS93855
+    #|                              br 11 (;@2;)
+    #|                            end
+    #|                          else
+    #|                            local.get $_M0L5instrS93868
+    #|                            call $moonbit.decref
+    #|                            i32.const 0
+    #|                          end
+    #|                        end
+    #|                      end
+    #|                    end
+    #|                  end
+    #|                end
+    #|              end
+    #|              return
+    #|            end
+    #|            local.get $_M0L10label__idxS93867
+    #|            local.get $_M0L5depthS93853
+    #|            call $_M0FP37jtenner9starshine6passes36dae__branch__targets__outside__depth
+    #|            return
+    #|          end
+    #|          local.get $_M0L6labelsS93860
+    #|          i32.load offset=8 align=1
+    #|          local.set $_M0L7_2abindS93862
+    #|          i32.const 0
+    #|          loop (param i32) ;; label = @4
+    #|            local.tee $_M0L2__S93863
+    #|            local.get $_M0L7_2abindS93862
+    #|            i32.lt_s
+    #|            if ;; label = @5
+    #|              local.get $_M0L6labelsS93860
+    #|              i32.load offset=12 align=1
+    #|              local.tee $_M0L3bufS152635
+    #|              local.get $_M0L2__S93863
+    #|              i32.const 2
+    #|              i32.shl
+    #|              i32.add
+    #|              i32.load offset=8 align=1
+    #|              local.set $_M0L10label__idxS93864
+    #|              local.get $_M0L10label__idxS93864
+    #|              local.get $_M0L5depthS93853
+    #|              call $_M0FP37jtenner9starshine6passes36dae__branch__targets__outside__depth
+    #|              if ;; label = @6
+    #|                local.get $_M0L6labelsS93860
+    #|                call $moonbit.decref
+    #|                i32.const 1
+    #|                return
+    #|              end
+    #|              i32.const 0
+    #|              drop
+    #|              local.get $_M0L2__S93863
+    #|              i32.const 1
+    #|              i32.add
+    #|              local.tee $_M0L6_2atmpS152634
+    #|              br 1 (;@4;)
+    #|            else
+    #|              local.get $_M0L6labelsS93860
+    #|              call $moonbit.decref
+    #|            end
+    #|          end
+    #|          i32.const 0
+    #|          drop
+    #|          local.get $_M0L8fallbackS93861
+    #|          local.get $_M0L5depthS93853
+    #|          call $_M0FP37jtenner9starshine6passes36dae__branch__targets__outside__depth
+    #|          return
+    #|        end
+    #|        local.get $_M0L5depthS93853
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set $_M0L6_2atmpS152633
+    #|        local.get $_M0L4bodyS93858
+    #|        local.get $_M0L6_2atmpS152633
+    #|        call $_M0FP37jtenner9starshine6passes35dae__instrs__have__escaping__branch
+    #|        return
+    #|      end
+    #|      local.get $_M0L5depthS93853
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.set $_M0L6_2atmpS152632
+    #|      local.get $_M0L10then__bodyS93855
+    #|      local.get $_M0L6_2atmpS152632
+    #|      call $_M0FP37jtenner9starshine6passes35dae__instrs__have__escaping__branch
+    #|      if (result i32) ;; label = @2
+    #|        local.get $_M0L10else__bodyS93856
+    #|        call $moonbit.decref
+    #|        i32.const 1
+    #|      else
+    #|        local.get $_M0L5depthS93853
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set $_M0L6_2atmpS152631
+    #|        local.get $_M0L10else__bodyS93856
+    #|        local.get $_M0L6_2atmpS152631
+    #|        call $_M0FP37jtenner9starshine6passes35dae__instrs__have__escaping__branch
+    #|      end
+    #|      return
+    #|    end
+    #|    local.get $_M0L5depthS93853
+    #|    i32.const 1
+    #|    i32.add
+    #|    local.set $_M0L6_2atmpS152630
+    #|    local.get $_M0L10then__bodyS93852
+    #|    local.get $_M0L6_2atmpS152630
+    #|    call $_M0FP37jtenner9starshine6passes35dae__instrs__have__escaping__branch
+    #|  )
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected branch-carrier fixture success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 5)
+  let writes = ssa_test_local_write_indices(instrs)
+  let gets = ssa_nomerge_test_local_get_indices(instrs)
+  assert_true(
+    writes.contains(11U),
+    msg="branch-carried label local must be written canonically; locals=\{locals} instrs=\{instrs}",
+  )
+  assert_true(
+    gets.contains(11U),
+    msg="branch-carried label local should still feed the outer branch-target check; locals=\{locals} instrs=\{instrs}",
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge LocalGraph straight-line stack-carried tee keeps later gets live" {
   // Reduced from the current debug-WASI first diff
   // `.tmp/self-ssa-nomerge-debug-wasi-anchor-refresh-20260614`,

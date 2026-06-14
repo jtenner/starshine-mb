@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Fix debug-WASI canonical branch-carrier write
+
+- Completed `[SSANM-009b3]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b4]` for the next debug-WASI first diff.
+- Added red-first coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `defined=363 abs=390` artifact family: plain-branch tag-dispatch arms must not drop all writes to a canonical label local while later outer branch-target checks still read that local.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so raw structured rewrites fail closed when a plain-branch rewrite removes every write to a pre-existing local but retains reads of that local.
+- Evidence: red-first focused file test failed `427/428`, then passed `428/428`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2458/2458`; full `moon test` passed `5763/5763`; native `src/cmd` build passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b3-branch-carrier-10000` requested 10000 cases, compared 9977, and had 9977 normalized matches with 0 mismatches plus 23 Binaryen/tool command failures. Self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b3-branch-carrier-20260614` validates both outputs and moves the first diff to `defined=501 abs=528`.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Fix debug-WASI unwritten fresh-local carrier
 
 - Completed `[SSANM-009b2]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b3]` for the next debug-WASI first diff.

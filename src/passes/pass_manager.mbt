@@ -13307,6 +13307,108 @@ fn run_hot_pipeline_raw_has_unwritten_appended_local_get(
 }
 
 ///|
+fn run_hot_pipeline_raw_collect_base_local_traffic(
+  instrs : Array[@lib.Instruction],
+  base_local_count : Int,
+  writes : @bitset.BitSet,
+  gets : @bitset.BitSet,
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let id = raw.reinterpret_as_int()
+        if id < base_local_count {
+          writes[id] = true
+        }
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let id = raw.reinterpret_as_int()
+        if id < base_local_count {
+          gets[id] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_collect_base_local_traffic(
+          body, base_local_count, writes, gets,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_collect_base_local_traffic(
+          then_body, base_local_count, writes, gets,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_collect_base_local_traffic(
+              body, base_local_count, writes, gets,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_has_plain_br(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_plain_br(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_plain_br(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_has_plain_br(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_has_dropped_base_write_read(
+  original_instrs : Array[@lib.Instruction],
+  finalized_instrs : Array[@lib.Instruction],
+  base_local_count : Int,
+) -> Bool {
+  if !run_hot_pipeline_raw_has_plain_br(original_instrs) {
+    return false
+  }
+  let original_writes = @bitset.BitSet::new(base_local_count)
+  let original_gets = @bitset.BitSet::new(base_local_count)
+  run_hot_pipeline_raw_collect_base_local_traffic(
+    original_instrs, base_local_count, original_writes, original_gets,
+  )
+  let finalized_writes = @bitset.BitSet::new(base_local_count)
+  let finalized_gets = @bitset.BitSet::new(base_local_count)
+  run_hot_pipeline_raw_collect_base_local_traffic(
+    finalized_instrs, base_local_count, finalized_writes, finalized_gets,
+  )
+  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+    if original_writes[local_id] &&
+      finalized_gets[local_id] &&
+      !finalized_writes[local_id] {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext,
@@ -13348,6 +13450,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       )
       if run_hot_pipeline_raw_has_unwritten_appended_local_get(
           finalized_instrs, base_local_count,
+        ) ||
+        run_hot_pipeline_raw_has_dropped_base_write_read(
+          instrs, finalized_instrs, base_local_count,
         ) {
         return None
       }
@@ -13368,6 +13473,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       )
       if run_hot_pipeline_raw_has_unwritten_appended_local_get(
           finalized_instrs, base_local_count,
+        ) ||
+        run_hot_pipeline_raw_has_dropped_base_write_read(
+          instrs, finalized_instrs, base_local_count,
         ) {
         return None
       }
