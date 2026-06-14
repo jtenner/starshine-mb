@@ -2,6 +2,17 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Close GenValid coverage parent
+
+- Completed parent `[SSANM-011]` in [`../../agent-todo.md`](../../agent-todo.md). Child slices `[SSANM-011a]` through `[SSANM-011e]` already completed the LocalGraph-driven generator surface: profile inventory, straight-line/default-entry facts, merge/mixed facts, `local.tee` facts, and EH/typed-control/branch/nested-loop/large-structured boundary facts.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) to keep remaining dedicated profile compare cleanup under `[SSANM-012c]`, because the open dirty profile lanes are pass behavior/local-allocation closeout evidence rather than missing generator labels. No tests were rerun for this parent-marker closeout.
+
+## [2026-06-14] passes/ssa-nomerge | Refresh huge-function anchors
+
+- Completed `[SSANM-008a]` in [`../../agent-todo.md`](../../agent-todo.md) as an anchor/source replay slice with no pass-policy mutation.
+- Refreshed the checked-in debug-WASI direct `ssa-nomerge` trace. Native `src/cmd` build passed with pre-existing pass-manager unused-function warnings; traced replay `.tmp/ssa-nomerge-huge-anchor-refresh-20260614` exited `0`, validated, had `0` `skip-invalid-lower`, and now reports six `large-structured-local-writes` guards: `Func 3536`, `Func 3781`, `Func 3885`, `Func 4119`, `Func 5417`, and `Func 5419`.
+- Added the refreshed table to [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) and updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) plus [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Extracted-function replays under `.tmp/ssanm008a-huge-functions-20260614` validate all nine prior anchors; old `Func 265`, `Func 3518`, and `Func 4522` now replay as non-huge boundary/no-op routes. Self-compare `.tmp/self-ssa-nomerge-huge-anchor-refresh-20260614` validates both outputs and now first-diffs at `defined=108 abs=135`. Direct compare was not rerun because no transform, dispatch, or trace policy changed.
+
 ## [2026-06-14] passes/ssa-nomerge | Retire predecessor-copy wording
 
 - Completed `[SSANM-006b3a]`, `[SSANM-006b3b]`, `[SSANM-006b3c]`, `[SSANM-006b3]`, and parent `[SSANM-006b]` in [`../../agent-todo.md`](../../agent-todo.md).

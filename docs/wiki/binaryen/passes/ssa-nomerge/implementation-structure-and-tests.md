@@ -465,6 +465,42 @@ These locks are regression/classification coverage over existing typed branch be
 
 These locks are regression/classification coverage over existing typed branch behavior. Direct compare was not rerun because no pass behavior changed and no new mutation family was admitted. Reopen cast branch mutation only with red-first behavior fixtures plus direct `--pass ssa-nomerge` compare evidence if a later slice admits a new cast-branch mutation family.
 
+## `[SSANM-008a]` huge-function replay anchor refresh
+
+`[SSANM-008a]` is an anchor/source replay slice, not a policy change. It refreshes the checked-in debug-WASI direct `ssa-nomerge` trace before any LocalGraph-planner or threshold work in `[SSANM-008b]` through `[SSANM-008d]`.
+
+Direct traced replay command:
+
+```sh
+target/native/release/build/cmd/cmd.exe --debug-serial-passes --tracing pass --ssa-nomerge \
+  --out .tmp/ssa-nomerge-huge-anchor-refresh-20260614/starshine.wasm \
+  tests/node/dist/starshine-debug-wasi.wasm
+```
+
+The command exited `0`, and `wasm-tools validate --features all .tmp/ssa-nomerge-huge-anchor-refresh-20260614/starshine.wasm` passed. The trace had `0` `skip-invalid-lower` lines. It now has six `large-structured-local-writes` skips, not the nine older anchors recorded before the 2026-06-14 refresh:
+
+| Prior anchor | Extracted function name | Current full-artifact status | Extracted replay status | Next owner |
+| --- | --- | --- | --- | --- |
+| `Func 265` | `_M0FP37jtenner9starshine6passes22dae__run__core_2einner` | No longer appears as `large-structured-local-writes` in the full trace. | Validates under `.tmp/ssanm008a-huge-functions-20260614/func265`; traces `multiparam-value-if-branch-carrier-noop`, not the huge guard. | Keep as a drifted non-huge boundary for `[SSANM-008b]` planner/boundary classification only if needed. |
+| `Func 3518` | `_M0FP37jtenner9starshine4wast17wt__lower__module` | No longer appears as `large-structured-local-writes` in the full trace. | Validates under `.tmp/ssanm008a-huge-functions-20260614/func3518`; traces `branch-heavy-void-loop-exit-mesh-noop`, not the huge guard. | Keep as a drifted non-huge boundary for `[SSANM-008b]` planner/boundary classification only if needed. |
+| `Func 3536` | `_M0FP37jtenner9starshine4wast18wt__instr__to__lib` | Still huge: `instrs=16195`, `locals=2871`. | Validates under `.tmp/ssanm008a-huge-functions-20260614/func3536`; extracted root still hits `large-structured-local-writes` (`Func 168`, `16604` instrs / `3059` locals). | `[SSANM-008b]` LocalGraph plan counts, then `[SSANM-008c]` admission/narrowing decision. |
+| `Func 3781` | `_M0FP37jtenner9starshine6binary32decode__instruction__with__depth` | Still huge: `instrs=39283`, `locals=6634`. | Validates under `.tmp/ssanm008a-huge-functions-20260614/func3781`; extracted root still hits `large-structured-local-writes` (`Func 610`, `40703` instrs / `7344` locals). | `[SSANM-008b]` / `[SSANM-008c]`. |
+| `Func 3885` | `_M0IP37jtenner9starshine3lib11InstructionP37jtenner9starshine6binary6Encode6encode` | Still huge: `instrs=26350`, `locals=3879`. | Validates under `.tmp/ssanm008a-huge-functions-20260614/func3885`; extracted root still hits `large-structured-local-writes` (`Func 42`, `26478` instrs / `4056` locals). | `[SSANM-008b]` / `[SSANM-008c]`. |
+| `Func 4119` | `_M0IP37jtenner9starshine3lib11InstructionP37jtenner9starshine8validate9Typecheck9typecheck` | Still huge: `instrs=9458`, `locals=1332`. | Validates under `.tmp/ssanm008a-huge-functions-20260614/func4119`; extracted root still hits `large-structured-local-writes` (`Func 125`, `9673` instrs / `1437` locals). | `[SSANM-008b]` / `[SSANM-008c]`. |
+| `Func 4522` | `_M0IP37jtenner9starshine3lib11InstructionPB4Show6output` | No longer appears as `large-structured-local-writes` in the full trace. | Validates under `.tmp/ssanm008a-huge-functions-20260614/func4522`; traces `branch-heavy-void-loop-exit-mesh-noop`, not the huge guard. | Keep as a drifted non-huge boundary for `[SSANM-008b]` planner/boundary classification only if needed. |
+| `Func 5417` | `_M0IP37jtenner9starshine3lib11InstructionPC15debug5Debug8to__repr` | Still huge: `instrs=19507`, `locals=3524`. | Validates under `.tmp/ssanm008a-huge-functions-20260614/func5417`; extracted root still hits `large-structured-local-writes` (`Func 39`, `19787` instrs / `3664` locals). | `[SSANM-008b]` / `[SSANM-008c]`. |
+| `Func 5419` | `_M0IP37jtenner9starshine3lib11InstructionPB2Eq5equal` | Still huge: `instrs=15300`, `locals=2313`. | Validates under `.tmp/ssanm008a-huge-functions-20260614/func5419`; extracted root still hits `large-structured-local-writes` (`Func 35`, `16162` instrs / `2744` locals). | `[SSANM-008b]` / `[SSANM-008c]`. |
+
+Self-compare artifact replay also refreshed the current first-diff anchor:
+
+```sh
+bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm \
+  --out-dir .tmp/self-ssa-nomerge-huge-anchor-refresh-20260614 \
+  --starshine-bin target/native/release/build/cmd/cmd.exe --ssa-nomerge
+```
+
+It validated both outputs, remained non-equal, and now first-diffs at `defined=108 abs=135`. Starshine output was smaller (`3155453` bytes versus Binaryen `3155990`), pass-local timing was reported as Starshine `0.225ms` versus Binaryen `375.105ms`, and whole-command Starshine runtime remained slower. This is not a behavior-parity or scheduling closeout; it only refreshes the replay anchors. Direct `--pass ssa-nomerge` compare was not rerun because no pass mutation, dispatch policy, trace reason, or wasm output implementation changed in this slice.
+
 ## Starshine test map
 
 | Local test surface | What it proves |
