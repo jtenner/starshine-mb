@@ -863,6 +863,16 @@ A skip-ahead alpha scan found the same repeated family at `defined=1431 abs=1458
 
 Agent classification: this is a size-losing / behavior-parity output-shape gap in the typed-control store-model helper, not a proven Starshine win and not a fresh semantic mismatch. It is split to backlog slice `[SSANM-009b13a]`, which should reduce the multi-param typed result-loop branch-carrier shape and either align the store model with Binaryen's lower-local carrier shape or document a measured reason to keep Starshine's helper locals. Direct `--pass ssa-nomerge` compare was not rerun for this classification-only slice because no behavior, trace routing, or generated wasm changed; the preceding `[SSANM-009b12]` direct lane remained normalized-green with `0` mismatches.
 
+## `[SSANM-009b13a]` raw result-loop carrier sub-fix
+
+`[SSANM-009b13a]` first narrowed the reproduction: the standalone `abs=1440` wrapper did not show the final local-count loss until the Starshine raw output was passed through the same `wasm-opt --strip-debug` canonicalizer used by `self-optimize-compare`. That canonicalization reproduces the one-local final loss, so the remaining gap is between Starshine's raw typed-control carrier shape and Binaryen's tuple/block carrier as observed after the shared Binaryen writer.
+
+The first code sub-fix keeps a non-void raw result loop for a narrow subset: GC-free multi-param single-result typed loops whose current-loop backedges are only plain `br` and whose body has no `try_table`. It deliberately leaves `br_if`, `br_table`, reference/cast branches, single-param result loops, and no-throw `try_table` typed-control helpers on the existing store/proxy model.
+
+Evidence: the reduced test `ssa-nomerge preserves result loop carrier for multi-param direct br backedges` in `src/passes/ssa_nomerge_test.mbt` failed red-first (`437/438`) with the old void-loop/result-block wrapper, then passed (`438/438`) after the raw loop carrier was preserved. `moon test src/passes` passed `2468/2468`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; full `moon test` passed `5773/5773`; native `src/cmd` build passed with the pre-existing pass-manager unused-function warnings. Direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b13a-result-carrier-20260614` requested `10000`, compared `9977`, had `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures from cached Binaryen failures.
+
+Artifact replay `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-result-carrier-20260614` timed out after writing artifacts. Targeted extraction confirms the sub-fix changes `abs=1440` Starshine to a final `loop I32` shape instead of the previous raw void-loop/result-block wrapper, but it does not close the artifact first diff: the alpha scan still first-diffs at `defined=1413 abs=1440`, and final canonical locals remain Starshine `38` body locals versus Binaryen `37` (`abs=1458` remains Starshine `53` versus Binaryen `51`). `[SSANM-009b13a]` therefore stays open for the remaining tuple/block carrier or canonicalization-induced helper-local gap.
+
 ## Starshine test map
 
 | Local test surface | What it proves |

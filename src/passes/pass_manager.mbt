@@ -8413,6 +8413,108 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
 }
 
 ///|
+fn run_hot_pipeline_raw_instrs_current_loop_backedges_are_plain_br(
+  instrs : Array[@lib.Instruction],
+  loop_depth : UInt,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_) => ()
+      @lib.BrIf(@lib.LabelIdx(raw)) => if raw == loop_depth { return false }
+      @lib.BrOnCast(@lib.LabelIdx(raw), _, _, _)
+      | @lib.BrOnCastFail(@lib.LabelIdx(raw), _, _, _)
+      | @lib.BrOnNull(@lib.LabelIdx(raw))
+      | @lib.BrOnNonNull(@lib.LabelIdx(raw)) =>
+        if raw == loop_depth {
+          return false
+        }
+      @lib.BrTable(labels, @lib.LabelIdx(default_raw)) => {
+        if default_raw == loop_depth {
+          return false
+        }
+        for label_idx in labels {
+          let @lib.LabelIdx(raw) = label_idx
+          if raw == loop_depth {
+            return false
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_instrs_current_loop_backedges_are_plain_br(
+            body,
+            loop_depth + 1U,
+          ) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_raw_instrs_current_loop_backedges_are_plain_br(
+            then_body,
+            loop_depth + 1U,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !run_hot_pipeline_raw_instrs_current_loop_backedges_are_plain_br(
+                body,
+                loop_depth + 1U,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_have_try_table(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, _, _) => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_try_table(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_try_table(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_try_table(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_val_types_are_gc_free(
+  val_types : Array[@lib.ValType],
+) -> Bool {
+  for val_type in val_types {
+    match val_type {
+      @lib.RefTypeValType(_) => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
   instrs : Array[@lib.Instruction],
   loop_depth : UInt,
@@ -11196,6 +11298,35 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                     ) {
                     Some(result_block_type) => result_block_type
                     None => block_type
+                  }
+                  let preserve_plain_result_loop_carrier = loop_result_types.length() ==
+                    1 &&
+                    loop_param_types.length() > 1 &&
+                    run_hot_pipeline_raw_val_types_are_gc_free(loop_param_types) &&
+                    run_hot_pipeline_raw_val_types_are_gc_free(
+                      loop_result_types,
+                    ) &&
+                    !run_hot_pipeline_raw_instrs_have_try_table(body) &&
+                    run_hot_pipeline_raw_instrs_current_loop_backedges_are_plain_br(
+                      body, 0U,
+                    )
+                  if preserve_plain_result_loop_carrier {
+                    rewritten.push(
+                      @lib.Instruction::loop_(
+                        result_block_type,
+                        @lib.Expr::new(loop_body),
+                      ),
+                    )
+                    if was_reachable {
+                      if body_fallthrough {
+                        aliases = body_aliases
+                        initialized = body_initialized
+                        fallthrough = true
+                      } else {
+                        fallthrough = false
+                      }
+                    }
+                    continue
                   }
                   if body_fallthrough {
                     loop_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))

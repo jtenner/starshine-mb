@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Preserve raw typed result-loop carriers
+
+- Advanced `[SSANM-009b13a]` in [`../../agent-todo.md`](../../agent-todo.md) with a red/green sub-fix for GC-free multi-param single-result typed loops whose current-loop backedges are only plain `br` and whose body has no `try_table`.
+- Added `ssa-nomerge preserves result loop carrier for multi-param direct br backedges` in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt), which failed red-first (`437/438`) against the old void-loop/result-block wrapper and then passed (`438/438`) once [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) preserved a non-void raw result loop for that narrow subset.
+- Evidence: `moon test src/passes` passed `2468/2468`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; full `moon test` passed `5773/5773`; native `src/cmd` build passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b13a-result-carrier-20260614` requested `10000`, compared `9977`, and had `9977` normalized matches with `0` mismatches plus `23` Binaryen/tool command failures. Artifact replay `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-result-carrier-20260614` timed out after writing artifacts and confirms the raw-carrier shape change, but the first alpha diff remains `defined=1413 abs=1440`; `[SSANM-009b13a]` stays open for the remaining tuple/block carrier or canonicalization-induced helper-local gap.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify typed result-loop carriers
 
 - Completed `[SSANM-009b13]` in [`../../agent-todo.md`](../../agent-todo.md) and sliced `[SSANM-009b13a]` for the repeated multi-param typed result-loop store-model carrier gap.

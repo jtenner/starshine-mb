@@ -1298,6 +1298,34 @@ fn ssa_test_instrs_have_loop_param_scalar_br_if_proxy(
 }
 
 ///|
+fn ssa_test_instrs_have_nonvoid_loop(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.VoidBlockType, _) => ()
+      @lib.Loop(_, _) => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_nonvoid_loop(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_nonvoid_loop(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_instrs_have_nonvoid_loop(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_instrs_have_multi_param_loop_store_backedge(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -6276,6 +6304,40 @@ test "ssa-nomerge rewrites multi-param typed loop br_if backedges" {
     #|    local.get 1))
     #|)
   ssa_test_expect_loop_param_store_model(source, 3)
+}
+
+///|
+test "ssa-nomerge preserves result loop carrier for multi-param direct br backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i32 i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32 i32 i32)
+    #|    i32.const 0
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    loop $l (type $loop_t)
+    #|      local.set 3
+    #|      local.set 2
+    #|      local.set 1
+    #|      local.get 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if (result i32)
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 2
+    #|        local.get 3
+    #|        br $l
+    #|      else
+    #|        local.get 1
+    #|      end
+    #|    end)
+    #|)
+  let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
+    source, 6, "multi-param single-result direct br result-loop carrier",
+  )
+  assert_true(ssa_test_instrs_have_nonvoid_loop(instrs), msg=instrs.to_string())
 }
 
 ///|
