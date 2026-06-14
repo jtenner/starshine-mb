@@ -246,6 +246,15 @@ struct SsaNoMergeShadowSummary {
 } derive(Debug)
 
 ///|
+struct SsaNoMergeMixedPlanSummary {
+  plan_freshen_writes : Int
+  plan_keep_writes : Int
+  plan_retarget_gets : Int
+  plan_default_gets : Int
+  plan_keep_gets : Int
+} derive(Debug)
+
+///|
 fn ssa_nomerge_test_count_plan_freshen_writes(
   plan : SsaNoMergeRewritePlan,
 ) -> Int {
@@ -373,6 +382,48 @@ fn ssa_nomerge_test_shadow_summary_from_wat(
 }
 
 ///|
+fn ssa_nomerge_test_mixed_plan_summary_from_wat(
+  source : String,
+  original_local : @ir.LocalId,
+) -> SsaNoMergeMixedPlanSummary {
+  let input = pass_test_module_from_wat(source)
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  @ir.hot_verify_all_or_abort(func)
+  let plan = ssa_nomerge_test_plan(func)
+  let mut freshen_writes = 0
+  let mut keep_writes = 0
+  for rewrite in plan.write_rewrites {
+    if rewrite.original_local == original_local {
+      match rewrite.decision {
+        SsaNoMergeWriteDecision::Freshen(_) =>
+          freshen_writes = freshen_writes + 1
+        SsaNoMergeWriteDecision::KeepCanonical => keep_writes = keep_writes + 1
+      }
+    }
+  }
+  let mut retarget_gets = 0
+  let mut default_gets = 0
+  let mut keep_gets = 0
+  for rewrite in plan.get_rewrites {
+    if rewrite.original_local == original_local {
+      match rewrite.decision {
+        SsaNoMergeGetDecision::Retarget(_) => retarget_gets = retarget_gets + 1
+        SsaNoMergeGetDecision::MaterializeDefault =>
+          default_gets = default_gets + 1
+        SsaNoMergeGetDecision::KeepCanonical => keep_gets = keep_gets + 1
+      }
+    }
+  }
+  {
+    plan_freshen_writes: freshen_writes,
+    plan_keep_writes: keep_writes,
+    plan_retarget_gets: retarget_gets,
+    plan_default_gets: default_gets,
+    plan_keep_gets: keep_gets,
+  }
+}
+
+///|
 test "ssa-nomerge shadow matches current straight-line and default families" {
   let already = try! ssa_nomerge_test_shadow_summary_from_wat(
     "(module (func (result i32) (local i32) i32.const 5 local.set 0 local.get 0))",
@@ -400,6 +451,38 @@ test "ssa-nomerge shadow matches current straight-line and default families" {
   @debug.assert_eq(body_default.plan_default_gets, 1)
   @debug.assert_eq(body_default.current_added_body_locals, 0)
   @debug.assert_eq(body_default.current_local_gets, [])
+}
+
+///|
+test "ssa-nomerge planner classifies mixed fresh and canonical merge regions" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 20
+    #|      local.set 1
+    #|    else
+    #|      i32.const 30
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 40
+    #|    local.set 1
+    #|    local.get 1))
+    #|)
+  let mixed = ssa_nomerge_test_mixed_plan_summary_from_wat(source, 1)
+
+  @debug.assert_eq(mixed.plan_freshen_writes, 2)
+  @debug.assert_eq(mixed.plan_keep_writes, 2)
+  @debug.assert_eq(mixed.plan_retarget_gets, 2)
+  @debug.assert_eq(mixed.plan_keep_gets, 1)
+  @debug.assert_eq(mixed.plan_default_gets, 0)
 }
 
 ///|
@@ -19097,6 +19180,66 @@ test "ssa-nomerge LocalGraph preserves br_if body-local merge canonical" {
     trace.any(fn(line) {
       line.contains(
         "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge LocalGraph freshens mixed structured non-merge writes" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 20
+    #|      local.set 1
+    #|    else
+    #|      i32.const 30
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 40
+    #|    local.set 1
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected mixed structured ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [2U, 1U, 1U, 3U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [2U, 0U, 1U, 3U])
+  assert_false(
+    ssa_test_has_ssa_temp_local_writes(instrs, 3U),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
       )
     }),
     msg=trace.join("\n"),

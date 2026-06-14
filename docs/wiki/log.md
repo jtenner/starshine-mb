@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Freshen mixed structured LocalGraph set writes
+
+- Completed `[SSANM-005c1]` and `[SSANM-005c2]` in [`../../agent-todo.md`](../../agent-todo.md) by adding mixed fresh/canonical planner coverage and a narrow normal structured-control `local.set` mutation path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt).
+- The new `structured-mixed-localgraph-plan` path recursively applies planned LocalGraph freshening/retargeting for supported `if`/`block` shapes while preserving canonical merge-feeding writes and merge reads on the original local; it deliberately leaves `local.tee`, branch exits, `br_table`, loops, EH, and typed-control boundaries to later slices.
+- Updated focused public-pipeline coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt), plus [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: red-first classification helper compile failure, red-first public-pipeline local-count failure, final `moon fmt`, focused `ssa_nomerge_test.mbt` (`396/396`), `moon info`, `moon test src/passes` (`2426/2426`), full `moon test` (`5731/5731`), native build, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm005c2-mixed-10000` (`7605/10000` compared, `7605` normalized, `0` mismatches, `20` Binaryen/tool command failures: `19` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice normal structured-control LocalGraph work
 
 - Split hidden work under `[SSANM-006a]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for normal structured-control boundary classification, narrow structured `local.set` mutation, and branch-exit / `br_table` / nested supported-region expansion.
