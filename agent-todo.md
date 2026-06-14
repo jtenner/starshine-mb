@@ -323,8 +323,18 @@ Preset behavior inventory:
       - Goal: decide whether no-throw EH bodies can reuse normal-flow LocalGraph rewrites, or whether all EH containers should remain fail-closed for v0.1.0.
       - Deliverables: positive or deliberately fail-closed no-throw `try_table` fixtures, direct compare evidence for any admitted mutation family, and reopening criteria for remaining EH boundaries.
     - [ ] [SSANM-007b] - Classify typed-control and loop-param/result boundaries
+      - Status: child-sliced on 2026-06-13; execute through `[SSANM-007b1]` through `[SSANM-007b3]` so source inventory, typed-loop ABI boundaries, and typed branch-operand families stay separately reviewable.
       - Goal: separate true local-source no-merge decisions from stack/control-value ABI rewrites around typed loop params/results and branch operands.
       - Deliverables: classification fixtures for scalar/reference loop params, single-result and multi-result loops, branch operands, `br_table`, `br_on_*`, and nested-loop targets; mark each as LocalGraph local rewrite, typed-control lowering work, or deliberate fail-closed boundary.
+    - [ ] [SSANM-007b1] - Refresh typed-control source and fixture inventory
+      - Goal: pin Binaryen no-merge source/test evidence against Starshine's typed loop/result and branch-operand lowering boundaries before broadening LocalGraph mutation.
+      - Deliverables: source-backed inventory for scalar/reference loop params, value-producing loops/blocks, branch operands, `br_table`, `br_on_*`, cast branches, and nested loop targets; map each existing typed-control `ssa_nomerge_test.mbt` guard to LocalGraph-local, scratch/copy lowering, or fail-closed ownership.
+    - [ ] [SSANM-007b2] - Lock typed loop param/result ABI boundaries
+      - Goal: keep loop-param/result rewrites that require stack/control-value ABI repair on explicit scratch/copy helpers instead of silently routing them through ordinary LocalGraph local mutation.
+      - Deliverables: focused public-pipeline fixtures for scalar/reference loop params, single-result and multi-result loops, no-copy typed-loop cases, and nested-loop target boundaries, with trace/output assertions showing whether each family mutates through an intentional typed-control helper or remains fail-closed.
+    - [ ] [SSANM-007b3] - Classify typed branch operands and cast/null branch exits
+      - Goal: decide which branch-operand, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` families are local-source no-merge decisions versus typed-control lowering work.
+      - Deliverables: positive or fail-closed fixtures for branch operands and typed exits, direct compare evidence for any newly admitted mutation family, and docs/backlog updates that keep branch-alias/cast scratch ownership explicit.
     - [ ] [SSANM-007c] - Split full `ssa` work out of the no-merge backlog
       - Goal: keep full `ssa` merge-local materialization from being mistaken for `ssa-nomerge` behavior.
       - Deliverables: move or recreate full-`ssa` planner/materialization tasks under a sibling backlog section if still needed; keep `SSANM` tasks restricted to `SSAify(false)` behavior.

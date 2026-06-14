@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice typed-control boundary work
+
+- Split hidden work under `[SSANM-007b]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for typed-control source/fixture inventory, typed loop param/result ABI boundary coverage, and typed branch-operand plus cast/null branch-exit classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) so the fixture baseline matrix points future agents at `[SSANM-007b1]` through `[SSANM-007b3]` instead of treating typed-control boundaries as one oversized classification slice.
+- Tests were not run because this was a backlog/wiki slicing change only and did not alter executable behavior or generated contracts.
+
 ## [2026-06-13] passes/ssa-nomerge | Classify mixed branch and nested-control regions
 
 - Completed `[SSANM-005c3b]` and `[SSANM-005c3c]` in [`../../agent-todo.md`](../../agent-todo.md) with focused public-pipeline classification coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
