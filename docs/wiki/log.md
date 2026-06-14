@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify scratch-helper boundaries
+
+- Completed `[SSANM-006b2d]` in [`../../agent-todo.md`](../../agent-todo.md) with a source/test ownership table in [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md).
+- Classified branch-alias copies, `br_table` alias/scratch/proxy helpers, typed loop param/result stores, ref/null/cast branch spills, and EH/`try_table` helper paths as explicit boundary lowerings or fail-closed owners rather than ordinary no-merge predecessor-copy materialization.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `414/414`. Direct compare was not run because this source/test classification changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Lock straight-line/default fallback exits
 
 - Completed `[SSANM-006b2b]` in [`../../agent-todo.md`](../../agent-todo.md) with focused public-pipeline regression locks in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
