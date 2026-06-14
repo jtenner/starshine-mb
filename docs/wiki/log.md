@@ -2,6 +2,16 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diffs at abs 609, 611, and 612
+
+- Completed `[SSANM-009b39]` through `[SSANM-009b41]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs: `defined=582 abs=609`, `defined=584 abs=611`, and `defined=585 abs=612`. `abs=608` / `defined=581` had already matched after excluding the artifact-path log line, and targeted `--print-func 610` matched exactly.
+- Targeted `--print-func 609` extraction under `.tmp/ssanm009b38-next609` shows identical masked `body_raw` token streams, the same `174` local operations (`114` `local.get`, `27` `local.set`, and `33` `local.tee`), and equal `773` byte code bodies. The only differences are 12 one-use dead `local.tee` targets; Starshine declares `59` body i32 locals versus Binaryen `71`.
+- Targeted `--print-func 611` and `612` extraction under `.tmp/ssanm009b40-next611` and `.tmp/ssanm009b41-next612` shows identical masked token streams and equal encoded code bodies. The only differences are 12 one-use dead `local.tee` targets in each function; Starshine declares fewer body i32 locals (`60` vs `72`, then `56` vs `68`).
+- Evidence: `wasm-tools validate --features all` passed for both `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614/{starshine,binaryen}.wasm`; Starshine traces report `call-heavy-memory-structured-noop` for `abs=609`, `611`, and `612`. Agent classification: all three are semantic-safe Starshine local-count wins / no-regression representation differences. None is an implementation gap.
+- No executable code changed, so direct compare was not rerun beyond `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` (`9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures).
+- Added `[SSANM-009b42]` for the next `defined=586 abs=613` candidate; preliminary extraction under `.tmp/ssanm-scan-next613` is masked-equal but still needs classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diffs at abs 604 through 607
 
 - Completed `[SSANM-009b35]` through `[SSANM-009b38]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs, `defined=577 abs=604` through `defined=580 abs=607`.
