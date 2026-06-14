@@ -2,6 +2,15 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify repeated debug-WASI temp locals
+
+- Completed `[SSANM-009b15]` and `[SSANM-009b16]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs, `defined=541 abs=568` and `defined=547 abs=574`.
+- Targeted `--print-func 568` extraction under `.tmp/ssanm009b14-next568` shows Starshine and Binaryen have identical canonical instruction/control skeletons and differ only in 20 one-use `local.tee` temp indexes: Binaryen uses fresh locals `95..114`, while Starshine reuses otherwise-dead slots. `abs=568` has Starshine `92` body i32 locals versus Binaryen `112`, with equal `1253` byte code bodies (`1250` instruction bytes plus `3` local-declaration bytes).
+- Targeted `--print-func 574` extraction under `.tmp/ssanm009b15-next574` shows the same family with 9 one-use `local.tee` temp-index differences. `abs=574` has Starshine `23` body i32 locals versus Binaryen `32`, with equal `371` byte code bodies (`368` instruction bytes plus `3` local-declaration bytes).
+- Evidence: `wasm-tools validate --features all` passed for both `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614/{starshine,binaryen}.wasm`; no code or executable tests changed, so direct compare was not rerun beyond current `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` (`9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures).
+- Added `[SSANM-009b17]` for the preliminary next `defined=548 abs=575` probe under `.tmp/ssanm009b16-next575`, which appears to be a small local-index permutation but still needs classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI one-shot temp locals
 
 - Completed `[SSANM-009b14]` in [`../../agent-todo.md`](../../agent-todo.md) as a classification-only slice over the current debug-WASI self artifact first diff, `defined=540 abs=567`.

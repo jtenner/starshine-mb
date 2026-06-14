@@ -887,6 +887,20 @@ Measured deltas: `abs=567` has Starshine `45` body i32 locals versus Binaryen `6
 
 Evidence: direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` requested `10000`, compared `9977`, had `9977` normalized matches, `0` mismatches, and `23` cached Binaryen/tool command failures. No code or tests changed in this slice because the inspected family is not an implementation gap. A preliminary `--print-func 568` probe under `.tmp/ssanm009b14-next568` found a likely repeated one-shot temp-local family (`92` Starshine body i32 locals versus `112` Binaryen), now tracked by `[SSANM-009b15]`.
 
+## `[SSANM-009b15]` repeated one-shot temp-local classification at `abs=568`
+
+`[SSANM-009b15]` classifies the next current self-artifact diff, `defined=541 abs=568`, from `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614`. Targeted `--print-func 568` extraction under `.tmp/ssanm009b14-next568` shows the same broad family as `[SSANM-009b14]`: Starshine and Binaryen have identical canonical instruction/control skeletons, and the `body_raw` token streams differ only in local-index choices.
+
+Local-use analysis found 20 differing one-use `local.tee` temps. Binaryen allocates fresh locals `95..114`; Starshine reuses otherwise-dead existing locals `67`, `40`, `61`, `70`, `43`, `60`, `74`, `73`, `46`, `59`, `77`, `51`, `37`, `38`, `30`, `31`, `23`, `24`, `14`, and `16`. Each differing local appears exactly once as a `local.tee` target on its side. No call, load/store, branch/table opcode, label target, constant, or structured-control token differs.
+
+Measured deltas: `abs=568` has Starshine `92` body i32 locals versus Binaryen `112`, but both encoded code bodies are `1253` bytes (`1250` instruction bytes plus `3` local-declaration bytes). Both full artifacts validate with `wasm-tools validate --features all`, and whole canonical artifacts remain Starshine `3149379` bytes versus Binaryen `3155990` bytes. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference, not an implementation gap and not a function-byte-size win. No code or executable tests changed; direct compare was not rerun beyond the current `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` lane.
+
+## `[SSANM-009b16]` repeated one-shot temp-local classification at `abs=574`
+
+`[SSANM-009b16]` follows the same print-diff chain to `defined=547 abs=574`. Targeted extraction under `.tmp/ssanm009b15-next574` shows equal `body_raw` token lengths and only 9 local-index differences: `5 -> 25`, `9 -> 26`, `8 -> 27`, `7 -> 28`, `12 -> 29`, `16 -> 30`, `22 -> 31`, `18 -> 32`, and `21 -> 33`.
+
+Every differing local appears exactly once as a dead `local.tee` temp, and no control, branch/table, call, memory, label, or constant token differs. Starshine has `23` body i32 locals versus Binaryen `32`, while both encoded code bodies are `371` bytes (`368` instruction bytes plus `3` local-declaration bytes). Agent classification: the same semantic-safe Starshine local-count win / no-regression representation difference as `[SSANM-009b14]` and `[SSANM-009b15]`. No code or executable tests changed; the next preliminary candidate is `defined=548 abs=575`, tracked by `[SSANM-009b17]`, where the initial print probe shows a smaller local-index permutation rather than appended one-shot temps.
+
 ## Starshine test map
 
 | Local test surface | What it proves |
