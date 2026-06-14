@@ -399,8 +399,18 @@ Preset behavior inventory:
       - Deliverables: boundary regression fixtures or source-backed table, cross-links to `[SSANM-006a3*]`, `[SSANM-007a*]`, and `[SSANM-007b*]`, and direct compare evidence only if behavior changes.
       - Evidence: added the `[SSANM-006b2d]` source/test classification table to `docs/wiki/binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`. It maps branch-alias copies, `br_table` alias/scratch/proxy helpers, typed loop param/result stores, ref/null/cast branch spills, and EH/`try_table` boundary helpers to `[SSANM-006a3*]`, `[SSANM-007a*]`, and `[SSANM-007b*]` instead of ordinary `[SSANM-006b2c]` rerouting. Existing focused tests already guard the listed helper families; focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `414/414`. Direct compare was not run because this slice changed docs/source classification only and admitted no new mutation family.
     - [ ] [SSANM-006b3] - Retire or narrow legacy predecessor-copy helpers
+      - Status: child-sliced on 2026-06-14; keep blocked behind `[SSANM-006b2c]` so helper retirement only follows the structured fallback decision.
       - Goal: after ordinary no-merge families are rerouted, delete or explicitly narrow leftover no-merge predecessor-copy helpers and update pass summaries/docs so predecessor copies are no longer described as normal `ssa-nomerge` behavior.
       - Deliverables: summary/help/docs updates, tests proving retained scratch/copy lowerings are typed-control/EH/full-SSA or explicitly fail-closed boundaries, and backlog cleanup before closing `[SSANM-006b]`.
+    - [ ] [SSANM-006b3a] - Inventory legacy predecessor-copy wording and helper reachability
+      - Goal: after `[SSANM-006b2c]`, map any remaining `ssa-nomerge` docs, summaries, public traces, and helper paths that still imply ordinary predecessor-copy materialization.
+      - Deliverables: source/docs table distinguishing dead/superseded helper wording from retained typed-control/EH/full-SSA boundary helper ownership.
+    - [ ] [SSANM-006b3b] - Narrow or delete ordinary no-merge predecessor-copy surfaces
+      - Goal: remove dead ordinary predecessor-copy helper routes, or narrow names/comments/guards so retained copy-like helpers are not advertised as normal `ssa-nomerge` behavior.
+      - Deliverables: red-first or regression-lock tests for every changed public trace/helper route, implementation/docs updates, and direct compare evidence if behavior changes.
+    - [ ] [SSANM-006b3c] - Refresh public summaries and close predecessor-copy retirement docs
+      - Goal: align pass summaries, wiki pages, and backlog wording with the final retained-helper boundary after `[SSANM-006b3a]` / `[SSANM-006b3b]`.
+      - Deliverables: docs/wiki/log closeout, reopening criteria for retained helper families, and final validation notes before closing `[SSANM-006b]`.
     - [x] [SSANM-007a] - Keep exceptional-edge boundaries explicit
       - Status: completed 2026-06-14 through `[SSANM-007a1]` through `[SSANM-007a3]`; real throwing EH is locked fail-closed, while existing no-throw `try_table` subsets are classified as ordinary normal-flow local-write or typed-control helper work.
       - Goal: preserve safety for `try`, `try_table`, `throw`, `throw_ref`, `rethrow`, `delegate`, catches, calls inside no-throw `try_table` bodies, and any path where LocalGraph does not model exceptional successors.
