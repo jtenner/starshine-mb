@@ -13469,12 +13469,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_plan_has_mixed_fresh_canonical_merge(
   graph : @ir.HotLocalGraph,
   plan : SsaNoMergeRewritePlan,
 ) -> Bool {
-  let mut saw_freshen = false
-  let mut saw_retarget = false
   let mut saw_canonical_merge = false
   for rewrite in plan.write_rewrites {
     match rewrite.decision {
-      SsaNoMergeWriteDecision::Freshen(_) => saw_freshen = true
       SsaNoMergeWriteDecision::KeepCanonical =>
         for get_id in rewrite.influenced_gets {
           if @ir.local_graph_get_is_merge(graph, get_id) &&
@@ -13482,6 +13479,23 @@ fn run_hot_pipeline_raw_ssa_nomerge_plan_has_mixed_fresh_canonical_merge(
             saw_canonical_merge = true
           }
         }
+      SsaNoMergeWriteDecision::Freshen(_) => ()
+    }
+  }
+  run_hot_pipeline_raw_ssa_nomerge_plan_has_single_source_freshening(plan) &&
+  saw_canonical_merge
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_plan_has_single_source_freshening(
+  plan : SsaNoMergeRewritePlan,
+) -> Bool {
+  let mut saw_freshen = false
+  let mut saw_retarget = false
+  for rewrite in plan.write_rewrites {
+    match rewrite.decision {
+      SsaNoMergeWriteDecision::Freshen(_) => saw_freshen = true
+      SsaNoMergeWriteDecision::KeepCanonical => ()
     }
   }
   for rewrite in plan.get_rewrites {
@@ -13490,7 +13504,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_plan_has_mixed_fresh_canonical_merge(
       _ => ()
     }
   }
-  saw_freshen && saw_retarget && saw_canonical_merge
+  saw_freshen && saw_retarget
 }
 
 ///|
@@ -13723,6 +13737,57 @@ fn run_hot_pipeline_raw_ssa_nomerge_mixed_structured_supported_control(
     return false
   }
   state.tee_count == 0 || state.write_count <= 4
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_ordinary_set_supported_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Unreachable => return false
+      @lib.LocalTee(_) => return false
+      @lib.Block(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_ssa_nomerge_ordinary_set_supported_control(
+            body,
+          ) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_raw_ssa_nomerge_ordinary_set_supported_control(
+            then_body,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !run_hot_pipeline_raw_ssa_nomerge_ordinary_set_supported_control(
+                body,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  true
 }
 
 ///|
@@ -15629,6 +15694,20 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         if changed {
           return Some({
             reason: "structured-mixed-localgraph-plan",
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        }
+      }
+      if run_hot_pipeline_raw_ssa_nomerge_ordinary_set_supported_control(instrs) &&
+        run_hot_pipeline_raw_ssa_nomerge_plan_has_single_source_freshening(plan) {
+        let (rewritten, changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
+          original, params, plan,
+        )
+        if changed {
+          return Some({
+            reason: "structured-localgraph-plan",
             func: rewritten,
             unchanged_original: false,
             trace_skip_raw: true,

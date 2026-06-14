@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Freshen ordinary structured LocalGraph sets
+
+- Completed `[SSANM-006a2a]` in [`../../agent-todo.md`](../../agent-todo.md) by adding a stricter ordinary `block` / `if` `local.set` path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), named `structured-localgraph-plan`, for single-source LocalGraph freshening/retargeting.
+- Added red-first public-pipeline coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt), updated an older structured body-local expectation to the Binaryen-style fresh-local shape, and completed `[SSANM-006b1]` as a source/test inventory of predecessor-copy-producing and copy-like owners.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: `moon fmt`, `moon info`, focused `ssa_nomerge_test.mbt` (`408/408`), `moon test src/passes` (`2438/2438`), full `moon test` (`5743/5743`), native `src/cmd` build, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm006a2a-ordinary-10000` (`7605/10000` compared, `7605` normalized, `0` mismatches, `20` Binaryen/tool command failures) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice ordinary structured local.set work
 
 - Split hidden work under `[SSANM-006a2]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for no-merge block/if `local.set` freshening, canonical-merge preservation with adjacent freshening, and legacy structured-helper narrowing.
