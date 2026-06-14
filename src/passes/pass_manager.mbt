@@ -13398,7 +13398,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
 }
 
 ///|
-fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
+fn run_hot_pipeline_raw_ssa_nomerge_straight_line_heuristic(
   func : @lib.Func,
   params : Array[@lib.ValType],
 ) -> @lib.Func {
@@ -13492,6 +13492,128 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
           rewritten_instrs.push(@lib.Instruction::local_tee(fresh_local))
         }
       }
+      _ => rewritten_instrs.push(instr)
+    }
+  }
+  let rewritten_locals = locals.copy()
+  rewritten_locals.append_types(extra_local_types)
+  @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs))
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_instrs_have_local_tee(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_next_set_decision(
+  plan : SsaNoMergeRewritePlan,
+  cursor : Int,
+) -> SsaNoMergeWriteDecision? {
+  if cursor >= plan.write_rewrites.length() {
+    return None
+  }
+  Some(plan.write_rewrites[cursor].decision)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_next_get_decision(
+  plan : SsaNoMergeRewritePlan,
+  cursor : Int,
+) -> SsaNoMergeGetDecision? {
+  if cursor >= plan.get_rewrites.length() {
+    return None
+  }
+  Some(plan.get_rewrites[cursor].decision)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_append_planned_fresh_local(
+  extra_local_types : Array[@lib.ValType],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  base_local_count : Int,
+  original_local : Int,
+  fresh_local_id : Int,
+) -> Unit {
+  let expected = base_local_count + extra_local_types.length()
+  if fresh_local_id != expected {
+    abort(
+      "ssa-nomerge LocalGraph straight-line plan produced non-sequential fresh local \{fresh_local_id}, expected \{expected}",
+    )
+  }
+  extra_local_types.push(
+    run_hot_pipeline_raw_local_type(params, locals, original_local),
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  plan : SsaNoMergeRewritePlan,
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let rewritten_instrs : Array[@lib.Instruction] = []
+  let extra_local_types : Array[@lib.ValType] = []
+  let base_local_count = params.length() + locals.length()
+  let mut write_cursor = 0
+  let mut get_cursor = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let original_local = raw.reinterpret_as_int()
+        match
+          run_hot_pipeline_raw_ssa_nomerge_next_get_decision(plan, get_cursor) {
+          Some(SsaNoMergeGetDecision::Retarget(fresh_local_id)) =>
+            rewritten_instrs.push(
+              @lib.Instruction::local_get(
+                @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
+              ),
+            )
+          Some(SsaNoMergeGetDecision::MaterializeDefault) =>
+            rewritten_instrs.push(
+              run_hot_pipeline_raw_default_instr_for_local(
+                params, locals, original_local,
+              ),
+            )
+          Some(SsaNoMergeGetDecision::KeepCanonical) | None =>
+            rewritten_instrs.push(instr)
+        }
+        get_cursor = get_cursor + 1
+      }
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let original_local = raw.reinterpret_as_int()
+        match
+          run_hot_pipeline_raw_ssa_nomerge_next_set_decision(plan, write_cursor) {
+          Some(SsaNoMergeWriteDecision::Freshen(fresh_local_id)) => {
+            run_hot_pipeline_raw_ssa_nomerge_append_planned_fresh_local(
+              extra_local_types, params, locals, base_local_count, original_local,
+              fresh_local_id,
+            )
+            rewritten_instrs.push(
+              @lib.Instruction::local_set(
+                @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
+              ),
+            )
+          }
+          Some(SsaNoMergeWriteDecision::KeepCanonical) | None =>
+            rewritten_instrs.push(instr)
+        }
+        write_cursor = write_cursor + 1
+      }
+      @lib.LocalTee(_) =>
+        return run_hot_pipeline_raw_ssa_nomerge_straight_line_heuristic(
+          func, params,
+        )
       _ => rewritten_instrs.push(instr)
     }
   }
@@ -14806,9 +14928,24 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       None => None
     }
   } else {
+    if run_hot_pipeline_raw_ssa_nomerge_instrs_have_local_tee(instrs) {
+      return Some({
+        reason: "straight-line-local-writes",
+        func: run_hot_pipeline_raw_ssa_nomerge_straight_line_heuristic(
+          original, params,
+        ),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+    let hot_func = @ir.hot_lift_func(mod_, func_idx)
+    let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
+    let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
     Some({
-      reason: "straight-line-local-writes",
-      func: run_hot_pipeline_raw_ssa_nomerge_straight_line(original, params),
+      reason: "straight-line-local-writes-localgraph-plan",
+      func: run_hot_pipeline_raw_ssa_nomerge_straight_line(
+        original, params, plan,
+      ),
       unchanged_original: false,
       trace_skip_raw: true,
     })

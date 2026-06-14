@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-09
+last_reviewed: 2026-06-13
 sources:
   - ../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
@@ -85,8 +85,8 @@ So this is **not** full SSA construction, but it is also **not** just straight-l
 - The saved `-O4z` debug log also shows repeated nested reruns of `ssa-nomerge`, not just the top-level slot.
 - The 2026-06-09 audit found and fixed a true semantic corruption family: HOT `ssa-nomerge` ignored exceptional edges, so a `try_table` body local write followed by `throw` to a catch target could be dropped while a later `local.get` read the default value. Starshine now skips exceptional-flow HOT mutation for this pass until local SSA grows exceptional-edge semantics.
 - The same audit fixed non-corrupting direct-compare drift in no-write functions: default body-local reads after branchy control now materialize explicit type defaults, and dropped-unreachable debris before a hard `unreachable` is cleaned in the raw path.
-- Follow-ups on the debug-artifact direct trace reduced nested structured param/body-local shape drift, removed unneeded branch/label merge copies, removed the one current `Func 4302` false-positive suspicious-carrier skip, and expanded raw structured coverage for moderate large functions. The current direct trace has only `17` remaining `large-structured-local-writes` skips, all very large functions with payload metrics.
-- `agent-todo.md` has a dedicated `[O4Z-AUDIT-SSA]` slice for the reopened audit. The direct explicit pass is green on the 2026-06-09 final `100000`-case normalized compare and the latest needed-copy/canonical-local `10000`-case compare; the debug-WASI direct artifact lane is now size-winning for Starshine, but artifact exact parity, O4z neighborhood replay, the remaining huge structured functions, and the currently no-op O4z slot decision remain open.
+- Follow-ups on the debug-artifact direct trace reduced nested structured param/body-local shape drift, removed unneeded branch/label merge copies, removed the one current `Func 4302` false-positive suspicious-carrier skip, and expanded raw structured coverage for moderate large functions. Current SSANM replay anchors track nine remaining `large-structured-local-writes` functions for huge-function classification and replay work.
+- `agent-todo.md` has a dedicated `[O4Z-AUDIT-SSA]` / `SSANM-*` backlog for the reopened audit. The direct explicit pass has strong normalized compare evidence, and `[SSANM-003a]` now makes the raw straight-line `local.set` subset consume the LocalGraph rewrite plan; however `local.tee`, broader structured control, default generalization, merge preservation, huge-function classification, debug-WASI artifact classification, and the currently no-op O4z slot decision remain open.
 
 ## Most important durable takeaways
 
@@ -97,6 +97,7 @@ So this is **not** full SSA construction, but it is also **not** just straight-l
   - it is not just looking at adjacent `local.set` / `local.get` pairs
 - The crucial no-merge decision is made **per set**, not per original local slot.
   - one original local can have some writes untangled and later merge-feeding writes left canonical
+  - Starshine now consumes that LocalGraph decision table for the straight-line raw `local.set` subset; `local.tee` and structured-control mutation are intentionally still separate SSANM slices
 - Reads with no explicit reaching set can be rewritten to explicit default values.
   - that includes scalar zeros, `v128` zero splats, and in shared `SSAify` helper paths also ref/tuple defaults
 - Full phi-like merge materialization still exists in the same source file, but that is the `--ssa` path, not the `--ssa-nomerge` path.

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Consume LocalGraph plan for straight-line sets
+
+- Completed `[SSANM-003a]` in [`../../agent-todo.md`](../../agent-todo.md) by making the raw straight-line `ssa-nomerge` path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) build and consume `SsaNoMergeRewritePlan` for `local.set` functions without `local.tee`.
+- The path now allocates planned fresh locals for `Freshen` writes, retargets planned single-source gets, materializes legal default reads when the plan requests it, and keeps already-SSA / parameter-entry traffic canonical. `local.tee` remains on the legacy straight-line heuristic for `[SSANM-003b]`; structured-control policy remains in later SSANM slices.
+- Added focused public-pipeline tests in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for LocalGraph-planned trace/output on live parameter overwrite canonical preservation and overwritten body-local `local.set` freshening/retargeting.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: red-first focused test failed on the legacy trace reason before implementation; final `moon fmt`, focused `ssa_nomerge_test.mbt` (`383/383`), `moon info`, `moon test src/passes` (`2413/2413`), full `moon test` (`5718/5718`), native build, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm003a-localgraph-set-10000` (`7605/10000` compared, `7605` normalized, `0` mismatches, `20` Binaryen/tool command failures) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Shadow LocalGraph plan against current output
 
 - Completed `[SSANM-002b]` in [`../../agent-todo.md`](../../agent-todo.md) by adding test-only shadow helpers in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
