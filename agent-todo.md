@@ -555,8 +555,21 @@ Preset behavior inventory:
       - Deliverables: docs/backlog closeout, direct-compare explanation, and reopening criteria for retained null/non-null branch boundaries.
       - Evidence: implementation-structure, parity, index, and wiki-log pages now classify null/non-null branch exits as typed-control ABI boundary locks. Reopen only with a red-first behavior fixture and direct `--pass ssa-nomerge` compare evidence if a later slice admits a new `br_on_*` mutation family.
     - [ ] [SSANM-007b3d] - Lock cast-branch exits and close typed-branch docs
+      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007b3d1]` through `[SSANM-007b3d4]` so no-copy, scratch-producing, loop-param, and docs closeout work stay separately reviewable.
       - Goal: classify `br_on_cast` and `br_on_cast_fail` inverse-cast/scratch ownership, then summarize `[SSANM-007b3a]` through `[SSANM-007b3c]` in parity/index/wiki-log notes.
       - Deliverables: cast branch fixtures or source-backed fail-closed notes, docs/backlog closeout for `[SSANM-007b3]`, direct-compare explanation, and reopening criteria for retained typed branch/cast boundaries.
+    - [ ] [SSANM-007b3d1] - Lock no-copy cast-branch typed-exit contrasts
+      - Goal: prove `br_on_cast` and `br_on_cast_fail` exits that do not need scratch repair preserve their opcode shape, validate, and stay off ordinary planned structured LocalGraph reasons.
+      - Deliverables: strengthened no-copy cast/fail fixtures or shared helper coverage with trace assertions and direct compare only if behavior changes.
+    - [ ] [SSANM-007b3d2] - Lock divergent-alias cast-branch scratch copies
+      - Goal: keep taken-edge cast/fail copies after divergent aliases and multi-result cast exits classified as typed-control branch ABI repair rather than ordinary no-merge predecessor-copy work.
+      - Deliverables: focused trace/output fixtures for copy-needed and multi-result `br_on_cast` / `br_on_cast_fail` shapes, plus validation and ordinary LocalGraph reason rejection.
+    - [ ] [SSANM-007b3d3] - Lock typed-loop cast-branch backedge repairs
+      - Goal: classify typed loop-param cast/fail backedges, including no-copy and copy-needing loop-target variants, as typed-control loop ABI repair surfaces.
+      - Deliverables: strengthened loop-param cast/fail fixtures with validation, opcode/proxy/store assertions, and direct compare only if a new mutation family is admitted.
+    - [ ] [SSANM-007b3d4] - Close cast-branch and typed-branch docs
+      - Goal: summarize `[SSANM-007b3d1]` through `[SSANM-007b3d3]`, close parent `[SSANM-007b3]` if no typed branch work remains, and update parity/index/wiki-log notes.
+      - Deliverables: docs/backlog closeout, direct-compare explanation, and reopening criteria for retained cast branch typed-control boundaries.
     - [x] [SSANM-007c] - Split full `ssa` work out of the no-merge backlog
       - Status: completed 2026-06-13; full `ssa` work now lives under sibling `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]` slices rather than the `SSANM` no-merge backlog.
       - Goal: keep full `ssa` merge-local materialization from being mistaken for `ssa-nomerge` behavior.
