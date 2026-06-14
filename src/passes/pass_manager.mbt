@@ -13398,122 +13398,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
 }
 
 ///|
-fn run_hot_pipeline_raw_ssa_nomerge_straight_line_heuristic(
-  func : @lib.Func,
-  params : Array[@lib.ValType],
-) -> @lib.Func {
-  let @lib.Func(locals, @lib.Expr(instrs)) = func
-  let rewritten_instrs : Array[@lib.Instruction] = []
-  let local_aliases : Array[@lib.LocalIdx] = []
-  let canonical_aliases : Array[@lib.LocalIdx] = []
-  let initialized_locals = run_hot_pipeline_raw_initialized_locals(
-    params.length() + locals.length(),
-    params.length(),
-  )
-  let extra_local_types : Array[@lib.ValType] = []
-  let base_local_count = params.length() + locals.length()
-  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
-    let local_idx = @lib.LocalIdx::new(local_id.reinterpret_as_uint())
-    local_aliases.push(local_idx)
-    canonical_aliases.push(local_idx)
-  }
-  for idx = 0; idx < instrs.length(); idx = idx + 1 {
-    let instr = instrs[idx]
-    match instr {
-      @lib.LocalGet(@lib.LocalIdx(raw)) =>
-        run_hot_pipeline_raw_append_local_read(
-          rewritten_instrs,
-          local_aliases,
-          canonical_aliases,
-          initialized_locals,
-          params,
-          locals,
-          raw.reinterpret_as_int(),
-        )
-      @lib.LocalSet(@lib.LocalIdx(raw)) => {
-        let local_id = raw.reinterpret_as_int()
-        if local_aliases[local_id] == canonical_aliases[local_id] &&
-          run_hot_pipeline_raw_instrs_have_later_local_read(
-            instrs,
-            idx + 1,
-            local_id,
-          ) &&
-          !run_hot_pipeline_raw_instrs_have_later_local_write(
-            instrs,
-            idx + 1,
-            local_id,
-          ) {
-          initialized_locals[local_id] = true
-          local_aliases[local_id] = canonical_aliases[local_id]
-          rewritten_instrs.push(
-            @lib.Instruction::local_set(canonical_aliases[local_id]),
-          )
-        } else {
-          let fresh_local_id = base_local_count + extra_local_types.length()
-          let fresh_local = @lib.LocalIdx::new(
-            fresh_local_id.reinterpret_as_uint(),
-          )
-          extra_local_types.push(
-            run_hot_pipeline_raw_local_type(params, locals, local_id),
-          )
-          local_aliases[local_id] = fresh_local
-          initialized_locals[local_id] = true
-          rewritten_instrs.push(@lib.Instruction::local_set(fresh_local))
-        }
-      }
-      @lib.LocalTee(@lib.LocalIdx(raw)) => {
-        let local_id = raw.reinterpret_as_int()
-        if local_aliases[local_id] == canonical_aliases[local_id] &&
-          run_hot_pipeline_raw_instrs_have_later_local_read(
-            instrs,
-            idx + 1,
-            local_id,
-          ) &&
-          !run_hot_pipeline_raw_instrs_have_later_local_write(
-            instrs,
-            idx + 1,
-            local_id,
-          ) {
-          initialized_locals[local_id] = true
-          local_aliases[local_id] = canonical_aliases[local_id]
-          rewritten_instrs.push(
-            @lib.Instruction::local_tee(canonical_aliases[local_id]),
-          )
-        } else {
-          let fresh_local_id = base_local_count + extra_local_types.length()
-          let fresh_local = @lib.LocalIdx::new(
-            fresh_local_id.reinterpret_as_uint(),
-          )
-          extra_local_types.push(
-            run_hot_pipeline_raw_local_type(params, locals, local_id),
-          )
-          local_aliases[local_id] = fresh_local
-          initialized_locals[local_id] = true
-          rewritten_instrs.push(@lib.Instruction::local_tee(fresh_local))
-        }
-      }
-      _ => rewritten_instrs.push(instr)
-    }
-  }
-  let rewritten_locals = locals.copy()
-  rewritten_locals.append_types(extra_local_types)
-  @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs))
-}
-
-///|
-fn run_hot_pipeline_raw_ssa_nomerge_instrs_have_local_tee(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.LocalTee(_) => return true
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn run_hot_pipeline_raw_ssa_nomerge_next_set_decision(
   plan : SsaNoMergeRewritePlan,
   cursor : Int,
@@ -13610,10 +13494,26 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
         }
         write_cursor = write_cursor + 1
       }
-      @lib.LocalTee(_) =>
-        return run_hot_pipeline_raw_ssa_nomerge_straight_line_heuristic(
-          func, params,
-        )
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let original_local = raw.reinterpret_as_int()
+        match
+          run_hot_pipeline_raw_ssa_nomerge_next_set_decision(plan, write_cursor) {
+          Some(SsaNoMergeWriteDecision::Freshen(fresh_local_id)) => {
+            run_hot_pipeline_raw_ssa_nomerge_append_planned_fresh_local(
+              extra_local_types, params, locals, base_local_count, original_local,
+              fresh_local_id,
+            )
+            rewritten_instrs.push(
+              @lib.Instruction::local_tee(
+                @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
+              ),
+            )
+          }
+          Some(SsaNoMergeWriteDecision::KeepCanonical) | None =>
+            rewritten_instrs.push(instr)
+        }
+        write_cursor = write_cursor + 1
+      }
       _ => rewritten_instrs.push(instr)
     }
   }
@@ -14928,16 +14828,6 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       None => None
     }
   } else {
-    if run_hot_pipeline_raw_ssa_nomerge_instrs_have_local_tee(instrs) {
-      return Some({
-        reason: "straight-line-local-writes",
-        func: run_hot_pipeline_raw_ssa_nomerge_straight_line_heuristic(
-          original, params,
-        ),
-        unchanged_original: false,
-        trace_skip_raw: true,
-      })
-    }
     let hot_func = @ir.hot_lift_func(mod_, func_idx)
     let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
     let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)

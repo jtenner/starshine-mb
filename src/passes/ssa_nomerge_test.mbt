@@ -18669,6 +18669,102 @@ test "ssa-nomerge LocalGraph straight-line set freshens overwritten body writes"
 }
 
 ///|
+test "ssa-nomerge LocalGraph straight-line tee freshens and preserves stack result" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 1 local.tee 0 drop i32.const 2 local.tee 0 i32.const 10 i32.add drop local.get 0))",
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected overwritten local.tee ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  ])
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=straight-line-local-writes-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge LocalGraph straight-line tee keeps folded effect operand single" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func $make (result i32) (i32.const 11))
+    #|  (func (result i32) (local i32)
+    #|    (drop (i32.add (local.tee 0 (call $make)) (i32.const 10)))
+    #|    (drop (local.tee 0 (i32.const 2)))
+    #|    (local.get 0)))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected folded local.tee ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  ])
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=straight-line-local-writes-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge keeps call result assigned when a later loop reads the local" {
   let source =
     #|(module

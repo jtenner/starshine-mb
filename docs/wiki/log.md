@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Consume LocalGraph plan for straight-line tees
+
+- Completed `[SSANM-003b]` in [`../../agent-todo.md`](../../agent-todo.md) by making the raw straight-line `ssa-nomerge` path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) consume `SsaNoMergeRewritePlan` for `local.tee` as well as `local.set`.
+- The path now rewrites planned `Freshen` tee targets to planned fresh locals, keeps canonical tee writes when the plan says so, preserves the tee stack result, and avoids duplicating folded/effectful operands because it only changes the flat raw tee target. The old straight-line alias heuristic was removed; structured-control tee mutation remains in later SSANM slices.
+- Added focused public-pipeline tests in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for LocalGraph-planned trace/output on overwritten root `local.tee`, stack-result preservation, final get retargeting, and folded effectful tee operands.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: red-first focused test failed on the legacy trace reason before implementation; final `moon fmt`, focused `ssa_nomerge_test.mbt` (`385/385`), `moon info`, `moon test src/passes` (`2415/2415`), full `moon test` (`5720/5720`), native build, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm003b-localgraph-tee-10000` (`7604/10000` compared, `7604` normalized, `0` mismatches, `20` Binaryen/tool command failures) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Consume LocalGraph plan for straight-line sets
 
 - Completed `[SSANM-003a]` in [`../../agent-todo.md`](../../agent-todo.md) by making the raw straight-line `ssa-nomerge` path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) build and consume `SsaNoMergeRewritePlan` for `local.set` functions without `local.tee`.
