@@ -457,19 +457,26 @@ Preset behavior inventory:
       - Status: child-sliced on 2026-06-13; execute through `[SSANM-007b1]` through `[SSANM-007b3]` so source inventory, typed-loop ABI boundaries, and typed branch-operand families stay separately reviewable.
       - Goal: separate true local-source no-merge decisions from stack/control-value ABI rewrites around typed loop params/results and branch operands.
       - Deliverables: classification fixtures for scalar/reference loop params, single-result and multi-result loops, branch operands, `br_table`, `br_on_*`, and nested-loop targets; mark each as LocalGraph local rewrite, typed-control lowering work, or deliberate fail-closed boundary.
-    - [ ] [SSANM-007b1] - Refresh typed-control source and fixture inventory
-      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007b1a]` through `[SSANM-007b1c]` so loop/result helper ownership, typed branch/cast ownership, and closeout handoff stay separately reviewable before `[SSANM-007b2]` / `[SSANM-007b3]` lock executable boundaries.
+    - [x] [SSANM-007b1] - Refresh typed-control source and fixture inventory
+      - Status: completed 2026-06-14 through `[SSANM-007b1a]` through `[SSANM-007b1c]`; typed-control loop/result helper owners, typed branch/cast owners, and next boundary-lock handoff are now durable in the SSA no-merge implementation docs.
       - Goal: pin Binaryen no-merge source/test evidence against Starshine's typed loop/result and branch-operand lowering boundaries before broadening LocalGraph mutation.
       - Deliverables: source-backed inventory for scalar/reference loop params, value-producing loops/blocks, branch operands, `br_table`, `br_on_*`, cast branches, and nested loop targets; map each existing typed-control `ssa_nomerge_test.mbt` guard to LocalGraph-local, scratch/copy lowering, or fail-closed ownership.
-    - [ ] [SSANM-007b1a] - Inventory typed loop param/result helper owners
+      - Evidence: `docs/wiki/binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md` now records typed loop-param/result proxy/store/no-copy owners, `br_table` selector/scratch helpers, nested loop target gates, `br_on_null` / `br_on_non_null` branch-spill helpers, prefix/tested reference producer handling, `br_on_cast` / `br_on_cast_fail` inverse-cast lowerings, and no-throw `try_table` typed-control wrappers as ABI repair or fail-closed surfaces rather than ordinary LocalGraph local-source no-merge mutation. Focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `420/420`. Direct compare was not run because this was a source/test inventory with no pass behavior mutation and no newly admitted mutation family.
+    - [x] [SSANM-007b1a] - Inventory typed loop param/result helper owners
+      - Status: completed 2026-06-14.
       - Goal: map scalar/reference loop params, value-producing blocks/loops, single-result and multi-result loop helpers, store-model rewrites, and nested-loop target guards to their current `ssa_nomerge_test.mbt` proof surface and raw helper owners.
       - Deliverables: source/test inventory table in the SSA no-merge implementation docs, with each loop/result family classified as ordinary LocalGraph local-source work, typed-control ABI repair, or fail-closed boundary; no mutation unless the inventory finds an unowned ordinary gap.
-    - [ ] [SSANM-007b1b] - Inventory typed branch operand and cast/null exit owners
+      - Evidence: the implementation docs now map scalar proxies, copy-needing scalar/reference loop params, multi-param no-result store models, single-result/multi-param single-result loops, `br_table` loop/result helpers, nested loop target gates, and no-copy typed-loop-param contrast helpers to `run_hot_pipeline_raw_loop_param_*`, table helper, and branch-local copy owners.
+    - [x] [SSANM-007b1b] - Inventory typed branch operand and cast/null exit owners
+      - Status: completed 2026-06-14.
       - Goal: map value-carrying `br`, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` families to current branch-alias, cast/null scratch, or fail-closed owners before `[SSANM-007b3]` adds executable locks.
       - Deliverables: source/test inventory table that cross-links existing branch/table/cast/null tests, separates ordinary local-source no-merge decisions from stack/control-value ABI lowerings, and records any missing fixture candidates.
-    - [ ] [SSANM-007b1c] - Close typed-control inventory and hand off boundary locks
+      - Evidence: the implementation docs now map value `br` / `br_if`, value `br_table`, `br_on_null` / `br_on_non_null`, tested-producer spills, `br_on_cast` / `br_on_cast_fail`, and no-throw `try_table` wrappers to typed branch/table/cast helper owners and to `[SSANM-007b3]` for executable boundary locks.
+    - [x] [SSANM-007b1c] - Close typed-control inventory and hand off boundary locks
+      - Status: completed 2026-06-14.
       - Goal: summarize the typed-control source and fixture inventory, update parity/index/log notes, and leave exact candidate lists for `[SSANM-007b2]` loop/result boundary locks and `[SSANM-007b3]` branch/cast boundary locks.
       - Deliverables: docs/backlog closeout for `[SSANM-007b1]`, explicit comparison note explaining why tests/fuzz were or were not required, and no behavior mutation.
+      - Evidence: parity, index, and wiki log pages now record `[SSANM-007b1]` as docs/source inventory only. `[SSANM-007b2]` should add loop-param/result trace/output locks; `[SSANM-007b3]` should add typed branch operand and cast/null exit locks. Direct compare was not required because no mutation behavior changed.
     - [ ] [SSANM-007b2] - Lock typed loop param/result ABI boundaries
       - Goal: keep loop-param/result rewrites that require stack/control-value ABI repair on explicit scratch/copy helpers instead of silently routing them through ordinary LocalGraph local mutation.
       - Deliverables: focused public-pipeline fixtures for scalar/reference loop params, single-result and multi-result loops, no-copy typed-loop cases, and nested-loop target boundaries, with trace/output assertions showing whether each family mutates through an intentional typed-control helper or remains fail-closed.

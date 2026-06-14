@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Inventory typed-control boundaries
+
+- Completed `[SSANM-007b1a]` through `[SSANM-007b1c]` and parent `[SSANM-007b1]` in [`../../agent-todo.md`](../../agent-todo.md).
+- Added a typed-control source/test inventory to [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), separating typed loop-param/result helper owners from typed branch operand and cast/null exit owners. The inventory classifies scalar/reference loop-param proxies, multi-param and single-result store models, table selector/scratch helpers, nested loop target gates, `br_on_null` / `br_on_non_null`, prefix/tested reference producer spills, and `br_on_cast` / `br_on_cast_fail` inverse-cast lowerings as typed-control ABI repair or fail-closed surfaces rather than ordinary LocalGraph local-source no-merge mutation.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `420/420`. Direct compare was not run because this source/test inventory changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Classify no-throw EH bodies
 
 - Completed `[SSANM-007a3a]` through `[SSANM-007a3c]`, `[SSANM-007a3]`, and parent `[SSANM-007a]` in [`../../agent-todo.md`](../../agent-todo.md).
