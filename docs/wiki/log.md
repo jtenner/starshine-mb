@@ -2,6 +2,15 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI temp-local reuse at abs 576
+
+- Completed `[SSANM-009b18]` in [`../../agent-todo.md`](../../agent-todo.md) as a classification-only slice over the next current debug-WASI self artifact print diff, `defined=549 abs=576`.
+- Targeted `--print-func 576` extraction under `.tmp/ssanm009b17-next576` shows Starshine and Binaryen have equal canonical `body_raw` token length and the same instruction/control skeleton once local indexes are masked. The only differences are 15 dead one-use `local.tee` targets: Starshine reuses locals `14`, `15`, `31`, `56`, `10`, `11`, `12`, `27`, `29`, `30`, `40`, `24`, `25`, `37`, and `22`, while Binaryen allocates fresh locals `61..75`.
+- Evidence: `wasm-tools validate --features all` passed for both `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614/{starshine,binaryen}.wasm`; defined function `549` encodes to the same `714` byte body on both sides (`711` instruction bytes plus `3` local-declaration bytes), with Starshine `59` body i32 locals versus Binaryen `74`. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference, not an implementation gap.
+- No executable code changed, so direct compare was not rerun beyond `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` (`9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures).
+- Added `[SSANM-009b19]` for the next `defined=552 abs=579` whole-print diff, which still needs targeted classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI local-slot permutation
 
 - Completed `[SSANM-009b17]` in [`../../agent-todo.md`](../../agent-todo.md) as a classification-only slice over the next current debug-WASI self artifact print diff, `defined=548 abs=575`.

@@ -909,6 +909,14 @@ The only token differences are local-index choices for branch-local temporaries.
 
 Measured deltas: defined function `548` encodes to the same `86` byte code body in both artifacts (`83` instruction bytes plus `3` local-declaration bytes), with the same single local-declaration run of seven i32 locals. Both full artifacts validate with `wasm-tools validate --features all`. Agent classification: semantic-safe neutral representation-only local permutation. It is not a Starshine win because local count and body size are equal, and it is not a parity gap because the inspected dataflow and control skeleton are identical. No code or executable tests changed, so direct compare was not rerun beyond `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614`.
 
+## `[SSANM-009b18]` repeated one-shot temp-local classification at `abs=576`
+
+`[SSANM-009b18]` follows the same current self-artifact pair to `defined=549 abs=576`. Targeted `--print-func 576` extraction under `.tmp/ssanm009b17-next576` shows Starshine and Binaryen have the same canonical instruction/control skeleton and equal `body_raw` token length once local indexes are masked. The only token differences are 15 `local.tee` target choices: Starshine reuses locals `14`, `15`, `31`, `56`, `10`, `11`, `12`, `27`, `29`, `30`, `40`, `24`, `25`, `37`, and `22`, while Binaryen allocates fresh locals `61..75`.
+
+Local-use analysis shows every differing local appears exactly once as a dead stack-preserving `local.tee` target on its side; none of those Starshine reused slots or Binaryen fresh slots is later read. No call, load/store memarg, branch/table opcode, label target, constant, result type, or structured-control token differs. The Starshine trace for abs `576` reports `call-heavy-memory-structured-noop`, so this remains artifact representation classification rather than a new SSANM mutation owner.
+
+Measured deltas: defined function `549` encodes to the same `714` byte code body in both artifacts (`711` instruction bytes plus `3` local-declaration bytes). Starshine has `59` body i32 locals versus Binaryen `74`; the function body is therefore local-count reducing and byte-size neutral, not size-losing. Both full artifacts validate with `wasm-tools validate --features all`. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference. No code or executable tests changed, so direct compare was not rerun beyond `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614`.
+
 ## Starshine test map
 
 | Local test surface | What it proves |
