@@ -13626,6 +13626,116 @@ fn run_hot_pipeline_raw_ssa_nomerge_multisource_merge_supported_control(
 }
 
 ///|
+priv struct SsaNoMergeLoopBackedgeMergeControlScan {
+  mut saw_loop_backedge_br_if : Bool
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_body_supported_control(
+  instrs : Array[@lib.Instruction],
+  state : SsaNoMergeLoopBackedgeMergeControlScan,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _) => return false
+      @lib.BrIf(@lib.LabelIdx(raw)) =>
+        if raw == 0U {
+          state.saw_loop_backedge_br_if = true
+        } else {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_raw_ssa_nomerge_loop_backedge_body_supported_control(
+            then_body, state,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !run_hot_pipeline_raw_ssa_nomerge_loop_backedge_body_supported_control(
+                body, state,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_scan_loop_backedge_merge_control(
+  instrs : Array[@lib.Instruction],
+  state : SsaNoMergeLoopBackedgeMergeControlScan,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return false
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_ssa_nomerge_loop_backedge_body_supported_control(
+            body, state,
+          ) {
+          return false
+        }
+      @lib.Loop(_, _) => return false
+      @lib.Block(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_ssa_nomerge_scan_loop_backedge_merge_control(
+            body, state,
+          ) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_raw_ssa_nomerge_scan_loop_backedge_merge_control(
+            then_body, state,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !run_hot_pipeline_raw_ssa_nomerge_scan_loop_backedge_merge_control(
+                body, state,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_merge_supported_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let state = { saw_loop_backedge_br_if: false }
+  run_hot_pipeline_raw_ssa_nomerge_scan_loop_backedge_merge_control(
+    instrs, state,
+  ) &&
+  state.saw_loop_backedge_br_if
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -15131,6 +15241,23 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     return None
   }
   if has_structured_control {
+    if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_merge_supported_control(
+        instrs,
+      ) {
+      let hot_func = @ir.hot_lift_func(mod_, func_idx)
+      let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
+      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+      if run_hot_pipeline_raw_ssa_nomerge_plan_preserves_multisource_merge(
+          local_graph, plan,
+        ) {
+        return Some({
+          reason: "structured-loop-backedge-merge-localgraph-plan",
+          func: original,
+          unchanged_original: true,
+          trace_skip_raw: true,
+        })
+      }
+    }
     if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
         instrs,
         params.length(),

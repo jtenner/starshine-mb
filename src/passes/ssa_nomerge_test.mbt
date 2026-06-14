@@ -20043,7 +20043,8 @@ test "ssa-nomerge keeps branch joins canonical when the next read is safe" {
 }
 
 ///|
-test "ssa-nomerge rewrites loop-carried locals before br_if backedges" {
+test "ssa-nomerge LocalGraph preserves loop-carried br_if merge canonical" {
+  let trace : Array[String] = []
   let input =
     #| (module
     #|   (func (result i32)
@@ -20062,14 +20063,30 @@ test "ssa-nomerge rewrites loop-carried locals before br_if backedges" {
     #|     end
     #|     local.get 0))
     #|
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    input, "loop-carried locals before br_if backedges",
-  )
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected loop-carried br_if merge success, got \{err}")
+  }
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() > 1, msg=locals.to_string())
-  assert_true(
-    ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [0U, 0U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [0U, 0U])
+  assert_false(
+    ssa_test_has_ssa_temp_local_writes(instrs, 0U),
     msg=instrs.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-merge-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
   )
 }
 

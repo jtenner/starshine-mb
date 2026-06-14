@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Preserve loop backedge merges through LocalGraph
+
+- Completed `[SSANM-005b2]` in [`../../agent-todo.md`](../../agent-todo.md) by adding a narrow canonical-only LocalGraph plan path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) for simple void-loop direct `br_if 0` backedge merge reads.
+- The new path runs before the legacy loop-carried HOT defer, returns unchanged with `structured-loop-backedge-merge-localgraph-plan`, and keeps entry/backedge writes plus merge reads on the canonical local instead of introducing scratch/proxy locals.
+- The path deliberately rejects typed loops, nested blocks/loops, plain `br`, `br_table`, `br_on_*`, cast branches, and `try_table`, leaving typed-loop/value-backedge scratch lowerings and branch-alias helpers active for later boundary/control slices.
+- Updated focused public-pipeline coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt), plus [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: red-first focused test failed because the legacy path still added scratch locals; final `moon fmt`, focused `ssa_nomerge_test.mbt` (`394/394`), `moon info`, `moon test src/passes` (`2424/2424`), full `moon test` (`5729/5729`), native build, `git diff --check`, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm005b2-loop-backedge-10000` (`7607/10000` compared, `7607` normalized, `0` mismatches, `20` Binaryen/tool command failures: `19` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve simple multi-source merges through LocalGraph
 
 - Split `[SSANM-005b]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for simple both-arm/`br_if` preservation, loop/backedge classification, and `br`/`br_table` plus full-`ssa` contrast.
