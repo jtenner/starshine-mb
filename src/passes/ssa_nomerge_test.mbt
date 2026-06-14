@@ -21790,6 +21790,119 @@ test "ssa-nomerge LocalGraph preserves decorated loop-carried br_if merge canoni
 }
 
 ///|
+test "ssa-nomerge rejects branchy decorated loop-backedge boundary reasons" {
+  // `[SSANM-006b2c3a]` locks the retained boundary after the decorated
+  // loop-backedge positive: once a decoration block contains its own branch,
+  // the shape is branch-helper territory, not the ordinary canonical-only
+  // loop-backedge LocalGraph reroute. This is a fail-closed regression lock,
+  // not a new mutation admission.
+  let trace : Array[String] = []
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     i32.const 1
+    #|     local.set 1
+    #|     loop
+    #|       local.get 1
+    #|       drop
+    #|       i32.const 2
+    #|       local.set 1
+    #|       block
+    #|         local.get 0
+    #|         br_if 0
+    #|         local.get 1
+    #|         drop
+    #|       end
+    #|       i32.const 1
+    #|       br_if 0
+    #|     end
+    #|     local.get 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected branchy decorated loop-backedge boundary success, got \{err}",
+      )
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  ssa_test_assert_no_ssa_nomerge_mutation_trace(trace)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-boundary-noop",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br_if(instrs), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge rejects table decorated loop-backedge boundary reasons" {
+  // `[SSANM-006b2c3a]` keeps `br_table` decoration outside the ordinary
+  // loop-backedge LocalGraph reroute because table-target repair remains an
+  // explicit boundary helper. The pass should validate and preserve the table
+  // branch without claiming a planned structured LocalGraph reason.
+  let trace : Array[String] = []
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     i32.const 1
+    #|     local.set 1
+    #|     loop
+    #|       local.get 1
+    #|       drop
+    #|       i32.const 2
+    #|       local.set 1
+    #|       block
+    #|         block
+    #|           local.get 0
+    #|           br_table 0 1
+    #|         end
+    #|         local.get 1
+    #|         drop
+    #|       end
+    #|       i32.const 1
+    #|       br_if 0
+    #|     end
+    #|     local.get 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table decorated loop-backedge boundary success, got \{err}",
+      )
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  ssa_test_assert_no_ssa_nomerge_mutation_trace(trace)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-boundary-noop",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br_table(instrs), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge LocalGraph preserves loop-carried br_if merge canonical" {
   let trace : Array[String] = []
   let input =

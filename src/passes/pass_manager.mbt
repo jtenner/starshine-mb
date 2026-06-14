@@ -15178,6 +15178,121 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_br_table_merge_copy_shape(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_has_branch_table(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => return true
+      @lib.Block(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_has_branch_table(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_has_branch_table(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_has_branch_table(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_retained_loop_backedge_boundary(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
+        let mut saw_local_read_before_write = false
+        let mut saw_local_write = false
+        let mut saw_boundary = false
+        for body_instr in body {
+          match body_instr {
+            @lib.LocalGet(@lib.LocalIdx(raw)) =>
+              if !saw_local_write && raw.reinterpret_as_int() >= param_count {
+                saw_local_read_before_write = true
+              }
+            @lib.LocalSet(_) | @lib.LocalTee(_) => saw_local_write = true
+            @lib.BrIf(@lib.LabelIdx(raw)) =>
+              if raw == 0U &&
+                saw_local_read_before_write &&
+                saw_local_write &&
+                saw_boundary {
+                return true
+              }
+            @lib.Block(_, @lib.Expr(nested)) =>
+              if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_has_branch_table(
+                  nested,
+                ) {
+                saw_boundary = true
+              }
+            @lib.Br(_) | @lib.BrTable(_, _) => saw_boundary = true
+            @lib.If(_, then_body, else_body) => {
+              if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_has_branch_table(
+                  then_body,
+                ) {
+                saw_boundary = true
+              }
+              match else_body {
+                Some(body) =>
+                  if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_has_branch_table(
+                      body,
+                    ) {
+                    saw_boundary = true
+                  }
+                None => ()
+              }
+            }
+            _ => ()
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_retained_loop_backedge_boundary(
+            body, param_count,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_retained_loop_backedge_boundary(
+            then_body, param_count,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_retained_loop_backedge_boundary(
+                body, param_count,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
   instrs : Array[@lib.Instruction],
   param_count : Int,
@@ -15639,6 +15754,17 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         instrs,
         params.length(),
       ) {
+      if run_hot_pipeline_raw_ssa_nomerge_retained_loop_backedge_boundary(
+          instrs,
+          params.length(),
+        ) {
+        return Some({
+          reason: "structured-loop-backedge-boundary-noop",
+          func: original,
+          unchanged_original: true,
+          trace_skip_raw: true,
+        })
+      }
       return None
     }
     let base_local_count = params.length() + locals.length()
