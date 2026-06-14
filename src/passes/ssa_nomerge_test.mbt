@@ -19856,6 +19856,61 @@ test "ssa-nomerge keeps ordinary br_if local-source regions off planned structur
 }
 
 ///|
+test "ssa-nomerge keeps ordinary br_table local-source regions off planned structured path" {
+  // `[SSANM-006a3c]` keeps ordinary table exits without typed/value operands
+  // outside planned structured LocalGraph mutation. Table-target alias/scratch
+  // helpers still own this boundary until branch-table lowering is narrowed.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    block
+    #|      block
+    #|        local.get 0
+    #|        br_table 0 1
+    #|      end
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ordinary br_table local-source boundary success, got \{err}",
+      )
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-merge-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br_table(instrs), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge keeps plain br multi-source merges off LocalGraph path" {
   // `[SSANM-005b3]` deliberately classifies plain `br` multi-source merge
   // regions as branch-helper territory for now. They must validate, preserve the

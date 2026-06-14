@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify table exits and fallback survivors
+
+- Completed `[SSANM-006a3c]` and `[SSANM-006b2a]` in [`../../agent-todo.md`](../../agent-todo.md).
+- Added focused public-pipeline fail-closed coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for ordinary no-value `br_table` local-source regions. The test validates, preserves `br_table`, and keeps the fixture off ordinary structured, mixed, multi-source, and loop-backedge LocalGraph trace reasons.
+- Added the `[SSANM-006a3c]` branch-table classification and `[SSANM-006b2a]` fallback HOT SSA-destruction survivor census to [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), then refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence so far: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `412/412`; direct compare was not run because these slices only classify existing fail-closed/source ownership and admit no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Classify plain branch local-source regions
 
 - Completed `[SSANM-006a3b]` in [`../../agent-todo.md`](../../agent-todo.md) with focused public-pipeline fail-closed coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).

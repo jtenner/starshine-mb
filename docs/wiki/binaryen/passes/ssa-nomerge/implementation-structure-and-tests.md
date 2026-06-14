@@ -182,6 +182,18 @@ Inventory conclusion: the only already-supported ordinary branch-exit LocalGraph
 
 Because this is a fail-closed classification of existing routing, direct compare was not required. If a later slice admits plain `br` or additional `br_if` subsets to a planned LocalGraph rewrite, it should add red-first positive fixtures and run the ordinary direct `--pass ssa-nomerge` compare lane.
 
+## `[SSANM-006a3c]` ordinary `br_table` local-source classification
+
+`[SSANM-006a3c]` gives ordinary table exits the same conservative boundary status as the earlier table multi-source, mixed, and value-operand fixtures. The newly locked fixture has no typed/value branch operand and no table-local merge writes, but it still contains a normal `br_table` target mesh. Starshine keeps that shape off planned structured LocalGraph mutation until table-target alias/scratch ownership is narrowed.
+
+| Family | Classification | Focused proof |
+| --- | --- | --- |
+| Ordinary void `br_table` exit after a single-source local write | Keep off `structured-localgraph-plan`, `structured-mixed-localgraph-plan`, `structured-multisource-merge-localgraph-plan`, and the loop-backedge reason; preserve the table branch and leave ownership with branch-table raw helpers. | `ssa-nomerge keeps ordinary br_table local-source regions off planned structured path`. |
+| Mixed and multi-source `br_table` regions | Still fail-closed from mixed/canonical LocalGraph reasons; table-target and branch-operand helper ownership remains explicit. | `ssa-nomerge keeps mixed br_table regions off LocalGraph path` and `ssa-nomerge keeps br_table multi-source merges off LocalGraph path`. |
+| Value-carrying `br_table` operands | Still typed-control / branch-operand boundary work, not ordinary local-source freshening. | `ssa-nomerge keeps value br_table operands off LocalGraph path`; owned by `[SSANM-007b3]`. |
+
+Because this is another fail-closed classification of existing routing, direct compare was not required. If a later slice admits any table subset to planned LocalGraph mutation, it should add red-first positive fixtures, prove no table-target alias/proxy lowering is bypassed, and run the ordinary direct `--pass ssa-nomerge` compare lane.
+
 ## `[SSANM-006b1]` predecessor-copy-producing path inventory
 
 `[SSANM-006b1]` is a source/test inventory, not a mutation change. It separates three categories that future slices must not conflate:
@@ -193,6 +205,22 @@ Because this is a fail-closed classification of existing routing, direct compare
 | Raw branch / typed-control scratch helpers | Branch-alias copies, br_table scratch/proxy branches, loop-param store/proxy lowerings, cast/null branch copy blocks, and branch-heavy scratch freshening in `src/passes/pass_manager.mbt`. | These allocate scratch/proxy locals or branch-local alias copies, but they are currently intentional Starshine boundary lowerings rather than ordinary no-merge predecessor-copy materialization. | `[SSANM-006b2d]` documents this boundary from the predecessor-copy-retirement perspective, while `[SSANM-006a3a]` through `[SSANM-006a3d]`, `[SSANM-007a*]`, `[SSANM-007b*]`, and huge/artifact slices decide which stay, move to typed/EH helpers, or become fail-closed. |
 
 The inventory means the remaining predecessor-copy retirement work is not to delete all local allocation in `ssa-nomerge`; it is to prevent ordinary LocalGraph-supported local-source traffic from reaching HOT SSA destruction or branch/typed scratch helpers when Binaryen `SSAify(false)` would freshen single-source writes or preserve canonical merge reads directly. The 2026-06-14 split keeps that work in four smaller review units: fallback census, straight-line/default regression proof, structured ordinary rerouting, and boundary classification for scratch/proxy helpers.
+
+## `[SSANM-006b2a]` fallback HOT SSA-destruction survivor census
+
+`[SSANM-006b2a]` is a source/test census of when the raw `ssa-nomerge` dispatcher can still return `None` and fall through to the lifted HOT pass (`ssa_nomerge_run(...)`, then `@ir.ssa_destroy_into_hot(...)`). It does not change mutation policy.
+
+| Dispatcher family | Does it fall into HOT SSA destruction? | Census classification / next owner |
+| --- | --- | --- |
+| No-local-write functions, including default-entry reads and dropped-unreachable debris | No. The raw dispatcher returns `no-local-writes`, `default-local-reads-localgraph-plan`, or debris cleanup reasons. | Lock against regression in `[SSANM-006b2b]`. |
+| Straight-line functions with `local.set` / `local.tee` writes | No. The raw dispatcher always builds `SsaNoMergeRewritePlan` and returns `straight-line-local-writes-localgraph-plan`. | Lock against regression in `[SSANM-006b2b]`. |
+| Completed ordinary normal-control families: one-arm/default merges, both-arm/block-`br_if` multi-source merges, simple void-loop direct `br_if 0` backedge merges, mixed normal `local.set` / small `local.tee` / nested `block` / `if` / supported `br_if`, and ordinary block/if single-source `local.set` rewrites | No for their supported shapes. They return named LocalGraph reasons before legacy helper fallback. | Keep covered by completed `[SSANM-005a]` through `[SSANM-006a2b]`; add regression locks in `[SSANM-006b2b]` / `[SSANM-006b2c]` only where needed. |
+| Loop-carried `br_if` shapes not admitted by the simple direct void-loop canonical-only gate | Yes: `run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(...)` can deliberately return `None`. | Candidate list for `[SSANM-006b2c]` only if a reduced shape is ordinary LocalGraph-supported; typed/value loop cases remain `[SSANM-007b2]`. |
+| Legacy structured helper failures (`run_hot_pipeline_raw_ssa_nomerge_structured(...)` returns `None`) and invalid-escape-carrier rejections when no default materialization changed the function | Yes. With no raw result to return, the dispatcher falls through to lifted HOT SSA destruction. | Candidate list for `[SSANM-006b2c]`; classify reduced examples as ordinary rerouting gaps versus branch/table/typed/EH/huge boundaries. |
+| Branch-table, value branch operand, typed-control, EH, and branch-alias scratch/proxy helpers | Usually no ordinary fallback claim: they either stay fail-closed/no-op, use raw helper lowerings, or may fall through only as an explicit boundary. | Keep out of ordinary predecessor-copy work in `[SSANM-006b2d]`, cross-linked to `[SSANM-006a3c]`, `[SSANM-007a*]`, and `[SSANM-007b*]`. |
+| Huge structured functions over raw instruction/local thresholds | No HOT fallback from the raw guard; the dispatcher returns `large-structured-local-writes ...` unchanged. | Huge-function policy stays in `[SSANM-008a]` through `[SSANM-008d]`. |
+
+Census conclusion: no completed straight-line/default/ordinary block-if LocalGraph family is expected to reach `ssa_destroy_into_hot`. The remaining true fallback-risk candidates are non-simple loop-carried branch shapes and legacy structured helper rejection paths. Those should be reduced in `[SSANM-006b2c]` before any behavior change; branch-table, typed-control, EH, and huge-function cases should stay boundary-classified unless their owning slice proves a narrow ordinary local-source subset.
 
 ## Starshine test map
 
