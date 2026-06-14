@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Preserve simple multi-source merges through LocalGraph
+
+- Split `[SSANM-005b]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for simple both-arm/`br_if` preservation, loop/backedge classification, and `br`/`br_table` plus full-`ssa` contrast.
+- Completed `[SSANM-005b1]` by adding a canonical-only LocalGraph plan path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) for simple normal structured-control multi-source merge gets.
+- The new path returns unchanged with `structured-multisource-merge-localgraph-plan` for both-arm `if` writes and block/`br_if` early-exit merge reads, while deliberately leaving loops/backedges, plain `br`, `br_table`, `br_on_*`, cast branches, `try_table`, and mixed fresh/canonical regions to later slices.
+- Added focused public-pipeline tests in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt), and refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: red-first focused test failed on the legacy `structured-local-writes` trace; final `moon fmt`, focused `ssa_nomerge_test.mbt` (`394/394`), `moon info`, `moon test src/passes` (`2424/2424`), full `moon test` (`5729/5729`), native build, `git diff --check`, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm005b1-multisource-merge-10000` (`7607/10000` compared, `7607` normalized, `0` mismatches, `20` Binaryen/tool command failures: `19` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve one-arm merges through LocalGraph
 
 - Completed `[SSANM-005a]` in [`../../agent-todo.md`](../../agent-todo.md) by adding a canonical-only LocalGraph plan path for simple missing-else one-arm entry/default merges in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt).
