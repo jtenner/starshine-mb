@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice ordinary structured local.set work
+
+- Split hidden work under `[SSANM-006a2]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for no-merge block/if `local.set` freshening, canonical-merge preservation with adjacent freshening, and legacy structured-helper narrowing.
+- Tests were not run because this was a backlog slicing change only and did not alter executable behavior or generated contracts.
+
 ## [2026-06-13] passes/ssa-nomerge | Classify normal structured-control boundaries
 
 - Completed `[SSANM-006a1]` in [`../../agent-todo.md`](../../agent-todo.md) with focused fail-closed public-pipeline coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
