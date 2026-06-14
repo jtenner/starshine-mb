@@ -281,8 +281,18 @@ Preset behavior inventory:
       - Goal: decide which plain `br`, `br_if`, `br_table`, and nested normal-flow regions can use the structured LocalGraph mutation path without bypassing branch-alias, typed-control, or EH safety helpers.
       - Deliverables: positive/fail-closed fixtures, docs/backlog updates, direct compare evidence for any newly admitted mutation family, and a delete/narrowing plan for superseded raw helpers.
     - [ ] [SSANM-006b] - Retire predecessor-copy behavior from no-merge paths
+      - Status: child-sliced on 2026-06-13; execute through `[SSANM-006b1]` through `[SSANM-006b3]` so inventory, ordinary-family rerouting, and legacy-helper retirement stay separately reviewable.
       - Goal: ensure `ssa-nomerge` no longer relies on HOT SSA destruction that externalizes overlay phis through predecessor copies for ordinary no-merge work.
       - Deliverables: summary string/docs update, tests proving merge-copy shapes belong outside `ssa-nomerge`, and a clear route for any remaining HOT SSA destruction users to full `ssa` or a separate helper.
+    - [ ] [SSANM-006b1] - Inventory predecessor-copy-producing no-merge paths
+      - Goal: identify every remaining `ssa-nomerge` path that can still create predecessor copies, merge locals, or proxy/scratch copies for ordinary LocalGraph-supported local-source work.
+      - Deliverables: source/test map of HOT SSA destruction entry points, raw helper families that still intentionally allocate branch/typed-control scratch locals, and public-pipeline fixtures that distinguish ordinary no-merge predecessor-copy drift from accepted typed-control/EH boundaries.
+    - [ ] [SSANM-006b2] - Reroute ordinary no-merge families away from predecessor copies
+      - Goal: make ordinary LocalGraph-supported no-merge traffic use planned canonical/fresh/default rewrites instead of HOT SSA destruction or predecessor-copy merge materialization.
+      - Deliverables: red-first fixtures for any ordinary family still entering copy-producing paths, implementation that preserves canonical merge reads/writes without merge locals, and direct compare evidence.
+    - [ ] [SSANM-006b3] - Retire or narrow legacy predecessor-copy helpers
+      - Goal: after ordinary no-merge families are rerouted, delete or explicitly narrow leftover no-merge predecessor-copy helpers and update pass summaries/docs so predecessor copies are no longer described as normal `ssa-nomerge` behavior.
+      - Deliverables: summary/help/docs updates, tests proving retained scratch/copy lowerings are typed-control/EH/full-SSA or explicitly fail-closed boundaries, and backlog cleanup before closing `[SSANM-006b]`.
     - [ ] [SSANM-007a] - Keep exceptional-edge boundaries explicit
       - Goal: preserve safety for `try`, `try_table`, `throw`, `throw_ref`, `rethrow`, `delegate`, catches, calls inside no-throw `try_table` bodies, and any path where LocalGraph does not model exceptional successors.
       - Deliverables: fail-closed tests for real exceptional-flow families, positive tests only for source-backed no-exception normal-flow subsets, and a Binaryen-source note explaining whether the boundary is Starshine tooling debt or an intentional no-mutation subset.

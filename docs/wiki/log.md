@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice predecessor-copy retirement work
+
+- Split hidden work under `[SSANM-006b]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for inventorying copy-producing no-merge paths, rerouting ordinary LocalGraph-supported families away from predecessor copies, and retiring or narrowing legacy predecessor-copy helpers/summaries.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) so the fixture baseline matrix points future agents at `[SSANM-006b1]` through `[SSANM-006b3]` instead of treating predecessor-copy retirement as one oversized slice.
+- Tests were not run because this was a backlog/wiki slicing change only and did not alter executable behavior or generated contracts.
+
 ## [2026-06-13] passes/ssa-nomerge | Freshen mixed structured LocalGraph set writes
 
 - Completed `[SSANM-005c1]` and `[SSANM-005c2]` in [`../../agent-todo.md`](../../agent-todo.md) by adding mixed fresh/canonical planner coverage and a narrow normal structured-control `local.set` mutation path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt).
