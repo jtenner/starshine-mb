@@ -333,8 +333,18 @@ Preset behavior inventory:
       - Deliverables: table-exit positive/fail-closed fixtures, branch-table helper ownership docs, validation proof, and direct compare evidence for any newly admitted mutation family.
       - Evidence: added focused public-pipeline test `ssa-nomerge keeps ordinary br_table local-source regions off planned structured path` in `src/passes/ssa_nomerge_test.mbt`. It validates the table-exit fixture, preserves `br_table`, and asserts the ordinary structured, mixed, multi-source, and loop-backedge LocalGraph reasons are not claimed. Focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `412/412`. Direct compare was not run because this slice only locks existing fail-closed routing and admits no new mutation family.
     - [ ] [SSANM-006a3d] - Expand nested normal branch-target regions safely
+      - Status: child-sliced on 2026-06-14; execute through `[SSANM-006a3d1]` through `[SSANM-006a3d3]` so nested-target inventory, fail-closed locks, and closeout docs stay separately reviewable.
       - Goal: classify nested `block` / `if` / loop-target combinations that are not covered by `[SSANM-005c3c]` or `[SSANM-006a2]`, without routing typed loops, EH, or branch operands through ordinary LocalGraph mutation.
       - Deliverables: nested-target fixture matrix, docs/backlog updates, and a narrowing/deletion plan for any superseded raw structured helpers.
+    - [ ] [SSANM-006a3d1] - Inventory nested normal branch-target ownership
+      - Goal: map nested `block` / `if` branch-target combinations against the already-supported mixed/nested LocalGraph path, ordinary `block` / `if` local.set path, and fail-closed branch/table/typed/EH boundaries.
+      - Deliverables: source/test ownership table in the SSA no-merge implementation docs, with explicit candidate families for executable locks or later mutation.
+    - [ ] [SSANM-006a3d2] - Lock unsupported nested target shapes off planned LocalGraph mutation
+      - Goal: prove nested branch targets that are not already covered by `[SSANM-005c3c]`, `[SSANM-006a2]`, or the simple loop-backedge subset validate without claiming ordinary planned LocalGraph reasons.
+      - Deliverables: focused fail-closed public-pipeline fixtures, trace assertions, validation proof, and direct compare evidence only if a new mutation family is admitted.
+    - [ ] [SSANM-006a3d3] - Close nested-target helper narrowing docs
+      - Goal: summarize the supported and fail-closed nested-target boundary after `[SSANM-006a3d1]` / `[SSANM-006a3d2]`, including which raw structured helpers remain necessary.
+      - Deliverables: docs/backlog closeout, wiki log entry, and comparison note explaining why fuzz was or was not required.
     - [ ] [SSANM-006b] - Retire predecessor-copy behavior from no-merge paths
       - Status: child-sliced on 2026-06-13 and refined on 2026-06-14; execute through `[SSANM-006b1]`, `[SSANM-006b2a]` through `[SSANM-006b2d]`, and `[SSANM-006b3]` so inventory, fallback triage, ordinary rerouting, and legacy-helper retirement stay separately reviewable.
       - Goal: ensure `ssa-nomerge` no longer relies on HOT SSA destruction that externalizes overlay phis through predecessor copies for ordinary no-merge work.
