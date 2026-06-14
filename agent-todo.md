@@ -433,8 +433,18 @@ Preset behavior inventory:
       - Deliverables: SSA no-merge implementation/parity/index/wiki-log updates, backlog cleanup for `[SSANM-007a2]`, and a comparison note explaining why direct fuzz was or was not required.
       - Evidence: docs now summarize direct/conditional throwing `try_table`, `throw_ref`, legacy catch/rethrow, and delegate boundaries as fail-closed; no-throw `try_table` normal-flow candidates remain `[SSANM-007a3]`; real EH mutation requires exceptional successor/reaching-set support or an EH-aware repair helper. Direct compare was not run because no behavior mutation was admitted.
     - [ ] [SSANM-007a3] - Classify no-throw `try_table` and EH-body normal-flow subsets
+      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007a3a]` through `[SSANM-007a3c]` so source/test inventory, ordinary no-throw local-write admission, and typed-loop helper ownership stay separately reviewable.
       - Goal: decide whether no-throw EH bodies can reuse normal-flow LocalGraph rewrites, or whether all EH containers should remain fail-closed for v0.1.0.
       - Deliverables: positive or deliberately fail-closed no-throw `try_table` fixtures, direct compare evidence for any admitted mutation family, and reopening criteria for remaining EH boundaries.
+    - [ ] [SSANM-007a3a] - Inventory no-throw `try_table` normal-flow owners
+      - Goal: classify current no-throw `try_table` support into ordinary local-source rewrites, typed-loop helper rewrites, and fail-closed call/throw-bearing boundaries before changing behavior.
+      - Deliverables: source/test table for `run_hot_pipeline_raw_try_table_body_has_exceptional_edge(...)`, ordinary no-throw local writes, typed-loop/proxy/store helpers, and call/throw rejection; no mutation unless the inventory finds an unowned gap.
+    - [ ] [SSANM-007a3b] - Lock ordinary no-throw `try_table` local-write admission
+      - Goal: keep the no-throw `try_table` ordinary local-write subset as normal-flow work only when the body has no exceptional/call-bearing edge.
+      - Deliverables: focused public-pipeline trace/output fixtures, explicit contrast with throwing/call-bearing bodies, validation proof, and direct compare only if behavior changes.
+    - [ ] [SSANM-007a3c] - Lock no-throw typed-loop helper ownership and close out EH-body subsets
+      - Goal: document and test that no-throw `try_table` typed-loop/proxy/store rewrites are typed-control helper work, not proof of real exceptional-edge SSA support.
+      - Deliverables: focused trace/output fixtures or source-backed table for scalar proxy, multi-param/result, catch relabeling, and store-model helpers; closeout docs/backlog updates for `[SSANM-007a3]` and parent `[SSANM-007a]` if no EH work remains.
     - [ ] [SSANM-007b] - Classify typed-control and loop-param/result boundaries
       - Status: child-sliced on 2026-06-13; execute through `[SSANM-007b1]` through `[SSANM-007b3]` so source inventory, typed-loop ABI boundaries, and typed branch-operand families stay separately reviewable.
       - Goal: separate true local-source no-merge decisions from stack/control-value ABI rewrites around typed loop params/results and branch operands.
