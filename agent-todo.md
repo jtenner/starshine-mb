@@ -498,8 +498,21 @@ Preset behavior inventory:
       - Goal: summarize `[SSANM-007b2a]` through `[SSANM-007b2c]`, update parity/index/wiki-log notes, and leave any branch-operand/cast/null work to `[SSANM-007b3]`.
       - Deliverables: docs/backlog closeout, explicit comparison note explaining why direct fuzz was or was not required, and reopening criteria for any retained typed-control fail-closed boundary.
     - [ ] [SSANM-007b3] - Classify typed branch operands and cast/null branch exits
+      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007b3a]` through `[SSANM-007b3d]` so branch operands, table operands, null exits, and cast exits stay separately reviewable.
       - Goal: decide which branch-operand, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` families are local-source no-merge decisions versus typed-control lowering work.
       - Deliverables: positive or fail-closed fixtures for branch operands and typed exits, direct compare evidence for any newly admitted mutation family, and docs/backlog updates that keep branch-alias/cast scratch ownership explicit.
+    - [ ] [SSANM-007b3a] - Lock value-carrying `br` and `br_if` operand boundaries
+      - Goal: prove scalar/reference branch operands that require stack-value preservation remain on explicit branch-alias or scratch lowering helpers, while ordinary local-source writes remain owned by LocalGraph no-merge decisions.
+      - Deliverables: focused trace/output fixtures for direct and conditional value branches, including copy-needed and no-copy contrasts; direct compare only if a new mutation family is admitted.
+    - [ ] [SSANM-007b3b] - Lock typed `br_table` branch-operand boundaries
+      - Goal: separate table selector/value operand ABI repair from ordinary no-merge local-source mutation, including mixed branch targets and branch-local copy ownership.
+      - Deliverables: trace/output fixtures for value-carrying `br_table` shapes that are not already closed by `[SSANM-007b2c]`, with explicit selector/scratch ownership and any fail-closed targets recorded.
+    - [ ] [SSANM-007b3c] - Lock `br_on_null` and `br_on_non_null` typed-exit boundaries
+      - Goal: keep null/non-null branch spills and tested reference producer handling classified as typed-control lowering or explicit fail-closed work rather than generic LocalGraph local mutation.
+      - Deliverables: positive or fail-closed fixtures for nullable and non-null reference exits, tested producer spills, prefix locals, and no-copy contrasts; direct compare only if behavior changes.
+    - [ ] [SSANM-007b3d] - Lock cast-branch exits and close typed-branch docs
+      - Goal: classify `br_on_cast` and `br_on_cast_fail` inverse-cast/scratch ownership, then summarize `[SSANM-007b3a]` through `[SSANM-007b3c]` in parity/index/wiki-log notes.
+      - Deliverables: cast branch fixtures or source-backed fail-closed notes, docs/backlog closeout for `[SSANM-007b3]`, direct-compare explanation, and reopening criteria for retained typed branch/cast boundaries.
     - [x] [SSANM-007c] - Split full `ssa` work out of the no-merge backlog
       - Status: completed 2026-06-13; full `ssa` work now lives under sibling `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]` slices rather than the `SSANM` no-merge backlog.
       - Goal: keep full `ssa` merge-local materialization from being mistaken for `ssa-nomerge` behavior.
