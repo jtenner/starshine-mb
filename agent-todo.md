@@ -396,8 +396,18 @@ Preset behavior inventory:
       - Goal: pin the Binaryen no-merge source/test evidence for exceptional edges against Starshine's current normal-flow-only LocalGraph boundary.
       - Deliverables: source-backed note for `try`, `try_table`, `throw`, `throw_ref`, `rethrow`, `delegate`, catches, and no-throw bodies; map each current `ssa_nomerge_test.mbt` EH guard to fail-closed, legacy scratch/copy, or candidate no-throw subset.
     - [ ] [SSANM-007a2] - Lock throwing exceptional-flow fail-closed behavior
+      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007a2a]` through `[SSANM-007a2c]` so catch-target throws, legacy exceptional terminators, and closeout docs stay separately reviewable.
       - Goal: make real exceptional exits stay outside LocalGraph no-merge mutation until EH successors are modeled or an explicit repair helper exists.
       - Deliverables: focused fail-closed public-pipeline fixtures for throwing `try_table` / catch / throw-ref-style families, trace assertions that the planned structured LocalGraph path is not used, and docs/backlog updates.
+    - [ ] [SSANM-007a2a] - Lock throwing `try_table` catch-target exits
+      - Goal: prove `try_table` bodies that can throw to an enclosing catch target remain fail-closed from ordinary planned LocalGraph mutation while preserving the local writes observed at the catch continuation.
+      - Deliverables: public-pipeline fixtures for direct and conditional `throw` to `catch` / `catch_all` targets, trace assertions against ordinary structured, mixed, multi-source, and loop-backedge LocalGraph reasons, validation proof, and docs/backlog updates.
+    - [ ] [SSANM-007a2b] - Lock legacy exceptional terminators off HOT mutation
+      - Goal: keep `throw_ref`, legacy `try` / `catch` / `rethrow`, and `delegate` shapes outside HOT SSA-destruction mutation until exceptional successors are represented in the local SSA contract.
+      - Deliverables: focused HOT or public-pipeline fixtures where WAT lowering supports them, local-traffic preservation assertions, no-revision/no-mutation assertions, and docs/backlog updates.
+    - [ ] [SSANM-007a2c] - Close throwing EH fail-closed docs
+      - Goal: summarize which throwing EH families are locked fail-closed, which no-throw EH-body subsets remain candidates for `[SSANM-007a3]`, and which APIs would be required to reopen real exceptional-flow mutation.
+      - Deliverables: SSA no-merge implementation/parity/index/wiki-log updates, backlog cleanup for `[SSANM-007a2]`, and a comparison note explaining why direct fuzz was or was not required.
     - [ ] [SSANM-007a3] - Classify no-throw `try_table` and EH-body normal-flow subsets
       - Goal: decide whether no-throw EH bodies can reuse normal-flow LocalGraph rewrites, or whether all EH containers should remain fail-closed for v0.1.0.
       - Deliverables: positive or deliberately fail-closed no-throw `try_table` fixtures, direct compare evidence for any admitted mutation family, and reopening criteria for remaining EH boundaries.
