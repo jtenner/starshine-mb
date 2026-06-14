@@ -15793,13 +15793,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
             return true
           }
         }
-      @lib.Loop(_, _) | @lib.TryTable(_, _, _) => ()
-      @lib.Block(_, @lib.Expr(body)) =>
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(body))
+      | @lib.Block(_, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
             body, module_ctx, param_count,
           ) {
           return true
         }
+      @lib.Loop(_, _) | @lib.TryTable(_, _, _) => ()
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
             then_body, module_ctx, param_count,

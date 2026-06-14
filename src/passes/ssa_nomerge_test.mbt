@@ -20178,6 +20178,99 @@ test "ssa-nomerge keeps typed loop-param local.set plain br boundary canonical" 
 }
 
 ///|
+test "ssa-nomerge keeps nested typed loop-param plain br boundary canonical" {
+  // Reduced from the post-`[SSANM-009b8]` debug-WASI first diff,
+  // `defined=1286 abs=1313` (`run_hot_pipeline_raw_simplify_locals_take_value_suffix`).
+  // The raw input nests a source-lowered single-param/no-result typed loop inside
+  // an outer void loop. Binaryen leaves the typed loop carrier canonical; the
+  // legacy structured helper lowers it to a void loop with block-result carrier
+  // locals, which can add size and risks stranding later backedge updates on a
+  // different helper local. Keep this nested plain-`br` boundary fail-closed
+  // until nested typed-loop carrier lowering is Binaryen-shaped.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func $sink (param i32))
+    #|  (func $len (param i32) (result i32) (i32.const 3))
+    #|  (func $at (param i32 i32) (result i32) (local.get 1))
+    #|  (func $f (export "f") (param $arr i32) (result i32)
+    #|    (local $outer i32) (local $idx i32) (local $tmp i32)
+    #|    (local $item i32) (local $tee i32) (local $unused i32)
+    #|    i32.const 0
+    #|    local.set $outer
+    #|    loop $outer_loop
+    #|      local.get $outer
+    #|      i32.const 1
+    #|      i32.lt_s
+    #|      if
+    #|        local.get $arr
+    #|        call $len
+    #|        local.tee $tee
+    #|        loop (type $loop_t)
+    #|          local.set $idx
+    #|          local.get $arr
+    #|          call $len
+    #|          local.set $tmp
+    #|          local.get $idx
+    #|          local.get $tmp
+    #|          i32.lt_s
+    #|          if
+    #|            local.get $arr
+    #|            local.get $idx
+    #|            call $at
+    #|            local.set $item
+    #|            local.get $item
+    #|            call $sink
+    #|            local.get $idx
+    #|            i32.const 1
+    #|            i32.add
+    #|            local.tee $unused
+    #|            br 1
+    #|          end
+    #|          i32.const 0
+    #|          drop
+    #|        end
+    #|        local.get $outer
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set $outer
+    #|        br $outer_loop
+    #|      end
+    #|    end
+    #|    local.get $idx))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested typed loop-param plain br boundary success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested typed loop-param plain br boundary output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ssa_test_assert_ssa_nomerge_raw_reason(
+    trace, "loop-param-plain-br-boundary-noop",
+  )
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  ssa_test_assert_no_ssa_nomerge_mutation_trace(trace)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 3)
+  assert_true(locals.length() <= 6, msg=locals.to_string())
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_false(writes.any(fn(idx) { idx >= 7U }), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge artifact branch result carriers are not defaulted" {
   // Reduced from the post-`[SSANM-009b7]` debug-WASI first diff,
   // `defined=1163 abs=1190` (`ar_rewrite_load_reinterpret_pair`). The

@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Guard nested debug-WASI loop-param carriers
+
+- Completed `[SSANM-009b9]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b10]` to refresh the next completed debug-WASI first-diff tuple after normal full self-compare timeouts.
+- Added red-first focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `defined=1286 abs=1313` artifact family: source-lowered single-param/no-result typed-loop carriers must stay fail-closed even when nested inside an outer void loop.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the existing typed loop-param plain-`br` boundary scanner recurses through enclosing void loops/blocks while still avoiding typed/result-loop and `try_table` recursion.
+- Evidence: red-first focused file test failed `433/434`, then passed `434/434`; `moon test src/passes` passed `2464/2464`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; full `moon test` passed `5769/5769`; native `src/cmd` build passed with pre-existing pass-manager warnings; timing-only self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b9-nested-loop-param-timing-20260614` validated both outputs and showed pass-local Starshine `0.402ms` versus Binaryen `387.222ms`; normal self-compare attempts `...nested-loop-param-20260614` and `...20260614b` timed out after writing partial artifacts; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b9-nested-loop-param-10000` requested 10000 cases, compared 9977, and had 9977 normalized matches with 0 mismatches plus 23 Binaryen/tool command failures.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Guard debug-WASI loop-param carriers
 
 - Completed `[SSANM-009b7]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b8]` for the next debug-WASI first diff.
