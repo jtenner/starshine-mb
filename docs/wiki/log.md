@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Lock typed loop/result boundaries
+
+- Completed `[SSANM-007b2a]` and `[SSANM-007b2b]` in [`../../agent-todo.md`](../../agent-todo.md); `[SSANM-007b2]` remains open for `br_table` / nested-target closeout slices.
+- Strengthened focused trace/output coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): scalar/reference typed loop-param proxy helpers and multi-param/single-result store-model helpers now require `structured-local-writes-mutated`, while no-copy typed-loop-param fixtures reject both mutation and legacy structured local-write raw reasons.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `420/420`; `moon test src/passes` passed `2450/2450`. Direct compare was not run because these regression/classification locks changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Inventory typed-control boundaries
 
 - Completed `[SSANM-007b1a]` through `[SSANM-007b1c]` and parent `[SSANM-007b1]` in [`../../agent-todo.md`](../../agent-todo.md).
