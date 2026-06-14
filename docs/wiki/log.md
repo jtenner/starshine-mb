@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Guard debug-WASI result-loop carriers
+
+- Completed `[SSANM-009b6]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b7]` for the next debug-WASI first diff.
+- Added focused boundary coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `defined=651 abs=678` artifact family: source-lowered single-param/single-result typed loops that start by storing the loop param into a body local and only use plain `br` traffic must not accept legacy structured helper scratch/result-block lowering as a proven no-merge win.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the new `result-loop-plain-br-boundary-noop` gate covers result-only loops and the narrowed single-param/result plain-`br` carrier shape while preserving existing typed-control helper owners for `br_if`, `br_table`, reference branches, and cast branches.
+- Evidence: focused file test passed `431/431` after the new boundary reason was added and broad predicates were narrowed; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2461/2461`; full `moon test` passed `5766/5766`; native `src/cmd` build passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b6-result-loop-plain-br-final-10000` requested 10000 cases, compared 9977, and had 9977 normalized matches with 0 mismatches plus 23 Binaryen/tool command failures. Self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b6-result-loop-plain-br-20260614g` validates both outputs and moves the first diff to `defined=987 abs=1014`; earlier result-loop self-compare attempts through `...20260614f` timed out or were superseded while narrowing the predicate.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Guard medium debug-WASI loop scanners
 
 - Completed `[SSANM-009b5]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b6]` for the next debug-WASI first diff.

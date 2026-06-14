@@ -15613,6 +15613,202 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_loop_carried_plain_br_boundary(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_typeidx_is_result_only_loop(
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+) -> Bool {
+  match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+    Some(@lib.FuncType(params, results)) =>
+      params.length() == 0 && results.length() == 1
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_typeidx_is_single_param_result_loop(
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+) -> Bool {
+  match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+    Some(@lib.FuncType(params, results)) =>
+      params.length() == 1 && results.length() == 1
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_loop_starts_with_body_local_set(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+) -> Bool {
+  match body {
+    [@lib.LocalSet(@lib.LocalIdx(raw)), ..] =>
+      raw.reinterpret_as_int() >= param_count
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_non_plain_branch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_non_plain_branch(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_non_plain_branch(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_non_plain_branch(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_is_lowered_result_loop_plain_br_boundary(
+  body : Array[@lib.Instruction],
+  param_count : Int,
+) -> Bool {
+  match body {
+    [@lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)), @lib.Unreachable] => {
+      let (saw_get, saw_write, saw_br) = run_hot_pipeline_raw_ssa_nomerge_loop_plain_br_boundary_stats(
+        loop_body, param_count,
+      )
+      saw_get && saw_write && saw_br
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  param_count : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+            body, module_ctx, param_count,
+          ) {
+          return true
+        }
+      @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+        let (saw_get, saw_write, saw_br) = run_hot_pipeline_raw_ssa_nomerge_loop_plain_br_boundary_stats(
+          body, param_count,
+        )
+        if saw_get && saw_write && saw_br {
+          return true
+        }
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+            body, module_ctx, param_count,
+          ) {
+          return true
+        }
+      }
+      @lib.Loop(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_ssa_nomerge_typeidx_is_result_only_loop(
+            module_ctx, type_idx,
+          ) ||
+          (
+            run_hot_pipeline_raw_ssa_nomerge_typeidx_is_single_param_result_loop(
+              module_ctx, type_idx,
+            ) &&
+            run_hot_pipeline_raw_ssa_nomerge_loop_starts_with_body_local_set(
+              body, param_count,
+            ) &&
+            !run_hot_pipeline_raw_ssa_nomerge_has_non_plain_branch(body)
+          ) {
+          let (saw_get, saw_write, saw_br) = run_hot_pipeline_raw_ssa_nomerge_loop_plain_br_boundary_stats(
+            body, param_count,
+          )
+          if saw_get && saw_write && saw_br {
+            return true
+          }
+        }
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+            body, module_ctx, param_count,
+          ) {
+          return true
+        }
+      }
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_ssa_nomerge_is_lowered_result_loop_plain_br_boundary(
+            body, param_count,
+          ) {
+          return true
+        }
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+            body, module_ctx, param_count,
+          ) {
+          return true
+        }
+      }
+      @lib.Block(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_ssa_nomerge_typeidx_is_result_only_loop(
+            module_ctx, type_idx,
+          ) &&
+          run_hot_pipeline_raw_ssa_nomerge_is_lowered_result_loop_plain_br_boundary(
+            body, param_count,
+          ) {
+          return true
+        }
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+            body, module_ctx, param_count,
+          ) {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+            body, module_ctx, param_count,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+            then_body, module_ctx, param_count,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+                body, module_ctx, param_count,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
   instrs : Array[@lib.Instruction],
   param_count : Int,
@@ -16088,6 +16284,18 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       return None
     }
     let base_local_count = params.length() + locals.length()
+    if run_hot_pipeline_raw_ssa_nomerge_has_result_loop_plain_br_boundary(
+        instrs,
+        module_ctx,
+        params.length(),
+      ) {
+      return Some({
+        reason: "result-loop-plain-br-boundary-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     let loop_carried_plain_br_local_limit = 64
     if base_local_count > loop_carried_plain_br_local_limit &&
       run_hot_pipeline_raw_ssa_nomerge_has_loop_carried_plain_br_boundary(

@@ -19932,6 +19932,138 @@ test "ssa-nomerge keeps medium loop-carried plain br scanner boundary canonical"
 }
 
 ///|
+test "ssa-nomerge keeps result loop plain br carrier boundary canonical" {
+  // Reduced from the post-`[SSANM-009b5]` debug-WASI first diff,
+  // `defined=651 abs=678` (`dae_instr_is_unreachable_root`). Binaryen leaves
+  // the source-lowered result-typed loop carrier on the canonical scratch local,
+  // while the legacy structured helper rewrote it through a void-loop/outer-block
+  // shape and appended helper locals. Keep this result-loop/plain-`br` boundary
+  // fail-closed until a Binaryen-shaped rewrite owns loop-result carriers.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32)))
+    #|  (memory 1)
+    #|  (func $moonbit.incref (param i32))
+    #|  (func $moonbit.decref (param i32))
+    #|  (func $moonbit.free (param i32))
+    #|  (func $_M0MPC15array5Array6lengthGRP37jtenner9starshine3cli19CliOptimizationFlagE (param i32) (result i32) (i32.const 0))
+    #|  (func $_M0MPC15array5Array2atGRP37jtenner9starshine3lib7TypeIdxE (param i32 i32) (result i32) (local.get 0))
+    #|  (func $f (export "f") (param $_M0L5instrS85935 i32) (result i32)
+    #|    (local $_M0L5instrS85928 i32) (local $_M0L4bodyS85930 i32) (local $_M0L8_2aBlockS85932 i32) (local $_M0L4_2axS85933 i32) (local $_M0L7_2abodyS85934 i32) (local $_M0L6_2atmpS148086 i32) (local $_M0L6_2atmpS148087 i32) (local $_M0L8_2afieldS160546 i32) (local $_M0L6_2acntS179205 i32) (local $_M0L8_2afieldS179206 i32) (local $_M0L11_2anew__cntS179207 i32) (local $_M0L6_2atagS202657 i32)
+    #|    local.get $_M0L5instrS85935
+    #|    loop (type $loop_t) ;; label = @1
+    #|      local.set $_M0L5instrS85928
+    #|      block (result i32) ;; label = @2
+    #|        block ;; label = @3
+    #|          local.get $_M0L5instrS85928
+    #|          i32.load offset=8 align=1
+    #|          local.tee $_M0L6_2atagS202657
+    #|          i32.const 0
+    #|          i32.eq
+    #|          if (result i32) ;; label = @4
+    #|            i32.const 1
+    #|          else
+    #|            local.get $_M0L6_2atagS202657
+    #|            i32.const 2
+    #|            i32.eq
+    #|            if (result i32) ;; label = @5
+    #|              local.get $_M0L5instrS85928
+    #|              local.tee $_M0L8_2aBlockS85932
+    #|              i32.load offset=16 align=1
+    #|              local.set $_M0L8_2afieldS160546
+    #|              local.get $_M0L8_2aBlockS85932
+    #|              i32.load align=1
+    #|              local.tee $_M0L6_2acntS179205
+    #|              i32.const 1
+    #|              i32.gt_s
+    #|              if ;; label = @6
+    #|                local.get $_M0L6_2acntS179205
+    #|                i32.const 1
+    #|                i32.sub
+    #|                local.set $_M0L11_2anew__cntS179207
+    #|                local.get $_M0L8_2aBlockS85932
+    #|                local.get $_M0L11_2anew__cntS179207
+    #|                i32.store align=1
+    #|                local.get $_M0L8_2afieldS160546
+    #|                call $moonbit.incref
+    #|              else
+    #|                local.get $_M0L6_2acntS179205
+    #|                i32.const 1
+    #|                i32.eq
+    #|                if ;; label = @7
+    #|                  local.get $_M0L8_2aBlockS85932
+    #|                  i32.load offset=12 align=1
+    #|                  local.tee $_M0L8_2afieldS179206
+    #|                  call $moonbit.decref
+    #|                  local.get $_M0L8_2aBlockS85932
+    #|                  call $moonbit.free
+    #|                end
+    #|              end
+    #|              local.get $_M0L8_2afieldS160546
+    #|              local.tee $_M0L4_2axS85933
+    #|              local.tee $_M0L7_2abodyS85934
+    #|              local.set $_M0L4bodyS85930
+    #|              br 2 (;@3;)
+    #|            else
+    #|              local.get $_M0L5instrS85928
+    #|              call $moonbit.decref
+    #|              i32.const 0
+    #|            end
+    #|          end
+    #|          br 1 (;@2;)
+    #|        end
+    #|        local.get $_M0L4bodyS85930
+    #|        call $moonbit.incref
+    #|        local.get $_M0L4bodyS85930
+    #|        call $_M0MPC15array5Array6lengthGRP37jtenner9starshine3cli19CliOptimizationFlagE
+    #|        local.tee $_M0L6_2atmpS148087
+    #|        i32.const 1
+    #|        i32.eq
+    #|        if (result i32) ;; label = @3
+    #|          local.get $_M0L4bodyS85930
+    #|          i32.const 0
+    #|          call $_M0MPC15array5Array2atGRP37jtenner9starshine3lib7TypeIdxE
+    #|          local.tee $_M0L6_2atmpS148086
+    #|          br 2 (;@1;)
+    #|        else
+    #|          local.get $_M0L4bodyS85930
+    #|          call $moonbit.decref
+    #|          i32.const 0
+    #|        end
+    #|      end
+    #|    end
+    #|  )
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected result loop plain br carrier boundary success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected result loop plain br carrier boundary output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ssa_test_assert_ssa_nomerge_raw_reason(
+    trace, "result-loop-plain-br-boundary-noop",
+  )
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  ssa_test_assert_no_ssa_nomerge_mutation_trace(trace)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 5)
+  assert_true(locals.length() <= 13, msg=locals.to_string())
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_false(writes.any(fn(idx) { idx >= 13U }), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge artifact branch carrier keeps canonical merged label writes" {
   // Reduced standalone module for the post-`[SSANM-009b2]` debug-WASI
   // first diff, `defined=363 abs=390` (`dae_instr_has_escaping_branch`).
