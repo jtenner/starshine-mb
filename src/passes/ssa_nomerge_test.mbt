@@ -19328,6 +19328,456 @@ test "ssa-nomerge LocalGraph straight-line tee keeps folded effect operand singl
 }
 
 ///|
+test "ssa-nomerge artifact value-if carrier does not read unwritten fresh locals" {
+  // Reduced standalone module for the current debug-WASI first diff after
+  // `[SSANM-009b1]`, `defined=215 abs=242` (`run_hot_pipeline::flush_hot_passes`).
+  // The legacy structured raw path may first allocate fresh branch-carrier
+  // aliases, then the value-if scratch post-pass must not freshen those already
+  // fresh aliases again while leaving the outer block's carrier read on the old
+  // fresh local.
+  let source =
+    #|(module
+    #|  (import "env" "incref" (func $moonbit.incref (param i32)))
+    #|  (import "env" "decref" (func $moonbit.decref (param i32)))
+    #|  (import "env" "free" (func $moonbit.free (param i32)))
+    #|  (import "env" "malloc" (func $moonbit.gc.malloc (param i32) (result i32)))
+    #|  (import "env" "get_tag" (func $moonbit.get_tag (param i32) (result i32)))
+    #|  (import "env" "length" (func $_M0MPC15array5Array6lengthGRP37jtenner9starshine3lib5TableE (param i32) (result i32)))
+    #|  (import "env" "apply_stack" (func $_M0FP37jtenner9starshine6passes43run__hot__pipeline__apply__hot__pass__stack (param i32 i32 i32) (result i32)))
+    #|  (import "env" "apply" (func $_M0FP37jtenner9starshine6passes36run__hot__pipeline__apply__hot__pass (param i32 i32 i32) (result i32)))
+    #|  (import "env" "clear" (func $_M0MPC15array5Array5clearGRP37jtenner9starshine6passes20HotPassRegistryEntryE (param i32) (result i32)))
+    #|  (memory 1)
+    #|  (func $f (export "f") (param $_M0L6_2aenvS156477 i32) (result i32)
+    #|    (local $_M0L7optionsS98468 i32) (local $_M0L7currentS98475 i32) (local $_M0L20pending__hot__passesS98477 i32) (local $_M0L3errS98480 i32) (local $_M0L4nextS98482 i32) (local $_M0L7_2abindS98483 i32) (local $_M0L5_2aOkS98484 i32) (local $_M0L7_2anextS98485 i32) (local $_M0L6_2aErrS98486 i32) (local $_M0L6_2aerrS98487 i32) (local $_M0L13next__currentS98488 i32) (local $_M0L7_2abindS98489 i32) (local $_M0L2__S98490 i32) (local $_M0L7pendingS98491 i32) (local $_M0L3errS98493 i32) (local $_M0L4nextS98495 i32) (local $_M0L7_2abindS98496 i32) (local $_M0L5_2aOkS98497 i32) (local $_M0L7_2anextS98498 i32) (local $_M0L6_2aErrS98499 i32) (local $_M0L6_2aerrS98500 i32) (local $_M0L6_2atmpS156478 i32) (local $_M0L6_2atmpS156479 i32) (local $_M0L6_2atmpS156480 i32) (local $_M0L6_2atmpS156481 i32) (local $_M0L3valS156482 i32) (local $_M0L6_2atmpS156483 i32) (local $_M0L3valS156484 i32) (local $_M0L6_2atmpS156485 i32) (local $_M0L3bufS156486 i32) (local $_M0L3valS156487 i32) (local $_M0L6_2atmpS156488 i32) (local $_M0L6_2aoldS158396 i32) (local $_M0L8_2afieldS158397 i32) (local $_M0L8_2afieldS158398 i32) (local $_M0L8_2afieldS158400 i32) (local $_M0L6_2aoldS158401 i32) (local $_M0L8_2afieldS158402 i32) (local $_M0L8_2afieldS158403 i32) (local $_M0L8_2afieldS158408 i32) (local $_M0L6_2acntS177135 i32) (local $_M0L11_2anew__cntS177136 i32) (local $_M0L6_2acntS177137 i32) (local $_M0L11_2anew__cntS177138 i32) (local $_M0L6_2acntS177139 i32) (local $_M0L11_2anew__cntS177140 i32) (local $_M0L6_2acntS177141 i32) (local $_M0L11_2anew__cntS177142 i32) (local $_M0L6_2acntS177143 i32) (local $_M0L11_2anew__cntS177144 i32) (local $_M0L6_2acntS177145 i32) (local $_M0L11_2anew__cntS177146 i32) (local $_M0L3ptrS199880 i32) (local $_M0L6_2atagS199883 i32) (local $_M0L3ptrS199884 i32) (local $_M0L6_2atagS199887 i32) (local $_M0L3ptrS199888 i32) (local $_M0L3ptrS199889 i32) (local $_M0L3ptrS199890 i32)
+    #|    local.get $_M0L6_2aenvS156477
+    #|    i32.load offset=16 align=1
+    #|    local.set $_M0L7optionsS98468
+    #|    local.get $_M0L6_2aenvS156477
+    #|    i32.load offset=12 align=1
+    #|    local.set $_M0L7currentS98475
+    #|    local.get $_M0L6_2aenvS156477
+    #|    i32.load offset=8 align=1
+    #|    local.set $_M0L8_2afieldS158408
+    #|    local.get $_M0L6_2aenvS156477
+    #|    i32.load align=1
+    #|    local.tee $_M0L6_2acntS177135
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    if ;; label = @1
+    #|      local.get $_M0L6_2acntS177135
+    #|      i32.const 1
+    #|      i32.sub
+    #|      local.set $_M0L11_2anew__cntS177136
+    #|      local.get $_M0L6_2aenvS156477
+    #|      local.get $_M0L11_2anew__cntS177136
+    #|      i32.store align=1
+    #|      local.get $_M0L7optionsS98468
+    #|      call $moonbit.incref
+    #|      local.get $_M0L7currentS98475
+    #|      call $moonbit.incref
+    #|      local.get $_M0L8_2afieldS158408
+    #|      call $moonbit.incref
+    #|    else
+    #|      local.get $_M0L6_2acntS177135
+    #|      i32.const 1
+    #|      i32.eq
+    #|      if ;; label = @2
+    #|        local.get $_M0L6_2aenvS156477
+    #|        call $moonbit.free
+    #|      end
+    #|    end
+    #|    local.get $_M0L8_2afieldS158408
+    #|    local.set $_M0L20pending__hot__passesS98477
+    #|    local.get $_M0L20pending__hot__passesS98477
+    #|    call $moonbit.incref
+    #|    local.get $_M0L20pending__hot__passesS98477
+    #|    call $_M0MPC15array5Array6lengthGRP37jtenner9starshine3lib5TableE
+    #|    local.tee $_M0L6_2atmpS156478
+    #|    i32.const 0
+    #|    i32.eq
+    #|    if ;; label = @1
+    #|      local.get $_M0L20pending__hot__passesS98477
+    #|      call $moonbit.decref
+    #|      local.get $_M0L7currentS98475
+    #|      call $moonbit.decref
+    #|      local.get $_M0L7optionsS98468
+    #|      call $moonbit.decref
+    #|      i32.const 0
+    #|      local.set $_M0L6_2atmpS156479
+    #|      i32.const 4
+    #|      call $moonbit.gc.malloc
+    #|      local.tee $_M0L3ptrS199890
+    #|      i32.const 1572865
+    #|      i32.store offset=4 align=1
+    #|      local.get $_M0L3ptrS199890
+    #|      local.get $_M0L6_2atmpS156479
+    #|      i32.store offset=8 align=1
+    #|      local.get $_M0L3ptrS199890
+    #|      return
+    #|    end
+    #|    i32.const 0
+    #|    drop
+    #|    local.get $_M0L7optionsS98468
+    #|    i32.load offset=28 align=1
+    #|    if (result i32) ;; label = @1
+    #|      local.get $_M0L20pending__hot__passesS98477
+    #|      call $moonbit.incref
+    #|      local.get $_M0L20pending__hot__passesS98477
+    #|      call $_M0MPC15array5Array6lengthGRP37jtenner9starshine3lib5TableE
+    #|      local.tee $_M0L6_2atmpS156481
+    #|      i32.const 1
+    #|      i32.gt_s
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    if (result i32) ;; label = @1
+    #|      block (result i32) ;; label = @2
+    #|        block ;; label = @3
+    #|          block (result i32) ;; label = @4
+    #|            block ;; label = @5
+    #|              local.get $_M0L7currentS98475
+    #|              i32.load offset=8 align=1
+    #|              local.tee $_M0L3valS156482
+    #|              call $moonbit.incref
+    #|              local.get $_M0L20pending__hot__passesS98477
+    #|              call $moonbit.incref
+    #|              local.get $_M0L3valS156482
+    #|              local.get $_M0L20pending__hot__passesS98477
+    #|              local.get $_M0L7optionsS98468
+    #|              call $_M0FP37jtenner9starshine6passes43run__hot__pipeline__apply__hot__pass__stack
+    #|              local.tee $_M0L7_2abindS98483
+    #|              call $moonbit.get_tag
+    #|              local.tee $_M0L6_2atagS199883
+    #|              i32.const 1
+    #|              i32.eq
+    #|              if (result i32) ;; label = @6
+    #|                local.get $_M0L7_2abindS98483
+    #|                local.tee $_M0L5_2aOkS98484
+    #|                i32.load offset=8 align=1
+    #|                local.set $_M0L8_2afieldS158397
+    #|                local.get $_M0L5_2aOkS98484
+    #|                i32.load align=1
+    #|                local.tee $_M0L6_2acntS177137
+    #|                i32.const 1
+    #|                i32.gt_s
+    #|                if ;; label = @7
+    #|                  local.get $_M0L6_2acntS177137
+    #|                  i32.const 1
+    #|                  i32.sub
+    #|                  local.set $_M0L11_2anew__cntS177138
+    #|                  local.get $_M0L5_2aOkS98484
+    #|                  local.get $_M0L11_2anew__cntS177138
+    #|                  i32.store align=1
+    #|                  local.get $_M0L8_2afieldS158397
+    #|                  call $moonbit.incref
+    #|                else
+    #|                  local.get $_M0L6_2acntS177137
+    #|                  i32.const 1
+    #|                  i32.eq
+    #|                  if ;; label = @8
+    #|                    local.get $_M0L5_2aOkS98484
+    #|                    call $moonbit.free
+    #|                  end
+    #|                end
+    #|                local.get $_M0L8_2afieldS158397
+    #|                local.tee $_M0L7_2anextS98485
+    #|                local.set $_M0L4nextS98482
+    #|                br 1 (;@5;)
+    #|              else
+    #|                local.get $_M0L20pending__hot__passesS98477
+    #|                call $moonbit.decref
+    #|                local.get $_M0L7currentS98475
+    #|                call $moonbit.decref
+    #|                local.get $_M0L7_2abindS98483
+    #|                local.tee $_M0L6_2aErrS98486
+    #|                i32.load offset=8 align=1
+    #|                local.set $_M0L8_2afieldS158398
+    #|                local.get $_M0L6_2aErrS98486
+    #|                i32.load align=1
+    #|                local.tee $_M0L6_2acntS177139
+    #|                i32.const 1
+    #|                i32.gt_s
+    #|                if ;; label = @7
+    #|                  local.get $_M0L6_2acntS177139
+    #|                  i32.const 1
+    #|                  i32.sub
+    #|                  local.set $_M0L11_2anew__cntS177140
+    #|                  local.get $_M0L6_2aErrS98486
+    #|                  local.get $_M0L11_2anew__cntS177140
+    #|                  i32.store align=1
+    #|                  local.get $_M0L8_2afieldS158398
+    #|                  call $moonbit.incref
+    #|                else
+    #|                  local.get $_M0L6_2acntS177139
+    #|                  i32.const 1
+    #|                  i32.eq
+    #|                  if ;; label = @8
+    #|                    local.get $_M0L6_2aErrS98486
+    #|                    call $moonbit.free
+    #|                  end
+    #|                end
+    #|                local.get $_M0L8_2afieldS158398
+    #|                local.tee $_M0L6_2aerrS98487
+    #|                local.set $_M0L3errS98480
+    #|                br 3 (;@3;)
+    #|              end
+    #|              br 1 (;@4;)
+    #|            end
+    #|            local.get $_M0L4nextS98482
+    #|          end
+    #|          br 1 (;@2;)
+    #|        end
+    #|        i32.const 4
+    #|        call $moonbit.gc.malloc
+    #|        local.tee $_M0L3ptrS199884
+    #|        i32.const 1048832
+    #|        i32.store offset=4 align=1
+    #|        local.get $_M0L3ptrS199884
+    #|        local.get $_M0L3errS98480
+    #|        i32.store offset=8 align=1
+    #|        local.get $_M0L3ptrS199884
+    #|        return
+    #|      end
+    #|    else
+    #|      local.get $_M0L7currentS98475
+    #|      i32.load offset=8 align=1
+    #|      local.tee $_M0L3valS156487
+    #|      call $moonbit.incref
+    #|      i32.const 4
+    #|      call $moonbit.gc.malloc
+    #|      local.tee $_M0L3ptrS199889
+    #|      i32.const 1048832
+    #|      i32.store offset=4 align=1
+    #|      local.get $_M0L3ptrS199889
+    #|      local.get $_M0L3valS156487
+    #|      i32.store offset=8 align=1
+    #|      local.get $_M0L3ptrS199889
+    #|      local.set $_M0L13next__currentS98488
+    #|      local.get $_M0L20pending__hot__passesS98477
+    #|      i32.load offset=8 align=1
+    #|      local.set $_M0L7_2abindS98489
+    #|      i32.const 0
+    #|      loop (param i32) ;; label = @2
+    #|        local.tee $_M0L2__S98490
+    #|        local.get $_M0L7_2abindS98489
+    #|        i32.lt_s
+    #|        if ;; label = @3
+    #|          local.get $_M0L20pending__hot__passesS98477
+    #|          i32.load offset=12 align=1
+    #|          local.tee $_M0L3bufS156486
+    #|          local.get $_M0L2__S98490
+    #|          i32.const 2
+    #|          i32.shl
+    #|          i32.add
+    #|          i32.load offset=8 align=1
+    #|          local.set $_M0L7pendingS98491
+    #|          block (result i32) ;; label = @4
+    #|            block ;; label = @5
+    #|              block (result i32) ;; label = @6
+    #|                block ;; label = @7
+    #|                  local.get $_M0L13next__currentS98488
+    #|                  i32.load offset=8 align=1
+    #|                  local.tee $_M0L3valS156484
+    #|                  call $moonbit.incref
+    #|                  local.get $_M0L7pendingS98491
+    #|                  call $moonbit.incref
+    #|                  local.get $_M0L7optionsS98468
+    #|                  call $moonbit.incref
+    #|                  local.get $_M0L3valS156484
+    #|                  local.get $_M0L7pendingS98491
+    #|                  local.get $_M0L7optionsS98468
+    #|                  call $_M0FP37jtenner9starshine6passes36run__hot__pipeline__apply__hot__pass
+    #|                  local.tee $_M0L7_2abindS98496
+    #|                  call $moonbit.get_tag
+    #|                  local.tee $_M0L6_2atagS199887
+    #|                  i32.const 1
+    #|                  i32.eq
+    #|                  if (result i32) ;; label = @8
+    #|                    local.get $_M0L7_2abindS98496
+    #|                    local.tee $_M0L5_2aOkS98497
+    #|                    i32.load offset=8 align=1
+    #|                    local.set $_M0L8_2afieldS158402
+    #|                    local.get $_M0L5_2aOkS98497
+    #|                    i32.load align=1
+    #|                    local.tee $_M0L6_2acntS177141
+    #|                    i32.const 1
+    #|                    i32.gt_s
+    #|                    if ;; label = @9
+    #|                      local.get $_M0L6_2acntS177141
+    #|                      i32.const 1
+    #|                      i32.sub
+    #|                      local.set $_M0L11_2anew__cntS177142
+    #|                      local.get $_M0L5_2aOkS98497
+    #|                      local.get $_M0L11_2anew__cntS177142
+    #|                      i32.store align=1
+    #|                      local.get $_M0L8_2afieldS158402
+    #|                      call $moonbit.incref
+    #|                    else
+    #|                      local.get $_M0L6_2acntS177141
+    #|                      i32.const 1
+    #|                      i32.eq
+    #|                      if ;; label = @10
+    #|                        local.get $_M0L5_2aOkS98497
+    #|                        call $moonbit.free
+    #|                      end
+    #|                    end
+    #|                    local.get $_M0L8_2afieldS158402
+    #|                    local.tee $_M0L7_2anextS98498
+    #|                    local.set $_M0L4nextS98495
+    #|                    br 1 (;@7;)
+    #|                  else
+    #|                    local.get $_M0L13next__currentS98488
+    #|                    call $moonbit.decref
+    #|                    local.get $_M0L20pending__hot__passesS98477
+    #|                    call $moonbit.decref
+    #|                    local.get $_M0L7currentS98475
+    #|                    call $moonbit.decref
+    #|                    local.get $_M0L7optionsS98468
+    #|                    call $moonbit.decref
+    #|                    local.get $_M0L7_2abindS98496
+    #|                    local.tee $_M0L6_2aErrS98499
+    #|                    i32.load offset=8 align=1
+    #|                    local.set $_M0L8_2afieldS158403
+    #|                    local.get $_M0L6_2aErrS98499
+    #|                    i32.load align=1
+    #|                    local.tee $_M0L6_2acntS177143
+    #|                    i32.const 1
+    #|                    i32.gt_s
+    #|                    if ;; label = @9
+    #|                      local.get $_M0L6_2acntS177143
+    #|                      i32.const 1
+    #|                      i32.sub
+    #|                      local.set $_M0L11_2anew__cntS177144
+    #|                      local.get $_M0L6_2aErrS98499
+    #|                      local.get $_M0L11_2anew__cntS177144
+    #|                      i32.store align=1
+    #|                      local.get $_M0L8_2afieldS158403
+    #|                      call $moonbit.incref
+    #|                    else
+    #|                      local.get $_M0L6_2acntS177143
+    #|                      i32.const 1
+    #|                      i32.eq
+    #|                      if ;; label = @10
+    #|                        local.get $_M0L6_2aErrS98499
+    #|                        call $moonbit.free
+    #|                      end
+    #|                    end
+    #|                    local.get $_M0L8_2afieldS158403
+    #|                    local.tee $_M0L6_2aerrS98500
+    #|                    local.set $_M0L3errS98493
+    #|                    br 3 (;@5;)
+    #|                  end
+    #|                  br 1 (;@6;)
+    #|                end
+    #|                local.get $_M0L4nextS98495
+    #|              end
+    #|              br 1 (;@4;)
+    #|            end
+    #|            i32.const 4
+    #|            call $moonbit.gc.malloc
+    #|            local.tee $_M0L3ptrS199888
+    #|            i32.const 1048832
+    #|            i32.store offset=4 align=1
+    #|            local.get $_M0L3ptrS199888
+    #|            local.get $_M0L3errS98493
+    #|            i32.store offset=8 align=1
+    #|            local.get $_M0L3ptrS199888
+    #|            return
+    #|          end
+    #|          local.set $_M0L6_2atmpS156483
+    #|          local.get $_M0L13next__currentS98488
+    #|          i32.load offset=8 align=1
+    #|          local.tee $_M0L6_2aoldS158401
+    #|          call $moonbit.decref
+    #|          local.get $_M0L13next__currentS98488
+    #|          local.get $_M0L6_2atmpS156483
+    #|          i32.store offset=8 align=1
+    #|          i32.const 0
+    #|          drop
+    #|          local.get $_M0L2__S98490
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.tee $_M0L6_2atmpS156485
+    #|          br 1 (;@2;)
+    #|        else
+    #|          local.get $_M0L7optionsS98468
+    #|          call $moonbit.decref
+    #|        end
+    #|      end
+    #|      i32.const 0
+    #|      drop
+    #|      local.get $_M0L13next__currentS98488
+    #|      i32.load offset=8 align=1
+    #|      local.set $_M0L8_2afieldS158400
+    #|      local.get $_M0L13next__currentS98488
+    #|      i32.load align=1
+    #|      local.tee $_M0L6_2acntS177145
+    #|      i32.const 1
+    #|      i32.gt_s
+    #|      if ;; label = @2
+    #|        local.get $_M0L6_2acntS177145
+    #|        i32.const 1
+    #|        i32.sub
+    #|        local.set $_M0L11_2anew__cntS177146
+    #|        local.get $_M0L13next__currentS98488
+    #|        local.get $_M0L11_2anew__cntS177146
+    #|        i32.store align=1
+    #|        local.get $_M0L8_2afieldS158400
+    #|        call $moonbit.incref
+    #|      else
+    #|        local.get $_M0L6_2acntS177145
+    #|        i32.const 1
+    #|        i32.eq
+    #|        if ;; label = @3
+    #|          local.get $_M0L13next__currentS98488
+    #|          call $moonbit.free
+    #|        end
+    #|      end
+    #|      local.get $_M0L8_2afieldS158400
+    #|    end
+    #|    local.set $_M0L6_2atmpS156480
+    #|    local.get $_M0L7currentS98475
+    #|    i32.load offset=8 align=1
+    #|    local.tee $_M0L6_2aoldS158396
+    #|    call $moonbit.decref
+    #|    local.get $_M0L7currentS98475
+    #|    local.get $_M0L6_2atmpS156480
+    #|    i32.store offset=8 align=1
+    #|    local.get $_M0L7currentS98475
+    #|    call $moonbit.decref
+    #|    i32.const 0
+    #|    drop
+    #|    local.get $_M0L20pending__hot__passesS98477
+    #|    call $_M0MPC15array5Array5clearGRP37jtenner9starshine6passes20HotPassRegistryEntryE
+    #|    drop
+    #|    i32.const 0
+    #|    local.set $_M0L6_2atmpS156488
+    #|    i32.const 4
+    #|    call $moonbit.gc.malloc
+    #|    local.tee $_M0L3ptrS199880
+    #|    i32.const 1572865
+    #|    i32.store offset=4 align=1
+    #|    local.get $_M0L3ptrS199880
+    #|    local.get $_M0L6_2atmpS156488
+    #|    i32.store offset=8 align=1
+    #|    local.get $_M0L3ptrS199880
+    #|  )
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let writes = ssa_test_local_write_indices(instrs)
+  let gets = ssa_nomerge_test_local_get_indices(instrs)
+  let original_local_count = 1U + 59U
+  for get_idx in gets {
+    if get_idx >= original_local_count && !writes.contains(get_idx) {
+      fail(
+        "ssa-nomerge read appended local \{get_idx} without any write; locals=\{locals} instrs=\{instrs}",
+      )
+    }
+  }
+}
+
+///|
 test "ssa-nomerge LocalGraph straight-line stack-carried tee keeps later gets live" {
   // Reduced from the current debug-WASI first diff
   // `.tmp/self-ssa-nomerge-debug-wasi-anchor-refresh-20260614`,

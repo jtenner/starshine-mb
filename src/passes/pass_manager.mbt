@@ -13168,7 +13168,16 @@ fn run_hot_pipeline_raw_freshen_value_if_arm_body_scratch(
     candidates,
   )
   let mut rewritten = arm
+  let base_local_count = params.length() + locals.length()
   for local_id in candidates {
+    if local_id >= base_local_count {
+      // This post-pass is only meant to freshen original body-local scratch
+      // writes. The main raw rewrite may already have introduced fresh aliases
+      // for branch-carried locals; freshening those aliases again inside just
+      // one value-if arm can leave the outer carrier read on an unwritten old
+      // fresh local.
+      continue
+    }
     let arm_gets = run_hot_pipeline_raw_count_local_gets(rewritten, local_id)
     if arm_gets == 0 ||
       arm_gets != run_hot_pipeline_raw_count_local_gets(all_instrs, local_id) {
@@ -13236,6 +13245,68 @@ fn run_hot_pipeline_raw_freshen_value_if_body_scratch(
 }
 
 ///|
+fn run_hot_pipeline_raw_has_unwritten_appended_local_get_collect(
+  instrs : Array[@lib.Instruction],
+  writes : @bitset.BitSet,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let id = raw.reinterpret_as_int()
+        if id >= writes.length() {
+          writes.grow(id + 1)
+        }
+        writes[id] = true
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let id = raw.reinterpret_as_int()
+        if id >= writes.length() || !writes[id] {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_has_unwritten_appended_local_get_collect(
+            body, writes,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_has_unwritten_appended_local_get_collect(
+            then_body, writes,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_has_unwritten_appended_local_get_collect(
+                body, writes,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_has_unwritten_appended_local_get(
+  instrs : Array[@lib.Instruction],
+  base_local_count : Int,
+) -> Bool {
+  let writes = @bitset.BitSet::new(base_local_count)
+  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+    writes[local_id] = true
+  }
+  run_hot_pipeline_raw_has_unwritten_appended_local_get_collect(instrs, writes)
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext,
@@ -13275,6 +13346,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let finalized_instrs = run_hot_pipeline_raw_freshen_param_scratch_writes(
         call_spilled, params, locals, extra_local_types,
       )
+      if run_hot_pipeline_raw_has_unwritten_appended_local_get(
+          finalized_instrs, base_local_count,
+        ) {
+        return None
+      }
       let rewritten_locals = locals.copy()
       rewritten_locals.append_types(extra_local_types)
       Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(finalized_instrs)))
@@ -13290,6 +13366,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let finalized_instrs = run_hot_pipeline_raw_freshen_param_scratch_writes(
         call_spilled, params, locals, fallback_extra_local_types,
       )
+      if run_hot_pipeline_raw_has_unwritten_appended_local_get(
+          finalized_instrs, base_local_count,
+        ) {
+        return None
+      }
       if fallback_extra_local_types.length() == 0 {
         None
       } else {

@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Fix debug-WASI unwritten fresh-local carrier
+
+- Completed `[SSANM-009b2]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b3]` for the next debug-WASI first diff.
+- Added red-first coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `defined=215 abs=242` artifact family: the legacy structured raw path must not emit reads of appended fresh locals with no writes.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so internally inconsistent appended-fresh-local reads make the structured rewrite fail closed; also narrowed value-if scratch freshening to original body locals so it cannot double-freshen prior raw aliases.
+- Evidence: red-first focused file test failed `426/427`, then passed `427/427`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2457/2457`; full `moon test` passed `5762/5762`; native `src/cmd` build passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b2-unwritten-fresh-10000` requested 10000 cases, compared 9977, and had 9977 normalized matches with 0 mismatches plus 23 Binaryen/tool command failures. Self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b2-unwritten-fresh-20260614` validates both outputs and moves the first diff to `defined=363 abs=390`.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Fix debug-WASI stack-carried tee diff
 
 - Completed `[SSANM-009b1]` in [`../../agent-todo.md`](../../agent-todo.md) and child-sliced the remaining debug-WASI first-diff work under `[SSANM-009b2]`.
