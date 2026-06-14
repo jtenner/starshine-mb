@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Classify normal structured-control boundaries
+
+- Completed `[SSANM-006a1]` in [`../../agent-todo.md`](../../agent-todo.md) with focused fail-closed public-pipeline coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
+- The new tests classify value-carrying `br` and `br_table` branch operands as outside the current ordinary LocalGraph structured reasons: the fixtures validate, preserve their branch/table opcodes, and do not claim `structured-multisource-merge-localgraph-plan` or `structured-mixed-localgraph-plan`.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md) with the supported-family / fail-closed raw-helper ownership map. Evidence so far: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `406/406`; no direct compare was required because this was a boundary classification of existing gate behavior, not a pass mutation change.
+
 ## [2026-06-13] passes/ssa-nomerge + passes/ssa | Split full-SSA work out of SSANM
 
 - Completed `[SSANM-007c]` in [`../../agent-todo.md`](../../agent-todo.md) by moving full `SSAify(true)` merge-local follow-up work out of the `SSANM` no-merge backlog and into sibling `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]` slices.
