@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Lock null branch exits
+
+- Completed `[SSANM-007b3c1]` through `[SSANM-007b3c4]` and `[SSANM-007b3c]` in [`../../agent-todo.md`](../../agent-todo.md); cast branch closeout remains open in `[SSANM-007b3d]`.
+- Strengthened focused trace/validation coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa_test_expect_null_branch_boundary_module_output(...)` validates representative null/non-null branch output and rejects ordinary planned structured LocalGraph reasons. No-copy `br_on_null`, copy-needing/prefix `br_on_null`, no-copy raw-path `br_on_non_null`, and local-tee tested-producer null/non-null fixtures now consume that boundary proof before checking their proxy/store/temp/opcode shapes.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `422/422`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2452/2452`; full `moon test` passed `5757/5757`. Direct compare was not run because this regression/classification slice changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Lock typed branch operands
 
 - Completed `[SSANM-007b3a]` and `[SSANM-007b3b]` in [`../../agent-todo.md`](../../agent-todo.md); `br_on_*` and cast branch locks remain open in `[SSANM-007b3c]` / `[SSANM-007b3d]`.

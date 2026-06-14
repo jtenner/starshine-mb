@@ -529,22 +529,31 @@ Preset behavior inventory:
       - Goal: separate table selector/value operand ABI repair from ordinary no-merge local-source mutation, including mixed branch targets and branch-local copy ownership.
       - Deliverables: trace/output fixtures for value-carrying `br_table` shapes that are not already closed by `[SSANM-007b2c]`, with explicit selector/scratch ownership and any fail-closed targets recorded.
       - Evidence: the value-branch boundary helper now also covers value-carrying `br_table` operands, and the new mixed-target value `br_table` fixture keeps selector/result target ABI repair off ordinary planned structured LocalGraph reasons while preserving the table opcode. Focused `ssa_nomerge_test.mbt` passed `422/422`. Direct compare was not run because this only strengthens fail-closed boundary/classification coverage and admits no new mutation family.
-    - [ ] [SSANM-007b3c] - Lock `br_on_null` and `br_on_non_null` typed-exit boundaries
-      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007b3c1]` through `[SSANM-007b3c4]` so no-copy, prefix-local, tested-producer, and closeout evidence stay reviewable.
+    - [x] [SSANM-007b3c] - Lock `br_on_null` and `br_on_non_null` typed-exit boundaries
+      - Status: completed 2026-06-14 through `[SSANM-007b3c1]` through `[SSANM-007b3c4]`; cast branch closeout remains open in `[SSANM-007b3d]`.
       - Goal: keep null/non-null branch spills and tested reference producer handling classified as typed-control lowering or explicit fail-closed work rather than generic LocalGraph local mutation.
       - Deliverables: positive or fail-closed fixtures for nullable and non-null reference exits, tested producer spills, prefix locals, and no-copy contrasts; direct compare only if behavior changes.
-    - [ ] [SSANM-007b3c1] - Lock no-copy null/non-null typed-exit contrasts
+      - Evidence: `ssa_test_expect_null_branch_boundary_module_output(...)` now captures trace, validates output, rejects ordinary planned structured LocalGraph reasons, and returns the requested function body. No-copy `br_on_null`, copy-needing/prefix `br_on_null`, no-copy raw-path `br_on_non_null`, and local-tee tested-producer null/non-null fixtures consume that helper or equivalent trace/validation assertions before checking proxy/store/temp/opcode shapes. Focused `ssa_nomerge_test.mbt` passed `422/422`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2452/2452`; full `moon test` passed `5757/5757`. Direct compare was not run because this only strengthens regression/classification coverage and admits no new mutation family.
+    - [x] [SSANM-007b3c1] - Lock no-copy null/non-null typed-exit contrasts
+      - Status: completed 2026-06-14.
       - Goal: prove nullable and non-null reference exits that do not need scratch repair preserve their `br_on_null` / `br_on_non_null` opcode shape and stay off ordinary planned structured LocalGraph reasons.
       - Deliverables: focused public-pipeline trace/output fixtures for minimal no-copy null and non-null branch exits, with validation and direct compare only if behavior changes.
-    - [ ] [SSANM-007b3c2] - Lock prefix-local null/non-null branch spills
+      - Evidence: no-copy `br_on_null` now uses the shared null-branch boundary helper and preserves the null proxy plus opcode shape; no-copy raw-path `br_on_non_null` now validates, rejects ordinary planned structured reasons, and preserves the non-null branch opcode while checking temp-local repair.
+    - [x] [SSANM-007b3c2] - Lock prefix-local null/non-null branch spills
+      - Status: completed 2026-06-14.
       - Goal: prove prefix-local and branch-spill null/non-null exits remain typed-control lowering work rather than generic LocalGraph local-source freshening.
       - Deliverables: focused trace/output fixtures over existing prefix-local or scratch-producing shapes, with explicit local-count/opcode assertions and direct compare only if behavior changes.
-    - [ ] [SSANM-007b3c3] - Lock tested-producer null/non-null exits
+      - Evidence: the copy-needing/prefix `br_on_null` fixture now validates through the shared helper, rejects planned structured LocalGraph reasons, and keeps the null-taken copy plus `ref.as_non_null` repair shape.
+    - [x] [SSANM-007b3c3] - Lock tested-producer null/non-null exits
+      - Status: completed 2026-06-14.
       - Goal: keep ref-null, ref-cast, conversion, i31, ref.func, struct, array, and subtype-producing null/non-null branch tests classified as typed branch-producer handling.
       - Deliverables: shared helper coverage or strengthened assertions for tested producer fixtures, including validation and ordinary LocalGraph reason rejection; direct compare only if behavior changes.
-    - [ ] [SSANM-007b3c4] - Close null/non-null typed-exit docs
+      - Evidence: local-tee tested-producer `br_on_null` and `br_on_non_null` fixtures now use the shared helper before asserting the multi-param store-backedge output; the broader tested-producer matrix remains owned by the same typed branch spill helpers and reopening requires red-first behavior plus direct compare.
+    - [x] [SSANM-007b3c4] - Close null/non-null typed-exit docs
+      - Status: completed 2026-06-14.
       - Goal: summarize `[SSANM-007b3c1]` through `[SSANM-007b3c3]`, update parity/index/wiki-log notes, and hand remaining cast ownership to `[SSANM-007b3d]`.
       - Deliverables: docs/backlog closeout, direct-compare explanation, and reopening criteria for retained null/non-null branch boundaries.
+      - Evidence: implementation-structure, parity, index, and wiki-log pages now classify null/non-null branch exits as typed-control ABI boundary locks. Reopen only with a red-first behavior fixture and direct `--pass ssa-nomerge` compare evidence if a later slice admits a new `br_on_*` mutation family.
     - [ ] [SSANM-007b3d] - Lock cast-branch exits and close typed-branch docs
       - Goal: classify `br_on_cast` and `br_on_cast_fail` inverse-cast/scratch ownership, then summarize `[SSANM-007b3a]` through `[SSANM-007b3c]` in parity/index/wiki-log notes.
       - Deliverables: cast branch fixtures or source-backed fail-closed notes, docs/backlog closeout for `[SSANM-007b3]`, direct-compare explanation, and reopening criteria for retained typed branch/cast boundaries.

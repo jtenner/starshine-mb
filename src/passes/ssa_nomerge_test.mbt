@@ -5032,6 +5032,34 @@ fn ssa_test_assert_no_ssa_nomerge_mutation_trace(
 }
 
 ///|
+fn ssa_test_expect_null_branch_boundary_module_output(
+  input : @lib.Module,
+  defined_idx : Int,
+  context : String,
+) -> (@lib.Locals, Array[@lib.Instruction]) raise {
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected null branch \{context} boundary success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected null branch \{context} boundary output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  try! ssa_test_defined_func(optimized, defined_idx)
+}
+
+///|
 fn ssa_test_assert_ssa_nomerge_raw_reason(
   trace : Array[String],
   reason : String,
@@ -5896,18 +5924,15 @@ test "ssa-nomerge rewrites no-copy br_on_null typed loop-param backedge" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected br_on_null loop-param ssa-nomerge success, got \{err}")
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let (locals, instrs) = try! ssa_test_expect_null_branch_boundary_module_output(
+    input, 0, "no-copy br_on_null typed loop-param",
+  )
   assert_true(locals.length() > 1, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_loop_param_null_proxy(instrs),
     msg=instrs.to_string(),
   )
+  assert_true(ssa_test_instrs_have_br_on_null(instrs), msg=instrs.to_string())
 }
 
 ///|
@@ -5966,15 +5991,9 @@ test "ssa-nomerge rewrites copy-needing br_on_null typed loop-param backedge" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing br_on_null loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let (locals, instrs) = try! ssa_test_expect_null_branch_boundary_module_output(
+    input, 0, "copy-needing br_on_null typed loop-param",
+  )
   assert_true(locals.length() > 2, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_null_taken_copy_branch(instrs, 3U),
@@ -8500,15 +8519,9 @@ test "ssa-nomerge rewrites local-tee-tested multi-param typed loop br_on_null ba
   let input = ssa_test_multi_param_loop_store_local_tee_ref_branch_module(
     false, false,
   )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected local-tee-tested multi-param br_on_null loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let (locals, instrs) = try! ssa_test_expect_null_branch_boundary_module_output(
+    input, 0, "local-tee-tested multi-param br_on_null loop-param",
+  )
   assert_true(locals.length() > 3, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
@@ -8542,15 +8555,9 @@ test "ssa-nomerge rewrites local-tee-tested multi-param typed loop br_on_non_nul
   let input = ssa_test_multi_param_loop_store_local_tee_ref_branch_module(
     true, false,
   )
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected local-tee-tested multi-param br_on_non_null loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let (locals, instrs) = try! ssa_test_expect_null_branch_boundary_module_output(
+    input, 0, "local-tee-tested multi-param br_on_non_null loop-param",
+  )
   assert_true(locals.length() > 3, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
@@ -22085,6 +22092,14 @@ test "ssa-nomerge preserves no-copy br_on_non_null on raw path" {
     Err(err) =>
       fail("expected br_on_non_null raw ssa-nomerge success, got \{err}")
   }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected no-copy br_on_non_null boundary output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
 
   assert_true(
     trace.any(fn(line) {
@@ -22103,6 +22118,10 @@ test "ssa-nomerge preserves no-copy br_on_non_null on raw path" {
   )
   assert_true(
     ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    ssa_test_instrs_have_br_on_non_null(instrs),
     msg=instrs.to_string(),
   )
 }
