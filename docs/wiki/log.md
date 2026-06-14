@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify typed result-loop carriers
+
+- Completed `[SSANM-009b13]` in [`../../agent-todo.md`](../../agent-todo.md) and sliced `[SSANM-009b13a]` for the repeated multi-param typed result-loop store-model carrier gap.
+- Targeted `--print-func 1440` over `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b12-branch-suffix-20260614/{starshine,binaryen}.wasm` classifies the lightweight `defined=1413 abs=1440` candidate as an output-shape/local-allocation parity gap, not a validation failure or fresh semantic mismatch: Starshine spills stack-carried recursive branch operands through extra helper locals in the typed result-loop store model, while Binaryen uses a lower-local tuple/block carrier.
+- Evidence: `abs=1440` has Starshine `38` body locals (`35` i32 / `3` i64) versus Binaryen `37` (`34` i32 / `3` i64), with input `20`; a skip-ahead alpha scan found the same family at `defined=1431 abs=1458`, with Starshine `53` body locals versus Binaryen `51`, then advanced the local candidate to `defined=1451 abs=1478`. No executable behavior changed, so direct compare was not rerun; `[SSANM-009b12]` already left the direct lane normalized-green with `0` mismatches.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Preserve debug-WASI branch-store suffix carriers
 
 - Completed `[SSANM-009b12]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b13]` for the next `defined=1413 abs=1440` lightweight alpha candidate after the post-fix normal self-compare timed out.

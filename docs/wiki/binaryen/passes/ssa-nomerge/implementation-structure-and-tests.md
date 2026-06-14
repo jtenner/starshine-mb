@@ -853,6 +853,16 @@ The normal self-compare timed out after writing wasm/text artifacts. Timing-only
 
 Agent classification: `defined=300 abs=327` was a behavior-parity / size-losing branch-exit store-suffix local-allocation gap; it is fixed by broadening the existing branch-exit canonical-preservation scanner over adjacent local-store suffixes rather than adding a function-specific guard.
 
+## `[SSANM-009b13]` debug-WASI multi-param typed result-loop classification
+
+`[SSANM-009b13]` classifies the next lightweight alpha candidate from the post-`[SSANM-009b12]` artifact pair under `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b12-branch-suffix-20260614`. The first candidate was `defined=1413 abs=1440`, `_M0FP37jtenner9starshine6passes51optimize__instructions__is__boolean__constant__tree`.
+
+Targeted `--print-func 1440` extraction shows a multi-param single-result typed-loop carrier family rather than a new validation or semantic-safety bug. The input has a three-parameter / one-result typed loop with recursive branch operands. Binaryen represents the loop-carrier update through a tuple/block-shaped result carrier, while Starshine lowers the typed result loop through the current void-loop/store model and spills stack-carried branch operands into helper locals before storing the loop-param scratches. In the extracted artifact, Starshine has `38` body locals (`35` i32 / `3` i64) and Binaryen has `37` (`34` i32 / `3` i64), compared with the input's `20` body locals (`18` i32 / `2` i64). Raw instruction-shape counts also show Starshine slightly above Binaryen for this function (`21` `local.set`s versus `19`, and `79` `local.get`s versus `77`).
+
+A skip-ahead alpha scan found the same repeated family at `defined=1431 abs=1458`: Starshine has `53` body locals (`50` i32 / `3` i64), Binaryen has `51` (`48` i32 / `3` i64), and the input has `27` (`25` i32 / `2` i64). Skipping both functions advances the local lightweight candidate to `defined=1451 abs=1478`, but `[SSANM-009b13]` does not claim that as the next actionable non-family diff.
+
+Agent classification: this is a size-losing / behavior-parity output-shape gap in the typed-control store-model helper, not a proven Starshine win and not a fresh semantic mismatch. It is split to backlog slice `[SSANM-009b13a]`, which should reduce the multi-param typed result-loop branch-carrier shape and either align the store model with Binaryen's lower-local carrier shape or document a measured reason to keep Starshine's helper locals. Direct `--pass ssa-nomerge` compare was not rerun for this classification-only slice because no behavior, trace routing, or generated wasm changed; the preceding `[SSANM-009b12]` direct lane remained normalized-green with `0` mismatches.
+
 ## Starshine test map
 
 | Local test surface | What it proves |
