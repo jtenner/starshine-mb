@@ -18765,6 +18765,175 @@ test "ssa-nomerge LocalGraph straight-line tee keeps folded effect operand singl
 }
 
 ///|
+test "ssa-nomerge LocalGraph materializes straight-line default numeric and vector gets" {
+  let numeric_trace : Array[String] = []
+  let numeric = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32 i32) i32.const 9 local.set 0 local.get 0 local.get 1 i32.add))",
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(
+        trace=Some(fn(line) { numeric_trace.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected numeric default materialization success, got \{err}")
+  }
+  let (_, numeric_instrs) = try! ssa_test_first_defined_func(numeric)
+  @debug.assert_eq(numeric_instrs, [
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_add(),
+  ])
+  assert_true(
+    numeric_trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=straight-line-local-writes-localgraph-plan",
+      )
+    }),
+    msg=numeric_trace.join("\n"),
+  )
+
+  let vector_trace : Array[String] = []
+  let vector = match
+    pass_test_run_pipeline(
+      "(module (func (result v128) (local i32 v128) i32.const 1 local.set 0 local.get 1))",
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(
+        trace=Some(fn(line) { vector_trace.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected vector default materialization success, got \{err}")
+  }
+  let (_, vector_instrs) = try! ssa_test_first_defined_func(vector)
+  @debug.assert_eq(vector_instrs, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+  ])
+  assert_true(
+    vector_trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=straight-line-local-writes-localgraph-plan",
+      )
+    }),
+    msg=vector_trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge LocalGraph materializes structured body defaults with writes" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 7
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      br_if 0
+    #|    end
+    #|    local.get 1
+    #|    local.get 2
+    #|    i32.add))
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected structured default materialization success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let gets = ssa_nomerge_test_local_get_indices(instrs)
+  assert_false(gets.contains(2U), msg=instrs.to_string())
+  assert_true(
+    instrs.to_string().contains("i32.const I32(0)"),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-default-local-reads-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge LocalGraph materializes structured exact ref defaults with writes" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $child (sub $base (struct)))
+    #|  (func (result (ref null $base))
+    #|    (local i32 (ref null (exact $child)))
+    #|    i32.const 3
+    #|    local.set 0
+    #|    (block (result (ref null $base))
+    #|      local.get 1)))
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected structured exact-ref default materialization success, got \{err}",
+      )
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  ssa_test_assert_default_read_replaced_with_ref_null(
+    instrs,
+    @lib.RefType::new(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+    "LocalGraph structured exact-ref default should keep child exact ref.null",
+  )
+  assert_false(
+    ssa_nomerge_test_local_get_indices(instrs).contains(1U),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-default-local-reads-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge LocalGraph keeps parameter-entry reads canonical" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) i32.const 5 local.set 1 local.get 0))",
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected parameter-entry fixture success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [0U])
+}
+
+///|
 test "ssa-nomerge keeps call result assigned when a later loop reads the local" {
   let source =
     #|(module

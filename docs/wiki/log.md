@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Materialize LocalGraph default-entry gets
+
+- Completed `[SSANM-004a]` in [`../../agent-todo.md`](../../agent-todo.md) by making [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) consume `SsaNoMergeRewritePlan` `MaterializeDefault` get decisions beyond the old no-local-write raw path.
+- The straight-line LocalGraph path continues to materialize planned defaults alongside planned write freshening; structured raw `ssa-nomerge` now admits a narrow normal-control subset where a body-local default read has no explicit writes and HOT LocalGraph lifting is supported, while `try_table`, `br_table`, `br_on_*`, and cast-branch boundaries remain later SSANM work.
+- Added focused public-pipeline tests in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for numeric and `v128` defaults in functions with writes, branchy structured body-default reads, exact nullable ref defaults under a parent result block, and parameter-entry canonical reads.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: red-first structured fixtures still traced `structured-local-writes` before implementation; final `moon fmt`, focused `ssa_nomerge_test.mbt` (`389/389`), `moon info`, `moon test src/passes` (`2419/2419`), full `moon test` (`5724/5724`), native build, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm004a-default-localgraph-10000` (`7609/10000` compared, `7609` normalized, `0` mismatches, `20` Binaryen/tool command failures) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Consume LocalGraph plan for straight-line tees
 
 - Completed `[SSANM-003b]` in [`../../agent-todo.md`](../../agent-todo.md) by making the raw straight-line `ssa-nomerge` path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) consume `SsaNoMergeRewritePlan` for `local.tee` as well as `local.set`.

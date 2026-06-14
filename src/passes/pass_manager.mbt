@@ -13440,6 +13440,278 @@ fn run_hot_pipeline_raw_ssa_nomerge_append_planned_fresh_local(
 }
 
 ///|
+priv struct SsaNoMergeRawGetCursor {
+  mut cursor : Int
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_plan_has_defaults(
+  plan : SsaNoMergeRewritePlan,
+) -> Bool {
+  for rewrite in plan.get_rewrites {
+    match rewrite.decision {
+      SsaNoMergeGetDecision::MaterializeDefault => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(
+  instrs : Array[@lib.Instruction],
+  written : @bitset.BitSet,
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        written[raw.reinterpret_as_int()] = true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(body, written)
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(then_body, written)
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(body, written)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  written : @bitset.BitSet,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= param_count && !written[local_id] {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
+            body, param_count, written,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
+            then_body, param_count, written,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
+                body, param_count, written,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) => return false
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
+            body,
+          ) {
+          return false
+        }
+      @lib.TryTable(_, _, _) => return false
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
+            then_body,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
+                body,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
+  instrs : Array[@lib.Instruction],
+  base_local_count : Int,
+  param_count : Int,
+) -> Bool {
+  if !run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
+      instrs,
+    ) {
+    return false
+  }
+  let written = @bitset.BitSet::new(base_local_count)
+  run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(instrs, written)
+  run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
+    instrs, param_count, written,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
+  instr : @lib.Instruction,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  plan : SsaNoMergeRewritePlan,
+  cursor : SsaNoMergeRawGetCursor,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => {
+      let local_id = raw.reinterpret_as_int()
+      let decision = run_hot_pipeline_raw_ssa_nomerge_next_get_decision(
+        plan,
+        cursor.cursor,
+      )
+      cursor.cursor = cursor.cursor + 1
+      match decision {
+        Some(SsaNoMergeGetDecision::MaterializeDefault) =>
+          (
+            run_hot_pipeline_raw_default_instr_for_local(
+              params, locals, local_id,
+            ),
+            true,
+          )
+        _ => (instr, false)
+      }
+    }
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
+        body, params, locals, plan, cursor,
+      )
+      (
+        @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+        changed,
+      )
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
+        body, params, locals, plan, cursor,
+      )
+      (
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+        changed,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
+        then_body, params, locals, plan, cursor,
+      )
+      let mut changed = then_changed
+      let rewritten_else = match else_body {
+        Some(body) => {
+          let (next_body, else_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
+            body, params, locals, plan, cursor,
+          )
+          changed = changed || else_changed
+          Some(next_body)
+        }
+        None => None
+      }
+      (
+        @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+        changed,
+      )
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten_body, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
+        body, params, locals, plan, cursor,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten_body),
+        ),
+        changed,
+      )
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  plan : SsaNoMergeRewritePlan,
+  cursor : SsaNoMergeRawGetCursor,
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    let (rewritten, instr_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
+      instr, params, locals, plan, cursor,
+    )
+    out.push(rewritten)
+    changed = changed || instr_changed
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  plan : SsaNoMergeRewritePlan,
+) -> (@lib.Func, Bool) {
+  if !run_hot_pipeline_raw_ssa_nomerge_plan_has_defaults(plan) {
+    return (func, false)
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let (rewritten_instrs, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
+    instrs,
+    params,
+    locals,
+    plan,
+    { cursor: 0 },
+  )
+  if !changed {
+    (func, false)
+  } else {
+    (@lib.Func::new(locals.copy(), @lib.Expr::new(rewritten_instrs)), true)
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -14808,24 +15080,63 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         trace_skip_raw: true,
       })
     }
+    let (default_materialized, default_changed) = if run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
+        instrs,
+        base_local_count,
+        params.length(),
+      ) {
+      let hot_func = @ir.hot_lift_func(mod_, func_idx)
+      let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
+      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+      run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
+        original, params, plan,
+      )
+    } else {
+      (original, false)
+    }
     match
-      run_hot_pipeline_raw_ssa_nomerge_structured(original, module_ctx, params) {
+      run_hot_pipeline_raw_ssa_nomerge_structured(
+        default_materialized, module_ctx, params,
+      ) {
       Some(rewritten) =>
         if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
             rewritten,
           ) {
-          None
+          if default_changed {
+            Some({
+              reason: "structured-default-local-reads-localgraph-plan",
+              func: default_materialized,
+              unchanged_original: false,
+              trace_skip_raw: true,
+            })
+          } else {
+            None
+          }
         } else {
           Some({
-            reason: run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
-              original, module_ctx,
-            ),
+            reason: if default_changed {
+              "structured-default-local-reads-localgraph-plan"
+            } else {
+              run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
+                original, module_ctx,
+              )
+            },
             func: rewritten,
             unchanged_original: false,
             trace_skip_raw: true,
           })
         }
-      None => None
+      None =>
+        if default_changed {
+          Some({
+            reason: "structured-default-local-reads-localgraph-plan",
+            func: default_materialized,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        } else {
+          None
+        }
     }
   } else {
     let hot_func = @ir.hot_lift_func(mod_, func_idx)
