@@ -2,6 +2,15 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI one-shot temp locals
+
+- Completed `[SSANM-009b14]` in [`../../agent-todo.md`](../../agent-todo.md) as a classification-only slice over the current debug-WASI self artifact first diff, `defined=540 abs=567`.
+- Targeted `--print-func 567` extraction under `.tmp/ssanm009b13a-next540` shows Starshine and Binaryen have identical canonical instruction/control skeletons for the branch/table-heavy loop function. The `body_raw` token streams differ only in 17 one-shot local indexes: Binaryen creates fresh dead temp locals `50..66`, while Starshine reuses otherwise-dead existing slots.
+- Evidence: `wasm-tools validate --features all` passed for both `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614/{starshine,binaryen}.wasm`; `abs=567` has Starshine `45` body i32 locals versus Binaryen `62`, with equal `775` byte encoded code bodies (`772` instruction bytes plus `3` local-declaration bytes); whole canonical artifacts are Starshine `3149379` bytes versus Binaryen `3155990` bytes, but that module delta is not attributed solely to this function.
+- Direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` requested `10000`, compared `9977`, and had `9977` normalized matches with `0` mismatches plus `23` cached Binaryen/tool command failures.
+- Added `[SSANM-009b15]` for the preliminary next `defined=541 abs=568` probe under `.tmp/ssanm009b14-next568`, which appears to be a similar one-shot temp-local family but still needs classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Disable unproven typed tuple carriers
 
 - Completed `[SSANM-009b13a]` in [`../../agent-todo.md`](../../agent-todo.md) by reclassifying the naive tuple/block carrier direction as unproven until canonical local-count evidence supports it.

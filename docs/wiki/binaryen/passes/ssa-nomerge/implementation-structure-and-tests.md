@@ -877,6 +877,16 @@ The closing follow-up reclassified the tuple/block direction before committing t
 
 Current evidence in `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614` timed out after writing artifacts, but targeted extraction validates both outputs and turns the repeated family into a measured Starshine local-count win: `abs=1440` has Starshine `29` body locals (`27` i32 / `2` i64) versus Binaryen `37` (`34` i32 / `3` i64), and `abs=1458` has Starshine `39` (`37` i32 / `2` i64) versus Binaryen `51` (`48` i32 / `3` i64). Skipping those repeats advances the local alpha candidate to `defined=1451 abs=1478`; the current full self artifact first-diffs earlier at `defined=540 abs=567`, now owned by `[SSANM-009b14]`.
 
+## `[SSANM-009b14]` branch/table one-shot temp-local classification
+
+`[SSANM-009b14]` is a classification-only slice over the current full self artifact first diff at `defined=540 abs=567`. Targeted `--print-func 567` extraction under `.tmp/ssanm009b13a-next540` shows a branch/table-heavy loop function where Starshine and Binaryen have the same canonical instruction/control skeleton. A token comparison of the `body_raw` streams found equal token counts and only 17 differences, all local-index choices: Binaryen uses fresh one-shot locals `50..66`, while Starshine reuses otherwise-dead existing locals such as `7`, `8`, `13`, `14`, `16`, `17`, `18`, `26`, `27`, `30`, `31`, `32`, `33`, `34`, `35`, and `38`.
+
+Agent classification: semantic-safe Starshine local-count win / no-regression representation difference. The differing locals are one-use `local.tee` targets or branch-local `local.set` carriers with no later reads in the canonical body. No call, memory access, branch/table opcode, label target, constant, or structured-control node differs. Both artifacts validate with `wasm-tools validate --features all`.
+
+Measured deltas: `abs=567` has Starshine `45` body i32 locals versus Binaryen `62`, but both encoded code bodies are `775` bytes (`772` instruction bytes plus `3` local-declaration bytes). So the function-level win is lower local count with no body-size regression, not a byte-size win. The whole canonical artifact remains Starshine-smaller (`3149379` bytes versus Binaryen `3155990` bytes), but that whole-module delta should not be attributed solely to this function.
+
+Evidence: direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` requested `10000`, compared `9977`, had `9977` normalized matches, `0` mismatches, and `23` cached Binaryen/tool command failures. No code or tests changed in this slice because the inspected family is not an implementation gap. A preliminary `--print-func 568` probe under `.tmp/ssanm009b14-next568` found a likely repeated one-shot temp-local family (`92` Starshine body i32 locals versus `112` Binaryen), now tracked by `[SSANM-009b15]`.
+
 ## Starshine test map
 
 | Local test surface | What it proves |
