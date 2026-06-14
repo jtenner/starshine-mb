@@ -7624,7 +7624,9 @@ fn run_hot_pipeline_raw_instrs_have_later_local_read(
 ) -> Bool {
   for idx = start_idx; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
-      @lib.Block(_, @lib.Expr(body)) =>
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_later_local_read(body, 0, local_id) {
           return true
         }
@@ -7714,7 +7716,9 @@ fn run_hot_pipeline_raw_instrs_have_later_local_write(
 ) -> Bool {
   for idx = start_idx; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
-      @lib.Block(_, @lib.Expr(body)) =>
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_later_local_write(body, 0, local_id) {
           return true
         }

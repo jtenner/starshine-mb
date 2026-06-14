@@ -27358,3 +27358,93 @@ test "ssa-nomerge hot path validates unreachable default-local carrier followup"
       )
   }
 }
+
+///|
+test "ssa-nomerge avoids loop-backedge alias copies for header-read locals" {
+  // Reduced from debug-WASI `parse__olevel__text` (`defined=154 abs=181`).
+  // Binaryen keeps locals written before the loop canonical when the loop header
+  // reads them before any loop-local write; Starshine should not freshen them and
+  // then repair every plain backedge with size-losing alias copies.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $alloc (param i32) (result i32) local.get 0)
+    #|  (func $drop (param i32))
+    #|  (func $parse (param $text i32) (result i32)
+    #|    (local $limit i32) (local $posbox i32) (local $digitsbox i32)
+    #|    (local $ch i32) (local $value i32) (local $tmp i32)
+    #|    local.get $text
+    #|    call $alloc
+    #|    local.set $limit
+    #|    i32.const 4
+    #|    call $alloc
+    #|    local.tee $posbox
+    #|    i32.const 0
+    #|    i32.store offset=8 align=1
+    #|    i32.const 4
+    #|    call $alloc
+    #|    local.tee $digitsbox
+    #|    i32.const 0
+    #|    i32.store offset=8 align=1
+    #|    block $exit
+    #|      loop $loop
+    #|        local.get $posbox
+    #|        i32.load offset=8 align=1
+    #|        local.get $limit
+    #|        i32.lt_s
+    #|        if
+    #|          local.get $text
+    #|          local.get $posbox
+    #|          i32.load offset=8 align=1
+    #|          i32.const 1
+    #|          i32.shl
+    #|          i32.add
+    #|          i32.load16_u offset=8 align=1
+    #|          local.set $ch
+    #|          local.get $ch
+    #|          i32.const 48
+    #|          i32.lt_s
+    #|          if
+    #|            local.get $posbox
+    #|            call $drop
+    #|            br $exit
+    #|          end
+    #|          local.get $digitsbox
+    #|          i32.load offset=8 align=1
+    #|          i32.eqz
+    #|          if
+    #|            local.get $digitsbox
+    #|            i32.const 1
+    #|            i32.store offset=8 align=1
+    #|          end
+    #|          local.get $digitsbox
+    #|          i32.load offset=8 align=1
+    #|          i32.const 10
+    #|          i32.mul
+    #|          local.get $ch
+    #|          i32.add
+    #|          local.set $value
+    #|          local.get $digitsbox
+    #|          local.get $value
+    #|          i32.store offset=8 align=1
+    #|          local.get $posbox
+    #|          i32.load offset=8 align=1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.set $tmp
+    #|          local.get $posbox
+    #|          local.get $tmp
+    #|          i32.store offset=8 align=1
+    #|          br $loop
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get $digitsbox
+    #|    i32.load offset=8 align=1))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 2)
+  assert_true(locals.length() <= 6, msg=locals.to_string())
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_false(writes.any(fn(idx) { idx > 6U }), msg=writes.to_string())
+}

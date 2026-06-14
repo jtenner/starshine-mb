@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Preserve debug-WASI loop-header locals
+
+- Completed `[SSANM-009b11]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b12]` for the next `defined=300 abs=327` lightweight alpha candidate after the post-fix normal self-compare timed out.
+- Added red-first focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `defined=154 abs=181` `parse__olevel__text` family: locals written before a loop must stay canonical when loop headers read them before any loop-local write, avoiding size-losing plain-backedge alias copies.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so later-read/later-write scans descend through `loop` and `try_table` containers.
+- Evidence: red-first focused file test failed `435/436`, then passed `436/436`; native `src/cmd` build passed with pre-existing pass-manager warnings; timing-only self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b11-loop-header-timing-20260614` validated both outputs and showed pass-local Starshine `0.401ms` versus Binaryen `386.187ms`; normal self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b11-loop-header-20260614` timed out after writing artifacts; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b11-loop-header-10000` requested 10000 cases, compared 9977, and had 9977 normalized matches with 0 mismatches plus 23 Binaryen/tool command failures.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Preserve debug-WASI parameter tee carriers
 
 - Completed `[SSANM-009b10]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b11]` for the next `defined=154 abs=181` lightweight alpha candidate after the post-fix normal self-compare timed out.
