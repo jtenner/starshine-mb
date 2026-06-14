@@ -15637,6 +15637,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_typeidx_is_single_param_result_loop(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_typeidx_is_single_param_no_result_loop(
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+) -> Bool {
+  match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+    Some(@lib.FuncType(params, results)) =>
+      params.length() == 1 && results.length() == 0
+    None => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_loop_starts_with_body_local_set(
   body : Array[@lib.Instruction],
   param_count : Int,
@@ -15646,6 +15658,35 @@ fn run_hot_pipeline_raw_ssa_nomerge_loop_starts_with_body_local_set(
       raw.reinterpret_as_int() >= param_count
     _ => false
   }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_try_table_or_nested_loop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, _) | @lib.Loop(_, _) | @lib.TryTable(_, _, _) => return true
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_try_table_or_nested_loop(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_try_table_or_nested_loop(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -15698,6 +15739,59 @@ fn run_hot_pipeline_raw_ssa_nomerge_is_lowered_result_loop_plain_br_boundary(
     }
     _ => false
   }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  param_count : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_typeidx_is_single_param_no_result_loop(
+            module_ctx, type_idx,
+          ) &&
+          run_hot_pipeline_raw_ssa_nomerge_loop_starts_with_body_local_set(
+            body, param_count,
+          ) &&
+          !run_hot_pipeline_raw_ssa_nomerge_has_non_plain_branch(body) &&
+          !run_hot_pipeline_raw_ssa_nomerge_has_try_table_or_nested_loop(body) {
+          let (saw_get, saw_write, saw_br) = run_hot_pipeline_raw_ssa_nomerge_loop_plain_br_boundary_stats(
+            body, param_count,
+          )
+          if saw_get && saw_write && saw_br {
+            return true
+          }
+        }
+      @lib.Loop(_, _) | @lib.TryTable(_, _, _) => ()
+      @lib.Block(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
+            body, module_ctx, param_count,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
+            then_body, module_ctx, param_count,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
+                body, module_ctx, param_count,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -16291,6 +16385,18 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       ) {
       return Some({
         reason: "result-loop-plain-br-boundary-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_ssa_nomerge_has_loop_param_plain_br_boundary(
+        instrs,
+        module_ctx,
+        params.length(),
+      ) {
+      return Some({
+        reason: "loop-param-plain-br-boundary-noop",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,

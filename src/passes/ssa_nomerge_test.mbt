@@ -20064,6 +20064,79 @@ test "ssa-nomerge keeps result loop plain br carrier boundary canonical" {
 }
 
 ///|
+test "ssa-nomerge keeps typed loop-param local.set plain br boundary canonical" {
+  // Reduced from the post-`[SSANM-009b6]` debug-WASI first diff,
+  // `defined=987 abs=1014` (`gr_collect_func_global_sets`). Binaryen leaves
+  // this source-lowered single-param/no-result typed loop carrier canonical: the
+  // loop param is stored into a body local at the top, and the recursive backedge
+  // uses a plain `br`. The legacy scalar proxy helper could add a loop scratch,
+  // then later local freshening could strand the backedge value on a different
+  // local. Keep this plain-`br` boundary fail-closed; `local.tee`, `br_if`,
+  // `br_table`, and ref/cast typed-loop helpers remain covered by their
+  // dedicated typed-control tests.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func $sink (param i32))
+    #|  (func $id (param i32) (result i32) (local.get 0))
+    #|  (func $f (export "f") (param $p i32) (result i32)
+    #|    (local $carrier i32) (local $scratch i32) (local $x i32)
+    #|    i32.const 3
+    #|    loop (type $loop_t)
+    #|      local.set $carrier
+    #|      local.get $carrier
+    #|      local.set $scratch
+    #|      local.get $scratch
+    #|      i32.const 0
+    #|      i32.ge_s
+    #|      if
+    #|        local.get $scratch
+    #|        call $sink
+    #|        local.get $scratch
+    #|        i32.const 1
+    #|        i32.sub
+    #|        br 1
+    #|      end
+    #|      i32.const 0
+    #|      drop
+    #|    end
+    #|    local.get $p
+    #|    call $id
+    #|    local.set $x
+    #|    local.get $x
+    #|    call $sink
+    #|    local.get $carrier))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected typed loop-param plain br boundary success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected typed loop-param plain br boundary output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ssa_test_assert_ssa_nomerge_raw_reason(
+    trace, "loop-param-plain-br-boundary-noop",
+  )
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  ssa_test_assert_no_ssa_nomerge_mutation_trace(trace)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 2)
+  assert_true(locals.length() <= 3, msg=locals.to_string())
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_false(writes.any(fn(idx) { idx >= 4U }), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge artifact branch carrier keeps canonical merged label writes" {
   // Reduced standalone module for the post-`[SSANM-009b2]` debug-WASI
   // first diff, `defined=363 abs=390` (`dae_instr_has_escaping_branch`).
