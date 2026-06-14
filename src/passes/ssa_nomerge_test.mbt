@@ -4993,6 +4993,29 @@ fn ssa_test_unsupported_exceptional_hot_no_mutation(
 }
 
 ///|
+fn ssa_test_assert_no_planned_structured_trace_reason(
+  trace : Array[String],
+) -> Unit raise {
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-merge-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites no-throw try_table local writes" {
   let input =
     #| (module
@@ -5082,6 +5105,93 @@ test "ssa-nomerge does not mutate unsupported exceptional-flow functions" {
     trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
     msg=trace.join("\n"),
   )
+}
+
+///|
+test "ssa-nomerge keeps throwing try_table catch exits off planned structured path" {
+  // `[SSANM-007a2a]` locks real exceptional exits out of ordinary LocalGraph
+  // mutation. LocalGraph no-merge is normal-flow-only in Starshine today, so a
+  // write before a caught throw must be preserved without claiming structured
+  // LocalGraph rewrite reasons.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func (export "f") (param i32) (result i32)
+    #|    (local i32)
+    #|    i32.const 1
+    #|    local.set 1
+    #|    (block $h
+    #|      (try_table (catch $e $h)
+    #|        i32.const 2
+    #|        local.set 1
+    #|        throw $e))
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected throwing try_table boundary success, got \{err}")
+  }
+
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("throw"), msg=text)
+}
+
+///|
+test "ssa-nomerge keeps conditional catch_all throws off planned structured path" {
+  // `[SSANM-007a2a]` also locks catch-all exceptional exits. A conditional
+  // throw has a normal fallthrough arm, but the catch edge still makes local
+  // reaching-set mutation unsafe for the ordinary planned LocalGraph paths.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func (export "f") (param i32) (result i32)
+    #|    (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    (block $h
+    #|      (try_table (catch_all $h)
+    #|        local.get 0
+    #|        if
+    #|          i32.const 20
+    #|          local.set 1
+    #|          throw $e
+    #|        end))
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected conditional catch_all boundary success, got \{err}")
+  }
+
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("throw"), msg=text)
 }
 
 ///|

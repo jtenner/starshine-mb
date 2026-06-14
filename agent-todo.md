@@ -392,16 +392,20 @@ Preset behavior inventory:
       - Status: child-sliced on 2026-06-13; execute through `[SSANM-007a1]` through `[SSANM-007a3]` so EH source review, throwing fail-closed guards, and no-throw subset classification stay separately reviewable.
       - Goal: preserve safety for `try`, `try_table`, `throw`, `throw_ref`, `rethrow`, `delegate`, catches, calls inside no-throw `try_table` bodies, and any path where LocalGraph does not model exceptional successors.
       - Deliverables: fail-closed tests for real exceptional-flow families, positive tests only for source-backed no-exception normal-flow subsets, and a Binaryen-source note explaining whether the boundary is Starshine tooling debt or an intentional no-mutation subset.
-    - [ ] [SSANM-007a1] - Refresh EH source and local boundary inventory
+    - [x] [SSANM-007a1] - Refresh EH source and local boundary inventory
+      - Status: completed 2026-06-14; source/test inventory lives in `docs/wiki/binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`.
       - Goal: pin the Binaryen no-merge source/test evidence for exceptional edges against Starshine's current normal-flow-only LocalGraph boundary.
       - Deliverables: source-backed note for `try`, `try_table`, `throw`, `throw_ref`, `rethrow`, `delegate`, catches, and no-throw bodies; map each current `ssa_nomerge_test.mbt` EH guard to fail-closed, legacy scratch/copy, or candidate no-throw subset.
+      - Evidence: source/test review mapped `ssa_nomerge_has_exceptional_flow(...)`, `run_hot_pipeline_raw_try_table_body_has_exceptional_edge(...)`, no-throw `try_table` raw helpers, and current EH tests into fail-closed throwing flows, no-throw normal-flow candidate/rewrite subsets, and legacy exceptional terminator HOT no-mutation guards. Focused `ssa_nomerge_test.mbt` passed `418/418` after the adjacent `[SSANM-007a2a]` locks.
     - [ ] [SSANM-007a2] - Lock throwing exceptional-flow fail-closed behavior
       - Status: child-sliced on 2026-06-14; execute through `[SSANM-007a2a]` through `[SSANM-007a2c]` so catch-target throws, legacy exceptional terminators, and closeout docs stay separately reviewable.
       - Goal: make real exceptional exits stay outside LocalGraph no-merge mutation until EH successors are modeled or an explicit repair helper exists.
       - Deliverables: focused fail-closed public-pipeline fixtures for throwing `try_table` / catch / throw-ref-style families, trace assertions that the planned structured LocalGraph path is not used, and docs/backlog updates.
-    - [ ] [SSANM-007a2a] - Lock throwing `try_table` catch-target exits
+    - [x] [SSANM-007a2a] - Lock throwing `try_table` catch-target exits
+      - Status: completed 2026-06-14.
       - Goal: prove `try_table` bodies that can throw to an enclosing catch target remain fail-closed from ordinary planned LocalGraph mutation while preserving the local writes observed at the catch continuation.
       - Deliverables: public-pipeline fixtures for direct and conditional `throw` to `catch` / `catch_all` targets, trace assertions against ordinary structured, mixed, multi-source, and loop-backedge LocalGraph reasons, validation proof, and docs/backlog updates.
+      - Evidence: added focused public-pipeline tests `ssa-nomerge keeps throwing try_table catch exits off planned structured path` and `ssa-nomerge keeps conditional catch_all throws off planned structured path`. They validate, preserve `local.set` plus `throw`, reject `pass[ssa-nomerge]:mutated`, and assert the throwing EH fixtures do not claim ordinary structured, mixed, multi-source, or loop-backedge LocalGraph reasons. Focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `418/418`. Direct compare was not run because this slice only locks existing fail-closed routing and admits no new mutation family.
     - [ ] [SSANM-007a2b] - Lock legacy exceptional terminators off HOT mutation
       - Goal: keep `throw_ref`, legacy `try` / `catch` / `rethrow`, and `delegate` shapes outside HOT SSA-destruction mutation until exceptional successors are represented in the local SSA contract.
       - Deliverables: focused HOT or public-pipeline fixtures where WAT lowering supports them, local-traffic preservation assertions, no-revision/no-mutation assertions, and docs/backlog updates.

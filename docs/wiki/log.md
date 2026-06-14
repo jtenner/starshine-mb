@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Lock throwing EH boundaries
+
+- Completed `[SSANM-007a1]` and `[SSANM-007a2a]` in [`../../agent-todo.md`](../../agent-todo.md).
+- Added focused public-pipeline fail-closed coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for direct throwing `try_table` catch exits and conditional `catch_all` throws. The fixtures validate, preserve `local.set` plus `throw`, avoid lifted HOT mutation, and keep real exceptional exits off ordinary structured, mixed, multi-source, and loop-backedge LocalGraph trace reasons.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `418/418`. Direct compare was not run because this fail-closed classification changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Classify nested branch targets
 
 - Completed `[SSANM-006a3d]`, its children `[SSANM-006a3d1]` through `[SSANM-006a3d3]`, and parent `[SSANM-006a]` in [`../../agent-todo.md`](../../agent-todo.md).
