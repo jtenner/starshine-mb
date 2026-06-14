@@ -65,6 +65,8 @@ related:
 | `--ssa-nomerge --dead-code-elimination --remove-unused-names` | Exit `1` in about `5s`; `error: final module validate: stack underflow`, offending `Func 254`. | Validation failure / scheduling blocker. |
 | Full requested neighborhood through `--remove-unused-brs --remove-unused-names` | Aborts before producing a comparable artifact. | Keep the O4z no-op guard until `[SSANM-010c]` and a follow-on implementation plan decide otherwise. |
 
+A matching Binaryen sanity pass with `wasm-opt --all-features` validates every prefix: `--ssa-nomerge` (`3,155,990` bytes), `--ssa-nomerge --dce` (`3,154,783` bytes), `--ssa-nomerge --dce --remove-unused-names` (`3,150,555` bytes), `--ssa-nomerge --dce --remove-unused-names --remove-unused-brs` (`3,131,051` bytes), and the repeated `--remove-unused-names` prefix (`3,124,589` bytes). The new `[SSANM-010b1]` backlog slice owns minimization/fix work for the Starshine `remove-unused-names` validation failure before `[SSANM-010d]` can safely apply any guard-removal policy.
+
 ## Nested Rerun Rule
 
 - Top-level order alone is not enough for parity.

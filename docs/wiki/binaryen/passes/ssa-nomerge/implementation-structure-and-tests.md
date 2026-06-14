@@ -147,7 +147,7 @@ The remaining work is evidence and decision work, not a hidden implementation in
 | `--ssa-nomerge --dead-code-elimination --remove-unused-names` | Exit `1`, about `5s`, final module validation failure: `stack underflow`, offending `Func 254`. |
 | Full explicit early neighborhood through `--remove-unused-brs --remove-unused-names` | Aborts before producing a comparable artifact. |
 
-Owner implication: the replay is a validation-failure blocker for scheduling, not a semantic parity classification. Keep the `o4z-ssa-nomerge-noop` guard unless `[SSANM-010c]` records an explicit decision and `[SSANM-010d]` first fixes or gates the `remove-unused-names` follow-on failure.
+A matching `wasm-opt --all-features` sanity pass validates each Binaryen prefix, including the full repeated-`remove-unused-names` neighborhood (`3,124,589` bytes). Owner implication: the replay is a validation-failure blocker for scheduling, not a semantic parity classification. Keep the `o4z-ssa-nomerge-noop` guard unless `[SSANM-010c]` records an explicit decision and `[SSANM-010d]` first fixes or gates the `remove-unused-names` follow-on failure. The active follow-up is `[SSANM-010b1]`: minimize the offending `Func 254` / extracted `Func 25` predecessor and add the owning `remove-unused-names` or CLI regression before policy implementation.
 
 ## `[SSANM-006a1]` normal structured-control ownership map
 
