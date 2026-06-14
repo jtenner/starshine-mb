@@ -5027,6 +5027,7 @@ fn ssa_test_assert_no_ssa_nomerge_mutation_trace(
 
 ///|
 test "ssa-nomerge rewrites no-throw try_table local writes" {
+  let trace : Array[String] = []
   let input =
     #| (module
     #|   (func (result i32)
@@ -5043,12 +5044,23 @@ test "ssa-nomerge rewrites no-throw try_table local writes" {
     #|     local.set 0
     #|     local.get 0))
     #|
-  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
     Ok(mod_) => mod_
     Err(err) =>
       fail("expected no-throw try_table ssa-nomerge success, got \{err}")
   }
 
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   @debug.assert_eq(
     locals,
@@ -5078,6 +5090,51 @@ test "ssa-nomerge rewrites no-throw try_table local writes" {
     @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   ])
+}
+
+///|
+test "ssa-nomerge keeps call-bearing try_table bodies off no-throw local rewrite" {
+  // `[SSANM-007a3b]` keeps the admitted no-throw `try_table` local-write
+  // subset narrow: a call-bearing body may have an exceptional edge from the
+  // helper's perspective, so it must not use the no-throw structured rewrite.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func $g)
+    #|  (func (export "f") (result i32)
+    #|    (local i32)
+    #|    i32.const 1
+    #|    local.set 0
+    #|    block
+    #|      try_table (catch_all 0)
+    #|        call $g
+    #|        i32.const 7
+    #|        local.set 0
+    #|      end
+    #|    end
+    #|    local.get 0))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected call-bearing try_table boundary success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  ssa_test_assert_no_ssa_nomerge_mutation_trace(trace)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
+  let text = instrs.to_string()
+  assert_true(text.contains("call"), msg=text)
+  assert_true(text.contains("local.set"), msg=text)
 }
 
 ///|
@@ -9113,6 +9170,7 @@ test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_
 
 ///|
 test "ssa-nomerge rewrites no-throw try_table scalar proxy backedges" {
+  let trace : Array[String] = []
   let source =
     #|(module
     #|  (func (param i32) (result i32) (local i32)
@@ -9127,8 +9185,28 @@ test "ssa-nomerge rewrites no-throw try_table scalar proxy backedges" {
     #|          br $l)))
     #|    local.get 1))
     #|)
-  let optimized = ssa_test_pipeline_expected_mutation_valid(
-    source, "no-throw try_table scalar proxy backedge",
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected no-throw try_table scalar proxy backedge ssa-nomerge success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected no-throw try_table scalar proxy backedge output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 1, msg=locals.to_string())

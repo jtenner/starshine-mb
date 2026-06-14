@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify no-throw EH bodies
+
+- Completed `[SSANM-007a3a]` through `[SSANM-007a3c]`, `[SSANM-007a3]`, and parent `[SSANM-007a]` in [`../../agent-todo.md`](../../agent-todo.md).
+- Strengthened focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): ordinary no-throw `try_table` local writes now assert the `structured-local-writes` trace/output shape; call-bearing `try_table` bodies stay off that rewrite and preserve call/local traffic without mutation; the no-throw scalar proxy backedge fixture records trace/validation while preserving the typed-control proxy shape.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `420/420`. Direct compare was not run because this regression-lock/docs slice changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Lock legacy EH terminators
 
 - Completed `[SSANM-007a2b1]` through `[SSANM-007a2b3]`, `[SSANM-007a2b]`, `[SSANM-007a2c]`, and parent `[SSANM-007a2]` in [`../../agent-todo.md`](../../agent-todo.md).

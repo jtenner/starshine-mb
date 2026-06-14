@@ -388,10 +388,11 @@ Preset behavior inventory:
     - [ ] [SSANM-006b3] - Retire or narrow legacy predecessor-copy helpers
       - Goal: after ordinary no-merge families are rerouted, delete or explicitly narrow leftover no-merge predecessor-copy helpers and update pass summaries/docs so predecessor copies are no longer described as normal `ssa-nomerge` behavior.
       - Deliverables: summary/help/docs updates, tests proving retained scratch/copy lowerings are typed-control/EH/full-SSA or explicitly fail-closed boundaries, and backlog cleanup before closing `[SSANM-006b]`.
-    - [ ] [SSANM-007a] - Keep exceptional-edge boundaries explicit
-      - Status: child-sliced on 2026-06-13; execute through `[SSANM-007a1]` through `[SSANM-007a3]` so EH source review, throwing fail-closed guards, and no-throw subset classification stay separately reviewable.
+    - [x] [SSANM-007a] - Keep exceptional-edge boundaries explicit
+      - Status: completed 2026-06-14 through `[SSANM-007a1]` through `[SSANM-007a3]`; real throwing EH is locked fail-closed, while existing no-throw `try_table` subsets are classified as ordinary normal-flow local-write or typed-control helper work.
       - Goal: preserve safety for `try`, `try_table`, `throw`, `throw_ref`, `rethrow`, `delegate`, catches, calls inside no-throw `try_table` bodies, and any path where LocalGraph does not model exceptional successors.
       - Deliverables: fail-closed tests for real exceptional-flow families, positive tests only for source-backed no-exception normal-flow subsets, and a Binaryen-source note explaining whether the boundary is Starshine tooling debt or an intentional no-mutation subset.
+      - Evidence: `[SSANM-007a2]` locks direct/conditional throwing `try_table`, `throw_ref`, legacy catch/rethrow, and delegate boundaries as no-mutation/fail-closed. `[SSANM-007a3]` keeps no-throw `try_table` local writes admitted only when `run_hot_pipeline_raw_try_table_body_has_exceptional_edge(...)` sees no throw/call-bearing edge, adds a call-bearing fail-closed contrast, and documents no-throw typed-loop/proxy/store rewrites as typed-control helper ownership rather than real EH SSA support. Focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `420/420`. Direct compare was not run for the closeout because the final slice added regression locks/docs only and admitted no new mutation family.
     - [x] [SSANM-007a1] - Refresh EH source and local boundary inventory
       - Status: completed 2026-06-14; source/test inventory lives in `docs/wiki/binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`.
       - Goal: pin the Binaryen no-merge source/test evidence for exceptional edges against Starshine's current normal-flow-only LocalGraph boundary.
@@ -431,20 +432,27 @@ Preset behavior inventory:
       - Status: completed 2026-06-14.
       - Goal: summarize which throwing EH families are locked fail-closed, which no-throw EH-body subsets remain candidates for `[SSANM-007a3]`, and which APIs would be required to reopen real exceptional-flow mutation.
       - Deliverables: SSA no-merge implementation/parity/index/wiki-log updates, backlog cleanup for `[SSANM-007a2]`, and a comparison note explaining why direct fuzz was or was not required.
-      - Evidence: docs now summarize direct/conditional throwing `try_table`, `throw_ref`, legacy catch/rethrow, and delegate boundaries as fail-closed; no-throw `try_table` normal-flow candidates remain `[SSANM-007a3]`; real EH mutation requires exceptional successor/reaching-set support or an EH-aware repair helper. Direct compare was not run because no behavior mutation was admitted.
-    - [ ] [SSANM-007a3] - Classify no-throw `try_table` and EH-body normal-flow subsets
-      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007a3a]` through `[SSANM-007a3c]` so source/test inventory, ordinary no-throw local-write admission, and typed-loop helper ownership stay separately reviewable.
+      - Evidence: docs summarize direct/conditional throwing `try_table`, `throw_ref`, legacy catch/rethrow, and delegate boundaries as fail-closed; no-throw `try_table` normal-flow candidates were left for `[SSANM-007a3]`, which later classified them; real EH mutation requires exceptional successor/reaching-set support or an EH-aware repair helper. Direct compare was not run because no behavior mutation was admitted.
+    - [x] [SSANM-007a3] - Classify no-throw `try_table` and EH-body normal-flow subsets
+      - Status: completed 2026-06-14 through `[SSANM-007a3a]` through `[SSANM-007a3c]`.
       - Goal: decide whether no-throw EH bodies can reuse normal-flow LocalGraph rewrites, or whether all EH containers should remain fail-closed for v0.1.0.
       - Deliverables: positive or deliberately fail-closed no-throw `try_table` fixtures, direct compare evidence for any admitted mutation family, and reopening criteria for remaining EH boundaries.
-    - [ ] [SSANM-007a3a] - Inventory no-throw `try_table` normal-flow owners
+      - Evidence: source/test inventory now keeps three categories explicit: ordinary no-throw `try_table` local writes through the existing structured local-write raw path; call/throw-bearing `try_table` bodies fail-closed because the helper treats calls/throws as exceptional-edge risks; and no-throw typed-loop/proxy/store rewrites through typed-control helpers. Focused tests strengthen the ordinary no-throw local-write fixture with a trace assertion, add `ssa-nomerge keeps call-bearing try_table bodies off no-throw local rewrite`, and strengthen the no-throw scalar proxy backedge fixture with trace/validation. Focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `420/420`. Direct compare was not run because no pass behavior changed and no new mutation family was admitted.
+    - [x] [SSANM-007a3a] - Inventory no-throw `try_table` normal-flow owners
+      - Status: completed 2026-06-14.
       - Goal: classify current no-throw `try_table` support into ordinary local-source rewrites, typed-loop helper rewrites, and fail-closed call/throw-bearing boundaries before changing behavior.
       - Deliverables: source/test table for `run_hot_pipeline_raw_try_table_body_has_exceptional_edge(...)`, ordinary no-throw local writes, typed-loop/proxy/store helpers, and call/throw rejection; no mutation unless the inventory finds an unowned gap.
-    - [ ] [SSANM-007a3b] - Lock ordinary no-throw `try_table` local-write admission
+      - Evidence: `docs/wiki/binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md` now maps the no-throw body owner surface to `run_hot_pipeline_raw_try_table_body_has_exceptional_edge(...)`, `structured-local-writes`, typed-loop helper paths, and call/throw fail-closed boundaries.
+    - [x] [SSANM-007a3b] - Lock ordinary no-throw `try_table` local-write admission
+      - Status: completed 2026-06-14.
       - Goal: keep the no-throw `try_table` ordinary local-write subset as normal-flow work only when the body has no exceptional/call-bearing edge.
       - Deliverables: focused public-pipeline trace/output fixtures, explicit contrast with throwing/call-bearing bodies, validation proof, and direct compare only if behavior changes.
-    - [ ] [SSANM-007a3c] - Lock no-throw typed-loop helper ownership and close out EH-body subsets
+      - Evidence: `ssa-nomerge rewrites no-throw try_table local writes` now asserts the existing `structured-local-writes` trace/output shape, while `ssa-nomerge keeps call-bearing try_table bodies off no-throw local rewrite` proves call-bearing bodies do not take that rewrite and preserve call/local traffic without mutation.
+    - [x] [SSANM-007a3c] - Lock no-throw typed-loop helper ownership and close out EH-body subsets
+      - Status: completed 2026-06-14.
       - Goal: document and test that no-throw `try_table` typed-loop/proxy/store rewrites are typed-control helper work, not proof of real exceptional-edge SSA support.
       - Deliverables: focused trace/output fixtures or source-backed table for scalar proxy, multi-param/result, catch relabeling, and store-model helpers; closeout docs/backlog updates for `[SSANM-007a3]` and parent `[SSANM-007a]` if no EH work remains.
+      - Evidence: the no-throw scalar proxy backedge fixture now records trace/validation while still asserting the loop-param scalar proxy helper shape; existing multi-param/result, catch-relabeling, and store-model fixtures remain the typed-control helper proof. Docs now close `[SSANM-007a3]` and parent `[SSANM-007a]` with real EH reopening criteria.
     - [ ] [SSANM-007b] - Classify typed-control and loop-param/result boundaries
       - Status: child-sliced on 2026-06-13; execute through `[SSANM-007b1]` through `[SSANM-007b3]` so source inventory, typed-loop ABI boundaries, and typed branch-operand families stay separately reviewable.
       - Goal: separate true local-source no-merge decisions from stack/control-value ABI rewrites around typed loop params/results and branch operands.
