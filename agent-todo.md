@@ -330,7 +330,7 @@ Preset behavior inventory:
       - Goal: classify nested `block` / `if` / loop-target combinations that are not covered by `[SSANM-005c3c]` or `[SSANM-006a2]`, without routing typed loops, EH, or branch operands through ordinary LocalGraph mutation.
       - Deliverables: nested-target fixture matrix, docs/backlog updates, and a narrowing/deletion plan for any superseded raw structured helpers.
     - [ ] [SSANM-006b] - Retire predecessor-copy behavior from no-merge paths
-      - Status: child-sliced on 2026-06-13; execute through `[SSANM-006b1]` through `[SSANM-006b3]` so inventory, ordinary-family rerouting, and legacy-helper retirement stay separately reviewable.
+      - Status: child-sliced on 2026-06-13 and refined on 2026-06-14; execute through `[SSANM-006b1]`, `[SSANM-006b2a]` through `[SSANM-006b2d]`, and `[SSANM-006b3]` so inventory, fallback triage, ordinary rerouting, and legacy-helper retirement stay separately reviewable.
       - Goal: ensure `ssa-nomerge` no longer relies on HOT SSA destruction that externalizes overlay phis through predecessor copies for ordinary no-merge work.
       - Deliverables: summary string/docs update, tests proving merge-copy shapes belong outside `ssa-nomerge`, and a clear route for any remaining HOT SSA destruction users to full `ssa` or a separate helper.
     - [x] [SSANM-006b1] - Inventory predecessor-copy-producing no-merge paths
@@ -339,8 +339,21 @@ Preset behavior inventory:
       - Deliverables: source/test map of HOT SSA destruction entry points, raw helper families that still intentionally allocate branch/typed-control scratch locals, and public-pipeline fixtures that distinguish ordinary no-merge predecessor-copy drift from accepted typed-control/EH boundaries.
       - Evidence: source/test review only. Remaining copy-producing risk is the fallback HOT `ssa_nomerge_run` / `@ir.ssa_destroy_into_hot(...)` path and raw branch/typed-control scratch/proxy helpers in `src/passes/pass_manager.mbt`; ordinary LocalGraph-supported straight-line, default, canonical-merge, mixed normal-control, and `[SSANM-006a2a]` block/if set families are now explicitly mapped away from predecessor-copy behavior. No extra tests were required beyond the `[SSANM-006a2a]` validation because this slice recorded source ownership rather than changing additional pass behavior.
     - [ ] [SSANM-006b2] - Reroute ordinary no-merge families away from predecessor copies
+      - Status: child-sliced on 2026-06-14; execute through `[SSANM-006b2a]` through `[SSANM-006b2d]` so fallback discovery, straight-line/default proof, structured ordinary rerouting, and branch-boundary regression checks stay separate.
       - Goal: make ordinary LocalGraph-supported no-merge traffic use planned canonical/fresh/default rewrites instead of HOT SSA destruction or predecessor-copy merge materialization.
       - Deliverables: red-first fixtures for any ordinary family still entering copy-producing paths, implementation that preserves canonical merge reads/writes without merge locals, and direct compare evidence.
+    - [ ] [SSANM-006b2a] - Census fallback HOT SSA-destruction survivors
+      - Goal: find reduced ordinary `ssa-nomerge` fixtures that still return `None` from the raw dispatcher and fall into `ssa_destroy_into_hot`, separating true ordinary gaps from branch/typed/EH/huge boundaries.
+      - Deliverables: source/test inventory table, focused telemetry or whitebox assertions only where they guard routing behavior, and explicit candidate list for `[SSANM-006b2b]` / `[SSANM-006b2c]`.
+    - [ ] [SSANM-006b2b] - Lock straight-line and default families off HOT SSA destruction
+      - Goal: prove completed straight-line `local.set` / `local.tee`, default-entry, and no-local-write families cannot regress into predecessor-copy fallback.
+      - Deliverables: focused public-pipeline or dispatcher tests with trace assertions for named LocalGraph reasons, plus docs/backlog updates; behavior mutation only if the census finds a real fallback.
+    - [ ] [SSANM-006b2c] - Reroute structured ordinary merge/freshening fallback gaps
+      - Goal: move any remaining ordinary `block` / `if` / supported `br_if` / loop-backedge families found by the census onto the planned LocalGraph paths without introducing merge locals.
+      - Deliverables: red-first fixtures for each admitted family, implementation, validation proof, and direct `--pass ssa-nomerge` compare evidence.
+    - [ ] [SSANM-006b2d] - Prove branch/table/typed/EH scratch paths are not ordinary predecessor-copy work
+      - Goal: keep branch-alias, `br_table`, typed-control, and EH scratch/proxy lowerings classified as explicit boundary helpers or fail-closed paths rather than ordinary no-merge predecessor-copy materialization.
+      - Deliverables: boundary regression fixtures or source-backed table, cross-links to `[SSANM-006a3*]`, `[SSANM-007a*]`, and `[SSANM-007b*]`, and direct compare evidence only if behavior changes.
     - [ ] [SSANM-006b3] - Retire or narrow legacy predecessor-copy helpers
       - Goal: after ordinary no-merge families are rerouted, delete or explicitly narrow leftover no-merge predecessor-copy helpers and update pass summaries/docs so predecessor copies are no longer described as normal `ssa-nomerge` behavior.
       - Deliverables: summary/help/docs updates, tests proving retained scratch/copy lowerings are typed-control/EH/full-SSA or explicitly fail-closed boundaries, and backlog cleanup before closing `[SSANM-006b]`.

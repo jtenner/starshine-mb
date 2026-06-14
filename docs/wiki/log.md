@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Slice predecessor-copy rerouting work
+
+- Split hidden work under `[SSANM-006b2]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for fallback HOT SSA-destruction census, straight-line/default fallback regression proof, structured ordinary rerouting, and branch/table/typed/EH scratch-helper boundary classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) so the predecessor-copy inventory points at `[SSANM-006b2a]` through `[SSANM-006b2d]` instead of treating ordinary rerouting as one oversized behavior slice.
+- Tests were not run because this was a backlog/wiki slicing change only and did not alter executable behavior or generated contracts.
+
 ## [2026-06-13] passes/ssa-nomerge | Close ordinary structured merge-adjacent sets
 
 - Completed `[SSANM-006a2b]`, `[SSANM-006a2c]`, and parent `[SSANM-006a2]` in [`../../agent-todo.md`](../../agent-todo.md).
