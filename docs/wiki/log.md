@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Disable unproven typed tuple carriers
+
+- Completed `[SSANM-009b13a]` in [`../../agent-todo.md`](../../agent-todo.md) by reclassifying the naive tuple/block carrier direction as unproven until canonical local-count evidence supports it.
+- Added/updated focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge leaves tuple carrier disabled without canonical local proof` failed red-first while Starshine emitted a direct tuple carrier block, then passed after [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) returned to the source-shaped result-loop boundary for this subset and removed the unused public type-finder hook from [`../../src/ir/hot_module_context.mbt`](../../src/ir/hot_module_context.mbt).
+- Evidence: `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614` timed out after writing artifacts, but targeted extraction validates both outputs and shows the repeated family is now a measured Starshine local-count win: `abs=1440` Starshine has `29` body locals (`27` i32 / `2` i64) versus Binaryen `37` (`34` i32 / `3` i64), and `abs=1458` Starshine has `39` (`37` i32 / `2` i64) versus Binaryen `51` (`48` i32 / `3` i64). Skipping both repeats advances the local alpha candidate to `defined=1451 abs=1478`; the current full artifact first-diffs earlier at `defined=540 abs=567`, now owned by `[SSANM-009b14]`.
+- Validation: red-first focused test failed `438/439` before the change and passed `439/439` after; `moon test src/passes` passed `2470/2470`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; full `moon test` passed `5775/5775`; native `src/cmd` build passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b13a-disable-tuple-20260614` requested `10000`, compared `9977`, and had `9977` normalized matches with `0` mismatches plus `23` cached Binaryen/tool command failures.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Preserve raw typed result-loop carriers
 
 - Advanced `[SSANM-009b13a]` in [`../../agent-todo.md`](../../agent-todo.md) with a red/green sub-fix for GC-free multi-param single-result typed loops whose current-loop backedges are only plain `br` and whose body has no `try_table`.

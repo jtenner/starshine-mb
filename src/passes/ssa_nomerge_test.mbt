@@ -6374,7 +6374,7 @@ test "ssa-nomerge preserves result loop carrier for multi-param direct br backed
 }
 
 ///|
-test "ssa-nomerge uses tuple carrier block for multi-param direct br result loops" {
+test "ssa-nomerge leaves tuple carrier disabled without canonical local proof" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32 i32 i32) (result i32)))
@@ -6403,10 +6403,10 @@ test "ssa-nomerge uses tuple carrier block for multi-param direct br result loop
     #|    end)
     #|)
   let (_, instrs) = try! ssa_test_expect_typed_loop_boundary_output(
-    source, 6, "multi-param single-result direct br tuple carrier",
+    source, 6, "multi-param single-result direct br tuple carrier disabled",
   )
   assert_true(ssa_test_instrs_have_nonvoid_loop(instrs), msg=instrs.to_string())
-  assert_true(
+  assert_false(
     ssa_test_instrs_have_block_type_idx(instrs, 1U),
     msg=instrs.to_string(),
   )

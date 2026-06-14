@@ -251,23 +251,6 @@ pub fn hot_module_resolve_type_func_type(
 }
 
 ///|
-pub fn hot_module_find_block_result_type_idx(
-  ctx : HotModuleContext,
-  results : Array[@lib.ValType],
-) -> TypeIdx? {
-  for idx = 0; idx < ctx.subtypes.length(); idx = idx + 1 {
-    match ctx.subtypes[idx].get_comptype() {
-      @lib.FuncCompType(params, candidate_results) =>
-        if params.is_empty() && candidate_results == results {
-          return Some(@lib.TypeIdx::new(idx.reinterpret_as_uint()))
-        }
-      _ => ()
-    }
-  }
-  None
-}
-
-///|
 pub fn hot_module_resolve_func_type_idx(
   ctx : HotModuleContext,
   func_idx : @lib.FuncIdx,

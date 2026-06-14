@@ -8581,24 +8581,6 @@ fn run_hot_pipeline_raw_loop_param_store_label_target(
 }
 
 ///|
-fn run_hot_pipeline_raw_loop_param_carrier_label_target(
-  block_type : @lib.BlockType,
-  param_types : Array[@lib.ValType],
-  needed_alias_copies : @bitset.BitSet,
-) -> RawSsaLabelTarget {
-  {
-    block_type,
-    result_types: param_types,
-    is_loop: false,
-    is_loop_param_proxy: false,
-    is_loop_param_store: false,
-    loop_param_scratch: None,
-    loop_param_scratches: [],
-    needed_alias_copies,
-  }
-}
-
-///|
 fn run_hot_pipeline_raw_br_table_alias_copies(
   labels : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
@@ -11254,34 +11236,9 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 loop_initialized[local_id] = true
               }
             }
-            let plain_result_loop_carrier_type_idx = if loop_result_types.length() ==
-              1 &&
-              loop_param_types.length() > 1 &&
-              run_hot_pipeline_raw_val_types_are_gc_free(loop_param_types) &&
-              run_hot_pipeline_raw_val_types_are_gc_free(loop_result_types) &&
-              !run_hot_pipeline_raw_instrs_have_try_table(body) &&
-              run_hot_pipeline_raw_instrs_current_loop_backedges_are_plain_br(
-                body, 0U,
-              ) {
-              @ir.hot_module_find_block_result_type_idx(
-                module_ctx, loop_param_types,
-              )
-            } else {
-              None
-            }
-            let rewrite_label_target = match
-              plain_result_loop_carrier_type_idx {
-              Some(carrier_type_idx) =>
-                run_hot_pipeline_raw_loop_param_carrier_label_target(
-                  @lib.BlockType::type_idx(carrier_type_idx),
-                  loop_param_types,
-                  loop_header_reads_before_writes,
-                )
-              None =>
-                run_hot_pipeline_raw_loop_param_store_label_target(
-                  loop_param_types, loop_scratches, loop_header_reads_before_writes,
-                )
-            }
+            let loop_label_target = run_hot_pipeline_raw_loop_param_store_label_target(
+              loop_param_types, loop_scratches, loop_header_reads_before_writes,
+            )
             match
               run_hot_pipeline_raw_rewrite_instrs(
                 body,
@@ -11292,7 +11249,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 canonical_aliases,
                 loop_initialized,
                 run_hot_pipeline_raw_push_label_target(
-                  label_stack, rewrite_label_target,
+                  label_stack, loop_label_target,
                 ),
                 child_future_reads,
                 child_future_writes,
@@ -11354,51 +11311,12 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                       body, 0U,
                     )
                   if preserve_plain_result_loop_carrier {
-                    match plain_result_loop_carrier_type_idx {
-                      Some(carrier_type_idx) => {
-                        if body_fallthrough {
-                          loop_body.push(
-                            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-                          )
-                        }
-                        let outer_body : Array[@lib.Instruction] = [
-                          @lib.Instruction::block(
-                            @lib.BlockType::type_idx(carrier_type_idx),
-                            @lib.Expr::new(loop_body),
-                          ),
-                        ]
-                        for scratch_idx = loop_scratches.length() - 1
-                            scratch_idx >= 0
-                            scratch_idx = scratch_idx - 1 {
-                          outer_body.push(
-                            @lib.Instruction::local_set(
-                              loop_scratches[scratch_idx],
-                            ),
-                          )
-                        }
-                        outer_body.push(
-                          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-                        )
-                        rewritten.push(
-                          @lib.Instruction::loop_(
-                            result_block_type,
-                            @lib.Expr::new([
-                              @lib.Instruction::block(
-                                result_block_type,
-                                @lib.Expr::new(outer_body),
-                              ),
-                            ]),
-                          ),
-                        )
-                      }
-                      None =>
-                        rewritten.push(
-                          @lib.Instruction::loop_(
-                            result_block_type,
-                            @lib.Expr::new(loop_body),
-                          ),
-                        )
-                    }
+                    rewritten.push(
+                      @lib.Instruction::loop_(
+                        result_block_type,
+                        @lib.Expr::new(loop_body),
+                      ),
+                    )
                     if was_reachable {
                       if body_fallthrough {
                         aliases = body_aliases
