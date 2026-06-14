@@ -5016,6 +5016,16 @@ fn ssa_test_assert_no_planned_structured_trace_reason(
 }
 
 ///|
+fn ssa_test_assert_no_ssa_nomerge_mutation_trace(
+  trace : Array[String],
+) -> Unit raise {
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites no-throw try_table local writes" {
   let input =
     #| (module
@@ -5269,7 +5279,32 @@ test "ssa-nomerge preserves local written before conditional throw to catch" {
 }
 
 ///|
+test "ssa-nomerge preserves throw_ref shapes without hot local corruption" {
+  // `[SSANM-007a2b1]` locks direct throw_ref roots as an exceptional-flow
+  // boundary. The pass must leave nearby local traffic and the HOT revision alone.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let set = @ir.hot_build_local_set(
+    func,
+    0,
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+  )
+  let exnref = @ir.hot_build_ref_null(
+    func,
+    @lib.RefType::abs(@lib.AbsHeapType::exn()),
+  )
+  let throw_ref = @ir.hot_build_throw_ref(func, exnref)
+  @ir.hot_root_append(func, set)
+  @ir.hot_root_append(func, throw_ref)
+  ssa_test_unsupported_exceptional_hot_no_mutation(func)
+}
+
+///|
 test "ssa-nomerge preserves legacy rethrow shapes without hot local corruption" {
+  // `[SSANM-007a2b2]` keeps legacy try/catch/rethrow outside planned
+  // LocalGraph mutation and outside lifted HOT SSA destruction.
+  let trace : Array[String] = []
   let source =
     #|(module
     #|  (tag $e0)
@@ -5283,10 +5318,21 @@ test "ssa-nomerge preserves legacy rethrow shapes without hot local corruption" 
     #|        (rethrow 0)))))
     #|)
   ssa_test_hot_exceptional_local_traffic_preserved(source)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected legacy rethrow boundary success, got \{err}")
+  }
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  ssa_test_assert_no_ssa_nomerge_mutation_trace(trace)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
   assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("throw"), msg=text)
 }
 
 ///|

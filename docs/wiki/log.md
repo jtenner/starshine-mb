@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Lock legacy EH terminators
+
+- Completed `[SSANM-007a2b1]` through `[SSANM-007a2b3]`, `[SSANM-007a2b]`, `[SSANM-007a2c]`, and parent `[SSANM-007a2]` in [`../../agent-todo.md`](../../agent-todo.md).
+- Added/strengthened focused fail-closed coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): direct HOT `throw_ref` now preserves local traffic and leaves the HOT revision unchanged; legacy catch/rethrow now has a public-pipeline trace lock against ordinary planned structured LocalGraph reasons and lifted HOT mutation; the existing direct HOT delegate fixture remains the delegate no-revision proof.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `419/419`. Direct compare was not run because this fail-closed regression-lock/docs slice changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Lock throwing EH boundaries
 
 - Completed `[SSANM-007a1]` and `[SSANM-007a2a]` in [`../../agent-todo.md`](../../agent-todo.md).
