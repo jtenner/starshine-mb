@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify nested branch targets
+
+- Completed `[SSANM-006a3d]`, its children `[SSANM-006a3d1]` through `[SSANM-006a3d3]`, and parent `[SSANM-006a]` in [`../../agent-todo.md`](../../agent-todo.md).
+- Added focused fail-closed public-pipeline coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for nested outer-block `br_if` and nested loop-exit `br_if` shapes. The fixtures validate, preserve `br_if`, and keep unsupported nested targets off ordinary structured, mixed, multi-source, and loop-backedge LocalGraph trace reasons.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `416/416`. Direct compare was not run because this fail-closed classification changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Classify scratch-helper boundaries
 
 - Completed `[SSANM-006b2d]` in [`../../agent-todo.md`](../../agent-todo.md) with a source/test ownership table in [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md).

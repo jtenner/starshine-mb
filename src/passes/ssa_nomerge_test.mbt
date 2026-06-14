@@ -19944,6 +19944,118 @@ test "ssa-nomerge keeps ordinary br_table local-source regions off planned struc
 }
 
 ///|
+test "ssa-nomerge keeps nested br_if to outer block off planned structured path" {
+  // `[SSANM-006a3d2]` classifies nested normal branch targets that are not
+  // the already-supported mixed early-exit or simple loop-backedge subset as
+  // fail-closed from planned LocalGraph mutation. This intentionally preserves
+  // the nested branch until branch-target alias ownership is narrowed.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    block
+    #|      block
+    #|        local.get 0
+    #|        br_if 1
+    #|        local.get 1
+    #|        drop
+    #|      end
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested br_if local-source boundary success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-merge-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br_if(instrs), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge keeps nested loop-exit br_if off planned structured path" {
+  // This is a nested normal-control boundary, not the simple direct void-loop
+  // `br_if 0` canonical backedge admitted by `[SSANM-005b2]`. Keep it off
+  // ordinary planned LocalGraph reasons until `[SSANM-007b]` / loop-target
+  // lowering proves a narrower safe subset.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    block
+    #|      loop
+    #|        local.get 0
+    #|        br_if 1
+    #|        local.get 1
+    #|        drop
+    #|      end
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested loop-exit br_if boundary success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-merge-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br_if(instrs), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge keeps plain br multi-source merges off LocalGraph path" {
   // `[SSANM-005b3]` deliberately classifies plain `br` multi-source merge
   // regions as branch-helper territory for now. They must validate, preserve the
