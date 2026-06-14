@@ -478,8 +478,21 @@ Preset behavior inventory:
       - Deliverables: docs/backlog closeout for `[SSANM-007b1]`, explicit comparison note explaining why tests/fuzz were or were not required, and no behavior mutation.
       - Evidence: parity, index, and wiki log pages now record `[SSANM-007b1]` as docs/source inventory only. `[SSANM-007b2]` should add loop-param/result trace/output locks; `[SSANM-007b3]` should add typed branch operand and cast/null exit locks. Direct compare was not required because no mutation behavior changed.
     - [ ] [SSANM-007b2] - Lock typed loop param/result ABI boundaries
+      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007b2a]` through `[SSANM-007b2d]` so scalar/reference, multi-param/result, table/nested-target, and closeout docs stay reviewable.
       - Goal: keep loop-param/result rewrites that require stack/control-value ABI repair on explicit scratch/copy helpers instead of silently routing them through ordinary LocalGraph local mutation.
       - Deliverables: focused public-pipeline fixtures for scalar/reference loop params, single-result and multi-result loops, no-copy typed-loop cases, and nested-loop target boundaries, with trace/output assertions showing whether each family mutates through an intentional typed-control helper or remains fail-closed.
+    - [ ] [SSANM-007b2a] - Lock scalar/reference typed loop-param proxy and no-copy boundaries
+      - Goal: prove scalar and reference loop-param backedges use explicit typed-control proxy/copy helpers only when an overwrite or edge-copy is needed, while no-copy typed-loop cases remain no-mutation boundaries.
+      - Deliverables: strengthened trace/output fixtures for direct scalar `br`, scalar/reference `br_if`, copy-needing contrast, and no-copy typed-loop-param cases; direct compare only if behavior changes.
+    - [ ] [SSANM-007b2b] - Lock multi-param and loop-result typed-loop store-model boundaries
+      - Goal: keep multi-param no-result loops, single-result loops, and multi-param single-result loops on typed-control store/result ABI helpers instead of ordinary LocalGraph local-source mutation.
+      - Deliverables: focused trace/output fixtures for multi-param `br` / `br_if`, single-result loops, multi-param single-result loops, and no-throw `try_table` wrappers where they exercise the same typed-control store/result helper.
+    - [ ] [SSANM-007b2c] - Lock typed-loop `br_table` and nested-target boundaries
+      - Goal: classify all-current, mixed current/enclosing, non-current/nested typed-loop table targets and nested loop-target gates as typed-control/table helper territory or explicit fail-closed boundaries.
+      - Deliverables: trace/output fixtures for current-loop, mixed-target, copy-needing, single-result, and nested-loop typed `br_table` / nested target shapes; direct compare only if a new mutation family is admitted.
+    - [ ] [SSANM-007b2d] - Close typed loop/result boundary docs
+      - Goal: summarize `[SSANM-007b2a]` through `[SSANM-007b2c]`, update parity/index/wiki-log notes, and leave any branch-operand/cast/null work to `[SSANM-007b3]`.
+      - Deliverables: docs/backlog closeout, explicit comparison note explaining why direct fuzz was or was not required, and reopening criteria for any retained typed-control fail-closed boundary.
     - [ ] [SSANM-007b3] - Classify typed branch operands and cast/null branch exits
       - Goal: decide which branch-operand, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` families are local-source no-merge decisions versus typed-control lowering work.
       - Deliverables: positive or fail-closed fixtures for branch operands and typed exits, direct compare evidence for any newly admitted mutation family, and docs/backlog updates that keep branch-alias/cast scratch ownership explicit.
