@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Lock straight-line/default fallback exits
+
+- Completed `[SSANM-006b2b]` in [`../../agent-todo.md`](../../agent-todo.md) with focused public-pipeline regression locks in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
+- Added a trace-lock helper and tests proving overwritten straight-line `local.set` / `local.tee`, plain no-write, no-write default-read, and no-write unreachable-debris families return `straight-line-local-writes-localgraph-plan`, `no-local-writes`, `default-local-reads-localgraph-plan`, or `no-local-writes-unreachable-debris` instead of lifted HOT fallback (`pass[ssa-nomerge]:mutated`) or invalid lowered fallback.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `414/414`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2444/2444`. Direct compare was not run because this regression-lock slice changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Classify table exits and fallback survivors
 
 - Completed `[SSANM-006a3c]` and `[SSANM-006b2a]` in [`../../agent-todo.md`](../../agent-todo.md).

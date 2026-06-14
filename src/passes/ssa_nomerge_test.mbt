@@ -18786,6 +18786,39 @@ test "ssa-nomerge does not mutate unsupported nested loop under value block" {
 }
 
 ///|
+fn ssa_nomerge_test_run_trace_locked_raw_exit(
+  source : String,
+  reason : String,
+  context : String,
+) -> @lib.Module raise {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected \{context} ssa-nomerge success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=\{reason}")
+    }),
+    msg="expected \{context} to use \{reason}; trace:\n\{trace.join("\n")}",
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg="expected \{context} to avoid lifted HOT fallback mutation; trace:\n\{trace.join("\n")}",
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+    msg="expected \{context} to avoid invalid lowered fallback; trace:\n\{trace.join("\n")}",
+  )
+  optimized
+}
+
+///|
 test "ssa-nomerge keeps straight-line local traffic on the canonical slot" {
   let optimized = match
     pass_test_run_pipeline(
@@ -20680,6 +20713,75 @@ test "ssa-nomerge keeps no-write unreachable debris cleanup separate from defaul
     }),
     msg=trace.join("\n"),
   )
+}
+
+///|
+test "ssa-nomerge locks straight-line writes off HOT fallback" {
+  let set_output = try! ssa_nomerge_test_run_trace_locked_raw_exit(
+    "(module (func (result i32) (local i32) i32.const 1 local.set 0 i32.const 2 local.set 0 local.get 0))",
+    "straight-line-local-writes-localgraph-plan", "straight-line local.set fallback lock",
+  )
+  let (set_locals, set_instrs) = try! ssa_test_first_defined_func(set_output)
+  @debug.assert_eq(
+    set_locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(set_instrs), [2U])
+
+  let tee_output = try! ssa_nomerge_test_run_trace_locked_raw_exit(
+    "(module (func (result i32) (local i32) i32.const 1 local.tee 0 drop i32.const 2 local.tee 0 drop local.get 0))",
+    "straight-line-local-writes-localgraph-plan", "straight-line local.tee fallback lock",
+  )
+  let (tee_locals, tee_instrs) = try! ssa_test_first_defined_func(tee_output)
+  @debug.assert_eq(
+    tee_locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(ssa_test_local_tee_indices(tee_instrs), [1U, 2U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(tee_instrs), [2U])
+}
+
+///|
+test "ssa-nomerge locks no-write default families off HOT fallback" {
+  let plain_no_write = try! ssa_nomerge_test_run_trace_locked_raw_exit(
+    "(module (func (result i32) i32.const 1))", "no-local-writes", "plain no-write fallback lock",
+  )
+  let (_, plain_instrs) = try! ssa_test_first_defined_func(plain_no_write)
+  @debug.assert_eq(plain_instrs, [@lib.Instruction::i32_const(@lib.I32(1))])
+
+  let default_output = try! ssa_nomerge_test_run_trace_locked_raw_exit(
+    "(module (func (result i32) (local i32) block i32.const 0 br_table 0 0 end local.get 0))",
+    "default-local-reads-localgraph-plan", "no-write default-read fallback lock",
+  )
+  let (_, default_instrs) = try! ssa_test_first_defined_func(default_output)
+  let default_text = default_instrs.to_string()
+  assert_true(default_text.contains("i32.const I32(0)"), msg=default_text)
+  assert_false(default_text.contains("local.get"), msg=default_text)
+
+  let debris_source =
+    #|(module
+    #|  (func
+    #|    (block (result i32)
+    #|      unreachable
+    #|      unreachable)
+    #|    unreachable))
+    #|)
+  let debris_output = try! ssa_nomerge_test_run_trace_locked_raw_exit(
+    debris_source, "no-local-writes-unreachable-debris", "no-write unreachable-debris fallback lock",
+  )
+  let (_, debris_instrs) = try! ssa_test_first_defined_func(debris_output)
+  let debris_text = debris_instrs.to_string()
+  assert_true(debris_text.contains("unreachable"), msg=debris_text)
+  assert_false(debris_text.contains("(block"), msg=debris_text)
+  assert_false(debris_text.contains("Drop"), msg=debris_text)
 }
 
 ///|
