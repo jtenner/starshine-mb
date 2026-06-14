@@ -18511,17 +18511,26 @@ fn run_hot_pipeline_raw_remove_unused_names_rewrite_single_root(
         None
       }
     }
-    [@lib.Loop(block_type, @lib.Expr(body))] => {
-      let (stripped_body, _) = run_hot_pipeline_raw_remove_unused_names_strip_nops(
-        body,
-      )
-      Some(
-        (
-          [@lib.Instruction::block(block_type, @lib.Expr::new(stripped_body))],
-          true,
-        ),
-      )
-    }
+    [@lib.Loop(block_type, @lib.Expr(body))] =>
+      match block_type {
+        @lib.TypeIdxBlockType(_) => None
+        _ => {
+          let (stripped_body, _) = run_hot_pipeline_raw_remove_unused_names_strip_nops(
+            body,
+          )
+          Some(
+            (
+              [
+                @lib.Instruction::block(
+                  block_type,
+                  @lib.Expr::new(stripped_body),
+                ),
+              ],
+              true,
+            ),
+          )
+        }
+      }
     _ => None
   }
 }
@@ -18553,13 +18562,21 @@ fn run_hot_pipeline_raw_remove_unused_names_rewrite_instr(
       (@lib.Instruction::block(block_type, @lib.Expr::new(next_body)), changed)
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
-      let (rewritten_body, _) = run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(
+      let (rewritten_body, body_changed) = run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(
         body,
       )
-      (
-        @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
-        true,
-      )
+      match block_type {
+        @lib.TypeIdxBlockType(_) =>
+          (
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+            body_changed,
+          )
+        _ =>
+          (
+            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+            true,
+          )
+      }
     }
     @lib.If(block_type, then_body, else_body) => {
       let (rewritten_then, then_changed) = run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(

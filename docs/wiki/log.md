@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/remove-unused-names | Fix SSANM early-neighborhood typed loop demotion
+
+- Completed `[SSANM-010b1]` in [`../../agent-todo.md`](../../agent-todo.md) by minimizing the `[SSANM-010b]` `--ssa-nomerge --dead-code-elimination --remove-unused-names` stack-underflow blocker to `remove-unused-names`, not `ssa-nomerge` mutation.
+- Root cause: the extracted `Func 25` / original debug-WASI `Func 254` had a no-continue TypeIdx loop with an entry-param type. Raw/HOT `remove-unused-names` demoted TypeIdx loops to blocks, which can place loop entry operands inside the replacement block and underflow the block entry stack. The pass now preserves TypeIdx / entry-param loops while still rewriting nested bodies.
+- Added red-first regression `remove-unused-names preserves dead typed loop with entry params` in [`../../src/passes/remove_unused_names_test.mbt`](../../src/passes/remove_unused_names_test.mbt); implemented the raw guard in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) and the HOT guard in [`../../src/passes/remove_unused_names.mbt`](../../src/passes/remove_unused_names.mbt).
+- Evidence: focused `remove_unused_names_test.mbt` passed `26/26`; `moon fmt`; `moon test src/passes` passed `2472/2472`; native `moon build --target native --release src/cmd` completed with pre-existing pass-manager unused-function warnings. Rebuilt-native direct replay of `--remove-unused-names` on `.tmp/self-ssa-nomerge-o4z-early-neighborhood-20260614/func254-before.wasm` exited `0`, and `wasm-tools validate --features all .tmp/ssanm010b1-replay/func254-after.wasm` passed. The rebuilt-native three-pass prefix `--ssa-nomerge --dead-code-elimination --remove-unused-names tests/node/dist/starshine-debug-wasi.wasm` now exits `0` in about `5s` and writes `7,482,266` bytes.
+- Updated [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md). `[SSANM-010c]` remains the explicit user-approved scheduling decision and must not be decided by this fix.
+
 ## [2026-06-14] passes/ssa-nomerge | Replay early O4z ssa-nomerge neighborhood
 
 - Completed `[SSANM-010b]` in [`../../agent-todo.md`](../../agent-todo.md) as a direct native debug-WASI replay of the early Starshine neighborhood that would run if the O4z `ssa-nomerge` no-op were removed or narrowed.

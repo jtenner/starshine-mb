@@ -65,7 +65,9 @@ related:
 | `--ssa-nomerge --dead-code-elimination --remove-unused-names` | Exit `1` in about `5s`; `error: final module validate: stack underflow`, offending `Func 254`. | Validation failure / scheduling blocker. |
 | Full requested neighborhood through `--remove-unused-brs --remove-unused-names` | Aborts before producing a comparable artifact. | Keep the O4z no-op guard until `[SSANM-010c]` and a follow-on implementation plan decide otherwise. |
 
-A matching Binaryen sanity pass with `wasm-opt --all-features` validates every prefix: `--ssa-nomerge` (`3,155,990` bytes), `--ssa-nomerge --dce` (`3,154,783` bytes), `--ssa-nomerge --dce --remove-unused-names` (`3,150,555` bytes), `--ssa-nomerge --dce --remove-unused-names --remove-unused-brs` (`3,131,051` bytes), and the repeated `--remove-unused-names` prefix (`3,124,589` bytes). The new `[SSANM-010b1]` backlog slice owns minimization/fix work for the Starshine `remove-unused-names` validation failure before `[SSANM-010d]` can safely apply any guard-removal policy.
+A matching Binaryen sanity pass with `wasm-opt --all-features` validates every prefix: `--ssa-nomerge` (`3,155,990` bytes), `--ssa-nomerge --dce` (`3,154,783` bytes), `--ssa-nomerge --dce --remove-unused-names` (`3,150,555` bytes), `--ssa-nomerge --dce --remove-unused-names --remove-unused-brs` (`3,131,051` bytes), and the repeated `--remove-unused-names` prefix (`3,124,589` bytes).
+
+`[SSANM-010b1]` fixed the named Starshine `Func 254` / extracted `Func 25` stack-underflow blocker. Root cause: raw/HOT `remove-unused-names` demoted no-continue TypeIdx loops to blocks even when the type had entry params; the replacement block could then underflow during lowering. Starshine now preserves TypeIdx / entry-param loops in `remove-unused-names`. Rebuilt-native replay of the three-pass Starshine prefix now exits `0` in about `5s` and writes `7,482,266` bytes, and direct replay of the extracted `func254-before.wasm` validates with `wasm-tools`. This is still not the O4z scheduling decision: `[SSANM-010c]` must stop for user approval before changing the `o4z-ssa-nomerge-noop` policy.
 
 ## Nested Rerun Rule
 

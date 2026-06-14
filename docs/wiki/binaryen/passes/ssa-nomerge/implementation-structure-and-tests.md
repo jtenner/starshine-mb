@@ -136,6 +136,22 @@ The important local-vs-upstream lesson is the same as in [`./starshine-hot-ir-st
 
 The remaining work is evidence and decision work, not a hidden implementation in this slice: `[SSANM-010b]` should replay the early neighborhood, `[SSANM-010c]` must stop for user approval on the top-level scheduling decision, and `[SSANM-010d]` applies the chosen policy if approved.
 
+## `[SSANM-010b1]` remove-unused-names typed-loop repair
+
+`[SSANM-010b1]` minimized the first `[SSANM-010b]` Starshine validation failure to the owning `remove-unused-names` transform rather than `ssa-nomerge` mutation policy. The offending extracted `Func 25` / original debug-WASI `Func 254` contained a no-continue typed loop whose TypeIdx block type has an entry parameter. Demoting that loop to a block is unsafe in the current Starshine raw/HOT lowering model because the loop entry operand can be placed inside the replacement block, leaving the block entry stack underflowing.
+
+Local proof surface:
+
+| File | New / changed responsibility |
+| --- | --- |
+| `src/passes/remove_unused_names_test.mbt` | Red-first regression `remove-unused-names preserves dead typed loop with entry params`. |
+| `src/passes/pass_manager.mbt` | Raw `remove-unused-names` now preserves TypeIdx loops while still rewriting their bodies; non-TypeIdx no-continue loops can still demote. |
+| `src/passes/remove_unused_names.mbt` | HOT `remove-unused-names` skips loop demotion when the loop label/type has entry params or unresolved TypeIdx entry shape. |
+
+Evidence: `remove_unused_names_test.mbt` passed `26/26`; `moon fmt`; `moon test src/passes` passed `2472/2472`; native `moon build --target native --release src/cmd` completed with pre-existing pass-manager unused-function warnings. Rebuilt-native replay of direct `--remove-unused-names` on `.tmp/self-ssa-nomerge-o4z-early-neighborhood-20260614/func254-before.wasm` exited `0`, and `wasm-tools validate --features all .tmp/ssanm010b1-replay/func254-after.wasm` passed. The rebuilt-native three-pass prefix `--ssa-nomerge --dead-code-elimination --remove-unused-names tests/node/dist/starshine-debug-wasi.wasm` now exits `0` in about `5s` and writes `7,482,266` bytes.
+
+This fixes the named `Func 254` / extracted `Func 25` stack-underflow blocker. It does not decide whether to remove, narrow, or retain `o4z-ssa-nomerge-noop`; `[SSANM-010c]` remains the explicit user-approved scheduling decision.
+
 ## `[SSANM-010b]` early-neighborhood replay
 
 `[SSANM-010b]` used the prebuilt native `target/native/release/build/cmd/cmd.exe` on `tests/node/dist/starshine-debug-wasi.wasm` to probe the explicit Starshine prefix that would become relevant if the O4z `ssa-nomerge` guard were removed or narrowed.

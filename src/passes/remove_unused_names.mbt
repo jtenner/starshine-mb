@@ -29,6 +29,26 @@ fn remove_unused_names_control_block_type_for_ty(
 }
 
 ///|
+fn remove_unused_names_loop_label_has_entry_params(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let label_id = @ir.hot_control_node_label(func, node_id)
+  if label_id < 0 {
+    return false
+  }
+  let label = @ir.hot_label_get(func, label_id)
+  if label.branch_arity > 0 {
+    return true
+  }
+  match @ir.hot_type_get(func, label.result_type) {
+    @ir.HotTypeInfo::BlockResultResolved(_, params, _) => !params.is_empty()
+    @ir.HotTypeInfo::BlockResult(@lib.TypeIdxBlockType(_)) => true
+    _ => false
+  }
+}
+
+///|
 fn remove_unused_names_label_in_controls(
   func : @ir.HotFunc,
   label_id : Int,
@@ -484,7 +504,8 @@ fn remove_unused_names_visit_control_node(
     @ir.HotOp::Loop => {
       removed_ids.clear()
       removed_ids.push(node_id)
-      if !remove_unused_names_region_targets_any_control(
+      if !remove_unused_names_loop_label_has_entry_params(func, node_id) &&
+        !remove_unused_names_region_targets_any_control(
           func,
           @ir.hot_region_body_ref(func, node_id),
           removed_ids,

@@ -363,6 +363,30 @@ test "remove-unused-names O4z accounts for type-mismatch loop demotion" {
 }
 
 ///|
+test "remove-unused-names preserves dead typed loop with entry params" {
+  // Regression for [SSANM-010b1]: the debug-WASI early neighborhood failure
+  // came from demoting a no-continue typed loop whose block type has an entry
+  // parameter. Lowering then moved the entry operand inside the replacement
+  // block and produced a stack underflow. Such loops are valid to keep and not
+  // safe to demote with the current HOT control rewrite.
+  let body = remove_unused_names_test_body(
+    "(module (type (func (param i32))) (func (local i32) i32.const 1 if i32.const 0 loop (type 0) local.set 0 end end))",
+  )
+  match body {
+    [
+      @lib.I32Const(@lib.I32(1)),
+      @lib.If(
+        _,
+        [@lib.I32Const(@lib.I32(0)), @lib.Loop(@lib.TypeIdxBlockType(_), _)],
+        _
+      ),
+    ] => ()
+    other =>
+      fail("expected typed loop with entry param to stay a loop, got \{other}")
+  }
+}
+
+///|
 test "remove-unused-names removes dropped unreachable debris before hard unreachable" {
   match
     remove_unused_names_test_body(
