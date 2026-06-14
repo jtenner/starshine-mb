@@ -2,6 +2,16 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diffs at abs 581 and 584
+
+- Completed `[SSANM-009b21]` and `[SSANM-009b22]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs, `defined=554 abs=581` and `defined=557 abs=584`.
+- Targeted `--print-func 581` extraction under `.tmp/ssanm009b20-next581` shows identical masked `body_raw` strings and the same `175` local operations. The only differences are 15 one-use dead `local.tee` temp choices: Starshine reuses `16`, `12`, `13`, `17`, `18`, `26`, `24`, `19`, `29`, `28`, `30`, `31`, `38`, `41`, and `42`, while Binaryen allocates fresh locals `61..75`. `abs=581` has Starshine `56` body i32 locals versus Binaryen `71`, with equal `756` byte code bodies.
+- Targeted `--print-func 584` extraction under `.tmp/ssanm009b21-next584` shows a neutral same-type local-slot permutation: Starshine uses `7`/`8` as dead `local.tee` targets and `9` for the loaded value's set/get pair, while Binaryen uses `8`/`9` as dead `local.tee` targets and `7` for that set/get pair. `abs=584` has the same eight body i32 locals and equal `65` byte code bodies on both sides.
+- Evidence: `wasm-tools validate --features all` passed for both `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614/{starshine,binaryen}.wasm`; Starshine traces report `call-heavy-memory-structured-noop` for `abs=581` and `structured-local-writes` for `abs=584`. Agent classification: `abs=581` is a semantic-safe Starshine local-count win / no-regression representation difference, while `abs=584` is semantic-safe neutral representation drift; neither is an implementation gap.
+- No executable code changed, so direct compare was not rerun beyond `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` (`9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures).
+- Added `[SSANM-009b23]` for the next `defined=558 abs=585` whole-print diff, which still needs targeted classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI temp locals at abs 579 and 580
 
 - Completed `[SSANM-009b19]` and `[SSANM-009b20]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs, `defined=552 abs=579` and `defined=553 abs=580`.

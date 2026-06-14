@@ -933,6 +933,22 @@ The only token differences are four dead stack-preserving `local.tee` target cho
 
 Measured deltas: defined function `553` encodes to the same `476` byte code body in both artifacts (`473` instruction bytes plus `3` local-declaration bytes). Starshine has `34` body i32 locals versus Binaryen `38`, so this is local-count reducing and function-body byte-size neutral. Both full artifacts validate with `wasm-tools validate --features all`. The Starshine trace for abs `580` reports `call-heavy-memory-structured-noop`, so this is not a new SSANM mutation owner. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference. No code or executable tests changed, so direct compare was not rerun beyond the current `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` lane (`9977/10000`, `9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures).
 
+## `[SSANM-009b21]` repeated one-shot temp-local classification at `abs=581`
+
+`[SSANM-009b21]` follows the same current self-artifact pair to `defined=554 abs=581`. Targeted `--print-func 581` extraction under `.tmp/ssanm009b20-next581` shows identical canonical `body_raw` strings once local indexes are masked, with `175` local operations on both sides (`119` `local.get`, `31` `local.set`, and `25` `local.tee`). No call, load/store memarg, branch/table opcode, label target, constant, result type, or structured-control token differs.
+
+The only local-token differences are 15 dead stack-preserving `local.tee` target choices. Starshine reuses one-use locals `16`, `12`, `13`, `17`, `18`, `26`, `24`, `19`, `29`, `28`, `30`, `31`, `38`, `41`, and `42`, while Binaryen allocates fresh one-use locals `61..75`. Local-use analysis shows every differing local appears exactly once as a `local.tee` target on its side.
+
+Measured deltas: defined function `554` encodes to the same `756` byte code body in both artifacts (`753` instruction bytes plus `3` local-declaration bytes). Starshine has `56` body i32 locals versus Binaryen `71`, so this is local-count reducing and function-body byte-size neutral. Both full artifacts validate with `wasm-tools validate --features all`. The Starshine trace for abs `581` reports `call-heavy-memory-structured-noop`, so this is not a new SSANM mutation owner. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference. No code or executable tests changed, so direct compare was not rerun beyond the current `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` lane (`9977/10000`, `9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures).
+
+## `[SSANM-009b22]` local-slot permutation classification at `abs=584`
+
+`[SSANM-009b22]` follows the same current self-artifact pair to `defined=557 abs=584`. Targeted `--print-func 584` extraction under `.tmp/ssanm009b21-next584` shows identical canonical `body_raw` strings once local indexes are masked, with the same 14 local operations on both sides (`8` `local.get`, `2` `local.set`, and `4` `local.tee`). No call, load/store memarg, branch/table opcode, label target, constant, result type, or structured-control token differs.
+
+The only differences are a same-type branch-local permutation. Starshine uses `7` and `8` as dead `local.tee` targets and uses local `9` for the loaded value's set/get pair; Binaryen uses `8` and `9` as dead `local.tee` targets and uses local `7` for the same loaded value's set/get pair. The local count and local types are the same on both sides, so this is not a measured Starshine local-count win.
+
+Measured deltas: defined function `557` encodes to the same `65` byte code body in both artifacts (`62` instruction bytes plus `3` local-declaration bytes), with the same eight body i32 locals. Both full artifacts validate with `wasm-tools validate --features all`. The Starshine trace for abs `584` reports `structured-local-writes`, so this remains artifact representation classification rather than a new behavior mutation. Agent classification: semantic-safe neutral representation-only local permutation. No code or executable tests changed, so direct compare was not rerun beyond the current `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` lane (`9977/10000`, `9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures).
+
 ## Starshine test map
 
 | Local test surface | What it proves |
