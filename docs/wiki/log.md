@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify huge planners and refresh artifact anchor
+
+- Completed `[SSANM-008b]` and `[SSANM-009a]` in [`../../agent-todo.md`](../../agent-todo.md) without committing pass behavior changes.
+- Replayed the nine extracted `[SSANM-008a]` anchors with temporary no-mutation LocalGraph plan-count instrumentation, validated all outputs under `.tmp/ssanm008b-plan-classification-20260614`, and removed the instrumentation before commit. The six current huge guards have no merge-feeding canonical writes or merge reads, so `[SSANM-008c]` should treat them as size/performance admission candidates rather than LocalGraph decision-table blockers; the three old anchors remain non-huge branch/value-carrier boundaries.
+- Refreshed the checked-in debug-WASI self-compare anchor under `.tmp/self-ssa-nomerge-debug-wasi-anchor-refresh-20260614`: both outputs validate, canonical function compare remains non-equal, and the stale `defined=215 abs=242` anchor is superseded by `defined=108 abs=135`. Whole-command runtime remains a `[WALL]001` concern unless later evidence proves an SSANM-local owner.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Direct compare was not rerun because no committed transform, dispatch, trace policy, or wasm output changed.
+
 ## [2026-06-14] passes/ssa-nomerge | Close GenValid coverage parent
 
 - Completed parent `[SSANM-011]` in [`../../agent-todo.md`](../../agent-todo.md). Child slices `[SSANM-011a]` through `[SSANM-011e]` already completed the LocalGraph-driven generator surface: profile inventory, straight-line/default-entry facts, merge/mixed facts, `local.tee` facts, and EH/typed-control/branch/nested-loop/large-structured boundary facts.

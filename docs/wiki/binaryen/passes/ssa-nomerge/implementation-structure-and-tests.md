@@ -501,6 +501,35 @@ bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm \
 
 It validated both outputs, remained non-equal, and now first-diffs at `defined=108 abs=135`. Starshine output was smaller (`3155453` bytes versus Binaryen `3155990`), pass-local timing was reported as Starshine `0.225ms` versus Binaryen `375.105ms`, and whole-command Starshine runtime remained slower. This is not a behavior-parity or scheduling closeout; it only refreshes the replay anchors. Direct `--pass ssa-nomerge` compare was not rerun because no pass mutation, dispatch policy, trace reason, or wasm output implementation changed in this slice.
 
+## `[SSANM-008b]` huge-function LocalGraph plan classification
+
+`[SSANM-008b]` is a no-mutation classification slice. It used the refreshed extracted-function anchors from `[SSANM-008a]`, built a temporary native debug helper to append LocalGraph no-merge plan counts to the existing trace reasons, replayed each extracted module, validated every rewritten output, and then removed the helper before committing. The resulting evidence lives under `.tmp/ssanm008b-plan-classification-20260614/plan-trace-lines.txt`.
+
+Command shape for each extracted function:
+
+```sh
+target/native/release/build/cmd/cmd.exe --debug-serial-passes --tracing pass --ssa-nomerge \
+  --out .tmp/ssanm008b-plan-classification-20260614/funcNNNN.wasm \
+  .tmp/ssanm008a-huge-functions-20260614/funcNNNN/extracted.wasm
+wasm-tools validate --features all .tmp/ssanm008b-plan-classification-20260614/funcNNNN.wasm
+```
+
+| Prior anchor | Boundary / skip reason | Extracted instrs / locals | Planned writes | Freshenable writes | Merge-feeding canonical writes | Other canonical writes | Tee writes / freshenable tees | Planned gets | Retarget gets | Default-entry reads | Param-entry reads | Merge reads | Classification |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `Func 265` | `multiparam-value-if-branch-carrier-noop` | — | 1362 | 469 | 0 | 893 | 434 / 264 | 3608 | 0 | 0 | 117 | 0 | Drifted non-huge typed/value-if boundary; keep out of huge-threshold admission work. |
+| `Func 3518` | `branch-heavy-void-loop-exit-mesh-noop` | — | 1703 | 1563 | 0 | 140 | 809 / 776 | 2951 | 0 | 0 | 1 | 0 | Drifted non-huge branch-heavy mesh boundary; planner sees many freshenable writes but the current boundary is control-shape, not local-source policy. |
+| `Func 3536` | `large-structured-local-writes` | 16604 / 3059 | 3080 | 2786 | 0 | 294 | 1652 / 1567 | 4980 | 0 | 0 | 1 | 0 | Size-threshold boundary with mostly freshenable write-only/local-source traffic; candidate for `[SSANM-008c]` only after timing and validation replay. |
+| `Func 3781` | `large-structured-local-writes` | 40703 / 7344 | 7341 | 7337 | 0 | 4 | 3211 / 3209 | 12871 | 0 | 0 | 5 | 0 | Size-threshold boundary; nearly every write is planner-freshenable, but no threshold/policy change was made. |
+| `Func 3885` | `large-structured-local-writes` | 26478 / 4056 | 4054 | 4052 | 0 | 2 | 2352 / 2351 | 7317 | 0 | 0 | 0 | 0 | Size-threshold boundary; almost purely freshenable write traffic. |
+| `Func 4119` | `large-structured-local-writes` | 9673 / 1437 | 1436 | 1288 | 0 | 148 | 439 / 395 | 3170 | 0 | 0 | 1 | 0 | Size-threshold boundary with a moderate canonical-write minority. |
+| `Func 4522` | `branch-heavy-void-loop-exit-mesh-noop` | — | 1123 | 1091 | 0 | 32 | 411 / 403 | 4433 | 0 | 0 | 1 | 0 | Drifted non-huge branch-heavy mesh boundary; not a huge-threshold candidate unless a later branch-heavy slice narrows the control mesh. |
+| `Func 5417` | `large-structured-local-writes` | 19787 / 3664 | 3663 | 2163 | 0 | 1500 | 1270 / 744 | 5783 | 0 | 0 | 1 | 0 | Size-threshold boundary with the largest canonical-write minority; needs extra scrutiny before any admission. |
+| `Func 5419` | `large-structured-local-writes` | 16162 / 2744 | 2742 | 2742 | 0 | 0 | 1038 / 1038 | 4753 | 0 | 0 | 1 | 0 | Size-threshold boundary; all writes are planner-freshenable in the extracted replay. |
+
+The planner found no merge-feeding canonical writes and no merge reads in these extracted roots. That means the remaining six huge guards are not blocked by the no-merge decision table itself; they are blocked by the raw structured size/performance guard. `[SSANM-008c]` should therefore decide whether to admit a narrow size-threshold subset, and `[SSANM-008d]` must measure pass-local cost before closing the huge-function family. The three drifted old anchors should stay out of `[SSANM-008c]` threshold admission because their current owners are `multiparam-value-if-branch-carrier-noop` or `branch-heavy-void-loop-exit-mesh-noop`, not `large-structured-local-writes`.
+
+Direct `--pass ssa-nomerge` compare was not rerun for `[SSANM-008b]` because the slice left no pass mutation, no committed trace/dispatch change, and no wasm output change. The native build and extracted replay validation were the relevant proof surface.
+
 ## Starshine test map
 
 | Local test surface | What it proves |
