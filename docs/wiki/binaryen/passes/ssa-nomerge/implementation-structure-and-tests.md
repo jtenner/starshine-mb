@@ -1181,6 +1181,30 @@ The only local-token differences are five one-use dead `local.tee` targets. Star
 
 Measured deltas: defined function `595` encodes to the same `542` byte code body in both artifacts (`539` instruction bytes plus `3` local-declaration bytes). Starshine declares `41` body i32 locals versus Binaryen `46`, so this is local-count reducing and function-body byte-size neutral. Both full artifacts validate with `wasm-tools validate --features all`. The Starshine trace for abs `622` reports `call-heavy-memory-structured-noop`, so this remains boundary/no-op representation classification rather than a new mutation owner. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference, not an implementation gap.
 
+## `[SSANM-009b52]` repeated one-shot temp-local classification at `abs=624`
+
+`[SSANM-009b52]` follows the current self-artifact pair to `defined=597 abs=624` after targeted `abs=623` output matched exactly. Targeted `--print-func 624` extraction under `.tmp/ssanm009b51-next624` shows identical canonical `body_raw` token streams once local indexes are masked, with `194` local operations on both sides (`125` `local.get`, `39` `local.set`, and `30` `local.tee`). No call, load/store memarg, branch/table opcode, label target, constant, result type, or structured-control token differs.
+
+The only local-token differences are 18 one-use dead `local.tee` targets. Starshine reuses locals `7`, `8`, `20`, `61`, `22`, `23`, `17`, `58`, `19`, `40`, `39`, `30`, `64`, `32`, `33`, `49`, `48`, and `51`, while Binaryen allocates fresh one-use locals `69..86`. Local-use analysis shows every differing local appears exactly once as a same-typed `local.tee` target on its side.
+
+Measured deltas: defined function `597` encodes to the same `854` byte code body in both artifacts (`851` instruction bytes plus `3` local-declaration bytes). Starshine declares `68` body i32 locals versus Binaryen `86`, so this is local-count reducing and function-body byte-size neutral. Both full artifacts validate with `wasm-tools validate --features all`. The Starshine trace for abs `624` reports `structured-local-writes`, so this remains artifact representation classification rather than a new parity gap. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference, not an implementation gap.
+
+## `[SSANM-009b53]` repeated one-shot temp-local classification at `abs=625`
+
+`[SSANM-009b53]` follows the current self-artifact pair to `defined=598 abs=625`. Targeted `--print-func 625` extraction under `.tmp/ssanm009b51-next625` shows identical canonical `body_raw` token streams once local indexes are masked, with `86` local operations on both sides (`56` `local.get`, `18` `local.set`, and `12` `local.tee`). No call, load/store memarg, branch/table opcode, label target, constant, result type, or structured-control token differs.
+
+The only local-token differences are seven one-use dead `local.tee` targets. Starshine reuses locals `7`, `8`, `14`, `28`, `16`, `17`, and `23`, while Binaryen allocates fresh one-use locals `31..37`. Local-use analysis shows every differing local appears exactly once as a same-typed `local.tee` target on its side.
+
+Measured deltas: defined function `598` encodes to the same `353` byte code body in both artifacts (`350` instruction bytes plus `3` local-declaration bytes). Starshine declares `30` body i32 locals versus Binaryen `37`, so this is local-count reducing and function-body byte-size neutral. Both full artifacts validate with `wasm-tools validate --features all`. The Starshine trace for abs `625` reports `structured-local-writes`, so this remains artifact representation classification rather than a new parity gap. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference, not an implementation gap.
+
+## `[SSANM-009b54]` structured helper one-use temp classification at `abs=626`
+
+`[SSANM-009b54]` follows the current self-artifact pair to `defined=599 abs=626`. Targeted `--print-func 626` extraction under `.tmp/ssanm009b51-next626` shows identical canonical `body_raw` token streams once local indexes are masked, with `576` local operations on both sides (`383` `local.get`, `98` `local.set`, and `95` `local.tee`). No call, load/store memarg, branch/table opcode, label target, constant, result type, or structured-control token differs.
+
+The only local-token differences are 62 one-use same-typed write targets: 55 `local.tee` targets plus seven dead `local.set` targets. Starshine declares `191` body i32 locals versus Binaryen `253`; Binaryen allocates the differing locals as fresh one-use locals `195..256`, while Starshine reuses one-use same-typed local slots.
+
+Measured deltas: defined function `599` is smaller on Starshine (`2932` byte body: `2928` instruction bytes plus `4` local-declaration bytes) than Binaryen (`2974` byte body: `2970` instruction bytes plus `4` local-declaration bytes). Both full artifacts validate with `wasm-tools validate --features all`. The Starshine trace for abs `626` reports `structured-local-writes-mutated`, so this is a structured helper output-shape classification, not a new semantic gap. Agent classification: semantic-safe Starshine local-count and encoded-body-size win / no-regression representation difference, not an implementation gap.
+
 ## Starshine test map
 
 | Local test surface | What it proves |
