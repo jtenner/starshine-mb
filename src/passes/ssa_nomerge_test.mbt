@@ -984,6 +984,47 @@ fn ssa_test_has_adjacent_call_drop(
 }
 
 ///|
+fn ssa_test_instrs_have_i32_const_call(
+  instrs : Array[@lib.Instruction],
+  value : Int,
+  target : UInt,
+) -> Bool {
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (@lib.I32Const(@lib.I32(found)), @lib.Call(@lib.FuncIdx(func_idx))) =>
+        if found == value && func_idx == target {
+          return true
+        }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_i32_const_call(then_body, value, target) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if ssa_test_instrs_have_i32_const_call(else_body, value, target) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_i32_const_call(body, value, target) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_instrs_have_ref_null_branch_copy_lowering(
   instrs : Array[@lib.Instruction],
   canonical_local : UInt,
@@ -20134,6 +20175,306 @@ test "ssa-nomerge keeps typed loop-param local.set plain br boundary canonical" 
   assert_true(locals.length() <= 3, msg=locals.to_string())
   let writes = ssa_test_local_write_indices(instrs)
   assert_false(writes.any(fn(idx) { idx >= 4U }), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge artifact branch result carriers are not defaulted" {
+  // Reduced from the post-`[SSANM-009b7]` debug-WASI first diff,
+  // `defined=1163 abs=1190` (`ar_rewrite_load_reinterpret_pair`). The
+  // branch arms store the selected memarg in a canonical local and branch to a
+  // constructor-specific continuation. Binaryen keeps those continuation reads
+  // canonical; Starshine must not treat them as body-local entry defaults and
+  // call the constructors with `i32.const 0`.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $moonbit.free (param i32))
+    #|  (func $moonbit.incref (param i32))
+    #|  (func $moonbit.decref (param i32))
+    #|  (func $i32_load (param i32) (result i32) (local.get 0))
+    #|  (func $i64_load (param i32) (result i32) (local.get 0))
+    #|  (func $f32_load (param i32) (result i32) (local.get 0))
+    #|  (func $f64_load (param i32) (result i32) (local.get 0))
+    #|  (func $f (export "f") (param $load i32) (param $reinterpret i32) (result i32)
+    #|    (local $memarg_f64 i32) (local $memarg_f32 i32) (local $memarg_i64 i32) (local $memarg_i32 i32)
+    #|    (local $F32Load i32) (local $memarg_f32_tmp i32) (local $F64Load i32) (local $memarg_f64_tmp i32)
+    #|    (local $I32Load i32) (local $memarg_i32_tmp i32) (local $I64Load i32) (local $memarg_i64_tmp i32)
+    #|    (local $cnt0 i32) (local $new_cnt0 i32) (local $cnt1 i32) (local $new_cnt1 i32)
+    #|    (local $cnt2 i32) (local $new_cnt2 i32) (local $cnt3 i32) (local $new_cnt3 i32)
+    #|    (local $tag0 i32) (local $tag1 i32) (local $tag2 i32) (local $tag3 i32) (local $tag4 i32)
+    #|    block ;; label = @1
+    #|      block ;; label = @2
+    #|        block ;; label = @3
+    #|          block ;; label = @4
+    #|            block ;; label = @5
+    #|              local.get $load
+    #|              i32.load offset=8 align=1
+    #|              local.set $tag0
+    #|              block (result i32) ;; label = @6
+    #|                block ;; label = @7
+    #|                  block ;; label = @8
+    #|                    block ;; label = @9
+    #|                      block ;; label = @10
+    #|                        block ;; label = @11
+    #|                          local.get $tag0
+    #|                          i32.const 27
+    #|                          i32.sub
+    #|                          br_table 2 (;@9;) 3 (;@8;) 0 (;@11;) 1 (;@10;) 4 (;@7;)
+    #|                        end
+    #|                        local.get $load
+    #|                        local.tee $F32Load
+    #|                        i32.load offset=12 align=1
+    #|                        local.set $memarg_f32_tmp
+    #|                        local.get $F32Load
+    #|                        i32.load align=1
+    #|                        local.tee $cnt0
+    #|                        i32.const 1
+    #|                        i32.gt_s
+    #|                        if
+    #|                          local.get $cnt0
+    #|                          i32.const 1
+    #|                          i32.sub
+    #|                          local.set $new_cnt0
+    #|                          local.get $F32Load
+    #|                          local.get $new_cnt0
+    #|                          i32.store align=1
+    #|                          local.get $memarg_f32_tmp
+    #|                          call $moonbit.incref
+    #|                        else
+    #|                          local.get $cnt0
+    #|                          i32.const 1
+    #|                          i32.eq
+    #|                          if
+    #|                            local.get $F32Load
+    #|                            call $moonbit.free
+    #|                          end
+    #|                        end
+    #|                        local.get $memarg_f32_tmp
+    #|                        local.set $memarg_i32
+    #|                        local.get $reinterpret
+    #|                        i32.load offset=8 align=1
+    #|                        local.tee $tag1
+    #|                        i32.const 195
+    #|                        i32.eq
+    #|                        if (result i32)
+    #|                          local.get $memarg_i32
+    #|                          local.set $memarg_i32
+    #|                          br 6 (;@5;)
+    #|                        else
+    #|                          local.get $reinterpret
+    #|                          call $moonbit.decref
+    #|                          local.get $memarg_i32
+    #|                          call $moonbit.decref
+    #|                          br 10 (;@1;)
+    #|                        end
+    #|                        br 4 (;@6;)
+    #|                      end
+    #|                      local.get $load
+    #|                      local.tee $F64Load
+    #|                      i32.load offset=12 align=1
+    #|                      local.set $memarg_f64_tmp
+    #|                      local.get $F64Load
+    #|                      i32.load align=1
+    #|                      local.tee $cnt1
+    #|                      i32.const 1
+    #|                      i32.gt_s
+    #|                      if
+    #|                        local.get $cnt1
+    #|                        i32.const 1
+    #|                        i32.sub
+    #|                        local.set $new_cnt1
+    #|                        local.get $F64Load
+    #|                        local.get $new_cnt1
+    #|                        i32.store align=1
+    #|                        local.get $memarg_f64_tmp
+    #|                        call $moonbit.incref
+    #|                      else
+    #|                        local.get $cnt1
+    #|                        i32.const 1
+    #|                        i32.eq
+    #|                        if
+    #|                          local.get $F64Load
+    #|                          call $moonbit.free
+    #|                        end
+    #|                      end
+    #|                      local.get $memarg_f64_tmp
+    #|                      local.set $memarg_i64
+    #|                      local.get $reinterpret
+    #|                      i32.load offset=8 align=1
+    #|                      local.tee $tag2
+    #|                      i32.const 196
+    #|                      i32.eq
+    #|                      if (result i32)
+    #|                        local.get $memarg_i64
+    #|                        local.set $memarg_i64
+    #|                        br 6 (;@4;)
+    #|                      else
+    #|                        local.get $memarg_i64
+    #|                        call $moonbit.decref
+    #|                        local.get $reinterpret
+    #|                        call $moonbit.decref
+    #|                        br 9 (;@1;)
+    #|                      end
+    #|                      br 3 (;@6;)
+    #|                    end
+    #|                    local.get $load
+    #|                    local.tee $I32Load
+    #|                    i32.load offset=12 align=1
+    #|                    local.set $memarg_i32_tmp
+    #|                    local.get $I32Load
+    #|                    i32.load align=1
+    #|                    local.tee $cnt2
+    #|                    i32.const 1
+    #|                    i32.gt_s
+    #|                    if
+    #|                      local.get $cnt2
+    #|                      i32.const 1
+    #|                      i32.sub
+    #|                      local.set $new_cnt2
+    #|                      local.get $I32Load
+    #|                      local.get $new_cnt2
+    #|                      i32.store align=1
+    #|                      local.get $memarg_i32_tmp
+    #|                      call $moonbit.incref
+    #|                    else
+    #|                      local.get $cnt2
+    #|                      i32.const 1
+    #|                      i32.eq
+    #|                      if
+    #|                        local.get $I32Load
+    #|                        call $moonbit.free
+    #|                      end
+    #|                    end
+    #|                    local.get $memarg_i32_tmp
+    #|                    local.set $memarg_f32
+    #|                    local.get $reinterpret
+    #|                    i32.load offset=8 align=1
+    #|                    local.tee $tag3
+    #|                    i32.const 197
+    #|                    i32.eq
+    #|                    if (result i32)
+    #|                      local.get $memarg_f32
+    #|                      local.set $memarg_f32
+    #|                      br 6 (;@3;)
+    #|                    else
+    #|                      local.get $memarg_f32
+    #|                      call $moonbit.decref
+    #|                      local.get $reinterpret
+    #|                      call $moonbit.decref
+    #|                      br 8 (;@1;)
+    #|                    end
+    #|                    br 2 (;@6;)
+    #|                  end
+    #|                  local.get $load
+    #|                  local.tee $I64Load
+    #|                  i32.load offset=12 align=1
+    #|                  local.set $memarg_i64_tmp
+    #|                  local.get $I64Load
+    #|                  i32.load align=1
+    #|                  local.tee $cnt3
+    #|                  i32.const 1
+    #|                  i32.gt_s
+    #|                  if
+    #|                    local.get $cnt3
+    #|                    i32.const 1
+    #|                    i32.sub
+    #|                    local.set $new_cnt3
+    #|                    local.get $I64Load
+    #|                    local.get $new_cnt3
+    #|                    i32.store align=1
+    #|                    local.get $memarg_i64_tmp
+    #|                    call $moonbit.incref
+    #|                  else
+    #|                    local.get $cnt3
+    #|                    i32.const 1
+    #|                    i32.eq
+    #|                    if
+    #|                      local.get $I64Load
+    #|                      call $moonbit.free
+    #|                    end
+    #|                  end
+    #|                  local.get $memarg_i64_tmp
+    #|                  local.set $memarg_f64
+    #|                  local.get $reinterpret
+    #|                  i32.load offset=8 align=1
+    #|                  local.tee $tag4
+    #|                  i32.const 198
+    #|                  i32.eq
+    #|                  if (result i32)
+    #|                    local.get $memarg_f64
+    #|                    local.set $memarg_f64
+    #|                    br 6 (;@2;)
+    #|                  else
+    #|                    local.get $memarg_f64
+    #|                    call $moonbit.decref
+    #|                    local.get $reinterpret
+    #|                    call $moonbit.decref
+    #|                    br 7 (;@1;)
+    #|                  end
+    #|                  br 1 (;@6;)
+    #|                end
+    #|                local.get $reinterpret
+    #|                call $moonbit.decref
+    #|                local.get $load
+    #|                call $moonbit.decref
+    #|                br 5 (;@1;)
+    #|              end
+    #|              return
+    #|            end
+    #|            local.get $memarg_i32
+    #|            call $i32_load
+    #|            return
+    #|          end
+    #|          local.get $memarg_i64
+    #|          call $i64_load
+    #|          return
+    #|        end
+    #|        local.get $memarg_f32
+    #|        call $f32_load
+    #|        return
+    #|      end
+    #|      local.get $memarg_f64
+    #|      call $f64_load
+    #|      return
+    #|    end
+    #|    i32.const 0)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branch result-carrier fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected branch result-carrier output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 7)
+  assert_false(
+    ssa_test_instrs_have_i32_const_call(instrs, 0, 3U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_i32_const_call(instrs, 0, 4U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_i32_const_call(instrs, 0, 5U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_i32_const_call(instrs, 0, 6U),
+    msg=instrs.to_string(),
+  )
+  assert_true(trace.length() > 0, msg=trace.join("\n"))
 }
 
 ///|

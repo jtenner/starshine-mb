@@ -13422,6 +13422,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
     base_local_count,
     params.length(),
   )
+  run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(
+    instrs, initialized_locals,
+  )
   let extra_local_types : Array[@lib.ValType] = []
   match
     run_hot_pipeline_raw_rewrite_instrs(
@@ -14196,6 +14199,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   plan : SsaNoMergeRewritePlan,
+  written_locals : @bitset.BitSet,
   cursor : SsaNoMergeRawGetCursor,
 ) -> (@lib.Instruction, Bool) {
   match instr {
@@ -14208,18 +14212,24 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
       cursor.cursor = cursor.cursor + 1
       match decision {
         Some(SsaNoMergeGetDecision::MaterializeDefault) =>
-          (
-            run_hot_pipeline_raw_default_instr_for_local(
-              params, locals, local_id,
-            ),
-            true,
-          )
+          if local_id >= 0 &&
+            local_id < written_locals.length() &&
+            written_locals[local_id] {
+            (instr, false)
+          } else {
+            (
+              run_hot_pipeline_raw_default_instr_for_local(
+                params, locals, local_id,
+              ),
+              true,
+            )
+          }
         _ => (instr, false)
       }
     }
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (rewritten_body, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
-        body, params, locals, plan, cursor,
+        body, params, locals, plan, written_locals, cursor,
       )
       (
         @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
@@ -14228,7 +14238,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
       let (rewritten_body, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
-        body, params, locals, plan, cursor,
+        body, params, locals, plan, written_locals, cursor,
       )
       (
         @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
@@ -14237,13 +14247,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
     }
     @lib.If(block_type, then_body, else_body) => {
       let (rewritten_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
-        then_body, params, locals, plan, cursor,
+        then_body, params, locals, plan, written_locals, cursor,
       )
       let mut changed = then_changed
       let rewritten_else = match else_body {
         Some(body) => {
           let (next_body, else_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
-            body, params, locals, plan, cursor,
+            body, params, locals, plan, written_locals, cursor,
           )
           changed = changed || else_changed
           Some(next_body)
@@ -14257,7 +14267,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
       let (rewritten_body, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
-        body, params, locals, plan, cursor,
+        body, params, locals, plan, written_locals, cursor,
       )
       (
         @lib.Instruction::try_table(
@@ -14278,13 +14288,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   plan : SsaNoMergeRewritePlan,
+  written_locals : @bitset.BitSet,
   cursor : SsaNoMergeRawGetCursor,
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   for instr in instrs {
     let (rewritten, instr_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
-      instr, params, locals, plan, cursor,
+      instr, params, locals, plan, written_locals, cursor,
     )
     out.push(rewritten)
     changed = changed || instr_changed
@@ -14302,11 +14313,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
     return (func, false)
   }
   let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let written_locals = @bitset.BitSet::new(params.length() + locals.length())
+  run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(instrs, written_locals)
   let (rewritten_instrs, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
     instrs,
     params,
     locals,
     plan,
+    written_locals,
     { cursor: 0 },
   )
   if !changed {
@@ -14322,6 +14336,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   plan : SsaNoMergeRewritePlan,
+  written_locals : @bitset.BitSet,
   cursor : SsaNoMergeRawRewriteCursor,
   extra_local_types : Array[@lib.ValType],
   base_local_count : Int,
@@ -14340,12 +14355,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
           )
         }
         Some(SsaNoMergeGetDecision::MaterializeDefault) => {
-          cursor.changed = true
-          run_hot_pipeline_raw_default_instr_for_local(
-            params,
-            locals,
-            raw.reinterpret_as_int(),
-          )
+          let original_local = raw.reinterpret_as_int()
+          if original_local >= 0 &&
+            original_local < written_locals.length() &&
+            written_locals[original_local] {
+            instr
+          } else {
+            cursor.changed = true
+            run_hot_pipeline_raw_default_instr_for_local(
+              params, locals, original_local,
+            )
+          }
         }
         Some(SsaNoMergeGetDecision::KeepCanonical) | None => instr
       }
@@ -14401,19 +14421,22 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         block_type,
         @lib.Expr::new(
           run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
-            body, params, locals, plan, cursor, extra_local_types, base_local_count,
+            body, params, locals, plan, written_locals, cursor, extra_local_types,
+            base_local_count,
           ),
         ),
       )
     @lib.If(block_type, then_body, else_body) => {
       let rewritten_then = run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
-        then_body, params, locals, plan, cursor, extra_local_types, base_local_count,
+        then_body, params, locals, plan, written_locals, cursor, extra_local_types,
+        base_local_count,
       )
       let rewritten_else = match else_body {
         Some(body) =>
           Some(
             run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
-              body, params, locals, plan, cursor, extra_local_types, base_local_count,
+              body, params, locals, plan, written_locals, cursor, extra_local_types,
+              base_local_count,
             ),
           )
         None => None
@@ -14425,7 +14448,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         block_type,
         @lib.Expr::new(
           run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
-            body, params, locals, plan, cursor, extra_local_types, base_local_count,
+            body, params, locals, plan, written_locals, cursor, extra_local_types,
+            base_local_count,
           ),
         ),
       )
@@ -14435,7 +14459,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
         catches,
         @lib.Expr::new(
           run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
-            body, params, locals, plan, cursor, extra_local_types, base_local_count,
+            body, params, locals, plan, written_locals, cursor, extra_local_types,
+            base_local_count,
           ),
         ),
       )
@@ -14449,6 +14474,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   plan : SsaNoMergeRewritePlan,
+  written_locals : @bitset.BitSet,
   cursor : SsaNoMergeRawRewriteCursor,
   extra_local_types : Array[@lib.ValType],
   base_local_count : Int,
@@ -14457,7 +14483,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
   for instr in instrs {
     out.push(
       run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
-        instr, params, locals, plan, cursor, extra_local_types, base_local_count,
+        instr, params, locals, plan, written_locals, cursor, extra_local_types, base_local_count,
       ),
     )
   }
@@ -14473,9 +14499,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_planned_structured(
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   let extra_local_types : Array[@lib.ValType] = []
   let base_local_count = params.length() + locals.length()
+  let written_locals = @bitset.BitSet::new(base_local_count)
+  run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(instrs, written_locals)
   let cursor = { write_cursor: 0, get_cursor: 0, changed: false }
   let rewritten_instrs = run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_body(
-    instrs, params, locals, plan, cursor, extra_local_types, base_local_count,
+    instrs, params, locals, plan, written_locals, cursor, extra_local_types, base_local_count,
   )
   if !cursor.changed {
     return (func, false)

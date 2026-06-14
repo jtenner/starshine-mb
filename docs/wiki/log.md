@@ -15113,3 +15113,6 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added a fail-closed exceptional-flow guard to `src/passes/ssa_nomerge.mbt` and focused coverage in `src/passes/ssa_nomerge_test.mbt`.
 - Improved raw no-write/default-local materialization in `src/passes/pass_manager.mbt` so branchy-control cases rewrite default body-local reads without HOT fallback.
 - Recorded audit findings and validation in `docs/wiki/raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`, refreshed `docs/wiki/binaryen/passes/ssa-nomerge/{index,parity}.md`, and clarified the normal-flow-only SSA v1 constraint in `docs/wiki/ir2/local-ssa-policy.md`.
+- [2026-06-14] passes/ssa-nomerge | Guard branch result-carrier defaults
+  - Fixed `[SSANM-009b8]` after the debug-WASI first diff `defined=1163 abs=1190` reduced to `ar_rewrite_load_reinterpret_pair`: written branch-continuation locals are no longer materialized as default `i32.const 0` constructor operands.
+  - Evidence: focused red/green `ssa_nomerge_test.mbt`, `moon fmt`, `moon info`, `moon test src/passes`, full `moon test`, native `src/cmd` build, self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b8-branch-result-carriers-20260614c` moving first diff to `defined=1286 abs=1313`, and direct 10000-case `ssa-nomerge` compare with `9977` normalized matches and `0` mismatches.
