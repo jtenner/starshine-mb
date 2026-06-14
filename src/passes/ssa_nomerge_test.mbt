@@ -1259,6 +1259,100 @@ fn ssa_test_instrs_have_multi_param_loop_store_backedge(
 }
 
 ///|
+fn ssa_test_instrs_have_br(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_br(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_br(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if ssa_test_instrs_have_br(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_test_instrs_have_loop_backedge(instrs : Array[@lib.Instruction]) -> Bool {
+  fn body_has_backedge(body : Array[@lib.Instruction], depth : UInt) -> Bool {
+    for instr in body {
+      match instr {
+        @lib.Br(@lib.LabelIdx(raw)) | @lib.BrIf(@lib.LabelIdx(raw)) =>
+          if raw == depth {
+            return true
+          }
+        @lib.BrTable(labels, @lib.LabelIdx(default_raw)) => {
+          if default_raw == depth {
+            return true
+          }
+          for label in labels {
+            let @lib.LabelIdx(raw) = label
+            if raw == depth {
+              return true
+            }
+          }
+        }
+        @lib.Block(_, @lib.Expr(nested_body))
+        | @lib.Loop(_, @lib.Expr(nested_body))
+        | @lib.TryTable(_, _, @lib.Expr(nested_body)) =>
+          if body_has_backedge(nested_body, depth + 1U) {
+            return true
+          }
+        @lib.If(_, then_body, else_body) => {
+          if body_has_backedge(then_body, depth + 1U) {
+            return true
+          }
+          match else_body {
+            Some(body) => if body_has_backedge(body, depth + 1U) { return true }
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
+    false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Loop(_, @lib.Expr(body)) =>
+        if body_has_backedge(body, 0U) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_loop_backedge(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_loop_backedge(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_instrs_have_loop_backedge(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_instrs_have_br_if(instrs : Array[@lib.Instruction]) -> Bool {
   for instr in instrs {
     match instr {
@@ -19342,6 +19436,252 @@ test "ssa-nomerge LocalGraph freshens mixed structured tee writes" {
       )
     }),
     msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge LocalGraph freshens mixed br_if early-exit writes" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 15
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      br_if 0
+    #|      i32.const 20
+    #|      local.set 1
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected mixed br_if early-exit success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [2U, 1U, 1U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [2U, 0U, 1U])
+  assert_true(ssa_test_instrs_have_br_if(instrs), msg=instrs.to_string())
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge keeps mixed plain br regions off LocalGraph path" {
+  // Plain `br` exits remain fail-closed for this mixed-region slice: they can
+  // interact with branch-alias/copy helper families and should not silently use
+  // the planned mixed rewrite until those helpers are retired or narrowed.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 15
+    #|        local.set 1
+    #|        br 1
+    #|      end
+    #|      i32.const 20
+    #|      local.set 1
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected mixed plain br boundary success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br(instrs), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge keeps mixed br_table regions off LocalGraph path" {
+  // `br_table` exits remain fail-closed for this mixed-region slice for the same
+  // reason as plain `br`: table-target and branch-operand scratch helpers still
+  // own these boundary shapes.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 15
+    #|    local.set 1
+    #|    block
+    #|      block
+    #|        local.get 0
+    #|        br_table 0 1
+    #|      end
+    #|      i32.const 20
+    #|      local.set 1
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected mixed br_table boundary success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br_table(instrs), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge LocalGraph freshens nested mixed block if writes" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 20
+    #|        local.set 1
+    #|      else
+    #|        block
+    #|          i32.const 30
+    #|          local.set 1
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 40
+    #|    local.set 1
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested mixed block/if success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [2U, 1U, 1U, 3U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [2U, 0U, 1U, 3U])
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge keeps mixed loop regions off LocalGraph path" {
+  // Loops are intentionally outside `[SSANM-005c3c]`; loop-carried and typed
+  // loop boundary decisions remain owned by `[SSANM-006a]` / `[SSANM-007b]`.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    loop
+    #|      i32.const 20
+    #|      local.set 1
+    #|      local.get 0
+    #|      br_if 0
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected mixed loop boundary success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(
+    ssa_test_instrs_have_loop_backedge(instrs),
+    msg=instrs.to_string(),
   )
 }
 

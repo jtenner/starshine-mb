@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Classify mixed branch and nested-control regions
+
+- Completed `[SSANM-005c3b]` and `[SSANM-005c3c]` in [`../../agent-todo.md`](../../agent-todo.md) with focused public-pipeline classification coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
+- The tests prove the current `structured-mixed-localgraph-plan` boundary: mixed `br_if` early exits and nested normal `block` / `if` can use the planned LocalGraph rewrite, while plain `br`, `br_table`, and loops stay fail-closed for branch/table/loop owners.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence so far: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `402/402`; no direct compare was required because this was a test/docs classification of existing gate behavior, not a pass mutation change.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice exceptional-edge boundary work
 
 - Split hidden work under `[SSANM-007a]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for EH source/boundary inventory, throwing exceptional-flow fail-closed fixtures, and no-throw `try_table` / EH-body normal-flow subset classification.
