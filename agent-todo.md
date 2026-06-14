@@ -249,8 +249,18 @@ Preset behavior inventory:
       - Goal: separate plain branch and table-branch canonical no-merge cases from existing branch-alias copy/scratch families, and add focused contrast against full `ssa` merge-local behavior where practical.
       - Deliverables: `br` / `br_table` fixtures or documented fail-closed boundaries, direct contrast tests or source-backed explanation, and docs/backlog updates before closing `[SSANM-005b]`.
     - [ ] [SSANM-005c] - Freshen overwritten writes inside broader merge regions
+      - Status: child-sliced on 2026-06-13; execute through `[SSANM-005c1]` through `[SSANM-005c3]` so mixed-region classification, initial mutation, and branch/tee follow-ups stay separately reviewable.
       - Goal: implement Binaryen’s per-write, not per-local or per-arm, no-merge rule.
       - Deliverables: fixtures where one original local has early freshenable writes, later canonical merge-feeding writes, overwritten dead writes inside merge arms, and freshenable writes after a merge region.
+    - [ ] [SSANM-005c1] - Classify mixed fresh/canonical merge-region fixtures
+      - Goal: pin the LocalGraph decision table for mixed regions before mutation: early writes that are single-source should freshen, merge-feeding writes should stay canonical, and later single-source writes should become freshenable again.
+      - Deliverables: planner/shadow or public-pipeline red-first fixtures for a single local with early freshenable writes, both-arm canonical merge-feeding writes, and post-merge freshenable writes; classification of any legacy structured raw helper that must remain active.
+    - [ ] [SSANM-005c2] - Apply planned freshening for `local.set` in mixed merge regions
+      - Goal: admit a narrow normal structured-control family where LocalGraph can freshen only the eligible `local.set` writes while preserving merge-feeding writes and merge reads on the canonical slot.
+      - Deliverables: public-pipeline tests proving canonical merge writes stay on the original local, single-source gets retarget to planned fresh locals, no predecessor-copy merge local is introduced, and direct compare evidence stays green.
+    - [ ] [SSANM-005c3] - Extend mixed-region classification to `local.tee`, branch exits, and nested control
+      - Goal: decide whether tee writes, early exits, branch tables, or nested structured regions can reuse the mixed per-write mutation path or must remain under `[SSANM-006a]` / `[SSANM-007*]` boundaries.
+      - Deliverables: focused positive/fail-closed fixtures, docs/backlog updates, and direct compare evidence for any newly admitted mutation family.
     - [ ] [SSANM-006a] - Drive normal structured control from LocalGraph policy
       - Goal: replace branch-family raw heuristics with LocalGraph-planned rewrites for ordinary normal-flow `block`, `if`, `loop`, `br`, `br_if`, and `br_table` cases.
       - Deliverables: structured mutation that retargets only planned single-source gets, keeps merge regions canonical, validates after lowering, and records any raw helper family that can be deleted.
