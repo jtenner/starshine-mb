@@ -109,7 +109,7 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
 
 ## Agent-todo note
 
-`agent-todo.md` now tracks dedicated full-`ssa` slices under `[O4Z-AUDIT-SSA]`. `[SSA-FULL]001` first made full `ssa` known but boundary-only, `[SSA-FULL]002A` added the merge-local planner, and `[SSA-FULL]002B` activates direct non-merge rewrite families without aliasing the registry entry to `ssa-nomerge`. The remaining `[SSA-FULL]002C` through `[SSA-FULL]002E` slices still own merge-local materialization, entry-prepend/default merge handling, loop merges, and direct `--pass ssa` closeout signoff.
+`agent-todo.md` now tracks dedicated full-`ssa` slices under sibling `[O4Z-AUDIT-SSA-FULL]`, split out from the `SSANM` no-merge backlog by `[SSANM-007c]`. `[SSA-FULL-001]` first made full `ssa` known but boundary-only, `[SSA-FULL-002A]` added the merge-local planner, and `[SSA-FULL-002B]` activates direct non-merge rewrite families without aliasing the registry entry to `ssa-nomerge`. The remaining `[SSA-FULL-002C]` through `[SSA-FULL-003]` slices still own merge-local materialization, entry-prepend/default merge handling, loop/branch/EH/typed-control boundaries, and direct `--pass ssa` closeout signoff.
 
 ## Page map
 

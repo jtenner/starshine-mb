@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge + passes/ssa | Split full-SSA work out of SSANM
+
+- Completed `[SSANM-007c]` in [`../../agent-todo.md`](../../agent-todo.md) by moving full `SSAify(true)` merge-local follow-up work out of the `SSANM` no-merge backlog and into sibling `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]` slices.
+- The sibling backlog records already-completed full-`ssa` registry/planner/non-merge activation slices and leaves merge-local materialization, entry/default handling, loop/branch/EH/typed-control classification, and direct `--pass ssa` closeout open outside `SSANM`.
+- Updated [`binaryen/passes/ssa/index.md`](binaryen/passes/ssa/index.md), [`binaryen/passes/ssa/implementation-structure-and-tests.md`](binaryen/passes/ssa/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Tests were not run because this was a backlog/wiki slicing change only and did not alter executable behavior or generated contracts.
+
 ## [2026-06-13] passes/ssa-nomerge | Classify branch/table multi-source merge boundaries
 
 - Completed `[SSANM-005b3]` and closed parent `[SSANM-005b]` in [`../../agent-todo.md`](../../agent-todo.md) with focused public-pipeline fail-closed coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).

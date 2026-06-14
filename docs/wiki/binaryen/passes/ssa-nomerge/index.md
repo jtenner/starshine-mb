@@ -101,7 +101,7 @@ So this is **not** full SSA construction, but it is also **not** just straight-l
 - Reads with no explicit reaching set can be rewritten to explicit default values.
   - that includes scalar zeros, `v128` zero splats, and in shared `SSAify` helper paths also ref/tuple defaults
   - Starshine now consumes planned default-entry get decisions for straight-line functions, no-local-write functions, and a narrow normal structured-control subset with body-default reads and other writes
-- Full phi-like merge materialization still exists in the same source file, but that is the `--ssa` path, not the `--ssa-nomerge` path.
+- Full phi-like merge materialization still exists in the same source file, but that is the `--ssa` path, not the `--ssa-nomerge` path. `[SSANM-007c]` split the remaining full-`ssa` materialization backlog into sibling `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]` tasks so no-merge closeout cannot silently absorb full-SSA work.
 - A narrow 2026-04-20 source comparison found **no semantic post-`version_129` drift** in `SSAify.cpp`, `LocalGraph.cpp`, `local-graph.h`, `ReFinalize.cpp`, or the dedicated `ssa-nomerge` golden test file.
 
 ## Biggest beginner correction

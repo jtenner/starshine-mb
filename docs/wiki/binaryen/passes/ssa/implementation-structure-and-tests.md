@@ -161,14 +161,16 @@ So the dossier should teach them confidently, while also saying they are source-
 
 ## Starshine source map
 
-The Starshine source map is intentionally separate from the upstream file map because local code does not expose a public full-`ssa` pass.
+The Starshine source map is intentionally separate from the upstream file map because local code now exposes only an active **partial** public full-`ssa` pass.
 
-Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code locations. The shortest version is:
+Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code locations. The shortest current version is:
 
-- `src/passes/optimize.mbt` registers `ssa-nomerge`, but not `ssa`.
-- `src/ir/ssa_policy.mbt`, `src/ir/ssa_local.mbt`, and `src/ir/ssa_destroy.mbt` implement a HOT SSA overlay/destruction layer.
-- `src/passes/ssa_nomerge.mbt` uses that layer for the active sibling.
-- No local owner file currently implements Binaryen full `ssa`'s merge-local + incoming-`tee` + entry-prepend contract as a public pass.
+- `src/passes/optimize.mbt` registers both `ssa-nomerge` and `ssa` as hot-pass names.
+- `src/passes/ssa.mbt` owns the active partial full-`ssa` descriptor, summary, analysis-only merge-local planner, and fail-closed dispatcher for merge families.
+- `src/passes/ssa_test.mbt` proves the full-`ssa` planner table, public non-merge freshening/default behavior, and the current fail-closed merge-family boundary.
+- `src/ir/ssa_policy.mbt`, `src/ir/ssa_local.mbt`, and `src/ir/ssa_destroy.mbt` implement the HOT SSA overlay/destruction layer reused by the active sibling work.
+- `src/passes/ssa_nomerge.mbt` remains the no-merge sibling owner; full `ssa` may reuse its non-merge rewrite path, but merge-local materialization belongs to `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]`, not `SSANM`.
+- No local owner currently implements Binaryen full `ssa`'s merge-local + incoming-`tee` + entry-prepend contract for public merge families; those are the open `[SSA-FULL-002C]` through `[SSA-FULL-003]` slices.
 
 ## Current-main freshness note
 

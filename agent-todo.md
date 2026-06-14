@@ -337,9 +337,11 @@ Preset behavior inventory:
     - [ ] [SSANM-007b3] - Classify typed branch operands and cast/null branch exits
       - Goal: decide which branch-operand, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` families are local-source no-merge decisions versus typed-control lowering work.
       - Deliverables: positive or fail-closed fixtures for branch operands and typed exits, direct compare evidence for any newly admitted mutation family, and docs/backlog updates that keep branch-alias/cast scratch ownership explicit.
-    - [ ] [SSANM-007c] - Split full `ssa` work out of the no-merge backlog
+    - [x] [SSANM-007c] - Split full `ssa` work out of the no-merge backlog
+      - Status: completed 2026-06-13; full `ssa` work now lives under sibling `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]` slices rather than the `SSANM` no-merge backlog.
       - Goal: keep full `ssa` merge-local materialization from being mistaken for `ssa-nomerge` behavior.
       - Deliverables: move or recreate full-`ssa` planner/materialization tasks under a sibling backlog section if still needed; keep `SSANM` tasks restricted to `SSAify(false)` behavior.
+      - Evidence: docs/backlog-only split. Existing `src/passes/ssa.mbt` / `src/passes/ssa_test.mbt` coverage already tracks the active partial full-`ssa` pass: completed registry/planner/non-merge slices are recorded under `[O4Z-AUDIT-SSA-FULL]`, while remaining merge-local materialization and direct closeout stay out of `SSANM`.
     - [ ] [SSANM-008] - Revisit huge-function guardrails with LocalGraph policy
       - Goal: classify remaining large structured functions using the new no-merge plan instead of blind raw thresholds.
       - Status: epic only; execute through child slices after the LocalGraph no-merge planner/mutation work is available.
@@ -454,6 +456,37 @@ Preset behavior inventory:
       - Goal: close the audit only after every result and remaining boundary is durable in docs.
       - Deliverables: final parity-page closeout note, wiki log entry, backlog pruning, links to raw/research artifacts if substantial, and explicit reopening criteria for any accepted non-goal or tool-blocked boundary.
       - Suggested evidence: docs diff review plus `moon fmt` / `moon info` / full tests only when executable examples or generated contracts changed.
+
+- [O4Z-AUDIT-SSA-FULL] - Deep audit public full `ssa` sibling
+  - Status: active sibling backlog split out of `[O4Z-AUDIT-SSA]` by `[SSANM-007c]` on 2026-06-13. Keep these slices about Binaryen `SSAify(true)` full merge-local behavior; do not count them as `ssa-nomerge` closeout prerequisites except where a contrast test documents the sibling boundary.
+  - Scope: direct public `--pass ssa` behavior, including non-merge freshening/default materialization already active in Starshine, plus still-open merge-local materialization, incoming `local.tee`/entry-prepend handling, full-SSA loop/branch/EH/typed-control boundaries, and direct-pass signoff.
+  - Current finding: `src/passes/ssa.mbt` registers an active partial full-`ssa` hot pass. It builds an analysis-only merge plan, routes non-merge families through the shared no-merge rewrite, and deliberately leaves merge families fail-closed until the remaining `[SSA-FULL-*]` slices materialize Binaryen-style merge locals.
+  - Active `SSA-FULL` work slices:
+    - [x] [SSA-FULL-001] - Make the public full `ssa` pass explicit
+      - Status: completed before 2026-06-13; `src/passes/optimize.mbt`, `src/passes/registry_test.mbt`, and `src/passes/ssa.mbt` expose an active `ssa` hot-pass descriptor rather than silently aliasing full `ssa` to `ssa-nomerge`.
+      - Evidence: registry/public-dispatch coverage in `src/passes/registry_test.mbt` and sibling docs in `docs/wiki/binaryen/passes/ssa/`.
+    - [x] [SSA-FULL-002A] - Add an analysis-only full-SSA merge planner
+      - Status: completed before 2026-06-13; `src/passes/ssa.mbt` exposes `SsaFullRewritePlan` / `SsaFullMergeGetRewrite` and planner tests for explicit, parameter-entry, default-entry, nondefaultable, and single-source cases.
+      - Evidence: `src/passes/ssa_test.mbt` planner tests document the intended Binaryen `SSAify(true)` merge-local inputs without mutating merge families yet.
+    - [x] [SSA-FULL-002B] - Activate full `ssa` for non-merge families
+      - Status: completed before 2026-06-13; direct public `ssa` can freshen repeated parameter overwrites and materialize default exact-ref reads, while merge families remain fail-closed.
+      - Evidence: `src/passes/ssa_test.mbt` public-pipeline tests for non-merge freshening/defaults and fail-closed merge families.
+    - [ ] [SSA-FULL-002C] - Materialize simple explicit-write merge locals
+      - Goal: implement the first Binaryen-style `SSAify(true)` merge-local mutation for simple both-arm explicit-write diamond merges.
+      - Deliverables: red-first public-pipeline tests showing incoming writes become merge-local `local.tee`/copy inputs as appropriate, the merge read retargets to the fresh merge local, output validates, and direct `ssa-nomerge` sibling behavior stays canonical.
+      - Suggested evidence: focused `src/passes/ssa_test.mbt`, focused `src/passes/ssa_nomerge_test.mbt` sibling contrast if touched, `moon test src/passes`, native build, and direct `--pass ssa` compare when the harness supports it.
+    - [ ] [SSA-FULL-002D] - Handle entry/default merge inputs and prepend ordering
+      - Goal: complete full-SSA merge materialization for parameter-entry and default-entry sources, including function-entry prepends for parameter inputs and default materialization without illegal nondefaultable refs.
+      - Deliverables: red-first tests for parameter-entry one-arm merges, default-entry one-arm merges, exact nullable ref defaults, skipped nondefaultable default entries, and deterministic local/prepend ordering.
+      - Suggested evidence: focused `src/passes/ssa_test.mbt`, validation of lowered modules, and direct `--pass ssa` compare/fuzz when available.
+    - [ ] [SSA-FULL-002E] - Classify loop, branch, EH, and typed-control full-SSA boundaries
+      - Goal: decide which loop/backedge, branch-exit, `br_table`, EH, and typed-control families can safely use full-SSA merge materialization and which need fail-closed or dedicated typed/EH helpers.
+      - Deliverables: positive or deliberately fail-closed fixtures, source-backed ownership notes, and docs updates that keep full `ssa` behavior separate from `SSANM` no-merge boundaries.
+      - Suggested evidence: focused `src/passes/ssa_test.mbt`, direct compare for admitted mutation families, and wiki/backlog updates.
+    - [ ] [SSA-FULL-003] - Direct full `ssa` closeout signoff
+      - Goal: close the direct public `ssa` pass only after merge-local materialization, entry/default handling, and boundary decisions are implemented or explicitly deferred.
+      - Deliverables: final parity/status note in `docs/wiki/binaryen/passes/ssa/`, exact test/fuzz commands and results, remaining accepted boundaries with reopening criteria, and backlog cleanup.
+      - Suggested evidence: `moon info`, `moon fmt`, focused `ssa_test.mbt`, `moon test src/passes`, full `moon test`, native build, and a direct `--pass ssa` compare lane if supported.
 
 - [O4Z-AUDIT-DCE] - Deep audit `dead-code-elimination`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
