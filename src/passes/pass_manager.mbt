@@ -7973,20 +7973,29 @@ fn run_hot_pipeline_raw_next_br_needs_canonical_alias(
   label_stack : Array[RawSsaLabelTarget],
   local_id : Int,
 ) -> Bool {
-  if next_idx >= instrs.length() {
-    return false
-  }
-  match instrs[next_idx] {
-    @lib.Br(label_idx) =>
-      match run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
-        Some(label_target) =>
-          !label_target.is_loop &&
-          local_id < label_target.needed_alias_copies.length() &&
-          label_target.needed_alias_copies[local_id]
-        None => false
+  let mut idx = next_idx
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        if raw.reinterpret_as_int() == local_id {
+          return false
+        }
+        idx = idx + 1
+        continue
       }
-    _ => false
+      @lib.Br(label_idx) =>
+        return match
+          run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+          Some(label_target) =>
+            !label_target.is_loop &&
+            local_id < label_target.needed_alias_copies.length() &&
+            label_target.needed_alias_copies[local_id]
+          None => false
+        }
+      _ => return false
+    }
   }
+  false
 }
 
 ///|

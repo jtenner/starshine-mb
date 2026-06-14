@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Preserve debug-WASI branch-store suffix carriers
+
+- Completed `[SSANM-009b12]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b13]` for the next `defined=1413 abs=1440` lightweight alpha candidate after the post-fix normal self-compare timed out.
+- Added red-first focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `defined=300 abs=327` `dae__try__unwrap__func313__suffix__staging__block__once` family: adjacent stack-to-local store suffixes before a plain branch to an outer merge must preserve post-merge carriers canonically instead of freshening an earlier store and repairing it with an alias copy.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the branch-exit canonical-alias scanner looks through adjacent `local.set` suffixes before a plain `br`, stopping when the same local is overwritten.
+- Evidence: red-first focused file test failed `436/437`, then passed `437/437`; native `src/cmd` build passed with pre-existing pass-manager warnings; timing-only self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b12-branch-suffix-timing-20260614` validated both outputs and showed pass-local Starshine `0.367ms` versus Binaryen `376.258ms`; normal self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b12-branch-suffix-20260614` timed out after writing artifacts, but targeted extraction shows `abs=327` now has `259` i32 locals on both Starshine and Binaryen; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b12-branch-suffix-10000` requested 10000 cases, compared 9977, and had 9977 normalized matches with 0 mismatches plus 23 Binaryen/tool command failures.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Preserve debug-WASI loop-header locals
 
 - Completed `[SSANM-009b11]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b12]` for the next `defined=300 abs=327` lightweight alpha candidate after the post-fix normal self-compare timed out.

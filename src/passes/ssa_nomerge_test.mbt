@@ -27360,6 +27360,66 @@ test "ssa-nomerge hot path validates unreachable default-local carrier followup"
 }
 
 ///|
+test "ssa-nomerge keeps branch-exit store suffix carriers canonical" {
+  // Reduced from debug-WASI `dae__try__unwrap__func313__suffix__staging__block__once`
+  // (`defined=300 abs=327`). Branch arms push multiple carrier values before
+  // adjacent `local.set`s and a plain branch to an outer merge. These stores feed
+  // post-merge reads, so the stack-to-local suffix should stay canonical instead
+  // of freshening an earlier store and repairing it with a size-losing alias copy.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    (block
+    #|      (block
+    #|        local.get 0
+    #|        (if
+    #|          (then
+    #|            i32.const 10
+    #|            i32.const 20
+    #|            local.set 2
+    #|            local.set 1
+    #|            br 2)
+    #|          (else
+    #|            i32.const 30
+    #|            i32.const 40
+    #|            local.set 2
+    #|            local.set 1
+    #|            br 2)))
+    #|      i32.const 50
+    #|      i32.const 60
+    #|      local.set 2
+    #|      local.set 1
+    #|      br 0)
+    #|    local.get 1
+    #|    local.get 2
+    #|    i32.add))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branch-exit store suffix carrier success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [2U, 1U, 2U, 1U, 2U, 1U])
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge avoids loop-backedge alias copies for header-read locals" {
   // Reduced from debug-WASI `parse__olevel__text` (`defined=154 abs=181`).
   // Binaryen keeps locals written before the loop canonical when the loop header
