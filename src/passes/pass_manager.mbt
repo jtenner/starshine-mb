@@ -13362,6 +13362,79 @@ fn run_hot_pipeline_raw_ssa_nomerge_plan_has_defaults(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_plan_is_canonical_only(
+  plan : SsaNoMergeRewritePlan,
+) -> Bool {
+  for rewrite in plan.write_rewrites {
+    match rewrite.decision {
+      SsaNoMergeWriteDecision::Freshen(_) => return false
+      SsaNoMergeWriteDecision::KeepCanonical => ()
+    }
+  }
+  for rewrite in plan.get_rewrites {
+    match rewrite.decision {
+      SsaNoMergeGetDecision::Retarget(_)
+      | SsaNoMergeGetDecision::MaterializeDefault => return false
+      SsaNoMergeGetDecision::KeepCanonical => ()
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_sources_are_one_arm_entry_merge(
+  sources : Array[@ir.HotLocalGraphSource],
+  write_id : @ir.NodeId,
+  local_id : @ir.LocalId,
+) -> Bool {
+  if sources.length() != 2 {
+    return false
+  }
+  let mut saw_write = false
+  let mut saw_entry = false
+  for source in sources {
+    match source {
+      @ir.HotLocalGraphSource::SetSource(source_write) =>
+        if source_write == write_id {
+          saw_write = true
+        }
+      @ir.HotLocalGraphSource::EntrySource(source_local) =>
+        if source_local == local_id {
+          saw_entry = true
+        }
+    }
+  }
+  saw_write && saw_entry
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_plan_preserves_one_arm_entry_merge(
+  graph : @ir.HotLocalGraph,
+  plan : SsaNoMergeRewritePlan,
+) -> Bool {
+  if !run_hot_pipeline_raw_ssa_nomerge_plan_is_canonical_only(plan) {
+    return false
+  }
+  for rewrite in plan.write_rewrites {
+    match rewrite.decision {
+      SsaNoMergeWriteDecision::KeepCanonical =>
+        for get_id in rewrite.influenced_gets {
+          if @ir.local_graph_get_is_merge(graph, get_id) &&
+            run_hot_pipeline_raw_ssa_nomerge_sources_are_one_arm_entry_merge(
+              @ir.local_graph_reaching_sources_for_get(graph, get_id),
+              rewrite.write_id,
+              rewrite.original_local,
+            ) {
+            return true
+          }
+        }
+      SsaNoMergeWriteDecision::Freshen(_) => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(
   instrs : Array[@lib.Instruction],
   written : @bitset.BitSet,
@@ -13429,6 +13502,62 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
     }
   }
   false
+}
+
+///|
+priv struct SsaNoMergeOneArmMergeControlScan {
+  mut saw_missing_else : Bool
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_scan_one_arm_merge_control(
+  instrs : Array[@lib.Instruction],
+  state : SsaNoMergeOneArmMergeControlScan,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _) => return false
+      @lib.Block(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_ssa_nomerge_scan_one_arm_merge_control(
+            body, state,
+          ) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_raw_ssa_nomerge_scan_one_arm_merge_control(
+            then_body, state,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !run_hot_pipeline_raw_ssa_nomerge_scan_one_arm_merge_control(
+                body, state,
+              ) {
+              return false
+            }
+          None => state.saw_missing_else = true
+        }
+      }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_one_arm_merge_supported_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let state = { saw_missing_else: false }
+  run_hot_pipeline_raw_ssa_nomerge_scan_one_arm_merge_control(instrs, state) &&
+  state.saw_missing_else
 }
 
 ///|
@@ -14991,6 +15120,21 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         unchanged_original: true,
         trace_skip_raw: true,
       })
+    }
+    if run_hot_pipeline_raw_ssa_nomerge_one_arm_merge_supported_control(instrs) {
+      let hot_func = @ir.hot_lift_func(mod_, func_idx)
+      let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
+      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+      if run_hot_pipeline_raw_ssa_nomerge_plan_preserves_one_arm_entry_merge(
+          local_graph, plan,
+        ) {
+        return Some({
+          reason: "structured-one-arm-merge-localgraph-plan",
+          func: original,
+          unchanged_original: true,
+          trace_skip_raw: true,
+        })
+      }
     }
     let (default_materialized, default_changed) = if run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
         instrs,

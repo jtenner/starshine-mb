@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Preserve one-arm merges through LocalGraph
+
+- Completed `[SSANM-005a]` in [`../../agent-todo.md`](../../agent-todo.md) by adding a canonical-only LocalGraph plan path for simple missing-else one-arm entry/default merges in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt).
+- The new path recognizes merge gets whose sources are exactly one explicit write plus the matching entry/default source, excludes loops, `br_table`, `br_on_*`, cast branches, and `try_table`, and returns the function unchanged with `structured-one-arm-merge-localgraph-plan` rather than invoking the legacy structured local-write rewriter.
+- Added focused public-pipeline tests in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for body-local default and parameter-entry one-arm merges, asserting canonical set/get slots and no fresh merge/predecessor-copy locals.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: red-first focused test failed on the legacy `structured-local-writes` trace; final `moon fmt`, `moon info`, focused `ssa_nomerge_test.mbt` (`392/392`), `moon test src/passes` (`2422/2422`), full `moon test` (`5727/5727`), native build, `git diff --check`, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm005a-one-arm-merge-10000` (`7602/10000` compared, `7602` normalized, `0` mismatches, `20` Binaryen/tool command failures: `19` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Narrow no-write defaults to LocalGraph plan
 
 - Completed `[SSANM-004b]` in [`../../agent-todo.md`](../../agent-todo.md) by removing the duplicated recursive raw default-local-read rewriter from [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt).
