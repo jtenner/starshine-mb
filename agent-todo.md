@@ -378,8 +378,21 @@ Preset behavior inventory:
       - Deliverables: focused public-pipeline or dispatcher tests with trace assertions for named LocalGraph reasons, plus docs/backlog updates; behavior mutation only if the census finds a real fallback.
       - Evidence: added `ssa-nomerge locks straight-line writes off HOT fallback` and `ssa-nomerge locks no-write default families off HOT fallback` in `src/passes/ssa_nomerge_test.mbt`. The tests assert the named raw/no-write trace reasons `straight-line-local-writes-localgraph-plan`, `no-local-writes`, `default-local-reads-localgraph-plan`, and `no-local-writes-unreachable-debris`, plus no `pass[ssa-nomerge]:mutated` or `skip-invalid-lower` trace. Focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `414/414`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2444/2444`. Direct compare was not run because this is a regression-lock test/docs slice with no behavior mutation.
     - [ ] [SSANM-006b2c] - Reroute structured ordinary merge/freshening fallback gaps
+      - Status: child-sliced on 2026-06-14; execute through `[SSANM-006b2c1]` through `[SSANM-006b2c4]` so reduction, behavior admission, direct evidence, and closeout stay reviewable.
       - Goal: move any remaining ordinary `block` / `if` / supported `br_if` / loop-backedge families found by the census onto the planned LocalGraph paths without introducing merge locals.
       - Deliverables: red-first fixtures for each admitted family, implementation, validation proof, and direct `--pass ssa-nomerge` compare evidence.
+    - [ ] [SSANM-006b2c1] - Reduce ordinary structured fallback survivors
+      - Goal: turn the `[SSANM-006b2a]` census candidates into minimal fixtures and decide which are ordinary LocalGraph-supported no-merge work versus branch/table/typed/EH/huge boundaries.
+      - Deliverables: focused trace or whitebox fixtures for non-simple loop-carried `br_if`, legacy structured helper rejection, and invalid-escape-carrier examples; no mutation unless a reduced case proves ordinary local-source ownership.
+    - [ ] [SSANM-006b2c2] - Admit planned LocalGraph reroutes for ordinary survivors
+      - Goal: route any `[SSANM-006b2c1]` ordinary positive family through planned no-merge rewrites without predecessor-copy materialization.
+      - Deliverables: red-first public-pipeline fixtures, implementation, validation proof, and direct `--pass ssa-nomerge` compare evidence for each admitted mutation family.
+    - [ ] [SSANM-006b2c3] - Lock retained fallback boundaries fail-closed
+      - Goal: keep reduced survivor families that are not ordinary no-merge work out of lifted HOT SSA destruction and out of misleading LocalGraph success reasons.
+      - Deliverables: fail-closed fixtures or source-backed notes for branch/table/typed/EH/huge or invalid-carrier survivors, with trace assertions and direct compare only if behavior changes.
+    - [ ] [SSANM-006b2c4] - Close structured fallback reroute docs
+      - Goal: summarize admitted reroutes and retained boundaries, update parity/index/wiki-log notes, and decide whether `[SSANM-006b3]` can retire or narrow legacy predecessor-copy wording.
+      - Deliverables: docs/backlog closeout, direct-compare explanation, and reopening criteria for any retained ordinary fallback risk.
     - [x] [SSANM-006b2d] - Prove branch/table/typed/EH scratch paths are not ordinary predecessor-copy work
       - Status: completed 2026-06-14; branch/table/typed/EH copy-like raw helpers are now documented as explicit boundary owners rather than ordinary no-merge predecessor-copy materialization.
       - Goal: keep branch-alias, `br_table`, typed-control, and EH scratch/proxy lowerings classified as explicit boundary helpers or fail-closed paths rather than ordinary no-merge predecessor-copy materialization.
