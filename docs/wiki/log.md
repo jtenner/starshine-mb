@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Reroute decorated loop backedges
+
+- Completed `[SSANM-006b2c1]` and `[SSANM-006b2c2]` in [`../../agent-todo.md`](../../agent-todo.md) for the branch-free decorated void-loop `br_if 0` canonical merge subset; `[SSANM-006b2c3]` / `[SSANM-006b2c4]` remain open for retained structured fallback boundaries and closeout.
+- Added red-first focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge LocalGraph preserves decorated loop-carried br_if merge canonical` failed before implementation with three i32 locals, then passed after [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) allowed branch-free block decoration in the canonical loop-backedge gate while still rejecting nested branches/blocks/loops, `br_table`, typed ref/cast branches, and `try_table`.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `423/423`; `moon test src/passes` passed `2453/2453`; full `moon test` passed `5758/5758`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager unused-function warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-006b2c-10000` requested 10000 cases, compared 9977, and had 9977 normalized matches with 0 mismatches plus 23 Binaryen/tool command failures.
+
 ## [2026-06-14] passes/ssa-nomerge | Lock cast branch exits
 
 - Completed `[SSANM-007b3d1]` through `[SSANM-007b3d4]`, `[SSANM-007b3d]`, `[SSANM-007b3]`, and parent `[SSANM-007b]` in [`../../agent-todo.md`](../../agent-todo.md); remaining SSANM work moves back to predecessor-copy rerouting, huge/debug-WASI replay, and preset scheduling slices.

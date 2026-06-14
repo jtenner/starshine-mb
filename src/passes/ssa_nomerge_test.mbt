@@ -21730,6 +21730,66 @@ test "ssa-nomerge keeps branch joins canonical when the next read is safe" {
 }
 
 ///|
+test "ssa-nomerge LocalGraph preserves decorated loop-carried br_if merge canonical" {
+  // `[SSANM-006b2c]` reduced an ordinary loop-carried candidate that the
+  // original direct-void-loop gate rejected only because the loop body contains
+  // branch-free structured decoration before the backedge. This is still
+  // canonical no-merge work: preserve the original local and do not fall through
+  // to lifted HOT SSA destruction / predecessor copies.
+  let trace : Array[String] = []
+  let input =
+    #| (module
+    #|   (func (result i32)
+    #|     (local i32)
+    #|     i32.const 1
+    #|     local.set 0
+    #|     loop
+    #|       local.get 0
+    #|       drop
+    #|       i32.const 2
+    #|       local.set 0
+    #|       block
+    #|         local.get 0
+    #|         drop
+    #|       end
+    #|       i32.const 1
+    #|       br_if 0
+    #|     end
+    #|     local.get 0))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected decorated loop-carried br_if merge success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [0U, 0U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [0U, 0U, 0U])
+  assert_false(
+    ssa_test_has_ssa_temp_local_writes(instrs, 0U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-merge-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge LocalGraph preserves loop-carried br_if merge canonical" {
   let trace : Array[String] = []
   let input =

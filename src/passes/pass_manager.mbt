@@ -13796,6 +13796,44 @@ priv struct SsaNoMergeLoopBackedgeMergeControlScan {
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_supported_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _) => return false
+      @lib.If(_, then_body, else_body) => {
+        if !run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_supported_control(
+            then_body,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_supported_control(
+                body,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_body_supported_control(
   instrs : Array[@lib.Instruction],
   state : SsaNoMergeLoopBackedgeMergeControlScan,
@@ -13808,9 +13846,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_loop_backedge_body_supported_control(
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _)
-      | @lib.Block(_, _)
       | @lib.Loop(_, _)
       | @lib.TryTable(_, _, _) => return false
+      @lib.Block(_, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_ssa_nomerge_loop_backedge_decoration_supported_control(
+            body,
+          ) {
+          return false
+        }
       @lib.BrIf(@lib.LabelIdx(raw)) =>
         if raw == 0U {
           state.saw_loop_backedge_br_if = true
