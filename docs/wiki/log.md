@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice branch/table structured-control work
+
+- Split hidden work under `[SSANM-006a3]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for ordinary branch-exit helper inventory, plain `br` / `br_if` classification, `br_table` classification, and nested branch-target expansion.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) so the normal structured-control matrix and predecessor-copy inventory point at `[SSANM-006a3a]` through `[SSANM-006a3d]` instead of treating branch/table expansion as one oversized slice.
+- Tests were not run because this was a backlog/wiki slicing change only and did not alter executable behavior or generated contracts.
+
 ## [2026-06-13] passes/ssa-nomerge | Freshen ordinary structured LocalGraph sets
 
 - Completed `[SSANM-006a2a]` in [`../../agent-todo.md`](../../agent-todo.md) by adding a stricter ordinary `block` / `if` `local.set` path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), named `structured-localgraph-plan`, for single-source LocalGraph freshening/retargeting.

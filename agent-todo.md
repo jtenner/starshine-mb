@@ -310,8 +310,21 @@ Preset behavior inventory:
       - Goal: after supported ordinary local-source rewrites use LocalGraph, document and narrow the remaining `structured-local-writes` / `structured-local-writes-mutated` families to branch-alias, typed-control, EH, huge-function, or explicit fail-closed owners.
       - Deliverables: source/test ownership table, trace summary updates if needed, docs/backlog cleanup, and direct compare evidence when behavior changes.
     - [ ] [SSANM-006a3] - Extend ordinary structured control to branch exits, `br_table`, and nested supported regions
+      - Status: child-sliced on 2026-06-13; execute through `[SSANM-006a3a]` through `[SSANM-006a3d]` so branch-exit source inventory, plain branch admission, table classification, and nested-target expansion stay reviewable.
       - Goal: decide which plain `br`, `br_if`, `br_table`, and nested normal-flow regions can use the structured LocalGraph mutation path without bypassing branch-alias, typed-control, or EH safety helpers.
       - Deliverables: positive/fail-closed fixtures, docs/backlog updates, direct compare evidence for any newly admitted mutation family, and a delete/narrowing plan for superseded raw helpers.
+    - [ ] [SSANM-006a3a] - Inventory ordinary branch-exit helper ownership
+      - Goal: map current plain `br`, `br_if`, nested-target, and branch-value helper families before admitting any new LocalGraph structured mutation.
+      - Deliverables: source/test table for existing branch-alias, structured-mixed, canonical-merge, and fail-closed paths; explicit boundary between ordinary local-source rewrites and typed-control branch-operand lowerings.
+    - [ ] [SSANM-006a3b] - Classify plain `br` and `br_if` ordinary local-source regions
+      - Goal: decide which void/plain branch-exit regions with only local-source traffic can use planned structured LocalGraph rewrites, while preserving branch-alias helpers for value operands and typed targets.
+      - Deliverables: positive or fail-closed public-pipeline fixtures, trace assertions, validation proof, and direct compare evidence for any newly admitted mutation family.
+    - [ ] [SSANM-006a3c] - Classify ordinary `br_table` local-source regions
+      - Goal: decide whether table exits without typed/value operands can use planned structured LocalGraph policy, or should remain fail-closed until typed branch-table lowering is narrowed.
+      - Deliverables: table-exit positive/fail-closed fixtures, branch-table helper ownership docs, validation proof, and direct compare evidence for any newly admitted mutation family.
+    - [ ] [SSANM-006a3d] - Expand nested normal branch-target regions safely
+      - Goal: classify nested `block` / `if` / loop-target combinations that are not covered by `[SSANM-005c3c]` or `[SSANM-006a2]`, without routing typed loops, EH, or branch operands through ordinary LocalGraph mutation.
+      - Deliverables: nested-target fixture matrix, docs/backlog updates, and a narrowing/deletion plan for any superseded raw structured helpers.
     - [ ] [SSANM-006b] - Retire predecessor-copy behavior from no-merge paths
       - Status: child-sliced on 2026-06-13; execute through `[SSANM-006b1]` through `[SSANM-006b3]` so inventory, ordinary-family rerouting, and legacy-helper retirement stay separately reviewable.
       - Goal: ensure `ssa-nomerge` no longer relies on HOT SSA destruction that externalizes overlay phis through predecessor copies for ordinary no-merge work.
