@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Lock cast branch exits
+
+- Completed `[SSANM-007b3d1]` through `[SSANM-007b3d4]`, `[SSANM-007b3d]`, `[SSANM-007b3]`, and parent `[SSANM-007b]` in [`../../agent-todo.md`](../../agent-todo.md); remaining SSANM work moves back to predecessor-copy rerouting, huge/debug-WASI replay, and preset scheduling slices.
+- Strengthened focused trace/validation coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa_test_expect_cast_branch_boundary_module_output(...)` validates representative cast/fail branch output, rejects ordinary planned structured LocalGraph reasons, rejects `hot-lift-error`, and returns output plus trace. No-copy raw-path, divergent-alias, multi-result, multi-param typed-loop, no-copy loop-target, and copy-needing loop-target `br_on_cast` / `br_on_cast_fail` fixtures now consume that boundary proof before checking opcode, store-model, proxy, mutation, or inverse-cast copy-block shapes.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `422/422`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2452/2452`; full `moon test` passed `5757/5757`. Direct compare was not run because this regression/classification slice changed no pass behavior and admitted no new mutation family.
+
 ## [2026-06-14] passes/ssa-nomerge | Lock null branch exits
 
 - Completed `[SSANM-007b3c1]` through `[SSANM-007b3c4]` and `[SSANM-007b3c]` in [`../../agent-todo.md`](../../agent-todo.md); cast branch closeout remains open in `[SSANM-007b3d]`.

@@ -907,6 +907,66 @@ fn ssa_test_instrs_have_br_on_non_null(
 }
 
 ///|
+fn ssa_test_instrs_have_br_on_cast(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.BrOnCast(_, _, _, _) => return true
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_br_on_cast(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if ssa_test_instrs_have_br_on_cast(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_br_on_cast(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_test_instrs_have_br_on_cast_fail(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.BrOnCastFail(_, _, _, _) => return true
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_br_on_cast_fail(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if ssa_test_instrs_have_br_on_cast_fail(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_br_on_cast_fail(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_has_adjacent_call_drop(
   instrs : Array[@lib.Instruction],
   target : UInt,
@@ -5060,6 +5120,39 @@ fn ssa_test_expect_null_branch_boundary_module_output(
 }
 
 ///|
+fn ssa_test_expect_cast_branch_boundary_module_output(
+  input : @lib.Module,
+  defined_idx : Int,
+  context : String,
+) -> (@lib.Locals, Array[@lib.Instruction], Array[String]) raise {
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected cast branch \{context} boundary success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected cast branch \{context} boundary output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, defined_idx)
+  (locals, instrs, trace)
+}
+
+///|
 fn ssa_test_assert_ssa_nomerge_raw_reason(
   trace : Array[String],
   reason : String,
@@ -9145,15 +9238,9 @@ fn ssa_test_multi_param_loop_store_cast_module(
 ///|
 test "ssa-nomerge rewrites multi-param typed loop br_on_cast backedges" {
   let input = ssa_test_multi_param_loop_store_cast_module(false, false, false)
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected multi-param br_on_cast loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let (locals, instrs, _) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "multi-param br_on_cast loop-param",
+  )
   assert_true(locals.length() > 2, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
@@ -9164,15 +9251,9 @@ test "ssa-nomerge rewrites multi-param typed loop br_on_cast backedges" {
 ///|
 test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_cast backedges" {
   let input = ssa_test_multi_param_loop_store_cast_module(false, true, false)
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing multi-param br_on_cast loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let (locals, instrs, _) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "copy-needing multi-param br_on_cast loop-param",
+  )
   assert_true(locals.length() > 3, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
@@ -9187,15 +9268,9 @@ test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_cast backed
 ///|
 test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_cast backedges" {
   let input = ssa_test_multi_param_loop_store_cast_module(false, true, true)
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing multi-param single-result br_on_cast loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let (locals, instrs, _) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "copy-needing multi-param single-result br_on_cast loop-param",
+  )
   assert_true(locals.length() > 3, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
@@ -9210,15 +9285,9 @@ test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_
 ///|
 test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_cast_fail backedges" {
   let input = ssa_test_multi_param_loop_store_cast_module(true, true, false)
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing multi-param br_on_cast_fail loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let (locals, instrs, _) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "copy-needing multi-param br_on_cast_fail loop-param",
+  )
   assert_true(locals.length() > 3, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
@@ -9233,15 +9302,9 @@ test "ssa-nomerge rewrites copy-needing multi-param typed loop br_on_cast_fail b
 ///|
 test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_on_cast_fail backedges" {
   let input = ssa_test_multi_param_loop_store_cast_module(true, true, true)
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing multi-param single-result br_on_cast_fail loop-param ssa-nomerge success, got \{err}",
-      )
-  }
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let (locals, instrs, _) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "copy-needing multi-param single-result br_on_cast_fail loop-param",
+  )
   assert_true(locals.length() > 3, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
@@ -22128,7 +22191,6 @@ test "ssa-nomerge preserves no-copy br_on_non_null on raw path" {
 
 ///|
 test "ssa-nomerge preserves no-copy br_on_cast on raw path" {
-  let trace : Array[String] = []
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -22173,31 +22235,20 @@ test "ssa-nomerge preserves no-copy br_on_cast on raw path" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected br_on_cast raw ssa-nomerge success, got \{err}")
-  }
-
+  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "no-copy br_on_cast raw path",
+  )
   assert_true(
     trace.any(fn(line) {
       line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
     }),
     msg=trace.join("\n"),
   )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
     ssa_test_has_ssa_temp_local_writes(instrs, 1U),
     msg=instrs.to_string(),
   )
+  assert_true(ssa_test_instrs_have_br_on_cast(instrs), msg=instrs.to_string())
 }
 
 ///|
@@ -22260,10 +22311,13 @@ test "ssa-nomerge rewrites br_on_cast taken-edge copies after divergent aliases"
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "br_on_cast taken-edge copies after divergent aliases",
+  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "br_on_cast taken-edge copies after divergent aliases",
   )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
   assert_true(
     ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, true),
     msg=instrs.to_string(),
@@ -22337,10 +22391,13 @@ test "ssa-nomerge rewrites multi-result br_on_cast taken-edge copies" {
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "multi-result br_on_cast taken-edge copies",
+  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "multi-result br_on_cast taken-edge copies",
   )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
   assert_true(
     ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, true),
     msg=instrs.to_string(),
@@ -22522,7 +22579,6 @@ test "ssa-nomerge rewrites copy-needing loop-target br_on_non_null with typed lo
 
 ///|
 test "ssa-nomerge does not mutate no-copy loop-target br_on_cast with typed loop param" {
-  let trace : Array[String] = []
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -22582,19 +22638,9 @@ test "ssa-nomerge does not mutate no-copy loop-target br_on_cast with typed loop
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected loop-target br_on_cast raw ssa-nomerge success, got \{err}",
-      )
-  }
-
+  let (locals, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "no-copy loop-target br_on_cast with typed loop param",
+  )
   assert_true(
     trace.any(fn(line) {
       line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
@@ -22602,14 +22648,9 @@ test "ssa-nomerge does not mutate no-copy loop-target br_on_cast with typed loop
     msg=trace.join("\n"),
   )
   assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
     trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
     msg=trace.join("\n"),
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 1, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_loop_param_cast_proxy(instrs, false),
@@ -22680,10 +22721,13 @@ test "ssa-nomerge rewrites copy-needing loop-target br_on_cast with typed loop p
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "copy-needing loop-target br_on_cast with typed loop param",
+  let (locals, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "copy-needing loop-target br_on_cast with typed loop param",
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
   assert_true(locals.length() > 1, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, true),
@@ -22693,7 +22737,6 @@ test "ssa-nomerge rewrites copy-needing loop-target br_on_cast with typed loop p
 
 ///|
 test "ssa-nomerge preserves no-copy br_on_cast_fail on raw path" {
-  let trace : Array[String] = []
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -22736,30 +22779,21 @@ test "ssa-nomerge preserves no-copy br_on_cast_fail on raw path" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected br_on_cast_fail raw ssa-nomerge success, got \{err}")
-  }
-
+  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "no-copy br_on_cast_fail raw path",
+  )
   assert_true(
     trace.any(fn(line) {
       line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
     }),
     msg=trace.join("\n"),
   )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
     ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    ssa_test_instrs_have_br_on_cast_fail(instrs),
     msg=instrs.to_string(),
   )
 }
@@ -22822,10 +22856,13 @@ test "ssa-nomerge rewrites br_on_cast_fail taken-edge copies after divergent ali
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "br_on_cast_fail taken-edge copies after divergent aliases",
+  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "br_on_cast_fail taken-edge copies after divergent aliases",
   )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
   assert_true(
     ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, false),
     msg=instrs.to_string(),
@@ -22898,10 +22935,13 @@ test "ssa-nomerge rewrites multi-result br_on_cast_fail taken-edge copies" {
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "multi-result br_on_cast_fail taken-edge copies",
+  let (_, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "multi-result br_on_cast_fail taken-edge copies",
   )
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
   assert_true(
     ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, false),
     msg=instrs.to_string(),
@@ -22910,7 +22950,6 @@ test "ssa-nomerge rewrites multi-result br_on_cast_fail taken-edge copies" {
 
 ///|
 test "ssa-nomerge does not mutate no-copy loop-target br_on_cast_fail with typed loop param" {
-  let trace : Array[String] = []
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -22970,19 +23009,9 @@ test "ssa-nomerge does not mutate no-copy loop-target br_on_cast_fail with typed
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected loop-target br_on_cast_fail raw ssa-nomerge success, got \{err}",
-      )
-  }
-
+  let (locals, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "no-copy loop-target br_on_cast_fail with typed loop param",
+  )
   assert_true(
     trace.any(fn(line) {
       line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
@@ -22990,14 +23019,9 @@ test "ssa-nomerge does not mutate no-copy loop-target br_on_cast_fail with typed
     msg=trace.join("\n"),
   )
   assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
     trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
     msg=trace.join("\n"),
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 1, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_loop_param_cast_proxy(instrs, true),
@@ -23068,10 +23092,13 @@ test "ssa-nomerge rewrites copy-needing loop-target br_on_cast_fail with typed l
         ),
       ]),
     )
-  let optimized = ssa_test_module_expected_mutation_valid(
-    input, "copy-needing loop-target br_on_cast_fail with typed loop param",
+  let (locals, instrs, trace) = try! ssa_test_expect_cast_branch_boundary_module_output(
+    input, 0, "copy-needing loop-target br_on_cast_fail with typed loop param",
   )
-  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
   assert_true(locals.length() > 1, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, false),

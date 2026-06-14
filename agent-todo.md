@@ -466,10 +466,11 @@ Preset behavior inventory:
       - Goal: document and test that no-throw `try_table` typed-loop/proxy/store rewrites are typed-control helper work, not proof of real exceptional-edge SSA support.
       - Deliverables: focused trace/output fixtures or source-backed table for scalar proxy, multi-param/result, catch relabeling, and store-model helpers; closeout docs/backlog updates for `[SSANM-007a3]` and parent `[SSANM-007a]` if no EH work remains.
       - Evidence: the no-throw scalar proxy backedge fixture now records trace/validation while still asserting the loop-param scalar proxy helper shape; existing multi-param/result, catch-relabeling, and store-model fixtures remain the typed-control helper proof. Docs now close `[SSANM-007a3]` and parent `[SSANM-007a]` with real EH reopening criteria.
-    - [ ] [SSANM-007b] - Classify typed-control and loop-param/result boundaries
-      - Status: child-sliced on 2026-06-13; execute through `[SSANM-007b1]` through `[SSANM-007b3]` so source inventory, typed-loop ABI boundaries, and typed branch-operand families stay separately reviewable.
+    - [x] [SSANM-007b] - Classify typed-control and loop-param/result boundaries
+      - Status: completed 2026-06-14 through `[SSANM-007b1]` through `[SSANM-007b3]`; typed loop/result, branch operand, table, null/non-null, and cast-branch boundary locks are now covered and documented.
       - Goal: separate true local-source no-merge decisions from stack/control-value ABI rewrites around typed loop params/results and branch operands.
       - Deliverables: classification fixtures for scalar/reference loop params, single-result and multi-result loops, branch operands, `br_table`, `br_on_*`, and nested-loop targets; mark each as LocalGraph local rewrite, typed-control lowering work, or deliberate fail-closed boundary.
+      - Evidence: `[SSANM-007b1]` inventories typed-control helper owners; `[SSANM-007b2]` locks scalar/reference loop-param proxy, no-copy typed-loop, multi-param/single-result store-model, typed-loop `br_table`, and nested target boundaries; `[SSANM-007b3]` locks value branch/table operands, null/non-null exits, and cast/fail exits with trace/validation helpers that reject ordinary planned structured LocalGraph reasons. Reopen typed-control mutation only with red-first behavior fixtures and direct `--pass ssa-nomerge` compare evidence if a later slice admits a new typed-control mutation family.
     - [x] [SSANM-007b1] - Refresh typed-control source and fixture inventory
       - Status: completed 2026-06-14 through `[SSANM-007b1a]` through `[SSANM-007b1c]`; typed-control loop/result helper owners, typed branch/cast owners, and next boundary-lock handoff are now durable in the SSA no-merge implementation docs.
       - Goal: pin Binaryen no-merge source/test evidence against Starshine's typed loop/result and branch-operand lowering boundaries before broadening LocalGraph mutation.
@@ -515,10 +516,11 @@ Preset behavior inventory:
       - Goal: summarize `[SSANM-007b2a]` through `[SSANM-007b2c]`, update parity/index/wiki-log notes, and leave any branch-operand/cast/null work to `[SSANM-007b3]`.
       - Deliverables: docs/backlog closeout, explicit comparison note explaining why direct fuzz was or was not required, and reopening criteria for any retained typed-control fail-closed boundary.
       - Evidence: parity, index, implementation-structure, and wiki-log pages now close `[SSANM-007b2]` as typed loop/result executable boundary locks. Reopen typed loop/result mutation only with a red-first behavior fixture and direct `--pass ssa-nomerge` compare evidence if a later slice admits a new table/nested target mutation family; branch/cast/null operands remain open in `[SSANM-007b3]`.
-    - [ ] [SSANM-007b3] - Classify typed branch operands and cast/null branch exits
-      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007b3a]` through `[SSANM-007b3d]` so branch operands, table operands, null exits, and cast exits stay separately reviewable.
+    - [x] [SSANM-007b3] - Classify typed branch operands and cast/null branch exits
+      - Status: completed 2026-06-14 through `[SSANM-007b3a]` through `[SSANM-007b3d]`; value branch/table operands, null/non-null exits, and cast/fail exits are now locked as typed-control or branch/table ABI boundaries.
       - Goal: decide which branch-operand, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` families are local-source no-merge decisions versus typed-control lowering work.
       - Deliverables: positive or fail-closed fixtures for branch operands and typed exits, direct compare evidence for any newly admitted mutation family, and docs/backlog updates that keep branch-alias/cast scratch ownership explicit.
+      - Evidence: `[SSANM-007b3a]` / `[SSANM-007b3b]` validate value `br`, `br_if`, and `br_table` operands through a shared boundary helper; `[SSANM-007b3c]` validates representative `br_on_null` / `br_on_non_null` no-copy, prefix/copy-needed, raw-path, and tested-producer shapes; `[SSANM-007b3d]` validates representative `br_on_cast` / `br_on_cast_fail` no-copy, divergent-alias, multi-result, multi-param, no-copy loop-target, and copy-needing loop-target shapes. Direct compare was not run for these regression/classification locks because no pass behavior changed and no new mutation family was admitted.
     - [x] [SSANM-007b3a] - Lock value-carrying `br` and `br_if` operand boundaries
       - Status: completed 2026-06-14.
       - Goal: prove scalar/reference branch operands that require stack-value preservation remain on explicit branch-alias or scratch lowering helpers, while ordinary local-source writes remain owned by LocalGraph no-merge decisions.
@@ -554,22 +556,31 @@ Preset behavior inventory:
       - Goal: summarize `[SSANM-007b3c1]` through `[SSANM-007b3c3]`, update parity/index/wiki-log notes, and hand remaining cast ownership to `[SSANM-007b3d]`.
       - Deliverables: docs/backlog closeout, direct-compare explanation, and reopening criteria for retained null/non-null branch boundaries.
       - Evidence: implementation-structure, parity, index, and wiki-log pages now classify null/non-null branch exits as typed-control ABI boundary locks. Reopen only with a red-first behavior fixture and direct `--pass ssa-nomerge` compare evidence if a later slice admits a new `br_on_*` mutation family.
-    - [ ] [SSANM-007b3d] - Lock cast-branch exits and close typed-branch docs
-      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007b3d1]` through `[SSANM-007b3d4]` so no-copy, scratch-producing, loop-param, and docs closeout work stay separately reviewable.
+    - [x] [SSANM-007b3d] - Lock cast-branch exits and close typed-branch docs
+      - Status: completed 2026-06-14 through `[SSANM-007b3d1]` through `[SSANM-007b3d4]`; parent `[SSANM-007b3]` is closed.
       - Goal: classify `br_on_cast` and `br_on_cast_fail` inverse-cast/scratch ownership, then summarize `[SSANM-007b3a]` through `[SSANM-007b3c]` in parity/index/wiki-log notes.
       - Deliverables: cast branch fixtures or source-backed fail-closed notes, docs/backlog closeout for `[SSANM-007b3]`, direct-compare explanation, and reopening criteria for retained typed branch/cast boundaries.
-    - [ ] [SSANM-007b3d1] - Lock no-copy cast-branch typed-exit contrasts
+      - Evidence: `ssa_test_expect_cast_branch_boundary_module_output(...)` captures trace, validates output, rejects ordinary planned structured LocalGraph reasons, rejects `hot-lift-error`, and returns output plus trace. No-copy raw-path, divergent-alias, multi-result, multi-param typed-loop, no-copy loop-target, and copy-needing loop-target `br_on_cast` / `br_on_cast_fail` fixtures now use it before checking opcode, temp-local, store-model, proxy, mutation, or inverse-cast copy-block shapes. Focused `ssa_nomerge_test.mbt` passed `422/422`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2452/2452`; full `moon test` passed `5757/5757`. Direct compare was not run because this only strengthens regression/classification coverage and admits no new mutation family.
+    - [x] [SSANM-007b3d1] - Lock no-copy cast-branch typed-exit contrasts
+      - Status: completed 2026-06-14.
       - Goal: prove `br_on_cast` and `br_on_cast_fail` exits that do not need scratch repair preserve their opcode shape, validate, and stay off ordinary planned structured LocalGraph reasons.
       - Deliverables: strengthened no-copy cast/fail fixtures or shared helper coverage with trace assertions and direct compare only if behavior changes.
-    - [ ] [SSANM-007b3d2] - Lock divergent-alias cast-branch scratch copies
+      - Evidence: no-copy raw-path `br_on_cast` and `br_on_cast_fail` fixtures now validate through the shared cast-branch helper, reject ordinary planned structured reasons, reject `hot-lift-error`, and preserve the cast/fail opcode plus existing temp-local repair shape.
+    - [x] [SSANM-007b3d2] - Lock divergent-alias cast-branch scratch copies
+      - Status: completed 2026-06-14.
       - Goal: keep taken-edge cast/fail copies after divergent aliases and multi-result cast exits classified as typed-control branch ABI repair rather than ordinary no-merge predecessor-copy work.
       - Deliverables: focused trace/output fixtures for copy-needed and multi-result `br_on_cast` / `br_on_cast_fail` shapes, plus validation and ordinary LocalGraph reason rejection.
-    - [ ] [SSANM-007b3d3] - Lock typed-loop cast-branch backedge repairs
+      - Evidence: divergent-alias and multi-result `br_on_cast` / `br_on_cast_fail` fixtures now validate through the shared helper, require mutation, reject ordinary planned structured reasons, and keep the inverse-cast branch-copy block shape.
+    - [x] [SSANM-007b3d3] - Lock typed-loop cast-branch backedge repairs
+      - Status: completed 2026-06-14.
       - Goal: classify typed loop-param cast/fail backedges, including no-copy and copy-needing loop-target variants, as typed-control loop ABI repair surfaces.
       - Deliverables: strengthened loop-param cast/fail fixtures with validation, opcode/proxy/store assertions, and direct compare only if a new mutation family is admitted.
-    - [ ] [SSANM-007b3d4] - Close cast-branch and typed-branch docs
+      - Evidence: multi-param typed-loop cast/fail fixtures now validate through the shared helper before asserting store-backedge and copy-block shapes; no-copy loop-target cast/fail fixtures require no pass mutation and keep the loop-param cast proxy; copy-needing loop-target fixtures require mutation and keep the branch-copy block shape.
+    - [x] [SSANM-007b3d4] - Close cast-branch and typed-branch docs
+      - Status: completed 2026-06-14.
       - Goal: summarize `[SSANM-007b3d1]` through `[SSANM-007b3d3]`, close parent `[SSANM-007b3]` if no typed branch work remains, and update parity/index/wiki-log notes.
       - Deliverables: docs/backlog closeout, direct-compare explanation, and reopening criteria for retained cast branch typed-control boundaries.
+      - Evidence: implementation-structure, parity, index, and wiki-log pages now classify cast branch exits as typed-control ABI boundary locks and close parent `[SSANM-007b3]` / `[SSANM-007b]`. Reopen only with a red-first behavior fixture and direct `--pass ssa-nomerge` compare evidence if a later slice admits a new cast-branch mutation family.
     - [x] [SSANM-007c] - Split full `ssa` work out of the no-merge backlog
       - Status: completed 2026-06-13; full `ssa` work now lives under sibling `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]` slices rather than the `SSANM` no-merge backlog.
       - Goal: keep full `ssa` merge-local materialization from being mistaken for `ssa-nomerge` behavior.
