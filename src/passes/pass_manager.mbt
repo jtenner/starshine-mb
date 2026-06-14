@@ -16088,7 +16088,8 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       return None
     }
     let base_local_count = params.length() + locals.length()
-    if base_local_count > 128 &&
+    let loop_carried_plain_br_local_limit = 64
+    if base_local_count > loop_carried_plain_br_local_limit &&
       run_hot_pipeline_raw_ssa_nomerge_has_loop_carried_plain_br_boundary(
         instrs,
         params.length(),
