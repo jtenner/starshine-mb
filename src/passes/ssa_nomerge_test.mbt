@@ -19582,6 +19582,103 @@ test "ssa-nomerge keeps mixed br_table regions off LocalGraph path" {
 }
 
 ///|
+test "ssa-nomerge keeps plain br multi-source merges off LocalGraph path" {
+  // `[SSANM-005b3]` deliberately classifies plain `br` multi-source merge
+  // regions as branch-helper territory for now. They must validate, preserve the
+  // branch, and avoid claiming the canonical-only or mixed LocalGraph paths until
+  // branch-alias/copy ownership is narrowed.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 20
+    #|        local.set 1
+    #|        br 1
+    #|      end
+    #|      i32.const 30
+    #|      local.set 1
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected plain br multi-source boundary success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br(instrs), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge keeps br_table multi-source merges off LocalGraph path" {
+  // `[SSANM-005b3]` keeps table exits with merge reads on the existing
+  // table-target/branch-operand helper boundary. This is a deliberate
+  // fail-closed classification, not a successful LocalGraph canonical merge.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    block
+    #|      block
+    #|        local.get 0
+    #|        br_table 0 1
+    #|      end
+    #|      i32.const 20
+    #|      local.set 1
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected br_table multi-source boundary success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br_table(instrs), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge LocalGraph freshens nested mixed block if writes" {
   let trace : Array[String] = []
   let source =

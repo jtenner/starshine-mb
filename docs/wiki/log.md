@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Classify branch/table multi-source merge boundaries
+
+- Completed `[SSANM-005b3]` and closed parent `[SSANM-005b]` in [`../../agent-todo.md`](../../agent-todo.md) with focused public-pipeline fail-closed coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
+- The new tests prove plain `br` and `br_table` multi-source merge regions validate, preserve the original branch opcode, and do not claim either `structured-multisource-merge-localgraph-plan` or `structured-mixed-localgraph-plan`; broader branch/table mutation remains in `[SSANM-006a3]`, and typed branch operands remain in `[SSANM-007b*]`.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence so far: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `404/404`; no direct compare was required because this was a test/docs classification of existing gate behavior, not a pass mutation change.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice typed-control boundary work
 
 - Split hidden work under `[SSANM-007b]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for typed-control source/fixture inventory, typed loop param/result ABI boundary coverage, and typed branch-operand plus cast/null branch-exit classification.
