@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-13
+last_reviewed: 2026-06-14
 sources:
   - ../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
@@ -151,6 +151,36 @@ The important local-vs-upstream lesson is the same as in [`./starshine-hot-ir-st
 | `structured-local-writes-mutated` for branch-table merge-copy shapes | Still a branch/table-specific mutation summary for raw helper output; do not classify it as Binaryen-style no-merge predecessor-copy behavior without inspecting the shape. | `[SSANM-006a3c]` / `[SSANM-007b3]`, plus artifact replay slices when the shape comes from debug-WASI. |
 
 Trace summary implication: keeping the string `structured-local-writes` is acceptable while the boundary helpers remain, but new ordinary no-merge coverage should prefer a named LocalGraph reason. If a future test sees `structured-local-writes` for one of the completed ordinary families above, treat it as a rerouting regression or a missing narrow owner.
+
+## `[SSANM-006a3a]` ordinary branch-exit helper ownership inventory
+
+`[SSANM-006a3a]` is a source/test inventory before branch mutation expands. It does not decide the final admission policy for every branch family; it identifies who owns each current helper so later slices can add red-first fixtures without accidentally routing typed-control, EH, or table scratch lowerings through the ordinary LocalGraph local-source path.
+
+| Branch-exit family | Current helper / reason owner | Current proof surface | Next slice |
+| --- | --- | --- | --- |
+| Mixed normal `br_if` early exits with no branch value | `run_hot_pipeline_raw_ssa_nomerge_mixed_structured_supported_control(...)` permits `br_if` while still rejecting plain `br`, `br_table`, loops, EH, and typed branch opcodes; successful mutations trace `structured-mixed-localgraph-plan`. | `ssa-nomerge LocalGraph freshens mixed br_if early-exit writes` proves planned non-merge writes freshen and canonical merge traffic stays canonical. | Completed under `[SSANM-005c3b]`; keep as supported unless `[SSANM-006a3b]` finds a narrower branch-alias regression. |
+| Simple void-loop direct `br_if 0` backedge merges | `run_hot_pipeline_raw_ssa_nomerge_loop_backedge_merge_supported_control(...)` recognizes only direct void-loop `br_if 0` backedges and returns unchanged with `structured-loop-backedge-merge-localgraph-plan` when the plan is canonical-only. | `[SSANM-005b2]` loop/backedge fixture; existing typed-loop/value-backedge guards stay separate. | Completed for the simple void-loop subset; broader nested/typed loops stay in `[SSANM-006a3d]` / `[SSANM-007b2]`. |
+| Ordinary `block` / `if` single-source `local.set` regions that contain `br` or `br_if` | `run_hot_pipeline_raw_ssa_nomerge_ordinary_set_supported_control(...)` rejects both `br` and `br_if`; if the mixed/canonical-only gates do not take the function, the legacy structured raw helper or fallback owns it. | `[SSANM-006a2a]` positive ordinary block/if fixtures deliberately exclude branches; `[SSANM-005c3b]` covers the already-supported mixed `br_if` subset. | `[SSANM-006a3b]` decides whether additional plain `br` / `br_if` local-source regions can use a planned LocalGraph path or should stay fail-closed. |
+| Plain `br` multi-source or mixed regions | `run_hot_pipeline_raw_ssa_nomerge_multisource_merge_supported_control(...)` rejects `br`; `run_hot_pipeline_raw_rewrite_instrs(...)` handles `@lib.Br` by appending needed alias/result copies before the branch. Trace stays off canonical-only/mixed LocalGraph reasons. | `ssa-nomerge keeps plain br multi-source merges off LocalGraph path` and `ssa-nomerge keeps mixed plain br regions off LocalGraph path` validate and preserve `br` without claiming planned reasons. | `[SSANM-006a3b]`. |
+| Value-carrying `br` operands / typed block exits | Branch operands require stack/control-value ABI handling. Current tests keep them outside ordinary LocalGraph reasons; raw `@lib.Br` handling can append result scratch/copies via `run_hot_pipeline_raw_append_alias_merge_copies_for_needed(...)`. | `ssa-nomerge keeps value br operands off LocalGraph path`. | `[SSANM-007b3]` for typed branch operands; `[SSANM-006a3b]` should avoid admitting these as ordinary local-source rewrites. |
+| `br_table` exits and table-target mixes | `run_hot_pipeline_raw_ssa_nomerge_multisource_merge_supported_control(...)` rejects `br_table`; raw `@lib.BrTable` handling owns table alias-copy/scratch/proxy lowerings (`run_hot_pipeline_raw_br_table_alias_copies`, mixed loop-param proxy/store helpers, and branch-table merge-copy trace classification). | `ssa-nomerge keeps br_table multi-source merges off LocalGraph path`, `ssa-nomerge keeps mixed br_table regions off LocalGraph path`, and `ssa-nomerge keeps value br_table operands off LocalGraph path`. | `[SSANM-006a3c]` for ordinary table exits; `[SSANM-007b3]` for typed/value table operands. |
+| Nested normal `block` / `if` targets without loop/typed/EH boundaries | Existing mixed LocalGraph gate supports nested normal `block` / `if`; loop-containing mixed regions stay excluded. | `[SSANM-005c3c]` nested normal positive and loop fail-closed tests. | `[SSANM-006a3d]` expands only source-backed nested target subsets not already covered. |
+| `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` | Typed-control/ref-branch helpers own these paths (`run_hot_pipeline_raw_rewrite_br_on_*`, cast branch helpers, loop-param proxy/store helpers); ordinary LocalGraph gates reject them. | Existing branch/ref/cast tests plus `[SSANM-006a1]` value-branch boundary docs; GenValid `[SSANM-011e]` floors branch-operand boundaries. | `[SSANM-007b3]`. |
+| EH-containing branch regions | `try_table` / throwing flow stays outside normal-flow LocalGraph mutation unless a later no-throw subset is explicitly admitted. | EH fail-closed tests and source note from the 2026-06-09 exceptional-edge audit. | `[SSANM-007a1]` through `[SSANM-007a3]`. |
+
+Inventory conclusion: the only already-supported ordinary branch-exit LocalGraph mutation is the narrow mixed `br_if` early-exit family, plus the simple void-loop direct `br_if 0` canonical-only backedge family. Plain `br`, `br_table`, value branch operands, typed ref/cast branches, EH, and broader nested/loop target combinations remain explicit boundary owners until their child slices add focused red-first coverage or documented fail-closed decisions.
+
+## `[SSANM-006a3b]` plain `br` and `br_if` ordinary local-source classification
+
+`[SSANM-006a3b]` locks the current v0.1.0 policy for ordinary void branch exits that have only local-source traffic but do not belong to the already-supported mixed `br_if` or simple loop-backedge subsets. These fixtures are deliberately fail-closed from the planned structured LocalGraph mutation path rather than new mutation wins.
+
+| Family | Classification | Focused proof |
+| --- | --- | --- |
+| Ordinary void `br` exit after a single-source local write | Keep off `structured-localgraph-plan` and `structured-mixed-localgraph-plan`; preserve the branch and leave ownership with branch-alias/raw structured helpers until `[SSANM-006a3d]` / later narrowing proves more nested-target safety. | `ssa-nomerge keeps ordinary plain br local-source regions off planned structured path`. |
+| Ordinary void `br_if` exit after a single-source local write, with no mixed merge traffic | Keep off `structured-localgraph-plan`, `structured-mixed-localgraph-plan`, and `structured-loop-backedge-merge-localgraph-plan`; preserve the branch and treat it as outside the supported mixed early-exit / simple backedge subsets. | `ssa-nomerge keeps ordinary br_if local-source regions off planned structured path`. |
+| Mixed `br_if` early exits and simple void-loop direct `br_if 0` backedges | Still supported by their prior named reasons; `[SSANM-006a3b]` does not revoke those completed slices. | `[SSANM-005c3b]` and `[SSANM-005b2]` tests. |
+
+Because this is a fail-closed classification of existing routing, direct compare was not required. If a later slice admits plain `br` or additional `br_if` subsets to a planned LocalGraph rewrite, it should add red-first positive fixtures and run the ordinary direct `--pass ssa-nomerge` compare lane.
 
 ## `[SSANM-006b1]` predecessor-copy-producing path inventory
 

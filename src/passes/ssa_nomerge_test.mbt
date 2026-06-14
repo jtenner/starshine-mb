@@ -19758,6 +19758,104 @@ test "ssa-nomerge keeps mixed br_table regions off LocalGraph path" {
 }
 
 ///|
+test "ssa-nomerge keeps ordinary plain br local-source regions off planned structured path" {
+  // `[SSANM-006a3b]` classifies ordinary void `br` exits with only local-source
+  // traffic as branch-helper territory for now. They must validate and preserve
+  // the branch, but should not claim the ordinary planned LocalGraph path until
+  // branch-alias ownership is narrowed.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        br 1
+    #|      end
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ordinary plain br local-source boundary success, got \{err}",
+      )
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br(instrs), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge keeps ordinary br_if local-source regions off planned structured path" {
+  // `[SSANM-006a3b]` keeps ordinary `br_if` exits without mixed merge traffic
+  // outside the planned structured LocalGraph path. The already-supported
+  // `br_if` families remain the mixed early-exit and simple loop-backedge cases.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      br_if 0
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected ordinary br_if local-source boundary success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
+      ) ||
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-merge-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(ssa_test_instrs_have_br_if(instrs), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge keeps plain br multi-source merges off LocalGraph path" {
   // `[SSANM-005b3]` deliberately classifies plain `br` multi-source merge
   // regions as branch-helper territory for now. They must validate, preserve the

@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify plain branch local-source regions
+
+- Completed `[SSANM-006a3b]` in [`../../agent-todo.md`](../../agent-todo.md) with focused public-pipeline fail-closed coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
+- The new tests keep ordinary plain `br` and non-mixed/non-backedge `br_if` local-source regions off `structured-localgraph-plan` / mixed LocalGraph reasons while preserving the branch opcodes; already-supported mixed `br_if` early exits and simple direct-loop-backedge `br_if 0` stay documented as separate completed subsets.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `411/411`; `moon test src/passes` passed `2441/2441`; direct compare was not run because this classified existing fail-closed routing and admitted no new mutation family.
+
+## [2026-06-14] passes/ssa-nomerge | Inventory branch-exit helper ownership
+
+- Completed `[SSANM-006a3a]` in [`../../agent-todo.md`](../../agent-todo.md) with a source/test ownership table in [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md).
+- The table keeps the already-supported mixed `br_if` early-exit and simple void-loop direct `br_if 0` backedge families separate from ordinary plain `br`, extra `br_if`, `br_table`, value branch operands, typed ref/cast branches, EH, and broader nested/loop target boundaries owned by later SSANM slices.
+- Tests/fuzz were not run because this was a source/docs inventory and did not alter executable behavior or generated contracts.
+
 ## [2026-06-14] passes/ssa-nomerge | Slice predecessor-copy rerouting work
 
 - Split hidden work under `[SSANM-006b2]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for fallback HOT SSA-destruction census, straight-line/default fallback regression proof, structured ordinary rerouting, and branch/table/typed/EH scratch-helper boundary classification.
