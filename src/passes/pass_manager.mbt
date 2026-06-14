@@ -7497,6 +7497,325 @@ fn run_hot_pipeline_raw_fresh_typed_local(
 }
 
 ///|
+fn run_hot_pipeline_raw_collect_local_ref_counts(
+  instrs : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= 0 && local_id < local_gets.length() {
+          local_gets[local_id] = local_gets[local_id] + 1
+        }
+      }
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= 0 && local_id < local_sets.length() {
+          local_sets[local_id] = local_sets[local_id] + 1
+        }
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= 0 && local_id < local_tees.length() {
+          local_tees[local_id] = local_tees[local_id] + 1
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_collect_local_ref_counts(
+          body, local_gets, local_sets, local_tees,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_collect_local_ref_counts(
+          then_body, local_gets, local_sets, local_tees,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_collect_local_ref_counts(
+              body, local_gets, local_sets, local_tees,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_compact_rewrite_local_refs(
+  instrs : Array[@lib.Instruction],
+  local_remap : Array[Int],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        let mapped = if local_id >= 0 && local_id < local_remap.length() {
+          local_remap[local_id]
+        } else {
+          local_id
+        }
+        rewritten.push(
+          @lib.Instruction::local_get(
+            @lib.LocalIdx::new(mapped.reinterpret_as_uint()),
+          ),
+        )
+      }
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        let mapped = if local_id >= 0 && local_id < local_remap.length() {
+          local_remap[local_id]
+        } else {
+          local_id
+        }
+        rewritten.push(
+          @lib.Instruction::local_set(
+            @lib.LocalIdx::new(mapped.reinterpret_as_uint()),
+          ),
+        )
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        let mapped = if local_id >= 0 && local_id < local_remap.length() {
+          local_remap[local_id]
+        } else {
+          local_id
+        }
+        rewritten.push(
+          @lib.Instruction::local_tee(
+            @lib.LocalIdx::new(mapped.reinterpret_as_uint()),
+          ),
+        )
+      }
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_compact_rewrite_local_refs(body, local_remap),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_compact_rewrite_local_refs(body, local_remap),
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_compact_rewrite_local_refs(body, local_remap),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        rewritten.push(
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_raw_compact_rewrite_local_refs(
+              then_body, local_remap,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  run_hot_pipeline_raw_compact_rewrite_local_refs(
+                    body, local_remap,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      _ => rewritten.push(instr)
+    }
+  }
+  rewritten
+}
+
+///|
+fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> (Array[@lib.Instruction], @lib.Locals, Array[@lib.ValType]) {
+  // Keep this compaction deliberately narrow for the current debug-WASI
+  // structured-load scratch gap: broader allocator/linker fixtures still carry
+  // exact Binaryen-local-budget guards, while the abs 598 / 705 family has
+  // 8-10 body locals and only one-use appended scratch slots.
+  if locals.length() < 8 || locals.length() > 10 {
+    return (instrs, locals, extra_local_types)
+  }
+  let base_local_count = params.length() + locals.length()
+  let total_local_count = base_local_count + extra_local_types.length()
+  let local_gets : Array[Int] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  let base_used : Array[Bool] = Array::make(base_local_count, false)
+  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+    base_used[local_id] = local_gets[local_id] > 0 ||
+      local_sets[local_id] > 0 ||
+      local_tees[local_id] > 0
+  }
+  let local_remap : Array[Int] = []
+  for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
+    local_remap.push(local_id)
+  }
+  let extra_remapped_to_base : Array[Bool] = Array::make(
+    extra_local_types.length(),
+    false,
+  )
+  let mut changed = false
+  for extra_id = 0
+      extra_id < extra_local_types.length()
+      extra_id = extra_id + 1 {
+    let local_id = base_local_count + extra_id
+    let is_one_set_get = local_sets[local_id] == 1 &&
+      local_gets[local_id] == 1 &&
+      local_tees[local_id] == 0
+    let is_one_dead_tee = local_sets[local_id] == 0 &&
+      local_gets[local_id] == 0 &&
+      local_tees[local_id] == 1
+    if !(is_one_set_get || is_one_dead_tee) {
+      continue
+    }
+    let target_type = match
+      run_hot_pipeline_raw_rewritten_local_type(
+        params, locals, extra_local_types, local_id,
+      ) {
+      Some(val_type) => val_type
+      None => continue
+    }
+    let mut reuse_local = -1
+    for base_id = params.length()
+        base_id < base_local_count
+        base_id = base_id + 1 {
+      if !base_used[base_id] &&
+        run_hot_pipeline_raw_local_type(params, locals, base_id) == target_type {
+        reuse_local = base_id
+        break
+      }
+    }
+    if reuse_local >= 0 {
+      local_remap[local_id] = reuse_local
+      base_used[reuse_local] = true
+      extra_remapped_to_base[extra_id] = true
+      changed = true
+    }
+  }
+  for local_id = params.length()
+      local_id < base_local_count
+      local_id = local_id + 1 {
+    let is_one_set_get = local_sets[local_id] == 1 &&
+      local_gets[local_id] == 1 &&
+      local_tees[local_id] == 0
+    let is_one_dead_tee = local_sets[local_id] == 0 &&
+      local_gets[local_id] == 0 &&
+      local_tees[local_id] == 1
+    if !(is_one_set_get || is_one_dead_tee) {
+      continue
+    }
+    let target_type = run_hot_pipeline_raw_local_type(params, locals, local_id)
+    let mut reuse_local = -1
+    for base_id = params.length()
+        base_id < base_local_count
+        base_id = base_id + 1 {
+      if !base_used[base_id] &&
+        run_hot_pipeline_raw_local_type(params, locals, base_id) == target_type {
+        reuse_local = base_id
+        break
+      }
+    }
+    if reuse_local >= 0 {
+      local_remap[local_id] = reuse_local
+      base_used[reuse_local] = true
+      base_used[local_id] = false
+      changed = true
+    }
+  }
+  if !changed {
+    return (instrs, locals, extra_local_types)
+  }
+  let compacted_extra_types : Array[@lib.ValType] = []
+  for extra_id = 0
+      extra_id < extra_local_types.length()
+      extra_id = extra_id + 1 {
+    let local_id = base_local_count + extra_id
+    if !extra_remapped_to_base[extra_id] {
+      let new_local_id = base_local_count + compacted_extra_types.length()
+      local_remap[local_id] = new_local_id
+      compacted_extra_types.push(extra_local_types[extra_id])
+    }
+  }
+  let compacted_instrs = run_hot_pipeline_raw_compact_rewrite_local_refs(
+    instrs, local_remap,
+  )
+  let mut trimmed_local_count = locals.length()
+  if compacted_extra_types.length() == 0 {
+    let final_total_local_count = base_local_count
+    let final_gets : Array[Int] = Array::make(final_total_local_count, 0)
+    let final_sets : Array[Int] = Array::make(final_total_local_count, 0)
+    let final_tees : Array[Int] = Array::make(final_total_local_count, 0)
+    run_hot_pipeline_raw_collect_local_ref_counts(
+      compacted_instrs, final_gets, final_sets, final_tees,
+    )
+    while trimmed_local_count > 0 {
+      let local_id = params.length() + trimmed_local_count - 1
+      if final_gets[local_id] > 0 ||
+        final_sets[local_id] > 0 ||
+        final_tees[local_id] > 0 {
+        break
+      }
+      trimmed_local_count = trimmed_local_count - 1
+    }
+  }
+  let compacted_local_types : Array[@lib.ValType] = []
+  for local_idx = 0; local_idx < trimmed_local_count; local_idx = local_idx + 1 {
+    compacted_local_types.push(locals.get(local_idx))
+  }
+  (
+    compacted_instrs,
+    @lib.Locals::from_types(compacted_local_types),
+    compacted_extra_types,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_compact_existing_one_use_scratch_func(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> @lib.Func? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let (compacted_instrs, compacted_locals, compacted_extra_types) = run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
+    instrs,
+    params,
+    locals,
+    [],
+  )
+  if compacted_extra_types.length() != 0 ||
+    compacted_locals.length() == locals.length() {
+    return None
+  }
+  Some(@lib.Func::new(compacted_locals, @lib.Expr::new(compacted_instrs)))
+}
+
+///|
 fn run_hot_pipeline_raw_has_needed_alias_copy(
   source_aliases : Array[@lib.LocalIdx],
   target_aliases : Array[@lib.LocalIdx],
@@ -13603,17 +13922,20 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let finalized_instrs = run_hot_pipeline_raw_freshen_param_scratch_writes(
         call_spilled, params, locals, extra_local_types,
       )
+      let (compacted_instrs, compacted_locals, compacted_extra_local_types) = run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
+        finalized_instrs, params, locals, extra_local_types,
+      )
       if run_hot_pipeline_raw_has_unwritten_appended_local_get(
-          finalized_instrs, base_local_count,
+          compacted_instrs, base_local_count,
         ) ||
         run_hot_pipeline_raw_has_dropped_base_write_read(
-          instrs, finalized_instrs, base_local_count,
+          instrs, compacted_instrs, base_local_count,
         ) {
         return None
       }
-      let rewritten_locals = locals.copy()
-      rewritten_locals.append_types(extra_local_types)
-      Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(finalized_instrs)))
+      let rewritten_locals = compacted_locals.copy()
+      rewritten_locals.append_types(compacted_extra_local_types)
+      Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(compacted_instrs)))
     }
     None => {
       let fallback_extra_local_types : Array[@lib.ValType] = []
@@ -13626,20 +13948,23 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let finalized_instrs = run_hot_pipeline_raw_freshen_param_scratch_writes(
         call_spilled, params, locals, fallback_extra_local_types,
       )
+      let (compacted_instrs, compacted_locals, compacted_extra_local_types) = run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
+        finalized_instrs, params, locals, fallback_extra_local_types,
+      )
       if run_hot_pipeline_raw_has_unwritten_appended_local_get(
-          finalized_instrs, base_local_count,
+          compacted_instrs, base_local_count,
         ) ||
         run_hot_pipeline_raw_has_dropped_base_write_read(
-          instrs, finalized_instrs, base_local_count,
+          instrs, compacted_instrs, base_local_count,
         ) {
         return None
       }
-      if fallback_extra_local_types.length() == 0 {
+      if compacted_extra_local_types.length() == 0 {
         None
       } else {
-        let rewritten_locals = locals.copy()
-        rewritten_locals.append_types(fallback_extra_local_types)
-        Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(finalized_instrs)))
+        let rewritten_locals = compacted_locals.copy()
+        rewritten_locals.append_types(compacted_extra_local_types)
+        Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(compacted_instrs)))
       }
     }
   }
@@ -16614,12 +16939,25 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     if run_hot_pipeline_raw_instrs_have_memory_access(instrs) &&
       run_hot_pipeline_raw_count_call_like(instrs) >= 24 &&
       instr_count >= 128 {
-      return Some({
-        reason: "call-heavy-memory-structured-noop",
-        func: original,
-        unchanged_original: true,
-        trace_skip_raw: true,
-      })
+      match
+        run_hot_pipeline_raw_compact_existing_one_use_scratch_func(
+          original, params,
+        ) {
+        Some(rewritten) =>
+          return Some({
+            reason: "call-heavy-memory-structured-compact",
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        None =>
+          return Some({
+            reason: "call-heavy-memory-structured-noop",
+            func: original,
+            unchanged_original: true,
+            trace_skip_raw: true,
+          })
+      }
     }
     if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_merge_supported_control(
         instrs,

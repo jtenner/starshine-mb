@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Compact small structured-load scratch locals
+
+- Completed `[SSANM-009b30a]` in [`../../agent-todo.md`](../../agent-todo.md) as the implementation follow-up for the body-size-neutral but Starshine-local-count-losing structured scratch family first seen at `defined=571 abs=598` and widened by `defined=678 abs=705`.
+- Added the red-first reduced fixture `ssa-nomerge reuses unused body local for structured load scratch` in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt). Before the fix, the reduced `abs=705`-style structured load/call shape appended scratch locals and failed the `<= 9` body-local budget.
+- Implemented a deliberately narrow compaction helper in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): for small 8-10 body-local structured-load shapes, one-set/one-get and one-dead-tee scratch locals can be remapped to unused same-typed body locals, remaining appended locals are compacted, and unused trailing declarations are trimmed when no appended locals remain. Existing allocator, branch/table, typed-control, and artifact local-budget guards stayed green.
+- Evidence: `ssa_nomerge_test.mbt` passed `440/440`; `moon test src/passes` passed `2471/2471`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5776/5776`; native `moon build --target native --release src/cmd` completed with pre-existing pass-manager unused-function warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b30a-compact-10000` requested `10000`, compared `9977`, reported `9977` normalized matches, `0` mismatches, and `23` cached Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diffs at abs 703 and 705
 
 - Completed `[SSANM-009b111]` and `[SSANM-009b112]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs: `defined=676 abs=703` and `defined=678 abs=705`. Targeted `defined=671..675 abs=698..702` and `defined=677 abs=704` outputs match exactly.

@@ -2048,6 +2048,61 @@ fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
 }
 
 ///|
+test "ssa-nomerge reuses unused body local for structured load scratch" {
+  // Reduced from current debug-WASI `defined=678 abs=705`: the structured
+  // memory-load scratch is a one-set/one-get i32 temporary after a call and
+  // before another call. Appending a new local is body-size neutral but loses
+  // the local-count comparison when an unused same-typed body local is already
+  // available.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $produce (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $touch (param i32))
+    #|  (func (param i32) (result i64)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    block
+    #|      local.get 0
+    #|      call $produce
+    #|      local.tee 6
+    #|      i32.const 0
+    #|      i32.eq
+    #|      if (result i64)
+    #|        local.get 0
+    #|        local.tee 2
+    #|        i32.load offset=8 align=1
+    #|        local.set 6
+    #|        local.get 2
+    #|        call $touch
+    #|        local.get 6
+    #|        local.tee 7
+    #|        local.set 1
+    #|        br 1
+    #|      else
+    #|        local.get 0
+    #|        call $touch
+    #|        i64.const 4294967296
+    #|      end
+    #|      return
+    #|    end
+    #|    local.get 1
+    #|    local.tee 8
+    #|    i64.extend_i32_s)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 2)
+  assert_true(
+    locals.length() <= 9,
+    msg=locals.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_local_set_indices(instrs).any(fn(idx) { idx > 9U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity freshens allocator searchBlock temps" {
   // Artifact repro from the checked-in debug-WASI artifact, first canonical
   // difference `defined=0 abs=27` (`tlsf/searchBlock`). Binaryen's
