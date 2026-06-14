@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice normal structured-control LocalGraph work
+
+- Split hidden work under `[SSANM-006a]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for normal structured-control boundary classification, narrow structured `local.set` mutation, and branch-exit / `br_table` / nested supported-region expansion.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) so the fixture baseline matrix points future agents at `[SSANM-006a1]` through `[SSANM-006a3]` instead of treating `[SSANM-006a]` as one oversized implementation slice.
+- Tests were not run because this was a backlog/wiki slicing change only and did not alter executable behavior or generated contracts.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve loop backedge merges through LocalGraph
 
 - Completed `[SSANM-005b2]` in [`../../agent-todo.md`](../../agent-todo.md) by adding a narrow canonical-only LocalGraph plan path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) for simple void-loop direct `br_if 0` backedge merge reads.

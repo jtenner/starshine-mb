@@ -264,8 +264,18 @@ Preset behavior inventory:
       - Goal: decide whether tee writes, early exits, branch tables, or nested structured regions can reuse the mixed per-write mutation path or must remain under `[SSANM-006a]` / `[SSANM-007*]` boundaries.
       - Deliverables: focused positive/fail-closed fixtures, docs/backlog updates, and direct compare evidence for any newly admitted mutation family.
     - [ ] [SSANM-006a] - Drive normal structured control from LocalGraph policy
+      - Status: child-sliced on 2026-06-13; execute through `[SSANM-006a1]` through `[SSANM-006a3]` so ordinary structured classification, mutation, and branch-table/nested-control expansion stay reviewable.
       - Goal: replace branch-family raw heuristics with LocalGraph-planned rewrites for ordinary normal-flow `block`, `if`, `loop`, `br`, `br_if`, and `br_table` cases.
       - Deliverables: structured mutation that retargets only planned single-source gets, keeps merge regions canonical, validates after lowering, and records any raw helper family that can be deleted.
+    - [ ] [SSANM-006a1] - Classify normal structured-control LocalGraph boundaries
+      - Goal: pin which ordinary `block`, `if`, loop, branch-exit, and branch-table shapes can safely reuse the LocalGraph rewrite plan after the merge-region slices, and which must remain in typed-control/EH fail-closed owners.
+      - Deliverables: focused planner/shadow or public-pipeline fixtures for supported normal-flow families, fail-closed fixtures for unsupported branch operands or nested targets, and a table mapping legacy raw helper families to keep/delete/replace decisions.
+    - [ ] [SSANM-006a2] - Apply planned structured `local.set` rewrites for ordinary control
+      - Goal: admit a narrow ordinary structured-control mutation path that recursively applies planned `local.set` freshening and single-source get retargeting while preserving canonical merge writes/reads.
+      - Deliverables: public-pipeline tests for block/if local.set freshening around canonical merges, validation proof, no predecessor-copy merge locals, and direct compare evidence.
+    - [ ] [SSANM-006a3] - Extend ordinary structured control to branch exits, `br_table`, and nested supported regions
+      - Goal: decide which plain `br`, `br_if`, `br_table`, and nested normal-flow regions can use the structured LocalGraph mutation path without bypassing branch-alias, typed-control, or EH safety helpers.
+      - Deliverables: positive/fail-closed fixtures, docs/backlog updates, direct compare evidence for any newly admitted mutation family, and a delete/narrowing plan for superseded raw helpers.
     - [ ] [SSANM-006b] - Retire predecessor-copy behavior from no-merge paths
       - Goal: ensure `ssa-nomerge` no longer relies on HOT SSA destruction that externalizes overlay phis through predecessor copies for ordinary no-merge work.
       - Deliverables: summary string/docs update, tests proving merge-copy shapes belong outside `ssa-nomerge`, and a clear route for any remaining HOT SSA destruction users to full `ssa` or a separate helper.
