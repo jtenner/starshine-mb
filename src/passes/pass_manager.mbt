@@ -7434,102 +7434,6 @@ fn run_hot_pipeline_raw_append_local_read(
 }
 
 ///|
-fn run_hot_pipeline_raw_rewrite_default_local_reads_instr(
-  instr : @lib.Instruction,
-  params : Array[@lib.ValType],
-  locals : @lib.Locals,
-) -> @lib.Instruction {
-  match instr {
-    @lib.LocalGet(@lib.LocalIdx(raw)) => {
-      let local_id = raw.reinterpret_as_int()
-      if local_id >= params.length() {
-        run_hot_pipeline_raw_default_instr_for_local(params, locals, local_id)
-      } else {
-        instr
-      }
-    }
-    @lib.Block(block_type, @lib.Expr(body)) =>
-      @lib.Instruction::block(
-        block_type,
-        @lib.Expr::new(
-          run_hot_pipeline_raw_rewrite_default_local_reads_body(
-            body, params, locals,
-          ),
-        ),
-      )
-    @lib.Loop(block_type, @lib.Expr(body)) =>
-      @lib.Instruction::loop_(
-        block_type,
-        @lib.Expr::new(
-          run_hot_pipeline_raw_rewrite_default_local_reads_body(
-            body, params, locals,
-          ),
-        ),
-      )
-    @lib.If(block_type, then_body, else_body) =>
-      @lib.Instruction::if_(
-        block_type,
-        run_hot_pipeline_raw_rewrite_default_local_reads_body(
-          then_body, params, locals,
-        ),
-        match else_body {
-          Some(body) =>
-            Some(
-              run_hot_pipeline_raw_rewrite_default_local_reads_body(
-                body, params, locals,
-              ),
-            )
-          None => None
-        },
-      )
-    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
-      @lib.Instruction::try_table(
-        block_type,
-        catches,
-        @lib.Expr::new(
-          run_hot_pipeline_raw_rewrite_default_local_reads_body(
-            body, params, locals,
-          ),
-        ),
-      )
-    _ => instr
-  }
-}
-
-///|
-fn run_hot_pipeline_raw_rewrite_default_local_reads_body(
-  instrs : Array[@lib.Instruction],
-  params : Array[@lib.ValType],
-  locals : @lib.Locals,
-) -> Array[@lib.Instruction] {
-  let out : Array[@lib.Instruction] = []
-  for instr in instrs {
-    out.push(
-      run_hot_pipeline_raw_rewrite_default_local_reads_instr(
-        instr, params, locals,
-      ),
-    )
-  }
-  out
-}
-
-///|
-fn run_hot_pipeline_raw_rewrite_default_local_reads_func(
-  func : @lib.Func,
-  params : Array[@lib.ValType],
-) -> @lib.Func {
-  let @lib.Func(locals, @lib.Expr(instrs)) = func
-  @lib.Func::new(
-    locals.copy(),
-    @lib.Expr::new(
-      run_hot_pipeline_raw_rewrite_default_local_reads_body(
-        instrs, params, locals,
-      ),
-    ),
-  )
-}
-
-///|
 fn run_hot_pipeline_raw_aliases_equal(
   lhs : Array[@lib.LocalIdx],
   rhs : Array[@lib.LocalIdx],
@@ -14982,13 +14886,21 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     )
     let mut rewritten = original
     let mut changed = false
+    let mut default_changed = false
     let mut reason = "no-local-writes"
     if has_default_reads {
-      rewritten = run_hot_pipeline_raw_rewrite_default_local_reads_func(
-        original, params,
+      let hot_func = @ir.hot_lift_func(mod_, func_idx)
+      let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
+      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+      let (planned_rewritten, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
+        original, params, plan,
       )
-      changed = true
-      reason = "default-local-reads"
+      if planned_changed {
+        rewritten = planned_rewritten
+        changed = true
+        default_changed = true
+        reason = "default-local-reads-localgraph-plan"
+      }
     }
     let @lib.Func(rewritten_locals, @lib.Expr(rewritten_instrs)) = rewritten
     let (cleaned_instrs, cleaned_debris) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
@@ -15000,8 +14912,8 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         @lib.Expr::new(cleaned_instrs),
       )
       changed = true
-      reason = if has_default_reads {
-        "default-local-reads-unreachable-debris"
+      reason = if default_changed {
+        "default-local-reads-localgraph-plan-unreachable-debris"
       } else {
         "no-local-writes-unreachable-debris"
       }

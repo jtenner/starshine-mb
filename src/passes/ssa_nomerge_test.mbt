@@ -19349,10 +19349,12 @@ test "ssa-nomerge classifies structured branch functions above raw instruction t
 
 ///|
 test "ssa-nomerge rewrites default local reads after branchy control without hot fallback" {
+  let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) (local i32) block i32.const 0 br_table 0 0 end local.get 0))",
       ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -19363,6 +19365,50 @@ test "ssa-nomerge rewrites default local reads after branchy control without hot
   let text = instrs.to_string()
   assert_true(text.contains("i32.const I32(0)"), msg=text)
   assert_false(text.contains("local.get"), msg=text)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=default-local-reads-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge keeps no-write unreachable debris cleanup separate from default plan" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func
+    #|    (block (result i32)
+    #|      unreachable
+    #|      unreachable)
+    #|    unreachable))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unreachable-debris rewrite success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("unreachable"), msg=text)
+  assert_false(text.contains("(block"), msg=text)
+  assert_false(text.contains("Drop"), msg=text)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=no-local-writes-unreachable-debris",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
 }
 
 ///|

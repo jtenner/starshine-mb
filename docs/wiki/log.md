@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Narrow no-write defaults to LocalGraph plan
+
+- Completed `[SSANM-004b]` in [`../../agent-todo.md`](../../agent-todo.md) by removing the duplicated recursive raw default-local-read rewriter from [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt).
+- No-local-write default reads now build `SsaNoMergeRewritePlan` and reuse the LocalGraph `MaterializeDefault` helper; no-local-write dropped-unreachable-debris cleanup remains a separate fast path and still runs without requiring a default-plan change.
+- Added focused public-pipeline trace coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for branchy no-write default materialization through `default-local-reads-localgraph-plan` and for separate `no-local-writes-unreachable-debris` cleanup.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: red-first focused test failed on the legacy `default-local-reads` trace; final `moon fmt`, focused `ssa_nomerge_test.mbt` (`390/390`), `moon info`, `moon test src/passes` (`2420/2420`), full `moon test` (`5725/5725`), native build, `git diff --check`, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm004b-default-fastpath-10000` (`7604/10000` compared, `7604` normalized, `0` mismatches, `20` Binaryen/tool command failures) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Materialize LocalGraph default-entry gets
 
 - Completed `[SSANM-004a]` in [`../../agent-todo.md`](../../agent-todo.md) by making [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) consume `SsaNoMergeRewritePlan` `MaterializeDefault` get decisions beyond the old no-local-write raw path.
