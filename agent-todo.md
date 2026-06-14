@@ -407,8 +407,18 @@ Preset behavior inventory:
       - Deliverables: public-pipeline fixtures for direct and conditional `throw` to `catch` / `catch_all` targets, trace assertions against ordinary structured, mixed, multi-source, and loop-backedge LocalGraph reasons, validation proof, and docs/backlog updates.
       - Evidence: added focused public-pipeline tests `ssa-nomerge keeps throwing try_table catch exits off planned structured path` and `ssa-nomerge keeps conditional catch_all throws off planned structured path`. They validate, preserve `local.set` plus `throw`, reject `pass[ssa-nomerge]:mutated`, and assert the throwing EH fixtures do not claim ordinary structured, mixed, multi-source, or loop-backedge LocalGraph reasons. Focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `418/418`. Direct compare was not run because this slice only locks existing fail-closed routing and admits no new mutation family.
     - [ ] [SSANM-007a2b] - Lock legacy exceptional terminators off HOT mutation
+      - Status: child-sliced on 2026-06-14; execute through `[SSANM-007a2b1]` through `[SSANM-007a2b3]` so `throw_ref`, legacy catch/rethrow, and delegate boundaries stay separately reviewable.
       - Goal: keep `throw_ref`, legacy `try` / `catch` / `rethrow`, and `delegate` shapes outside HOT SSA-destruction mutation until exceptional successors are represented in the local SSA contract.
       - Deliverables: focused HOT or public-pipeline fixtures where WAT lowering supports them, local-traffic preservation assertions, no-revision/no-mutation assertions, and docs/backlog updates.
+    - [ ] [SSANM-007a2b1] - Lock `throw_ref` off HOT mutation
+      - Goal: prove `throw_ref` roots preserve nearby local writes and do not advance the HOT revision under `ssa-nomerge`.
+      - Deliverables: direct HOT fixture with an `exnref` operand, local-write preservation assertion, no-revision/no-mutation assertion, and docs/backlog updates.
+    - [ ] [SSANM-007a2b2] - Lock legacy `try` / `catch` / `rethrow` off HOT mutation
+      - Goal: prove legacy catch/rethrow flow remains a no-mutation boundary in both HOT-only and public-pipeline routing.
+      - Deliverables: public-pipeline trace fixture where WAT lowering supports it, direct HOT no-revision assertion, local-traffic preservation assertion, and docs/backlog updates.
+    - [ ] [SSANM-007a2b3] - Lock `delegate` off HOT mutation
+      - Goal: prove delegate terminators remain direct HOT no-mutation boundaries until exceptional delegation targets participate in the SSA local contract.
+      - Deliverables: direct HOT delegate fixture, local-write preservation assertion, no-revision/no-mutation assertion, and docs/backlog updates.
     - [ ] [SSANM-007a2c] - Close throwing EH fail-closed docs
       - Goal: summarize which throwing EH families are locked fail-closed, which no-throw EH-body subsets remain candidates for `[SSANM-007a3]`, and which APIs would be required to reopen real exceptional-flow mutation.
       - Deliverables: SSA no-merge implementation/parity/index/wiki-log updates, backlog cleanup for `[SSANM-007a2]`, and a comparison note explaining why direct fuzz was or was not required.
