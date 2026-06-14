@@ -13,7 +13,7 @@ pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor {
 
 ///|
 pub fn ssa_nomerge_summary() -> String {
-  "Untangle hot locals into semi-SSA form and lower overlay phis through predecessor copies."
+  "Freshen single-source locals and materialize defaults while preserving merge traffic."
 }
 
 ///|

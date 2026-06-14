@@ -188,6 +188,18 @@ test "batch 1 descriptors expose the active first hot ports" {
   let rub = remove_unused_brs_descriptor()
 
   @debug.assert_eq(ssa.name, "ssa-nomerge")
+  @debug.assert_eq(
+    ssa_nomerge_summary(),
+    "Freshen single-source locals and materialize defaults while preserving merge traffic.",
+  )
+  match pass_registry_lookup("ssa-nomerge") {
+    Some(entry) =>
+      @debug.assert_eq(
+        entry.summary,
+        "Freshen single-source locals and materialize defaults while preserving merge traffic.",
+      )
+    None => fail("expected ssa-nomerge registry entry")
+  }
   @debug.assert_eq(@ir.hot_pass_requires(ssa), [])
   @debug.assert_eq(full_ssa.name, "ssa")
   @debug.assert_eq(@ir.hot_pass_requires(full_ssa), [])

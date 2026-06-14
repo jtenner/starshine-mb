@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-01
+last_reviewed: 2026-06-14
 sources:
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
@@ -34,7 +34,7 @@ This page describes the **current local MoonBit implementation**, not the full u
 Starshine exposes `ssa-nomerge` as an active hot pass with:
 
 - descriptor name: `ssa-nomerge`
-- summary text: `Untangle hot locals into semi-SSA form and lower overlay phis through predecessor copies.`
+- summary text: `Freshen single-source locals and materialize defaults while preserving merge traffic.`
 - required HOT analyses:
   - CFG
   - local SSA
@@ -47,14 +47,14 @@ Starshine exposes `ssa-nomerge` as an active hot pass with:
   - loop info
   - SSA
 
-That summary string already reveals the biggest local-vs-upstream difference.
-Upstream Binaryen `ssa-nomerge` is a **no-merge** LocalGraph rewrite.
-Current Starshine `ssa-nomerge` is a **HOT-SSA roundtrip plus raw fallback** that is willing to lower overlay phis through explicit predecessor copies.
+That summary string is intentionally no-merge-shaped after `[SSANM-006b3]`.
+Upstream Binaryen `ssa-nomerge` is a **no-merge** LocalGraph rewrite, and the current Starshine public summary now describes the same visible policy: freshen single-source write traffic, materialize legal default reads, and keep merge traffic canonical instead of advertising predecessor-copy lowering as normal behavior.
 
-So the safe teaching headline is:
+The safe teaching headline is now:
 
 - Binaryen `ssa-nomerge` avoids materializing merge locals
-- current Starshine `ssa-nomerge` may materialize predecessor-copy traffic while destroying HOT SSA back into ordinary locals
+- current Starshine `ssa-nomerge` routes completed ordinary families through LocalGraph-planned raw reasons or explicit no-op boundaries
+- retained HOT SSA destruction and raw copy-like helpers still exist, but they are fallback/boundary or sibling-SSA surfaces, not the normal no-merge behavior claim
 
 ## Current local code map
 
@@ -63,13 +63,11 @@ The easiest way to follow the in-tree implementation is this file map. The same 
 - `src/passes/ssa_nomerge.mbt:2`
   - `ssa_nomerge_descriptor()` declares the public pass name, required analyses, and invalidation set
 - `src/passes/ssa_nomerge.mbt:15`
-  - `ssa_nomerge_summary()` owns the registry/help text
-- `src/passes/ssa_nomerge.mbt:20`
+  - `ssa_nomerge_summary()` owns the registry/help text; `[SSANM-006b3b]` changed it away from predecessor-copy wording
+- `src/passes/ssa_nomerge.mbt`
   - `ssa_nomerge_has_local_writes(...)` is the cheap early gate
-- `src/passes/ssa_nomerge.mbt:34`
-  - `ssa_nomerge_needs_rewrite(...)` decides whether either overlay phis or concrete local-write defs make rewriting worthwhile
-- `src/passes/ssa_nomerge.mbt:49`
-  - `ssa_nomerge_run(...)` requires CFG + local SSA, then calls `@ir.ssa_destroy_into_hot(...)`
+  - `ssa_nomerge_needs_rewrite(...)` decides whether either overlay phis or concrete local-write defs make rewriting worthwhile for the retained lifted fallback
+  - `ssa_nomerge_run(...)` is the retained lifted fallback wrapper: it requires CFG + local SSA and calls `@ir.ssa_destroy_into_hot(...)` only when the raw dispatcher has not already handled the function
 - `src/ir/ssa_destroy.mbt:33`
   - `HotSsaDestroyPolicy` currently exposes only `ReusePhiLocals`
 - `src/ir/ssa_destroy.mbt:157`
@@ -82,16 +80,10 @@ The easiest way to follow the in-tree implementation is this file map. The same 
   - `run_hot_pipeline_raw_append_local_read(...)` owns raw default-value materialization and alias-resolved local reads
 - `src/passes/pass_manager.mbt:5915`
   - `run_hot_pipeline_raw_initialized_locals(...)` seeds raw default-local knowledge from params plus zero-init locals
-- `src/passes/pass_manager.mbt:6788`
-  - `run_hot_pipeline_raw_ssa_nomerge_structured(...)` owns the structured raw rewrite path
-- `src/passes/pass_manager.mbt:6826`
-  - `run_hot_pipeline_raw_ssa_nomerge_straight_line(...)` owns the cheap straight-line raw rewrite path
-- `src/passes/pass_manager.mbt:6937`
-  - `run_hot_pipeline_raw_ssa_nomerge(...)` chooses between skip, structured raw rewrite, and straight-line raw rewrite
-- `src/passes/pass_manager.mbt:7836`
-  - raw-pass-manager hook that selects this special-case raw implementation before ordinary lift/writeback
-- `src/passes/pass_manager.mbt:8685`
-  - hot-pass dispatch site for the lifted path
+- `src/passes/pass_manager.mbt`
+  - the raw `ssa-nomerge` dispatcher builds `SsaNoMergeRewritePlan` and routes completed straight-line, default, canonical-merge, mixed normal-control, ordinary block/if, decorated loop-backedge, and retained boundary families before lifted HOT fallback
+  - remaining raw helper names such as `structured-local-writes-mutated` are boundary-helper surfaces for branch/table/typed/EH ABI repair, not ordinary no-merge predecessor-copy claims
+  - the pass-manager hook selects the raw special case before ordinary lift/writeback; the lifted hot-pass dispatch remains the fallback path
 - `src/passes/optimize.mbt:158`
   - registry entry wiring for the public pass name
 - `src/passes/optimize.mbt:246`
@@ -102,14 +94,8 @@ The easiest way to follow the in-tree implementation is this file map. The same 
   - public `optimize_preset_passes(...)` definition
 - `src/passes/optimize.mbt:394`
   - public `shrink_preset_passes(...)` definition
-- `src/passes/ssa_nomerge_test.mbt:189`
-  - predecessor-copy branch-join coverage
-- `src/passes/ssa_nomerge_test.mbt:243`
-  - loop-carried local lowering coverage
-- `src/passes/ssa_nomerge_test.mbt:304`
-  - root-loop-header no-synthetic-entry-copy coverage
-- `src/passes/ssa_nomerge_test.mbt:526`
-  - result-typed-`if` merge coverage
+- `src/passes/ssa_nomerge_test.mbt`
+  - LocalGraph planner, straight-line/default, canonical-merge, mixed normal-control, decorated loop-backedge, fail-closed branch/table, EH, and typed-control boundary fixtures. Use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the current detailed test map instead of older predecessor-copy-shaped line anchors.
 - `src/cmd/cmd_wbtest.mbt:2394`
   - debug-artifact CLI replay coverage
 - `src/cmd/cmd_wbtest.mbt:2434`
@@ -117,20 +103,19 @@ The easiest way to follow the in-tree implementation is this file map. The same 
 
 ## How the local pass works today
 
-## 1. The main HOT path is tiny because it delegates almost everything to local SSA destruction
+## 1. The lifted HOT fallback is tiny because it delegates to local SSA destruction
 
-`ssa_nomerge_run(...)` is intentionally short.
-It does this:
+`ssa_nomerge_run(...)` is still intentionally short, but after `[SSANM-006b2*]` it should be read as a retained lifted fallback rather than the normal ordinary no-merge route. It does this:
 
 1. bail out if the function has no local writes
-2. require CFG
-3. require local SSA
-4. bail out if there are neither overlay phis nor local-set/local-tee SSA defs worth rewriting
-5. call `@ir.ssa_destroy_into_hot(func, cfg, ssa)`
-6. mark the function mutated only if the HOT revision changed
+2. bail out on known exceptional, typed-loop, branch-heavy, or nested CFG-sensitive boundaries
+3. require CFG
+4. require local SSA
+5. bail out if there are neither overlay phis nor local-set/local-tee SSA defs worth rewriting
+6. call `@ir.ssa_destroy_into_hot(func, cfg, ssa)`
+7. mark the function mutated only if the HOT revision changed
 
-That means the main local algorithm is **not** written in `src/passes/ssa_nomerge.mbt` itself.
-The file is mostly a thin pass wrapper around the general HOT SSA destruction machinery.
+The ordinary completed no-merge families are expected to return from the raw dispatcher before this bridge. If a new ordinary family reaches this bridge and creates predecessor-copy-style merge traffic, treat that as a rerouting regression or new SSANM slice, not as expected no-merge behavior.
 
 ## 2. The real HOT rewrite surface lives in `ssa_destroy.mbt`
 
@@ -145,10 +130,11 @@ The local destruction helper is the reason Starshine differs so much from Binary
 - and rewrites local gets/sets/tees back onto the chosen concrete locals.
 
 That is closer in spirit to upstream Binaryen full `--ssa` destruction than to upstream `ssa-nomerge`.
-The key consequence is:
+The key consequence is now scoped narrowly:
 
-- current Starshine may materialize merge traffic explicitly,
-- while upstream Binaryen `ssa-nomerge` deliberately keeps merge reads on canonical original slots instead.
+- retained lifted fallback can still materialize merge traffic explicitly,
+- while upstream Binaryen `ssa-nomerge` deliberately keeps merge reads on canonical original slots,
+- so ordinary public no-merge work should be routed through LocalGraph-planned raw reasons or explicit boundaries rather than through this bridge.
 
 ## 3. Overlay phis are first-class local rewrite triggers
 
@@ -162,55 +148,36 @@ That makes sense in a HOT-SSA-based implementation, because the interesting work
 
 This is another point where the local strategy should not be conflated with Binaryen's no-merge rule.
 
-## 4. The raw path is a second real strategy, not just a small optimization
+## 4. The raw path is the ordinary no-merge route for completed families
 
 `run_hot_pipeline_raw_ssa_nomerge(...)` is a real special-case implementation family.
 It does not merely short-circuit into the HOT pass wrapper.
 
-Its top-level split is:
+Its top-level split is now best understood as:
 
 - skip entirely if there are no writes and no default-local reads to materialize
-- use a structured recursive raw rewrite when the function has structured control and the heuristic limits still allow it
-- otherwise use a cheaper straight-line alias rewrite
+- build and consume the LocalGraph-backed `SsaNoMergeRewritePlan` for completed straight-line, default, canonical-merge, mixed normal-control, ordinary block/if, and narrow loop-backedge families
+- return explicit no-op boundary reasons for retained branch/table-decorated loop-backedge families that should not fall into HOT destruction
+- keep branch/table/typed/EH scratch helpers under their named boundary owners
+- otherwise leave the retained lifted HOT fallback as a source-reachable risk surface to reduce or classify in a later SSANM slice
 
-That means local `ssa-nomerge` has **two** practical implementations today:
+Any future maintenance or parity discussion needs to say whether it is broadening a planned LocalGraph family, preserving a boundary helper, or touching the retained HOT fallback.
 
-- lifted HOT SSA -> destroy back into HOT locals
-- raw structured / straight-line local alias rewriting
+## 5. The straight-line raw path consumes the LocalGraph no-merge plan
 
-Any future maintenance or parity discussion needs to say which one it is talking about.
+The old straight-line alias-allocator description is superseded by `[SSANM-003a]` and `[SSANM-003b]`: straight-line `local.set` and `local.tee` now build `SsaNoMergeRewritePlan`, freshen only planned single-source writes, retarget only planned single-source gets, and preserve canonical locals when the plan says the write or read participates in merge traffic. Focused public-pipeline tests lock both `local.set` and `local.tee` routing through `straight-line-local-writes-localgraph-plan`.
 
-## 5. The straight-line raw path is an alias allocator, not a CFG no-merge proof
+The implementation still appends fresh locals and rewrites raw instructions locally, but the eligibility decision is no longer a standalone syntactic alias heuristic.
 
-`run_hot_pipeline_raw_ssa_nomerge_straight_line(...)` keeps arrays for:
+## 6. The structured raw path is split between planned LocalGraph rewrites and boundary helpers
 
-- current alias per original local
-- canonical alias per original local
-- initialized-local state
-- extra local types for fresh locals
+`run_hot_pipeline_raw_ssa_nomerge_structured(...)` delegates to recursive raw instruction helpers, but the current ownership split matters:
 
-Its main rule is syntactic and local:
+- planned LocalGraph reasons (`structured-localgraph-plan`, `structured-mixed-localgraph-plan`, `structured-one-arm-merge-localgraph-plan`, `structured-multisource-merge-localgraph-plan`, and `structured-loop-backedge-merge-localgraph-plan`) are the ordinary no-merge surfaces;
+- retained no-op reasons such as `structured-loop-backedge-boundary-noop` avoid misleading success claims while keeping boundary shapes out of lifted HOT SSA destruction;
+- legacy copy-like raw helper output belongs to branch/table/typed/EH ABI repair, not to ordinary Binaryen `SSAify(false)` predecessor-copy materialization.
 
-- if a write still owns the canonical slot, has a later read, and has no later write before that use story is over, it may stay canonical
-- otherwise the raw path allocates a fresh local for the write and retargets subsequent reads to that alias
-
-This is useful, but it is much simpler than Binaryen's whole-function LocalGraph reachability story.
-So the raw straight-line path should be taught as:
-
-- a local alias rewrite heuristic that approximates the shape payoff,
-- not as a source-level reproduction of upstream `SSAify(false)`.
-
-## 6. The structured raw path preserves branch merges by writing into canonical join locals
-
-`run_hot_pipeline_raw_ssa_nomerge_structured(...)` delegates to the recursive raw instruction rewriter.
-That helper can emit the local shape the focused tests lock in:
-
-- rewrite branch-local writes onto fresh branch-specific locals
-- then insert explicit `local.get fresh -> local.set canonical-join` copies before leaving the predecessor region
-
-That is why the local branch-join and typed-`if` tests show explicit predecessor-copy style lowering.
-It is not an accident.
-It is the intended local representation boundary.
+So when a fixture shows copy-like local traffic, first classify whether it is a retained boundary helper. Do not treat predecessor-copy-shaped output as the default structured no-merge contract.
 
 ## 7. Default local reads are explicitly materialized locally too
 
@@ -231,9 +198,10 @@ But the local mechanism is repo-specific.
 The most important durable correction is:
 
 - upstream Binaryen `ssa-nomerge` is a LocalGraph-based no-merge rewrite that refuses to materialize merge locals
-- current Starshine `ssa-nomerge` is a HOT-SSA roundtrip plus raw-fallback family that **can** re-externalize phi traffic through explicit predecessor copies
+- current Starshine `ssa-nomerge` should describe ordinary behavior the same way: single-source freshening, default materialization, and canonical merge preservation
+- retained HOT SSA destruction and copy-like raw helpers still exist, but they are fallback/boundary or sibling-SSA surfaces that must be explicitly classified
 
-That difference is visible in both the code and the tests.
+That split is visible in both the code and the tests.
 
 So the safe local teaching headline is not:
 
@@ -251,11 +219,11 @@ The focused tests in `src/passes/ssa_nomerge_test.mbt` currently prove these loc
 - repeated straight-line aliases can move onto fresh locals
 - dead param writes and tees can be redirected to fresh locals
 - structured param writes may remain on canonical param slots
-- branch joins lower through explicit predecessor copies
-- loop-carried locals lower before the backedge
+- branch and loop merge regions covered by completed LocalGraph slices preserve canonical merge locals instead of entering predecessor-copy HOT fallback
+- retained branch/table, EH, and typed-control boundary fixtures validate, preserve their opcodes or helper shapes, and reject ordinary planned LocalGraph reasons when the helper remains out of scope
 - root loop headers avoid synthetic entry copies
-- structured early-return and block-target branch families preserve a canonical join local story
-- result-typed `if` branch merges can be rewritten through fresh branch locals plus a shared canonical join local
+- structured early-return and block-target branch families preserve a canonical join local story only when classified by their boundary owner
+- result-typed `if` / typed-control merge repairs remain boundary-helper work unless a later slice admits a narrower LocalGraph family
 - reduced unreachable compare-carrier followups from the artifact slice remain valid
 
 The CLI tests in `src/cmd/cmd_wbtest.mbt` add two higher-level proofs:
@@ -270,13 +238,13 @@ The 2026-05-01 implementation-source refresh keeps this as Starshine-local valid
 Treat the current Starshine implementation as:
 
 - a real in-tree hot pass,
-- a HOT-SSA destruction port with explicit predecessor-copy lowering,
-- plus a separate raw-fallback implementation family,
+- an increasingly LocalGraph-planned raw no-merge implementation for ordinary families,
+- retained HOT-SSA destruction and copy-like helper surfaces that must be classified before use,
 - and **not** a direct AST clone of upstream Binaryen `SSAify(false)`.
 
 Future work on this pass should answer one question explicitly:
 
-- are we preserving the current HOT-SSA-destruction strategy,
-- or are we trying to move the local behavior closer to Binaryen's true no-merge LocalGraph contract?
+- is this an ordinary LocalGraph no-merge family that should freshen/retarget/default/canonicalize without predecessor copies,
+- or is it a branch/table/typed/EH/full-SSA boundary that needs a named helper, no-op, or sibling pass?
 
 Those are materially different goals, and the wiki should keep that difference explicit.

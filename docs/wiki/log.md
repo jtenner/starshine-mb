@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Retire predecessor-copy wording
+
+- Completed `[SSANM-006b3a]`, `[SSANM-006b3b]`, `[SSANM-006b3c]`, `[SSANM-006b3]`, and parent `[SSANM-006b]` in [`../../agent-todo.md`](../../agent-todo.md).
+- Updated [`../../src/passes/ssa_nomerge.mbt`](../../src/passes/ssa_nomerge.mbt) so the public summary says `Freshen single-source locals and materialize defaults while preserving merge traffic.` instead of advertising predecessor-copy lowering as normal `ssa-nomerge` behavior. Added red-first registry coverage in [`../../src/passes/registry_test.mbt`](../../src/passes/registry_test.mbt): the focused test failed against the old summary and passed after the wording change.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md`](binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md) to classify retained HOT SSA destruction, shared `ssa_destroy` predecessor-copy helpers, and raw branch/table/typed/EH copy-like helpers as fallback/boundary or sibling-SSA surfaces rather than ordinary no-merge work. Evidence: focused `moon test --package jtenner/starshine/passes --file registry_test.mbt` passed `6/6`; focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `425/425`. Direct compare was not run because this slice changed summary/help text and docs only, not pass mutation or wasm output.
+
 ## [2026-06-14] passes/ssa-nomerge | Close retained loop-backedge boundaries
 
 - Completed `[SSANM-006b2c3]`, `[SSANM-006b2c4]`, `[SSANM-006b2c]`, and parent `[SSANM-006b2]` in [`../../agent-todo.md`](../../agent-todo.md); `[SSANM-006b3]` is now unblocked for predecessor-copy wording/helper retirement.
