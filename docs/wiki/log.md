@@ -2,6 +2,16 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diff at abs 598
+
+- Completed `[SSANM-009b30]` in [`../../agent-todo.md`](../../agent-todo.md) as a classification-only slice over the next current debug-WASI self artifact print diff, `defined=571 abs=598`.
+- Targeted `--print-func 598` extraction under `.tmp/ssanm009b29-next598` shows identical masked `body_raw` token streams, the same `16` local operations (`9` `local.get`, `4` `local.set`, and `3` `local.tee`), and equal `92` byte code bodies (`89` instruction bytes plus `3` local-declaration bytes).
+- The only local-token differences are two i32 set/get pairs: Starshine uses appended locals `9` and `10`, while Binaryen uses otherwise available body locals `1` and `3`. Starshine still declares locals `1` and `3` but does not use them, so this is body-size neutral only at the current LEB widths and is local-count losing (`10` Starshine body i32 locals versus `8` Binaryen).
+- Evidence: `wasm-tools validate --features all` passed for both `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614/{starshine,binaryen}.wasm`; the Starshine trace reports `structured-local-writes-mutated`. Agent classification: semantic-safe but Starshine-local-count-losing parity gap, not a proven Starshine win and not acceptable drift; split `[SSANM-009b30a]` for structured scratch-local reuse/compaction work.
+- No executable code changed, so direct compare was not rerun beyond `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` (`9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures).
+- Added `[SSANM-009b31]` for the next `defined=573 abs=600` whole-print diff; preliminary extraction under `.tmp/ssanm009b30-next600` shows identical masked tokens and fewer Starshine locals, but it still needs classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diff at abs 597
 
 - Completed `[SSANM-009b29]` in [`../../agent-todo.md`](../../agent-todo.md) as a classification-only slice over the next current debug-WASI self artifact print diff, `defined=570 abs=597`.
