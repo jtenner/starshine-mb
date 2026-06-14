@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice exceptional-edge boundary work
+
+- Split hidden work under `[SSANM-007a]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for EH source/boundary inventory, throwing exceptional-flow fail-closed fixtures, and no-throw `try_table` / EH-body normal-flow subset classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) so the fixture baseline matrix points future agents at `[SSANM-007a1]` through `[SSANM-007a3]` instead of treating exceptional-edge boundaries as one oversized classification slice.
+- Tests were not run because this was a backlog/wiki slicing change only and did not alter executable behavior or generated contracts.
+
 ## [2026-06-13] passes/ssa-nomerge | Admit mixed structured LocalGraph tee writes
 
 - Split `[SSANM-005c3]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for narrow `local.tee` admission, branch-exit / `br_table` classification, and broader nested-control classification, then completed `[SSANM-005c3a]`.

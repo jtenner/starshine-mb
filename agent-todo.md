@@ -306,8 +306,18 @@ Preset behavior inventory:
       - Goal: after ordinary no-merge families are rerouted, delete or explicitly narrow leftover no-merge predecessor-copy helpers and update pass summaries/docs so predecessor copies are no longer described as normal `ssa-nomerge` behavior.
       - Deliverables: summary/help/docs updates, tests proving retained scratch/copy lowerings are typed-control/EH/full-SSA or explicitly fail-closed boundaries, and backlog cleanup before closing `[SSANM-006b]`.
     - [ ] [SSANM-007a] - Keep exceptional-edge boundaries explicit
+      - Status: child-sliced on 2026-06-13; execute through `[SSANM-007a1]` through `[SSANM-007a3]` so EH source review, throwing fail-closed guards, and no-throw subset classification stay separately reviewable.
       - Goal: preserve safety for `try`, `try_table`, `throw`, `throw_ref`, `rethrow`, `delegate`, catches, calls inside no-throw `try_table` bodies, and any path where LocalGraph does not model exceptional successors.
       - Deliverables: fail-closed tests for real exceptional-flow families, positive tests only for source-backed no-exception normal-flow subsets, and a Binaryen-source note explaining whether the boundary is Starshine tooling debt or an intentional no-mutation subset.
+    - [ ] [SSANM-007a1] - Refresh EH source and local boundary inventory
+      - Goal: pin the Binaryen no-merge source/test evidence for exceptional edges against Starshine's current normal-flow-only LocalGraph boundary.
+      - Deliverables: source-backed note for `try`, `try_table`, `throw`, `throw_ref`, `rethrow`, `delegate`, catches, and no-throw bodies; map each current `ssa_nomerge_test.mbt` EH guard to fail-closed, legacy scratch/copy, or candidate no-throw subset.
+    - [ ] [SSANM-007a2] - Lock throwing exceptional-flow fail-closed behavior
+      - Goal: make real exceptional exits stay outside LocalGraph no-merge mutation until EH successors are modeled or an explicit repair helper exists.
+      - Deliverables: focused fail-closed public-pipeline fixtures for throwing `try_table` / catch / throw-ref-style families, trace assertions that the planned structured LocalGraph path is not used, and docs/backlog updates.
+    - [ ] [SSANM-007a3] - Classify no-throw `try_table` and EH-body normal-flow subsets
+      - Goal: decide whether no-throw EH bodies can reuse normal-flow LocalGraph rewrites, or whether all EH containers should remain fail-closed for v0.1.0.
+      - Deliverables: positive or deliberately fail-closed no-throw `try_table` fixtures, direct compare evidence for any admitted mutation family, and reopening criteria for remaining EH boundaries.
     - [ ] [SSANM-007b] - Classify typed-control and loop-param/result boundaries
       - Goal: separate true local-source no-merge decisions from stack/control-value ABI rewrites around typed loop params/results and branch operands.
       - Deliverables: classification fixtures for scalar/reference loop params, single-result and multi-result loops, branch operands, `br_table`, `br_on_*`, and nested-loop targets; mark each as LocalGraph local rewrite, typed-control lowering work, or deliberate fail-closed boundary.
