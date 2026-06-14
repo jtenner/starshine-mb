@@ -20358,11 +20358,38 @@ test "ssa-nomerge keeps plain br multi-source merges off LocalGraph path" {
 }
 
 ///|
+fn ssa_test_expect_value_branch_boundary_output(
+  source : String,
+  context : String,
+) -> Array[@lib.Instruction] raise {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected value branch \{context} boundary success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected value branch \{context} boundary output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  instrs
+}
+
+///|
 test "ssa-nomerge keeps value br operands off LocalGraph path" {
-  // `[SSANM-006a1]` classifies value-carrying plain `br` as typed-control /
+  // `[SSANM-007b3a]` classifies value-carrying plain `br` as typed-control /
   // branch-operand territory. It must not silently claim the ordinary
   // LocalGraph structured paths until branch-operand ownership is narrowed.
-  let trace : Array[String] = []
   let source =
     #|(module
     #|  (func (param i32) (result i32) (local i32)
@@ -20378,36 +20405,43 @@ test "ssa-nomerge keeps value br operands off LocalGraph path" {
     #|    drop
     #|    local.get 1))
     #|)
-  let optimized = match
-    pass_test_run_pipeline(
-      source,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected value br operand boundary success, got \{err}")
-  }
-
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_false(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
-      ) ||
-      line.contains(
-        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
-      )
-    }),
-    msg=trace.join("\n"),
+  let instrs = try! ssa_test_expect_value_branch_boundary_output(
+    source, "plain br operand",
   )
   assert_true(ssa_test_instrs_have_br(instrs), msg=instrs.to_string())
 }
 
 ///|
+test "ssa-nomerge keeps value br_if operands off LocalGraph path" {
+  // Conditional value branches carry a stack payload plus a condition. Keep
+  // this ABI shape on the branch-operand boundary, not on ordinary
+  // LocalGraph local-source mutation.
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    block (result i32)
+    #|      i32.const 20
+    #|      local.set 1
+    #|      local.get 1
+    #|      local.get 0
+    #|      br_if 0
+    #|    end
+    #|    drop
+    #|    local.get 1))
+    #|)
+  let instrs = try! ssa_test_expect_value_branch_boundary_output(
+    source, "conditional br_if operand",
+  )
+  assert_true(ssa_test_instrs_have_br_if(instrs), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge keeps value br_table operands off LocalGraph path" {
-  // `[SSANM-006a1]` gives value-carrying table branches the same fail-closed
-  // branch-operand ownership as plain value `br`.
-  let trace : Array[String] = []
+  // `[SSANM-007b3b]` gives value-carrying table branches the same boundary
+  // ownership as plain value `br`: selector/target ABI repair must not be
+  // mistaken for ordinary LocalGraph no-merge local-source work.
   let source =
     #|(module
     #|  (func (param i32) (result i32) (local i32)
@@ -20424,28 +20458,36 @@ test "ssa-nomerge keeps value br_table operands off LocalGraph path" {
     #|    drop
     #|    local.get 1))
     #|)
-  let optimized = match
-    pass_test_run_pipeline(
-      source,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected value br_table operand boundary success, got \{err}")
-  }
+  let instrs = try! ssa_test_expect_value_branch_boundary_output(
+    source, "br_table operand",
+  )
+  assert_true(ssa_test_instrs_have_br_table(instrs), msg=instrs.to_string())
+}
 
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_false(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-merge-localgraph-plan",
-      ) ||
-      line.contains(
-        "pass[ssa-nomerge]:skip-raw reason=structured-mixed-localgraph-plan",
-      )
-    }),
-    msg=trace.join("\n"),
+///|
+test "ssa-nomerge keeps mixed-target value br_table operands off LocalGraph path" {
+  // A value-carrying table can target multiple result labels while also
+  // consuming a selector. Keep this mixed-target table ABI outside planned
+  // structured LocalGraph mutation until table scratch ownership is narrowed.
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    block (result i32)
+    #|      block (result i32)
+    #|        i32.const 20
+    #|        local.set 1
+    #|        local.get 1
+    #|        local.get 0
+    #|        br_table 0 1
+    #|      end
+    #|    end
+    #|    drop
+    #|    local.get 1))
+    #|)
+  let instrs = try! ssa_test_expect_value_branch_boundary_output(
+    source, "mixed-target br_table operand",
   )
   assert_true(ssa_test_instrs_have_br_table(instrs), msg=instrs.to_string())
 }

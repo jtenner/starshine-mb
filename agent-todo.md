@@ -519,12 +519,16 @@ Preset behavior inventory:
       - Status: child-sliced on 2026-06-14; execute through `[SSANM-007b3a]` through `[SSANM-007b3d]` so branch operands, table operands, null exits, and cast exits stay separately reviewable.
       - Goal: decide which branch-operand, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` families are local-source no-merge decisions versus typed-control lowering work.
       - Deliverables: positive or fail-closed fixtures for branch operands and typed exits, direct compare evidence for any newly admitted mutation family, and docs/backlog updates that keep branch-alias/cast scratch ownership explicit.
-    - [ ] [SSANM-007b3a] - Lock value-carrying `br` and `br_if` operand boundaries
+    - [x] [SSANM-007b3a] - Lock value-carrying `br` and `br_if` operand boundaries
+      - Status: completed 2026-06-14.
       - Goal: prove scalar/reference branch operands that require stack-value preservation remain on explicit branch-alias or scratch lowering helpers, while ordinary local-source writes remain owned by LocalGraph no-merge decisions.
       - Deliverables: focused trace/output fixtures for direct and conditional value branches, including copy-needed and no-copy contrasts; direct compare only if a new mutation family is admitted.
-    - [ ] [SSANM-007b3b] - Lock typed `br_table` branch-operand boundaries
+      - Evidence: `ssa_test_expect_value_branch_boundary_output(...)` validates value-branch output and rejects all ordinary planned structured LocalGraph reasons. `ssa-nomerge keeps value br operands off LocalGraph path` now consumes that helper, and `ssa-nomerge keeps value br_if operands off LocalGraph path` adds the conditional value-operand lock. Focused `ssa_nomerge_test.mbt` passed `422/422`. Direct compare was not run because this only strengthens fail-closed boundary/classification coverage and admits no new mutation family.
+    - [x] [SSANM-007b3b] - Lock typed `br_table` branch-operand boundaries
+      - Status: completed 2026-06-14.
       - Goal: separate table selector/value operand ABI repair from ordinary no-merge local-source mutation, including mixed branch targets and branch-local copy ownership.
       - Deliverables: trace/output fixtures for value-carrying `br_table` shapes that are not already closed by `[SSANM-007b2c]`, with explicit selector/scratch ownership and any fail-closed targets recorded.
+      - Evidence: the value-branch boundary helper now also covers value-carrying `br_table` operands, and the new mixed-target value `br_table` fixture keeps selector/result target ABI repair off ordinary planned structured LocalGraph reasons while preserving the table opcode. Focused `ssa_nomerge_test.mbt` passed `422/422`. Direct compare was not run because this only strengthens fail-closed boundary/classification coverage and admits no new mutation family.
     - [ ] [SSANM-007b3c] - Lock `br_on_null` and `br_on_non_null` typed-exit boundaries
       - Goal: keep null/non-null branch spills and tested reference producer handling classified as typed-control lowering or explicit fail-closed work rather than generic LocalGraph local mutation.
       - Deliverables: positive or fail-closed fixtures for nullable and non-null reference exits, tested producer spills, prefix locals, and no-copy contrasts; direct compare only if behavior changes.
