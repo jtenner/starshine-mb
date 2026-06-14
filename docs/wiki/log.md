@@ -2,6 +2,15 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diffs at abs 703 and 705
+
+- Completed `[SSANM-009b111]` and `[SSANM-009b112]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs: `defined=676 abs=703` and `defined=678 abs=705`. Targeted `defined=671..675 abs=698..702` and `defined=677 abs=704` outputs match exactly.
+- Targeted `--print-func 703` extraction under `.tmp/ssanm009b111-next703` shows identical masked `body_raw` token streams, the same `384` local operations (`212` `local.get`, `70` `local.set`, and `102` `local.tee`), and a smaller Starshine byte code body (`1706` bytes versus Binaryen `1754`). The only differences are 50 one-use dead `local.tee` targets; Starshine declares `137` body i32 locals versus Binaryen `187`.
+- Targeted `--print-func 705` extraction under `.tmp/ssanm009b111-next705` shows identical masked token streams, the same `12` local operations (`6` `local.get`, `2` `local.set`, and `4` `local.tee`), and equal `57` byte code bodies. The differences are same-typed local-slot drift over three one-use tee targets plus one paired set/get slot; Starshine declares `10` body i32 locals versus Binaryen `9`, so this is kept open under `[SSANM-009b30a]` as a local-count-losing parity follow-up instead of being accepted as a Starshine win.
+- Evidence: `wasm-tools validate --features all` passed for both `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614/{starshine,binaryen}.wasm`; Starshine traces report `call-heavy-memory-structured-noop` for both `abs=703` and `abs=705`. Agent classification: `abs=703` is a semantic-safe Starshine local-count and encoded-body-size win; `abs=705` is a body-size-neutral but Starshine-local-count-losing parity gap, not a semantic mismatch and not an accepted representation win.
+- No executable code changed, so direct compare was not rerun beyond `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` (`9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`).
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diffs at abs 684 through 697
 
 - Completed `[SSANM-009b105]` through `[SSANM-009b110]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs: `defined=657 abs=684`, `defined=662 abs=689`, `defined=663 abs=690`, `defined=664 abs=691`, `defined=669 abs=696`, and `defined=670 abs=697`. Targeted `defined=656 abs=683`, `defined=658..661 abs=685..688`, `defined=665..668 abs=692..695`, and `defined=671..675 abs=698..702` outputs match exactly.
