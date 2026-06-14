@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Fix debug-WASI stack-carried tee diff
+
+- Completed `[SSANM-009b1]` in [`../../agent-todo.md`](../../agent-todo.md) and child-sliced the remaining debug-WASI first-diff work under `[SSANM-009b2]`.
+- Added red-first coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the former `defined=108 abs=135` artifact diff: a void call can sit between a stack-carried producer and `local.tee`, and the later read must use the fresh tee local rather than a body-local default.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the straight-line raw `ssa-nomerge` rewriter tracks fresh aliases while applying the LocalGraph plan; canonical writes clear the alias.
+- Evidence: red-first focused file test failed `425/426`, then passed `426/426`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2456/2456`; full `moon test` passed `5761/5761`; native `src/cmd` build passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b-stack-tee-10000` requested 10000 cases, compared 9977, and had 9977 normalized matches with 0 mismatches plus 23 Binaryen/tool command failures. Self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b-20260614` validates both outputs and moves the first diff to `defined=215 abs=242`.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify huge planners and refresh artifact anchor
 
 - Completed `[SSANM-008b]` and `[SSANM-009a]` in [`../../agent-todo.md`](../../agent-todo.md) without committing pass behavior changes.

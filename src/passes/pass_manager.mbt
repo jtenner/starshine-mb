@@ -14306,6 +14306,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
   let rewritten_instrs : Array[@lib.Instruction] = []
   let extra_local_types : Array[@lib.ValType] = []
   let base_local_count = params.length() + locals.length()
+  let fresh_aliases : Array[Int] = Array::make(base_local_count, -1)
   let mut write_cursor = 0
   let mut get_cursor = 0
   for instr in instrs {
@@ -14321,11 +14322,23 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
               ),
             )
           Some(SsaNoMergeGetDecision::MaterializeDefault) =>
-            rewritten_instrs.push(
-              run_hot_pipeline_raw_default_instr_for_local(
-                params, locals, original_local,
-              ),
-            )
+            if original_local >= 0 &&
+              original_local < fresh_aliases.length() &&
+              fresh_aliases[original_local] >= 0 {
+              rewritten_instrs.push(
+                @lib.Instruction::local_get(
+                  @lib.LocalIdx::new(
+                    fresh_aliases[original_local].reinterpret_as_uint(),
+                  ),
+                ),
+              )
+            } else {
+              rewritten_instrs.push(
+                run_hot_pipeline_raw_default_instr_for_local(
+                  params, locals, original_local,
+                ),
+              )
+            }
           Some(SsaNoMergeGetDecision::KeepCanonical) | None =>
             rewritten_instrs.push(instr)
         }
@@ -14345,9 +14358,16 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
                 @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
               ),
             )
+            if original_local >= 0 && original_local < fresh_aliases.length() {
+              fresh_aliases[original_local] = fresh_local_id
+            }
           }
-          Some(SsaNoMergeWriteDecision::KeepCanonical) | None =>
+          Some(SsaNoMergeWriteDecision::KeepCanonical) | None => {
+            if original_local >= 0 && original_local < fresh_aliases.length() {
+              fresh_aliases[original_local] = -1
+            }
             rewritten_instrs.push(instr)
+          }
         }
         write_cursor = write_cursor + 1
       }
@@ -14365,9 +14385,16 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
                 @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint()),
               ),
             )
+            if original_local >= 0 && original_local < fresh_aliases.length() {
+              fresh_aliases[original_local] = fresh_local_id
+            }
           }
-          Some(SsaNoMergeWriteDecision::KeepCanonical) | None =>
+          Some(SsaNoMergeWriteDecision::KeepCanonical) | None => {
+            if original_local >= 0 && original_local < fresh_aliases.length() {
+              fresh_aliases[original_local] = -1
+            }
             rewritten_instrs.push(instr)
+          }
         }
         write_cursor = write_cursor + 1
       }

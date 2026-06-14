@@ -19328,6 +19328,84 @@ test "ssa-nomerge LocalGraph straight-line tee keeps folded effect operand singl
 }
 
 ///|
+test "ssa-nomerge LocalGraph straight-line stack-carried tee keeps later gets live" {
+  // Reduced from the current debug-WASI first diff
+  // `.tmp/self-ssa-nomerge-debug-wasi-anchor-refresh-20260614`,
+  // `defined=108 abs=135`. A void call can sit between a stack-carried
+  // producer and `local.tee`; later reads must use the fresh tee local, not the
+  // body-local default.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func $make (param i32) (result i32) (local.get 0))
+    #|  (func $join (param i32 i32) (result i32) (local.get 0))
+    #|  (func $drop (param i32))
+    #|  (func (param i32) (result i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    call $make
+    #|    local.set 1
+    #|    i32.const 100
+    #|    local.get 1
+    #|    call $join
+    #|    local.get 1
+    #|    call $drop
+    #|    local.tee 2
+    #|    i32.const 200
+    #|    call $join
+    #|    local.get 2
+    #|    call $drop
+    #|    local.set 3
+    #|    local.get 3))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected stack-carried local.tee ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 3)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(100)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::i32_const(@lib.I32(200)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+  ])
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=straight-line-local-writes-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge LocalGraph materializes straight-line default numeric and vector gets" {
   let numeric_trace : Array[String] = []
   let numeric = match
