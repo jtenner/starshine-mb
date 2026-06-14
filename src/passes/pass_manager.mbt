@@ -12446,7 +12446,15 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           local_id < base_local_count &&
           run_hot_pipeline_raw_count_call_like(root_instrs) > 2 &&
           run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) == 1
+        let preserve_param_branch_carrier_tee = local_id < params.length() &&
+          run_hot_pipeline_raw_count_call_like(root_instrs) <= 1 &&
+          run_hot_pipeline_raw_ssa_nomerge_param_tee_is_branch_carrier(
+            root_instrs,
+            params.length(),
+            local_id,
+          )
         if (freshen_params || (two_call_allocator_body && previous_was_select)) &&
+          !preserve_param_branch_carrier_tee &&
           local_id >= 0 &&
           (
             (
@@ -16178,6 +16186,78 @@ fn run_hot_pipeline_raw_ssa_nomerge_arm_has_call_carried_body_local(
   for i = 0; i < seen_get_after_set.length(); i = i + 1 {
     if seen_get_after_set[i] {
       return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_param_tee_is_branch_carrier(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  target_local : Int,
+) -> Bool {
+  if target_local < 0 || target_local >= param_count {
+    return false
+  }
+  let mut saw_target_tee = false
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        if raw.reinterpret_as_int() == target_local {
+          saw_target_tee = true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if saw_target_tee &&
+          run_hot_pipeline_raw_instrs_have_later_local_write(
+            then_body, 0, target_local,
+          ) &&
+          run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+            instrs,
+            idx + 1,
+            target_local,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if saw_target_tee &&
+              run_hot_pipeline_raw_instrs_have_later_local_write(
+                body, 0, target_local,
+              ) &&
+              run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+                instrs,
+                idx + 1,
+                target_local,
+              ) {
+              return true
+            }
+          None => ()
+        }
+        if run_hot_pipeline_raw_ssa_nomerge_param_tee_is_branch_carrier(
+            then_body, param_count, target_local,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_param_tee_is_branch_carrier(
+                body, param_count, target_local,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_param_tee_is_branch_carrier(
+            body, param_count, target_local,
+          ) {
+          return true
+        }
+      _ => ()
     }
   }
   false

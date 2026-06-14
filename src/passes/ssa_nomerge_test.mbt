@@ -21069,6 +21069,95 @@ test "ssa-nomerge LocalGraph straight-line stack-carried tee keeps later gets li
 }
 
 ///|
+test "ssa-nomerge preserves branch-carried parameter tee boundary canonical" {
+  // Reduced from the post-[SSANM-009b9] debug-WASI first alpha-diff
+  // `defined=3 abs=30` (`tlsf/addMemory`). The condition writes an aligned
+  // pointer back to parameter local 1 with `local.tee`, while the taken branch
+  // may overwrite that same parameter before later reads. Binaryen keeps this
+  // parameter carrier canonical; freshening the tee to a body local changes the
+  // value observed on the not-taken path.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32 i64) (local i32 i32 i32)
+    #|    local.get 0
+    #|    i32.load
+    #|    local.tee 4
+    #|    i32.const 0
+    #|    local.get 1
+    #|    i32.const 19
+    #|    i32.add
+    #|    i32.const -16
+    #|    i32.and
+    #|    i32.const 4
+    #|    i32.sub
+    #|    local.tee 1
+    #|    i32.const 16
+    #|    i32.sub
+    #|    local.tee 3
+    #|    local.get 4
+    #|    i32.eq
+    #|    select
+    #|    if
+    #|      local.get 4
+    #|      i32.load
+    #|      local.set 5
+    #|      local.get 3
+    #|      local.set 1
+    #|    end
+    #|    local.get 2
+    #|    i32.wrap_i64
+    #|    i32.const -16
+    #|    i32.and
+    #|    local.get 1
+    #|    i32.sub
+    #|    local.tee 3
+    #|    i32.const 20
+    #|    i32.lt_u
+    #|    if
+    #|      return
+    #|    end
+    #|    local.get 1
+    #|    local.get 5
+    #|    local.get 3
+    #|    i32.add
+    #|    i32.store))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected parameter tee branch-carrier boundary success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(ssa_test_local_tee_indices(instrs), [6U, 1U, 7U, 8U])
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [5U, 1U])
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge LocalGraph materializes straight-line default numeric and vector gets" {
   let numeric_trace : Array[String] = []
   let numeric = match
