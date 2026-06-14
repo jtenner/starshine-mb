@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Shadow LocalGraph plan against current output
+
+- Completed `[SSANM-002b]` in [`../../agent-todo.md`](../../agent-todo.md) by adding test-only shadow helpers in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
+- The helpers build the LocalGraph rewrite plan, run the current observable `ssa-nomerge` pipeline, and compare planner freshen/retarget/default/keep counts with output body-local/local-get shape for reduced already-SSA, overwritten-tee, body-default, and branch-local already-SSA fixtures. No production mutation or public CLI behavior changed.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md). Evidence: red-first focused `ssa_nomerge_test.mbt` failed on missing `ssa_nomerge_test_shadow_summary_from_wat`, then passed `381/381`; final `moon fmt`, `moon info`, focused `ssa_nomerge_test.mbt`, `moon test src/passes` (`2411/2411`), full `moon test` (`5716/5716`), native build, `git diff --check`, and short direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm002b-shadow-1000` (`998/1000` compared, `998` normalized, `0` mismatches, `2` Binaryen/tool command failures) passed. The reduced shadow table found these families aligned; generated-profile local-allocation mismatches remain true parity gaps for later mutation slices.
+
 ## [2026-06-13] passes/ssa-nomerge | Add LocalGraph no-merge planner
 
 - Completed `[SSANM-002a]` in [`../../agent-todo.md`](../../agent-todo.md) by adding an analysis-only `SsaNoMergeRewritePlan` in [`../../src/passes/ssa_nomerge.mbt`](../../src/passes/ssa_nomerge.mbt).

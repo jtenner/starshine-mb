@@ -235,6 +235,198 @@ fn ssa_nomerge_test_get_decision(
 }
 
 ///|
+struct SsaNoMergeShadowSummary {
+  plan_freshen_writes : Int
+  plan_keep_writes : Int
+  plan_retarget_gets : Int
+  plan_default_gets : Int
+  plan_keep_gets : Int
+  current_added_body_locals : Int
+  current_local_gets : Array[UInt]
+} derive(Debug)
+
+///|
+fn ssa_nomerge_test_count_plan_freshen_writes(
+  plan : SsaNoMergeRewritePlan,
+) -> Int {
+  let mut count = 0
+  for rewrite in plan.write_rewrites {
+    match rewrite.decision {
+      SsaNoMergeWriteDecision::Freshen(_) => count = count + 1
+      SsaNoMergeWriteDecision::KeepCanonical => ()
+    }
+  }
+  count
+}
+
+///|
+fn ssa_nomerge_test_count_plan_keep_writes(plan : SsaNoMergeRewritePlan) -> Int {
+  let mut count = 0
+  for rewrite in plan.write_rewrites {
+    match rewrite.decision {
+      SsaNoMergeWriteDecision::KeepCanonical => count = count + 1
+      SsaNoMergeWriteDecision::Freshen(_) => ()
+    }
+  }
+  count
+}
+
+///|
+fn ssa_nomerge_test_count_plan_retarget_gets(
+  plan : SsaNoMergeRewritePlan,
+) -> Int {
+  let mut count = 0
+  for rewrite in plan.get_rewrites {
+    match rewrite.decision {
+      SsaNoMergeGetDecision::Retarget(_) => count = count + 1
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn ssa_nomerge_test_count_plan_default_gets(
+  plan : SsaNoMergeRewritePlan,
+) -> Int {
+  let mut count = 0
+  for rewrite in plan.get_rewrites {
+    match rewrite.decision {
+      SsaNoMergeGetDecision::MaterializeDefault => count = count + 1
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn ssa_nomerge_test_count_plan_keep_gets(plan : SsaNoMergeRewritePlan) -> Int {
+  let mut count = 0
+  for rewrite in plan.get_rewrites {
+    match rewrite.decision {
+      SsaNoMergeGetDecision::KeepCanonical => count = count + 1
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn ssa_nomerge_test_collect_local_get_indices(
+  instrs : Array[@lib.Instruction],
+  out : Array[UInt],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(idx)) => out.push(idx)
+      @lib.If(_, then_instrs, else_instrs) => {
+        ssa_nomerge_test_collect_local_get_indices(then_instrs, out)
+        match else_instrs {
+          Some(else_body) =>
+            ssa_nomerge_test_collect_local_get_indices(else_body, out)
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        ssa_nomerge_test_collect_local_get_indices(body, out)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn ssa_nomerge_test_local_get_indices(
+  instrs : Array[@lib.Instruction],
+) -> Array[UInt] {
+  let out : Array[UInt] = []
+  ssa_nomerge_test_collect_local_get_indices(instrs, out)
+  out
+}
+
+///|
+fn ssa_nomerge_test_shadow_summary_from_wat(
+  source : String,
+) -> SsaNoMergeShadowSummary raise {
+  let input = pass_test_module_from_wat(source)
+  let (input_locals, _) = try! ssa_test_first_defined_func(input)
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  @ir.hot_verify_all_or_abort(func)
+  let plan = ssa_nomerge_test_plan(func)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ssa-nomerge shadow pipeline success, got \{err}")
+  }
+  let (optimized_locals, optimized_instrs) = try! ssa_test_first_defined_func(
+    optimized,
+  )
+  {
+    plan_freshen_writes: ssa_nomerge_test_count_plan_freshen_writes(plan),
+    plan_keep_writes: ssa_nomerge_test_count_plan_keep_writes(plan),
+    plan_retarget_gets: ssa_nomerge_test_count_plan_retarget_gets(plan),
+    plan_default_gets: ssa_nomerge_test_count_plan_default_gets(plan),
+    plan_keep_gets: ssa_nomerge_test_count_plan_keep_gets(plan),
+    current_added_body_locals: optimized_locals.length() - input_locals.length(),
+    current_local_gets: ssa_nomerge_test_local_get_indices(optimized_instrs),
+  }
+}
+
+///|
+test "ssa-nomerge shadow matches current straight-line and default families" {
+  let already = try! ssa_nomerge_test_shadow_summary_from_wat(
+    "(module (func (result i32) (local i32) i32.const 5 local.set 0 local.get 0))",
+  )
+  @debug.assert_eq(already.plan_freshen_writes, 0)
+  @debug.assert_eq(already.plan_retarget_gets, 0)
+  @debug.assert_eq(already.plan_default_gets, 0)
+  @debug.assert_eq(already.current_added_body_locals, 0)
+  @debug.assert_eq(already.current_local_gets, [0U])
+
+  let overwritten = try! ssa_nomerge_test_shadow_summary_from_wat(
+    "(module (func (result f64) (local f64) f64.const 69 local.tee 0 drop f64.const 39 local.tee 0 drop local.get 0))",
+  )
+  @debug.assert_eq(overwritten.plan_freshen_writes, 2)
+  @debug.assert_eq(overwritten.plan_retarget_gets, 1)
+  @debug.assert_eq(overwritten.plan_default_gets, 0)
+  @debug.assert_eq(overwritten.current_added_body_locals, 2)
+  @debug.assert_eq(overwritten.current_local_gets, [2U])
+
+  let body_default = try! ssa_nomerge_test_shadow_summary_from_wat(
+    "(module (func (result i32) (local i32) block i32.const 0 br_table 0 0 end local.get 0))",
+  )
+  @debug.assert_eq(body_default.plan_freshen_writes, 0)
+  @debug.assert_eq(body_default.plan_retarget_gets, 0)
+  @debug.assert_eq(body_default.plan_default_gets, 1)
+  @debug.assert_eq(body_default.current_added_body_locals, 0)
+  @debug.assert_eq(body_default.current_local_gets, [])
+}
+
+///|
+test "ssa-nomerge shadow records branch-local already-SSA alignment" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|      local.get 1
+    #|      drop
+    #|    else
+    #|      nop
+    #|    end))
+    #|)
+  let shadow = try! ssa_nomerge_test_shadow_summary_from_wat(source)
+
+  @debug.assert_eq(shadow.plan_freshen_writes, 0)
+  @debug.assert_eq(shadow.plan_keep_writes, 1)
+  @debug.assert_eq(shadow.plan_retarget_gets, 0)
+  @debug.assert_eq(shadow.current_added_body_locals, 0)
+  @debug.assert_eq(shadow.current_local_gets, [0U, 1U])
+}
+
+///|
 test "ssa-nomerge planner keeps already-ssa straight-line locals canonical" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
