@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Guard debug-WASI loop-carried plain branches
+
+- Completed `[SSANM-009b4]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b5]` for the next debug-WASI first diff.
+- Added red-first coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `defined=501 abs=528` artifact family: large loop-carried plain-branch regions must not accept legacy structured branch/else copy materialization as a proven no-merge win.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so large structured functions whose void loops contain body-local reads, body-local writes, and plain `br` traffic return unchanged with `loop-carried-plain-br-boundary-noop`; the size gate preserves existing small loop scratch parity fixtures.
+- Evidence: red-first focused file test failed `428/429`, then passed `429/429`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; `moon test src/passes` passed `2459/2459`; full `moon test` passed `5764/5764`; native `src/cmd` build passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b4-loop-plain-br-10000` requested 10000 cases, compared 9977, and had 9977 normalized matches with 0 mismatches plus 23 Binaryen/tool command failures. Self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b4-loop-plain-br-20260614b` validates both outputs and moves the first diff to `defined=538 abs=565`.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Fix debug-WASI canonical branch-carrier write
 
 - Completed `[SSANM-009b3]` in [`../../agent-todo.md`](../../agent-todo.md) and added `[SSANM-009b4]` for the next debug-WASI first diff.

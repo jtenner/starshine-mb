@@ -19778,6 +19778,79 @@ test "ssa-nomerge artifact value-if carrier does not read unwritten fresh locals
 }
 
 ///|
+test "ssa-nomerge keeps loop-carried plain br boundary canonical" {
+  // Reduced from the post-`[SSANM-009b3]` debug-WASI first diff,
+  // `defined=501 abs=528` (`dae_rewrite_dropped_result_calls_instrs`).
+  // The legacy structured helper used to freshen the loop-carried index and
+  // synthesize branch/else copies around a plain `br`. Until this branch-target
+  // family has a Binaryen-shaped LocalGraph rewrite, keep it fail-closed so the
+  // canonical loop carrier is not materialized through helper locals.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func $sink (param i32))
+    #|  (func $f (export "f") (param $p i32) (result i32)
+    #|    (local $carrier i32) (local $i i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    i32.const 10
+    #|    local.set $carrier
+    #|    i32.const 0
+    #|    local.set $i
+    #|    block
+    #|      loop
+    #|        local.get $i
+    #|        i32.const 1
+    #|        i32.lt_s
+    #|        if
+    #|          local.get $carrier
+    #|          call $sink
+    #|          local.get $p
+    #|          if
+    #|            i32.const 20
+    #|            local.set $carrier
+    #|            br 1
+    #|          end
+    #|          local.get $carrier
+    #|          call $sink
+    #|          local.get $i
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.set $i
+    #|          br 0
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get $carrier))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected loop-carried plain br boundary success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected loop-carried plain br boundary output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  ssa_test_assert_ssa_nomerge_raw_reason(
+    trace, "loop-carried-plain-br-boundary-noop",
+  )
+  ssa_test_assert_no_planned_structured_trace_reason(trace)
+  ssa_test_assert_no_ssa_nomerge_mutation_trace(trace)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() <= 131, msg=locals.to_string())
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_true(writes.any(fn(idx) { idx == 2U }), msg=instrs.to_string())
+  assert_false(writes.any(fn(idx) { idx > 2U }), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge artifact branch carrier keeps canonical merged label writes" {
   // Reduced standalone module for the post-`[SSANM-009b2]` debug-WASI
   // first diff, `defined=363 abs=390` (`dae_instr_has_escaping_branch`).
