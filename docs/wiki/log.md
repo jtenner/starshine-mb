@@ -2,6 +2,20 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Replay early O4z ssa-nomerge neighborhood
+
+- Completed `[SSANM-010b]` in [`../../agent-todo.md`](../../agent-todo.md) as a direct native debug-WASI replay of the early Starshine neighborhood that would run if the O4z `ssa-nomerge` no-op were removed or narrowed.
+- Evidence using `target/native/release/build/cmd/cmd.exe` on `tests/node/dist/starshine-debug-wasi.wasm`: `--ssa-nomerge` exited `0` in about `4s` and wrote `7,496,071` bytes; `--ssa-nomerge --dead-code-elimination` exited `0` in about `5s` and wrote `7,482,974` bytes; adding `--remove-unused-names` exited `1` in about `5s` with final module validation failure `stack underflow`, offending `Func 254`.
+- The full requested neighborhood through `--remove-unused-brs --remove-unused-names` also aborts before a comparable artifact is available. Agent classification: validation failure / scheduling blocker, not a Binaryen semantic-equivalence claim.
+- Updated [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md). `[SSANM-010c]` remains the explicit scheduling decision and should keep the current O4z no-op guard unless a follow-on implementation first fixes or gates this failure.
+
+## [2026-06-14] passes/ssa-nomerge | Refresh O4z scheduling anchors
+
+- Completed `[SSANM-010a]` in [`../../agent-todo.md`](../../agent-todo.md) as a source/docs refresh before the top-level O4z scheduling decision.
+- Confirmed local `wasm-opt --version` reports `wasm-opt version 130 (version_130)`, and reused the 2026-06-13 Binaryen source refresh showing `src/passes/pass.cpp` still registers `ssa-nomerge` and schedules it when `optimizeLevel >= 3 || shrinkLevel >= 1`.
+- Documented the scheduling contrast in [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md): Starshine public `optimize` / `shrink` presets still include the early `ssa-nomerge` slot, but `pass_manager.mbt` still skips it under O4z-shaped options with `o4z-ssa-nomerge-noop`.
+- Evidence: `moon test --package jtenner/starshine/passes --file registry_test.mbt` passed `6/6`; `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `440/440`. No preset mutation was made; `[SSANM-010b]` owns early-neighborhood replay and `[SSANM-010c]` remains the user-approved scheduling decision.
+
 ## [2026-06-14] passes/ssa-nomerge | Compact small structured-load scratch locals
 
 - Completed `[SSANM-009b30a]` in [`../../agent-todo.md`](../../agent-todo.md) as the implementation follow-up for the body-size-neutral but Starshine-local-count-losing structured scratch family first seen at `defined=571 abs=598` and widened by `defined=678 abs=705`.

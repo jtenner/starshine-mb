@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-07
+last_reviewed: 2026-06-14
 sources:
   - ../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
+  - ../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md
   - ../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
@@ -40,6 +41,29 @@ related:
   `ssa-nomerge -> dce -> remove-unused-names -> remove-unused-brs -> remove-unused-names -> optimize-instructions -> heap-store-optimization -> pick-load-signs -> precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs -> heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum -> code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks -> precompute -> optimize-instructions -> heap-store-optimization -> rse -> vacuum`
 - Post-pass phase:
   `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`
+
+## 2026-06-14 `ssa-nomerge` scheduling anchors
+
+`[SSANM-010a]` refreshed only the `ssa-nomerge` scheduling facts needed before the O4z no-op decision; it does not replace the whole historical `version_129` no-DWARF path audit above.
+
+| Anchor | Current fact | Source / proof surface |
+| --- | --- | --- |
+| Binaryen `version_130` registration | `pass.cpp` still registers public `ssa-nomerge` through `createSSAifyNoMergePass`. | [`../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md`](../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md) confirms the registration did not drift from `version_129`; local `wasm-opt --version` reports `wasm-opt version 130 (version_130)`. |
+| Binaryen early function-pipeline slot | `addDefaultFunctionOptimizationPasses()` still schedules `ssa-nomerge` when `optimizeLevel >= 3 || shrinkLevel >= 1`, subject to DWARF gating. For `-O4z`, that condition is true before the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude and before `dce -> remove-unused-names -> remove-unused-brs`. | Same source refresh; it records the official `version_130` `src/passes/pass.cpp` source URL and the local downloaded-file comparison. |
+| Starshine public preset expansion | `optimize` and `shrink` both contain an early `ssa-nomerge` slot after `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> global-struct-inference`, then `dead-code-elimination -> remove-unused-names -> remove-unused-brs`. They do not currently add the Binaryen O4z-only `flatten` prelude. | [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) `optimize_preset_passes` / `shrink_preset_passes`; [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt) `preset expansion stays on implemented active pass names`. |
+| Starshine O4z no-op guard | Even when the public preset queue contains `ssa-nomerge`, direct execution is skipped with trace reason `o4z-ssa-nomerge-noop` whenever `descriptor.name == "ssa-nomerge"`, `optimize_level >= 4`, and `shrink_level >= 1`. `-O4z` resolves to a shrink preset with both levels set, so the guard applies. | [`../../../src/passes/pass_manager.mbt`](../../../src/passes/pass_manager.mbt) raw dispatch guard; [`../../../src/passes/ssa_nomerge_test.mbt`](../../../src/passes/ssa_nomerge_test.mbt) `ssa-nomerge skips O4z raw pass until self-opt cli flag parsing is safe`; [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt) `resolve_optimize_levels`. |
+| Decision boundary | Removing, narrowing, or retaining the Starshine guard is still `[SSANM-010c]`, not decided by this source refresh. The next evidence slice is `[SSANM-010b]`, which should replay the early `ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs` neighborhood before asking the user for the top-level scheduling decision. | [`../../../agent-todo.md`](../../../agent-todo.md) `[SSANM-010b]` / `[SSANM-010c]`. |
+
+## 2026-06-14 early-neighborhood replay
+
+`[SSANM-010b]` replayed the Starshine side of the early neighborhood against the checked-in debug-WASI artifact with the prebuilt native `target/native/release/build/cmd/cmd.exe`. The replay is evidence for the local scheduling decision only; it is not a Binaryen semantic-equivalence classification because Starshine fails before a comparable full-neighborhood artifact is available.
+
+| Prefix | Exit / output | Local classification |
+| --- | --- | --- |
+| `--ssa-nomerge` | Exit `0` in about `4s`; wrote `7,496,071` bytes. | Direct pass still completes on the artifact. |
+| `--ssa-nomerge --dead-code-elimination` | Exit `0` in about `5s`; wrote `7,482,974` bytes. | First follow-on cleanup completes and shrinks the artifact by `13,097` bytes. |
+| `--ssa-nomerge --dead-code-elimination --remove-unused-names` | Exit `1` in about `5s`; `error: final module validate: stack underflow`, offending `Func 254`. | Validation failure / scheduling blocker. |
+| Full requested neighborhood through `--remove-unused-brs --remove-unused-names` | Aborts before producing a comparable artifact. | Keep the O4z no-op guard until `[SSANM-010c]` and a follow-on implementation plan decide otherwise. |
 
 ## Nested Rerun Rule
 

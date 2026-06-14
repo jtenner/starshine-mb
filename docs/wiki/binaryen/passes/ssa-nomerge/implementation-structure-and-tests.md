@@ -123,6 +123,32 @@ Starshine implements an active pass with the same public goal, but the owner spl
 
 The important local-vs-upstream lesson is the same as in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md): Starshine can lower overlay phis through explicit predecessor copies, while Binaryen `ssa-nomerge` deliberately avoids merge materialization.
 
+## `[SSANM-010a]` O4z scheduling-anchor refresh
+
+`[SSANM-010a]` is source/docs review, not a preset mutation. It refreshes the exact anchors needed before the `[SSANM-010c]` scheduling decision:
+
+| Surface | Current anchor |
+| --- | --- |
+| Binaryen `version_130` | `wasm-opt --version` reports `version_130`; the 2026-06-13 source refresh confirms `src/passes/pass.cpp` still registers `ssa-nomerge` and schedules it under `optimizeLevel >= 3 || shrinkLevel >= 1`. |
+| Binaryen O4z neighborhood | Because `optimizeLevel >= 4` also admits the aggressive prelude, the top of the function pipeline is `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse -> dce -> remove-unused-names -> remove-unused-brs -> remove-unused-names ...`, all subject to DWARF gating. |
+| Starshine public presets | `optimize_preset_passes` and `shrink_preset_passes` include the early `ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs` neighborhood but still omit `flatten`; `registry_test.mbt` locks the current implemented-pass preset arrays. |
+| Starshine O4z guard | `pass_manager.mbt` returns unchanged with `o4z-ssa-nomerge-noop` when `ssa-nomerge` runs with `optimize_level >= 4 && shrink_level >= 1`; `ssa_nomerge_test.mbt` locks that trace. |
+
+The remaining work is evidence and decision work, not a hidden implementation in this slice: `[SSANM-010b]` should replay the early neighborhood, `[SSANM-010c]` must stop for user approval on the top-level scheduling decision, and `[SSANM-010d]` applies the chosen policy if approved.
+
+## `[SSANM-010b]` early-neighborhood replay
+
+`[SSANM-010b]` used the prebuilt native `target/native/release/build/cmd/cmd.exe` on `tests/node/dist/starshine-debug-wasi.wasm` to probe the explicit Starshine prefix that would become relevant if the O4z `ssa-nomerge` guard were removed or narrowed.
+
+| Replay prefix | Result |
+| --- | --- |
+| `--ssa-nomerge` | Exit `0`, about `4s`, `7,496,071` byte output. |
+| `--ssa-nomerge --dead-code-elimination` | Exit `0`, about `5s`, `7,482,974` byte output. |
+| `--ssa-nomerge --dead-code-elimination --remove-unused-names` | Exit `1`, about `5s`, final module validation failure: `stack underflow`, offending `Func 254`. |
+| Full explicit early neighborhood through `--remove-unused-brs --remove-unused-names` | Aborts before producing a comparable artifact. |
+
+Owner implication: the replay is a validation-failure blocker for scheduling, not a semantic parity classification. Keep the `o4z-ssa-nomerge-noop` guard unless `[SSANM-010c]` records an explicit decision and `[SSANM-010d]` first fixes or gates the `remove-unused-names` follow-on failure.
+
 ## `[SSANM-006a1]` normal structured-control ownership map
 
 `[SSANM-006a1]` is a classification slice, not a mutation expansion. The current source/test review maps normal structured-control families this way:
