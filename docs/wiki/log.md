@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Admit mixed structured LocalGraph tee writes
+
+- Split `[SSANM-005c3]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for narrow `local.tee` admission, branch-exit / `br_table` classification, and broader nested-control classification, then completed `[SSANM-005c3a]`.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the existing `structured-mixed-localgraph-plan` rewrite can handle small supported normal-control mixed regions with `local.tee` writes, while leaving larger tee-heavy artifact scratch/copy families on existing helpers.
+- Added focused public-pipeline coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt), plus updates to [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md). Evidence: red-first focused test failed because the mixed tee fixture stayed on the legacy path; final `moon fmt`, `moon info`, focused `ssa_nomerge_test.mbt` (`397/397`), `moon test src/passes` (`2427/2427`), full `moon test` (`5732/5732`), native build, and direct compare `.tmp/pass-fuzz-ssa-nomerge-ssanm005c3a-tee-10000` (`7601/10000` compared, `7601` normalized, `0` mismatches, `20` Binaryen/tool command failures: `19` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`) passed.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice predecessor-copy retirement work
 
 - Split hidden work under `[SSANM-006b]` in [`../../agent-todo.md`](../../agent-todo.md) into child slices for inventorying copy-producing no-merge paths, rerouting ordinary LocalGraph-supported families away from predecessor copies, and retiring or narrowing legacy predecessor-copy helpers/summaries.

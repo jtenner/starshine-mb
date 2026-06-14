@@ -13662,31 +13662,39 @@ fn run_hot_pipeline_raw_ssa_nomerge_multisource_merge_supported_control(
 }
 
 ///|
-fn run_hot_pipeline_raw_ssa_nomerge_mixed_set_supported_control(
+priv struct SsaNoMergeMixedStructuredControlScan {
+  mut write_count : Int
+  mut tee_count : Int
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_scan_mixed_structured_control(
   instrs : Array[@lib.Instruction],
+  state : SsaNoMergeMixedStructuredControlScan,
 ) -> Bool {
-  if !run_hot_pipeline_raw_ssa_nomerge_multisource_merge_supported_control(
-      instrs,
-    ) {
-    return false
-  }
   for instr in instrs {
     match instr {
-      @lib.LocalTee(_) => return false
+      @lib.LocalSet(_) => state.write_count = state.write_count + 1
+      @lib.LocalTee(_) => {
+        state.write_count = state.write_count + 1
+        state.tee_count = state.tee_count + 1
+      }
       @lib.Block(_, @lib.Expr(body)) =>
-        if !run_hot_pipeline_raw_ssa_nomerge_mixed_set_supported_control(body) {
+        if !run_hot_pipeline_raw_ssa_nomerge_scan_mixed_structured_control(
+            body, state,
+          ) {
           return false
         }
       @lib.If(_, then_body, else_body) => {
-        if !run_hot_pipeline_raw_ssa_nomerge_mixed_set_supported_control(
-            then_body,
+        if !run_hot_pipeline_raw_ssa_nomerge_scan_mixed_structured_control(
+            then_body, state,
           ) {
           return false
         }
         match else_body {
           Some(body) =>
-            if !run_hot_pipeline_raw_ssa_nomerge_mixed_set_supported_control(
-                body,
+            if !run_hot_pipeline_raw_ssa_nomerge_scan_mixed_structured_control(
+                body, state,
               ) {
               return false
             }
@@ -13697,6 +13705,24 @@ fn run_hot_pipeline_raw_ssa_nomerge_mixed_set_supported_control(
     }
   }
   true
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_mixed_structured_supported_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if !run_hot_pipeline_raw_ssa_nomerge_multisource_merge_supported_control(
+      instrs,
+    ) {
+    return false
+  }
+  let state = { write_count: 0, tee_count: 0 }
+  if !run_hot_pipeline_raw_ssa_nomerge_scan_mixed_structured_control(
+      instrs, state,
+    ) {
+    return false
+  }
+  state.tee_count == 0 || state.write_count <= 4
 }
 
 ///|
@@ -15588,7 +15614,9 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         })
       }
     }
-    if run_hot_pipeline_raw_ssa_nomerge_mixed_set_supported_control(instrs) {
+    if run_hot_pipeline_raw_ssa_nomerge_mixed_structured_supported_control(
+        instrs,
+      ) {
       let hot_func = @ir.hot_lift_func(mod_, func_idx)
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
       let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
