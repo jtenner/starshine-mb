@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diffs at abs 646 through 650
+
+- Completed `[SSANM-009b74]` through `[SSANM-009b77]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs: `defined=619 abs=646`, `defined=621 abs=648`, `defined=622 abs=649`, and `defined=623 abs=650`. Targeted `defined=620 abs=647` output matches exactly.
+- Targeted `--print-func 646` extraction under `.tmp/ssanm009b73-next646` shows identical masked `body_raw` token streams, the same `140` local operations (`89` `local.get`, `30` `local.set`, and `21` `local.tee`), and equal `689` byte code bodies. The only differences are 16 one-use same-typed write targets: 14 `local.tee` targets plus two dead `local.set`; Starshine declares `51` body i32 locals versus Binaryen `67`.
+- Targeted `--print-func 648` extraction under `.tmp/ssanm009b74-next648` shows identical masked token streams, the same `80` local operations (`54` `local.get`, `13` `local.set`, and `13` `local.tee`), and equal `341` byte code bodies. The only differences are eight one-use dead `local.tee` targets; Starshine declares `26` body i32 locals versus Binaryen `34`.
+- Targeted `--print-func 649` extraction under `.tmp/ssanm009b74-next649` shows identical masked token streams, the same `72` local operations (`50` `local.get`, `15` `local.set`, and `7` `local.tee`), equal `329` byte code bodies, and equal `26` body i32 locals. The differences are a same-typed local-slot permutation among four one-use `local.tee` targets plus one set/get pair.
+- Targeted `--print-func 650` extraction under `.tmp/ssanm009b74-next650` shows identical masked token streams, the same `239` local operations (`169` `local.get`, `35` `local.set`, and `35` `local.tee`), and equal `1086` byte code bodies. The only differences are 19 one-use dead `local.tee` targets; Starshine declares `68` body i32 locals versus Binaryen `87`.
+- Evidence: `wasm-tools validate --features all` passed for both `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b13a-disable-tuple-20260614/{starshine,binaryen}.wasm`; Starshine traces report `call-heavy-memory-structured-noop` for `abs=646` through `649` and `structured-local-writes` for `abs=650`. Agent classification: `abs=646`, `648`, and `650` are semantic-safe Starshine local-count wins / no-regression representation differences; `abs=649` is semantic-safe neutral local-slot drift. None is an implementation gap.
+- No executable code changed, so direct compare was not rerun beyond `.tmp/pass-fuzz-ssa-nomerge-ssanm009b14-classify-20260614` (`9977` normalized matches, `0` mismatches, `23` cached Binaryen/tool command failures).
+- Added `[SSANM-009b78]` for the next `defined=624 abs=651` candidate; preliminary extraction under `.tmp/ssanm009b77-next651` is masked-equal but still needs classification.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md).
+
 ## [2026-06-14] passes/ssa-nomerge | Classify debug-WASI diffs at abs 641 through 645
 
 - Completed `[SSANM-009b69]` through `[SSANM-009b73]` in [`../../agent-todo.md`](../../agent-todo.md) as classification-only slices over the next current debug-WASI self artifact print diffs: `defined=614 abs=641`, `defined=615 abs=642`, `defined=616 abs=643`, `defined=617 abs=644`, and `defined=618 abs=645`.
