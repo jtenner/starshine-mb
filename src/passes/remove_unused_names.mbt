@@ -263,6 +263,31 @@ fn remove_unused_names_retarget_node_labels(
 }
 
 ///|
+fn remove_unused_names_retarget_subtree_labels(
+  func : @ir.HotFunc,
+  node_id : Int,
+  control_ids : Array[Int],
+  replacement_label : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let mut changed = remove_unused_names_retarget_node_labels(
+    func, node_id, control_ids, replacement_label,
+  )
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    changed = remove_unused_names_retarget_subtree_labels(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        control_ids,
+        replacement_label,
+      ) ||
+      changed
+  }
+  changed
+}
+
+///|
 fn remove_unused_names_retarget_region_labels(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -272,78 +297,40 @@ fn remove_unused_names_retarget_region_labels(
   let mut changed = false
   let root_count = @ir.hot_region_root_count(func, region_ref)
   for idx = 0; idx < root_count; idx = idx + 1 {
-    let node_id = @ir.hot_region_get(func, region_ref, idx)
-    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    changed = remove_unused_names_retarget_node_labels(
-        func, node_id, control_ids, replacement_label,
+    changed = remove_unused_names_retarget_subtree_labels(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        control_ids,
+        replacement_label,
       ) ||
       changed
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::Block | @ir.HotOp::Loop =>
-        changed = remove_unused_names_retarget_region_labels(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            control_ids,
-            replacement_label,
-          ) ||
-          changed
-      @ir.HotOp::If => {
-        changed = remove_unused_names_retarget_region_labels(
-            func,
-            @ir.hot_region_then_ref(func, node_id),
-            control_ids,
-            replacement_label,
-          ) ||
-          changed
-        match @ir.hot_region_else_ref(func, node_id) {
-          Some(else_region) =>
-            changed = remove_unused_names_retarget_region_labels(
-                func, else_region, control_ids, replacement_label,
-              ) ||
-              changed
-          None => ()
-        }
-      }
-      @ir.HotOp::Try => {
-        changed = remove_unused_names_retarget_region_labels(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            control_ids,
-            replacement_label,
-          ) ||
-          changed
-        match @ir.hot_region_catch_ref(func, node_id) {
-          Some(catch_region) =>
-            changed = remove_unused_names_retarget_region_labels(
-                func, catch_region, control_ids, replacement_label,
-              ) ||
-              changed
-          None => ()
-        }
-      }
-      @ir.HotOp::TryTable => {
-        changed = remove_unused_names_retarget_region_labels(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            control_ids,
-            replacement_label,
-          ) ||
-          changed
-        changed = remove_unused_names_retarget_region_labels(
-            func,
-            @ir.hot_region_catch_list_ref(func, node_id),
-            control_ids,
-            replacement_label,
-          ) ||
-          changed
-      }
-      _ => ()
-    }
   }
   changed
+}
+
+///|
+fn remove_unused_names_subtree_targets_any_control(
+  func : @ir.HotFunc,
+  node_id : Int,
+  control_ids : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if remove_unused_names_node_targets_any_control(func, node, control_ids) {
+    return true
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if remove_unused_names_subtree_targets_any_control(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        control_ids,
+      ) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -354,76 +341,12 @@ fn remove_unused_names_region_targets_any_control(
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   for idx = 0; idx < root_count; idx = idx + 1 {
-    let node_id = @ir.hot_region_get(func, region_ref, idx)
-    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    if remove_unused_names_node_targets_any_control(func, node, control_ids) {
+    if remove_unused_names_subtree_targets_any_control(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        control_ids,
+      ) {
       return true
-    }
-    match node.op {
-      @ir.HotOp::Block | @ir.HotOp::Loop =>
-        if remove_unused_names_region_targets_any_control(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            control_ids,
-          ) {
-          return true
-        }
-      @ir.HotOp::If => {
-        if remove_unused_names_region_targets_any_control(
-            func,
-            @ir.hot_region_then_ref(func, node_id),
-            control_ids,
-          ) {
-          return true
-        }
-        match @ir.hot_region_else_ref(func, node_id) {
-          Some(else_region) =>
-            if remove_unused_names_region_targets_any_control(
-                func, else_region, control_ids,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      @ir.HotOp::Try => {
-        if remove_unused_names_region_targets_any_control(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            control_ids,
-          ) {
-          return true
-        }
-        match @ir.hot_region_catch_ref(func, node_id) {
-          Some(catch_region) =>
-            if remove_unused_names_region_targets_any_control(
-                func, catch_region, control_ids,
-              ) {
-              return true
-            }
-          None => ()
-        }
-      }
-      @ir.HotOp::TryTable => {
-        if remove_unused_names_region_targets_any_control(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            control_ids,
-          ) {
-          return true
-        }
-        if remove_unused_names_region_targets_any_control(
-            func,
-            @ir.hot_region_catch_list_ref(func, node_id),
-            control_ids,
-          ) {
-          return true
-        }
-      }
-      _ => ()
     }
   }
   false

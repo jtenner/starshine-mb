@@ -363,6 +363,22 @@ test "remove-unused-names O4z accounts for type-mismatch loop demotion" {
 }
 
 ///|
+test "remove-unused-names retargets operand-nested branches through peeled blocks" {
+  // Regression for the self-optimization RUN panic: a branch that targets a
+  // peeled same-typed block can be nested under value operands rather than
+  // appearing as a region root. Retargeting only root/control-region nodes
+  // leaves the branch pointing at a detached label and HOT lowering aborts.
+  let body = remove_unused_names_test_body(
+    "(module (func (local i32) (block (block (local.set 0 (br 0))))))",
+  )
+  match body {
+    [@lib.Block(@lib.VoidBlockType, _)] => ()
+    other =>
+      fail("expected peeled block to lower without stale labels, got \{other}")
+  }
+}
+
+///|
 test "remove-unused-names preserves dead typed loop with entry params" {
   // Regression for [SSANM-010b1]: the debug-WASI early neighborhood failure
   // came from demoting a no-continue typed loop whose block type has an entry
