@@ -17092,16 +17092,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   if descriptor.name != "ssa-nomerge" && descriptor.name != "ssa" {
     return None
   }
-  if descriptor.name == "ssa-nomerge" &&
-    options.optimize_level >= 4 &&
-    options.shrink_level >= 1 {
-    return Some({
-      reason: "o4z-ssa-nomerge-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,

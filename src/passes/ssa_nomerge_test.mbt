@@ -5326,11 +5326,11 @@ test "ssa-nomerge artifact parity preserves adapter error across sibling block" 
 }
 
 ///|
-test "ssa-nomerge skips O4z raw pass until self-opt cli flag parsing is safe" {
+test "ssa-nomerge runs in O4z scheduling mode" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
-      "(module (func (local i32) i32.const 1 local.set 0 local.get 0 drop))",
+      "(module (func (result i32) (local i32) i32.const 1 local.set 0 i32.const 2 local.set 0 local.get 0))",
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(
         optimize_level=4,
@@ -5338,14 +5338,31 @@ test "ssa-nomerge skips O4z raw pass until self-opt cli flag parsing is safe" {
         trace=Some(fn(line) { trace.push(line) }),
       ),
     ) {
-    Ok(_) => ()
-    Err(err) => fail("expected O4z ssa-nomerge skip success, got \{err}")
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z ssa-nomerge success, got \{err}")
   }
-  assert_true(
+  assert_false(
     trace.any(fn(line) {
       line.contains("pass[ssa-nomerge]:skip-raw reason=o4z-ssa-nomerge-noop")
     }),
+    msg=trace.join("\n"),
   )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  ])
 }
 
 ///|

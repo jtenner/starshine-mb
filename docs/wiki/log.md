@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-15] passes/ssa-nomerge | Enable O4z scheduling
+
+- Completed `[SSANM-010c]` / `[SSANM-010d]` in [`../../agent-todo.md`](../../agent-todo.md) after explicit user approval to remove the broad `o4z-ssa-nomerge-noop` guard and fix exposed correctness issues before release instead of keeping the scheduled pass bypassed.
+- Removed the O4z-shaped raw-dispatch short-circuit from [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt). Updated [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) so `ssa-nomerge runs in O4z scheduling mode` fails under the old guard, asserts the skip trace is absent, and verifies overwritten body writes still freshen under `optimize_level=4, shrink_level=1`.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `444/444`; `moon fmt`; `moon test src/passes` passed `2478/2478`; native `moon build --target native --release src/cmd` completed with pre-existing unused-function warnings; CLI `-O4z` replay on `tests/repros/o4z-debug-startup-map-init-repro.wasm` wrote `.tmp/ssanm010c-o4z/repro-o4z.wasm` and `wasm-tools validate --features all` passed. Full debug-WASI `-O4z` replay timed out after 300s without producing an artifact, so it is not counted as green release evidence.
+- Updated [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md). Reopening criteria: any future O4z guard must be narrow, minimized, and documented as release-blocking follow-up work.
+
 ## [2026-06-15] passes/ssa-nomerge | Compact branch dead tees and nested compare locals
 
 - Completed `[SSANM-009b118]` in [`../../agent-todo.md`](../../agent-todo.md) by reducing the two remaining post-`[SSANM-009b117]` debug-WASI local-count-losing candidates: `defined=1501 abs=1528` and `defined=1506 abs=1533`.

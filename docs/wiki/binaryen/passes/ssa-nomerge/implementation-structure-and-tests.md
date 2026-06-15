@@ -132,9 +132,9 @@ The important local-vs-upstream lesson is the same as in [`./starshine-hot-ir-st
 | Binaryen `version_130` | `wasm-opt --version` reports `version_130`; the 2026-06-13 source refresh confirms `src/passes/pass.cpp` still registers `ssa-nomerge` and schedules it under `optimizeLevel >= 3 || shrinkLevel >= 1`. |
 | Binaryen O4z neighborhood | Because `optimizeLevel >= 4` also admits the aggressive prelude, the top of the function pipeline is `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse -> dce -> remove-unused-names -> remove-unused-brs -> remove-unused-names ...`, all subject to DWARF gating. |
 | Starshine public presets | `optimize_preset_passes` and `shrink_preset_passes` include the early `ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs` neighborhood but still omit `flatten`; `registry_test.mbt` locks the current implemented-pass preset arrays. |
-| Starshine O4z guard | `pass_manager.mbt` returns unchanged with `o4z-ssa-nomerge-noop` when `ssa-nomerge` runs with `optimize_level >= 4 && shrink_level >= 1`; `ssa_nomerge_test.mbt` locks that trace. |
+| Starshine O4z guard | Superseded on 2026-06-15: `pass_manager.mbt` no longer returns unchanged with `o4z-ssa-nomerge-noop`; `ssa_nomerge_test.mbt` now locks that O4z-shaped options run `ssa-nomerge` and freshen overwritten body writes. |
 
-The remaining work is evidence and decision work, not a hidden implementation in this slice: `[SSANM-010b]` replayed the early neighborhood, `[SSANM-010b1]` fixed the first follow-on typed-loop blocker, and `[SSANM-010c]` is now explicitly deferred by user direction until SSANM is otherwise fully implemented. Keep the current `o4z-ssa-nomerge-noop` guard in place until that final scheduling checkpoint; `[SSANM-010d]` applies the chosen policy only after approval.
+`[SSANM-010c]` is now decided by explicit user approval: remove the broad O4z no-op and fix any exposed correctness issues before release rather than silently bypassing the scheduled pass. `[SSANM-010d]` applied that policy by deleting the guard and updating the O4z scheduling-mode regression. Reopening criteria: any future guard must be narrow, backed by a minimized validation/correctness reproducer, and documented as release-blocking follow-up work.
 
 ## `[SSANM-010b1]` remove-unused-names typed-loop repair
 
@@ -150,7 +150,7 @@ Local proof surface:
 
 Evidence: `remove_unused_names_test.mbt` passed `26/26`; `moon fmt`; `moon test src/passes` passed `2472/2472`; native `moon build --target native --release src/cmd` completed with pre-existing pass-manager unused-function warnings. Rebuilt-native replay of direct `--remove-unused-names` on `.tmp/self-ssa-nomerge-o4z-early-neighborhood-20260614/func254-before.wasm` exited `0`, and `wasm-tools validate --features all .tmp/ssanm010b1-replay/func254-after.wasm` passed. The rebuilt-native three-pass prefix `--ssa-nomerge --dead-code-elimination --remove-unused-names tests/node/dist/starshine-debug-wasi.wasm` now exits `0` in about `5s` and writes `7,482,266` bytes.
 
-This fixes the named `Func 254` / extracted `Func 25` stack-underflow blocker. It does not decide whether to remove, narrow, or retain `o4z-ssa-nomerge-noop`; `[SSANM-010c]` remains the explicit user-approved scheduling decision.
+This fixes the named `Func 254` / extracted `Func 25` stack-underflow blocker. Supersession: `[SSANM-010c]` later removed the broad `o4z-ssa-nomerge-noop` guard by explicit user approval; this earlier typed-loop fix remains the first prerequisite evidence for that policy.
 
 ## `[SSANM-010b]` early-neighborhood replay
 
@@ -163,7 +163,7 @@ This fixes the named `Func 254` / extracted `Func 25` stack-underflow blocker. I
 | `--ssa-nomerge --dead-code-elimination --remove-unused-names` | Exit `1`, about `5s`, final module validation failure: `stack underflow`, offending `Func 254`. |
 | Full explicit early neighborhood through `--remove-unused-brs --remove-unused-names` | Aborts before producing a comparable artifact. |
 
-A matching `wasm-opt --all-features` sanity pass validates each Binaryen prefix, including the full repeated-`remove-unused-names` neighborhood (`3,124,589` bytes). Owner implication: the replay was a validation-failure blocker for scheduling, not a semantic parity classification. `[SSANM-010b1]` later fixed the first `remove-unused-names` follow-on blocker, but `[SSANM-010c]` is deferred until direct SSANM implementation evidence is complete; keep `o4z-ssa-nomerge-noop` until that approved final scheduling checkpoint.
+A matching `wasm-opt --all-features` sanity pass validates each Binaryen prefix, including the full repeated-`remove-unused-names` neighborhood (`3,124,589` bytes). Owner implication: the replay was a validation-failure blocker for scheduling, not a semantic parity classification. `[SSANM-010b1]` later fixed the first `remove-unused-names` follow-on blocker, and `[SSANM-010c]` was then decided on 2026-06-15 by removing the broad O4z no-op while making any exposed correctness issue release-blocking follow-up work.
 
 ## `[SSANM-009b113]` current-HEAD debug-WASI loop-carrier classification
 
