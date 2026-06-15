@@ -7,6 +7,7 @@ sources:
   - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
+  - ../../../raw/research/0725-2026-06-15-inlining-optimizing-cache-followup.md
   - ../../../raw/research/0724-2026-06-15-inlining-optimizing-wall-time-root-cause.md
   - ../../../raw/research/0723-2026-06-15-inlining-optimizing-behavior-inventory.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
@@ -59,7 +60,7 @@ That is much closer to reality than “more aggressive inlining.”
 
 ## Current durable takeaways
 
-- A 2026-06-15 wall-time investigation found and fixed the severe self-optimization spin: `inl_original_reachable_private_cycle_funcs(...)` repeatedly ran recursive graph reachability with fresh `seen` arrays across thousands of functions. An iteration-local transitive reachability table reduced the traced debug-CLI artifact `pass:inlining-optimizing` timer from `690.716s` to `41.091s` (`~16.8x`). Nested cleanup was confirmed skipped by the `>80` defined-function guard on the artifact. The remaining measured hotspots are same-signature root-cycle dead-suffix preservation and unreachable-root collapse.
+- A 2026-06-15 wall-time investigation found and fixed the severe self-optimization spin: `inl_original_reachable_private_cycle_funcs(...)` repeatedly ran recursive graph reachability with fresh `seen` arrays across thousands of functions. An iteration-local transitive reachability table first reduced the traced debug-CLI artifact `pass:inlining-optimizing` timer from `690.716s` to `41.091s` (`~16.8x`). A same-day follow-up cached same-signature/dead-suffix preservation facts, deferred original-reachability prediction until after changed-callsite detection, and cached per-helper function signature keys; `.tmp/self-opt-inlining-final-perf.stderr` reduced the same pass timer to `3.528s`, with no remaining traced inlining subphase in the 10s range. Nested cleanup was confirmed skipped by the `>80` defined-function guard on the artifact.
 - A 2026-06-15 behavior inventory refreshed the comparison against local `wasm-opt version 130 (version_130)` and upstream Binaryen `version_130` sources. The basic direct-call eligibility thresholds still line up with Binaryen's defaults; the largest differences are Starshine's broader `try_table` conservatism, no partial-inlining splitter, partial tail-call/name/nondefaultable-local repair, hand-expanded optimizing suffix, large-module suffix guard, and Starshine-only unreachable-cycle prediction/trim scaffolding.
 - The core inliner is module-level boundary work, not HOT-local peepholing.
 - Reviewed `version_129` chosen inline actions are direct `call` / `return_call` based; `ref.func` and ref/indirect calls remain relevant to survival and repair.

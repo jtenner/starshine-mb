@@ -52,6 +52,23 @@ priv struct InlOriginalGraphInfo {
 }
 
 ///|
+priv struct InlDeadSuffixTargets {
+  has_any : Bool
+  total_count : Int
+  targets : Array[Int]
+  counts : Array[Int]
+}
+
+///|
+priv struct InlDeadSuffixPreserveFacts {
+  imports : Int
+  defined : Int
+  used : Array[Bool]
+  signatures : Array[String]
+  dead_suffix_targets : Array[InlDeadSuffixTargets]
+}
+
+///|
 fn inl_imported_func_count(mod_ : @lib.Module) -> Int {
   let mut count = 0
   match mod_.import_sec {
@@ -1897,23 +1914,6 @@ fn inl_dead_suffix_call_count_to(func : @lib.Func, target_abs : Int) -> Int {
 }
 
 ///|
-fn inl_dead_suffix_call_count(func : @lib.Func) -> Int {
-  let @lib.Func(_, @lib.Expr(body)) = func
-  let mut seen_unreachable = false
-  let mut count = 0
-  for instr in body {
-    match instr {
-      @lib.Unreachable
-      | @lib.Block(@lib.VoidBlockType, @lib.Expr([@lib.Unreachable])) =>
-        seen_unreachable = true
-      @lib.Call(_) | @lib.ReturnCall(_) => if seen_unreachable { count += 1 }
-      _ => ()
-    }
-  }
-  count
-}
-
-///|
 fn inl_func_has_dead_suffix_call_to(func : @lib.Func, target_abs : Int) -> Bool {
   inl_dead_suffix_call_count_to(func, target_abs) > 0
 }
@@ -2146,11 +2146,12 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   let used_sigs : Array[String] = []
   let mut idx = 0
   while idx < total {
     if idx < used.length() && used[idx] {
-      let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+      let sig = signatures[idx]
       if !inl_array_contains_string(used_sigs, sig) {
         used_sigs.push(sig)
       }
@@ -2196,7 +2197,7 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
             break
           }
         }
-        let sig = inl_func_signature_key(mod_, func_type_indices, other)
+        let sig = signatures[other]
         if inl_array_contains_string(used_sigs, sig) {
           if !inl_array_contains_string(root_sigs, sig) {
             root_sigs.push(sig)
@@ -2225,10 +2226,7 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
         if !scc_member[other] &&
           !(other < used.length() && used[other]) &&
           !reachable_from_root[other] &&
-          inl_array_contains_string(
-            root_sigs,
-            inl_func_signature_key(mod_, func_type_indices, other),
-          ) {
+          inl_array_contains_string(root_sigs, signatures[other]) {
           let mut calls_root_sig = false
           let mut calls_candidate = false
           for target in graph[other] {
@@ -2272,6 +2270,7 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   let processed = Array::make(total, false)
   let mut idx = 0
   while idx < total {
@@ -2312,12 +2311,11 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
           }
         }
         if self_loop {
-          let sig = inl_func_signature_key(mod_, func_type_indices, other)
+          let sig = signatures[other]
           let mut scc_sig_count = 0
           let mut scc_idx = imports
           while scc_idx < total {
-            if scc_member[scc_idx] &&
-              inl_func_signature_key(mod_, func_type_indices, scc_idx) == sig {
+            if scc_member[scc_idx] && signatures[scc_idx] == sig {
               scc_sig_count += 1
             }
             scc_idx += 1
@@ -2348,18 +2346,19 @@ fn inl_prediction_drop_one_way_self_loop_chain_behind_duplicate_root_calls(
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   let mut root = 0
   while root < total {
     if !(root < used.length() && used[root]) || root < imports {
       root += 1
       continue
     }
-    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let root_sig = signatures[root]
     let mut helper = imports
     while helper < total {
       if helper == root ||
         (helper < used.length() && used[helper]) ||
-        inl_func_signature_key(mod_, func_type_indices, helper) != root_sig {
+        signatures[helper] != root_sig {
         helper += 1
         continue
       }
@@ -2382,7 +2381,7 @@ fn inl_prediction_drop_one_way_self_loop_chain_behind_duplicate_root_calls(
           candidate < reachable_from_root.length() &&
           reachable_from_root[candidate] &&
           !(candidate < used.length() && used[candidate]) &&
-          inl_func_signature_key(mod_, func_type_indices, candidate) == root_sig &&
+          signatures[candidate] == root_sig &&
           inl_reachability_reaches(reachability, helper, candidate) {
           for target in graph[candidate] {
             if target == candidate {
@@ -2420,13 +2419,14 @@ fn inl_prediction_retain_self_loop_helper_inlined_count(
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   let mut root = 0
   while root < total {
     if !(root < used.length() && used[root]) || root < imports {
       root += 1
       continue
     }
-    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let root_sig = signatures[root]
     for helper in graph[root] {
       if helper < imports ||
         helper >= total ||
@@ -2434,7 +2434,7 @@ fn inl_prediction_retain_self_loop_helper_inlined_count(
         (helper < used.length() && used[helper]) {
         continue
       }
-      let helper_sig = inl_func_signature_key(mod_, func_type_indices, helper)
+      let helper_sig = signatures[helper]
       if helper_sig == root_sig ||
         inl_signature_result_count(mod_, func_type_indices, helper) == 0 {
         continue
@@ -2448,7 +2448,7 @@ fn inl_prediction_retain_self_loop_helper_inlined_count(
         if target >= 0 &&
           target < total &&
           !(target < used.length() && used[target]) &&
-          inl_func_signature_key(mod_, func_type_indices, target) == root_sig {
+          signatures[target] == root_sig {
           for next in graph[target] {
             if next == root {
               helper_calls_root_sig = true
@@ -2467,7 +2467,7 @@ fn inl_prediction_retain_self_loop_helper_inlined_count(
       while idx < total {
         if idx != helper &&
           !(idx < used.length() && used[idx]) &&
-          inl_func_signature_key(mod_, func_type_indices, idx) == helper_sig {
+          signatures[idx] == helper_sig {
           for target in graph[idx] {
             if target == helper {
               same_sig_peer_calls_helper = true
@@ -2499,13 +2499,14 @@ fn inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   let mut root = 0
   while root < total {
     if !(root < used.length() && used[root]) || root < imports {
       root += 1
       continue
     }
-    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let root_sig = signatures[root]
     for helper in graph[root] {
       if helper < imports ||
         helper >= total ||
@@ -2513,7 +2514,7 @@ fn inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
         (helper < used.length() && used[helper]) {
         continue
       }
-      let helper_sig = inl_func_signature_key(mod_, func_type_indices, helper)
+      let helper_sig = signatures[helper]
       if helper_sig == root_sig ||
         inl_signature_result_count(mod_, func_type_indices, helper) == 0 {
         continue
@@ -2527,7 +2528,7 @@ fn inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
         if target >= 0 &&
           target < total &&
           !(target < used.length() && used[target]) &&
-          inl_func_signature_key(mod_, func_type_indices, target) == root_sig {
+          signatures[target] == root_sig {
           for next in graph[target] {
             if next == root {
               helper_calls_root_sig = true
@@ -2546,7 +2547,7 @@ fn inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
       while idx < total {
         if idx != helper &&
           !(idx < used.length() && used[idx]) &&
-          inl_func_signature_key(mod_, func_type_indices, idx) == helper_sig {
+          signatures[idx] == helper_sig {
           for target in graph[idx] {
             if target == helper {
               same_sig_peer_calls_helper = true
@@ -2583,6 +2584,7 @@ fn inl_prediction_retain_same_sig_root_cycle_helper_with_orphan_dead_suffix(
   }
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   let mut root = 0
   while root < total {
     if !(root < used.length() && used[root]) || root < imports {
@@ -2594,11 +2596,11 @@ fn inl_prediction_retain_same_sig_root_cycle_helper_with_orphan_dead_suffix(
       root += 1
       continue
     }
-    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let root_sig = signatures[root]
     let mut same_sig_defined = 0
     let mut idx = imports
     while idx < total {
-      if inl_func_signature_key(mod_, func_type_indices, idx) == root_sig {
+      if signatures[idx] == root_sig {
         same_sig_defined += 1
       }
       idx += 1
@@ -2612,7 +2614,7 @@ fn inl_prediction_retain_same_sig_root_cycle_helper_with_orphan_dead_suffix(
         helper >= total ||
         helper == root ||
         (helper < used.length() && used[helper]) ||
-        inl_func_signature_key(mod_, func_type_indices, helper) != root_sig {
+        signatures[helper] != root_sig {
         continue
       }
       let helper_def = helper - imports
@@ -2651,7 +2653,7 @@ fn inl_prediction_retain_same_sig_root_cycle_helper_with_orphan_dead_suffix(
           !reachable_from_root[idx] &&
           def_idx >= 0 &&
           def_idx < funcs.length() &&
-          inl_func_signature_key(mod_, func_type_indices, idx) == root_sig &&
+          signatures[idx] == root_sig &&
           inl_func_has_dead_suffix_call(funcs[def_idx]) {
           orphan_same_sig_dead_suffix = true
           break
@@ -2683,6 +2685,7 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
   let retain : @hashmap.HashMap[String, Int] = @hashmap.new()
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   let mut root = 0
   while root < total {
     if !(root < used.length() && used[root]) {
@@ -2702,7 +2705,7 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
       root += 1
       continue
     }
-    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let root_sig = signatures[root]
     let processed = Array::make(total, false)
     let mut seed = imports
     while seed < total {
@@ -2727,7 +2730,7 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
           scc_member[idx] = true
           processed[idx] = true
           scc_size += 1
-          let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+          let sig = signatures[idx]
           inl_hash_inc_int(sigs, sig)
           for target in graph[idx] {
             if target == idx {
@@ -2743,7 +2746,7 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
         idx = imports
         while idx < total {
           if scc_member[idx] {
-            let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+            let sig = signatures[idx]
             if sig != root_sig &&
               inl_hash_get_int(sigs, sig) == 2 &&
               inl_signature_result_count(mod_, func_type_indices, idx) > 0 {
@@ -2759,13 +2762,13 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
         idx = imports
         while idx < total {
           if scc_member[idx] &&
-            inl_func_signature_key(mod_, func_type_indices, idx) == root_sig &&
+            signatures[idx] == root_sig &&
             inl_signature_result_count(mod_, func_type_indices, idx) > 0 {
             let mut has_result_pair = false
             let mut other = imports
             while other < total {
               if scc_member[other] {
-                let sig = inl_func_signature_key(mod_, func_type_indices, other)
+                let sig = signatures[other]
                 if sig != root_sig &&
                   inl_hash_get_int(sigs, sig) == 2 &&
                   inl_signature_result_count(mod_, func_type_indices, other) > 0 {
@@ -2818,6 +2821,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
 ) -> Unit {
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   let mut root = 0
   while root < total {
     if !(root < used.length() && used[root]) {
@@ -2837,7 +2841,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
       root += 1
       continue
     }
-    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let root_sig = signatures[root]
     let processed = Array::make(total, false)
     let mut seed = imports
     while seed < total {
@@ -2862,7 +2866,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
           processed[idx] = true
           scc_member[idx] = true
           scc_size += 1
-          let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+          let sig = signatures[idx]
           inl_hash_inc_int(sigs, sig)
           for target in graph[idx] {
             if target == idx {
@@ -2878,7 +2882,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
         idx = imports
         while idx < total {
           if scc_member[idx] {
-            let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+            let sig = signatures[idx]
             if sig != root_sig &&
               inl_hash_get_int(sigs, sig) == 2 &&
               inl_signature_result_count(mod_, func_type_indices, idx) == 0 {
@@ -2892,7 +2896,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
         idx = imports
         while idx < total {
           if scc_member[idx] {
-            let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+            let sig = signatures[idx]
             if sig != root_sig &&
               inl_hash_get_int(sigs, sig) == 2 &&
               inl_signature_result_count(mod_, func_type_indices, idx) > 0 {
@@ -2906,7 +2910,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
           idx = imports
           while idx < total {
             if scc_member[idx] {
-              let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+              let sig = signatures[idx]
               if sig != root_sig {
                 final_trim.set(sig, 0)
               }
@@ -2973,10 +2977,15 @@ fn inl_prediction_adjust_broadened_four_func_dead_suffix_frontier(
     return 0
   }
   let func_type_indices = inl_collect_func_type_indices(mod_)
-  let sig0 = inl_func_signature_key(mod_, func_type_indices, 0)
-  let sig1 = inl_func_signature_key(mod_, func_type_indices, 1)
-  let sig2 = inl_func_signature_key(mod_, func_type_indices, 2)
-  let sig3 = inl_func_signature_key(mod_, func_type_indices, 3)
+  let signatures = inl_build_func_signature_keys(
+    mod_,
+    func_type_indices,
+    graph.length(),
+  )
+  let sig0 = signatures[0]
+  let sig1 = signatures[1]
+  let sig2 = signatures[2]
+  let sig3 = signatures[3]
   if sig0 == sig1 && sig0 == sig2 && sig0 == sig3 {
     if inl_graph_edges_equal(graph, 0, [3]) &&
       inl_graph_edges_equal(graph, 1, [0, 1]) &&
@@ -3080,6 +3089,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
   let final_trim : @hashmap.HashMap[String, Int] = @hashmap.new()
   let total = graph.length()
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   let processed = Array::make(total, false)
   let mut root = 0
   while root < total {
@@ -3087,7 +3097,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
       root += 1
       continue
     }
-    let root_sig = inl_func_signature_key(mod_, func_type_indices, root)
+    let root_sig = signatures[root]
     let scc_member = Array::make(total, false)
     let mut scc_size = 0
     let mut root_sig_members = 0
@@ -3104,7 +3114,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
         scc_member[idx] = true
         processed[idx] = true
         scc_size += 1
-        let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+        let sig = signatures[idx]
         if sig == root_sig {
           root_sig_members += 1
         } else {
@@ -3119,7 +3129,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
           if target >= 0 &&
             target < used.length() &&
             used[target] &&
-            inl_func_signature_key(mod_, func_type_indices, target) == root_sig {
+            signatures[target] == root_sig {
             calls_used_root_sig = true
           }
         }
@@ -3150,7 +3160,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
         !(idx < used.length() && used[idx]) &&
         idx < reachable_from_root.length() &&
         !reachable_from_root[idx] {
-        let idx_sig = inl_func_signature_key(mod_, func_type_indices, idx)
+        let idx_sig = signatures[idx]
         if idx_sig != root_sig {
           for target in graph[idx] {
             if target >= 0 && target < scc_member.length() && scc_member[target] {
@@ -3189,8 +3199,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
                   !(other < used.length() && used[other]) &&
                   other < reachable_from_root.length() &&
                   !reachable_from_root[other] &&
-                  inl_func_signature_key(mod_, func_type_indices, other) !=
-                  root_sig {
+                  signatures[other] != root_sig {
                   for target in graph[other] {
                     if target == idx {
                       has_orphan_other_sig_calls_orphan_self_root = true
@@ -3338,6 +3347,7 @@ fn inl_original_reachable_private_cycle_funcs(
   let mark = Array::make(total, false)
   let public_scc_representative = Array::make(total, -1)
   let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
   idx = imports
   while idx < total {
     if reachable_from_root[idx] &&
@@ -3408,12 +3418,11 @@ fn inl_original_reachable_private_cycle_funcs(
         }
         root += 1
       }
-      let sig = inl_func_signature_key(mod_, func_type_indices, idx)
+      let sig = signatures[idx]
       let mut scc_same_signature = true
       other = imports
       while other < total {
-        if scc_member[other] &&
-          inl_func_signature_key(mod_, func_type_indices, other) != sig {
+        if scc_member[other] && signatures[other] != sig {
           scc_same_signature = false
           break
         }
@@ -3426,13 +3435,11 @@ fn inl_original_reachable_private_cycle_funcs(
         if !scc_member[other] &&
           !(other < used.length() && used[other]) &&
           !reachable_from_root[other] {
-          let other_sig = inl_func_signature_key(mod_, func_type_indices, other)
+          let other_sig = signatures[other]
           let mut matches_scc_signature = false
           let mut scc_idx = imports
           while scc_idx < total {
-            if scc_member[scc_idx] &&
-              inl_func_signature_key(mod_, func_type_indices, scc_idx) ==
-              other_sig {
+            if scc_member[scc_idx] && signatures[scc_idx] == other_sig {
               matches_scc_signature = true
               break
             }
@@ -3516,6 +3523,21 @@ fn inl_func_signature_key(
       inl_func_type_signature_key(params, results)
     None => "abs-type:" + abs.to_string()
   }
+}
+
+///|
+fn inl_build_func_signature_keys(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  total : Int,
+) -> Array[String] {
+  let signatures : Array[String] = []
+  let mut abs = 0
+  while abs < total {
+    signatures.push(inl_func_signature_key(mod_, func_type_indices, abs))
+    abs += 1
+  }
+  signatures
 }
 
 ///|
@@ -4558,52 +4580,117 @@ fn inl_func_collapse_unreachable_root(
 }
 
 ///|
-fn inl_should_preserve_same_sig_root_cycle_dead_suffix(
+fn inl_collect_dead_suffix_targets(func : @lib.Func) -> InlDeadSuffixTargets {
+  let @lib.Func(_, @lib.Expr(body)) = func
+  let targets : Array[Int] = []
+  let counts : Array[Int] = []
+  let mut seen_unreachable = false
+  let mut total_count = 0
+  for instr in body {
+    match instr {
+      @lib.Unreachable
+      | @lib.Block(@lib.VoidBlockType, @lib.Expr([@lib.Unreachable])) =>
+        seen_unreachable = true
+      @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
+        if seen_unreachable {
+          total_count += 1
+          let target = inl_func_idx_slot(func_idx)
+          let mut found = false
+          let mut idx = 0
+          while idx < targets.length() {
+            if targets[idx] == target {
+              counts[idx] = counts[idx] + 1
+              found = true
+              break
+            }
+            idx += 1
+          }
+          if !found {
+            targets.push(target)
+            counts.push(1)
+          }
+        }
+      _ => ()
+    }
+  }
+  { has_any: total_count > 0, total_count, targets, counts }
+}
+
+///|
+fn inl_dead_suffix_targets_count_to(
+  facts : InlDeadSuffixTargets,
+  target_abs : Int,
+) -> Int {
+  let mut idx = 0
+  while idx < facts.targets.length() {
+    if facts.targets[idx] == target_abs {
+      return facts.counts[idx]
+    }
+    idx += 1
+  }
+  0
+}
+
+///|
+fn inl_build_dead_suffix_preserve_facts(
   mod_ : @lib.Module,
   funcs : Array[@lib.Func],
   imports : Int,
+) -> InlDeadSuffixPreserveFacts {
+  let total = imports + funcs.length()
+  let used = Array::make(total, false)
+  inl_mark_global_uses(mod_, used)
+  let func_type_indices = inl_collect_func_type_indices(mod_)
+  let signatures = inl_build_func_signature_keys(mod_, func_type_indices, total)
+  let dead_suffix_targets : Array[InlDeadSuffixTargets] = []
+  for func in funcs {
+    dead_suffix_targets.push(inl_collect_dead_suffix_targets(func))
+  }
+  { imports, defined: funcs.length(), used, signatures, dead_suffix_targets }
+}
+
+///|
+fn inl_dead_suffix_preserve_facts_should_preserve(
+  facts : InlDeadSuffixPreserveFacts,
   self_abs : Int,
 ) -> Bool {
-  let used = Array::make(imports + funcs.length(), false)
-  inl_mark_global_uses(mod_, used)
-  if self_abs < imports ||
-    self_abs >= used.length() ||
-    self_abs - imports >= funcs.length() {
+  if self_abs < facts.imports ||
+    self_abs >= facts.used.length() ||
+    self_abs - facts.imports >= facts.defined {
     return false
   }
-  let self_def = self_abs - imports
-  let func_type_indices = inl_collect_func_type_indices(mod_)
-  let self_sig = inl_func_signature_key(mod_, func_type_indices, self_abs)
+  let self_def = self_abs - facts.imports
+  let self_sig = facts.signatures[self_abs]
+  let self_targets = facts.dead_suffix_targets[self_def]
   let mut root_def = 0
-  while root_def < funcs.length() {
-    let root_abs = imports + root_def
-    if root_abs < used.length() &&
-      used[root_abs] &&
-      inl_func_signature_key(mod_, func_type_indices, root_abs) == self_sig {
-      let root_calls_self = inl_dead_suffix_call_count_to(
-        funcs[root_def],
+  while root_def < facts.defined {
+    let root_abs = facts.imports + root_def
+    if root_abs < facts.used.length() &&
+      facts.used[root_abs] &&
+      facts.signatures[root_abs] == self_sig {
+      let root_calls_self = inl_dead_suffix_targets_count_to(
+        facts.dead_suffix_targets[root_def],
         self_abs,
       )
-      let self_calls_root = inl_func_has_dead_suffix_call_to(
-        funcs[self_def],
-        root_abs,
-      )
+      let self_calls_root = inl_dead_suffix_targets_count_to(
+          self_targets, root_abs,
+        ) >
+        0
       if self_abs != root_abs &&
-        !(self_abs < used.length() && used[self_abs]) &&
+        !(self_abs < facts.used.length() && facts.used[self_abs]) &&
         root_calls_self >= 2 &&
         self_calls_root &&
-        inl_dead_suffix_call_count(funcs[self_def]) ==
-        inl_dead_suffix_call_count_to(funcs[self_def], root_abs) {
+        self_targets.total_count ==
+        inl_dead_suffix_targets_count_to(self_targets, root_abs) {
         let mut orphan_def = 0
-        while orphan_def < funcs.length() {
-          let orphan_abs = imports + orphan_def
+        while orphan_def < facts.defined {
+          let orphan_abs = facts.imports + orphan_def
           if orphan_abs != root_abs &&
             orphan_abs != self_abs &&
-            orphan_abs < used.length() &&
-            !used[orphan_abs] &&
-            inl_func_signature_key(mod_, func_type_indices, orphan_abs) ==
-            self_sig &&
-            inl_func_has_dead_suffix_call(funcs[orphan_def]) {
+            orphan_abs < facts.used.length() &&
+            !facts.used[orphan_abs] &&
+            facts.signatures[orphan_abs] == self_sig &&
+            facts.dead_suffix_targets[orphan_def].has_any {
             return true
           }
           orphan_def += 1
@@ -4612,30 +4699,30 @@ fn inl_should_preserve_same_sig_root_cycle_dead_suffix(
     }
     root_def += 1
   }
-  if !(self_abs < used.length() && used[self_abs]) {
+  if !(self_abs < facts.used.length() && facts.used[self_abs]) {
     return false
   }
   let mut helper_def = 0
-  while helper_def < funcs.length() {
-    let helper_abs = imports + helper_def
+  while helper_def < facts.defined {
+    let helper_abs = facts.imports + helper_def
+    let helper_targets = facts.dead_suffix_targets[helper_def]
     if helper_abs != self_abs &&
-      helper_abs < used.length() &&
-      !used[helper_abs] &&
-      inl_func_signature_key(mod_, func_type_indices, helper_abs) == self_sig &&
-      inl_dead_suffix_call_count_to(funcs[self_def], helper_abs) >= 2 &&
-      inl_func_has_dead_suffix_call_to(funcs[helper_def], self_abs) &&
-      inl_dead_suffix_call_count(funcs[helper_def]) ==
-      inl_dead_suffix_call_count_to(funcs[helper_def], self_abs) {
+      helper_abs < facts.used.length() &&
+      !facts.used[helper_abs] &&
+      facts.signatures[helper_abs] == self_sig &&
+      inl_dead_suffix_targets_count_to(self_targets, helper_abs) >= 2 &&
+      inl_dead_suffix_targets_count_to(helper_targets, self_abs) > 0 &&
+      helper_targets.total_count ==
+      inl_dead_suffix_targets_count_to(helper_targets, self_abs) {
       let mut orphan_def = 0
-      while orphan_def < funcs.length() {
-        let orphan_abs = imports + orphan_def
+      while orphan_def < facts.defined {
+        let orphan_abs = facts.imports + orphan_def
         if orphan_abs != self_abs &&
           orphan_abs != helper_abs &&
-          orphan_abs < used.length() &&
-          !used[orphan_abs] &&
-          inl_func_signature_key(mod_, func_type_indices, orphan_abs) ==
-          self_sig &&
-          inl_func_has_dead_suffix_call(funcs[orphan_def]) {
+          orphan_abs < facts.used.length() &&
+          !facts.used[orphan_abs] &&
+          facts.signatures[orphan_abs] == self_sig &&
+          facts.dead_suffix_targets[orphan_def].has_any {
           return true
         }
         orphan_def += 1
@@ -4710,12 +4797,11 @@ fn inl_has_same_sig_root_cycle_dead_suffix(mod_ : @lib.Module) -> Bool {
   let imports = inl_imported_func_count(mod_)
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      let facts = inl_build_dead_suffix_preserve_facts(mod_, funcs, imports)
       let mut def_idx = 0
       while def_idx < funcs.length() {
-        if inl_should_preserve_same_sig_root_cycle_dead_suffix(
-            mod_,
-            funcs,
-            imports,
+        if inl_dead_suffix_preserve_facts_should_preserve(
+            facts,
             imports + def_idx,
           ) {
           return true
@@ -4759,16 +4845,22 @@ fn inl_collapse_unreachable_roots(
         }
         scan_def_idx += 1
       }
+      let preserve_facts = if check_dead_suffix_calls {
+        Some(inl_build_dead_suffix_preserve_facts(mod_, funcs, imports))
+      } else {
+        None
+      }
       let out : Array[@lib.Func] = []
       let mut changed = false
       let mut def_idx = 0
       for func in funcs {
         let abs = imports + def_idx
         ignore(touched)
-        let preserve_root_cycle = check_dead_suffix_calls &&
-          inl_should_preserve_same_sig_root_cycle_dead_suffix(
-            mod_, funcs, imports, abs,
-          )
+        let preserve_root_cycle = match preserve_facts {
+          Some(facts) =>
+            inl_dead_suffix_preserve_facts_should_preserve(facts, abs)
+          None => false
+        }
         let next = if preserve_root_cycle {
           func
         } else {
@@ -5352,22 +5444,6 @@ fn inl_run_module_pass_once(
   shrink_level : Int,
   perf? : HotPerfSession? = None,
 ) -> (@lib.Module, Bool, Array[Int]) {
-  let original_graph_start_us = perf_start_timer_opt(
-    perf, "detail:inlining:once:original-reachable-private-cycle-funcs",
-  )
-  let original_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
-  perf_stop_timer_opt(
-    perf, "detail:inlining:once:original-reachable-private-cycle-funcs", original_graph_start_us,
-  )
-  let preserve_start_us = perf_start_timer_opt(
-    perf, "detail:inlining:once:preserve-root-cycle-check",
-  )
-  let preserve_root_cycle_cleanup = inl_has_same_sig_root_cycle_dead_suffix(
-    mod_,
-  )
-  perf_stop_timer_opt(
-    perf, "detail:inlining:once:preserve-root-cycle-check", preserve_start_us,
-  )
   let prepare_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:prepare-multivalue-block-types",
   )
@@ -5405,6 +5481,22 @@ fn inl_run_module_pass_once(
     )
     return (pruned, false, [])
   }
+  let original_graph_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:original-reachable-private-cycle-funcs",
+  )
+  let original_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:original-reachable-private-cycle-funcs", original_graph_start_us,
+  )
+  let preserve_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:preserve-root-cycle-check",
+  )
+  let preserve_root_cycle_cleanup = inl_has_same_sig_root_cycle_dead_suffix(
+    mod_,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:preserve-root-cycle-check", preserve_start_us,
+  )
   inl_trace_nested_cleanup(pass_name, optimize, result.touched, trace)
   // Binaryen's plain `--inlining` deletes private helpers that become dead
   // after direct substitution. The retain-count predictor is for the

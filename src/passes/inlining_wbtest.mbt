@@ -268,6 +268,19 @@ test "inlining detects same-signature root cycle dead suffix preservation shape"
     #|    i64.const 3))
   let mod_ = pass_test_module_from_wat(source)
   assert_true(inl_has_same_sig_root_cycle_dead_suffix(mod_))
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let imports = inl_imported_func_count(mod_)
+      let facts = inl_build_dead_suffix_preserve_facts(mod_, funcs, imports)
+      assert_true(
+        inl_dead_suffix_preserve_facts_should_preserve(facts, imports + 3),
+      )
+      assert_false(
+        inl_dead_suffix_preserve_facts_should_preserve(facts, imports + 1),
+      )
+    }
+    None => abort("expected code section")
+  }
 }
 
 ///|
