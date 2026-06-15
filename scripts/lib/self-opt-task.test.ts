@@ -5,9 +5,29 @@ import path from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { parseSelfOptArtifactOptimizerCompareArgs, parseSelfOptCheckArgs, runSelfOptArtifactOptimizerCompare, runSelfOptCheck } from "./self-opt-task";
-import { parseStarshinePerfTimingSummary } from "./self-optimize-compare-task";
+import { extractPipelinePrintEntryPretties, parseStarshinePerfTimingSummary } from "./self-optimize-compare-task";
 
 describe("self-optimize compare timing parsing", () => {
+  test("splits batched pipeline print logs into per-entry pretty text", () => {
+    const entries = extractPipelinePrintEntryPretties([
+      "Log: module.wasm",
+      "0: Func[27]",
+      "  func code[0] abs[27]",
+      "    body_raw:",
+      "      (i32.const I32(1))",
+      "1: Func[28]",
+      "  func code[1] abs[28]",
+      "    body_raw:",
+      "      (i32.const I32(2))",
+      "",
+    ].join("\n"));
+
+    expect(entries).toEqual([
+      "0: Func[27]\n  func code[0] abs[27]\n    body_raw:\n      (i32.const I32(1))",
+      "1: Func[28]\n  func code[1] abs[28]\n    body_raw:\n      (i32.const I32(2))",
+    ]);
+  });
+
   test("separates raw pass timers from pass-local timers", () => {
     const summary = parseStarshinePerfTimingSummary([
       "perf:timer name=raw:ssa-nomerge:func:5539 elapsed_us=61000000 total_us=61000000",

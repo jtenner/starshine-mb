@@ -109,6 +109,11 @@ const STARSHINE_FLAG_ALIASES = new Map<string, string>([
 ]);
 
 const UNSUPPORTED_PRESET_FLAGS = new Set(["--optimize", "--shrink"]);
+// The pretty-function fallback is a diagnostic normalizer. For enormous
+// functions its regex canonicalizers can dominate the full self-compare wall
+// time, so keep the fallback conservative: report the large WAT-level diff
+// instead of trying to prove a representation-only pretty match.
+const CANONICAL_FUNC_PRETTY_FALLBACK_MAX_WAT_BYTES = 1_000_000;
 
 // Build a deterministic temp directory name so multiple runs can run without
 // clobbering each other (and still be easy to clean up).
@@ -1629,7 +1634,7 @@ function reorderScalarLadders(body: string): string {
   return out;
 }
 
-function canonicalizeFuncPretty(pretty: string): string {
+function canonicalizeFuncPrettyForSelfCompare(pretty: string): string {
   const out: string[] = [];
   let inBody = false;
   for (const rawLine of pretty.replace(/\r\n/g, "\n").split("\n")) {
@@ -1667,26 +1672,65 @@ function canonicalizeFuncPretty(pretty: string): string {
   return out.join("\n");
 }
 
-function extractPrintedFuncPretty(stderr: string): string {
+export function extractPipelinePrintEntryPretties(stderr: string): string[] {
   const lines = stderr.replace(/\r\n/g, "\n").split("\n");
-  if (lines.length >= 3 && lines[0].startsWith("Log: ")) {
-    return lines.slice(2).join("\n").trimEnd();
+  const entries: string[] = [];
+  let current: string[] | null = null;
+  for (const line of lines) {
+    if (line.startsWith("Log: ")) {
+      continue;
+    }
+    if (/^\d+: /.test(line)) {
+      if (current !== null) {
+        entries.push(current.join("\n").trimEnd());
+      }
+      current = [line];
+    } else if (current !== null) {
+      current.push(line);
+    }
   }
-  return stderr.trimEnd();
+  if (current !== null) {
+    entries.push(current.join("\n").trimEnd());
+  }
+  if (entries.length > 0) {
+    return entries;
+  }
+  const trimmed = stderr.trimEnd();
+  return trimmed.length === 0 ? [] : [trimmed];
 }
 
-function printCanonicalFuncPretty(
+function printCanonicalFuncPretties(
   starshineInvocation: StarshineInvocation,
   wasmPath: string,
-  absFuncIndex: number,
+  absFuncIndices: number[],
   repoRoot: string,
-): string {
+): string[] {
+  if (absFuncIndices.length === 0) {
+    return [];
+  }
+  const args: string[] = [...starshineInvocation.argsPrefix];
+  for (const absFuncIndex of absFuncIndices) {
+    args.push("--print-func", String(absFuncIndex));
+  }
+  args.push(wasmPath);
   const printed = runOrThrow(
     starshineInvocation.command,
-    [...starshineInvocation.argsPrefix, "--print-func", String(absFuncIndex), wasmPath],
-    { cwd: repoRoot, stdio: "pipe" },
+    args,
+    { cwd: repoRoot, stdio: "pipe", maxBuffer: 512 * 1024 * 1024 },
   );
-  return canonicalizeFuncPretty(extractPrintedFuncPretty(printed.stderr));
+  const entries = extractPipelinePrintEntryPretties(printed.stderr);
+  if (entries.length !== absFuncIndices.length) {
+    fail(
+      `expected ${absFuncIndices.length} printed function entries from ${wasmPath}, got ${entries.length}`,
+    );
+  }
+  return entries.map((entry) => canonicalizeFuncPrettyForSelfCompare(entry));
+}
+
+function selfCompareTrace(message: string): void {
+  if (process.env.SELF_OPT_COMPARE_TIMINGS === "1") {
+    process.stderr.write(`[self-compare] ${message}\n`);
+  }
 }
 
 async function compareNormalizedWatByCanonicalFuncs(
@@ -1697,8 +1741,16 @@ async function compareNormalizedWatByCanonicalFuncs(
   binaryenWasmPath: string,
   repoRoot: string,
 ): Promise<CanonicalFuncCompareResult> {
+  const splitStart = process.hrtime.bigint();
   const starshineSplit = await splitDefinedFuncsFromFile(starshineWatPath);
+  const starshineSplitDone = process.hrtime.bigint();
   const binaryenSplit = await splitDefinedFuncsFromFile(binaryenWatPath);
+  const binaryenSplitDone = process.hrtime.bigint();
+  selfCompareTrace(
+    `split starshine_ms=${(Number(starshineSplitDone - splitStart) / 1_000_000).toFixed(3)} ` +
+    `binaryen_ms=${(Number(binaryenSplitDone - starshineSplitDone) / 1_000_000).toFixed(3)} ` +
+    `funcs=${starshineSplit.funcs.length}/${binaryenSplit.funcs.length}`,
+  );
   if (starshineSplit.importFuncCount !== binaryenSplit.importFuncCount) {
     return {
       equal: false,
@@ -1711,6 +1763,8 @@ async function compareNormalizedWatByCanonicalFuncs(
     };
   }
   const maxFuncs = Math.max(starshineSplit.funcs.length, binaryenSplit.funcs.length);
+  const batchSize = 512;
+  const pendingDiffDefinedIndices: number[] = [];
   for (let definedIndex = 0; definedIndex < maxFuncs; definedIndex += 1) {
     const starshineFunc = starshineSplit.funcs[definedIndex];
     const binaryenFunc = binaryenSplit.funcs[definedIndex];
@@ -1728,29 +1782,105 @@ async function compareNormalizedWatByCanonicalFuncs(
     if (starshineFunc.text === binaryenFunc.text) {
       continue;
     }
-    const absIndex = starshineSplit.importFuncCount + definedIndex;
-    const starshinePretty = printCanonicalFuncPretty(
-      starshineInvocation,
-      starshineWasmPath,
-      absIndex,
-      repoRoot,
-    );
-    const binaryenPretty = printCanonicalFuncPretty(
-      starshineInvocation,
-      binaryenWasmPath,
-      absIndex,
-      repoRoot,
-    );
-    if (starshinePretty !== binaryenPretty) {
+    if (
+      starshineFunc.text.length > CANONICAL_FUNC_PRETTY_FALLBACK_MAX_WAT_BYTES ||
+      binaryenFunc.text.length > CANONICAL_FUNC_PRETTY_FALLBACK_MAX_WAT_BYTES
+    ) {
+      selfCompareTrace(
+        `canonical fallback skipped abs=${starshineSplit.importFuncCount + definedIndex} starshine_wat_bytes=${starshineFunc.text.length} binaryen_wat_bytes=${binaryenFunc.text.length}`,
+      );
       return {
         equal: false,
         firstDiffDefinedIndex: definedIndex,
-        firstDiffAbsIndex: absIndex,
+        firstDiffAbsIndex: starshineSplit.importFuncCount + definedIndex,
         starshineFuncText: starshineFunc.text,
         binaryenFuncText: binaryenFunc.text,
-        starshinePretty,
-        binaryenPretty,
+        starshinePretty: null,
+        binaryenPretty: null,
       };
+    }
+    pendingDiffDefinedIndices.push(definedIndex);
+    if (pendingDiffDefinedIndices.length < batchSize && definedIndex + 1 < maxFuncs) {
+      continue;
+    }
+    const absIndices = pendingDiffDefinedIndices.map((idx) => starshineSplit.importFuncCount + idx);
+    const batchStart = process.hrtime.bigint();
+    const starshinePretties = printCanonicalFuncPretties(
+      starshineInvocation,
+      starshineWasmPath,
+      absIndices,
+      repoRoot,
+    );
+    const starshinePrintDone = process.hrtime.bigint();
+    const binaryenPretties = printCanonicalFuncPretties(
+      starshineInvocation,
+      binaryenWasmPath,
+      absIndices,
+      repoRoot,
+    );
+    const binaryenPrintDone = process.hrtime.bigint();
+    selfCompareTrace(
+      `canonical batch first_abs=${absIndices[0]} count=${absIndices.length} ` +
+      `starshine_ms=${(Number(starshinePrintDone - batchStart) / 1_000_000).toFixed(3)} ` +
+      `binaryen_ms=${(Number(binaryenPrintDone - starshinePrintDone) / 1_000_000).toFixed(3)}`,
+    );
+    for (let idx = 0; idx < pendingDiffDefinedIndices.length; idx += 1) {
+      const definedIndex = pendingDiffDefinedIndices[idx];
+      const absIndex = absIndices[idx];
+      const starshinePretty = starshinePretties[idx];
+      const binaryenPretty = binaryenPretties[idx];
+      if (starshinePretty !== binaryenPretty) {
+        return {
+          equal: false,
+          firstDiffDefinedIndex: definedIndex,
+          firstDiffAbsIndex: absIndex,
+          starshineFuncText: starshineSplit.funcs[definedIndex]?.text ?? null,
+          binaryenFuncText: binaryenSplit.funcs[definedIndex]?.text ?? null,
+          starshinePretty,
+          binaryenPretty,
+        };
+      }
+    }
+    pendingDiffDefinedIndices.length = 0;
+  }
+  if (pendingDiffDefinedIndices.length > 0) {
+    const absIndices = pendingDiffDefinedIndices.map((idx) => starshineSplit.importFuncCount + idx);
+    const batchStart = process.hrtime.bigint();
+    const starshinePretties = printCanonicalFuncPretties(
+      starshineInvocation,
+      starshineWasmPath,
+      absIndices,
+      repoRoot,
+    );
+    const starshinePrintDone = process.hrtime.bigint();
+    const binaryenPretties = printCanonicalFuncPretties(
+      starshineInvocation,
+      binaryenWasmPath,
+      absIndices,
+      repoRoot,
+    );
+    const binaryenPrintDone = process.hrtime.bigint();
+    selfCompareTrace(
+      `canonical tail first_abs=${absIndices[0]} count=${absIndices.length} ` +
+      `starshine_ms=${(Number(starshinePrintDone - batchStart) / 1_000_000).toFixed(3)} ` +
+      `binaryen_ms=${(Number(binaryenPrintDone - starshinePrintDone) / 1_000_000).toFixed(3)}`,
+    );
+    for (let idx = 0; idx < pendingDiffDefinedIndices.length; idx += 1) {
+      const definedIndex = pendingDiffDefinedIndices[idx];
+      const absIndex = absIndices[idx];
+      const starshinePretty = starshinePretties[idx];
+      const binaryenPretty = binaryenPretties[idx];
+      if (starshinePretty !== binaryenPretty) {
+        return {
+          equal: false,
+          firstDiffDefinedIndex: definedIndex,
+          firstDiffAbsIndex: absIndex,
+          starshineFuncText: starshineSplit.funcs[definedIndex]?.text ?? null,
+          binaryenFuncText: binaryenSplit.funcs[definedIndex]?.text ?? null,
+          starshinePretty,
+          binaryenPretty,
+        };
+      }
     }
   }
   return {
