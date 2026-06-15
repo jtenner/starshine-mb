@@ -373,15 +373,22 @@ fn merge_blocks_lift_expression_block_children(
       let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
       let prefix : Array[Int] = []
       let mut prefix_effects = 0U
+      let mut prefix_has_branch = false
       for prefix_idx = 0
           prefix_idx < root_count - 1
           prefix_idx = prefix_idx + 1 {
         let prefix_id = @ir.hot_region_get(func, body_ref, prefix_idx)
         prefix.push(prefix_id)
         prefix_effects = prefix_effects | @ir.effects_for_node(func, prefix_id)
+        if merge_blocks_node_has_branch(func, prefix_id) {
+          prefix_has_branch = true
+        }
       }
-      if @ir.effects_is_pure(prefix_effects) ||
-        @ir.effects_is_pure(previous_effects) {
+      if !prefix_has_branch &&
+        (
+          @ir.effects_is_pure(prefix_effects) ||
+          @ir.effects_is_pure(previous_effects)
+        ) {
         for prefix_id in prefix {
           lifted_prefixes.push(prefix_id)
         }
@@ -405,28 +412,59 @@ fn merge_blocks_lift_expression_block_children(
 }
 
 ///|
-fn merge_blocks_node_reaches_label(
-  func : @ir.HotFunc,
-  node_id : Int,
-  label_id : Int,
-) -> Bool {
+fn merge_blocks_node_has_branch(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  match @ir.hot_branch_target(func, node_id) {
-    Some(target) if target == label_id => return true
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Delegate => return true
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try =>
+      if merge_blocks_region_has_branch(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return true
+      }
+    @ir.HotOp::If => {
+      if merge_blocks_region_has_branch(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          if merge_blocks_region_has_branch(func, else_ref) {
+            return true
+          }
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable =>
+      if merge_blocks_region_has_branch(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) ||
+        merge_blocks_region_has_branch(
+          func,
+          @ir.hot_region_catch_list_ref(func, node_id),
+        ) {
+        return true
+      }
     _ => ()
   }
-  for target in @ir.hot_branch_table_targets_for_node(func, node_id) {
-    if target == label_id {
-      return true
-    }
-  }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if merge_blocks_node_reaches_label(
+    if merge_blocks_node_has_branch(
         func,
         @ir.hot_child_get(func, node_id, slot),
-        label_id,
       ) {
       return true
     }
@@ -435,46 +473,19 @@ fn merge_blocks_node_reaches_label(
 }
 
 ///|
-fn merge_blocks_lift_prefix_before_live_label_block(
+fn merge_blocks_region_has_branch(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  idx : Int,
-  block_id : Int,
-  label_id : Int,
 ) -> Bool {
-  if @ir.hot_node_result_arity(func, block_id) != 0 {
-    return false
-  }
-  let body_ref = @ir.hot_region_body_ref(func, block_id)
-  let root_count = @ir.hot_region_root_count(func, body_ref)
-  if root_count < 2 {
-    return false
-  }
-  let mut split_idx = -1
-  for body_idx = 0; body_idx < root_count; body_idx = body_idx + 1 {
-    if merge_blocks_node_reaches_label(
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if merge_blocks_node_has_branch(
         func,
-        @ir.hot_region_get(func, body_ref, body_idx),
-        label_id,
+        @ir.hot_region_get(func, region_ref, idx),
       ) {
-      split_idx = body_idx
-      break
+      return true
     }
   }
-  if split_idx <= 0 {
-    return false
-  }
-  let prefix : Array[Int] = []
-  let suffix : Array[Int] = []
-  for body_idx = 0; body_idx < split_idx; body_idx = body_idx + 1 {
-    prefix.push(@ir.hot_region_get(func, body_ref, body_idx))
-  }
-  for body_idx = split_idx; body_idx < root_count; body_idx = body_idx + 1 {
-    suffix.push(@ir.hot_region_get(func, body_ref, body_idx))
-  }
-  ignore(@ir.hot_region_splice(func, region_ref, idx, 0, prefix))
-  @ir.hot_region_replace_body(func, body_ref, suffix)
-  true
+  false
 }
 
 ///|
@@ -503,9 +514,11 @@ fn merge_blocks_flatten_region_root_block(
     @ir.hot_node_type(func, block_id),
   ).length()
   if pass_label_is_used(label_id, label_used) {
-    return merge_blocks_lift_prefix_before_live_label_block(
-      func, region_ref, idx, block_id, label_id,
-    )
+    // Keep live-label blocks intact. Pulling prefixes out of a block that is
+    // still a branch target can change the active label stack seen by branches
+    // nested in later roots and make lowering emit branches with the wrong
+    // result arity.
+    return false
   }
   let param_count = merge_blocks_block_param_count(func, block_id, module_ctx)
   if param_count > 0 &&

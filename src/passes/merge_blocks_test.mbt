@@ -565,6 +565,28 @@ test "merge-blocks preserves blocks with incoming branch targets" {
 }
 
 ///|
+test "merge-blocks keeps prefixes inside live-label blocks" {
+  let source =
+    #| (module
+    #|   (func (result i32)
+    #|     (local i32)
+    #|     (block $live
+    #|       (local.set 0 (i32.const 1))
+    #|       (br $live))
+    #|     (i32.const 7)))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks live-label-prefix success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(block"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
 test "merge-blocks preserves lowered drop local.tee roots on changed functions" {
   let optimized = match
     pass_test_run_pipeline(
