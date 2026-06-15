@@ -134,7 +134,7 @@ The important local-vs-upstream lesson is the same as in [`./starshine-hot-ir-st
 | Starshine public presets | `optimize_preset_passes` and `shrink_preset_passes` include the early `ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs` neighborhood but still omit `flatten`; `registry_test.mbt` locks the current implemented-pass preset arrays. |
 | Starshine O4z guard | `pass_manager.mbt` returns unchanged with `o4z-ssa-nomerge-noop` when `ssa-nomerge` runs with `optimize_level >= 4 && shrink_level >= 1`; `ssa_nomerge_test.mbt` locks that trace. |
 
-The remaining work is evidence and decision work, not a hidden implementation in this slice: `[SSANM-010b]` should replay the early neighborhood, `[SSANM-010c]` must stop for user approval on the top-level scheduling decision, and `[SSANM-010d]` applies the chosen policy if approved.
+The remaining work is evidence and decision work, not a hidden implementation in this slice: `[SSANM-010b]` replayed the early neighborhood, `[SSANM-010b1]` fixed the first follow-on typed-loop blocker, and `[SSANM-010c]` is now explicitly deferred by user direction until SSANM is otherwise fully implemented. Keep the current `o4z-ssa-nomerge-noop` guard in place until that final scheduling checkpoint; `[SSANM-010d]` applies the chosen policy only after approval.
 
 ## `[SSANM-010b1]` remove-unused-names typed-loop repair
 
@@ -163,7 +163,24 @@ This fixes the named `Func 254` / extracted `Func 25` stack-underflow blocker. I
 | `--ssa-nomerge --dead-code-elimination --remove-unused-names` | Exit `1`, about `5s`, final module validation failure: `stack underflow`, offending `Func 254`. |
 | Full explicit early neighborhood through `--remove-unused-brs --remove-unused-names` | Aborts before producing a comparable artifact. |
 
-A matching `wasm-opt --all-features` sanity pass validates each Binaryen prefix, including the full repeated-`remove-unused-names` neighborhood (`3,124,589` bytes). Owner implication: the replay is a validation-failure blocker for scheduling, not a semantic parity classification. Keep the `o4z-ssa-nomerge-noop` guard unless `[SSANM-010c]` records an explicit decision and `[SSANM-010d]` first fixes or gates the `remove-unused-names` follow-on failure. The active follow-up is `[SSANM-010b1]`: minimize the offending `Func 254` / extracted `Func 25` predecessor and add the owning `remove-unused-names` or CLI regression before policy implementation.
+A matching `wasm-opt --all-features` sanity pass validates each Binaryen prefix, including the full repeated-`remove-unused-names` neighborhood (`3,124,589` bytes). Owner implication: the replay was a validation-failure blocker for scheduling, not a semantic parity classification. `[SSANM-010b1]` later fixed the first `remove-unused-names` follow-on blocker, but `[SSANM-010c]` is deferred until direct SSANM implementation evidence is complete; keep `o4z-ssa-nomerge-noop` until that approved final scheduling checkpoint.
+
+## `[SSANM-009b113]` current-HEAD debug-WASI loop-carrier classification
+
+A fresh current-HEAD replay after `[SSANM-009b30a]` and `[SSANM-010b1]` moved the checked-in debug-WASI direct `--ssa-nomerge` first diff to `defined=1451 abs=1478`:
+
+```sh
+moon build --target native --release src/cmd
+bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm \
+  --out-dir .tmp/self-ssa-nomerge-current-head-20260614 \
+  --starshine-bin target/native/release/build/cmd/cmd.exe --ssa-nomerge
+```
+
+The replay validates both outputs, keeps Starshine smaller (`3,149,379` bytes versus Binaryen `3,155,990`), reports pass-local timing inside the floor (`0.195ms` Starshine versus `439.084ms` Binaryen), and records the first diff at `defined=1451 abs=1478`.
+
+The targeted WAT files show a loop-carrier representation difference. Binaryen routes the next loop pair through a block-result carrier, then writes the loop-carried locals and branches back to the loop. Starshine writes the same next values directly into the loop-carried locals immediately before the same loop backedge. Because those `local.set` operations are adjacent to the `br $label` with no intervening uses or effects, this is classified as a semantic-safe carrier-shape difference rather than an implementation gap. `wasm-tools dump` shows a measured Starshine win for this function: `174` byte body with `15` body i32 locals versus Binaryen's `182` byte body with `16` body i32 locals.
+
+No executable code changed for this classification, so direct compare was not rerun beyond the current committed green lanes.
 
 ## `[SSANM-006a1]` normal structured-control ownership map
 

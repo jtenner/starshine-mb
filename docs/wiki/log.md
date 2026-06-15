@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Refresh current debug-WASI replay and defer O4z decision
+
+- Recorded explicit user direction to defer `[SSANM-010c]` until SSANM is otherwise fully implemented. The current `o4z-ssa-nomerge-noop` guard stays in place; no scheduling policy was chosen or applied.
+- Completed classification-only `[SSANM-009b113]` in [`../../agent-todo.md`](../../agent-todo.md): fresh current-HEAD replay after `[SSANM-009b30a]` and `[SSANM-010b1]` first-diffs at `defined=1451 abs=1478`.
+- Evidence: `moon build --target native --release src/cmd` reported `no work to do`; `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-ssa-nomerge-current-head-20260614 --starshine-bin target/native/release/build/cmd/cmd.exe --ssa-nomerge` validated both outputs, reported Starshine size `3,149,379` bytes versus Binaryen `3,155,990`, pass-local time `0.195ms` versus `439.084ms`, and first diff `defined=1451 abs=1478`.
+- Classification: the targeted function differs by a loop-carrier shape. Binaryen routes the next loop pair through a block-result carrier; Starshine writes the same next values directly into the loop-carried locals immediately before the same backedge. Because those local updates are adjacent to the branch with no intervening uses/effects, and because Starshine has a measured local/body-size win (`174` byte body with `15` body i32 locals versus Binaryen `182` bytes with `16` body i32 locals), this is a semantic-safe Starshine win, not an implementation gap.
+- Updated [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md).
+
 ## [2026-06-14] passes/remove-unused-names | Fix SSANM early-neighborhood typed loop demotion
 
 - Completed `[SSANM-010b1]` in [`../../agent-todo.md`](../../agent-todo.md) by minimizing the `[SSANM-010b]` `--ssa-nomerge --dead-code-elimination --remove-unused-names` stack-underflow blocker to `remove-unused-names`, not `ssa-nomerge` mutation.
