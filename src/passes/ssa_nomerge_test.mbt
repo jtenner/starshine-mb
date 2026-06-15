@@ -6228,6 +6228,83 @@ test "ssa-nomerge preserves local written before conditional throw to catch" {
 }
 
 ///|
+test "ssa-nomerge lowers null throw_ref try_table debris to unreachable" {
+  // Dedicated `ssa-nomerge-coverage` GenValid failures such as
+  // `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-abs6097-branchcopyfix-10000/failures/case-000022-gen-valid`
+  // carry a dead/always-trapping `try_table` suffix whose body ends with
+  // `ref.null noexn; throw_ref`. Binaryen's `ssa-nomerge` canonicalizes this
+  // local-only exceptional debris to `unreachable`; keeping the EH shell is a
+  // repeatable size-losing output-shape gap, not a Starshine win.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (export "f") (param i32)
+    #|    (local i32)
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 0
+    #|    loop (param i32)
+    #|      drop
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 1
+    #|      br 0
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    try_table (catch_all 0)
+    #|      i32.const 42
+    #|      local.set 1
+    #|      ref.null noexn
+    #|      throw_ref
+    #|    end
+    #|    local.get 1
+    #|    drop))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected null throw_ref try_table pipeline success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=null-throwref-debris") ||
+      line.contains("null-throwref-debris")
+    }),
+    msg=trace.join("\n"),
+  )
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_false(text.contains("try_table"), msg=text)
+  assert_false(text.contains("throw_ref"), msg=text)
+  assert_true(
+    text.contains("Unreachable") || text.contains("unreachable"),
+    msg=text,
+  )
+  match instrs[instrs.length() - 1] {
+    @lib.Instruction::Unreachable => ()
+    other =>
+      fail(
+        "expected trapping EH debris to end at unreachable, got \{@debug.to_string(other)} in \{text}",
+      )
+  }
+  if instrs.length() >= 2 {
+    match instrs[instrs.length() - 2] {
+      @lib.Instruction::Drop =>
+        fail(
+          "expected local-only debris before unreachable to be removed: \{text}",
+        )
+      _ => ()
+    }
+  }
+}
+
+///|
 test "ssa-nomerge preserves throw_ref shapes without hot local corruption" {
   // `[SSANM-007a2b1]` locks direct throw_ref roots as an exceptional-flow
   // boundary. The pass must leave nearby local traffic and the HOT revision alone.
@@ -25074,7 +25151,7 @@ test "ssa-nomerge rewrites block-target branches through canonical locals" {
 }
 
 ///|
-test "ssa-nomerge preserves enclosing label copies after divergent branch aliases" {
+test "ssa-nomerge redirects enclosing label copies after divergent branch aliases" {
   let input =
     #| (module
     #|   (func (param i32) (result i32)
@@ -25121,24 +25198,16 @@ test "ssa-nomerge preserves enclosing label copies after divergent branch aliase
           @lib.BlockType::void_(),
           [
             @lib.Instruction::i32_const(@lib.I32(7)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
           ],
           Some([
             @lib.Instruction::i32_const(@lib.I32(8)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
           ]),
         ),
         @lib.Instruction::block(
           @lib.BlockType::void_(),
-          @lib.Expr::new([
-            @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-          ]),
+          @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(1U))]),
         ),
         @lib.Instruction::i32_const(@lib.I32(9)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
@@ -28509,6 +28578,503 @@ test "ssa-nomerge keeps branch-exit store suffix carriers canonical" {
       line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
     }),
     msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge redirects if-arm branch copy aliases" {
+  // Reduced from dedicated `ssa-nomerge-smoke` GenValid failures such as
+  // `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-nullthrowfix4-10000/failures/case-000022-gen-valid`.
+  // Starshine was preserving a size-losing parallel-copy shape around the final
+  // block exit: each `if` arm wrote a fresh scratch, copied it to a join scratch,
+  // then copied that scratch back to local 1 immediately before `br`. Binaryen
+  // writes the branch carrier directly in each arm.
+  let source =
+    #|(module
+    #|  (func (export "main") (param i32)
+    #|    (local i32 i32 i32 i32 i32 i64 f32 f64)
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 101
+    #|    local.set 4
+    #|    local.get 4
+    #|    drop
+    #|    i32.const 1
+    #|    if
+    #|      i32.const 103
+    #|      local.set 3
+    #|    end
+    #|    local.get 3
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 104
+    #|      local.set 0
+    #|    end
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 102
+    #|    local.set 5
+    #|    block
+    #|      br 0
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 1
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.tee 1
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    if
+    #|      i32.const 1
+    #|      local.set 1
+    #|    else
+    #|      i32.const 2
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 1
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|      return
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 7
+    #|        local.set 1
+    #|        br 1
+    #|      end
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      br_if 0
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      nop
+    #|    end
+    #|    i32.const 12
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.set 0
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 0
+    #|      i32.const 2
+    #|    end
+    #|    drop
+    #|    local.get 0
+    #|    drop
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 20
+    #|      local.set 2
+    #|      i32.const 2
+    #|    else
+    #|      i32.const 30
+    #|      local.set 3
+    #|      i32.const 3
+    #|    end
+    #|    drop
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 37
+    #|        local.set 1
+    #|      else
+    #|        i32.const 38
+    #|        local.set 1
+    #|      end
+    #|      br 0
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 3
+    #|    local.get 3
+    #|    if
+    #|      i32.const 120
+    #|      local.tee 3
+    #|      drop
+    #|    end
+    #|    local.get 3
+    #|    drop
+    #|    i32.const 121
+    #|    local.tee 5
+    #|    i32.const 1
+    #|    i32.add
+    #|    drop
+    #|    local.get 5
+    #|    drop
+    #|    i32.const 122
+    #|    local.tee 2
+    #|    drop))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected if-arm branch copy alias success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() <= 11, msg=locals.to_string())
+  assert_false(
+    ssa_nomerge_test_local_get_indices(instrs).any(fn(idx) { idx == 10U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge compacts large branch-exit alias scratch locals" {
+  // Reduced from the current debug-WASI `defined=6070 abs=6097` first
+  // non-masked diff after the one-use temp-local chain. A branch exit stores
+  // two merge carriers just before a plain `br`; Starshine should not keep
+  // extra alias scratch locals when the branch-local carriers can be written
+  // directly like Binaryen's shape.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $moonbit.array_length (param i32) (result i32) i32.const 1)
+    #|  (func $moonbit.check_range (param i32 i32) (result i32) local.get 0)
+    #|  (func $moonbit.incref (param i32))
+    #|  (func $_M0MPB3Map4growGsRPB4JsonE (param i32) (result i32) local.get 0)
+    #|  (func $moonbit.gc.malloc (param i32) (result i32) local.get 0)
+    #|  (func $_M0MPB3Map20add__entry__to__tailGsRPB4JsonE (param i32 i32 i32) (result i32) i32.const 0)
+    #|  (func $moonbit.string_equal (param i32 i32) (result i32) i32.const 0)
+    #|  (func $moonbit.decref (param i32))
+    #|  (func $_M0MPB3Map10push__awayGsRPB4JsonE (param i32 i32 i32) (result i32) i32.const 0)
+    #|  (func $f (param i32 i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    local.get 0
+    #|    i32.load offset=16 align=1
+    #|    local.set 32
+    #|    local.get 3
+    #|    local.get 32
+    #|    i32.and
+    #|    local.set 31
+    #|    i32.const 0
+    #|    local.get 31
+    #|    local.set 39
+    #|    local.set 38
+    #|    loop
+    #|      local.get 38
+    #|      local.get 39
+    #|      local.set 5
+    #|      local.set 4
+    #|      local.get 0
+    #|      i32.load offset=28 align=1
+    #|      local.tee 40
+    #|      local.get 5
+    #|      local.set 37
+    #|      local.set 36
+    #|      local.get 37
+    #|      i32.const 0
+    #|      local.get 36
+    #|      call $moonbit.array_length
+    #|      i32.const 1
+    #|      i32.sub
+    #|      call $moonbit.check_range
+    #|      local.get 36
+    #|      local.get 37
+    #|      i32.const 2
+    #|      i32.shl
+    #|      i32.add
+    #|      i32.load offset=8 align=1
+    #|      local.tee 6
+    #|      i32.const 0
+    #|      i32.eq
+    #|      if
+    #|        local.get 0
+    #|        i32.load offset=8 align=1
+    #|        local.set 15
+    #|        local.get 0
+    #|        i32.load offset=20 align=1
+    #|        local.set 16
+    #|        local.get 15
+    #|        local.get 16
+    #|        i32.ge_s
+    #|        if
+    #|          local.get 0
+    #|          call $moonbit.incref
+    #|          local.get 0
+    #|          call $_M0MPB3Map4growGsRPB4JsonE
+    #|          drop
+    #|          local.get 0
+    #|          i32.load offset=16 align=1
+    #|          local.set 18
+    #|          local.get 3
+    #|          local.get 18
+    #|          i32.and
+    #|          local.set 17
+    #|          i32.const 0
+    #|          local.get 17
+    #|          local.set 39
+    #|          local.set 38
+    #|          br 2
+    #|        end
+    #|        i32.const 0
+    #|        drop
+    #|        local.get 0
+    #|        i32.load offset=24 align=1
+    #|        local.set 7
+    #|        i32.const 0
+    #|        local.set 8
+    #|        i32.const 24
+    #|        call $moonbit.gc.malloc
+    #|        local.tee 34
+    #|        i32.const 2622208
+    #|        i32.store offset=4 align=1
+    #|        local.get 34
+    #|        local.get 2
+    #|        i32.store offset=28 align=1
+    #|        local.get 34
+    #|        local.get 1
+    #|        i32.store offset=24 align=1
+    #|        local.get 34
+    #|        local.get 3
+    #|        i32.store offset=16 align=1
+    #|        local.get 34
+    #|        local.get 4
+    #|        i32.store offset=12 align=1
+    #|        local.get 34
+    #|        local.get 8
+    #|        i32.store offset=20 align=1
+    #|        local.get 34
+    #|        local.get 7
+    #|        i32.store offset=8 align=1
+    #|        local.get 34
+    #|        local.set 9
+    #|        local.get 0
+    #|        local.get 5
+    #|        local.get 9
+    #|        call $_M0MPB3Map20add__entry__to__tailGsRPB4JsonE
+    #|        drop
+    #|        i32.const 0
+    #|        return
+    #|      else
+    #|        local.get 6
+    #|        local.tee 41
+    #|        local.set 11
+    #|        local.get 11
+    #|        i32.load offset=16 align=1
+    #|        local.tee 42
+    #|        local.get 3
+    #|        i32.eq
+    #|        if (result i32)
+    #|          local.get 11
+    #|          i32.load offset=24 align=1
+    #|          local.tee 43
+    #|          local.get 1
+    #|          call $moonbit.string_equal
+    #|        else
+    #|          i32.const 0
+    #|        end
+    #|        if
+    #|          local.get 11
+    #|          call $moonbit.incref
+    #|          local.get 1
+    #|          call $moonbit.decref
+    #|          local.get 0
+    #|          call $moonbit.decref
+    #|          local.get 11
+    #|          i32.load offset=28 align=1
+    #|          local.tee 44
+    #|          call $moonbit.decref
+    #|          local.get 11
+    #|          local.get 2
+    #|          i32.store offset=28 align=1
+    #|          local.get 11
+    #|          call $moonbit.decref
+    #|          i32.const 0
+    #|          drop
+    #|          i32.const 0
+    #|          return
+    #|        else
+    #|          local.get 11
+    #|          call $moonbit.incref
+    #|        end
+    #|        i32.const 0
+    #|        drop
+    #|        local.get 11
+    #|        i32.load offset=12 align=1
+    #|        local.set 21
+    #|        local.get 4
+    #|        local.get 21
+    #|        i32.gt_s
+    #|        if
+    #|          local.get 0
+    #|          i32.load offset=8 align=1
+    #|          local.set 22
+    #|          local.get 0
+    #|          i32.load offset=20 align=1
+    #|          local.set 23
+    #|          local.get 22
+    #|          local.get 23
+    #|          i32.ge_s
+    #|          if
+    #|            local.get 11
+    #|            call $moonbit.decref
+    #|            local.get 0
+    #|            call $moonbit.incref
+    #|            local.get 0
+    #|            call $_M0MPB3Map4growGsRPB4JsonE
+    #|            drop
+    #|            local.get 0
+    #|            i32.load offset=16 align=1
+    #|            local.set 25
+    #|            local.get 3
+    #|            local.get 25
+    #|            i32.and
+    #|            local.set 24
+    #|            i32.const 0
+    #|            local.get 24
+    #|            local.set 39
+    #|            local.set 38
+    #|            br 3
+    #|          end
+    #|          i32.const 0
+    #|          drop
+    #|          local.get 0
+    #|          call $moonbit.incref
+    #|          local.get 0
+    #|          local.get 5
+    #|          local.get 11
+    #|          call $_M0MPB3Map10push__awayGsRPB4JsonE
+    #|          drop
+    #|          local.get 0
+    #|          i32.load offset=24 align=1
+    #|          local.set 12
+    #|          i32.const 0
+    #|          local.set 13
+    #|          i32.const 24
+    #|          call $moonbit.gc.malloc
+    #|          local.tee 35
+    #|          i32.const 2622208
+    #|          i32.store offset=4 align=1
+    #|          local.get 35
+    #|          local.get 2
+    #|          i32.store offset=28 align=1
+    #|          local.get 35
+    #|          local.get 1
+    #|          i32.store offset=24 align=1
+    #|          local.get 35
+    #|          local.get 3
+    #|          i32.store offset=16 align=1
+    #|          local.get 35
+    #|          local.get 4
+    #|          i32.store offset=12 align=1
+    #|          local.get 35
+    #|          local.get 13
+    #|          i32.store offset=20 align=1
+    #|          local.get 35
+    #|          local.get 12
+    #|          i32.store offset=8 align=1
+    #|          local.get 35
+    #|          local.set 14
+    #|          local.get 0
+    #|          local.get 5
+    #|          local.get 14
+    #|          call $_M0MPB3Map20add__entry__to__tailGsRPB4JsonE
+    #|          drop
+    #|          i32.const 0
+    #|          return
+    #|        else
+    #|          local.get 11
+    #|          call $moonbit.decref
+    #|        end
+    #|        i32.const 0
+    #|        drop
+    #|        local.get 4
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set 26
+    #|        local.get 5
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set 28
+    #|        local.get 0
+    #|        i32.load offset=16 align=1
+    #|        local.set 29
+    #|        local.get 28
+    #|        local.get 29
+    #|        i32.and
+    #|        local.set 27
+    #|        local.get 26
+    #|        local.get 27
+    #|        local.set 39
+    #|        local.set 38
+    #|        br 1
+    #|      end
+    #|      i32.const 0
+    #|      drop
+    #|    end
+    #|    i32.const 0))
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ssa-nomerge success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected ssa-nomerge output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 2)
+  assert_true(
+    locals.length() <= 50,
+    msg=trace.join("\n") + "\n" + locals.to_string() + "\n" + instrs.to_string(),
   )
 }
 

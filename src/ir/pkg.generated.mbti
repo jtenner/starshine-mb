@@ -2,6 +2,7 @@
 package "jtenner/starshine/ir"
 
 import {
+  "jtenner/starshine/bitset",
   "jtenner/starshine/lib",
   "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
@@ -788,7 +789,7 @@ pub fn postdom_ipdom(HotPostDominators, Int) -> Int?
 
 pub fn postdom_postdominates(HotPostDominators, Int, Int) -> Bool
 
-pub fn ssa_assign_concrete_locals(HotFunc, HotLocalSsa) -> HotSsaConcreteLocals
+pub fn ssa_assign_concrete_locals(HotFunc, HotLocalSsa, preserve_write_nodes? : @bitset.BitSet) -> HotSsaConcreteLocals
 
 pub fn ssa_build_local(HotFunc, HotCfg, HotDominators, HotLiveness, HotUseDef) -> HotLocalSsa
 
@@ -796,7 +797,7 @@ pub fn ssa_def_for_local_set(HotLocalSsa, Int) -> Int
 
 pub fn ssa_default_init_def(Int) -> HotSsaValueOrigin
 
-pub fn ssa_destroy_into_hot(HotFunc, HotCfg, HotLocalSsa, policy? : HotSsaDestroyPolicy) -> HotSsaConcreteLocals
+pub fn ssa_destroy_into_hot(HotFunc, HotCfg, HotLocalSsa, policy? : HotSsaDestroyPolicy, preserve_write_nodes? : @bitset.BitSet) -> HotSsaConcreteLocals
 
 pub fn ssa_destruction_policy() -> HotSsaDestructionPolicy
 

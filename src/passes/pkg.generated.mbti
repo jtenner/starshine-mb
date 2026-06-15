@@ -305,6 +305,8 @@ pub fn ssa_nomerge_build_rewrite_plan(@ir.HotFunc, @ir.HotLocalGraph) -> SsaNoMe
 
 pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor
 
+pub fn ssa_nomerge_loop_carried_canonical_writes(@ir.HotFunc) -> @bitset.BitSet
+
 pub fn ssa_nomerge_summary() -> String
 
 pub fn string_gathering_run_module_pass(@lib.Module) -> @lib.Module
