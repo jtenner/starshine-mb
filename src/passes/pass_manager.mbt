@@ -7717,21 +7717,39 @@ fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
   extra_local_types : Array[@lib.ValType],
 ) -> (Array[@lib.Instruction], @lib.Locals, Array[@lib.ValType]) {
   // Keep this compaction deliberately narrow for the current debug-WASI
-  // structured-load scratch gaps: broader allocator/linker fixtures still carry
-  // exact Binaryen-local-budget guards, while the abs 598 / 705 family has
-  // 8-10 body locals and the abs 1527 family reaches 11-12 body locals around
-  // appended/existing one-use scratch slots. Require an actual load for the
-  // widened >10-local cases so unrelated startup/default-local shuffles stay
-  // canonical.
-  let upper_local_limit = if extra_local_types.length() > 0 { 11 } else { 12 }
-  if locals.length() < 8 || locals.length() > upper_local_limit {
+  // structured scratch gaps: broader allocator/linker fixtures still carry exact
+  // Binaryen-local-budget guards. The abs 598 / 705 family has 8-10 body locals,
+  // abs 1527 reaches 11-12 body locals around appended/existing one-use scratch
+  // slots, abs 1533 is a small loaded nested-compare tee chain, and abs 1528 is
+  // a branch-bearing loaded loop that appends dead branch-value tees above a
+  // large existing local budget. Require an actual load for every widened case,
+  // exclude br_table shapes, and require either no local.set traffic for the
+  // small compare chain or branch/call structure for the large loop so unrelated
+  // startup/default-local shuffles stay canonical.
+  let has_appended_locals = extra_local_types.length() > 0
+  let old_structured_load_window = if has_appended_locals {
+    locals.length() >= 8 && locals.length() <= 11
+  } else {
+    locals.length() >= 8 && locals.length() <= 12
+  }
+  let loaded_no_table = run_hot_pipeline_raw_instrs_have_plain_load(instrs) &&
+    !run_hot_pipeline_raw_instrs_have_br_table(instrs)
+  let small_loaded_compare_tee_window = locals.length() >= 4 &&
+    locals.length() <= 7 &&
+    loaded_no_table
+  let large_loaded_branch_dead_tee_window = locals.length() >= 18 &&
+    locals.length() <= 20 &&
+    loaded_no_table &&
+    run_hot_pipeline_raw_instrs_have_branch(instrs) &&
+    run_hot_pipeline_raw_count_call_like(instrs) >= 4
+  if !(old_structured_load_window ||
+    small_loaded_compare_tee_window ||
+    large_loaded_branch_dead_tee_window) {
     return (instrs, locals, extra_local_types)
   }
   if locals.length() > 10 &&
-    (
-      !run_hot_pipeline_raw_instrs_have_plain_load(instrs) ||
-      run_hot_pipeline_raw_instrs_have_br_table(instrs)
-    ) {
+    !(loaded_no_table &&
+    (locals.length() <= 12 || large_loaded_branch_dead_tee_window)) {
     return (instrs, locals, extra_local_types)
   }
   let base_local_count = params.length() + locals.length()
@@ -7742,6 +7760,13 @@ fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
   run_hot_pipeline_raw_collect_local_ref_counts(
     instrs, local_gets, local_sets, local_tees,
   )
+  if small_loaded_compare_tee_window {
+    for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
+      if local_sets[local_id] > 0 {
+        return (instrs, locals, extra_local_types)
+      }
+    }
+  }
   let base_used : Array[Bool] = Array::make(base_local_count, false)
   for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
     base_used[local_id] = local_gets[local_id] > 0 ||
@@ -7767,7 +7792,11 @@ fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
     let is_one_dead_tee = local_sets[local_id] == 0 &&
       local_gets[local_id] == 0 &&
       local_tees[local_id] == 1
-    if !(is_one_set_get || is_one_dead_tee) {
+    let is_one_tee_get_chain = small_loaded_compare_tee_window &&
+      local_sets[local_id] == 0 &&
+      local_gets[local_id] > 0 &&
+      local_tees[local_id] == 1
+    if !(is_one_set_get || is_one_dead_tee || is_one_tee_get_chain) {
       continue
     }
     let target_type = match
@@ -7803,7 +7832,11 @@ fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
     let is_one_dead_tee = local_sets[local_id] == 0 &&
       local_gets[local_id] == 0 &&
       local_tees[local_id] == 1
-    if !(is_one_set_get || is_one_dead_tee) {
+    let is_one_tee_get_chain = small_loaded_compare_tee_window &&
+      local_sets[local_id] == 0 &&
+      local_gets[local_id] > 0 &&
+      local_tees[local_id] == 1
+    if !(is_one_set_get || is_one_dead_tee || is_one_tee_get_chain) {
       continue
     }
     let target_type = run_hot_pipeline_raw_local_type(params, locals, local_id)
@@ -7850,7 +7883,12 @@ fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
     run_hot_pipeline_raw_collect_local_ref_counts(
       compacted_instrs, final_gets, final_sets, final_tees,
     )
-    while trimmed_local_count > 0 {
+    let min_trimmed_local_count = if large_loaded_branch_dead_tee_window {
+      19
+    } else {
+      0
+    }
+    while trimmed_local_count > min_trimmed_local_count {
       let local_id = params.length() + trimmed_local_count - 1
       if final_gets[local_id] > 0 ||
         final_sets[local_id] > 0 ||
@@ -20687,6 +20725,33 @@ fn run_hot_pipeline_drop_label_names(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn run_hot_pipeline_drop_local_names(mod_ : @lib.Module) -> @lib.Module {
+  match mod_.name_sec {
+    Some(name_sec) => {
+      if name_sec.local_names is None {
+        return mod_
+      }
+      mod_.with_name_sec(
+        @lib.NameSec::new(
+          module_name=name_sec.module_name,
+          func_names=name_sec.func_names,
+          label_names=name_sec.label_names,
+          type_names=name_sec.type_names,
+          table_names=name_sec.table_names,
+          memory_names=name_sec.memory_names,
+          global_names=name_sec.global_names,
+          elem_names=name_sec.elem_names,
+          data_names=name_sec.data_names,
+          field_names=name_sec.field_names,
+          tag_names=name_sec.tag_names,
+        ),
+      )
+    }
+    None => mod_
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_hot_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
@@ -20867,8 +20932,16 @@ fn run_hot_pipeline_apply_hot_pass(
   }
   Ok(
     match next_code_sec {
-      Some(code_sec) =>
-        run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
+      Some(code_sec) => {
+        let next_mod = run_hot_pipeline_drop_label_names(
+          current_mod.with_code_sec(code_sec),
+        )
+        if descriptor.name == "ssa-nomerge" {
+          run_hot_pipeline_drop_local_names(next_mod)
+        } else {
+          next_mod
+        }
+      }
       None => current_mod
     },
   )

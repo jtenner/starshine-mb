@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-15] passes/ssa-nomerge | Compact branch dead tees and nested compare locals
+
+- Completed `[SSANM-009b118]` in [`../../agent-todo.md`](../../agent-todo.md) by reducing the two remaining post-`[SSANM-009b117]` debug-WASI local-count-losing candidates: `defined=1501 abs=1528` and `defined=1506 abs=1533`.
+- Added red-first regressions `ssa-nomerge reuses unused body locals for branch dead tees` and `ssa-nomerge reuses unused body local for nested compare tee chain` in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt). Extended [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so scratch compaction covers no-`local.set` small loaded tee chains and loaded branch/call dead-tee loops while still excluding `br_table` cases; raw `ssa-nomerge` code rewrites now drop local-name subsections so local-declaration trimming remains module-valid.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `444/444`; `moon test src/passes` passed `2476/2476`; native `moon build --target native --release src/cmd` completed with pre-existing unused-function warnings; `moon info` completed with three pre-existing GenValid warnings; full `moon test` passed `5781/5781`; direct `ssa-nomerge` compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b118-local-compaction-10000` compared `7600/10000` with `0` mismatches/validation/property/generator failures and `20` cached Binaryen command failures. Debug-WASI replay `.tmp/self-ssa-nomerge-ssanm009b118-local-compaction4-20260615` timed out after 650s but produced validating raw/canonical artifacts.
+- Targeted outcome: `defined=1506 abs=1533` is now a canonical Starshine local-count win (`3` body i32 locals versus Binaryen `4`, equal `339` body bytes / `336` instruction bytes). `defined=1501 abs=1528` is a raw Starshine win (`458` / `455` / `17`) versus Binaryen raw (`467` / `464` / `19`) with masked-equal semantics; the remaining canonical `20` versus `19` local count after `wasm-opt --strip-debug` is classified as a post-tool representation artifact, not an SSANM implementation gap.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md). `[SSANM-010c]` remains deferred; `o4z-ssa-nomerge-noop` is unchanged.
+
 ## [2026-06-14] passes/ssa-nomerge | Compact medium structured-load scratch locals
 
 - Completed `[SSANM-009b117]` in [`../../agent-todo.md`](../../agent-todo.md) by reducing and fixing current debug-WASI `defined=1500 abs=1527`: Starshine had a byte-neutral but local-count-losing structured-load scratch shape (`12` body i32 locals versus Binaryen `11`).

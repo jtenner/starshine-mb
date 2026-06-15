@@ -2228,6 +2228,491 @@ test "ssa-nomerge reuses unused body local for medium structured load scratch" {
 }
 
 ///|
+test "ssa-nomerge reuses unused body locals for branch dead tees" {
+  // Reduced from current debug-WASI `defined=1501 abs=1528`: the structured
+  // loop has two branch-local `local.tee` scratch values and already-declared
+  // unused body locals. Appending scratch locals is byte-neutral but loses the
+  // local-count comparison, so reuse the existing same-typed slots.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $alloc (param i32) (result i32) (local.get 0))
+    #|  (func $tick (param i32))
+    #|  (func $dropref (param i32))
+    #|  (func $limit (param i32) (result i32) (local.get 0))
+    #|  (func $lookup (param i32 i32) (result i32) (local.get 0))
+    #|  (func $check (param i32 i32) (result i32) (local.get 1))
+    #|  (func $target (param $0 i32) (result i32)
+    #|  (local $1 i32)
+    #|  (local $2 i32)
+    #|  (local $3 i32)
+    #|  (local $4 i32)
+    #|  (local $5 i32)
+    #|  (local $6 i32)
+    #|  (local $7 i32)
+    #|  (local $8 i32)
+    #|  (local $9 i32)
+    #|  (local $10 i32)
+    #|  (local $11 i32)
+    #|  (local $12 i32)
+    #|  (local $13 i32)
+    #|  (local $14 i32)
+    #|  (local $15 i32)
+    #|  (local $16 i32)
+    #|  (local $17 i32)
+    #|  (local $18 i32)
+    #|  (local $19 i32)
+    #|  (i32.store offset=4 align=1
+    #|   (local.tee $12
+    #|    (call $alloc
+    #|     (i32.const 4)
+    #|    )
+    #|   )
+    #|   (i32.const 1572864)
+    #|  )
+    #|  (i32.store offset=8 align=1
+    #|   (local.get $12)
+    #|   (i32.const 0)
+    #|  )
+    #|  (local.set $1
+    #|   (local.get $12)
+    #|  )
+    #|  (i32.store offset=4 align=1
+    #|   (local.tee $11
+    #|    (call $alloc
+    #|     (i32.const 4)
+    #|    )
+    #|   )
+    #|   (i32.const 1572864)
+    #|  )
+    #|  (i32.store offset=8 align=1
+    #|   (local.get $11)
+    #|   (i32.const 0)
+    #|  )
+    #|  (local.set $2
+    #|   (local.get $11)
+    #|  )
+    #|  (i32.store offset=4 align=1
+    #|   (local.tee $10
+    #|    (call $alloc
+    #|     (i32.const 4)
+    #|    )
+    #|   )
+    #|   (i32.const 1572864)
+    #|  )
+    #|  (i32.store offset=8 align=1
+    #|   (local.get $10)
+    #|   (i32.const 0)
+    #|  )
+    #|  (local.set $3
+    #|   (local.get $10)
+    #|  )
+    #|  (local.set $13
+    #|   (i32.const 0)
+    #|  )
+    #|  (loop $label
+    #|   (block $block8
+    #|    (local.set $13
+    #|     (block $block7 (result i32)
+    #|      (local.set $4
+    #|       (local.get $13)
+    #|      )
+    #|      (call $tick
+    #|       (local.get $0)
+    #|      )
+    #|      (local.set $6
+    #|       (call $limit
+    #|        (local.get $0)
+    #|       )
+    #|      )
+    #|      (if
+    #|       (i32.lt_s
+    #|        (local.get $4)
+    #|        (local.get $6)
+    #|       )
+    #|       (then
+    #|        (block $block
+    #|         (call $tick
+    #|          (local.get $0)
+    #|         )
+    #|         (if
+    #|          (i32.eqz
+    #|           (local.tee $18
+    #|            (call $check
+    #|             (local.get $0)
+    #|             (local.get $4)
+    #|            )
+    #|           )
+    #|          )
+    #|          (then
+    #|           (br $block)
+    #|          )
+    #|         )
+    #|         (drop
+    #|          (i32.const 0)
+    #|         )
+    #|         (drop
+    #|          (block $block6 (result i32)
+    #|           (block $block3
+    #|            (br $block6
+    #|             (block $block5 (result i32)
+    #|              (block $block2
+    #|               (br $block5
+    #|                (block $block4 (result i32)
+    #|                 (block $block1
+    #|                  (call $tick
+    #|                   (local.get $0)
+    #|                  )
+    #|                  (local.set $14
+    #|                   (i32.load offset=8 align=1
+    #|                    (local.tee $9
+    #|                     (call $lookup
+    #|                      (local.get $0)
+    #|                      (local.get $4)
+    #|                     )
+    #|                    )
+    #|                   )
+    #|                  )
+    #|                  (call $dropref
+    #|                   (local.get $9)
+    #|                  )
+    #|                  (if
+    #|                   (i32.eq
+    #|                    (local.tee $5
+    #|                     (local.get $14)
+    #|                    )
+    #|                    (i32.const 22)
+    #|                   )
+    #|                   (then
+    #|                    (br $block1)
+    #|                   )
+    #|                   (else
+    #|                    (if
+    #|                     (i32.eq
+    #|                      (local.get $5)
+    #|                      (i32.const 23)
+    #|                     )
+    #|                     (then
+    #|                      (br $block1)
+    #|                     )
+    #|                     (else
+    #|                      (if
+    #|                       (i32.eq
+    #|                        (local.get $5)
+    #|                        (i32.const 2)
+    #|                       )
+    #|                       (then
+    #|                        (br $block2)
+    #|                       )
+    #|                       (else
+    #|                        (if
+    #|                         (i32.eq
+    #|                          (local.get $5)
+    #|                          (i32.const 3)
+    #|                         )
+    #|                         (then
+    #|                          (br $block2)
+    #|                         )
+    #|                         (else
+    #|                          (if
+    #|                           (i32.eq
+    #|                            (local.get $5)
+    #|                            (i32.const 4)
+    #|                           )
+    #|                           (then
+    #|                            (br $block2)
+    #|                           )
+    #|                           (else
+    #|                            (if
+    #|                             (i32.eq
+    #|                              (local.get $5)
+    #|                              (i32.const 5)
+    #|                             )
+    #|                             (then
+    #|                              (br $block2)
+    #|                             )
+    #|                             (else
+    #|                              (if
+    #|                               (i32.eq
+    #|                                (local.get $5)
+    #|                                (i32.const 6)
+    #|                               )
+    #|                               (then
+    #|                                (br $block2)
+    #|                               )
+    #|                               (else
+    #|                                (if
+    #|                                 (i32.eq
+    #|                                  (local.get $5)
+    #|                                  (i32.const 7)
+    #|                                 )
+    #|                                 (then
+    #|                                  (br $block3)
+    #|                                 )
+    #|                                 (else
+    #|                                  (if
+    #|                                   (i32.eq
+    #|                                    (local.get $5)
+    #|                                    (i32.const 8)
+    #|                                   )
+    #|                                   (then
+    #|                                    (br $block3)
+    #|                                   )
+    #|                                   (else
+    #|                                    (if
+    #|                                     (i32.eq
+    #|                                      (local.get $5)
+    #|                                      (i32.const 9)
+    #|                                     )
+    #|                                     (then
+    #|                                      (br $block3)
+    #|                                     )
+    #|                                     (else
+    #|                                      (if
+    #|                                       (i32.eq
+    #|                                        (local.get $5)
+    #|                                        (i32.const 14)
+    #|                                       )
+    #|                                       (then
+    #|                                        (br $block3)
+    #|                                       )
+    #|                                       (else
+    #|                                        (if
+    #|                                         (i32.eq
+    #|                                          (local.get $5)
+    #|                                          (i32.const 18)
+    #|                                         )
+    #|                                         (then
+    #|                                          (br $block3)
+    #|                                         )
+    #|                                         (else
+    #|                                          (if
+    #|                                           (i32.eq
+    #|                                            (local.get $5)
+    #|                                            (i32.const 19)
+    #|                                           )
+    #|                                           (then
+    #|                                            (br $block3)
+    #|                                           )
+    #|                                           (else
+    #|                                            (if
+    #|                                             (i32.eq
+    #|                                              (local.get $5)
+    #|                                              (i32.const 20)
+    #|                                             )
+    #|                                             (then
+    #|                                              (br $block3)
+    #|                                             )
+    #|                                             (else
+    #|                                              (drop
+    #|                                               (i32.const 0)
+    #|                                              )
+    #|                                             )
+    #|                                            )
+    #|                                           )
+    #|                                          )
+    #|                                         )
+    #|                                        )
+    #|                                       )
+    #|                                      )
+    #|                                     )
+    #|                                    )
+    #|                                   )
+    #|                                  )
+    #|                                 )
+    #|                                )
+    #|                               )
+    #|                              )
+    #|                             )
+    #|                            )
+    #|                           )
+    #|                          )
+    #|                         )
+    #|                        )
+    #|                       )
+    #|                      )
+    #|                     )
+    #|                    )
+    #|                   )
+    #|                  )
+    #|                  (br $block4
+    #|                   (i32.const 0)
+    #|                  )
+    #|                 )
+    #|                 (i32.store offset=8 align=1
+    #|                  (local.get $1)
+    #|                  (i32.const 1)
+    #|                 )
+    #|                 (i32.const 0)
+    #|                )
+    #|               )
+    #|              )
+    #|              (i32.store offset=8 align=1
+    #|               (local.get $2)
+    #|               (i32.const 1)
+    #|              )
+    #|              (i32.const 0)
+    #|             )
+    #|            )
+    #|           )
+    #|           (i32.store offset=8 align=1
+    #|            (local.get $3)
+    #|            (i32.const 1)
+    #|           )
+    #|           (i32.const 0)
+    #|          )
+    #|         )
+    #|         (br $block)
+    #|        )
+    #|        (drop
+    #|         (br $block7
+    #|          (local.tee $19
+    #|           (i32.add
+    #|            (local.get $4)
+    #|            (i32.const 1)
+    #|           )
+    #|          )
+    #|         )
+    #|        )
+    #|       )
+    #|       (else
+    #|        (call $dropref
+    #|         (local.get $0)
+    #|        )
+    #|       )
+    #|      )
+    #|      (drop
+    #|       (i32.const 0)
+    #|      )
+    #|      (br $block8)
+    #|     )
+    #|    )
+    #|    (br $label)
+    #|   )
+    #|  )
+    #|  (drop
+    #|   (i32.const 0)
+    #|  )
+    #|  (local.set $15
+    #|   (i32.load offset=8 align=1
+    #|    (local.get $1)
+    #|   )
+    #|  )
+    #|  (call $dropref
+    #|   (local.get $1)
+    #|  )
+    #|  (if (result i32)
+    #|   (local.get $15)
+    #|   (then
+    #|    (local.set $16
+    #|     (i32.load offset=8 align=1
+    #|      (local.get $2)
+    #|     )
+    #|    )
+    #|    (call $dropref
+    #|     (local.get $2)
+    #|    )
+    #|    (if (result i32)
+    #|     (local.get $16)
+    #|     (then
+    #|      (local.set $17
+    #|       (i32.load offset=8 align=1
+    #|        (local.get $3)
+    #|       )
+    #|      )
+    #|      (call $dropref
+    #|       (local.get $3)
+    #|      )
+    #|      (local.get $17)
+    #|     )
+    #|     (else
+    #|      (call $dropref
+    #|       (local.get $3)
+    #|      )
+    #|      (i32.const 0)
+    #|     )
+    #|    )
+    #|   )
+    #|   (else
+    #|    (call $dropref
+    #|     (local.get $3)
+    #|    )
+    #|    (call $dropref
+    #|     (local.get $2)
+    #|    )
+    #|    (i32.const 0)
+    #|   )
+    #|  )
+    #| )
+    #|
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 6)
+  assert_true(
+    locals.length() <= 19,
+    msg=locals.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_local_tee_indices(instrs).any(fn(idx) { idx > 19U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge reuses unused body local for nested compare tee chain" {
+  // Reduced from current debug-WASI `defined=1506 abs=1533`: the loaded tag
+  // feeds a nested compare chain through a single `local.tee`, and an unused
+  // same-typed body local is already available. Reusing that slot avoids a
+  // byte-neutral appended local-count loss.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $touch (param i32))
+    #|  (func (param $0 i32) (result i32)
+    #|    (local $1 i32) (local $2 i32) (local $3 i32) (local $4 i32)
+    #|    (if (result i32)
+    #|      (i32.eq (local.get $0) (i32.const 0))
+    #|      (then
+    #|        (if (local.get $0) (then (call $touch (local.get $0))))
+    #|        (i32.const 0))
+    #|      (else
+    #|        (if (result i32)
+    #|          (i32.eq
+    #|            (local.tee $3
+    #|              (i32.load offset=8 align=1
+    #|                (local.tee $2 (local.tee $4 (local.get $0)))))
+    #|            (i32.const 174))
+    #|          (then (i32.const 1))
+    #|          (else
+    #|            (if (result i32)
+    #|              (i32.eq (local.get $3) (i32.const 179))
+    #|              (then (i32.const 1))
+    #|              (else
+    #|                (if (result i32)
+    #|                  (i32.eq (local.get $3) (i32.const 180))
+    #|                  (then (i32.const 1))
+    #|                  (else
+    #|                    (if (result i32)
+    #|                      (i32.eq (local.get $3) (i32.const 185))
+    #|                      (then (i32.const 1))
+    #|                      (else
+    #|                        (local.get $2)
+    #|                        call $touch
+    #|                        (i32.const 0))))))))))))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(
+    locals.length() <= 4,
+    msg=locals.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_local_tee_indices(instrs).any(fn(idx) { idx > 4U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity freshens allocator searchBlock temps" {
   // Artifact repro from the checked-in debug-WASI artifact, first canonical
   // difference `defined=0 abs=27` (`tlsf/searchBlock`). Binaryen's
