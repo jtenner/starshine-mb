@@ -7420,6 +7420,22 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     msg="expected enclosing label copy-before-exit variant",
   )
   assert_true(
+    facts.has_ssa_branch_block_alias_copy,
+    msg="expected branch-block alias copy variant",
+  )
+  assert_true(
+    facts.has_ssa_nested_enclosing_label_copy,
+    msg="expected nested enclosing-label copy variant",
+  )
+  assert_true(
+    facts.has_ssa_parallel_branch_carrier_copy,
+    msg="expected parallel branch carrier copy variant",
+  )
+  assert_true(
+    facts.has_ssa_tee_branch_carrier_copy,
+    msg="expected tee branch carrier copy variant",
+  )
+  assert_true(
     facts.has_ssa_void_br_table_canonical_copies,
     msg="expected void br_table canonical-copy variant",
   )
@@ -7501,6 +7517,22 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
   assert_true(
     facts.has_ssa_enclosing_label_copy_before_exit,
     msg="smoke profile should cover enclosing label copy-before-exit",
+  )
+  assert_true(
+    facts.has_ssa_branch_block_alias_copy,
+    msg="smoke profile should cover branch-block alias copy variants",
+  )
+  assert_true(
+    facts.has_ssa_nested_enclosing_label_copy,
+    msg="smoke profile should cover nested enclosing-label copy variants",
+  )
+  assert_false(
+    facts.has_ssa_parallel_branch_carrier_copy,
+    msg="smoke profile keeps parallel branch-carrier copies in coverage/stress lanes",
+  )
+  assert_false(
+    facts.has_ssa_tee_branch_carrier_copy,
+    msg="smoke profile keeps tee branch-carrier copies in coverage/stress lanes",
   )
   assert_false(
     facts.has_ssa_void_br_table_canonical_copies,
@@ -7693,6 +7725,22 @@ test "ssa-nomerge compare-clean generated modules omit unsupported-boundary cove
     msg="compare-clean profile must not emit enclosing-label copy structured slices",
   )
   assert_false(
+    facts.has_ssa_branch_block_alias_copy,
+    msg="compare-clean profile must not emit branch-block alias copy slices",
+  )
+  assert_false(
+    facts.has_ssa_nested_enclosing_label_copy,
+    msg="compare-clean profile must not emit nested enclosing-label copy slices",
+  )
+  assert_false(
+    facts.has_ssa_parallel_branch_carrier_copy,
+    msg="compare-clean profile must not emit parallel branch carrier copy slices",
+  )
+  assert_false(
+    facts.has_ssa_tee_branch_carrier_copy,
+    msg="compare-clean profile must not emit tee branch carrier copy slices",
+  )
+  assert_false(
     facts.has_ssa_void_br_table_canonical_copies,
     msg="compare-clean profile must not emit void br_table copy structured slices",
   )
@@ -7743,6 +7791,10 @@ test "ssa-nomerge stress generated modules record dense unsupported-boundary SSA
   assert_true(facts.has_ssa_canonical_body_local_next_read)
   assert_true(facts.has_ssa_immediate_block_exit_canonical_set_br)
   assert_true(facts.has_ssa_enclosing_label_copy_before_exit)
+  assert_true(facts.has_ssa_branch_block_alias_copy)
+  assert_true(facts.has_ssa_nested_enclosing_label_copy)
+  assert_true(facts.has_ssa_parallel_branch_carrier_copy)
+  assert_true(facts.has_ssa_tee_branch_carrier_copy)
   assert_true(facts.has_ssa_void_br_table_canonical_copies)
   assert_true(facts.has_ssa_branch_operand_local_boundary)
   assert_true(facts.has_ssa_nested_loop_target_boundary)
@@ -7770,7 +7822,8 @@ test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
       "ssa-branch-local-not-read-later", "ssa-default-local-read-after-branchy-control",
       "ssa-dropped-unreachable-debris-before-hard-unreachable", "ssa-canonical-body-local-next-read",
       "ssa-immediate-block-exit-canonical-set-br", "ssa-enclosing-label-copy-before-exit",
-      "ssa-void-br-table-canonical-copies", "ssa-branch-operand-local-boundary",
+      "ssa-branch-block-alias-copy", "ssa-nested-enclosing-label-copy", "ssa-parallel-branch-carrier-copy",
+      "ssa-tee-branch-carrier-copy", "ssa-void-br-table-canonical-copies", "ssa-branch-operand-local-boundary",
       "ssa-nested-loop-target-boundary", "ssa-large-structured-local-mix",
     ] {
     match validate_valid_feature_floor_by_label(label, 1) {

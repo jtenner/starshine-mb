@@ -911,6 +911,10 @@ pub struct GenValidFeatureFacts {
   has_ssa_canonical_body_local_next_read : Bool
   has_ssa_immediate_block_exit_canonical_set_br : Bool
   has_ssa_enclosing_label_copy_before_exit : Bool
+  has_ssa_branch_block_alias_copy : Bool
+  has_ssa_nested_enclosing_label_copy : Bool
+  has_ssa_parallel_branch_carrier_copy : Bool
+  has_ssa_tee_branch_carrier_copy : Bool
   has_ssa_void_br_table_canonical_copies : Bool
   has_ssa_branch_operand_local_boundary : Bool
   has_ssa_nested_loop_target_boundary : Bool
@@ -1026,6 +1030,10 @@ pub struct GenValidFeatureStats {
   ssa_canonical_body_local_next_read : Int
   ssa_immediate_block_exit_canonical_set_br : Int
   ssa_enclosing_label_copy_before_exit : Int
+  ssa_branch_block_alias_copy : Int
+  ssa_nested_enclosing_label_copy : Int
+  ssa_parallel_branch_carrier_copy : Int
+  ssa_tee_branch_carrier_copy : Int
   ssa_void_br_table_canonical_copies : Int
   ssa_branch_operand_local_boundary : Int
   ssa_nested_loop_target_boundary : Int
@@ -1212,6 +1220,10 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_canonical_body_local_next_read : Bool
   has_ssa_immediate_block_exit_canonical_set_br : Bool
   has_ssa_enclosing_label_copy_before_exit : Bool
+  has_ssa_branch_block_alias_copy : Bool
+  has_ssa_nested_enclosing_label_copy : Bool
+  has_ssa_parallel_branch_carrier_copy : Bool
+  has_ssa_tee_branch_carrier_copy : Bool
   has_ssa_void_br_table_canonical_copies : Bool
   has_ssa_branch_operand_local_boundary : Bool
   has_ssa_nested_loop_target_boundary : Bool
@@ -1692,6 +1704,10 @@ pub enum ValidateValidFeatureKey {
   SsaCanonicalBodyLocalNextRead
   SsaImmediateBlockExitCanonicalSetBr
   SsaEnclosingLabelCopyBeforeExit
+  SsaBranchBlockAliasCopy
+  SsaNestedEnclosingLabelCopy
+  SsaParallelBranchCarrierCopy
+  SsaTeeBranchCarrierCopy
   SsaVoidBrTableCanonicalCopies
   SsaBranchOperandLocalBoundary
   SsaNestedLoopTargetBoundary

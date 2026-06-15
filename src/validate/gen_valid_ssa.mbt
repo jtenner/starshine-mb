@@ -44,6 +44,10 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_canonical_body_local_next_read : Bool
   has_ssa_immediate_block_exit_canonical_set_br : Bool
   has_ssa_enclosing_label_copy_before_exit : Bool
+  has_ssa_branch_block_alias_copy : Bool
+  has_ssa_nested_enclosing_label_copy : Bool
+  has_ssa_parallel_branch_carrier_copy : Bool
+  has_ssa_tee_branch_carrier_copy : Bool
   has_ssa_void_br_table_canonical_copies : Bool
   has_ssa_branch_operand_local_boundary : Bool
   has_ssa_nested_loop_target_boundary : Bool
@@ -97,6 +101,10 @@ pub fn GenValidSsaFuncFacts::empty() -> GenValidSsaFuncFacts {
     has_ssa_canonical_body_local_next_read: false,
     has_ssa_immediate_block_exit_canonical_set_br: false,
     has_ssa_enclosing_label_copy_before_exit: false,
+    has_ssa_branch_block_alias_copy: false,
+    has_ssa_nested_enclosing_label_copy: false,
+    has_ssa_parallel_branch_carrier_copy: false,
+    has_ssa_tee_branch_carrier_copy: false,
     has_ssa_void_br_table_canonical_copies: false,
     has_ssa_branch_operand_local_boundary: false,
     has_ssa_nested_loop_target_boundary: false,
@@ -197,6 +205,14 @@ pub fn gen_valid_merge_ssa_func_facts(
     right.has_ssa_immediate_block_exit_canonical_set_br,
     has_ssa_enclosing_label_copy_before_exit: left.has_ssa_enclosing_label_copy_before_exit ||
     right.has_ssa_enclosing_label_copy_before_exit,
+    has_ssa_branch_block_alias_copy: left.has_ssa_branch_block_alias_copy ||
+    right.has_ssa_branch_block_alias_copy,
+    has_ssa_nested_enclosing_label_copy: left.has_ssa_nested_enclosing_label_copy ||
+    right.has_ssa_nested_enclosing_label_copy,
+    has_ssa_parallel_branch_carrier_copy: left.has_ssa_parallel_branch_carrier_copy ||
+    right.has_ssa_parallel_branch_carrier_copy,
+    has_ssa_tee_branch_carrier_copy: left.has_ssa_tee_branch_carrier_copy ||
+    right.has_ssa_tee_branch_carrier_copy,
     has_ssa_void_br_table_canonical_copies: left.has_ssa_void_br_table_canonical_copies ||
     right.has_ssa_void_br_table_canonical_copies,
     has_ssa_branch_operand_local_boundary: left.has_ssa_branch_operand_local_boundary ||
@@ -1399,6 +1415,58 @@ fn gen_valid_ssa_after_if_has_br_table_exit_before_overwrite(
 }
 
 ///|
+fn gen_valid_ssa_instr_is_nested_enclosing_exit(instr : Instruction) -> Bool {
+  match instr {
+    Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+      gen_valid_ssa_expr_has_enclosing_exit(body)
+    If(_, then_body, else_body) => {
+      if gen_valid_ssa_expr_has_enclosing_exit(Expr::new(then_body)) {
+        return true
+      }
+      match else_body {
+        Some(body) => gen_valid_ssa_expr_has_enclosing_exit(Expr::new(body))
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_ssa_after_if_has_nested_exit_before_overwrite(
+  instrs : Array[Instruction],
+  start : Int,
+  idx : LocalIdx,
+) -> Bool {
+  let mut saw_exit = false
+  let mut i = start
+  while i < instrs.length() {
+    if gen_valid_ssa_instr_is_nested_enclosing_exit(instrs[i]) {
+      saw_exit = true
+    }
+    if gen_valid_ssa_instr_writes_local(instrs[i], idx) {
+      return saw_exit
+    }
+    i += 1
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_common_slots(
+  left : Array[Int],
+  right : Array[Int],
+) -> Array[Int] {
+  let out : Array[Int] = []
+  for slot in left {
+    if right.any(fn(other) { other == slot }) {
+      out.push(slot)
+    }
+  }
+  out
+}
+
+///|
 fn gen_valid_ssa_scan_enclosing_copy_before_exit(
   instrs : Array[Instruction],
   tail : Expr,
@@ -1411,25 +1479,45 @@ fn gen_valid_ssa_scan_enclosing_copy_before_exit(
       If(_, then_body, Some(else_body)) => {
         let then_writes = gen_valid_ssa_if_arm_writes_local(then_body)
         let else_writes = gen_valid_ssa_if_arm_writes_local(else_body)
-        for slot in then_writes {
-          if else_writes.any(fn(other) { other == slot }) {
-            let idx = LocalIdx::new(slot.reinterpret_as_uint())
-            if gen_valid_expr_local_has_read(tail, idx) &&
-              gen_valid_ssa_after_if_has_exit_before_overwrite(
-                instrs,
-                i + 1,
-                idx,
-              ) {
-              out = { ..out, has_ssa_enclosing_label_copy_before_exit: true }
-            }
-            if gen_valid_expr_local_has_read(tail, idx) &&
-              gen_valid_ssa_after_if_has_br_table_exit_before_overwrite(
-                instrs,
-                i + 1,
-                idx,
-              ) {
-              out = { ..out, has_ssa_void_br_table_canonical_copies: true }
-            }
+        let common_writes = gen_valid_ssa_common_slots(then_writes, else_writes)
+        let common_tees = gen_valid_ssa_common_slots(
+          gen_valid_ssa_if_arm_tees_local(then_body),
+          gen_valid_ssa_if_arm_tees_local(else_body),
+        )
+        let mut branch_carrier_read_count = 0
+        for slot in common_writes {
+          let idx = LocalIdx::new(slot.reinterpret_as_uint())
+          if gen_valid_expr_local_has_read(tail, idx) &&
+            gen_valid_ssa_after_if_has_exit_before_overwrite(instrs, i + 1, idx) {
+            out = { ..out, has_ssa_enclosing_label_copy_before_exit: true }
+            out = { ..out, has_ssa_branch_block_alias_copy: true }
+            branch_carrier_read_count += 1
+          }
+          if gen_valid_expr_local_has_read(tail, idx) &&
+            gen_valid_ssa_after_if_has_nested_exit_before_overwrite(
+              instrs,
+              i + 1,
+              idx,
+            ) {
+            out = { ..out, has_ssa_nested_enclosing_label_copy: true }
+          }
+          if gen_valid_expr_local_has_read(tail, idx) &&
+            gen_valid_ssa_after_if_has_br_table_exit_before_overwrite(
+              instrs,
+              i + 1,
+              idx,
+            ) {
+            out = { ..out, has_ssa_void_br_table_canonical_copies: true }
+          }
+        }
+        if branch_carrier_read_count >= 2 {
+          out = { ..out, has_ssa_parallel_branch_carrier_copy: true }
+        }
+        for slot in common_tees {
+          let idx = LocalIdx::new(slot.reinterpret_as_uint())
+          if gen_valid_expr_local_has_read(tail, idx) &&
+            gen_valid_ssa_after_if_has_exit_before_overwrite(instrs, i + 1, idx) {
+            out = { ..out, has_ssa_tee_branch_carrier_copy: true }
           }
         }
       }
@@ -2130,6 +2218,123 @@ fn gen_valid_append_ssa_nomerge_parity_body_slice(
 }
 
 ///|
+fn gen_valid_append_ssa_nomerge_branch_carrier_slice(
+  out : Array[Instruction],
+  guard_local : LocalIdx,
+  carrier : LocalIdx,
+) -> Unit {
+  // Branch-adjacent no-merge carrier aliases: both arms write a canonical local,
+  // then an enclosing-label branch exits over a fallthrough overwrite. These are
+  // the noisy shapes where ssa-nomerge should avoid introducing merge-local copy
+  // traffic while still preserving no-merge semantics.
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::local_get(guard_local),
+        Instruction::if_(
+          BlockType::void_(),
+          [Instruction::i32_const(I32(80)), Instruction::local_set(carrier)],
+          Some([
+            Instruction::i32_const(I32(82)),
+            Instruction::local_set(carrier),
+          ]),
+        ),
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(1U))]),
+        ),
+        Instruction::i32_const(I32(84)),
+        Instruction::local_set(carrier),
+      ]),
+    ),
+  )
+  out.push(Instruction::local_get(carrier))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_ssa_nomerge_tee_branch_carrier_slice(
+  out : Array[Instruction],
+  guard_local : LocalIdx,
+  carrier : LocalIdx,
+) -> Unit {
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::local_get(guard_local),
+        Instruction::if_(
+          BlockType::void_(),
+          [
+            Instruction::i32_const(I32(86)),
+            Instruction::local_tee(carrier),
+            Instruction::drop(),
+          ],
+          Some([
+            Instruction::i32_const(I32(87)),
+            Instruction::local_tee(carrier),
+            Instruction::drop(),
+          ]),
+        ),
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(1U))]),
+        ),
+        Instruction::i32_const(I32(88)),
+        Instruction::local_set(carrier),
+      ]),
+    ),
+  )
+  out.push(Instruction::local_get(carrier))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_ssa_nomerge_parallel_branch_carrier_slice(
+  out : Array[Instruction],
+  guard_local : LocalIdx,
+  carrier0 : LocalIdx,
+  carrier1 : LocalIdx,
+) -> Unit {
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::local_get(guard_local),
+        Instruction::if_(
+          BlockType::void_(),
+          [
+            Instruction::i32_const(I32(90)),
+            Instruction::local_set(carrier0),
+            Instruction::i32_const(I32(91)),
+            Instruction::local_set(carrier1),
+          ],
+          Some([
+            Instruction::i32_const(I32(92)),
+            Instruction::local_set(carrier0),
+            Instruction::i32_const(I32(93)),
+            Instruction::local_set(carrier1),
+          ]),
+        ),
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(1U))]),
+        ),
+        Instruction::i32_const(I32(94)),
+        Instruction::local_set(carrier0),
+        Instruction::i32_const(I32(95)),
+        Instruction::local_set(carrier1),
+      ]),
+    ),
+  )
+  out.push(Instruction::local_get(carrier0))
+  out.push(Instruction::drop())
+  out.push(Instruction::local_get(carrier1))
+  out.push(Instruction::drop())
+}
+
+///|
 fn gen_valid_append_ssa_nomerge_smoke_body_slice(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -2368,6 +2573,7 @@ fn gen_valid_append_ssa_nomerge_smoke_body_slice(
     )
     out.push(Instruction::local_get(l0))
     out.push(Instruction::drop())
+    gen_valid_append_ssa_nomerge_branch_carrier_slice(out, p0, l0)
   }
   gen_valid_append_ssa_nomerge_tee_body_slice(out, l2, l4, l1)
   ignore(ctx)
@@ -3002,7 +3208,14 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
     out.push(Instruction::local_get(l0))
     out.push(Instruction::drop())
   }
-  // AD. void br_table canonical copies before dispatch to an enclosing label.
+  // AD. branch-block alias, nested enclosing-label, parallel carrier, and tee
+  // carrier copies before an enclosing-label exit over fallthrough overwrites.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    gen_valid_append_ssa_nomerge_branch_carrier_slice(out, p0, l0)
+    gen_valid_append_ssa_nomerge_parallel_branch_carrier_slice(out, p0, l0, l1)
+    gen_valid_append_ssa_nomerge_tee_branch_carrier_slice(out, p0, l0)
+  }
+  // AE. void br_table canonical copies before dispatch to an enclosing label.
   if param_count > 0 && accepts[0] == ValType::i32() {
     out.push(
       Instruction::block(
@@ -3029,7 +3242,7 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
     out.push(Instruction::local_get(l0))
     out.push(Instruction::drop())
   }
-  // AE. branch operands sourced from locals after local traffic.
+  // AF. branch operands sourced from locals after local traffic.
   if param_count > 0 && accepts[0] == ValType::i32() {
     out.push(
       Instruction::block(
@@ -3054,7 +3267,7 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
       ),
     )
   }
-  // AF. nested-loop target boundary exits an enclosing block over local traffic.
+  // AG. nested-loop target boundary exits an enclosing block over local traffic.
   out.push(
     Instruction::block(
       BlockType::void_(),
@@ -3072,7 +3285,7 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
   )
   out.push(Instruction::local_get(l0))
   out.push(Instruction::drop())
-  // AG. large structured local-write mix for huge-function guardrail coverage.
+  // AH. large structured local-write mix for huge-function guardrail coverage.
   if param_count > 0 && accepts[0] == ValType::i32() {
     for n in 0..<4 {
       out.push(Instruction::local_get(p0))

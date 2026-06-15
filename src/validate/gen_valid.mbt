@@ -1306,6 +1306,10 @@ pub struct GenValidFeatureFacts {
   has_ssa_canonical_body_local_next_read : Bool
   has_ssa_immediate_block_exit_canonical_set_br : Bool
   has_ssa_enclosing_label_copy_before_exit : Bool
+  has_ssa_branch_block_alias_copy : Bool
+  has_ssa_nested_enclosing_label_copy : Bool
+  has_ssa_parallel_branch_carrier_copy : Bool
+  has_ssa_tee_branch_carrier_copy : Bool
   has_ssa_void_br_table_canonical_copies : Bool
   has_ssa_branch_operand_local_boundary : Bool
   has_ssa_nested_loop_target_boundary : Bool
@@ -1474,6 +1478,10 @@ pub struct GenValidFeatureStats {
   ssa_canonical_body_local_next_read : Int
   ssa_immediate_block_exit_canonical_set_br : Int
   ssa_enclosing_label_copy_before_exit : Int
+  ssa_branch_block_alias_copy : Int
+  ssa_nested_enclosing_label_copy : Int
+  ssa_parallel_branch_carrier_copy : Int
+  ssa_tee_branch_carrier_copy : Int
   ssa_void_br_table_canonical_copies : Int
   ssa_branch_operand_local_boundary : Int
   ssa_nested_loop_target_boundary : Int
@@ -1699,6 +1707,14 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.ssa_immediate_block_exit_canonical_set_br.output(logger)
   logger.write_string(", ssa_enclosing_label_copy_before_exit: ")
   self.ssa_enclosing_label_copy_before_exit.output(logger)
+  logger.write_string(", ssa_branch_block_alias_copy: ")
+  self.ssa_branch_block_alias_copy.output(logger)
+  logger.write_string(", ssa_nested_enclosing_label_copy: ")
+  self.ssa_nested_enclosing_label_copy.output(logger)
+  logger.write_string(", ssa_parallel_branch_carrier_copy: ")
+  self.ssa_parallel_branch_carrier_copy.output(logger)
+  logger.write_string(", ssa_tee_branch_carrier_copy: ")
+  self.ssa_tee_branch_carrier_copy.output(logger)
   logger.write_string(", ssa_void_br_table_canonical_copies: ")
   self.ssa_void_br_table_canonical_copies.output(logger)
   logger.write_string(", ssa_branch_operand_local_boundary: ")
@@ -1822,6 +1838,10 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     ssa_canonical_body_local_next_read: 0,
     ssa_immediate_block_exit_canonical_set_br: 0,
     ssa_enclosing_label_copy_before_exit: 0,
+    ssa_branch_block_alias_copy: 0,
+    ssa_nested_enclosing_label_copy: 0,
+    ssa_parallel_branch_carrier_copy: 0,
+    ssa_tee_branch_carrier_copy: 0,
     ssa_void_br_table_canonical_copies: 0,
     ssa_branch_operand_local_boundary: 0,
     ssa_nested_loop_target_boundary: 0,
@@ -2027,6 +2047,14 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_ssa_immediate_block_exit_canonical_set_br),
     ssa_enclosing_label_copy_before_exit: self.ssa_enclosing_label_copy_before_exit +
     gen_valid_bool_count(facts.has_ssa_enclosing_label_copy_before_exit),
+    ssa_branch_block_alias_copy: self.ssa_branch_block_alias_copy +
+    gen_valid_bool_count(facts.has_ssa_branch_block_alias_copy),
+    ssa_nested_enclosing_label_copy: self.ssa_nested_enclosing_label_copy +
+    gen_valid_bool_count(facts.has_ssa_nested_enclosing_label_copy),
+    ssa_parallel_branch_carrier_copy: self.ssa_parallel_branch_carrier_copy +
+    gen_valid_bool_count(facts.has_ssa_parallel_branch_carrier_copy),
+    ssa_tee_branch_carrier_copy: self.ssa_tee_branch_carrier_copy +
+    gen_valid_bool_count(facts.has_ssa_tee_branch_carrier_copy),
     ssa_void_br_table_canonical_copies: self.ssa_void_br_table_canonical_copies +
     gen_valid_bool_count(facts.has_ssa_void_br_table_canonical_copies),
     ssa_branch_operand_local_boundary: self.ssa_branch_operand_local_boundary +
@@ -15836,6 +15864,10 @@ pub fn gen_valid_feature_facts(
     has_ssa_canonical_body_local_next_read: ssa_facts.has_ssa_canonical_body_local_next_read,
     has_ssa_immediate_block_exit_canonical_set_br: ssa_facts.has_ssa_immediate_block_exit_canonical_set_br,
     has_ssa_enclosing_label_copy_before_exit: ssa_facts.has_ssa_enclosing_label_copy_before_exit,
+    has_ssa_branch_block_alias_copy: ssa_facts.has_ssa_branch_block_alias_copy,
+    has_ssa_nested_enclosing_label_copy: ssa_facts.has_ssa_nested_enclosing_label_copy,
+    has_ssa_parallel_branch_carrier_copy: ssa_facts.has_ssa_parallel_branch_carrier_copy,
+    has_ssa_tee_branch_carrier_copy: ssa_facts.has_ssa_tee_branch_carrier_copy,
     has_ssa_void_br_table_canonical_copies: ssa_facts.has_ssa_void_br_table_canonical_copies,
     has_ssa_branch_operand_local_boundary: ssa_facts.has_ssa_branch_operand_local_boundary,
     has_ssa_nested_loop_target_boundary: ssa_facts.has_ssa_nested_loop_target_boundary,

@@ -3493,6 +3493,10 @@ pub enum ValidateValidFeatureKey {
   SsaCanonicalBodyLocalNextRead
   SsaImmediateBlockExitCanonicalSetBr
   SsaEnclosingLabelCopyBeforeExit
+  SsaBranchBlockAliasCopy
+  SsaNestedEnclosingLabelCopy
+  SsaParallelBranchCarrierCopy
+  SsaTeeBranchCarrierCopy
   SsaVoidBrTableCanonicalCopies
   SsaBranchOperandLocalBoundary
   SsaNestedLoopTargetBoundary
@@ -3626,6 +3630,12 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
       logger.write_string("SsaImmediateBlockExitCanonicalSetBr")
     SsaEnclosingLabelCopyBeforeExit =>
       logger.write_string("SsaEnclosingLabelCopyBeforeExit")
+    SsaBranchBlockAliasCopy => logger.write_string("SsaBranchBlockAliasCopy")
+    SsaNestedEnclosingLabelCopy =>
+      logger.write_string("SsaNestedEnclosingLabelCopy")
+    SsaParallelBranchCarrierCopy =>
+      logger.write_string("SsaParallelBranchCarrierCopy")
+    SsaTeeBranchCarrierCopy => logger.write_string("SsaTeeBranchCarrierCopy")
     SsaVoidBrTableCanonicalCopies =>
       logger.write_string("SsaVoidBrTableCanonicalCopies")
     SsaBranchOperandLocalBoundary =>
@@ -3849,6 +3859,10 @@ pub fn validate_valid_feature_actual_count(
       stats.ssa_immediate_block_exit_canonical_set_br
     SsaEnclosingLabelCopyBeforeExit =>
       stats.ssa_enclosing_label_copy_before_exit
+    SsaBranchBlockAliasCopy => stats.ssa_branch_block_alias_copy
+    SsaNestedEnclosingLabelCopy => stats.ssa_nested_enclosing_label_copy
+    SsaParallelBranchCarrierCopy => stats.ssa_parallel_branch_carrier_copy
+    SsaTeeBranchCarrierCopy => stats.ssa_tee_branch_carrier_copy
     SsaVoidBrTableCanonicalCopies => stats.ssa_void_br_table_canonical_copies
     SsaBranchOperandLocalBoundary => stats.ssa_branch_operand_local_boundary
     SsaNestedLoopTargetBoundary => stats.ssa_nested_loop_target_boundary
@@ -3959,6 +3973,10 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     SsaCanonicalBodyLocalNextRead,
     SsaImmediateBlockExitCanonicalSetBr,
     SsaEnclosingLabelCopyBeforeExit,
+    SsaBranchBlockAliasCopy,
+    SsaNestedEnclosingLabelCopy,
+    SsaParallelBranchCarrierCopy,
+    SsaTeeBranchCarrierCopy,
     SsaVoidBrTableCanonicalCopies,
     SsaBranchOperandLocalBoundary,
     SsaNestedLoopTargetBoundary,
@@ -4130,6 +4148,10 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     SsaImmediateBlockExitCanonicalSetBr =>
       "ssa-immediate-block-exit-canonical-set-br"
     SsaEnclosingLabelCopyBeforeExit => "ssa-enclosing-label-copy-before-exit"
+    SsaBranchBlockAliasCopy => "ssa-branch-block-alias-copy"
+    SsaNestedEnclosingLabelCopy => "ssa-nested-enclosing-label-copy"
+    SsaParallelBranchCarrierCopy => "ssa-parallel-branch-carrier-copy"
+    SsaTeeBranchCarrierCopy => "ssa-tee-branch-carrier-copy"
     SsaVoidBrTableCanonicalCopies => "ssa-void-br-table-canonical-copies"
     SsaBranchOperandLocalBoundary => "ssa-branch-operand-local-boundary"
     SsaNestedLoopTargetBoundary => "ssa-nested-loop-target-boundary"
@@ -4253,6 +4275,10 @@ fn validate_valid_feature_key_from_label(
       Some(SsaImmediateBlockExitCanonicalSetBr)
     "ssa-enclosing-label-copy-before-exit" =>
       Some(SsaEnclosingLabelCopyBeforeExit)
+    "ssa-branch-block-alias-copy" => Some(SsaBranchBlockAliasCopy)
+    "ssa-nested-enclosing-label-copy" => Some(SsaNestedEnclosingLabelCopy)
+    "ssa-parallel-branch-carrier-copy" => Some(SsaParallelBranchCarrierCopy)
+    "ssa-tee-branch-carrier-copy" => Some(SsaTeeBranchCarrierCopy)
     "ssa-void-br-table-canonical-copies" => Some(SsaVoidBrTableCanonicalCopies)
     "ssa-branch-operand-local-boundary" => Some(SsaBranchOperandLocalBoundary)
     "ssa-nested-loop-target-boundary" => Some(SsaNestedLoopTargetBoundary)

@@ -2437,7 +2437,8 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies dense ssa-nomerge 
     "ssa-nested-result-if-mixed-arm-value-block", "ssa-nested-result-if-scalar-result",
     "ssa-default-local-read-after-branchy-control", "ssa-dropped-unreachable-debris-before-hard-unreachable",
     "ssa-canonical-body-local-next-read", "ssa-immediate-block-exit-canonical-set-br",
-    "ssa-enclosing-label-copy-before-exit", "ssa-void-br-table-canonical-copies",
+    "ssa-enclosing-label-copy-before-exit", "ssa-branch-block-alias-copy", "ssa-nested-enclosing-label-copy",
+    "ssa-parallel-branch-carrier-copy", "ssa-tee-branch-carrier-copy", "ssa-void-br-table-canonical-copies",
   ]
   let floors : Array[ValidateValidFeatureFloor] = []
   for label in labels {

@@ -1450,6 +1450,82 @@ test "ssa scanner detects enclosing label and void br_table copy families" {
 }
 
 ///|
+test "ssa scanner detects branch carrier alias copy variants" {
+  let mod_ = gen_valid_ssa_test_module(
+    [ValType::i32()],
+    [ValType::i32(), ValType::i32()],
+    [
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(
+            BlockType::void_(),
+            [
+              Instruction::i32_const(I32(70)),
+              Instruction::local_set(LocalIdx::new(1U)),
+              Instruction::i32_const(I32(71)),
+              Instruction::local_set(LocalIdx::new(2U)),
+            ],
+            Some([
+              Instruction::i32_const(I32(72)),
+              Instruction::local_set(LocalIdx::new(1U)),
+              Instruction::i32_const(I32(73)),
+              Instruction::local_set(LocalIdx::new(2U)),
+            ]),
+          ),
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([Instruction::br(LabelIdx::new(1U))]),
+          ),
+          Instruction::i32_const(I32(74)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::i32_const(I32(75)),
+          Instruction::local_set(LocalIdx::new(2U)),
+        ]),
+      ),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(2U)),
+      Instruction::drop(),
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(
+            BlockType::void_(),
+            [
+              Instruction::i32_const(I32(76)),
+              Instruction::local_tee(LocalIdx::new(1U)),
+              Instruction::drop(),
+            ],
+            Some([
+              Instruction::i32_const(I32(77)),
+              Instruction::local_tee(LocalIdx::new(1U)),
+              Instruction::drop(),
+            ]),
+          ),
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([Instruction::br(LabelIdx::new(1U))]),
+          ),
+          Instruction::i32_const(I32(78)),
+          Instruction::local_set(LocalIdx::new(1U)),
+        ]),
+      ),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::drop(),
+    ],
+  )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_enclosing_label_copy_before_exit)
+  assert_true(facts.has_ssa_branch_block_alias_copy)
+  assert_true(facts.has_ssa_nested_enclosing_label_copy)
+  assert_true(facts.has_ssa_parallel_branch_carrier_copy)
+  assert_true(facts.has_ssa_tee_branch_carrier_copy)
+}
+
+///|
 test "ssa scanner detects branch operand nested-loop and large structured boundaries" {
   let mod_ = gen_valid_ssa_test_module([ValType::i32()], [ValType::i32()], [
     Instruction::block(
@@ -1547,6 +1623,10 @@ test "ssa-nomerge coverage profile emits newer structured raw variants" {
   assert_true(facts.has_ssa_canonical_body_local_next_read)
   assert_true(facts.has_ssa_immediate_block_exit_canonical_set_br)
   assert_true(facts.has_ssa_enclosing_label_copy_before_exit)
+  assert_true(facts.has_ssa_branch_block_alias_copy)
+  assert_true(facts.has_ssa_nested_enclosing_label_copy)
+  assert_true(facts.has_ssa_parallel_branch_carrier_copy)
+  assert_true(facts.has_ssa_tee_branch_carrier_copy)
   assert_true(facts.has_ssa_void_br_table_canonical_copies)
   assert_true(facts.has_ssa_branch_operand_local_boundary)
   assert_true(facts.has_ssa_nested_loop_target_boundary)
@@ -1563,6 +1643,10 @@ test "ssa-nomerge coverage profile emits newer structured raw variants" {
   assert_true(generated.facts.has_ssa_canonical_body_local_next_read)
   assert_true(generated.facts.has_ssa_immediate_block_exit_canonical_set_br)
   assert_true(generated.facts.has_ssa_enclosing_label_copy_before_exit)
+  assert_true(generated.facts.has_ssa_branch_block_alias_copy)
+  assert_true(generated.facts.has_ssa_nested_enclosing_label_copy)
+  assert_true(generated.facts.has_ssa_parallel_branch_carrier_copy)
+  assert_true(generated.facts.has_ssa_tee_branch_carrier_copy)
   assert_true(generated.facts.has_ssa_void_br_table_canonical_copies)
   assert_true(generated.facts.has_ssa_branch_operand_local_boundary)
   assert_true(generated.facts.has_ssa_nested_loop_target_boundary)

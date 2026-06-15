@@ -3441,6 +3441,14 @@ fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
       "ssa-immediate-block-exit-canonical-set-br"
     @validate.ValidateValidFeatureKey::SsaEnclosingLabelCopyBeforeExit =>
       "ssa-enclosing-label-copy-before-exit"
+    @validate.ValidateValidFeatureKey::SsaBranchBlockAliasCopy =>
+      "ssa-branch-block-alias-copy"
+    @validate.ValidateValidFeatureKey::SsaNestedEnclosingLabelCopy =>
+      "ssa-nested-enclosing-label-copy"
+    @validate.ValidateValidFeatureKey::SsaParallelBranchCarrierCopy =>
+      "ssa-parallel-branch-carrier-copy"
+    @validate.ValidateValidFeatureKey::SsaTeeBranchCarrierCopy =>
+      "ssa-tee-branch-carrier-copy"
     @validate.ValidateValidFeatureKey::SsaVoidBrTableCanonicalCopies =>
       "ssa-void-br-table-canonical-copies"
     @validate.ValidateValidFeatureKey::SsaBranchOperandLocalBoundary =>
