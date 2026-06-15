@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-15] passes/ssa-nomerge | Remove huge-function no-merge size guard
+
+- Completed `[SSANM-008c]` in [`../../agent-todo.md`](../../agent-todo.md) after explicit user direction to admit huge `ssa-nomerge` functions when Binaryen `SSAify(false)` has no equivalent size/local-count guard.
+- Removed the `large-structured-local-writes` instruction/local threshold from the direct no-merge raw dispatcher in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), while leaving non-size boundary owners such as call-heavy memory, branch-heavy meshes, typed-control, EH, and branch/table helper paths intact.
+- Updated red-first larger structured fixtures in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): the no-branch and branch above-threshold cases failed under the old guard, then passed by asserting the size guard is absent and the existing structured raw rewrite path runs.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `444/444`; native `moon build --target native --release src/cmd` completed with pre-existing unused-function warnings; `moon fmt`, `moon test src/passes` (`2478/2478`), `moon info` (three pre-existing GenValid warnings), and full `moon test` (`5783/5783`) passed. Direct compare `.tmp/pass-fuzz-ssa-nomerge-no-huge-limit-10000` compared `7601/10000`, had `7601` normalized matches, `0` mismatches/validation/property/generator failures, and `20` cached Binaryen command failures. Debug-WASI self-compare `.tmp/self-ssa-nomerge-no-huge-limit-20260615` completed, both Starshine raw/canonical outputs validated, and the trace has `0` `large-structured-local-writes`. Timing: wrapper real `10.793s`; Starshine command `4198.989ms`; Starshine raw timed region `1503.887ms`; Binaryen command `725.270ms`; Binaryen pass `392.564ms`. Canonical Starshine output is smaller (`3149564` bytes versus Binaryen `3156337`) but still differs, now at `defined=2 abs=29`; output classification remains follow-up work.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md).
+
 ## [2026-06-15] passes/ssa-nomerge | Enable O4z scheduling
 
 - Completed `[SSANM-010c]` / `[SSANM-010d]` in [`../../agent-todo.md`](../../agent-todo.md) after explicit user approval to remove the broad `o4z-ssa-nomerge-noop` guard and fix exposed correctness issues before release instead of keeping the scheduled pass bypassed.

@@ -23621,24 +23621,23 @@ test "ssa-nomerge keeps audited high-threshold structured local-write functions 
 }
 
 ///|
-test "ssa-nomerge keeps larger no-branch structured functions above raw threshold classified as large" {
+test "ssa-nomerge rewrites larger no-branch structured functions without binaryen size limit" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       ssa_test_large_structured_local_write_fixture(2048),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail("expected above-threshold no-branch ssa-nomerge success, got \{err}")
   }
-  assert_true(
+  assert_false(
     trace.any(fn(line) {
       line.contains(
         "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
-      ) &&
-      line.contains("instrs=")
+      )
     }),
     msg=trace.join("\n"),
   )
@@ -23646,9 +23645,14 @@ test "ssa-nomerge keeps larger no-branch structured functions above raw threshol
     trace.any(fn(line) { line.contains("skip-invalid-lower") }),
     msg=trace.join("\n"),
   )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
     msg=trace.join("\n"),
+  )
+  ssa_test_assert_raw_structured_rewrite_added_alias_local(
+    optimized, 1, "above-threshold no-branch raw rewrite",
   )
 }
 
@@ -23740,26 +23744,25 @@ test "ssa-nomerge keeps audited high-threshold structured branch functions on ra
 }
 
 ///|
-test "ssa-nomerge classifies structured branch functions above raw instruction threshold as large-structured-local-writes" {
+test "ssa-nomerge rewrites larger structured branch functions without binaryen size limit" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       ssa_test_large_structured_branch_if_prefix_fixture(2047),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail(
         "expected above-threshold structured branch ssa-nomerge success, got \{err}",
       )
   }
-  assert_true(
+  assert_false(
     trace.any(fn(line) {
       line.contains(
         "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
-      ) &&
-      line.contains("instrs=")
+      )
     }),
     msg=trace.join("\n"),
   )
@@ -23767,9 +23770,14 @@ test "ssa-nomerge classifies structured branch functions above raw instruction t
     trace.any(fn(line) { line.contains("skip-invalid-lower") }),
     msg=trace.join("\n"),
   )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
     msg=trace.join("\n"),
+  )
+  ssa_test_assert_raw_structured_rewrite_added_alias_local(
+    optimized, 1, "above-threshold structured branch raw rewrite",
   )
 }
 

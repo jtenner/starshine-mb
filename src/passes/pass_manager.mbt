@@ -17043,9 +17043,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
-  let structured_branch_raw_instr_limit = 8192
-  let structured_no_branch_raw_instr_limit = 8192
-  let structured_branch_raw_local_limit = 1024
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   if descriptor.name == "dead-code-elimination" &&
     options.optimize_level >= 4 &&
@@ -17100,6 +17097,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+  let base_local_count = params.length() + locals.length()
   if !has_writes {
     let has_default_reads = run_hot_pipeline_raw_has_default_local_reads(
       instrs,
@@ -17158,21 +17156,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     return None
   }
   if has_structured_control {
-    let base_local_count = params.length() + locals.length()
-    let structured_instr_limit = if has_branches {
-      structured_branch_raw_instr_limit
-    } else {
-      structured_no_branch_raw_instr_limit
-    }
-    if instr_count > structured_instr_limit ||
-      (has_branches && base_local_count > structured_branch_raw_local_limit) {
-      return Some({
-        reason: "large-structured-local-writes func=\{func_idx} instrs=\{instr_count} locals=\{base_local_count}",
-        func: original,
-        unchanged_original: true,
-        trace_skip_raw: true,
-      })
-    }
     if run_hot_pipeline_raw_instrs_have_memory_access(instrs) &&
       run_hot_pipeline_raw_count_call_like(instrs) >= 24 &&
       instr_count >= 128 {

@@ -599,6 +599,34 @@ The planner found no merge-feeding canonical writes and no merge reads in these 
 
 Direct `--pass ssa-nomerge` compare was not rerun for `[SSANM-008b]` because the slice left no pass mutation, no committed trace/dispatch change, and no wasm output change. The native build and extracted replay validation were the relevant proof surface.
 
+## `[SSANM-008c]` huge-function size guard removal
+
+`[SSANM-008c]` removes the Starshine-only `large-structured-local-writes` threshold from the direct `ssa-nomerge` raw dispatcher. The decision is source-backed: Binaryen `SSAify(false)` builds `LocalGraph`, computes set influences and SSA indexes, freshens eligible explicit writes, rewrites single-source gets/defaults, and does not expose an equivalent instruction/local-count no-op guard in `SSAify.cpp`.
+
+The code change is restricted to the no-merge path in `src/passes/pass_manager.mbt`: the previous `8192` structured instruction budgets and `1024` branchy local-count budget no longer return the original function unchanged. Other explicit boundary reasons such as call-heavy memory structured no-ops, branch-heavy meshes, typed-control, EH, and branch/table helper boundaries remain separate owners.
+
+Focused red-first coverage changed the previous above-threshold expectations in `src/passes/ssa_nomerge_test.mbt`: larger no-branch and branch structured fixtures now assert that `large-structured-local-writes` is absent, no invalid lower occurs, and the existing structured raw rewrite path adds the expected alias local. Under the old guard those tests failed with `large-structured-local-writes`; after removing the guard, focused `ssa_nomerge_test.mbt` passed `444/444`, `moon fmt` passed, `moon test src/passes` passed `2478/2478`, `moon info` passed with the three pre-existing GenValid warnings, full `moon test` passed `5783/5783`, and native `src/cmd` build passed with pre-existing unused-function warnings.
+
+Debug-WASI self-compare evidence after rebuilding native:
+
+```sh
+bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm \
+  --out-dir .tmp/self-ssa-nomerge-no-huge-limit-20260615 \
+  --starshine-bin target/native/release/build/cmd/cmd.exe --ssa-nomerge
+```
+
+The run completed, both Starshine raw and canonical outputs validated with `wasm-tools validate --features all`, and the trace contains `0` `large-structured-local-writes` lines. Timing from `result.json`: Starshine command runtime `4198.989ms`, Starshine raw timed region `1503.887ms`, Binaryen command runtime `725.270ms`, Binaryen pass runtime `392.564ms`; the wrapper shell real time was `10.793s`. Canonical Starshine output is smaller (`3149564` bytes versus Binaryen `3156337`), while raw Starshine output is larger before canonicalization. The artifacts are still not equal and now first-diff at `defined=2 abs=29`, so follow-up classification must inspect the new early diff chain before claiming artifact parity.
+
+Direct compare evidence after the behavior change:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass ssa-nomerge \
+  --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --out-dir .tmp/pass-fuzz-ssa-nomerge-no-huge-limit-10000
+```
+
+The lane compared `7601/10000`, reported `7601` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `20` cached Binaryen command failures.
+
 ## `[SSANM-009b1]` debug-WASI stack-carried tee/default-read fix
 
 `[SSANM-009b1]` reduces and fixes the former checked-in debug-WASI first diff `defined=108 abs=135` from `.tmp/self-ssa-nomerge-debug-wasi-anchor-refresh-20260614`.
