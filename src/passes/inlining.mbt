@@ -1935,27 +1935,49 @@ fn inl_func_has_dead_suffix_call(func : @lib.Func) -> Bool {
 }
 
 ///|
-fn inl_graph_reaches(
+fn inl_build_graph_reachability(
   graph : Array[Array[Int]],
-  start : Int,
-  target : Int,
-  seen : Array[Bool],
-) -> Bool {
-  if start < 0 || start >= graph.length() {
-    return false
-  }
-  for next in graph[start] {
-    if next == target {
-      return true
-    }
-    if next >= 0 && next < seen.length() && !seen[next] {
-      seen[next] = true
-      if inl_graph_reaches(graph, next, target, seen) {
-        return true
+) -> Array[Array[Bool]] {
+  let total = graph.length()
+  let reachability : Array[Array[Bool]] = []
+  let mut start = 0
+  while start < total {
+    let reachable = Array::make(total, false)
+    if start >= 0 && start < graph.length() {
+      let stack : Array[Int] = []
+      for next in graph[start] {
+        if next >= 0 && next < total && !reachable[next] {
+          reachable[next] = true
+          stack.push(next)
+        }
+      }
+      while stack.length() > 0 {
+        let current = stack.pop().unwrap()
+        for next in graph[current] {
+          if next >= 0 && next < total && !reachable[next] {
+            reachable[next] = true
+            stack.push(next)
+          }
+        }
       }
     }
+    reachability.push(reachable)
+    start += 1
   }
-  false
+  reachability
+}
+
+///|
+fn inl_reachability_reaches(
+  reachability : Array[Array[Bool]],
+  start : Int,
+  target : Int,
+) -> Bool {
+  start >= 0 &&
+  start < reachability.length() &&
+  target >= 0 &&
+  target < reachability[start].length() &&
+  reachability[start][target]
 }
 
 ///|
@@ -2117,6 +2139,7 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
+  reachability : Array[Array[Bool]],
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -2147,8 +2170,8 @@ fn inl_prediction_retain_shadowed_void_cycle_result_helper(
     while other < total {
       if other == idx ||
         (
-          inl_graph_reaches(graph, idx, other, Array::make(total, false)) &&
-          inl_graph_reaches(graph, other, idx, Array::make(total, false))
+          inl_reachability_reaches(reachability, idx, other) &&
+          inl_reachability_reaches(reachability, other, idx)
         ) {
         scc_member[other] = true
         processed[other] = true
@@ -2242,6 +2265,7 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
+  reachability : Array[Array[Bool]],
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -2261,8 +2285,8 @@ fn inl_prediction_drop_unique_private_self_loop_in_root_scc(
     while other < total {
       if other == idx ||
         (
-          inl_graph_reaches(graph, idx, other, Array::make(total, false)) &&
-          inl_graph_reaches(graph, other, idx, Array::make(total, false))
+          inl_reachability_reaches(reachability, idx, other) &&
+          inl_reachability_reaches(reachability, other, idx)
         ) {
         scc_member[other] = true
         processed[other] = true
@@ -2317,6 +2341,7 @@ fn inl_prediction_drop_one_way_self_loop_chain_behind_duplicate_root_calls(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
+  reachability : Array[Array[Bool]],
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -2345,7 +2370,7 @@ fn inl_prediction_drop_one_way_self_loop_chain_behind_duplicate_root_calls(
         }
       }
       if root_calls_helper < 2 ||
-        inl_graph_reaches(graph, helper, root, Array::make(total, false)) {
+        inl_reachability_reaches(reachability, helper, root) {
         helper += 1
         continue
       }
@@ -2358,7 +2383,7 @@ fn inl_prediction_drop_one_way_self_loop_chain_behind_duplicate_root_calls(
           reachable_from_root[candidate] &&
           !(candidate < used.length() && used[candidate]) &&
           inl_func_signature_key(mod_, func_type_indices, candidate) == root_sig &&
-          inl_graph_reaches(graph, helper, candidate, Array::make(total, false)) {
+          inl_reachability_reaches(reachability, helper, candidate) {
           for target in graph[candidate] {
             if target == candidate {
               reaches_private_self_loop = true
@@ -2389,6 +2414,7 @@ fn inl_prediction_retain_self_loop_helper_inlined_count(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
+  reachability : Array[Array[Bool]],
   used : Array[Bool],
   retain : @hashmap.HashMap[String, Int],
 ) -> Unit {
@@ -2433,7 +2459,7 @@ fn inl_prediction_retain_self_loop_helper_inlined_count(
       }
       if !helper_self_loop ||
         !helper_calls_root_sig ||
-        !inl_graph_reaches(graph, helper, root, Array::make(total, false)) {
+        !inl_reachability_reaches(reachability, helper, root) {
         continue
       }
       let mut same_sig_peer_calls_helper = false
@@ -2467,6 +2493,7 @@ fn inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
+  reachability : Array[Array[Bool]],
   used : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
 ) -> Unit {
@@ -2511,7 +2538,7 @@ fn inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
       }
       if !helper_self_loop ||
         !helper_calls_root_sig ||
-        !inl_graph_reaches(graph, helper, root, Array::make(total, false)) {
+        !inl_reachability_reaches(reachability, helper, root) {
         continue
       }
       let mut same_sig_peer_calls_helper = false
@@ -2648,6 +2675,7 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
+  reachability : Array[Array[Bool]],
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -2693,8 +2721,8 @@ fn inl_prediction_retain_private_cycle_helper_for_self_loop_root(
       while idx < total {
         if idx == seed ||
           (
-            inl_graph_reaches(graph, seed, idx, Array::make(total, false)) &&
-            inl_graph_reaches(graph, idx, seed, Array::make(total, false))
+            inl_reachability_reaches(reachability, seed, idx) &&
+            inl_reachability_reaches(reachability, idx, seed)
           ) {
           scc_member[idx] = true
           processed[idx] = true
@@ -2783,6 +2811,7 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
+  reachability : Array[Array[Bool]],
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   final_trim : @hashmap.HashMap[String, Int],
@@ -2827,8 +2856,8 @@ fn inl_prediction_final_trim_self_loop_root_private_scc_representatives(
       while idx < total {
         if idx == seed ||
           (
-            inl_graph_reaches(graph, seed, idx, Array::make(total, false)) &&
-            inl_graph_reaches(graph, idx, seed, Array::make(total, false))
+            inl_reachability_reaches(reachability, seed, idx) &&
+            inl_reachability_reaches(reachability, idx, seed)
           ) {
           processed[idx] = true
           scc_member[idx] = true
@@ -3043,6 +3072,7 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
   mod_ : @lib.Module,
   imports : Int,
   graph : Array[Array[Int]],
+  reachability : Array[Array[Bool]],
   used : Array[Bool],
   reachable_from_root : Array[Bool],
   predicted : @hashmap.HashMap[String, Int],
@@ -3068,8 +3098,8 @@ fn inl_prediction_final_trim_root_self_loop_duplicates(
     while idx < total {
       if idx == root ||
         (
-          inl_graph_reaches(graph, root, idx, Array::make(total, false)) &&
-          inl_graph_reaches(graph, idx, root, Array::make(total, false))
+          inl_reachability_reaches(reachability, root, idx) &&
+          inl_reachability_reaches(reachability, idx, root)
         ) {
         scc_member[idx] = true
         processed[idx] = true
@@ -3249,6 +3279,7 @@ fn inl_original_reachable_private_cycle_funcs(
     }
     None => ()
   }
+  let reachability = inl_build_graph_reachability(graph)
   let used = Array::make(total, false)
   inl_mark_global_uses(mod_, used)
   let predicted_unreachable_counts = inl_predict_alive_unreachable_counts(
@@ -3261,7 +3292,7 @@ fn inl_original_reachable_private_cycle_funcs(
       reachable_from_root[idx] = true
       let mut target = 0
       while target < total {
-        if inl_graph_reaches(graph, idx, target, Array::make(total, false)) {
+        if inl_reachability_reaches(reachability, idx, target) {
           reachable_from_root[target] = true
         }
         target += 1
@@ -3270,31 +3301,31 @@ fn inl_original_reachable_private_cycle_funcs(
     idx += 1
   }
   inl_prediction_retain_shadowed_void_cycle_result_helper(
-    mod_, imports, graph, used, reachable_from_root, predicted_unreachable_counts,
+    mod_, imports, graph, reachability, used, reachable_from_root, predicted_unreachable_counts,
   )
   inl_prediction_drop_unique_private_self_loop_in_root_scc(
-    mod_, imports, graph, used, reachable_from_root, predicted_unreachable_counts,
+    mod_, imports, graph, reachability, used, reachable_from_root, predicted_unreachable_counts,
   )
   inl_prediction_drop_one_way_self_loop_chain_behind_duplicate_root_calls(
-    mod_, imports, graph, used, reachable_from_root, predicted_unreachable_counts,
+    mod_, imports, graph, reachability, used, reachable_from_root, predicted_unreachable_counts,
   )
   inl_prediction_retain_self_loop_helper_signature_in_root_cycle(
-    mod_, imports, graph, used, predicted_unreachable_counts,
+    mod_, imports, graph, reachability, used, predicted_unreachable_counts,
   )
   inl_prediction_retain_same_sig_root_cycle_helper_with_orphan_dead_suffix(
     mod_, imports, graph, used, reachable_from_root, predicted_unreachable_counts,
   )
   let retain_inlined_helper_counts = inl_prediction_retain_private_cycle_helper_for_self_loop_root(
-    mod_, imports, graph, used, reachable_from_root, predicted_unreachable_counts,
+    mod_, imports, graph, reachability, used, reachable_from_root, predicted_unreachable_counts,
   )
   inl_prediction_retain_self_loop_helper_inlined_count(
-    mod_, imports, graph, used, retain_inlined_helper_counts,
+    mod_, imports, graph, reachability, used, retain_inlined_helper_counts,
   )
   let final_trim_counts = inl_prediction_final_trim_root_self_loop_duplicates(
-    mod_, imports, graph, used, reachable_from_root, predicted_unreachable_counts,
+    mod_, imports, graph, reachability, used, reachable_from_root, predicted_unreachable_counts,
   )
   inl_prediction_final_trim_self_loop_root_private_scc_representatives(
-    mod_, imports, graph, used, reachable_from_root, final_trim_counts,
+    mod_, imports, graph, reachability, used, reachable_from_root, final_trim_counts,
   )
   let broadened_frontier_flags = inl_prediction_adjust_broadened_four_func_dead_suffix_frontier(
     mod_, imports, graph, used, predicted_unreachable_counts, final_trim_counts,
@@ -3310,12 +3341,11 @@ fn inl_original_reachable_private_cycle_funcs(
   idx = imports
   while idx < total {
     if reachable_from_root[idx] &&
-      inl_graph_reaches(graph, idx, idx, Array::make(total, false)) {
+      inl_reachability_reaches(reachability, idx, idx) {
       let mut reaches_root = false
       let mut root = 0
       while root < total {
-        if used[root] &&
-          inl_graph_reaches(graph, idx, root, Array::make(total, false)) {
+        if used[root] && inl_reachability_reaches(reachability, idx, root) {
           reaches_root = true
           break
         }
@@ -3327,8 +3357,8 @@ fn inl_original_reachable_private_cycle_funcs(
       while other < total {
         if other == idx ||
           (
-            inl_graph_reaches(graph, idx, other, Array::make(total, false)) &&
-            inl_graph_reaches(graph, other, idx, Array::make(total, false))
+            inl_reachability_reaches(reachability, idx, other) &&
+            inl_reachability_reaches(reachability, other, idx)
           ) {
           scc_member[other] = true
           scc_size += 1
@@ -5144,6 +5174,7 @@ fn inl_run_nested_cleanup(
   touched : Array[Bool],
   optimize_level : Int,
   shrink_level : Int,
+  perf? : HotPerfSession? = None,
 ) -> @lib.Module {
   if !optimize {
     return mod_
@@ -5155,7 +5186,15 @@ fn inl_run_nested_cleanup(
   // Keep small generated parity fixtures optimized, but make large-module
   // inlining-optimizing fall back to plain inlining until each suffix owner is
   // independently runtime-green.
-  if inl_defined_func_count(mod_) > inl_large_nested_cleanup_func_limit() {
+  let nested_defined_count = inl_defined_func_count(mod_)
+  if nested_defined_count > inl_large_nested_cleanup_func_limit() {
+    match trace {
+      Some(cb) =>
+        cb(
+          "pass[inlining-optimizing]:nested-cleanup-skip reason=large-module defined=\{nested_defined_count} limit=\{inl_large_nested_cleanup_func_limit()}",
+        )
+      None => ()
+    }
     return mod_
   }
   if inl_has_two_func_exact_root_hot_unsafe_helper(mod_) {
@@ -5182,6 +5221,7 @@ fn inl_run_nested_cleanup(
     verify_policy=nested_verify_policy,
     validate_final_module=false,
     trace~,
+    perf~,
   )
   let imports = inl_imported_func_count(prepared)
   let def_touched = inl_abs_touched_to_defined(touched, imports, defined_count)
@@ -5268,6 +5308,25 @@ fn inl_run_nested_cleanup(
 }
 
 ///|
+fn inl_count_true(flags : Array[Bool]) -> Int {
+  let mut count = 0
+  for flag in flags {
+    if flag {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
+fn inl_trace_perf(trace : ((String) -> Unit)?, msg : String) -> Unit {
+  match trace {
+    Some(cb) => cb("pass[inlining-optimizing]:perf \{msg}")
+    None => ()
+  }
+}
+
+///|
 fn inl_touched_original_abs(
   touched : Array[Bool],
   original_abs : Array[Int],
@@ -5291,18 +5350,60 @@ fn inl_run_module_pass_once(
   pass_name : String,
   optimize_level : Int,
   shrink_level : Int,
+  perf? : HotPerfSession? = None,
 ) -> (@lib.Module, Bool, Array[Int]) {
+  let original_graph_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:original-reachable-private-cycle-funcs",
+  )
   let original_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:original-reachable-private-cycle-funcs", original_graph_start_us,
+  )
+  let preserve_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:preserve-root-cycle-check",
+  )
   let preserve_root_cycle_cleanup = inl_has_same_sig_root_cycle_dead_suffix(
     mod_,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:preserve-root-cycle-check", preserve_start_us,
+  )
+  let prepare_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:prepare-multivalue-block-types",
   )
   let prepared = inl_prepare_multivalue_block_types(
     mod_, optimize_level, shrink_level,
   )
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:prepare-multivalue-block-types", prepare_start_us,
+  )
+  let infos_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:build-function-infos",
+  )
   let infos = inl_build_function_infos(prepared, optimize_level~, shrink_level~)
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:build-function-infos", infos_start_us,
+  )
+  let rewrite_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:rewrite-all-calls",
+  )
   let result = inl_rewrite_all_calls(prepared, infos)
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:rewrite-all-calls", rewrite_start_us,
+  )
+  inl_trace_perf(
+    trace,
+    "once changed=\{result.changed} touched=\{inl_count_true(result.touched)} inlined_from=\{inl_count_true(result.inlined_from)} funcs=\{inl_defined_func_count(mod_)}",
+  )
   if !result.changed {
-    return (inl_prune_dead_unreachable_drops(mod_), false, [])
+    let prune_start_us = perf_start_timer_opt(
+      perf, "detail:inlining:once:prune-dead-unreachable-drops",
+    )
+    let pruned = inl_prune_dead_unreachable_drops(mod_)
+    perf_stop_timer_opt(
+      perf, "detail:inlining:once:prune-dead-unreachable-drops", prune_start_us,
+    )
+    return (pruned, false, [])
   }
   inl_trace_nested_cleanup(pass_name, optimize, result.touched, trace)
   // Binaryen's plain `--inlining` deletes private helpers that become dead
@@ -5310,6 +5411,9 @@ fn inl_run_module_pass_once(
   // optimizing cleanup suffix only; using it here preserves dead helper
   // representatives that Binaryen plain mode removes.
   let plain_retain_counts : @hashmap.HashMap[String, Int] = @hashmap.new()
+  let remove_helpers_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:remove-dead-inlined-helpers",
+  )
   let removal = inl_remove_dead_inlined_helpers(
     result.mod_out,
     infos,
@@ -5321,6 +5425,13 @@ fn inl_run_module_pass_once(
       plain_retain_counts
     },
   )
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:remove-dead-inlined-helpers", remove_helpers_start_us,
+  )
+  inl_trace_perf(
+    trace,
+    "helpers removed=\{removal.original_abs.length() - inl_defined_func_count(removal.mod_out)} touched=\{inl_count_true(removal.touched)}",
+  )
   let touched_original_abs = inl_touched_original_abs(
     removal.touched,
     removal.original_abs,
@@ -5328,6 +5439,9 @@ fn inl_run_module_pass_once(
   if !optimize {
     return (removal.mod_out, true, touched_original_abs)
   }
+  let nested_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:nested-cleanup",
+  )
   let nested_cleaned = if preserve_root_cycle_cleanup && optimize {
     inl_compact_unused_locals(
       inl_collapse_unreachable_private_except_used_suffix_roots(removal.mod_out),
@@ -5341,22 +5455,44 @@ fn inl_run_module_pass_once(
       removal.touched,
       optimize_level,
       shrink_level,
+      perf~,
     )
   }
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:nested-cleanup", nested_start_us,
+  )
+  let dead_unreachable_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:remove-dead-unreachable-private-funcs",
+  )
   let cleaned = inl_remove_dead_unreachable_private_funcs(
     nested_cleaned,
     removal.original_abs,
     original_graph_info.cycle_remove,
     original_graph_info.retain_inlined_helper_counts,
   )
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:remove-dead-unreachable-private-funcs", dead_unreachable_start_us,
+  )
+  let collapse_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:collapse-unreachable-roots",
+  )
   let collapsed = if preserve_root_cycle_cleanup {
     inl_collapse_unreachable_private_except_used_suffix_roots(cleaned)
   } else {
     inl_collapse_unreachable_roots(cleaned, removal.touched)
   }
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:collapse-unreachable-roots", collapse_start_us,
+  )
+  let pad_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:pad-unreachable-to-predicted-counts",
+  )
   let padded = inl_pad_unreachable_to_predicted_counts(
     collapsed,
     original_graph_info.predicted_unreachable_counts,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:pad-unreachable-to-predicted-counts", pad_start_us,
   )
   let ordered = if preserve_root_cycle_cleanup &&
     !original_graph_info.skip_trailing_exact_move {
@@ -5365,26 +5501,36 @@ fn inl_run_module_pass_once(
     padded
   }
   ignore(original_graph_info.public_scc_representative)
-  (
-    inl_trim_unreachable_to_predicted_counts(
-      ordered,
-      original_graph_info.predicted_unreachable_counts,
-    ),
-    true,
-    touched_original_abs,
+  let trim_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:once:trim-unreachable-to-predicted-counts",
   )
+  let trimmed = inl_trim_unreachable_to_predicted_counts(
+    ordered,
+    original_graph_info.predicted_unreachable_counts,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:inlining:once:trim-unreachable-to-predicted-counts", trim_start_us,
+  )
+  (trimmed, true, touched_original_abs)
 }
 
 ///|
-pub fn inlining_run_module_pass(
+fn inlining_run_module_pass_with_perf(
   mod_ : @lib.Module,
   optimize? : Bool = false,
   trace? : ((String) -> Unit)? = None,
   pass_name? : String = "inlining",
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
+  perf? : HotPerfSession? = None,
 ) -> @lib.Module {
+  let initial_graph_start_us = perf_start_timer_opt(
+    perf, "detail:inlining:initial-original-reachable-private-cycle-funcs",
+  )
   let initial_graph_info = inl_original_reachable_private_cycle_funcs(mod_)
+  perf_stop_timer_opt(
+    perf, "detail:inlining:initial-original-reachable-private-cycle-funcs", initial_graph_start_us,
+  )
   let initial_total = inl_imported_func_count(mod_) +
     inl_defined_func_count(mod_)
   let iteration_counts = Array::make(initial_total, 0)
@@ -5393,17 +5539,43 @@ pub fn inlining_run_module_pass(
   let mut iterations = 0
   let max_iterations = inl_defined_func_count(mod_) + 1
   while iterations < max_iterations {
+    let iteration_start_us = perf_start_timer_opt(
+      perf, "detail:inlining:iteration",
+    )
     let (next, changed, touched_original_abs) = inl_run_module_pass_once(
-      current, optimize, trace, pass_name, optimize_level, shrink_level,
+      current,
+      optimize,
+      trace,
+      pass_name,
+      optimize_level,
+      shrink_level,
+      perf~,
+    )
+    perf_stop_timer_opt(perf, "detail:inlining:iteration", iteration_start_us)
+    inl_trace_perf(
+      trace,
+      "iteration index=\{iterations} changed=\{changed} touched_original=\{touched_original_abs.length()} funcs=\{inl_defined_func_count(current)}",
     )
     if !changed {
-      return inl_finalize_module_pass_result(
-        inl_trim_unreachable_to_selected_counts(
-          next,
-          initial_graph_info.final_trim_counts,
-        ),
-        optimize,
+      let final_trim_start_us = perf_start_timer_opt(
+        perf, "detail:inlining:final-trim-unreachable-to-selected-counts",
       )
+      let final_trimmed = inl_trim_unreachable_to_selected_counts(
+        next,
+        initial_graph_info.final_trim_counts,
+      )
+      perf_stop_timer_opt(
+        perf, "detail:inlining:final-trim-unreachable-to-selected-counts", final_trim_start_us,
+      )
+      let finalize_start_us = perf_start_timer_opt(
+        perf, "detail:inlining:finalize-module-pass-result",
+      )
+      let finalized = inl_finalize_module_pass_result(final_trimmed, optimize)
+      perf_stop_timer_opt(
+        perf, "detail:inlining:finalize-module-pass-result", finalize_start_us,
+      )
+      inl_trace_perf(trace, "done iterations=\{iterations} reason=no-change")
+      return finalized
     }
     current = next
     iterations += 1
@@ -5456,5 +5628,24 @@ pub fn inlining_run_module_pass(
       initial_graph_info.final_trim_counts,
     ),
     optimize,
+  )
+}
+
+///|
+pub fn inlining_run_module_pass(
+  mod_ : @lib.Module,
+  optimize? : Bool = false,
+  trace? : ((String) -> Unit)? = None,
+  pass_name? : String = "inlining",
+  optimize_level? : Int = 0,
+  shrink_level? : Int = 0,
+) -> @lib.Module {
+  inlining_run_module_pass_with_perf(
+    mod_,
+    optimize~,
+    trace~,
+    pass_name~,
+    optimize_level~,
+    shrink_level~,
   )
 }

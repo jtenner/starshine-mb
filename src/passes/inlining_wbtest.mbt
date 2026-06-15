@@ -1,4 +1,17 @@
 ///|
+test "inlining graph reachability preserves cycle-only self reachability" {
+  let graph : Array[Array[Int]] = [[1], [2], [1], []]
+  let reachability = inl_build_graph_reachability(graph)
+  assert_true(inl_reachability_reaches(reachability, 0, 1))
+  assert_true(inl_reachability_reaches(reachability, 0, 2))
+  assert_true(inl_reachability_reaches(reachability, 1, 1))
+  assert_true(inl_reachability_reaches(reachability, 2, 2))
+  assert_false(inl_reachability_reaches(reachability, 0, 0))
+  assert_false(inl_reachability_reaches(reachability, 0, 3))
+  assert_false(inl_reachability_reaches(reachability, 3, 3))
+}
+
+///|
 test "inlining shape scanner treats only direct calls as flexible call blockers" {
   let (direct_calls, _, _, _) = inl_scan_shape_instrs([
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),

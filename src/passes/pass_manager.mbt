@@ -22265,21 +22265,23 @@ fn run_hot_pipeline_apply_module_pass(
         Err(err) => return Err(err)
       }
     "inlining" =>
-      inlining_run_module_pass(
+      inlining_run_module_pass_with_perf(
         mod_,
         optimize=false,
         pass_name="inlining",
         optimize_level=options.optimize_level,
         shrink_level=options.shrink_level,
+        perf=options.perf,
       )
     "inlining-optimizing" =>
-      inlining_run_module_pass(
+      inlining_run_module_pass_with_perf(
         mod_,
         optimize=true,
         trace=Some(options.trace),
         pass_name="inlining-optimizing",
         optimize_level=options.optimize_level,
         shrink_level=options.shrink_level,
+        perf=options.perf,
       )
     _ =>
       match no_inline_pass_pattern(entry.name) {
