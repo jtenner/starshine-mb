@@ -627,6 +627,44 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass ssa-nomerge 
 
 The lane compared `7601/10000`, reported `7601` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `20` cached Binaryen command failures.
 
+## 2026-06-15 no-guard `defined=2 abs=29` stale-read fix
+
+Follow-up classification of `.tmp/self-ssa-nomerge-no-huge-limit-20260615` showed that the new first diff is `tlsf/insertBlock`, not one of the six formerly huge functions. The initial diff was not safe representation drift: Starshine freshened the condition/load `local.tee` for a local that a missing-else branch later rewrote, then the suffix read the pre-branch fresh local instead of the canonical merge local. If the branch was taken and the call changed memory, the suffix could store the stale pre-call value.
+
+The fix stays in the raw structured helper rather than adding a broad size or no-op guard. `run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(...)` now computes missing-else branch merge-carrier locals for the current instruction sequence. If a no-else `if` writes a local and the suffix reads that local before another write, earlier scratch freshening for that local is suppressed so the canonical local carries both the not-taken and taken-arm values.
+
+Focused evidence:
+
+```sh
+moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt
+moon test src/passes
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass ssa-nomerge \
+  --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --out-dir .tmp/pass-fuzz-ssa-nomerge-abs29-fix-10000
+```
+
+The reduced test `ssa-nomerge preserves post-if merge read after condition tee` failed before the fix and now passes. Focused `ssa_nomerge_test.mbt` passed `445/445`; `moon test src/passes` passed `2479/2479`; full `moon test` passed `5784/5784`; direct compare compared `7603/10000`, with `7603` normalized matches, `0` mismatches, and `20` cached Binaryen command failures.
+
+A rebuilt debug-WASI replay under `.tmp/self-ssa-nomerge-abs29-fix2-20260615` validated both outputs but still first-diffed at `defined=2 abs=29`. Follow-up inspection showed that the remaining diff was not representation-only: the then-arm reload of the same suffix store carrier was still freshened, so the taken path could read the stale pre-branch value.
+
+## 2026-06-15 inherited no-else merge-carrier follow-up
+
+The follow-up fix propagates missing-else merge-carrier locals into nested raw structured rewrites. If a parent no-else branch writes a local and the suffix reads it before another write, nested branch/body rewrites also keep writes to that local canonical. The focused regression `ssa-nomerge preserves branch reload merge carrier used by suffix store` covers the reduced store-carrier form.
+
+A replay under `.tmp/self-ssa-nomerge-loop-carrier-fix2-20260615` validates both outputs and advances the checked-in debug-WASI first diff from `defined=2 abs=29` to `defined=32 abs=59`. The new `abs=59` table-growth diff is still open; inspected pretty output shows Starshine freshening a loop-carried decrement while Binaryen keeps the canonical loop counter, so this should be treated as suspected semantic drift until fixed or disproven. Preliminary LocalGraph loop-carried canonical-write coverage was added (`ssa-nomerge preserves loop-carried decrement before backedge`), but the artifact first diff remains at `abs=59`.
+
+Focused evidence:
+
+```sh
+moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt
+moon test src/passes
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass ssa-nomerge \
+  --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --out-dir .tmp/pass-fuzz-ssa-nomerge-merge-carriers-10000
+```
+
+The focused pass test passed `447/447`; `moon test src/passes` passed `2481/2481`; direct compare compared `7603/10000`, with `7603` normalized matches, `0` mismatches, and `20` cached Binaryen command failures.
+
 ## `[SSANM-009b1]` debug-WASI stack-carried tee/default-read fix
 
 `[SSANM-009b1]` reduces and fixes the former checked-in debug-WASI first diff `defined=108 abs=135` from `.tmp/self-ssa-nomerge-debug-wasi-anchor-refresh-20260614`.

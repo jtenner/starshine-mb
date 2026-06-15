@@ -49,6 +49,7 @@ test "ssa-nomerge scratch freshener aliases already-appended locals" {
     locals,
     extra_local_types,
     [None],
+    @bitset.BitSet::new(params.length() + locals.length()),
   )
   @debug.assert_eq(extra_local_types.length(), 2)
   @debug.assert_eq(

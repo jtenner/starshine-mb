@@ -204,28 +204,6 @@ fn ssa_test_i32_sub_local_set_targets(
 }
 
 ///|
-fn ssa_test_root_local_gets_after_first_set(
-  instrs : Array[@lib.Instruction],
-  set_target : UInt,
-) -> Array[UInt] {
-  let out : Array[UInt] = []
-  let mut after_set = false
-  for instr in instrs {
-    match instr {
-      @lib.LocalSet(@lib.LocalIdx(idx)) =>
-        if after_set {
-          ()
-        } else if idx == set_target {
-          after_set = true
-        }
-      @lib.LocalGet(@lib.LocalIdx(idx)) => if after_set { out.push(idx) }
-      _ => ()
-    }
-  }
-  out
-}
-
-///|
 fn ssa_test_has_ssa_temp_local_writes(
   instrs : Array[@lib.Instruction],
   canonical_local : UInt,
@@ -3440,38 +3418,27 @@ test "ssa-nomerge artifact parity limits allocator insertBlock call scratch temp
   let write_indices = ssa_test_local_write_indices(instrs)
   let root_add_tees = ssa_test_root_i32_add_local_tee_targets(instrs)
   assert_true(
-    root_add_tees.any(fn(idx) { idx == 7U }),
+    root_add_tees.any(fn(idx) { idx == 6U }),
     msg=root_add_tees.to_string() + "\n" + instrs.to_string(),
   )
   let set_indices = ssa_test_local_set_indices(instrs)
-  assert_true(set_indices.any(fn(idx) { idx == 8U }), msg=instrs.to_string())
+  assert_true(set_indices.any(fn(idx) { idx == 7U }), msg=instrs.to_string())
   let root_and_tees = ssa_test_root_i32_and_local_tee_targets(instrs)
   assert_true(
-    root_and_tees.any(fn(idx) { idx == 9U }),
+    root_and_tees.any(fn(idx) { idx == 2U }),
     msg=root_and_tees.to_string() + "\n" + instrs.to_string(),
   )
   let i32_sub_sets = ssa_test_i32_sub_local_set_targets(instrs)
   assert_true(
-    i32_sub_sets.any(fn(idx) { idx == 11U }),
+    i32_sub_sets.any(fn(idx) { idx == 3U }),
     msg=i32_sub_sets.to_string() + "\n" + instrs.to_string(),
-  )
-  let after_value_if_result_gets = ssa_test_root_local_gets_after_first_set(
-    instrs, 12U,
-  )
-  assert_true(
-    after_value_if_result_gets.any(fn(idx) { idx == 2U }),
-    msg=after_value_if_result_gets.to_string() + "\n" + instrs.to_string(),
-  )
-  assert_false(
-    after_value_if_result_gets.any(fn(idx) { idx == 9U }),
-    msg=after_value_if_result_gets.to_string() + "\n" + instrs.to_string(),
   )
   assert_true(locals.length() <= 13, msg=locals.to_string())
   assert_false(
-    write_indices.any(fn(idx) { idx == 15U }),
+    write_indices.any(fn(idx) { idx == 14U }),
     msg=instrs.to_string(),
   )
-  assert_true(write_indices.any(fn(idx) { idx == 11U }), msg=instrs.to_string())
+  assert_true(write_indices.any(fn(idx) { idx == 8U }), msg=instrs.to_string())
 }
 
 ///|
@@ -4255,11 +4222,11 @@ test "ssa-nomerge artifact parity freshens malloc split and grow temporaries" {
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 4)
-  assert_true(locals.length() >= 12, msg=locals.to_string())
+  assert_true(locals.length() >= 11, msg=locals.to_string())
   let writes = ssa_test_local_write_indices(instrs)
-  assert_false(writes.any(fn(idx) { idx > 12U }), msg=instrs.to_string())
+  assert_false(writes.any(fn(idx) { idx > 11U }), msg=instrs.to_string())
   assert_true(
-    writes.any(fn(idx) { idx == 11U }) && writes.any(fn(idx) { idx == 12U }),
+    writes.any(fn(idx) { idx == 10U }) && writes.any(fn(idx) { idx == 11U }),
     msg=instrs.to_string(),
   )
 }
@@ -22418,6 +22385,308 @@ test "ssa-nomerge LocalGraph freshens ordinary nested block set writes" {
       )
     }),
     msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge preserves post-if merge read after condition tee" {
+  // Reduced from debug-WASI `tlsf/insertBlock` (defined=2 abs=29): the
+  // condition tee's value is no longer the right value after the taken arm
+  // reloads the same local. The post-if read must stay canonical instead of
+  // retargeting to the pre-branch fresh temp.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32) (result i32) (local i32 i32 i32)
+    #|    local.get 0
+    #|    local.tee 2
+    #|    i32.load
+    #|    local.tee 1
+    #|    i32.const 1
+    #|    i32.and
+    #|    if
+    #|      local.get 2
+    #|      call $side
+    #|      local.get 0
+    #|      local.get 3
+    #|      i32.const 4
+    #|      i32.add
+    #|      local.get 1
+    #|      i32.const -4
+    #|      i32.and
+    #|      i32.add
+    #|      local.tee 3
+    #|      i32.store
+    #|      local.get 2
+    #|      i32.load
+    #|      local.set 1
+    #|    end
+    #|    local.get 1)
+    #|  (func $side (param i32)))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected post-if merge read pipeline success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let gets = ssa_nomerge_test_local_get_indices(instrs)
+
+  @debug.assert_eq(gets[gets.length() - 1], 1U, msg=trace.join("\n"))
+}
+
+///|
+test "ssa-nomerge preserves branch reload merge carrier used by suffix store" {
+  // Reduced from the remaining debug-WASI `tlsf/insertBlock` (defined=2
+  // abs=29) first diff after the initial stale-read fix. A no-else branch
+  // reloads the same local that a later suffix store consumes. Freshening the
+  // branch-local set leaves the suffix store reading the stale pre-branch tee
+  // on the taken path.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32) (local i32 i32 i32)
+    #|    local.get 1
+    #|    i32.load
+    #|    local.tee 4
+    #|    i32.const 1
+    #|    i32.and
+    #|    if
+    #|      local.get 0
+    #|      call $side
+    #|      local.get 1
+    #|      i32.load
+    #|      local.set 4
+    #|    end
+    #|    local.get 3
+    #|    if
+    #|      local.get 0
+    #|      call $side
+    #|    end
+    #|    local.get 2
+    #|    local.get 4
+    #|    i32.const 2
+    #|    i32.or
+    #|    i32.store)
+    #|  (func $side (param i32)))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branch reload merge-carrier pipeline success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let writes = ssa_test_local_write_indices(instrs)
+
+  assert_true(
+    writes.contains(4U),
+    msg=trace.join("\n") + "\n" + instrs.to_string(),
+  )
+  assert_false(
+    writes.any(fn(idx) { idx > 4U }),
+    msg=trace.join("\n") + "\n" + instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves loop-carried decrement before backedge" {
+  // Reduced from debug-WASI `abs=59`: a helper decrements a loop counter and
+  // branches back to the loop. The next iteration's loop condition must see the
+  // decremented canonical local, not a fresh scratch local.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param externref) (result i32) (local i32 i32 i32)
+    #|    i32.const 3
+    #|    local.set 1
+    #|    loop
+    #|      local.get 1
+    #|      i32.const 0
+    #|      i32.gt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.sub
+    #|        local.set 1
+    #|        i32.const 8
+    #|        call $make
+    #|        local.tee 2
+    #|        local.get 1
+    #|        i32.store
+    #|        br 1
+    #|      end
+    #|    end
+    #|    i32.const 4
+    #|    call $done
+    #|    drop
+    #|    local.get 1)
+    #|  (func $make (param i32) (result i32) (i32.const 0))
+    #|  (func $done (param i32) (result i32) (i32.const 0)))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected loop-carried decrement pipeline success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let sets = ssa_test_local_set_indices(instrs)
+
+  assert_true(
+    sets.contains(1U),
+    msg=trace.join("\n") + "\n" + instrs.to_string(),
+  )
+  assert_false(
+    sets.any(fn(idx) { idx > 3U }),
+    msg=trace.join("\n") + "\n" + instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves table-growth loop counter before backedge" {
+  // Closer reduction of debug-WASI `defined=32 abs=59`. The table-growth arm
+  // computes a loop counter, decrements it inside the loop, stores it, and
+  // branches back. If the decrement is freshened while the loop condition keeps
+  // reading the pre-loop counter, the loop-carried value is stale.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (table 1 externref)
+    #|  (global $free (mut i32) (i32.const -1))
+    #|  (memory 1)
+    #|  (func (param externref) (result i32) (local i32 i32 i32 i32 i32 i32 i32)
+    #|    global.get $free
+    #|    local.tee 1
+    #|    i32.const 0
+    #|    i32.lt_s
+    #|    if
+    #|      table.size
+    #|      local.set 6
+    #|      local.get 6
+    #|      i32.eqz
+    #|      if (result i32)
+    #|        i32.const 16
+    #|      else
+    #|        local.get 6
+    #|        i32.const 1
+    #|        i32.shl
+    #|      end
+    #|      local.set 5
+    #|      ref.null noextern
+    #|      local.get 5
+    #|      table.grow
+    #|      i32.const 0
+    #|      i32.lt_s
+    #|      if
+    #|        unreachable
+    #|      end
+    #|      loop
+    #|        local.get 5
+    #|        local.get 6
+    #|        i32.gt_s
+    #|        if
+    #|          local.get 5
+    #|          i32.const 1
+    #|          i32.sub
+    #|          local.set 5
+    #|          i32.const 8
+    #|          call $alloc
+    #|          local.tee 2
+    #|          local.get 5
+    #|          i32.store
+    #|          local.get 2
+    #|          local.get 1
+    #|          i32.store offset=4
+    #|          local.get 2
+    #|          local.set 1
+    #|          br 1
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 1
+    #|    i32.load offset=4
+    #|    global.set $free
+    #|    local.get 1
+    #|    i32.load
+    #|    local.set 7
+    #|    local.get 7
+    #|    local.get 0
+    #|    table.set
+    #|    i32.const 4
+    #|    call $alloc
+    #|    local.tee 4
+    #|    i32.const 3
+    #|    i32.const 30
+    #|    i32.shl
+    #|    i32.store offset=4
+    #|    local.get 4
+    #|    local.get 7
+    #|    i32.store offset=8
+    #|    local.get 4)
+    #|  (func $alloc (param i32) (result i32) (i32.const 0)))
+    #|)
+  let input = pass_test_module_from_wat(source)
+  let hot = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let preserve_writes = ssa_nomerge_loop_carried_canonical_writes(hot)
+  let mut preserved_counter_writes = 0
+  for node_id = 0; node_id < @ir.hot_node_count(hot); node_id = node_id + 1 {
+    if node_id < preserve_writes.length() && preserve_writes[node_id] {
+      match @ir.hot_node_get(hot, node_id).op {
+        @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+          if @ir.hot_node_get(hot, node_id).imm0 == 5 {
+            preserved_counter_writes = preserved_counter_writes + 1
+          }
+        _ => ()
+      }
+    }
+  }
+  assert_true(
+    preserved_counter_writes >= 2,
+    msg=preserved_counter_writes.to_string(),
+  )
+
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected table-growth loop-counter pipeline success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let sets = ssa_test_local_set_indices(instrs)
+
+  let mut counter_sets = 0
+  for idx in sets {
+    if idx == 5U {
+      counter_sets = counter_sets + 1
+    }
+  }
+  assert_true(
+    counter_sets >= 2,
+    msg=trace.join("\n") + "\n" + instrs.to_string(),
   )
 }
 

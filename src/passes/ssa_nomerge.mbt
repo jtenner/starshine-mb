@@ -100,21 +100,246 @@ fn ssa_nomerge_plan_get_decision(
 }
 
 ///|
+fn ssa_nomerge_note_loop_local_access(
+  first_accesses : Array[Int],
+  local_id : @ir.LocalId,
+  access : Int,
+) -> Unit {
+  if local_id >= 0 &&
+    local_id < first_accesses.length() &&
+    first_accesses[local_id] == 0 {
+    first_accesses[local_id] = access
+  }
+}
+
+///|
+fn ssa_nomerge_collect_loop_body_accesses_in_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  writes : @bitset.BitSet,
+  first_accesses : Array[Int],
+  visited : @bitset.BitSet,
+) -> Unit {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    ssa_nomerge_collect_loop_body_accesses_in_node(
+      func,
+      @ir.hot_region_get(func, region_ref, idx),
+      writes,
+      first_accesses,
+      visited,
+    )
+  }
+}
+
+///|
+fn ssa_nomerge_collect_loop_body_accesses_in_node(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  writes : @bitset.BitSet,
+  first_accesses : Array[Int],
+  visited : @bitset.BitSet,
+) -> Unit {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    (node_id < visited.length() && visited[node_id]) {
+    return
+  }
+  if node_id < visited.length() {
+    visited[node_id] = true
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      ssa_nomerge_note_loop_local_access(first_accesses, node.imm0, 1)
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    ssa_nomerge_collect_loop_body_accesses_in_node(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      writes,
+      first_accesses,
+      visited,
+    )
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      ssa_nomerge_collect_loop_body_accesses_in_region(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        writes,
+        first_accesses,
+        visited,
+      )
+    @ir.HotOp::If => {
+      ssa_nomerge_collect_loop_body_accesses_in_region(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+        writes,
+        first_accesses,
+        visited,
+      )
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          ssa_nomerge_collect_loop_body_accesses_in_region(
+            func, region_ref, writes, first_accesses, visited,
+          )
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+      if node.imm0 >= 0 && node.imm0 < writes.length() {
+        writes[node.imm0] = true
+      }
+      ssa_nomerge_note_loop_local_access(first_accesses, node.imm0, 2)
+    }
+    _ => ()
+  }
+}
+
+///|
+fn ssa_nomerge_mark_loop_carried_locals_in_node(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  preserve_locals : @bitset.BitSet,
+  visited : @bitset.BitSet,
+) -> Unit {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    (node_id < visited.length() && visited[node_id]) {
+    return
+  }
+  if node_id < visited.length() {
+    visited[node_id] = true
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Loop => {
+      let local_count = @ir.hot_local_count(func)
+      let loop_writes = @bitset.BitSet::new(local_count)
+      let first_accesses = Array::make(local_count, 0)
+      ssa_nomerge_collect_loop_body_accesses_in_region(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        loop_writes,
+        first_accesses,
+        @bitset.BitSet::new(@ir.hot_node_count(func)),
+      )
+      for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+        if loop_writes[local_id] && first_accesses[local_id] == 1 {
+          preserve_locals[local_id] = true
+        }
+      }
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    ssa_nomerge_mark_loop_carried_locals_in_node(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      preserve_locals,
+      visited,
+    )
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      ssa_nomerge_mark_loop_carried_locals_in_region(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        preserve_locals,
+        visited,
+      )
+    @ir.HotOp::If => {
+      ssa_nomerge_mark_loop_carried_locals_in_region(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+        preserve_locals,
+        visited,
+      )
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          ssa_nomerge_mark_loop_carried_locals_in_region(
+            func, region_ref, preserve_locals, visited,
+          )
+        None => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn ssa_nomerge_mark_loop_carried_locals_in_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  preserve_locals : @bitset.BitSet,
+  visited : @bitset.BitSet,
+) -> Unit {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    ssa_nomerge_mark_loop_carried_locals_in_node(
+      func,
+      @ir.hot_region_get(func, region_ref, idx),
+      preserve_locals,
+      visited,
+    )
+  }
+}
+
+///|
+pub fn ssa_nomerge_loop_carried_canonical_writes(
+  func : @ir.HotFunc,
+) -> @bitset.BitSet {
+  let preserve_writes = @bitset.BitSet::new(@ir.hot_node_count(func))
+  let preserve_locals = @bitset.BitSet::new(@ir.hot_local_count(func))
+  let visited = @bitset.BitSet::new(@ir.hot_node_count(func))
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    ssa_nomerge_mark_loop_carried_locals_in_node(
+      func,
+      @ir.hot_root_get(func, root_idx),
+      preserve_locals,
+      visited,
+    )
+  }
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+          if node.imm0 >= 0 &&
+            node.imm0 < preserve_locals.length() &&
+            preserve_locals[node.imm0] {
+            preserve_writes[node_id] = true
+          }
+        _ => ()
+      }
+    }
+  }
+  preserve_writes
+}
+
+///|
 /// Build the analysis-only no-merge rewrite plan from LocalGraph facts.
 pub fn ssa_nomerge_build_rewrite_plan(
   func : @ir.HotFunc,
   graph : @ir.HotLocalGraph,
 ) -> SsaNoMergeRewritePlan {
   let writes : Array[SsaNoMergeWriteRewrite] = []
+  let loop_carried_canonical_writes = ssa_nomerge_loop_carried_canonical_writes(
+    func,
+  )
   let mut next_fresh_local = @ir.hot_local_count(func)
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) ||
       !@ir.local_graph_node_is_write(graph, node_id) {
       continue
     }
-    let decision = if @ir.local_graph_write_is_no_merge_freshenable(
-        graph, node_id,
-      ) {
+    let decision = if node_id < loop_carried_canonical_writes.length() &&
+      loop_carried_canonical_writes[node_id] {
+      SsaNoMergeWriteDecision::KeepCanonical
+    } else if @ir.local_graph_write_is_no_merge_freshenable(graph, node_id) {
       let fresh_local = next_fresh_local
       next_fresh_local = next_fresh_local + 1
       SsaNoMergeWriteDecision::Freshen(fresh_local)
@@ -505,7 +730,15 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     return HotPassResult::unchanged()
   }
   let before_revision = @ir.hot_revision_current(func)
-  ignore(@ir.ssa_destroy_into_hot(func, cfg, ssa))
+  let loop_carried_writes = ssa_nomerge_loop_carried_canonical_writes(func)
+  ignore(
+    @ir.ssa_destroy_into_hot(
+      func,
+      cfg,
+      ssa,
+      preserve_write_nodes=loop_carried_writes,
+    ),
+  )
   if @ir.hot_revision_current(func) == before_revision {
     return HotPassResult::unchanged()
   }

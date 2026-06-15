@@ -252,6 +252,7 @@ fn ssa_destroy_apply_pending_inserts(
 pub fn ssa_assign_concrete_locals(
   func : HotFunc,
   ssa : HotLocalSsa,
+  preserve_write_nodes? : @bitset.BitSet = @bitset.BitSet::new(0),
 ) -> HotSsaConcreteLocals {
   let value_locals = Array::make(ssa.value_types.length(), -1)
   let extra_local_types : Array[ValType] = []
@@ -263,12 +264,18 @@ pub fn ssa_assign_concrete_locals(
       HotSsaValueOrigin::EntryParamDef(local_id)
       | HotSsaValueOrigin::EntryDefaultInitDef(local_id) => local_id
       HotSsaValueOrigin::PhiDef(phi_id) => ssa.phis[phi_id].local_id
-      HotSsaValueOrigin::LocalSetDef(_) | HotSsaValueOrigin::LocalTeeDef(_) => {
-        extra_local_types.push(ssa.value_types[value_id])
-        let local_id = next_local
-        next_local = next_local + 1
-        local_id
-      }
+      HotSsaValueOrigin::LocalSetDef(node_id)
+      | HotSsaValueOrigin::LocalTeeDef(node_id) =>
+        if node_id >= 0 &&
+          node_id < preserve_write_nodes.length() &&
+          preserve_write_nodes[node_id] {
+          hot_node_get(func, node_id).imm0
+        } else {
+          extra_local_types.push(ssa.value_types[value_id])
+          let local_id = next_local
+          next_local = next_local + 1
+          local_id
+        }
     }
   }
   { value_locals, extra_local_types }
@@ -1318,10 +1325,11 @@ pub fn ssa_destroy_into_hot(
   cfg : HotCfg,
   ssa : HotLocalSsa,
   policy? : HotSsaDestroyPolicy = HotSsaDestroyPolicy::ReusePhiLocals,
+  preserve_write_nodes? : @bitset.BitSet = @bitset.BitSet::new(0),
 ) -> HotSsaConcreteLocals {
   ignore(policy)
   let original_local_count = hot_local_count(func)
-  let concrete = ssa_assign_concrete_locals(func, ssa)
+  let concrete = ssa_assign_concrete_locals(func, ssa, preserve_write_nodes~)
   for ty in concrete.extra_local_types {
     ignore(hot_append_body_local(func, ty))
   }

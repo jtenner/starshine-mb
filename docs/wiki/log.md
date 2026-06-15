@@ -2,6 +2,25 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-15] passes/ssa-nomerge | Bound loop-carried canonical-write scans
+
+- Diagnosed the post-`abs59` debug-WASI self-compare stall as Starshine-side `ssa-nomerge` analysis work, not Binaryen. Direct `--ssa-nomerge` on `tests/node/dist/starshine-debug-wasi.wasm` timed out after `30s`, and tracing isolated the extracted repro to `--extract-functions=474 --ssa-nomerge` before `ssa_nomerge_build_rewrite_plan(...)` returned.
+- Fixed the performance-toxic loop-carried canonical-write scan by adding visited sets to HOT node/region traversal and by collecting loop-carried locals before mapping them back to preserved write nodes. Also replaced the raw lowered loop-carried merge-local detector's per-local recursive scans with bounded read/write bitset collection.
+- Evidence: `moon fmt`; focused `ssa_nomerge_test.mbt` passed `448/448`; native `moon build --target native --release src/cmd` completed with pre-existing unused-function warnings; direct debug-WASI `target/native/release/build/cmd/cmd.exe --ssa-nomerge --out .tmp/diagnose-ssanm.wasm tests/node/dist/starshine-debug-wasi.wasm` now exits `0` in about `4s` instead of timing out at `30s`. The full self-compare still needs another performance pass: after this fix it produces Starshine/Binaryen artifacts, but a timed sample shows it is now spending time in downstream first-diff localization via repeated `cmd.exe --print-func`, not in the original empty-dir Starshine pass stall.
+
+## [2026-06-15] passes/ssa-nomerge | Advance debug-WASI first diff to abs59
+
+- Continued classifying the no-guard debug-WASI chain after the initial `defined=2 abs=29` fix. The remaining `abs=29` drift was still semantic: a no-else branch reload of the suffix store's carrier was freshened, leaving the taken path to read the stale pre-branch value.
+- Added `ssa-nomerge preserves branch reload merge carrier used by suffix store` and preserved inherited missing-else merge-carrier locals through nested raw structured rewrites. Added preliminary loop-carried canonical-write coverage for the next `defined=32 abs=59` table-growth diff.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `447/447`; `moon fmt`; `moon test src/passes` passed `2481/2481`; native `src/cmd` build completed with pre-existing unused-function warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-merge-carriers-10000` compared `7603/10000`, with `7603` normalized matches, `0` mismatches/validation/property/generator failures, and `20` cached Binaryen command failures. Debug-WASI replay `.tmp/self-ssa-nomerge-loop-carrier-fix2-20260615` validates both outputs and advances the first diff from `defined=2 abs=29` to `defined=32 abs=59`; this new diff remains open and is suspected semantic loop-carried-local drift.
+
+## [2026-06-15] passes/ssa-nomerge | Preserve no-else branch merge carriers
+
+- Fixed the debug-WASI no-guard first-diff semantic issue at `defined=2 abs=29` (`tlsf/insertBlock`): the raw structured `ssa-nomerge` helper no longer freshens a local write when a missing-else branch later writes the same local and the suffix reads it before another write.
+- Added the red-first reduced fixture `ssa-nomerge preserves post-if merge read after condition tee` in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt). The old output retargeted the post-if read to a pre-branch fresh temp; the fixed output preserves the canonical local so the not-taken and taken-arm values merge correctly.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `445/445`; `moon fmt`; `moon test src/passes` passed `2479/2479`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5784/5784`; native `moon build --target native --release src/cmd` completed with pre-existing unused-function warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-abs29-fix-10000` compared `7603/10000`, with `7603` normalized matches, `0` mismatches/validation/property/generator failures, and `20` cached Binaryen command failures. Debug-WASI replay `.tmp/self-ssa-nomerge-abs29-fix2-20260615` validates both outputs and still first-diffs at `defined=2 abs=29`, now as local-allocation drift rather than the stale-read semantic issue.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md).
+
 ## [2026-06-15] passes/ssa-nomerge | Remove huge-function no-merge size guard
 
 - Completed `[SSANM-008c]` in [`../../agent-todo.md`](../../agent-todo.md) after explicit user direction to admit huge `ssa-nomerge` functions when Binaryen `SSAify(false)` has no equivalent size/local-count guard.

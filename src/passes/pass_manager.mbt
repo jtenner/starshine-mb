@@ -12750,6 +12750,162 @@ fn run_hot_pipeline_raw_set_param_alias(
 }
 
 ///|
+fn run_hot_pipeline_raw_no_else_branch_merge_locals(
+  instrs : Array[@lib.Instruction],
+  base_local_count : Int,
+) -> @bitset.BitSet {
+  let locals = @bitset.BitSet::new(base_local_count)
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.If(_, then_body, None) =>
+        for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+          if run_hot_pipeline_raw_branch_writes_local(then_body, local_id) &&
+            run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+              instrs,
+              idx + 1,
+              local_id,
+            ) {
+            locals[local_id] = true
+          }
+        }
+      _ => ()
+    }
+  }
+  locals
+}
+
+///|
+fn run_hot_pipeline_raw_mark_instr_local_reads(
+  instr : @lib.Instruction,
+  locals : @bitset.BitSet,
+) -> Unit {
+  match instr {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => {
+      let local_id = raw.reinterpret_as_int()
+      if local_id >= 0 && local_id < locals.length() {
+        locals[local_id] = true
+      }
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_mark_instrs_local_reads(body, locals)
+    @lib.If(_, then_body, else_body) => {
+      run_hot_pipeline_raw_mark_instrs_local_reads(then_body, locals)
+      match else_body {
+        Some(body) => run_hot_pipeline_raw_mark_instrs_local_reads(body, locals)
+        None => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_mark_instrs_local_reads(
+  instrs : Array[@lib.Instruction],
+  locals : @bitset.BitSet,
+) -> Unit {
+  for instr in instrs {
+    run_hot_pipeline_raw_mark_instr_local_reads(instr, locals)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_mark_instr_local_writes(
+  instr : @lib.Instruction,
+  locals : @bitset.BitSet,
+) -> Unit {
+  match instr {
+    @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+      let local_id = raw.reinterpret_as_int()
+      if local_id >= 0 && local_id < locals.length() {
+        locals[local_id] = true
+      }
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_mark_instrs_local_writes(body, locals)
+    @lib.If(_, then_body, else_body) => {
+      run_hot_pipeline_raw_mark_instrs_local_writes(then_body, locals)
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_mark_instrs_local_writes(body, locals)
+        None => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_mark_instrs_local_writes(
+  instrs : Array[@lib.Instruction],
+  locals : @bitset.BitSet,
+) -> Unit {
+  for instr in instrs {
+    run_hot_pipeline_raw_mark_instr_local_writes(instr, locals)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_loop_carried_merge_locals(
+  instrs : Array[@lib.Instruction],
+  base_local_count : Int,
+) -> @bitset.BitSet {
+  let locals = @bitset.BitSet::new(base_local_count)
+  for instr in instrs {
+    match instr {
+      @lib.Loop(_, @lib.Expr(body)) => {
+        let loop_writes = @bitset.BitSet::new(base_local_count)
+        let first_accesses = Array::make(base_local_count, 0)
+        run_hot_pipeline_raw_mark_instrs_local_writes(body, loop_writes)
+        for idx = 0; idx < body.length(); idx = idx + 1 {
+          if run_hot_pipeline_raw_simplify_locals_instr_is_unconditional_terminator(
+              body[idx],
+            ) {
+            break
+          }
+          match body[idx] {
+            @lib.LocalSet(@lib.LocalIdx(raw))
+            | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+              let local_id = raw.reinterpret_as_int()
+              if local_id >= 0 &&
+                local_id < first_accesses.length() &&
+                first_accesses[local_id] == 0 {
+                first_accesses[local_id] = 2
+              }
+            }
+            _ => {
+              let instr_reads = @bitset.BitSet::new(base_local_count)
+              run_hot_pipeline_raw_mark_instr_local_reads(
+                body[idx],
+                instr_reads,
+              )
+              for local_id = 0
+                  local_id < base_local_count
+                  local_id = local_id + 1 {
+                if instr_reads[local_id] && first_accesses[local_id] == 0 {
+                  first_accesses[local_id] = 1
+                }
+              }
+            }
+          }
+        }
+        for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+          if loop_writes[local_id] && first_accesses[local_id] == 1 {
+            locals[local_id] = true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  locals
+}
+
+///|
 fn run_hot_pipeline_raw_branch_writes_local(
   instrs : Array[@lib.Instruction],
   local_id : Int,
@@ -12819,6 +12975,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
   param_aliases : Array[@lib.LocalIdx?],
+  inherited_no_else_branch_merge_locals : @bitset.BitSet,
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
   let freshen_params = run_hot_pipeline_raw_instrs_have_memory_access(instrs)
@@ -12841,6 +12998,21 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let freshen_repeated_body_scratch = !two_call_allocator_body
   let base_local_count = params.length() + locals.length()
   let seen_local_writes : Array[Bool] = Array::make(base_local_count, false)
+  let no_else_branch_merge_locals = run_hot_pipeline_raw_no_else_branch_merge_locals(
+    instrs, base_local_count,
+  )
+  let loop_carried_merge_locals = run_hot_pipeline_raw_loop_carried_merge_locals(
+    instrs, base_local_count,
+  )
+  for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+    if loop_carried_merge_locals[local_id] {
+      no_else_branch_merge_locals[local_id] = true
+    }
+    if local_id < inherited_no_else_branch_merge_locals.length() &&
+      inherited_no_else_branch_merge_locals[local_id] {
+      no_else_branch_merge_locals[local_id] = true
+    }
+  }
   let mut previous_was_local_tee = false
   let mut previous_was_call = false
   let mut previous_was_table_size = false
@@ -12933,6 +13105,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             value_if_suffix_sub_set
           ) &&
           local_id >= 0 &&
+          (
+            local_id >= no_else_branch_merge_locals.length() ||
+            !no_else_branch_merge_locals[local_id]
+          ) &&
           (
             (
               local_id < params.length() &&
@@ -13032,6 +13208,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         if (freshen_params || (two_call_allocator_body && previous_was_select)) &&
           !preserve_param_branch_carrier_tee &&
           local_id >= 0 &&
+          (
+            local_id >= no_else_branch_merge_locals.length() ||
+            !no_else_branch_merge_locals[local_id]
+          ) &&
           (
             (
               local_id < params.length() &&
@@ -13145,6 +13325,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 locals,
                 extra_local_types,
                 param_aliases.copy(),
+                no_else_branch_merge_locals,
               ),
             ),
           ),
@@ -13161,6 +13342,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_sub = false
         previous_was_select = false
         previous_local_get_id = -1
+        let loop_merge_locals = no_else_branch_merge_locals.copy()
         rewritten.push(
           @lib.Instruction::loop_(
             block_type,
@@ -13172,6 +13354,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 locals,
                 extra_local_types,
                 param_aliases.copy(),
+                loop_merge_locals,
               ),
             ),
           ),
@@ -13200,6 +13383,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 locals,
                 extra_local_types,
                 param_aliases.copy(),
+                no_else_branch_merge_locals,
               ),
             ),
           ),
@@ -13226,6 +13410,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               locals,
               extra_local_types,
               param_aliases.copy(),
+              no_else_branch_merge_locals,
             ),
             match else_body {
               Some(body) =>
@@ -13237,6 +13422,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                     locals,
                     extra_local_types,
                     param_aliases.copy(),
+                    no_else_branch_merge_locals,
                   ),
                 )
               None => None
@@ -13250,16 +13436,16 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             None,
           )
         }
-        for param_id = 0; param_id < params.length(); param_id = param_id + 1 {
-          if run_hot_pipeline_raw_branch_writes_local(then_body, param_id) {
-            run_hot_pipeline_raw_set_param_alias(param_aliases, param_id, None)
+        for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+          if run_hot_pipeline_raw_branch_writes_local(then_body, local_id) {
+            run_hot_pipeline_raw_set_param_alias(param_aliases, local_id, None)
           } else {
             match else_body {
               Some(body) =>
-                if run_hot_pipeline_raw_branch_writes_local(body, param_id) {
+                if run_hot_pipeline_raw_branch_writes_local(body, local_id) {
                   run_hot_pipeline_raw_set_param_alias(
                     param_aliases,
-                    param_id,
+                    local_id,
                     None,
                   )
                 }
@@ -13312,7 +13498,13 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes(
     None,
   )
   run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
-    instrs, instrs, params, locals, extra_local_types, param_aliases,
+    instrs,
+    instrs,
+    params,
+    locals,
+    extra_local_types,
+    param_aliases,
+    @bitset.BitSet::new(params.length() + locals.length()),
   )
 }
 
