@@ -1,12 +1,13 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-15
 sources:
   - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
+  - ../../../raw/research/0723-2026-06-15-inlining-optimizing-behavior-inventory.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
@@ -57,11 +58,11 @@ That is much closer to reality than “more aggressive inlining.”
 
 ## Current durable takeaways
 
-- The public Binaryen release horizon now reaches `version_130`, but this page keeps the optimizing contract anchored to the reviewed `version_129` source surfaces plus the existing current-main bridge because no inlining-specific drift has been recorded beyond that.
+- A 2026-06-15 behavior inventory refreshed the comparison against local `wasm-opt version 130 (version_130)` and upstream Binaryen `version_130` sources. The basic direct-call eligibility thresholds still line up with Binaryen's defaults; the largest differences are Starshine's broader `try_table` conservatism, no partial-inlining splitter, partial tail-call/name/nondefaultable-local repair, hand-expanded optimizing suffix, large-module suffix guard, and Starshine-only unreachable-cycle prediction/trim scaffolding.
 - The core inliner is module-level boundary work, not HOT-local peepholing.
 - Reviewed `version_129` chosen inline actions are direct `call` / `return_call` based; `ref.func` and ref/indirect calls remain relevant to survival and repair.
 - The optimizing suffix is part of the public contract, not optional polish.
-- Starshine's current cleanup suffix is an approximation: trace marker plus private touched-only `precompute-propagate-prefix`, followed by a touched-function filtered Starshine cleanup lane that now drops the former extra pre-default `precompute`, gates the option-controlled cleanup slots to their Binaryen optimize/shrink thresholds, and includes the early second `remove-unused-names`, option-gated `merge-locals`, local `reorder-locals`, late local cleanup cluster, `code-folding`, option-gated `redundant-set-elimination`, and final `vacuum` slots, not exact Binaryen filtered public `precompute-propagate` + option-specific default function pipeline.
+- Starshine's current cleanup suffix is an approximation: trace marker plus private touched-only `precompute-propagate-prefix`, followed by a touched-function filtered Starshine cleanup lane that now drops the former extra pre-default `precompute`, gates the option-controlled cleanup slots to their Binaryen optimize/shrink thresholds, and includes the early second `remove-unused-names`, option-gated `merge-locals`, local `reorder-locals`, late local cleanup cluster, `code-folding`, option-gated `redundant-set-elimination`, and final `vacuum` slots, not exact Binaryen filtered public `precompute-propagate` + option-specific default function pipeline. It is skipped for modules above the local large-module threshold (`80` defined functions), so the current self-optimization wall-time cliff is more suspicious in the pre/surrounding module-level graph, prediction, scan, rewrite, and iteration phases than in the generic nested suffix alone.
 - `[INL]003` is accepted for the current shared heuristic/action-filtering surface: shrinking-trivial parameter-passthrough wrappers, direct-call wrappers, memory/table/SIMD/GC operation wrappers, O3/no-shrink no-direct-call/no-loop flexible inlining, direct-call-only `hasCalls`, combined-size filtering, same-wave guards, and the five-iteration repeated-work cap are all covered.
 - Latest `[INL]003` optimizing closeout evidence is `.tmp/pass-fuzz-inlining-optimizing-inl003-after-repeated-cap-10000`: `9975/10000` compared, `9975` matches, `0` mismatches, `0` validation failures, and `25` ignored Binaryen/tool command failures.
 - Latest `[INL]002` closeout evidence is `.tmp/pass-fuzz-inlining-optimizing-inl002-closeout-10000-keep`: `9975/10000` compared, `9975` matches, `0` mismatches, `0` validation failures, and `25` ignored Binaryen/tool command failures. Debug-artifact direct replay no longer aborts and validates in `.tmp/inl002-puresuffix-only-20260516-002821`; the remaining artifact mismatch is accepted representation/factoring drift, with Starshine currently smaller by raw wasm/code-section/WAT/static node metrics. Do not reopen `[INL]002` for cosmetic canonical drift alone.

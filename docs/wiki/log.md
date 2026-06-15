@@ -2,6 +2,7 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+
 ## [2026-06-15] passes/ssa-nomerge | Bound loop-carried canonical-write scans
 
 - Diagnosed the post-`abs59` debug-WASI self-compare stall as Starshine-side `ssa-nomerge` analysis work, not Binaryen. Direct `--ssa-nomerge` on `tests/node/dist/starshine-debug-wasi.wasm` timed out after `30s`, and tracing isolated the extracted repro to `--extract-functions=474 --ssa-nomerge` before `ssa_nomerge_build_rewrite_plan(...)` returned.
@@ -20,6 +21,14 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added the red-first reduced fixture `ssa-nomerge preserves post-if merge read after condition tee` in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt). The old output retargeted the post-if read to a pre-branch fresh temp; the fixed output preserves the canonical local so the not-taken and taken-arm values merge correctly.
 - Evidence: focused `ssa_nomerge_test.mbt` passed `445/445`; `moon fmt`; `moon test src/passes` passed `2479/2479`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5784/5784`; native `moon build --target native --release src/cmd` completed with pre-existing unused-function warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-abs29-fix-10000` compared `7603/10000`, with `7603` normalized matches, `0` mismatches/validation/property/generator failures, and `20` cached Binaryen command failures. Debug-WASI replay `.tmp/self-ssa-nomerge-abs29-fix2-20260615` validates both outputs and still first-diffs at `defined=2 abs=29`, now as local-allocation drift rather than the stale-read semantic issue.
 - Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md).
+
+## [2026-06-15] passes/inlining-optimizing | Behavior inventory for wall-time triage
+
+- Filed [`raw/research/0723-2026-06-15-inlining-optimizing-behavior-inventory.md`](raw/research/0723-2026-06-15-inlining-optimizing-behavior-inventory.md) after `[WALL]002` identified `pass:inlining-optimizing` as the self-optimization wall-time owner.
+- Compared local [`../../src/passes/inlining.mbt`](../../src/passes/inlining.mbt), [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt), and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) against local `wasm-opt version 130 (version_130)` and fetched Binaryen v130 primary sources: `Inlining.cpp`, `pass.h`, `opt-utils.h`, `NoInline.cpp`, and `pass.cpp`.
+- Finding: Starshine's basic direct-call full-inlining thresholds mostly match Binaryen defaults, while differences cluster in repair/scheduler surfaces: broader `try_table` conservatism, no partial-inlining splitter, partial tail-call/name/nondefaultable-local repair, hand-expanded optimizing suffix, large-module suffix guard, and Starshine-only unreachable-cycle prediction/trim scaffolding.
+- Updated [`binaryen/passes/inlining-optimizing/index.md`](binaryen/passes/inlining-optimizing/index.md) and this index to point future wall-time work at graph/prediction, repeated full-module scan, rewrite, and iteration instrumentation before changing Binaryen-compatible heuristics. Docs-only; no tests run.
+
 
 ## [2026-06-15] passes/ssa-nomerge | Remove huge-function no-merge size guard
 
