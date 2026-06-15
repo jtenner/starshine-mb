@@ -139,6 +139,17 @@
     - Evaluate remaining non-pass candidates such as encoder size/backpatch and code-section buffering reduction.
   - Suggested tests: focused timing traces, `moon info`, `moon fmt`, `moon test`, and targeted self-compare commands for any changed pass/tool path.
 
+- [WALL]002 - Self-optimization O4z wall time is dominated by `inlining-optimizing`
+  - Status: active performance blocker identified 2026-06-15 after the RUN/merge-blocks correctness fixes made `bun self-opt optimize` complete.
+  - Goal: reduce or explicitly gate the `inlining-optimizing` whole-module runtime on the Starshine debug CLI artifact before treating self-optimization as practical for routine use.
+  - Why: the successful traced run `.tmp/self-opt-after-live-label-fix.stderr` spans about `13m18s` by file timestamps (`03:53:42` to `04:07:00`). Trace timer attribution shows a single `pass:inlining-optimizing` instance taking `676.916s` (`11m16.9s`), about `85%` of the observed wall time. The next largest pass timer is `dae-optimizing` at `1.914s`; cumulative HOT `lift` across `35,631` function-pass lifts is `3.017s`, `merge-blocks` totals `0.424s` across `12,994` calls, and module verification/final validation timers are sub-second per pass. Current inlining trace only reports nested cleanup touched counts (`1932`, `465`, `70`, `6`, `1`) and has no internal phase timers, so the bottleneck is localized to `src/passes/inlining.mbt` / `inlining_run_module_pass` but not yet subdivided between graph analysis, function-info building, call rewriting, helper removal, nested cleanup, and iteration/fixed-point control.
+  - Deliverables:
+    - [ ] Add fine-grained perf timers inside `inl_run_module_pass_once` and `inlining_run_module_pass` for `inl_original_reachable_private_cycle_funcs`, `inl_prepare_multivalue_block_types`, `inl_build_function_infos`, `inl_rewrite_all_calls`, `inl_remove_dead_inlined_helpers`, `inl_run_nested_cleanup`, dead/unreachable cleanup, finalization, iteration counts, and touched-function counts.
+    - [ ] Re-run `bun self-opt optimize` with the added timers and record the top inlining subphase(s), iteration count, and touched counts in this backlog item or a wiki research note.
+    - [ ] Decide whether to optimize the hot subphase, add artifact-sized safeguards, or reschedule/disable `inlining-optimizing` in O4z until its cost is proportional to its measured size win.
+    - [ ] Preserve correctness evidence while changing performance behavior: the current correctness baseline is `moon test` `5780/5780`, direct `merge-blocks` 10000-case compare with `0` mismatches/validation failures, and `bun self-opt optimize` exit `0`.
+  - Suggested tests: `moon fmt`, focused `src/passes/inlining*_test.mbt`, `moon test`, `moon build --target native --release src/cmd`, timed `bun self-opt optimize`, and any direct `inlining-optimizing` compare lane needed after behavior changes.
+
 ### O4z Per-Pass Deep Audits
 
 Release gate: complete these before the v0.1.0 release so `-O4z` pass coverage is more comprehensive and pass-local runtime owners are known before publishing.
