@@ -182,6 +182,8 @@ The targeted WAT files show a loop-carrier representation difference. Binaryen r
 
 No executable code changed for this classification, so direct compare was not rerun beyond the current committed green lanes.
 
+`[SSANM-009b114]` continues from the same artifact pair. Targeted `defined=1452 abs=1479` output matches exactly after excluding the path-specific `Log:` line. The next candidate, `defined=1453 abs=1480`, has identical masked `body_raw` tokens and the same `72` local operations. The only local-token differences are three one-use same-typed `local.tee` targets: Starshine uses locals `9`, `7`, and `8`, while Binaryen allocates fresh locals `13`, `14`, and `15`. `wasm-tools dump` reports equal `342` byte function bodies; Starshine declares `10` body i32 locals versus Binaryen `13`. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference, not an implementation gap.
+
 ## `[SSANM-006a1]` normal structured-control ownership map
 
 `[SSANM-006a1]` is a classification slice, not a mutation expansion. The current source/test review maps normal structured-control families this way:
