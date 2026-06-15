@@ -16531,6 +16531,120 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_scan_single_already_ssa_tee_chain(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  depth : Int,
+  ok : Ref[Bool],
+  tee_local : Ref[Int],
+  tee_count : Ref[Int],
+  body_get_count : Ref[Int],
+  local_set_count : Ref[Int],
+) -> Unit {
+  for instr in instrs {
+    if !ok.val {
+      return
+    }
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= param_count {
+          local_set_count.val = local_set_count.val + 1
+        }
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= param_count {
+          if tee_local.val < 0 && depth > 0 {
+            ok.val = false
+            return
+          }
+          if tee_local.val >= 0 && tee_local.val != local_id {
+            ok.val = false
+            return
+          }
+          tee_local.val = local_id
+          tee_count.val = tee_count.val + 1
+        }
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= param_count {
+          if tee_local.val < 0 || tee_local.val != local_id {
+            ok.val = false
+            return
+          }
+          body_get_count.val = body_get_count.val + 1
+        }
+      }
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => {
+        ok.val = false
+        return
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_ssa_nomerge_scan_single_already_ssa_tee_chain(
+          body,
+          param_count,
+          depth + 1,
+          ok,
+          tee_local,
+          tee_count,
+          body_get_count,
+          local_set_count,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_ssa_nomerge_scan_single_already_ssa_tee_chain(
+          then_body,
+          param_count,
+          depth + 1,
+          ok,
+          tee_local,
+          tee_count,
+          body_get_count,
+          local_set_count,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_ssa_nomerge_scan_single_already_ssa_tee_chain(
+              body,
+              param_count,
+              depth + 1,
+              ok,
+              tee_local,
+              tee_count,
+              body_get_count,
+              local_set_count,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_single_already_ssa_tee_chain(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+) -> Bool {
+  let ok = Ref::new(true)
+  let tee_local = Ref::new(-1)
+  let tee_count = Ref::new(0)
+  let body_get_count = Ref::new(0)
+  let local_set_count = Ref::new(0)
+  run_hot_pipeline_raw_ssa_nomerge_scan_single_already_ssa_tee_chain(
+    instrs, param_count, 0, ok, tee_local, tee_count, body_get_count, local_set_count,
+  )
+  ok.val &&
+  tee_count.val == 1 &&
+  body_get_count.val > 0 &&
+  local_set_count.val == 0
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext,
@@ -17131,6 +17245,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
           })
         }
       }
+    }
+    if !has_branches &&
+      run_hot_pipeline_raw_ssa_nomerge_has_single_already_ssa_tee_chain(
+        instrs,
+        params.length(),
+      ) {
+      return Some({
+        reason: "structured-already-ssa-tee-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
     }
     let (default_materialized, default_changed) = if run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
         instrs,

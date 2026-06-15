@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Preserve already-SSA tee canonical local
+
+- Completed `[SSANM-009b116]` in [`../../agent-todo.md`](../../agent-todo.md) by reducing and fixing current debug-WASI `defined=1474 abs=1501`: Starshine freshened an already-SSA nested compare-chain `local.tee` from body local `1` to appended local `2`, adding an extra i32 local without a semantic or size win, while Binaryen kept canonical local `1`.
+- Added red-first regression `ssa-nomerge leaves already SSA nested compare tee canonical` in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt). Implemented a narrow raw-path no-op in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) for branch-free, no-body-`local.set`, single body-local `local.tee` chains whose body-local reads all target that tee; the trace reason is `structured-already-ssa-tee-noop`.
+- Evidence: focused `ssa_nomerge_test.mbt` passed, `moon fmt`, `moon test src/passes` passed `2473/2473`, `moon info` completed with pre-existing warnings, native `moon build --target native --release src/cmd` completed with pre-existing unused-function warnings, full `moon test` passed `5778/5778`, and direct `ssa-nomerge` compare requested `10000`, compared `7607`, with `0` mismatches/validation/property failures and `20` cached Binaryen command failures. A debug-WASI replay under `.tmp/self-ssa-nomerge-ssanm009b116-already-ssa-tee-20260614` timed out after 600s but produced validating artifacts; targeted `abs=1501` is now exact with both bodies at `183` total bytes / `180` instruction bytes / one body i32 local.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md). `[SSANM-010c]` remains deferred by user direction; keep `o4z-ssa-nomerge-noop` until final SSANM evidence is complete and the user approves a scheduling decision.
+
 ## [2026-06-14] passes/ssa-nomerge | Refresh current debug-WASI replay and defer O4z decision
 
 - Recorded explicit user direction to defer `[SSANM-010c]` until SSANM is otherwise fully implemented. The current `o4z-ssa-nomerge-noop` guard stays in place; no scheduling policy was chosen or applied.

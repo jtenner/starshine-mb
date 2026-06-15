@@ -2048,6 +2048,76 @@ fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
 }
 
 ///|
+test "ssa-nomerge leaves already SSA nested compare tee canonical" {
+  // Reduced from current debug-WASI `defined=1474 abs=1501`: the local.tee
+  // feeds a straight-line nested compare chain and the original local is already
+  // SSA. Freshening it appends a body local without a size or semantic win.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $touch (param i32))
+    #|  (func (param i32) (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    i32.load offset=8 align=1
+    #|    local.tee 1
+    #|    i32.const 113
+    #|    i32.eq
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      local.get 1
+    #|      i32.const 131
+    #|      i32.eq
+    #|      if (result i32)
+    #|        i32.const 1
+    #|      else
+    #|        local.get 1
+    #|        i32.const 115
+    #|        i32.eq
+    #|        if (result i32)
+    #|          i32.const 1
+    #|        else
+    #|          local.get 0
+    #|          call $touch
+    #|          i32.const 0
+    #|        end
+    #|      end
+    #|    end)
+    #|)
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ssa-nomerge pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected ssa-nomerge output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) { line.contains("structured-already-ssa-tee-noop") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(
+    locals.length() <= 1,
+    msg=locals.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_local_tee_indices(instrs).any(fn(idx) { idx > 1U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge reuses unused body local for structured load scratch" {
   // Reduced from current debug-WASI `defined=678 abs=705`: the structured
   // memory-load scratch is a one-set/one-get i32 temporary after a call and
