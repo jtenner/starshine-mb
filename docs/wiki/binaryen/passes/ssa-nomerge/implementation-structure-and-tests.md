@@ -184,6 +184,8 @@ No executable code changed for this classification, so direct compare was not re
 
 `[SSANM-009b114]` continues from the same artifact pair. Targeted `defined=1452 abs=1479` output matches exactly after excluding the path-specific `Log:` line. The next candidate, `defined=1453 abs=1480`, has identical masked `body_raw` tokens and the same `72` local operations. The only local-token differences are three one-use same-typed `local.tee` targets: Starshine uses locals `9`, `7`, and `8`, while Binaryen allocates fresh locals `13`, `14`, and `15`. `wasm-tools dump` reports equal `342` byte function bodies; Starshine declares `10` body i32 locals versus Binaryen `13`. Agent classification: semantic-safe Starshine local-count win / no-regression representation difference, not an implementation gap.
 
+`[SSANM-009b115]` extends the same targeted comparison through `abs=1494`. Targeted `abs=1481`, `1483`, `1485`, `1489`, `1491`, and `1493` match exactly. The non-exact functions `abs=1482`, `1484`, `1486`, `1487`, `1488`, `1492`, and `1494` are repeated one-shot temp-local local-count wins: masked `body_raw` tokens match, encoded bodies are equal (`330`, `374`, `215`, `375`, `477`, `185`, and `315` bytes), and Starshine declares fewer body locals (`9` vs `12`, `10` vs `14`, `9` vs `12`, `22` vs `27`, `7` vs `9`, `9` vs `12`, and `25` vs `41`). `abs=1490` is neutral same-typed local-slot drift with equal `66` byte bodies and equal body-local declarations. No executable behavior changed.
+
 ## `[SSANM-006a1]` normal structured-control ownership map
 
 `[SSANM-006a1]` is a classification slice, not a mutation expansion. The current source/test review maps normal structured-control families this way:
