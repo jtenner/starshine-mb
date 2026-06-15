@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-14] passes/ssa-nomerge | Compact medium structured-load scratch locals
+
+- Completed `[SSANM-009b117]` in [`../../agent-todo.md`](../../agent-todo.md) by reducing and fixing current debug-WASI `defined=1500 abs=1527`: Starshine had a byte-neutral but local-count-losing structured-load scratch shape (`12` body i32 locals versus Binaryen `11`).
+- Added red-first regression `ssa-nomerge reuses unused body local for medium structured load scratch` in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt). Extended [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the one-use scratch compactor handles load-bearing 11-12-local structured scratch functions, re-runs after raw structured rewriting, and skips widened `br_table` cases to preserve the existing branch-table spill canonical guard.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `442/442`; `moon test src/passes` passed `2474/2474`; native `moon build --target native --release src/cmd` completed with pre-existing unused-function warnings; `moon info` completed with three pre-existing GenValid warnings; full `moon test` passed `5779/5779`; direct `ssa-nomerge` compare `.tmp/pass-fuzz-ssa-nomerge-ssanm009b117-medium-scratch-fixed-10000` compared `7605/10000` with `0` mismatches/validation/property/generator failures and `20` cached Binaryen command failures. A debug-WASI replay under `.tmp/self-ssa-nomerge-ssanm009b117-medium-scratch-fixed4-20260614` timed out after 600s but produced validating artifacts; targeted `abs=1527` is now a Starshine local-count win with equal encoded body size (`142` bytes / `139` instruction bytes) and fewer body i32 locals (`8` versus Binaryen `11`).
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md). Split remaining local-count-losing candidates `defined=1501 abs=1528` and `defined=1506 abs=1533` to `[SSANM-009b118]`. `[SSANM-010c]` remains deferred; `o4z-ssa-nomerge-noop` is unchanged.
+
 ## [2026-06-14] passes/ssa-nomerge | Preserve already-SSA tee canonical local
 
 - Completed `[SSANM-009b116]` in [`../../agent-todo.md`](../../agent-todo.md) by reducing and fixing current debug-WASI `defined=1474 abs=1501`: Starshine freshened an already-SSA nested compare-chain `local.tee` from body local `1` to appended local `2`, adding an extra i32 local without a semantic or size win, while Binaryen kept canonical local `1`.

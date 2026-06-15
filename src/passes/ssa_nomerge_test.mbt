@@ -2173,6 +2173,61 @@ test "ssa-nomerge reuses unused body local for structured load scratch" {
 }
 
 ///|
+test "ssa-nomerge reuses unused body local for medium structured load scratch" {
+  // Reduced from current debug-WASI `defined=1500 abs=1527`: the same
+  // one-set/one-get structured-load scratch family can appear just above the
+  // original small 8-10 body-local guard. Appending a twelfth body local is
+  // byte-neutral but loses the local-count comparison when unused i32 locals
+  // are already available.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $produce (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $touch (param i32))
+    #|  (func (param i32) (result i64)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    block
+    #|      local.get 0
+    #|      call $produce
+    #|      local.tee 6
+    #|      i32.const 0
+    #|      i32.eq
+    #|      if (result i64)
+    #|        local.get 0
+    #|        local.tee 2
+    #|        i32.load offset=8 align=1
+    #|        local.set 6
+    #|        local.get 2
+    #|        call $touch
+    #|        local.get 6
+    #|        local.tee 7
+    #|        local.set 1
+    #|        br 1
+    #|      else
+    #|        local.get 0
+    #|        call $touch
+    #|        i64.const 4294967296
+    #|      end
+    #|      return
+    #|    end
+    #|    local.get 1
+    #|    local.tee 8
+    #|    i64.extend_i32_s)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 2)
+  assert_true(
+    locals.length() <= 11,
+    msg=locals.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_local_set_indices(instrs).any(fn(idx) { idx > 11U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity freshens allocator searchBlock temps" {
   // Artifact repro from the checked-in debug-WASI artifact, first canonical
   // difference `defined=0 abs=27` (`tlsf/searchBlock`). Binaryen's

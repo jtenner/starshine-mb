@@ -7646,6 +7646,70 @@ fn run_hot_pipeline_raw_compact_rewrite_local_refs(
 }
 
 ///|
+fn run_hot_pipeline_raw_instrs_have_br_table(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.BrTable(_, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_br_table(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_br_table(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_br_table(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_have_plain_load(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instr) {
+      return true
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_plain_load(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_plain_load(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_plain_load(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
   instrs : Array[@lib.Instruction],
   params : Array[@lib.ValType],
@@ -7653,10 +7717,21 @@ fn run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
   extra_local_types : Array[@lib.ValType],
 ) -> (Array[@lib.Instruction], @lib.Locals, Array[@lib.ValType]) {
   // Keep this compaction deliberately narrow for the current debug-WASI
-  // structured-load scratch gap: broader allocator/linker fixtures still carry
+  // structured-load scratch gaps: broader allocator/linker fixtures still carry
   // exact Binaryen-local-budget guards, while the abs 598 / 705 family has
-  // 8-10 body locals and only one-use appended scratch slots.
-  if locals.length() < 8 || locals.length() > 10 {
+  // 8-10 body locals and the abs 1527 family reaches 11-12 body locals around
+  // appended/existing one-use scratch slots. Require an actual load for the
+  // widened >10-local cases so unrelated startup/default-local shuffles stay
+  // canonical.
+  let upper_local_limit = if extra_local_types.length() > 0 { 11 } else { 12 }
+  if locals.length() < 8 || locals.length() > upper_local_limit {
+    return (instrs, locals, extra_local_types)
+  }
+  if locals.length() > 10 &&
+    (
+      !run_hot_pipeline_raw_instrs_have_plain_load(instrs) ||
+      run_hot_pipeline_raw_instrs_have_br_table(instrs)
+    ) {
     return (instrs, locals, extra_local_types)
   }
   let base_local_count = params.length() + locals.length()
@@ -13935,7 +14010,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       }
       let rewritten_locals = compacted_locals.copy()
       rewritten_locals.append_types(compacted_extra_local_types)
-      Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(compacted_instrs)))
+      let rewritten_func = @lib.Func::new(
+        rewritten_locals,
+        @lib.Expr::new(compacted_instrs),
+      )
+      match
+        run_hot_pipeline_raw_compact_existing_one_use_scratch_func(
+          rewritten_func, params,
+        ) {
+        Some(compacted_func) => Some(compacted_func)
+        None => Some(rewritten_func)
+      }
     }
     None => {
       let fallback_extra_local_types : Array[@lib.ValType] = []
@@ -13964,7 +14049,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       } else {
         let rewritten_locals = compacted_locals.copy()
         rewritten_locals.append_types(compacted_extra_local_types)
-        Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(compacted_instrs)))
+        let rewritten_func = @lib.Func::new(
+          rewritten_locals,
+          @lib.Expr::new(compacted_instrs),
+        )
+        match
+          run_hot_pipeline_raw_compact_existing_one_use_scratch_func(
+            rewritten_func, params,
+          ) {
+          Some(compacted_func) => Some(compacted_func)
+          None => Some(rewritten_func)
+        }
       }
     }
   }
