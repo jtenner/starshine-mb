@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-16
 sources:
   - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
@@ -153,12 +153,12 @@ That is broader and more operational than upstream Binaryen's small postwalk, bu
 A major local difference from upstream Binaryen is the raw fast path in `src/passes/pass_manager.mbt`.
 The pipeline can skip HOT lifting entirely when raw Wasm inspection shows there are no likely DCE candidates. There is no longer a blanket `-O4z` DCE no-op: DCE-positive O4z functions must run the pass, while the remaining raw skips are shape-specific guards or no-candidate classifications.
 
-As of 2026-06-16, the `load-call-set-dce-noop` and `loop-outer-branch-dce-noop` guards are narrowed for simple root dead suffixes. If either guarded hazard shape is present but the root body later reaches an explicit `return`, `return_call*`, `throw*`, `br`, `br_table`, or `unreachable`, Starshine performs a raw root-suffix trim and still avoids HOT lifting the guarded function. This matches Binaryen v130 `--dce` on the focused load/call/set and loop-outer-branch fixtures while preserving the guard for no-candidate hazard-only bodies. Structured-control fallthrough is intentionally not inferred by this raw trimmer because loop bodies with outer branches can make a containing block appear nonfallthrough without making following roots dead.
+As of 2026-06-16, the `load-call-set-dce-noop`, `loop-outer-branch-dce-noop`, and broader `no-dce-candidates` skips are narrowed for explicit dead suffixes. If a function has a root or nested region that reaches an explicit `return`, `return_call*`, `throw*`, `br`, `br_table`, or `unreachable`, Starshine performs a raw explicit-suffix trim before considering those skips; guarded hazard functions still avoid HOT lifting. This matches Binaryen v130 `--dce` on the focused load/call/set and loop-outer-branch root and nested fixtures plus the literal-unreachable no-candidate fixture, while preserving the guard for true no-candidate hazard-only bodies; when a trimmed `block` or `loop` becomes literal `unreachable`, the raw path collapses that wrapper so the containing explicit suffix can be trimmed too. Structured-control fallthrough is intentionally not inferred beyond these exact literal-unreachable collapses because branch targets can make a containing structured node appear nonfallthrough without making its following sibling roots dead.
 
 The key helpers are:
 
 - `run_hot_pipeline_dce_raw_has_early_terminator(...)`
-- `run_hot_pipeline_dce_raw_trim_root_dead_suffix(...)`
+- `run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(...)`
 - `run_hot_pipeline_dce_raw_void_structured_noop(...)`
 - `run_hot_pipeline_dce_raw_live_typed_control_only(...)`
 - `run_hot_pipeline_dce_can_skip_raw(...)`
@@ -191,15 +191,18 @@ The local proof surface is broader than one regression file.
 `src/passes/dead_code_elimination_test.mbt` locks the main local families, including:
 
 - ordinary dead dropped-value cleanup
-- unreachable-root pruning after `return`, including raw root-suffix trimming before the load/call/set and loop-outer-branch hazard guards
+- unreachable-root pruning after `return`, including raw root and nested explicit-suffix trimming before the load/call/set, loop-outer-branch, and no-candidate raw skips
 - dead-result typed `if` and block cleanup
 - modern EH `try_table` body-fallthrough handling, including unreachable-body suffix trimming and result-drop collapse
+- the limited lowered-legacy-`try` DCE reachability subset, including a conservative raw skip for reachable synthetic arms, plus the remaining stack-switching handler-label tooling boundary
 - payload-forwarder rewrites
 - split-`local.set` wrapper rewrites
 - explicit `unreachable` tail repair
 - detached label-owner and detached shared-subtree cleanup
 
 This file is the best compact proof surface for what the MoonBit owner file actually tries to do.
+
+The legacy `try` and stack-switching tests are intentionally narrow. Binaryen v130 supports both surfaces, but Starshine cannot yet represent them faithfully in `@lib`: legacy `try` text lowers to a synthetic sequential check block rather than a real `Try` node, while stack-switching `cont` / `resume` handler labels are rejected by the current WAST/lib type surface. The DCE tests therefore cover only the local legacy synthetic subset: skip when an alternate arm can fall through, and still trim when all lowered arms are unreachable. Reopen full legacy-EH and stack-switching DCE parity when the local representation exists; do not count the synthetic guard as full legacy `Try` parity.
 
 ### Live repro coverage
 

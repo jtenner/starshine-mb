@@ -58,6 +58,64 @@ test "dead-code-elimination runs DCE-positive O4z raw pass" {
 }
 
 ///|
+test "dead-code-elimination skips true straight-line no-candidate body" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func nop))",
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected no-candidate dead-code-elimination success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+      )
+    }),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination collapses literal unreachable block before no-candidate raw skip" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func block unreachable end))",
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected literal unreachable block dead-code-elimination success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+      )
+    }),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=dce-explicit-dead-suffix",
+      )
+    }),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination trims root dead suffix before load-call-set hazard guard" {
   let trace : Array[String] = []
   let optimized = match
@@ -95,8 +153,67 @@ test "dead-code-elimination trims root dead suffix before load-call-set hazard g
       )
     }),
   )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=load-call-set-dce-explicit-dead-suffix",
+      )
+    }),
+  )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims nested dead suffix before load-call-set hazard guard" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "decref" (func $decref (param i32)))
+        #|  (memory 1)
+        #|  (func (param $cell i32) (result i32)
+        #|    (local $out i32)
+        #|    local.get $cell
+        #|    i32.load offset=8
+        #|    local.get $cell
+        #|    call $decref
+        #|    local.set $out
+        #|    block
+        #|      unreachable
+        #|      i32.const 9
+        #|      drop
+        #|    end
+        #|    local.get $out))
+        #|,
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected load-call-set nested dead-tail dead-code-elimination success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=load-call-set-dce-noop",
+      )
+    }),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=load-call-set-dce-explicit-dead-suffix",
+      )
+    }),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("I32(9)"), msg=pretty)
 }
 
@@ -174,9 +291,70 @@ test "dead-code-elimination trims root dead suffix before loop outer-branch guar
       )
     }),
   )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=loop-outer-branch-dce-explicit-dead-suffix",
+      )
+    }),
+  )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("return"), msg=pretty)
   assert_false(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims nested dead suffix before loop outer-branch guard" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32)
+        #|    block
+        #|      loop
+        #|        local.get 0
+        #|        if
+        #|          br 2
+        #|        end
+        #|        br 0
+        #|      end
+        #|    end
+        #|    block
+        #|      unreachable
+        #|      i32.const 9
+        #|      drop
+        #|    end
+        #|    i32.const 1))
+        #|,
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected loop outer-branch nested dead-tail dead-code-elimination success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=loop-outer-branch-dce-noop",
+      )
+    }),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=loop-outer-branch-dce-explicit-dead-suffix",
+      )
+    }),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
 }
 
 ///|
@@ -215,6 +393,108 @@ test "dead-code-elimination skips loop bodies that branch to an outer block" {
       )
     }),
   )
+}
+
+///|
+test "dead-code-elimination preserves suffix after lowered legacy try with reachable catch" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $foo)
+        #|  (func
+        #|    (try
+        #|      (do
+        #|        unreachable)
+        #|      (catch_all))
+        #|    call $foo))
+        #|,
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected legacy try reachable-catch dead-code-elimination success, got \{err}",
+      )
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=legacy-synthetic-try-reachable-arm-dce-noop",
+      )
+    }),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination treats lowered legacy try with all arms unreachable as nonfallthrough" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func
+        #|    (try
+        #|      (do
+        #|        unreachable)
+        #|      (catch_all
+        #|        unreachable))
+        #|    i32.const 9
+        #|    drop))
+        #|,
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected legacy try all-unreachable dead-code-elimination success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination documents unsupported stack-switching boundary" {
+  match
+    @wast.wast_to_binary_module(
+      (
+        #|(module
+        #|  (type $function (func))
+        #|  (type $cont (cont $function))
+        #|  (tag $tag)
+        #|  (func (param $c (ref $cont))
+        #|    (block $exit
+        #|      (drop
+        #|        (block $handle_effect (result (ref $cont))
+        #|          (resume $cont (on $tag $handle_effect)
+        #|            (local.get $c))
+        #|          (br $exit))))))
+        #|,
+      ),
+      filename="dce-stack-switching-boundary.wat",
+    ) {
+    Ok(_) =>
+      fail(
+        "stack-switching handler-label DCE fixtures must stay unsupported until @lib/@wast represent cont/resume/on labels",
+      )
+    Err(err) =>
+      assert_true(
+        err.contains("cont") ||
+        err.contains("resume") ||
+        err.contains("unknown") ||
+        err.contains("type body"),
+        msg=err,
+      )
+  }
 }
 
 ///|

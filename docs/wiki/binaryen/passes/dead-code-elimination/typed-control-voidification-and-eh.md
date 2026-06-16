@@ -91,6 +91,8 @@ Then the loop is replaced by the body.
 
 If the try body is unreachable and every catch body is unreachable, DCE changes the try node type to `unreachable`.
 
+Starshine currently records full legacy-try parity as a representation blocker rather than closed local coverage: `@lib` has no real legacy `Try`/`pop` representation, and valid legacy `try` text lowers to a synthetic sequential check block. The DCE audit covers only that synthetic surface for now: reachable alternate arms force a conservative raw skip, while all-unreachable lowered arms may still make following roots dead.
+
 ### `try_table`
 
 If the `try_table` body is unreachable, then the whole `try_table` cannot finish normally, so DCE changes its type to `unreachable`.
@@ -140,6 +142,8 @@ Without that repair, DCE could leave `pop` in an invalid nested position after s
 The stack-switching file guards against a tempting mistake: assuming a surrounding `drop` means a result type is dead.
 
 In the `resume` / `resume_throw` tests, the result type of a handler block must remain because the handler can branch to that block and still depend on its typed label contract.
+
+Starshine currently cannot express this fixture locally because the WAST/lib surface lacks `cont`, `resume`, `resume_throw`, and `on` handler-label instructions; this remains a tooling blocker with the same semantic reopening criterion.
 
 So a future port must preserve this lesson:
 

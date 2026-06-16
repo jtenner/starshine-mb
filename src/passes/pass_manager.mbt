@@ -6353,6 +6353,76 @@ fn run_hot_pipeline_dce_raw_instr_is_call(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_legacy_synthetic_try_has_reachable_arm(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  // WAST lowers legacy `try` into a synthetic block ending in `unreachable`.
+  // The preceding body/catch arms are alternatives, not sequential siblings, so
+  // a fallthrough-capable arm must keep roots after the synthetic block live.
+  if body.length() < 2 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.Unreachable => ()
+    _ => return false
+  }
+  let mut saw_arm = false
+  let mut arm_may_fallthrough = false
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Block(_, @lib.Expr(_)) | @lib.Loop(_, @lib.Expr(_)) => {
+        saw_arm = true
+        if run_hot_pipeline_dce_raw_instr_may_fallthrough(body[idx]) {
+          arm_may_fallthrough = true
+        }
+      }
+      _ => ()
+    }
+  }
+  saw_arm && arm_may_fallthrough
+}
+
+///|
+fn run_hot_pipeline_dce_raw_has_reachable_legacy_synthetic_try(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) => {
+        if run_hot_pipeline_dce_raw_legacy_synthetic_try_has_reachable_arm(body) {
+          return true
+        }
+        if run_hot_pipeline_dce_raw_has_reachable_legacy_synthetic_try(body) {
+          return true
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_reachable_legacy_synthetic_try(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_has_reachable_legacy_synthetic_try(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_has_reachable_legacy_synthetic_try(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_dce_raw_has_load_call_set_hazard(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -6584,19 +6654,110 @@ fn run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(
 }
 
 ///|
-fn run_hot_pipeline_dce_raw_trim_root_dead_suffix(
+fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
+  instr : @lib.Instruction,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
+        body,
+      )
+      let body_after = if changed { rewritten_body } else { body }
+      if body_after.length() == 1 {
+        match body_after[0] {
+          @lib.Unreachable => return (@lib.Instruction::unreachable_(), true)
+          _ => ()
+        }
+      }
+      if changed {
+        return (
+          @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+          true,
+        )
+      }
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
+        body,
+      )
+      let body_after = if changed { rewritten_body } else { body }
+      if body_after.length() == 1 {
+        match body_after[0] {
+          @lib.Unreachable => return (@lib.Instruction::unreachable_(), true)
+          _ => ()
+        }
+      }
+      if changed {
+        return (
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+          true,
+        )
+      }
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten_body, changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
+        body,
+      )
+      if changed {
+        return (
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+          true,
+        )
+      }
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
+        then_body,
+      )
+      let mut changed = then_changed
+      let rewritten_else = match else_body {
+        Some(else_body) => {
+          let (rewritten_else, else_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
+            else_body,
+          )
+          changed = changed || else_changed
+          Some(rewritten_else)
+        }
+        None => None
+      }
+      if changed {
+        return (
+          @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+          true,
+        )
+      }
+    }
+    _ => ()
+  }
+  (instr, false)
+}
+
+///|
+fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
-    let instr = instrs[idx]
+    let (instr, instr_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
+      instrs[idx],
+    )
+    changed = changed || instr_changed
     rewritten.push(instr)
     if run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) &&
       idx + 1 < instrs.length() {
       return (rewritten, true)
     }
   }
-  (instrs.copy(), false)
+  if changed {
+    (rewritten, true)
+  } else {
+    (instrs.copy(), false)
+  }
 }
 
 ///|
@@ -21231,14 +21392,22 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   if descriptor.name == "dead-code-elimination" {
     let @lib.Func(_, @lib.Expr(instrs)) = original
+    if run_hot_pipeline_dce_raw_has_reachable_legacy_synthetic_try(instrs) {
+      return Some({
+        reason: "legacy-synthetic-try-reachable-arm-dce-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     if run_hot_pipeline_dce_raw_has_load_call_set_hazard(instrs) {
-      let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_root_dead_suffix(
+      let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
         instrs,
       )
       if trimmed_dead_suffix {
         let @lib.Func(locals, _) = original
         return Some({
-          reason: "load-call-set-dce-root-dead-suffix",
+          reason: "load-call-set-dce-explicit-dead-suffix",
           func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
           unchanged_original: false,
           trace_skip_raw: true,
@@ -21252,13 +21421,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       })
     }
     if run_hot_pipeline_dce_raw_has_loop_outer_branch(instrs) {
-      let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_root_dead_suffix(
+      let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
         instrs,
       )
       if trimmed_dead_suffix {
         let @lib.Func(locals, _) = original
         return Some({
-          reason: "loop-outer-branch-dce-root-dead-suffix",
+          reason: "loop-outer-branch-dce-explicit-dead-suffix",
           func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
           unchanged_original: false,
           trace_skip_raw: true,
@@ -21272,18 +21441,31 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       })
     }
   }
-  if descriptor.name == "dead-code-elimination" &&
-    run_hot_pipeline_dce_can_skip_raw(
-      original,
-      run_hot_pipeline_require_module_ctx(mod_, module_state, options),
-      func_idx,
-    ) {
-    return Some({
-      reason: "no-dce-candidates",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
+  if descriptor.name == "dead-code-elimination" {
+    let @lib.Func(locals, @lib.Expr(instrs)) = original
+    let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
+      instrs,
+    )
+    if trimmed_dead_suffix {
+      return Some({
+        reason: "dce-explicit-dead-suffix",
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_dce_can_skip_raw(
+        original,
+        run_hot_pipeline_require_module_ctx(mod_, module_state, options),
+        func_idx,
+      ) {
+      return Some({
+        reason: "no-dce-candidates",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
   }
   if descriptor.name != "ssa-nomerge" && descriptor.name != "ssa" {
     return None

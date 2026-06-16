@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-16
 sources:
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
@@ -166,6 +166,8 @@ For legacy `try`, DCE checks whether:
 
 If both are true and the try node is not already marked unreachable, DCE changes the try type to `unreachable`.
 
+Starshine does **not** currently claim full local coverage for this legacy `try` behavior: `@lib.Instruction` has `TryTable` but no real legacy `Try` node, and WAST lowering represents legacy try/catch as a synthetic sequential check block. As of 2026-06-16, focused DCE tests cover the two observed Binaryen v130 reachability cases on that local synthetic surface: reachable lowered arms trigger a conservative raw skip reason, `legacy-synthetic-try-reachable-arm-dce-noop`, so following roots stay reachable; all-unreachable lowered arms can still make following roots dead. Reopen for full parity when `@lib` / lowering can represent real legacy `Try` semantics, including `pop`, rather than relying on synthetic check blocks.
+
 ### `try_table`
 
 For `try_table`, DCE uses the simpler rule that the construct can finish normally only if its body finishes normally.
@@ -193,7 +195,7 @@ Some of those ideas belong more to nearby passes like `vacuum`, or to older/imag
 This is the broad ordinary-contract file.
 It proves that DCE handles shapes like:
 
-- blocks with dead suffixes after `br`, `return`, `br_table`, and `unreachable`
+- blocks with dead suffixes after `br`, `return`, `br_table`, and `unreachable`; Starshine's 2026-06-16 focused fixtures also lock raw nested explicit-suffix trimming and literal-unreachable block/loop collapse when conservative load/call/set, loop-outer-branch, or no-candidate raw skips would otherwise skip the HOT pass
 - ifs whose condition is unreachable
 - ifs whose arms are both unreachable
 - loops whose body becomes fully unreachable
@@ -224,11 +226,13 @@ This file covers modern EH and `try_table` behavior, including:
 This file covers legacy EH `try` plus the subtle `pop` story.
 Most importantly, it demonstrates why `hasPop` plus `addedBlock` triggers `EHUtils::handleBlockNestedPops(...)` at function end.
 The file includes shapes where DCE-created blocks would otherwise leave nested `pop`s in invalid positions.
+Starshine currently treats the full file as a tooling/representation blocker, not a closed DCE behavior surface, because the local lib IR has no real legacy `Try` or `pop` instruction. The current focused tests only cover the safe synthetic-lowering reachability subset described above.
 
 ### `dce-stack-switching.wast`
 
 This file proves DCE must respect stack-switching label liveness.
 In particular, a surrounding `drop` does **not** mean the block result is dead if stack-switching handlers can still branch to that block and use its result type.
+Starshine currently documents this as an unsupported tooling boundary: the WAST/lib surface does not represent `cont`, `resume`, `resume_throw`, or their `on` handler labels, so the local DCE test asserts rejection rather than inventing fake coverage.
 
 ## Scheduler map
 
