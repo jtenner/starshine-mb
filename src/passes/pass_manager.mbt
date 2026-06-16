@@ -14902,6 +14902,121 @@ fn run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_child_block_is_parent_exit(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr([@lib.Br(@lib.LabelIdx(1U))])) =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_parent_body(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if run_hot_pipeline_raw_ssa_nomerge_child_block_is_parent_exit(instrs[idx]) {
+      rewritten.push(@lib.Instruction::br(@lib.LabelIdx::new(0U)))
+      if idx + 1 < instrs.length() {
+        changed = true
+      }
+      return (rewritten, true)
+    }
+    rewritten.push(instrs[idx])
+    idx = idx + 1
+  }
+  (rewritten, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_instr(
+  instr : @lib.Instruction,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
+        body,
+      )
+      let (collapsed_body, collapsed) = match block_type {
+        @lib.VoidBlockType =>
+          run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_parent_body(
+            rewritten_body,
+          )
+        _ => (rewritten_body, false)
+      }
+      (
+        @lib.Instruction::block(block_type, @lib.Expr::new(collapsed_body)),
+        body_changed || collapsed,
+      )
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
+        body,
+      )
+      (
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+        body_changed,
+      )
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
+        body,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten_body),
+        ),
+        body_changed,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
+        then_body,
+      )
+      let mut changed = then_changed
+      let rewritten_else = match else_body {
+        Some(body) => {
+          let (next_body, else_changed) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
+            body,
+          )
+          changed = changed || else_changed
+          Some(next_body)
+        }
+        None => None
+      }
+      (
+        @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+        changed,
+      )
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    let (next_instr, instr_changed) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_instr(
+      instr,
+    )
+    rewritten.push(next_instr)
+    changed = changed || instr_changed
+  }
+  (rewritten, changed)
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext,
@@ -14947,8 +15062,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let (redirected_instrs, _) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
         finalized_instrs,
       )
+      let (dead_tail_cleaned, _) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
+        redirected_instrs,
+      )
       let (compacted_instrs, compacted_locals, compacted_extra_local_types) = run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
-        redirected_instrs, params, locals, extra_local_types,
+        dead_tail_cleaned, params, locals, extra_local_types,
       )
       if run_hot_pipeline_raw_has_unwritten_appended_local_get(
           compacted_instrs, base_local_count,
@@ -14986,8 +15104,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let (redirected_instrs, _) = run_hot_pipeline_raw_ssa_nomerge_redirect_branch_alias_suffix(
         finalized_instrs,
       )
+      let (dead_tail_cleaned, _) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
+        redirected_instrs,
+      )
       let (compacted_instrs, compacted_locals, compacted_extra_local_types) = run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
-        redirected_instrs, params, locals, fallback_extra_local_types,
+        dead_tail_cleaned, params, locals, fallback_extra_local_types,
       )
       if run_hot_pipeline_raw_has_unwritten_appended_local_get(
           compacted_instrs, base_local_count,

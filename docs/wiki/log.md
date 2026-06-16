@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Collapse ssanm child branch dead tails
+
+- Reduced the remaining dedicated `ssa-nomerge-smoke` raw-size-losing family after local/type grouping: Starshine kept a void child `block { br 1 }` plus unreachable local-write tail inside a void parent block, while Binaryen raw output used parent-body `br 0` and removed the tail.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) with a narrow `ssa-nomerge` raw cleanup that collapses exactly void child blocks containing `br 1` inside void parent blocks before one-use scratch compaction. Loops, typed parents, branch tables, EH, and value-carrying branches remain out of scope. Added red-first coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge collapses void child branch blocks and drops dead tails`; updated the divergent branch-alias fixture to the Binaryen-shaped `br 0` body.
+- Evidence: red-first focused test failed on the nested child block/dead-tail shape; after the fix focused `ssa_nomerge_test.mbt` passed `459/459`; `moon fmt`; `moon test src/passes` passed `2494/2494`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5800/5800`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-child-br-deadtail-10000` compared `7095/10000`, normalized `7095`, mismatches `0`, cached Binaryen command failures `20`.
+- Dedicated lanes remain open but moved again: smoke `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-child-br-deadtail-10000` requested `10000`, compared `58`, normalized `29`, mismatches `29`, command failures `0`, raw Starshine deltas improved to `0..+3` bytes (sum `+3`), with the remaining size-losing sample now an unused simple function type; coverage `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-child-br-deadtail-10000` requested `10000`, compared `58`, normalized `29`, mismatches `29`, command failures `0`, raw Starshine deltas are smaller by `-30..-27` bytes (sum `-867`) with equal normalized sizes. `[SSANM-012c]` remains open for the unused-type/output-shape decision and final profile closeout.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] passes/ssa-nomerge | Group ssanm numeric locals and simple func types
 
 - Reduced the dedicated `ssa-nomerge-smoke` raw-size-losing family after unused-local compaction: the current sample still preserved mixed numeric body-local declaration order and duplicate simple function types, while Binaryen raw output grouped numeric locals and canonicalized duplicate simple function types.

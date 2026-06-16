@@ -25689,12 +25689,7 @@ test "ssa-nomerge redirects enclosing label copies after divergent branch aliase
             @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
           ]),
         ),
-        @lib.Instruction::block(
-          @lib.BlockType::void_(),
-          @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(1U))]),
-        ),
-        @lib.Instruction::i32_const(@lib.I32(9)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
       ]),
     ),
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
@@ -29301,6 +29296,94 @@ test "ssa-nomerge groups mixed body locals and duplicate func types like Binarye
   assert_false(
     ssa_test_local_write_indices(instrs).contains(5U) ||
     ssa_nomerge_test_local_get_indices(instrs).contains(5U),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+fn ssa_test_has_void_child_br1_dead_tail(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(parent_body)) => {
+        for child_idx = 0
+            child_idx + 2 < parent_body.length()
+            child_idx = child_idx + 1 {
+          match parent_body[child_idx] {
+            @lib.Block(
+              @lib.VoidBlockType,
+              @lib.Expr([@lib.Br(@lib.LabelIdx(1U))])
+            ) =>
+              match (parent_body[child_idx + 1], parent_body[child_idx + 2]) {
+                (@lib.I32Const(_), @lib.LocalSet(_)) => return true
+                _ => ()
+              }
+            _ => ()
+          }
+        }
+        if ssa_test_has_void_child_br1_dead_tail(parent_body) {
+          return true
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_has_void_child_br1_dead_tail(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_has_void_child_br1_dead_tail(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_has_void_child_br1_dead_tail(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+test "ssa-nomerge collapses void child branch blocks and drops dead tails" {
+  // Reduced from dedicated `ssa-nomerge-smoke` GenValid
+  // `case-000002-gen-valid` after local/type declaration grouping. Binaryen's
+  // raw `ssa-nomerge` output collapses a void child `block { br 1 }` that exits
+  // its parent block into `br 0`, which also drops the following unreachable
+  // local write in the parent body.
+  let source =
+    #|(module
+    #|  (func (export "main") (param i32)
+    #|    (local i32)
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 37
+    #|        local.set 1
+    #|      else
+    #|        i32.const 38
+    #|        local.set 1
+    #|      end
+    #|      block
+    #|        br 1
+    #|      end
+    #|      i32.const 39
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dead-tail branch cleanup success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    ssa_test_has_void_child_br1_dead_tail(instrs),
     msg=instrs.to_string(),
   )
 }
