@@ -16792,6 +16792,231 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_instr_is_nop(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Nop => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_instr_is_unreachable(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_body_is_unreachable_only(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  let mut saw_unreachable = false
+  for instr in instrs {
+    match instr {
+      @lib.Nop => ()
+      @lib.Unreachable => saw_unreachable = true
+      _ => return false
+    }
+  }
+  saw_unreachable
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_local_get_type_matches(
+  instr : @lib.Instruction,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  expected : @lib.ValType,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => {
+      let local_id = raw.reinterpret_as_int()
+      if local_id < 0 || local_id >= params.length() + locals.length() {
+        return false
+      }
+      run_hot_pipeline_raw_local_type(params, locals, local_id) == expected
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_body(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let base_local_count = params.length() + locals.length()
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Block(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body)) if idx + 1 <
+        instrs.length() =>
+        match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+          Some(@lib.FuncType(block_params, block_results)) =>
+            if block_params.length() == 1 &&
+              block_results.length() == 1 &&
+              block_params[0] == block_results[0] &&
+              run_hot_pipeline_raw_ssa_nomerge_body_is_unreachable_only(body) &&
+              run_hot_pipeline_raw_ssa_nomerge_instr_is_unreachable(
+                instrs[idx + 1],
+              ) {
+              let mut insert_at = out.length()
+              while insert_at > 0 &&
+                    run_hot_pipeline_raw_ssa_nomerge_instr_is_nop(
+                      out[insert_at - 1],
+                    ) {
+                insert_at = insert_at - 1
+              }
+              if insert_at > 0 &&
+                run_hot_pipeline_raw_ssa_nomerge_local_get_type_matches(
+                  out[insert_at - 1],
+                  params,
+                  locals,
+                  block_params[0],
+                ) {
+                let result_local = base_local_count + extra_local_types.length()
+                extra_local_types.push(block_results[0])
+                let param_local = base_local_count + extra_local_types.length()
+                extra_local_types.push(block_params[0])
+                out.insert(
+                  insert_at,
+                  @lib.Instruction::local_set(
+                    @lib.LocalIdx::new(param_local.reinterpret_as_uint()),
+                  ),
+                )
+                out.push(
+                  @lib.Instruction::local_get(
+                    @lib.LocalIdx::new(param_local.reinterpret_as_uint()),
+                  ),
+                )
+                out.push(
+                  @lib.Instruction::local_set(
+                    @lib.LocalIdx::new(result_local.reinterpret_as_uint()),
+                  ),
+                )
+                out.push(
+                  @lib.Instruction::local_get(
+                    @lib.LocalIdx::new(result_local.reinterpret_as_uint()),
+                  ),
+                )
+                out.push(@lib.Instruction::drop())
+                out.push(@lib.Instruction::unreachable_())
+                changed = true
+                idx = idx + 2
+                continue
+              }
+            }
+          None => ()
+        }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_body(
+          body, module_ctx, params, locals, extra_local_types,
+        )
+        if body_changed {
+          out.push(
+            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+          )
+          changed = true
+          idx = idx + 1
+          continue
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_body(
+          body, module_ctx, params, locals, extra_local_types,
+        )
+        if body_changed {
+          out.push(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+          )
+          changed = true
+          idx = idx + 1
+          continue
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (rewritten_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_body(
+          then_body, module_ctx, params, locals, extra_local_types,
+        )
+        let mut instr_changed = then_changed
+        let rewritten_else = match else_body {
+          Some(body) => {
+            let (next_body, else_changed) = run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_body(
+              body, module_ctx, params, locals, extra_local_types,
+            )
+            instr_changed = instr_changed || else_changed
+            Some(next_body)
+          }
+          None => None
+        }
+        if instr_changed {
+          out.push(
+            @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+          )
+          changed = true
+          idx = idx + 1
+          continue
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_body(
+          body, module_ctx, params, locals, extra_local_types,
+        )
+        if body_changed {
+          out.push(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(rewritten_body),
+            ),
+          )
+          changed = true
+          idx = idx + 1
+          continue
+        }
+      }
+      _ => ()
+    }
+    out.push(instrs[idx])
+    idx = idx + 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_func(
+  func : @lib.Func,
+  module_ctx : @ir.HotModuleContext,
+  params : Array[@lib.ValType],
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let extra_local_types : Array[@lib.ValType] = []
+  let (rewritten_instrs, changed) = run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_body(
+    instrs, module_ctx, params, locals, extra_local_types,
+  )
+  if !changed {
+    (func, false)
+  } else {
+    let rewritten_locals = locals.copy()
+    rewritten_locals.append_types(extra_local_types)
+    (@lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)), true)
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -19071,6 +19296,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
           reason = "default-local-reads-no-write-fallback"
         }
       }
+    }
+    let (spilled_rewritten, spilled_changed) = run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_func(
+      rewritten, module_ctx, params,
+    )
+    if spilled_changed {
+      rewritten = spilled_rewritten
+      changed = true
+      reason = "no-local-writes-typed-unreachable-block-spill"
     }
     let @lib.Func(rewritten_locals, @lib.Expr(rewritten_instrs)) = rewritten
     let (cleaned_instrs, cleaned_debris) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(

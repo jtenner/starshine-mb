@@ -3,6 +3,13 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Spill typed unreachable block traffic
+
+- Reduced broad-lane `[SSANM-012b]` mismatch case `332901`: Binaryen spills a no-write, local-get-fed type-indexed `(param f64) (result f64)` block with an unreachable body through distinct fresh parameter/result locals before the trailing `unreachable`; Starshine previously dropped the parameter directly.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) with a narrow no-write typed-unreachable spill recognizer and added the 64-byte wasm-smith regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt). This is an output-shape parity fix, not an accepted Starshine-win drift classification.
+- Evidence: focused `ssa_nomerge_test.mbt` failed red-first on the missing `f64` scratch locals, then passed `469/469`; `moon fmt`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; mismatch replay `.tmp/replay-ssanm-final-next-mismatch-fix` compared `9/9`, normalized `4`, mismatches `5`, and had `0` validation/property/generator/command failures; `moon info` passed with the three pre-existing GenValid warnings; full `moon test` passed `5813/5813`. Remaining broad-lane output-shape cases are `394789`, `395085`, `555621`, `577037`, and `782997`.
+- Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] passes/ssa-nomerge | Run final closeout fuzz lanes
 
 - Ran the user-requested final `ssa-nomerge` lanes with a native `src/cmd` binary: the dedicated `ssa-nomerge-all` GenValid aggregate at `100000` requested cases and the broad mixed-generator lane at `1000000` requested cases.

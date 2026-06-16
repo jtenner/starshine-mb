@@ -24774,6 +24774,50 @@ test "ssa-nomerge materializes no-write numeric and simd default local reads" {
 }
 
 ///|
+test "ssa-nomerge no-write typed unreachable block spills param result traffic" {
+  // Reduced from broad-lane case 332901. Binaryen lowers a type-indexed block
+  // carrying a parameter/result into no-merge local traffic before the trailing
+  // unreachable. Dropping the parameter directly is valid but not a documented
+  // Starshine win, so keep the Binaryen-shaped scratch locals.
+  let trace : Array[String] = []
+  let input = ssa_test_decode_wasm_bytes([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 124, 1, 124, 2, 9, 1, 2, 102, 62,
+    0, 2, 0, 248, 3, 3, 2, 1, 0, 7, 5, 1, 1, 8, 0, 0, 10, 24, 1, 22, 1, 1, 123, 254,
+    3, 0, 67, 0, 0, 0, 224, 253, 19, 32, 0, 1, 2, 0, 0, 11, 0, 11,
+  ])
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected typed unreachable block spill rewrite success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::v128(),
+      @lib.ValType::f64(),
+      @lib.ValType::f64(),
+    ]),
+  )
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [3U, 2U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [0U, 3U, 2U])
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=no-local-writes-typed-unreachable-block-spill",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge fails closed instead of aborting on unsupported atomic debris" {
   let input = ssa_test_decode_wasm_bytes([
     0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 80, 0, 96, 0, 0, 2, 6, 1, 1, 96, 0, 0,
