@@ -6954,6 +6954,17 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
       rewritten.push(instr)
       return (rewritten, true)
     }
+    if idx + 3 < instrs.length() &&
+      run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) &&
+      run_hot_pipeline_dce_raw_select_instr(instrs[idx + 2]) &&
+      run_hot_pipeline_dce_raw_instr_is_drop(instrs[idx + 3]) &&
+      rewritten.length() >= 1 {
+      let previous_value = rewritten.pop().unwrap()
+      rewritten.push(previous_value)
+      rewritten.push(@lib.Instruction::drop())
+      rewritten.push(instr)
+      return (rewritten, true)
+    }
     let branchless_nonfallthrough_control = run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
       instr,
     )
