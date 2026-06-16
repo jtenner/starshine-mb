@@ -3,6 +3,15 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Run final closeout fuzz lanes
+
+- Ran the user-requested final `ssa-nomerge` lanes with a native `src/cmd` binary: the dedicated `ssa-nomerge-all` GenValid aggregate at `100000` requested cases and the broad mixed-generator lane at `1000000` requested cases.
+- Fixed a GenValid batch artifact gap in [`../../src/fuzz/main.mbt`](../../src/fuzz/main.mbt): large `--emit-gen-valid-batch` runs now stream artifacts to disk and write a compact manifest rather than retaining every wasm artifact and full manifest row in memory. [`../../src/fuzz/main_wbtest.mbt`](../../src/fuzz/main_wbtest.mbt) locks the non-retained result shape.
+- Reduced the broad mismatch set from `13` to `9` by adding a no-write default-read fallback for defaultable body locals in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), with focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
+- Evidence: dedicated `.tmp/pass-fuzz-ssa-nomerge-genvalid-all-final-default-fallback-100000` compared `100000/100000` with `0` mismatches/failures and selected leaves `parity=37500`, `smoke=25000`, `coverage=25000`, `stress=12500`. Broad `.tmp/pass-fuzz-ssa-nomerge-final-default-fallback-1000000` compared `997560/1000000`, normalized `997551`, had `9` wasm-smith mismatches and `2440` command failures; command failures are mostly Binaryen/tool failures plus `14` Starshine aborting wasm-smith cases that remain open for separate classification.
+- Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
+- Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
+
 ## [2026-06-16] passes/ssa-nomerge | Raise final closeout fuzz counts
 
 - Updated the `ssa-nomerge` closeout expectation from the generic final-pass counts to the user's requested high-confidence lanes: `100000` requested cases for the `ssa-nomerge-all` dedicated GenValid aggregate lane and `1000000` requested cases for the broad mixed-generator direct lane.

@@ -16397,6 +16397,22 @@ fn run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
 }
 
 ///|
+fn run_hot_pipeline_raw_local_has_legal_default(
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  local_id : Int,
+) -> Bool {
+  if local_id < 0 || local_id >= params.length() + locals.length() {
+    return false
+  }
+  match run_hot_pipeline_raw_local_type(params, locals, local_id) {
+    @lib.NumTypeValType(_) | @lib.VecTypeValType => true
+    @lib.RefTypeValType(rt) => rt.is_nullable()
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
   instr : @lib.Instruction,
   params : Array[@lib.ValType],
@@ -16419,13 +16435,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
             local_id < written_locals.length() &&
             written_locals[local_id] {
             (instr, false)
-          } else {
+          } else if run_hot_pipeline_raw_local_has_legal_default(
+              params, locals, local_id,
+            ) {
             (
               run_hot_pipeline_raw_default_instr_for_local(
                 params, locals, local_id,
               ),
               true,
             )
+          } else {
+            (instr, false)
           }
         _ => (instr, false)
       }
@@ -16511,6 +16531,106 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
     changed = changed || instr_changed
   }
   (out, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_instr(
+  instr : @lib.Instruction,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  changed : SsaNoMergeRawRewriteCursor,
+) -> @lib.Instruction {
+  match instr {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => {
+      let local_id = raw.reinterpret_as_int()
+      if local_id >= params.length() &&
+        run_hot_pipeline_raw_local_has_legal_default(params, locals, local_id) {
+        changed.changed = true
+        run_hot_pipeline_raw_default_instr_for_local(params, locals, local_id)
+      } else {
+        instr
+      }
+    }
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::block(
+        block_type,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+            body, params, locals, changed,
+          ),
+        ),
+      )
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::loop_(
+        block_type,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+            body, params, locals, changed,
+          ),
+        ),
+      )
+    @lib.If(block_type, then_body, else_body) => {
+      let rewritten_then = run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+        then_body, params, locals, changed,
+      )
+      let rewritten_else = match else_body {
+        Some(body) =>
+          Some(
+            run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+              body, params, locals, changed,
+            ),
+          )
+        None => None
+      }
+      @lib.Instruction::if_(block_type, rewritten_then, rewritten_else)
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      @lib.Instruction::try_table(
+        block_type,
+        catches,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+            body, params, locals, changed,
+          ),
+        ),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  changed : SsaNoMergeRawRewriteCursor,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    out.push(
+      run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_instr(
+        instr, params, locals, changed,
+      ),
+    )
+  }
+  out
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let changed = { get_cursor: 0, write_cursor: 0, changed: false }
+  let rewritten_instrs = run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_body(
+    instrs, params, locals, changed,
+  )
+  if !changed.changed {
+    (func, false)
+  } else {
+    (@lib.Func::new(locals.copy(), @lib.Expr::new(rewritten_instrs)), true)
+  }
 }
 
 ///|
@@ -18721,6 +18841,16 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         changed = true
         default_changed = true
         reason = "default-local-reads-localgraph-plan"
+      } else {
+        let (fallback_rewritten, fallback_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
+          original, params,
+        )
+        if fallback_changed {
+          rewritten = fallback_rewritten
+          changed = true
+          default_changed = true
+          reason = "default-local-reads-no-write-fallback"
+        }
       }
     }
     let @lib.Func(rewritten_locals, @lib.Expr(rewritten_instrs)) = rewritten

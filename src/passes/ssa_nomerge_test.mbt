@@ -24640,6 +24640,64 @@ test "ssa-nomerge rewrites default local reads after branchy control without hot
 }
 
 ///|
+test "ssa-nomerge materializes no-write numeric and simd default local reads" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func
+    #|    (local f32 f64 v128)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop
+    #|    unreachable))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected no-write default-read rewrite success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("f32.const"), msg=text)
+  assert_true(text.contains("f64.const"), msg=text)
+  assert_true(text.contains("v128.const"), msg=text)
+  assert_false(text.contains("local.get"), msg=text)
+
+  let folded = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32 f32) local.get 1 f32x4.splat f64x2.neg drop nop unreachable))",
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected folded no-write default-read rewrite success, got \{err}")
+  }
+  let (_, folded_instrs) = try! ssa_test_first_defined_func(folded)
+  let folded_text = folded_instrs.to_string()
+  assert_true(folded_text.contains("f32.const"), msg=folded_text)
+  assert_false(folded_text.contains("local.get"), msg=folded_text)
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=default-local-reads-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge keeps no-write unreachable debris cleanup separate from default plan" {
   let trace : Array[String] = []
   let source =
