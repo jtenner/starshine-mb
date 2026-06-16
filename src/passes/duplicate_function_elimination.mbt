@@ -3151,6 +3151,170 @@ fn dfe_canonical_local_idx(replacements : Array[Int], local_idx : Int) -> Int {
 }
 
 ///|
+fn dfe_type_idx_array_uses_remap(
+  type_idxs : Array[@lib.TypeIdx],
+  remap : Map[UInt, UInt],
+) -> Bool {
+  for type_idx in type_idxs {
+    if dfe_type_idx_is_remapped(type_idx, remap) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn dfe_module_type_refs_use_remap(
+  mod_ : @lib.Module,
+  remap : Map[UInt, UInt],
+) -> Bool {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        if dfe_rec_type_uses_remap(rec_type, remap) {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        if dfe_rewrite_import_type_idxs(import_, remap) != import_ {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) =>
+      if dfe_type_idx_array_uses_remap(type_idxs, remap) {
+        return true
+      }
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for table in tables {
+        if dfe_rewrite_table_type_idxs(table, remap) != table {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.tag_sec {
+    Some(@lib.TagSec(tags)) =>
+      for tag in tags {
+        let @lib.TagType(type_idx) = tag
+        if dfe_type_idx_is_remapped(type_idx, remap) {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global in globals {
+        if dfe_rewrite_global_type_idxs(global, remap) != global {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      for elem in elems {
+        if dfe_rewrite_elem_type_idxs(elem, remap) != elem {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        if dfe_scan_rewrite_func_type_idxs(func, remap).rewritten is Some(_) {
+          return true
+        }
+      }
+    None => ()
+  }
+  match mod_.data_sec {
+    Some(@lib.DataSec(datas)) =>
+      for data in datas {
+        if dfe_rewrite_data_type_idxs(data, remap) != data {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn dfe_rec_type_is_unused_suffix_prune_candidate(
+  rec_type : @lib.RecType,
+) -> Bool {
+  match rec_type {
+    @lib.SingleRecType(subtype) => {
+      if subtype.super_types().length() > 0 ||
+        subtype.describes_type() is Some(_) ||
+        subtype.descriptor_type() is Some(_) {
+        return false
+      }
+      match subtype.get_comptype() {
+        @lib.FuncCompType(params, results) =>
+          !dfe_val_types_mention_type_idxs(params) &&
+          !dfe_val_types_mention_type_idxs(results)
+        _ => false
+      }
+    }
+    @lib.GroupRecType(_) => false
+  }
+}
+
+///|
+fn dfe_prune_unused_simple_func_type_suffix(mod_ : @lib.Module) -> @lib.Module {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) => {
+      let mut keep_count = rec_types.length()
+      while keep_count > 0 {
+        let candidate_idx = keep_count - 1
+        if !dfe_rec_type_is_unused_suffix_prune_candidate(
+            rec_types[candidate_idx],
+          ) {
+          break
+        }
+        let remap : Map[UInt, UInt] = {}
+        remap[candidate_idx.reinterpret_as_uint()] = 0U
+        if dfe_module_type_refs_use_remap(mod_, remap) {
+          break
+        }
+        keep_count -= 1
+      }
+      if keep_count == rec_types.length() {
+        return mod_
+      }
+      let kept : Array[@lib.RecType] = []
+      let keep_remap : Map[UInt, UInt] = {}
+      for idx = 0; idx < keep_count; idx = idx + 1 {
+        kept.push(rec_types[idx])
+        keep_remap[idx.reinterpret_as_uint()] = idx.reinterpret_as_uint()
+      }
+      let with_types = mod_.with_type_sec(@lib.TypeSec::new(kept))
+      match with_types.name_sec {
+        Some(name_sec) =>
+          with_types.with_name_sec(
+            dfe_rewrite_type_name_sec(name_sec, keep_remap),
+          )
+        None => with_types
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
 fn dfe_canonicalize_duplicate_simple_type_indices(
   mod_ : @lib.Module,
   perf? : HotPerfSession? = None,

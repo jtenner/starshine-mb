@@ -22361,9 +22361,11 @@ fn run_hot_pipeline_apply_hot_pass(
           current_mod.with_code_sec(code_sec),
         )
         if descriptor.name == "ssa-nomerge" {
-          dfe_canonicalize_duplicate_simple_type_indices(
-            run_hot_pipeline_raw_group_body_locals_by_type_module(
-              run_hot_pipeline_drop_local_names(next_mod),
+          dfe_prune_unused_simple_func_type_suffix(
+            dfe_canonicalize_duplicate_simple_type_indices(
+              run_hot_pipeline_raw_group_body_locals_by_type_module(
+                run_hot_pipeline_drop_local_names(next_mod),
+              ),
             ),
           )
         } else {

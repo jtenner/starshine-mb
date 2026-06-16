@@ -29256,6 +29256,61 @@ test "ssa-nomerge redirects if-arm branch copy aliases" {
 }
 
 ///|
+test "ssa-nomerge prunes unused simple duplicate func types like Binaryen raw output" {
+  // Reduced from dedicated `ssa-nomerge-smoke` GenValid
+  // `case-000042-gen-valid` after child-branch dead-tail cleanup. Binaryen's
+  // raw `ssa-nomerge` output removes the unused simple `(func)` type left after
+  // duplicate simple type canonicalization, while Starshine kept one unused
+  // suffix type and was raw-size-losing by three bytes.
+  let source =
+    #|(module
+    #|  (type $p (func (param i32)))
+    #|  (type $unused (func))
+    #|  (type $unused_dup (func))
+    #|  (func (export "main") (type $p) (param i32)
+    #|    (local i32)
+    #|    i32.const 1
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop)
+    #|  (func (type $p) (param i32)
+    #|    local.get 0
+    #|    drop))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unused simple type pruning success, got \{err}")
+  }
+  @debug.assert_eq(ssa_test_type_count(optimized), 1)
+}
+
+///|
+test "ssa-nomerge keeps used simple suffix func types" {
+  // Safety guard for the unused-type pruning above: suffix function types remain
+  // semantic when a function declaration, import, typed call, tag, table, global,
+  // element, or code body still references them. This fixture locks the common
+  // function-section case while the implementation scans the broader module.
+  let source =
+    #|(module
+    #|  (type $p (func (param i32)))
+    #|  (type $used (func))
+    #|  (func (export "main") (type $p) (param i32)
+    #|    (local i32)
+    #|    i32.const 1
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop)
+    #|  (func (export "used") (type $used)))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected used suffix type preservation success, got \{err}")
+  }
+  @debug.assert_eq(ssa_test_type_count(optimized), 2)
+}
+
+///|
 test "ssa-nomerge groups mixed body locals and duplicate func types like Binaryen raw output" {
   // Binaryen parses/writes function body-local declarations in grouped type
   // order and canonicalizes duplicate simple function types around SSAify(false).
