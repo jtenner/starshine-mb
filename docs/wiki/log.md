@@ -425,6 +425,19 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-16] passes/dead-code-elimination | Trim non-control unreachable-child branch operand
+
+- Added red-first focused coverage in [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) for the Binaryen v130 `dce_all-features.wast` `note-loss-of-non-control-flow-children` family: a dropped binary expression whose first operand is a result block ending in `unreachable` and whose later operand is a branch.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) raw DCE pretrim so the RPN-shaped branch/operator/drop suffix after a branchless nonfallthrough result block is removed and the preserved block is voidified. The change keeps the existing terminal void-`if` cleanup-prefix guard that preserves an explicit trailing `unreachable` in result functions.
+- Evidence: red-first focused DCE test failed with the leftover `(br (Label 0))`; after implementation `moon fmt`, focused `dead_code_elimination_test.mbt` (`61/61`), `moon test src/wast` (`384/384`), `moon test src/passes` (`2515/2515`), `moon info` (with existing GenValid warnings), full `moon test` (`5828/5828`), and native `moon build --target native --release src/cmd` passed. Direct `.tmp/pass-fuzz-dce-noncontrol-unreachable-child-10000` and dedicated `.tmp/pass-fuzz-dce-noncontrol-unreachable-child-genvalid-dce-10000` each compared `9977/10000` with `0` mismatches and `23` Binaryen/tool command failures.
+- Updated [`binaryen/passes/dead-code-elimination/implementation-structure-and-tests.md`](binaryen/passes/dead-code-elimination/implementation-structure-and-tests.md), [`binaryen/passes/dead-code-elimination/fuzzing.md`](binaryen/passes/dead-code-elimination/fuzzing.md), and [`../../agent-todo.md`](../../agent-todo.md). `[O4Z-AUDIT-DCE]` remains active.
+
+## [2026-06-16] passes/dead-code-elimination | Refresh Binaryen v130 source oracle
+
+- Added [`raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md`](raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md) after comparing local Binaryen `version_129` and `version_130` snapshots.
+- Confirmed `src/passes/DeadCodeElimination.cpp` and the representative dedicated `dce` lit files are byte-identical across the two snapshots. `src/passes/pass.cpp` changed, but the inspected diff does not change the `dce` registration or pass contract.
+- Refreshed the DCE wiki source links and freshness notes to cite `version_130` as the current source oracle while preserving the older `version_129` research as historical support. Docs-only; no tests required beyond diff/source review.
+
 ## [2026-06-16] passes/dead-code-elimination | Fail closed legacy pop boundary
 
 - Audited the requested legacy `Try` / `pop` slice against Binaryen v130. Real parity is not feasible as a small DCE-only change because Starshine still lacks a real legacy `Try` and Binaryen `pop` / catch-payload representation across `@lib`, WAST lowering, binary decode/encode, validation/typechecking, and HOT lower.

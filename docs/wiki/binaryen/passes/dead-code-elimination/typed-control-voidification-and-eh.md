@@ -1,16 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-16
 sources:
+  - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh-legacy.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-stack-switching.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-stack-switching.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -26,7 +27,7 @@ related:
 This page replaces an older wrong summary.
 The earlier dossier talked about broad typed-control **voidification**.
 The 2026-05-05 current-main recheck kept the narrower source-backed contract unchanged.
-The source-confirmed `version_129` pass does something narrower:
+The source-confirmed `version_130` pass does something narrower:
 
 - it sometimes changes a control-flow node's type to `unreachable`, and
 - it sometimes replaces an entire node with an already-unreachable child,
@@ -102,7 +103,7 @@ The modern EH test file exists largely to lock in these exact reachability disti
 ## Why the old "voidification" story was misleading
 
 The earlier pages implied a pass that broadly kept control wrappers but erased their result type.
-That is not what `version_129` `DeadCodeElimination.cpp` actually implements.
+That is not what `version_130` `DeadCodeElimination.cpp` actually implements.
 
 What the source actually does is much smaller:
 

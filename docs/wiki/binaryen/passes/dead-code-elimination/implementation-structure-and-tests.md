@@ -3,18 +3,19 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-16
 sources:
+  - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_all-features.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_vacuum_remove-unused-names.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh-legacy.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-stack-switching.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_vacuum_remove-unused-names.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-stack-switching.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DeadCodeElimination.cpp
 related:
   - ./index.md
@@ -29,8 +30,8 @@ related:
 
 This page closes a real teaching gap in the older dossier.
 The earlier pages described a much broader pass with helper walkers, effect-driven dead-result pruning, flattening, and refinalization.
-A direct re-read of Binaryen `version_129` shows the real pass is much smaller and more specific.
-The 2026-05-05 current-main recheck keeps that source map fresh without changing the contract story.
+A direct re-read of Binaryen `version_130` shows the real pass is much smaller and more specific.
+The 2026-05-05 current-main recheck and the 2026-06-16 `version_130` recheck keep that source map fresh without changing the contract story.
 
 ## Why this follow-up was needed
 
@@ -48,7 +49,7 @@ It implements a single function-parallel postwalk that rewrites unreachable shap
 ### Core implementation
 
 - `src/passes/DeadCodeElimination.cpp`
-  - the whole public pass implementation in `version_129`
+  - the whole public pass implementation in `version_130`
   - there is no sibling helper file for the core algorithm
 
 ### Registration and scheduler placement
@@ -73,7 +74,7 @@ It implements a single function-parallel postwalk that rewrites unreachable shap
 
 ## Real implementation structure
 
-Binaryen `version_129` `dce` is one small `WalkerPass<PostWalker<...>>` with four noteworthy pieces of state or behavior.
+Binaryen `version_130` `dce` is one small `WalkerPass<PostWalker<...>>` with four noteworthy pieces of state or behavior.
 
 ### 1. Function-parallel postwalk shell
 
@@ -110,7 +111,7 @@ Those are only used for one conservative end-of-function repair:
 - if the function contains a `pop` and DCE created a new block, run `EHUtils::handleBlockNestedPops(...)`
 
 That is much narrower than the old folder implied.
-There is no general end-of-pass `Flatten::flatten(...)`, `ReFinalize`, or `handleNonDefaultableLocals(...)` call in `version_129` `DeadCodeElimination.cpp`.
+There is no general end-of-pass `Flatten::flatten(...)`, `ReFinalize`, or `handleNonDefaultableLocals(...)` call in `version_130` `DeadCodeElimination.cpp`.
 
 ### 4. One main visitor: `visitExpression(...)`
 
@@ -128,7 +129,7 @@ Earlier children are preserved by wrapping them in `drop`s, then the first unrea
 - dropped earlier children
 - the first unreachable child
 
-This is the core “preserve what still executes, kill what cannot execute after the first unreachable child” rule.
+This is the core “preserve what still executes, kill what cannot execute after the first unreachable child” rule. A 2026-06-16 Starshine slice now covers the `dce_all-features.wast`-style `note-loss-of-non-control-flow-children` shape where a result block becomes unreachable before a later branch operand of a dropped binary expression; the raw DCE pretrim voidifies the branchless nonfallthrough result block and removes the later branch/operator/drop tail instead of leaving a spurious break.
 
 ### `block`
 
@@ -176,7 +177,7 @@ Starshine locks this with focused 2026-06-16 fixtures in `src/passes/dead_code_e
 
 ## What the source does **not** do here
 
-These older dossier claims are not source-confirmed for Binaryen `version_129` `DeadCodeElimination.cpp`:
+These older dossier claims are not source-confirmed for Binaryen `version_130` `DeadCodeElimination.cpp`:
 
 - no `BranchSeeker` or `UnneededBlockSeeker`
 - no `EffectAnalyzer`-based `canRemove(...)`
@@ -186,7 +187,7 @@ These older dossier claims are not source-confirmed for Binaryen `version_129` `
 - no `ReFinalize`
 - no `TypeUpdater::handleNonDefaultableLocals(...)`
 
-Some of those ideas belong more to nearby passes like `vacuum`, or to older/imagined DCE designs, but they are not the actual `version_129` implementation in this file.
+Some of those ideas belong more to nearby passes like `vacuum`, or to older/imagined DCE designs, but they are not the actual `version_130` implementation in this file.
 
 ## Test map: what each lit file is really proving
 
@@ -199,7 +200,7 @@ It proves that DCE handles shapes like:
 - ifs whose condition is unreachable
 - ifs whose arms are both unreachable
 - loops whose body becomes fully unreachable
-- non-control expressions with an unreachable child where earlier children must be converted to `drop`
+- non-control expressions with an unreachable child where earlier children must be converted to `drop`; Starshine has focused coverage for the branch-operand-after-unreachable-child binary/drop shape, but broader non-control expression coverage should continue to be widened under the active audit
 
 It is the best single file for the pass's ordinary AST rewrite surface.
 
@@ -246,9 +247,9 @@ The combined test file and scheduler placement together support a simple rule:
 
 ## Current `main` drift check
 
-The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
-A narrow `version_129` versus current `main` source diff on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative ordinary/EH tests did not surface a teaching-relevant drift in the pass contract.
-So the `version_129` file remains a strong current oracle for this dossier.
+A 2026-06-16 `version_130` recheck found `src/passes/DeadCodeElimination.cpp` and representative ordinary/EH `dce` lit files byte-identical to the previously reviewed `version_129` snapshots. `src/passes/pass.cpp` changed between the tags, but the inspected diff does not change the `dce` registration or pass contract.
+The earlier narrow current-main source diff on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative ordinary/EH tests did not surface a teaching-relevant drift in the pass contract.
+So the `version_130` file remains the current oracle for this dossier.
 
 ## What a future Starshine port must preserve
 

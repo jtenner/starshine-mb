@@ -6636,6 +6636,56 @@ fn run_hot_pipeline_dce_raw_body_may_fallthrough(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_instrs_have_label_branch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_instrs_have_label_branch(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_instrs_have_label_branch(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_instrs_have_label_branch(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      block_type != @lib.BlockType::void_() &&
+      !run_hot_pipeline_dce_raw_instrs_have_label_branch(body) &&
+      !run_hot_pipeline_dce_raw_body_may_fallthrough(body)
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -6650,6 +6700,23 @@ fn run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(
     | @lib.ThrowRef
     | @lib.Unreachable => true
     _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
+  instr : @lib.Instruction,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) if block_type !=
+      @lib.BlockType::void_() &&
+      !run_hot_pipeline_dce_raw_instrs_have_label_branch(body) &&
+      !run_hot_pipeline_dce_raw_body_may_fallthrough(body) =>
+      (
+        @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(body)),
+        true,
+      )
+    _ => (instr, false)
   }
 }
 
@@ -6747,9 +6814,19 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
       instrs[idx],
     )
     changed = changed || instr_changed
+    let branchless_nonfallthrough_control = run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
+      instr,
+    )
+    if idx + 1 < instrs.length() && branchless_nonfallthrough_control {
+      let (voidified, _) = run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
+        instr,
+      )
+      rewritten.push(voidified)
+      return (rewritten, true)
+    }
     rewritten.push(instr)
-    if run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) &&
-      idx + 1 < instrs.length() {
+    if idx + 1 < instrs.length() &&
+      run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) {
       return (rewritten, true)
     }
   }

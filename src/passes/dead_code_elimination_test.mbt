@@ -396,6 +396,26 @@ test "dead-code-elimination skips loop bodies that branch to an outer block" {
 }
 
 ///|
+test "dead-code-elimination trims non-control operands after unreachable child" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (block $out (drop (i32.add (block (result i32) nop unreachable) (br $out))))))",
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected non-control unreachable-child DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_false(pretty.contains("br"), msg="\{trace}\n\{pretty}")
+}
+
+///|
 test "dead-code-elimination drops if arms and suffix after unreachable condition" {
   let optimized = match
     pass_test_run_pipeline(

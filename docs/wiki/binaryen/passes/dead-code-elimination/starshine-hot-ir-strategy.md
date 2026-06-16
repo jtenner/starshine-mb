@@ -3,6 +3,7 @@ kind: concept
 status: working
 last_reviewed: 2026-06-16
 sources:
+  - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
@@ -34,7 +35,7 @@ The goal here is not to re-explain upstream Binaryen, but to show exactly where 
 ## Short version
 
 The 2026-04-21 source-confirmation reread already corrected the upstream side:
-Binaryen `version_129` `dce` is a small `TypeUpdater`-centered unreachable-shape postwalk.
+Binaryen `version_130` `dce` is a small `TypeUpdater`-centered unreachable-shape postwalk.
 
 Current Starshine is still broader than that oracle.
 The local pass combines:
@@ -282,7 +283,7 @@ It also makes future refactors easier to reason about:
 
 If Starshine moves closer to upstream Binaryen `dce`, preserve two truths at the same time:
 
-1. Binaryen `version_129` remains the semantic oracle.
+1. Binaryen `version_130` remains the semantic oracle.
 2. Current Starshine has already learned real HOT/lowering lessons that should not be discarded casually.
 
 So future work should aim to shrink the semantic gap without erasing the local evidence encoded in:
