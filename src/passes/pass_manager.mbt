@@ -18756,6 +18756,51 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
 }
 
 ///|
+fn run_hot_pipeline_raw_instrs_have_typed_loop_param(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body)) => {
+        match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+          Some(@lib.FuncType(params, _)) =>
+            if params.length() > 0 {
+              return true
+            }
+          _ => ()
+        }
+        if run_hot_pipeline_raw_instrs_have_typed_loop_param(body, module_ctx) {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_typed_loop_param(body, module_ctx) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_typed_loop_param(
+            then_body, module_ctx,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_typed_loop_param(
+                body, module_ctx,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -18811,21 +18856,93 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   let (collapsed_instrs, collapsed_changed) = run_hot_pipeline_raw_collapse_null_throwref_try_table_debris(
     rewritten_instrs,
   )
+  let collapsed_func = @lib.Func::new(
+    locals.copy(),
+    @lib.Expr::new(collapsed_instrs),
+  )
+  let @lib.Func(_, @lib.Expr(collapsed_body)) = collapsed_func
+  let (final_func, post_collapse_structured_changed) = if run_hot_pipeline_raw_instrs_have_typed_loop_param(
+      collapsed_body, module_ctx,
+    ) {
+    match
+      run_hot_pipeline_raw_ssa_nomerge_structured(
+        collapsed_func, module_ctx, params,
+      ) {
+      Some(structured) =>
+        if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+            structured,
+          ) {
+          (collapsed_func, false)
+        } else {
+          (structured, true)
+        }
+      None => (collapsed_func, false)
+    }
+  } else {
+    (collapsed_func, false)
+  }
+  let @lib.Func(original_locals, _) = original
+  let shape_post_collapse = default_changed && post_collapse_structured_changed
+  let (compacted_func, compacted) = if shape_post_collapse {
+    run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+      final_func,
+      params,
+      original_locals.length(),
+    )
+  } else {
+    (final_func, false)
+  }
+  let (ordered_func, ordered_appended) = if shape_post_collapse {
+    run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
+      compacted_func,
+      params,
+      original_locals.length(),
+    )
+  } else {
+    (compacted_func, false)
+  }
+  let (shaped_func, reserved_dead_tail_holes) = if shape_post_collapse {
+    run_hot_pipeline_raw_reserve_dead_tail_i32_holes_before_final_tees(
+      ordered_func,
+      params,
+      original_locals.length(),
+    )
+  } else {
+    (ordered_func, false)
+  }
   if planned_changed ||
     default_changed ||
     post_default_planned_changed ||
-    collapsed_changed {
+    collapsed_changed ||
+    post_collapse_structured_changed ||
+    compacted ||
+    ordered_appended ||
+    reserved_dead_tail_holes {
     Some({
       reason: if planned_changed && default_changed {
-        "structured-localgraph-plan-default-local-reads-null-throwref-debris"
+        if post_collapse_structured_changed {
+          "structured-localgraph-plan-default-local-reads-null-throwref-debris-typed-loop-proxy"
+        } else {
+          "structured-localgraph-plan-default-local-reads-null-throwref-debris"
+        }
       } else if planned_changed {
-        "structured-localgraph-plan-null-throwref-debris"
+        if post_collapse_structured_changed {
+          "structured-localgraph-plan-null-throwref-debris-typed-loop-proxy"
+        } else {
+          "structured-localgraph-plan-null-throwref-debris"
+        }
       } else if default_changed {
-        "structured-default-local-reads-localgraph-plan-null-throwref-debris"
+        if post_collapse_structured_changed {
+          "structured-default-local-reads-localgraph-plan-null-throwref-debris-typed-loop-proxy"
+        } else {
+          "structured-default-local-reads-localgraph-plan-null-throwref-debris"
+        }
+      } else if post_collapse_structured_changed {
+        "null-throwref-debris-typed-loop-proxy"
       } else {
         "null-throwref-debris"
       },
-      func: @lib.Func::new(locals.copy(), @lib.Expr::new(collapsed_instrs)),
+      func: shaped_func,
       unchanged_original: false,
       trace_skip_raw: true,
     })

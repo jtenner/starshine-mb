@@ -30008,6 +30008,59 @@ test "ssa-nomerge preserves Binaryen dead-tail fresh local holes before later te
 }
 
 ///|
+test "ssa-nomerge composes null throw_ref debris collapse with typed-loop proxy lowering" {
+  // Reduced from dedicated `ssa-nomerge-coverage` GenValid
+  // `case-000002-gen-valid` after the smoke lane became green. Binaryen keeps
+  // running the typed-loop ABI/proxy lowering after default materialization and
+  // null-throw_ref debris collapse; returning immediately after debris cleanup
+  // leaves a smaller but unproven direct typed-loop shape.
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (type $unused (func))
+    #|  (func (export "main") (param i32)
+    #|    (local i32 i32)
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 0
+    #|    loop $l (type $loop_t)
+    #|      drop
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 1
+    #|      br $l
+    #|    end
+    #|    try_table (catch_all 0)
+    #|      i32.const 42
+    #|      local.set 1
+    #|      ref.null exn
+    #|      throw_ref
+    #|    end
+    #|    local.get 1
+    #|    drop)
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected null-throwref typed-loop proxy composition success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 3, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge compacts large branch-exit alias scratch locals" {
   // Reduced from the current debug-WASI `defined=6070 abs=6097` first
   // non-masked diff after the one-use temp-local chain. A branch exit stores

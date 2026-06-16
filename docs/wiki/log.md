@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Compose ssanm typed-loop proxy after debris
+
+- Reduced the next dedicated `ssa-nomerge-coverage` family after the smoke lane became green: `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-dead-tail-local-holes-10000/failures/case-000002-gen-valid` showed Binaryen still lowering a typed loop-param backedge through the scratch/proxy ABI path after default materialization and null-`throw_ref` debris collapse, while Starshine returned directly after debris cleanup and kept a smaller direct typed-loop shape.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to detect surviving typed loop-param control after debris collapse, rerun the structured typed-loop proxy lowering, fail closed on invalid escape carriers, and apply appended-local shaping only on this typed-loop composition path so existing dead-tail fresh-local declarations remain protected. Added red-first focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge composes null throw_ref debris collapse with typed-loop proxy lowering`.
+- Evidence: red-first focused test failed on the direct `(loop (type 0) ...)` shape; after the fix, focused `ssa_nomerge_test.mbt` passed `464/464`; `moon fmt`; `moon test src/passes` passed `2499/2499`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5805/5805`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-typed-loop-debris-proxy-10000` compared `7092/10000`, normalized `7092`, mismatches `0`, cached command failures `20`.
+- Dedicated smoke remains green: `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-typed-loop-proxy-10000` requested `10000`, compared `8499`, normalized `8499`, mismatches `0`, command failures `20`. Dedicated coverage improved but remains open: `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-typed-loop-proxy-10000` requested `10000`, compared `57`, normalized `29`, mismatches `28`, command failures `0`, with remaining raw deltas `-16` bytes instead of `-30`. `[SSANM-012c]` remains open.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] passes/ssa-nomerge | Preserve ssanm dead-tail local holes
 
 - Reduced the remaining equal-size `ssa-nomerge-smoke` output-shape family after appended numeric local ordering: Binaryen `SSAify(false)` allocates fresh locals for dead tail writes before later cleanup collapses the void child-branch exits, leaving two unused i32 declarations before the final fresh tee pair. Starshine had compacted those declarations and emitted the final tees as locals `18/19` instead of Binaryen's `20/21`.
