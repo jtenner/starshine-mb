@@ -3,6 +3,12 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Classify final artifact boundaries
+
+- Completed the remaining docs-only `[SSANM-012a]` / `[SSANM-012d]` closeout prep without closing the parent `[SSANM-012]` epic or `[SSANM-012e]` final publication slice. The prerequisite census now points to the green direct broad lane, green `ssa-nomerge-all` aggregate lane, validator command-failure follow-up, O4z scheduling policy, and debug-WASI artifact replay.
+- Classified `.tmp/self-ssa-nomerge-final-closeout-20260616` as artifact evidence rather than a request for more fuzzing: both Starshine and Binaryen outputs validate, canonical equality remains non-required, first diff is `defined=2087 abs=2114`, Starshine final wasm is smaller (`3149504` vs `3156337`), and Starshine pass-local timing is faster (`0.175ms` vs Binaryen `387.072ms`) while whole-command wall time remains `[WALL]001`.
+- Closed the broad huge-function guardrail evidence: the six former huge anchors now reach narrower `call-heavy-memory-structured-noop` boundaries in the final full-artifact trace, the three drifted old anchors are non-huge boundary/no-op owners, and no `large-structured-local-writes` blocker remains. Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] validate | Accept ssanm validator boundary cases
 
 - Resolved the remaining Starshine-specific command-failure classes from the fresh broad `ssa-nomerge` lane. User directed Starshine to accept atomics on unshared memories; [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) now validates atomic memory operations against unshared memories while still checking memory index and alignment, and [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt) locks the acceptance.
