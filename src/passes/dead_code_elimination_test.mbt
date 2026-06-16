@@ -432,6 +432,25 @@ test "dead-code-elimination trims global.set wrapper around unreachable value" {
 }
 
 ///|
+test "dead-code-elimination preserves select values before unreachable condition" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $side (result i32) i32.const 7) (func call $side i32.const 456 unreachable select drop))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected select unreachable-condition DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("I32(456)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination preserves branch child when trimming unary wrapper" {
   let optimized = match
     pass_test_run_pipeline(

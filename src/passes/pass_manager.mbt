@@ -6729,6 +6729,14 @@ fn run_hot_pipeline_dce_raw_instr_is_drop(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_select_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Select(_) => true
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_unary_combiner(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.I32Eqz
@@ -6930,6 +6938,20 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
       run_hot_pipeline_dce_raw_instr_is_drop(instrs[idx + 2]) {
       rewritten.push(instr)
       rewritten.push(@lib.Instruction::drop())
+      return (rewritten, true)
+    }
+    if idx + 2 < instrs.length() &&
+      run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) &&
+      run_hot_pipeline_dce_raw_select_instr(instrs[idx + 1]) &&
+      run_hot_pipeline_dce_raw_instr_is_drop(instrs[idx + 2]) &&
+      rewritten.length() >= 2 {
+      let previous_value = rewritten.pop().unwrap()
+      let first_value = rewritten.pop().unwrap()
+      rewritten.push(first_value)
+      rewritten.push(@lib.Instruction::drop())
+      rewritten.push(previous_value)
+      rewritten.push(@lib.Instruction::drop())
+      rewritten.push(instr)
       return (rewritten, true)
     }
     let branchless_nonfallthrough_control = run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
