@@ -30179,6 +30179,81 @@ test "ssa-nomerge drops residual void loop blocks after typed-loop debris" {
 }
 
 ///|
+test "ssa-nomerge freshens pre-branch writes before later branch merges" {
+  // Reduced from dedicated `ssa-nomerge-parity`
+  // `.tmp/pass-fuzz-ssa-nomerge-genvalid-parity-typed-loop-dead-tail-blockshape-10000/failures/case-000002-gen-valid`.
+  // Binaryen `SSAify(false)` freshens straight-line single-source writes before
+  // later branch-merge traffic on the same original local; only the actual
+  // branch-merge writes stay canonical.
+  let source =
+    #|(module
+    #|  (type $p (func (param i32)))
+    #|  (type $q (func))
+    #|  (export "main" (func 0))
+    #|  (func (type $p) (param i32)
+    #|    (local i32 i32 i32 i32 i32 i64 f32 f64)
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 101
+    #|    local.set 2
+    #|    local.get 2
+    #|    drop
+    #|    i32.const 102
+    #|    local.set 3
+    #|    i32.const 1
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.tee 1
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    if
+    #|      i32.const 1
+    #|      local.set 1
+    #|    else
+    #|      i32.const 2
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 1
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop)
+    #|  (func (type $q)))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected pre-branch freshening success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 14)
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [
+    2U, 6U, 7U, 8U, 10U, 11U, 1U, 1U, 1U,
+  ])
+  @debug.assert_eq(ssa_test_local_tee_indices(instrs), [9U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [
+    0U, 2U, 7U, 8U, 9U, 10U, 11U, 1U, 1U, 1U,
+  ])
+}
+
+///|
 test "ssa-nomerge compacts large branch-exit alias scratch locals" {
   // Reduced from the current debug-WASI `defined=6070 abs=6097` first
   // non-masked diff after the one-use temp-local chain. A branch exit stores

@@ -16125,7 +16125,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_mixed_structured_supported_control(
     ) {
     return false
   }
-  state.tee_count == 0 || state.write_count <= 4
+  let (_, _, has_branches, _, _, _) = run_hot_pipeline_instr_scan(instrs)
+  state.tee_count == 0 ||
+  state.write_count <= 4 ||
+  (
+    !has_branches &&
+    !run_hot_pipeline_raw_instrs_have_memory_access(instrs) &&
+    run_hot_pipeline_raw_count_call_like(instrs) == 0
+  )
 }
 
 ///|
