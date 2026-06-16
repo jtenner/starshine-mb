@@ -364,6 +364,23 @@ fn ssa_nomerge_test_local_get_indices(
 }
 
 ///|
+fn ssa_nomerge_test_has_brtable_default_zero_drop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body)) if ssa_test_instrs_have_br_table(body) =>
+        match (instrs[idx + 1], instrs[idx + 2]) {
+          (@lib.I32Const(@lib.I32(0)), @lib.Drop) => return true
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_nomerge_test_shadow_summary_from_wat(
   source : String,
 ) -> SsaNoMergeShadowSummary raise {
@@ -6225,6 +6242,186 @@ test "ssa-nomerge preserves local written before conditional throw to catch" {
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
   assert_true(text.contains("local.set"), msg=text)
+}
+
+///|
+test "ssa-nomerge materializes defaults before null throw_ref debris" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (export "f") (local i32)
+    #|    block
+    #|      i32.const 0
+    #|      br_table 0 0
+    #|    end
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 1
+    #|    local.set 0
+    #|    try_table (catch_all 0)
+    #|      i32.const 42
+    #|      local.set 0
+    #|      ref.null noexn
+    #|      throw_ref
+    #|    end))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected default-plus-null-throwref pipeline success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_false(text.contains("try_table"), msg=text)
+  assert_false(text.contains("throw_ref"), msg=text)
+  assert_true(text.contains("i32.const I32(0)"), msg=text)
+  assert_false(
+    ssa_nomerge_test_local_get_indices(instrs).contains(0U),
+    msg=text,
+  )
+  assert_true(
+    trace.any(fn(line) { line.contains("null-throwref-debris") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge composes defaults with typed-loop null throw_ref debris" {
+  // The dedicated coverage equal-size family can put an entry-default read
+  // before later writes, followed by a typed self-branching loop and a local-only
+  // null throw_ref suffix. Binaryen still applies LocalGraph default
+  // materialization to the surviving prefix before reducing the EH debris.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (type $take_i32 (func (param i32)))
+    #|  (func (export "f") (type $take_i32) (param i32)
+    #|    (local i32 i32 i32 i32 i32)
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 101
+    #|    local.set 4
+    #|    local.get 4
+    #|    drop
+    #|    i32.const 1
+    #|    if
+    #|      i32.const 103
+    #|      local.set 3
+    #|    end
+    #|    local.get 3
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 104
+    #|      local.set 0
+    #|    end
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 102
+    #|    local.set 5
+    #|    block
+    #|      i32.const 0
+    #|      br_table 0 0
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 1
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.tee 1
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    if
+    #|      i32.const 1
+    #|      local.set 1
+    #|    else
+    #|      i32.const 2
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 1
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    block
+    #|      loop
+    #|        local.get 1
+    #|        drop
+    #|        i32.const 1
+    #|        local.set 1
+    #|        local.get 1
+    #|        br_if 0
+    #|      end
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 0
+    #|    loop (type $take_i32) (param i32)
+    #|      drop
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 1
+    #|      br 0
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    try_table (catch_all 0)
+    #|      i32.const 42
+    #|      local.set 1
+    #|      ref.null noexn
+    #|      throw_ref
+    #|    end))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected typed-loop default/null-debris pipeline success, got \{err}",
+      )
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_false(text.contains("try_table"), msg=text)
+  assert_false(text.contains("throw_ref"), msg=text)
+  assert_true(ssa_nomerge_test_has_brtable_default_zero_drop(instrs), msg=text)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("localgraph-plan") && line.contains("null-throwref-debris")
+    }),
+    msg=trace.join("\n"),
+  )
 }
 
 ///|
@@ -22118,6 +22315,86 @@ test "ssa-nomerge LocalGraph materializes structured body defaults with writes" 
       )
     }),
     msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge LocalGraph materializes pre-write body defaults" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (result i32) (local i32)
+    #|    (block (br 0))
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 7
+    #|    local.set 0
+    #|    local.get 0))
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected pre-write default materialization success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [0U])
+  assert_true(
+    instrs.to_string().contains("i32.const I32(0)"),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-default-local-reads-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+
+  let table_trace : Array[String] = []
+  let table_source =
+    #|(module
+    #|  (func (result i32) (local i32)
+    #|    (block
+    #|      i32.const 0
+    #|      br_table 0 0)
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 0))
+  let table_optimized = match
+    pass_test_run_pipeline(
+      table_source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(
+        trace=Some(fn(line) { table_trace.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected br_table pre-write default materialization success, got \{err}",
+      )
+  }
+  let (_, table_instrs) = try! ssa_test_first_defined_func(table_optimized)
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(table_instrs), [0U])
+  assert_true(
+    table_instrs.to_string().contains("i32.const I32(0)"),
+    msg=table_instrs.to_string(),
+  )
+  assert_true(
+    table_trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-default-local-reads-localgraph-plan",
+      )
+    }),
+    msg=table_trace.join("\n"),
   )
 }
 

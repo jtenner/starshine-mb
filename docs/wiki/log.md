@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-15] passes/ssa-nomerge | Compose pre-write defaults with debris cleanup
+
+- Fixed actionable equal-size dedicated GenValid smoke/coverage mismatch families where Binaryen materialized a body-local entry read before later writes as `i32.const 0`, while Starshine kept `local.get` because it skipped default rewrites for locals written anywhere later in the function or returned after null-`throw_ref` debris cleanup.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to use prefix-seen writes for default materialization, admit void `br_table` plus otherwise supported `try_table` bodies in the default-materialization scan, and compose local-only null-`throw_ref` debris collapse with LocalGraph planned structured rewriting/default materialization over the surviving prefix. Added focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge LocalGraph materializes pre-write body defaults`, `ssa-nomerge materializes defaults before null throw_ref debris`, and `ssa-nomerge composes defaults with typed-loop null throw_ref debris`.
+- Evidence: red-first focused tests failed for the pre-write and typed-loop debris gaps, then focused `ssa_nomerge_test.mbt` passed `454/454`; `moon test src/passes` passed `2489/2489`; full `moon test` passed `5795/5795`; `moon fmt`; `moon info` passed with the three pre-existing GenValid warnings; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; `git diff --check` passed; direct compare `.tmp/pass-fuzz-ssa-nomerge-default-debris-localgraph-10000` compared `7601/10000`, normalized `7601`, mismatches `0`, cached Binaryen command failures `20`.
+- Dedicated smoke `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-default-debris-localgraph-10000` requested `10000`, compared `55`, normalized `28`, mismatches `27`, command failures `0`; dedicated coverage `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-default-debris-localgraph-10000` requested `10000`, compared `54`, normalized `27`, mismatches `27`, command failures `0`. The repaired coverage sample now has the default `i32.const 0`, but remaining dedicated failures still show output-shape drift with fewer Starshine locals, so `[SSANM-012c]` remains open.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-15] passes/ssa-nomerge | Broaden GenValid branch-carrier coverage
 
 - Added explicit SSA GenValid feature labels for branch/enclosing-label local-move families: `ssa-branch-block-alias-copy`, `ssa-nested-enclosing-label-copy`, `ssa-parallel-branch-carrier-copy`, and `ssa-tee-branch-carrier-copy`.

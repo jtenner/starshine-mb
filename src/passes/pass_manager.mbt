@@ -15022,37 +15022,36 @@ fn run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(
 }
 
 ///|
-fn run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
+fn run_hot_pipeline_raw_ssa_nomerge_has_body_local_get(
   instrs : Array[@lib.Instruction],
   param_count : Int,
-  written : @bitset.BitSet,
 ) -> Bool {
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if local_id >= param_count && !written[local_id] {
+        if local_id >= param_count {
           return true
         }
       }
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
-            body, param_count, written,
+        if run_hot_pipeline_raw_ssa_nomerge_has_body_local_get(
+            body, param_count,
           ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
-            then_body, param_count, written,
+        if run_hot_pipeline_raw_ssa_nomerge_has_body_local_get(
+            then_body, param_count,
           ) {
           return true
         }
         match else_body {
           Some(body) =>
-            if run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
-                body, param_count, written,
+            if run_hot_pipeline_raw_ssa_nomerge_has_body_local_get(
+                body, param_count,
               ) {
               return true
             }
@@ -15437,8 +15436,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
 ) -> Bool {
   for instr in instrs {
     match instr {
-      @lib.BrTable(_, _)
-      | @lib.BrOnNull(_)
+      @lib.BrOnNull(_)
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _) => return false
@@ -15448,7 +15446,12 @@ fn run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
           ) {
           return false
         }
-      @lib.TryTable(_, _, _) => return false
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if !run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
+            body,
+          ) {
+          return false
+        }
       @lib.If(_, then_body, else_body) => {
         if !run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
             then_body,
@@ -15474,7 +15477,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
   instrs : Array[@lib.Instruction],
-  base_local_count : Int,
   param_count : Int,
 ) -> Bool {
   if !run_hot_pipeline_raw_ssa_nomerge_default_materialize_supported_control(
@@ -15482,11 +15484,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
     ) {
     return false
   }
-  let written = @bitset.BitSet::new(base_local_count)
-  run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(instrs, written)
-  run_hot_pipeline_raw_ssa_nomerge_has_unwritten_body_local_get(
-    instrs, param_count, written,
-  )
+  run_hot_pipeline_raw_ssa_nomerge_has_body_local_get(instrs, param_count)
 }
 
 ///|
@@ -15522,6 +15520,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_instr(
           }
         _ => (instr, false)
       }
+    }
+    @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+      let local_id = raw.reinterpret_as_int()
+      if local_id >= 0 && local_id < written_locals.length() {
+        written_locals[local_id] = true
+      }
+      (instr, false)
     }
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (rewritten_body, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
@@ -15610,7 +15615,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
   }
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   let written_locals = @bitset.BitSet::new(params.length() + locals.length())
-  run_hot_pipeline_raw_ssa_nomerge_mark_written_locals(instrs, written_locals)
   let (rewritten_instrs, changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_body(
     instrs,
     params,
@@ -18052,7 +18056,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     }
     let (default_materialized, default_changed) = if run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
         instrs,
-        base_local_count,
         params.length(),
       ) {
       let hot_func = @ir.hot_lift_func(mod_, func_idx)
@@ -18124,6 +18127,67 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  options : HotPipelineOptions,
+  collapsed : @lib.Func,
+) -> HotPipelineFuncResult? {
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = collapsed
+  if !run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
+      instrs,
+      params.length(),
+    ) {
+    return None
+  }
+  let collapsed_mod = run_hot_pipeline_module_with_rewritten_func(
+    mod_, func_idx, collapsed,
+  )
+  let hot_func = @ir.hot_lift_func(collapsed_mod, func_idx)
+  let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
+  let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+  let (planned, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
+    collapsed, params, plan,
+  )
+  let materialize_base = if planned_changed { planned } else { collapsed }
+  let materialize_mod = run_hot_pipeline_module_with_rewritten_func(
+    mod_, func_idx, materialize_base,
+  )
+  let materialize_hot_func = @ir.hot_lift_func(materialize_mod, func_idx)
+  let materialize_local_graph = @ir.local_graph_build(
+    materialize_hot_func,
+    @ir.cfg_build(materialize_hot_func),
+  )
+  let materialize_plan = ssa_nomerge_build_rewrite_plan(
+    materialize_hot_func, materialize_local_graph,
+  )
+  let (rewritten, default_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
+    materialize_base, params, materialize_plan,
+  )
+  if planned_changed || default_changed {
+    Some({
+      reason: if planned_changed && default_changed {
+        "structured-localgraph-plan-default-local-reads-null-throwref-debris"
+      } else if planned_changed {
+        "structured-localgraph-plan-null-throwref-debris"
+      } else {
+        "structured-default-local-reads-localgraph-plan-null-throwref-debris"
+      },
+      func: rewritten,
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  } else {
+    None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -18168,12 +18232,23 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         instrs,
       )
       if collapsed {
-        Some({
-          reason: "null-throwref-debris",
-          func: @lib.Func::new(locals.copy(), @lib.Expr::new(collapsed_instrs)),
-          unchanged_original: false,
-          trace_skip_raw: true,
-        })
+        let collapsed_func = @lib.Func::new(
+          locals.copy(),
+          @lib.Expr::new(collapsed_instrs),
+        )
+        match
+          run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
+            mod_, func_idx, module_state, options, collapsed_func,
+          ) {
+          Some(rewritten) => Some(rewritten)
+          None =>
+            Some({
+              reason: "null-throwref-debris",
+              func: collapsed_func,
+              unchanged_original: false,
+              trace_skip_raw: true,
+            })
+        }
       } else {
         None
       }
@@ -21158,6 +21233,31 @@ fn run_hot_pipeline_original_func(
           )
       }
     None => abort("hot pipeline original func lookup requires a code section")
+  }
+}
+
+///|
+fn run_hot_pipeline_module_with_rewritten_func(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  rewritten : @lib.Func,
+) -> @lib.Module {
+  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let @lib.FuncIdx(raw) = func_idx
+  let code_idx = raw.reinterpret_as_int() - imported_func_count
+  if code_idx < 0 {
+    abort("hot pipeline rewrite func requires a defined function index")
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      if code_idx >= defs.length() {
+        abort("hot pipeline rewrite func requires an existing code entry")
+      }
+      let next = defs.copy()
+      next[code_idx] = rewritten
+      mod_.with_code_sec(@lib.CodeSec::new(next))
+    }
+    None => abort("hot pipeline rewrite func requires a code section")
   }
 }
 
