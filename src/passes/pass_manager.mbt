@@ -7800,6 +7800,86 @@ fn run_hot_pipeline_raw_note_appended_local_first_refs(
 }
 
 ///|
+fn run_hot_pipeline_raw_instrs_reference_local(
+  instrs : Array[@lib.Instruction],
+  local_id : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw))
+      | @lib.LocalSet(@lib.LocalIdx(raw))
+      | @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        if raw.reinterpret_as_int() == local_id {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_reference_local(body, local_id) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_reference_local(then_body, local_id) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_reference_local(body, local_id) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
+  instrs : Array[@lib.Instruction],
+  appended_start : Int,
+  priorities : Array[Bool],
+) -> Unit {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.LocalSet(@lib.LocalIdx(raw)) if idx + 1 < instrs.length() => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= appended_start && local_id < priorities.length() {
+          match instrs[idx + 1] {
+            @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) =>
+              if run_hot_pipeline_raw_instrs_reference_local(body, local_id) {
+                priorities[local_id] = true
+              }
+            _ => ()
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
+          body, appended_start, priorities,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
+          then_body, appended_start, priorities,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
+              body, appended_start, priorities,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -7827,6 +7907,10 @@ fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
     run_hot_pipeline_raw_note_appended_local_first_refs(
       instrs, appended_start, first_refs, 0,
     ),
+  )
+  let priority_scratch : Array[Bool] = Array::make(total_local_count, false)
+  run_hot_pipeline_raw_note_typed_loop_proxy_scratch_locals(
+    instrs, appended_start, priority_scratch,
   )
   let local_remap : Array[Int] = []
   for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
@@ -7857,7 +7941,11 @@ fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
             order_idx = order_idx + 1 {
           let other = ordered[order_idx]
           let other_rank = first_refs[other]
-          let comes_before = if rank < 0 {
+          let scratch_priority = priority_scratch[local_id]
+          let other_scratch_priority = priority_scratch[other]
+          let comes_before = if scratch_priority != other_scratch_priority {
+            scratch_priority
+          } else if rank < 0 {
             false
           } else if other_rank < 0 {
             true
@@ -7896,6 +7984,159 @@ fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
 }
 
 ///|
+fn run_hot_pipeline_raw_branch_targets_depth(
+  instrs : Array[@lib.Instruction],
+  target_depth : UInt,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(@lib.LabelIdx(raw)) | @lib.BrIf(@lib.LabelIdx(raw)) =>
+        if raw == target_depth {
+          return true
+        }
+      @lib.BrTable(labels, @lib.LabelIdx(default_raw)) => {
+        if default_raw == target_depth {
+          return true
+        }
+        for label in labels {
+          let @lib.LabelIdx(raw) = label
+          if raw == target_depth {
+            return true
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_branch_targets_depth(body, target_depth + 1U) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_branch_targets_depth(
+            then_body,
+            target_depth + 1U,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_branch_targets_depth(
+                body,
+                target_depth + 1U,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_drop_void_blocks_wrapping_loops_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let next : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_raw_drop_void_blocks_wrapping_loops_instrs(
+          body,
+        )
+        if rewritten_body.length() == 1 {
+          match rewritten_body[0] {
+            @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) =>
+              if !run_hot_pipeline_raw_branch_targets_depth(loop_body, 1U) {
+                next.push(rewritten_body[0])
+                changed = true
+                continue
+              }
+            _ => ()
+          }
+        }
+        next.push(
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        if body_changed {
+          changed = true
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_raw_drop_void_blocks_wrapping_loops_instrs(
+          body,
+        )
+        next.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        if body_changed {
+          changed = true
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_raw_drop_void_blocks_wrapping_loops_instrs(
+          body,
+        )
+        next.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        if body_changed {
+          changed = true
+        }
+      }
+      @lib.If(cond, then_body, else_body) => {
+        let (rewritten_then, then_changed) = run_hot_pipeline_raw_drop_void_blocks_wrapping_loops_instrs(
+          then_body,
+        )
+        let mut if_changed = then_changed
+        let rewritten_else = match else_body {
+          Some(body) => {
+            let (next_else, else_changed) = run_hot_pipeline_raw_drop_void_blocks_wrapping_loops_instrs(
+              body,
+            )
+            if else_changed {
+              if_changed = true
+            }
+            Some(next_else)
+          }
+          None => None
+        }
+        next.push(@lib.Instruction::if_(cond, rewritten_then, rewritten_else))
+        if if_changed {
+          changed = true
+        }
+      }
+      other => next.push(other)
+    }
+  }
+  (next, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_drop_void_blocks_wrapping_loops(
+  func : @lib.Func,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let (rewritten, changed) = run_hot_pipeline_raw_drop_void_blocks_wrapping_loops_instrs(
+    instrs,
+  )
+  if !changed {
+    return (func, false)
+  }
+  (@lib.Func::new(locals.copy(), @lib.Expr::new(rewritten)), true)
+}
+
+///|
 fn run_hot_pipeline_raw_count_void_blocks_ending_br0(
   instrs : Array[@lib.Instruction],
 ) -> Int {
@@ -7925,6 +8166,62 @@ fn run_hot_pipeline_raw_count_void_blocks_ending_br0(
     }
   }
   count
+}
+
+///|
+fn run_hot_pipeline_raw_count_appended_i32_locals_by_use(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  prefix_local_count : Int,
+) -> (Int, Int) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if locals.length() <= prefix_local_count {
+    return (0, 0)
+  }
+  let param_count = params.length()
+  let total_local_count = param_count + locals.length()
+  let local_gets : Array[Int] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  let mut used = 0
+  let mut unused = 0
+  for local_idx = prefix_local_count
+      local_idx < locals.length()
+      local_idx = local_idx + 1 {
+    if locals.get(local_idx) == @lib.ValType::i32() {
+      let local_id = param_count + local_idx
+      if local_gets[local_id] > 0 ||
+        local_sets[local_id] > 0 ||
+        local_tees[local_id] > 0 {
+        used += 1
+      } else {
+        unused += 1
+      }
+    }
+  }
+  (used, unused)
+}
+
+///|
+fn run_hot_pipeline_raw_append_unused_i32_locals(
+  func : @lib.Func,
+  count : Int,
+) -> (@lib.Func, Bool) {
+  if count <= 0 {
+    return (func, false)
+  }
+  let @lib.Func(locals, body) = func
+  let next_types : Array[@lib.ValType] = []
+  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+    next_types.push(locals.get(local_idx))
+  }
+  for idx = 0; idx < count; idx = idx + 1 {
+    next_types.push(@lib.ValType::i32())
+  }
+  (@lib.Func::new(@lib.Locals::from_types(next_types), body), true)
 }
 
 ///|
@@ -18883,6 +19180,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   }
   let @lib.Func(original_locals, _) = original
   let shape_post_collapse = default_changed && post_collapse_structured_changed
+  let (post_collapse_used_appended_i32, post_collapse_unused_appended_i32) = if shape_post_collapse {
+    run_hot_pipeline_raw_count_appended_i32_locals_by_use(
+      final_func,
+      params,
+      original_locals.length(),
+    )
+  } else {
+    (0, 0)
+  }
   let (compacted_func, compacted) = if shape_post_collapse {
     run_hot_pipeline_raw_compact_unused_locals_after_prefix(
       final_func,
@@ -18910,6 +19216,24 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   } else {
     (ordered_func, false)
   }
+  let typed_loop_dead_tail_holes = if shape_post_collapse &&
+    post_collapse_unused_appended_i32 > post_collapse_used_appended_i32 + 1 {
+    post_collapse_unused_appended_i32 - post_collapse_used_appended_i32 - 1
+  } else {
+    0
+  }
+  let (shaped_func, preserved_typed_loop_dead_tail_holes) = if shape_post_collapse {
+    run_hot_pipeline_raw_append_unused_i32_locals(
+      shaped_func, typed_loop_dead_tail_holes,
+    )
+  } else {
+    (shaped_func, false)
+  }
+  let (shaped_func, dropped_void_loop_blocks) = if shape_post_collapse {
+    run_hot_pipeline_raw_drop_void_blocks_wrapping_loops(shaped_func)
+  } else {
+    (shaped_func, false)
+  }
   if planned_changed ||
     default_changed ||
     post_default_planned_changed ||
@@ -18917,7 +19241,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
     post_collapse_structured_changed ||
     compacted ||
     ordered_appended ||
-    reserved_dead_tail_holes {
+    reserved_dead_tail_holes ||
+    preserved_typed_loop_dead_tail_holes ||
+    dropped_void_loop_blocks {
     Some({
       reason: if planned_changed && default_changed {
         if post_collapse_structured_changed {

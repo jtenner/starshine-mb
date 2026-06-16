@@ -29290,6 +29290,62 @@ fn ssa_test_local_tee_after_i32_const(
 }
 
 ///|
+fn ssa_test_local_set_from_local_get(
+  instrs : Array[@lib.Instruction],
+  source : UInt,
+) -> UInt? {
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (@lib.LocalGet(@lib.LocalIdx(found)), @lib.LocalSet(@lib.LocalIdx(raw))) =>
+        if found == source {
+          return Some(raw)
+        }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn ssa_test_instrs_have_void_block_directly_wrapping_loop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+        if body.length() == 1 {
+          match body[0] {
+            @lib.Loop(@lib.VoidBlockType, _) => return true
+            _ => ()
+          }
+        }
+        if ssa_test_instrs_have_void_block_directly_wrapping_loop(body) {
+          return true
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_void_block_directly_wrapping_loop(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_void_block_directly_wrapping_loop(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_instrs_have_void_block_directly_wrapping_loop(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 test "ssa-nomerge orders appended numeric locals by first reference like Binaryen raw output" {
   // Reduced from the remaining equal-size `ssa-nomerge-smoke` GenValid family
   // after unused simple type suffix pruning. Binaryen's raw SSAify(false)
@@ -30013,7 +30069,10 @@ test "ssa-nomerge composes null throw_ref debris collapse with typed-loop proxy 
   // `case-000002-gen-valid` after the smoke lane became green. Binaryen keeps
   // running the typed-loop ABI/proxy lowering after default materialization and
   // null-throw_ref debris collapse; returning immediately after debris cleanup
-  // leaves a smaller but unproven direct typed-loop shape.
+  // leaves a smaller but unproven direct typed-loop shape. The coverage sample
+  // also allocates the typed-loop scratch before later fresh locals, preserves
+  // Binaryen's dead-tail local declarations, and drops simple void block wrappers
+  // around no-result loops.
   let source =
     #|(module
     #|  (type $loop_t (func (param i32)))
@@ -30056,6 +30115,65 @@ test "ssa-nomerge composes null throw_ref debris collapse with typed-loop proxy 
   assert_true(locals.length() > 3, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+  @debug.assert_eq(ssa_test_local_set_after_i32_const(instrs, 0), Some(4U))
+  @debug.assert_eq(ssa_test_local_set_after_i32_const(instrs, 9), Some(0U))
+  @debug.assert_eq(ssa_test_local_set_from_local_get(instrs, 0U), Some(3U))
+}
+
+///|
+test "ssa-nomerge drops residual void loop blocks after typed-loop debris" {
+  // The dedicated coverage residual after typed-loop proxy composition was a
+  // simple void block around a no-result loop. Binaryen's raw output has already
+  // removed that wrapper; keep this narrow so branch-targeted loop wrappers stay
+  // protected elsewhere.
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (export "main") (param i32)
+    #|    (local i32 i32)
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    block
+    #|      loop
+    #|        local.get 1
+    #|        drop
+    #|        i32.const 1
+    #|        local.set 1
+    #|        local.get 1
+    #|        br_if 0
+    #|      end
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 0
+    #|    loop $l (type $loop_t)
+    #|      drop
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 1
+    #|      br $l
+    #|    end
+    #|    try_table (catch_all 0)
+    #|      i32.const 42
+    #|      local.set 1
+    #|      ref.null exn
+    #|      throw_ref
+    #|    end)
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected residual void loop block cleanup success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    ssa_test_instrs_have_void_block_directly_wrapping_loop(instrs),
     msg=instrs.to_string(),
   )
 }
