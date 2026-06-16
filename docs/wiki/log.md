@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Order ssanm appended numeric locals
+
+- Reduced the remaining equal-size `ssa-nomerge-smoke` output-shape family after unused simple type suffix pruning: Binaryen `SSAify(false)` fresh locals are allocated in source visitation order before numeric local grouping, while Starshine's composed default/planned rewrite emitted later fresh locals first.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to reorder appended numeric locals by first reference only for `default-local-reads` SSANM results, after unused appended-local compaction and before final numeric local grouping. Nonnumeric/ref/v128 locals and ordinary branch/table helper results are intentionally out of scope. Added focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge orders appended numeric locals by first reference like Binaryen raw output`.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `462/462`; `moon fmt`; `moon test src/passes` passed `2497/2497`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5803/5803`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-appended-local-order-10000` compared `7093/10000`, normalized `7093`, mismatches `0`, cached Binaryen command failures `20`.
+- Dedicated lanes remain open but the source-order fresh-local numbering gap is gone from sampled smoke diffs: smoke `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-appended-local-order-10000` requested `10000`, compared `57`, normalized `29`, mismatches `28`, command failures `0`, all raw deltas `0` bytes; coverage `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-appended-local-order-10000` requested `10000`, compared `57`, normalized `29`, mismatches `28`, command failures `0`, raw Starshine deltas remain `-30` bytes each (sum `-840`) with equal normalized sizes. `[SSANM-012c]` remains open for retained/omitted unused fresh-local declarations, occasional simple-type order drift, coverage raw-smaller classification, parity/stress decisions, and final dedicated profile closeout.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] passes/ssa-nomerge | Prune ssanm unused simple func type suffixes
 
 - Reduced the remaining dedicated `ssa-nomerge-smoke` raw-size-losing sample after child-branch dead-tail cleanup: `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-child-br-deadtail-10000/failures/case-000042-gen-valid` kept an unused simple `(func)` type after duplicate simple type canonicalization, while Binaryen raw output removed it.

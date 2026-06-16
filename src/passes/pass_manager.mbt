@@ -7755,6 +7755,147 @@ fn run_hot_pipeline_raw_compact_unused_locals_after_prefix(
 }
 
 ///|
+fn run_hot_pipeline_raw_note_appended_local_first_refs(
+  instrs : Array[@lib.Instruction],
+  appended_start : Int,
+  first_refs : Array[Int],
+  next_rank : Int,
+) -> Int {
+  let mut next = next_rank
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw))
+      | @lib.LocalSet(@lib.LocalIdx(raw))
+      | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= appended_start &&
+          local_id < first_refs.length() &&
+          first_refs[local_id] < 0 {
+          first_refs[local_id] = next
+          next += 1
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        next = run_hot_pipeline_raw_note_appended_local_first_refs(
+          body, appended_start, first_refs, next,
+        )
+      @lib.If(_, then_body, else_body) => {
+        next = run_hot_pipeline_raw_note_appended_local_first_refs(
+          then_body, appended_start, first_refs, next,
+        )
+        match else_body {
+          Some(body) =>
+            next = run_hot_pipeline_raw_note_appended_local_first_refs(
+              body, appended_start, first_refs, next,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  next
+}
+
+///|
+fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  prefix_local_count : Int,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if locals.length() <= prefix_local_count {
+    return (func, false)
+  }
+  for param in params {
+    if !run_hot_pipeline_raw_numeric_local_type(param) {
+      return (func, false)
+    }
+  }
+  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+    if !run_hot_pipeline_raw_numeric_local_type(locals.get(local_idx)) {
+      return (func, false)
+    }
+  }
+  let param_count = params.length()
+  let total_local_count = param_count + locals.length()
+  let appended_start = param_count + prefix_local_count
+  let first_refs : Array[Int] = Array::make(total_local_count, -1)
+  ignore(
+    run_hot_pipeline_raw_note_appended_local_first_refs(
+      instrs, appended_start, first_refs, 0,
+    ),
+  )
+  let local_remap : Array[Int] = []
+  for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
+    local_remap.push(local_id)
+  }
+  let mut changed = false
+  let handled : Array[Bool] = Array::make(locals.length(), false)
+  for local_idx = prefix_local_count
+      local_idx < locals.length()
+      local_idx = local_idx + 1 {
+    if handled[local_idx] {
+      continue
+    }
+    let ty = locals.get(local_idx)
+    let slots : Array[Int] = []
+    let ordered : Array[Int] = []
+    for scan_idx = local_idx
+        scan_idx < locals.length()
+        scan_idx = scan_idx + 1 {
+      if !handled[scan_idx] && locals.get(scan_idx) == ty {
+        handled[scan_idx] = true
+        let local_id = param_count + scan_idx
+        slots.push(local_id)
+        let mut insert_at = ordered.length()
+        let rank = first_refs[local_id]
+        for order_idx = 0
+            order_idx < ordered.length()
+            order_idx = order_idx + 1 {
+          let other = ordered[order_idx]
+          let other_rank = first_refs[other]
+          let comes_before = if rank < 0 {
+            false
+          } else if other_rank < 0 {
+            true
+          } else {
+            rank < other_rank
+          }
+          if comes_before {
+            insert_at = order_idx
+            break
+          }
+        }
+        ordered.insert(insert_at, local_id)
+      }
+    }
+    for idx = 0; idx < ordered.length(); idx = idx + 1 {
+      let old_local_id = ordered[idx]
+      let new_local_id = slots[idx]
+      if old_local_id != new_local_id {
+        local_remap[old_local_id] = new_local_id
+        changed = true
+      }
+    }
+  }
+  if !changed {
+    return (func, false)
+  }
+  (
+    @lib.Func::new(
+      locals.copy(),
+      @lib.Expr::new(
+        run_hot_pipeline_raw_compact_rewrite_local_refs(instrs, local_remap),
+      ),
+    ),
+    true,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_local_type_bucket_index(
   buckets : Array[@lib.ValType],
   ty : @lib.ValType,
@@ -18620,7 +18761,18 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       } else {
         (raw_result.func, false)
       }
-      let @lib.Func(locals, @lib.Expr(instrs)) = compacted_func
+      let (ordered_func, ordered_appended) = if raw_result.reason.contains(
+          "default-local-reads",
+        ) {
+        run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
+          compacted_func,
+          params,
+          original_locals.length(),
+        )
+      } else {
+        (compacted_func, false)
+      }
+      let @lib.Func(locals, @lib.Expr(instrs)) = ordered_func
       let (collapsed_instrs, collapsed) = run_hot_pipeline_raw_collapse_null_throwref_try_table_debris(
         instrs,
       )
@@ -18641,10 +18793,15 @@ fn run_hot_pipeline_raw_ssa_nomerge(
               trace_skip_raw: raw_result.trace_skip_raw,
             })
         }
-      } else if compacted {
+      } else if compacted || ordered_appended {
+        let reason = if compacted {
+          "\{raw_result.reason}-unused-appended-locals"
+        } else {
+          "\{raw_result.reason}-ordered-appended-locals"
+        }
         Some({
-          reason: "\{raw_result.reason}-unused-appended-locals",
-          func: compacted_func,
+          reason,
+          func: ordered_func,
           unchanged_original: false,
           trace_skip_raw: raw_result.trace_skip_raw,
         })

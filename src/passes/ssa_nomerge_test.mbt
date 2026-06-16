@@ -29256,6 +29256,129 @@ test "ssa-nomerge redirects if-arm branch copy aliases" {
 }
 
 ///|
+fn ssa_test_local_set_after_i32_const(
+  instrs : Array[@lib.Instruction],
+  value : Int,
+) -> UInt? {
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (@lib.I32Const(@lib.I32(found)), @lib.LocalSet(@lib.LocalIdx(raw))) =>
+        if found == value {
+          return Some(raw)
+        }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+test "ssa-nomerge orders appended numeric locals by first reference like Binaryen raw output" {
+  // Reduced from the remaining equal-size `ssa-nomerge-smoke` GenValid family
+  // after unused simple type suffix pruning. Binaryen's raw SSAify(false)
+  // fresh locals are appended in source visitation order before the writer groups
+  // numeric local declarations, so the first fresh i32 write after the original
+  // five body i32 locals becomes local 6. Starshine previously kept the same
+  // semantics and encoded size but emitted later fresh locals first, leaving a
+  // persistent output-shape gap across the smoke profile.
+  let source =
+    #|(module
+    #|  (type $p (func (param i32)))
+    #|  (type $q (func))
+    #|  (type $q_dup (func))
+    #|  (func (export "main") (type $p) (param i32)
+    #|    (local i32 i32 i32 i32 i32 i64 f32 f64)
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 101
+    #|    local.set 4
+    #|    local.get 4
+    #|    drop
+    #|    i32.const 1
+    #|    if
+    #|      i32.const 103
+    #|      local.set 3
+    #|    end
+    #|    local.get 3
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 104
+    #|      local.set 0
+    #|    end
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 102
+    #|    local.set 5
+    #|    block
+    #|      br 0
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 1
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.tee 1
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    if
+    #|      i32.const 1
+    #|      local.set 1
+    #|    else
+    #|      i32.const 2
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 1
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|      return
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 12
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop)
+    #|  (func (type $q))
+    #|  (func (type $q_dup)))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected appended-local ordering success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(ssa_test_local_set_after_i32_const(instrs, 102), Some(6U))
+  @debug.assert_eq(ssa_test_local_set_after_i32_const(instrs, 1), Some(7U))
+}
+
+///|
 test "ssa-nomerge prunes unused simple duplicate func types like Binaryen raw output" {
   // Reduced from dedicated `ssa-nomerge-smoke` GenValid
   // `case-000042-gen-valid` after child-branch dead-tail cleanup. Binaryen's
