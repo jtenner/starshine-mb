@@ -7646,6 +7646,115 @@ fn run_hot_pipeline_raw_compact_rewrite_local_refs(
 }
 
 ///|
+fn run_hot_pipeline_raw_drop_unused_appended_locals(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> (Array[@lib.Instruction], Array[@lib.ValType], Bool) {
+  if extra_local_types.length() == 0 {
+    return (instrs, extra_local_types, false)
+  }
+  let base_local_count = params.length() + locals.length()
+  let total_local_count = base_local_count + extra_local_types.length()
+  let local_gets : Array[Int] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  let local_remap : Array[Int] = []
+  for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
+    local_remap.push(local_id)
+  }
+  let compacted_extra_types : Array[@lib.ValType] = []
+  let mut changed = false
+  for extra_id = 0
+      extra_id < extra_local_types.length()
+      extra_id = extra_id + 1 {
+    let local_id = base_local_count + extra_id
+    let used = local_gets[local_id] > 0 ||
+      local_sets[local_id] > 0 ||
+      local_tees[local_id] > 0
+    if used {
+      let next_local_id = base_local_count + compacted_extra_types.length()
+      if next_local_id != local_id {
+        local_remap[local_id] = next_local_id
+        changed = true
+      }
+      compacted_extra_types.push(extra_local_types[extra_id])
+    } else {
+      changed = true
+      local_remap[local_id] = -1
+    }
+  }
+  if !changed {
+    return (instrs, extra_local_types, false)
+  }
+  (
+    run_hot_pipeline_raw_compact_rewrite_local_refs(instrs, local_remap),
+    compacted_extra_types,
+    true,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  prefix_local_count : Int,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if locals.length() <= prefix_local_count {
+    return (func, false)
+  }
+  let param_count = params.length()
+  let total_local_count = param_count + locals.length()
+  let local_gets : Array[Int] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  let local_remap : Array[Int] = []
+  for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
+    local_remap.push(local_id)
+  }
+  let compacted_local_types : Array[@lib.ValType] = []
+  let mut changed = false
+  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+    let local_id = param_count + local_idx
+    let is_prefix_local = local_idx < prefix_local_count
+    let used = local_gets[local_id] > 0 ||
+      local_sets[local_id] > 0 ||
+      local_tees[local_id] > 0
+    if is_prefix_local || used {
+      let next_local_id = param_count + compacted_local_types.length()
+      if next_local_id != local_id {
+        local_remap[local_id] = next_local_id
+        changed = true
+      }
+      compacted_local_types.push(locals.get(local_idx))
+    } else {
+      local_remap[local_id] = -1
+      changed = true
+    }
+  }
+  if !changed {
+    return (func, false)
+  }
+  (
+    @lib.Func::new(
+      @lib.Locals::from_types(compacted_local_types),
+      @lib.Expr::new(
+        run_hot_pipeline_raw_compact_rewrite_local_refs(instrs, local_remap),
+      ),
+    ),
+    true,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_instrs_have_br_table(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -15808,9 +15917,12 @@ fn run_hot_pipeline_raw_ssa_nomerge_planned_structured(
   if !cursor.changed {
     return (func, false)
   }
+  let (compacted_instrs, compacted_extra_local_types, _) = run_hot_pipeline_raw_drop_unused_appended_locals(
+    rewritten_instrs, params, locals, extra_local_types,
+  )
   let rewritten_locals = locals.copy()
-  rewritten_locals.append_types(extra_local_types)
-  (@lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)), true)
+  rewritten_locals.append_types(compacted_extra_local_types)
+  (@lib.Func::new(rewritten_locals, @lib.Expr::new(compacted_instrs)), true)
 }
 
 ///|
@@ -18249,7 +18361,25 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   )
   let result = match result {
     Some(raw_result) if descriptor.name == "ssa-nomerge" => {
-      let @lib.Func(locals, @lib.Expr(instrs)) = raw_result.func
+      let params = run_hot_pipeline_required_func_params(
+        run_hot_pipeline_require_module_ctx(mod_, module_state, options),
+        func_idx,
+      )
+      let @lib.Func(original_locals, _) = run_hot_pipeline_original_func(
+        mod_, func_idx,
+      )
+      let (compacted_func, compacted) = if raw_result.reason.contains(
+          "default-local-reads",
+        ) {
+        run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+          raw_result.func,
+          params,
+          original_locals.length(),
+        )
+      } else {
+        (raw_result.func, false)
+      }
+      let @lib.Func(locals, @lib.Expr(instrs)) = compacted_func
       let (collapsed_instrs, collapsed) = run_hot_pipeline_raw_collapse_null_throwref_try_table_debris(
         instrs,
       )
@@ -18270,6 +18400,13 @@ fn run_hot_pipeline_raw_ssa_nomerge(
               trace_skip_raw: raw_result.trace_skip_raw,
             })
         }
+      } else if compacted {
+        Some({
+          reason: "\{raw_result.reason}-unused-appended-locals",
+          func: compacted_func,
+          unchanged_original: false,
+          trace_skip_raw: raw_result.trace_skip_raw,
+        })
       } else {
         Some(raw_result)
       }

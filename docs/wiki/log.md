@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Compact post-default unused locals
+
+- Reduced a dedicated `ssa-nomerge-smoke` GenValid local-declaration drift from `case-000002-gen-valid`: after default materialization, planned freshening, and branch-copy redirection compose, Starshine can retain locals appended by an intermediate plan even when no final instruction references them.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to drop unused locals appended by one planned structured rewrite and to compact unused locals after the original function-local prefix only for `default-local-reads` SSANM results before final null-`throw_ref` debris handling. The compaction is deliberately not applied to ordinary br_table/structured scratch families whose focused Binaryen-local-budget tests still require their declarations. Added red-first coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge drops unused appended locals after post-default branch planning`.
+- Evidence: red-first focused test failed with `30` body locals; after the fix focused `ssa_nomerge_test.mbt` passed `457/457`; `moon fmt`; `moon test src/passes` passed `2492/2492`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5798/5798`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-unused-appended-locals-10000` compared `7093/10000`, normalized `7093`, mismatches `0`, cached Binaryen command failures `20`.
+- Dedicated lanes remain open: smoke `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-unused-appended-locals-10000` requested `10000`, compared `58`, normalized `29`, mismatches `29`, command failures `0`, raw Starshine deltas still `+17..+36` bytes (sum `+650`) with equal normalized sizes; coverage `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-unused-appended-locals-10000` requested `10000`, compared `58`, normalized `29`, mismatches `29`, command failures `0`, raw Starshine deltas `-28..-6` bytes (sum `-607`) with equal normalized sizes. `[SSANM-012c]` remains open for remaining local/type declaration ordering and local-numbering shape decisions.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] passes/ssa-nomerge | Compose post-branch defaults with freshening
 
 - Fixed a reduced `ssa-nomerge` default/freshening ordering gap from the dedicated GenValid smoke family: after an ordinary `block; br 0; end`, Binaryen materializes the body-local default read and then freshens the following single-source set/get and tee/get chain, while Starshine had stopped after default materialization.

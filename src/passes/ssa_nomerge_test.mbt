@@ -29244,6 +29244,215 @@ test "ssa-nomerge redirects if-arm branch copy aliases" {
 }
 
 ///|
+test "ssa-nomerge drops unused appended locals after post-default branch planning" {
+  // Reduced from dedicated `ssa-nomerge-smoke` GenValid
+  // `case-000002-gen-valid` after post-default freshening was composed. The
+  // combined LocalGraph/default/branch-copy pipeline can make early planned
+  // fresh locals unreachable before the final raw function is returned; keeping
+  // those dead appended declarations made Starshine local-count-losing even
+  // though the executable local traffic had already converged.
+  let source =
+    #|(module
+    #|  (func (export "main") (param i32)
+    #|    (local i32 i32 i32 i32 i32 i64 i32 f32 i64 f64)
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 101
+    #|    local.set 4
+    #|    local.get 4
+    #|    drop
+    #|    i32.const 1
+    #|    if
+    #|      i32.const 103
+    #|      local.set 3
+    #|    end
+    #|    local.get 3
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 104
+    #|      local.set 0
+    #|    end
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 102
+    #|    local.set 5
+    #|    block
+    #|      br 0
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 1
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.tee 1
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    if
+    #|      i32.const 1
+    #|      local.set 1
+    #|    else
+    #|      i32.const 2
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 1
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|      return
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 7
+    #|        local.set 1
+    #|        br 1
+    #|      end
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      br_if 0
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      nop
+    #|    end
+    #|    i32.const 12
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.set 0
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 0
+    #|      i32.const 2
+    #|    end
+    #|    drop
+    #|    local.get 0
+    #|    drop
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 20
+    #|      local.set 2
+    #|      i32.const 2
+    #|    else
+    #|      i32.const 30
+    #|      local.set 3
+    #|      i32.const 3
+    #|    end
+    #|    drop
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 37
+    #|        local.set 1
+    #|      else
+    #|        i32.const 38
+    #|        local.set 1
+    #|      end
+    #|      block
+    #|        br 1
+    #|      end
+    #|      i32.const 39
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 80
+    #|        local.set 1
+    #|      else
+    #|        i32.const 82
+    #|        local.set 1
+    #|      end
+    #|      block
+    #|        br 1
+    #|      end
+    #|      i32.const 84
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 3
+    #|    local.get 3
+    #|    if
+    #|      i32.const 120
+    #|      local.tee 3
+    #|      drop
+    #|    end
+    #|    local.get 3
+    #|    drop
+    #|    i32.const 121
+    #|    local.tee 5
+    #|    i32.const 1
+    #|    i32.add
+    #|    drop
+    #|    local.get 5
+    #|    drop
+    #|    i32.const 122
+    #|    local.tee 2
+    #|    drop))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected post-default branch planning success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    locals.length() <= 26,
+    msg=locals.to_string() + "\n" + instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge compacts large branch-exit alias scratch locals" {
   // Reduced from the current debug-WASI `defined=6070 abs=6097` first
   // non-masked diff after the one-use temp-local chain. A branch exit stores
