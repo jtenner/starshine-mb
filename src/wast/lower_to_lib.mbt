@@ -3698,6 +3698,14 @@ pub fn wast_text_binary_roundtrip(
   source : String,
   filename? : String = "<memory>",
 ) -> Result[(String, @lib.Module), String] {
+  match wt_unsupported_stack_switching_reason(source, filename) {
+    Some(reason) => return Err("\{reason} in \{filename}")
+    None => ()
+  }
+  match wt_unsupported_legacy_pop_reason(source, filename) {
+    Some(reason) => return Err("\{reason} in \{filename}")
+    None => ()
+  }
   let parsed = match wast_to_module(source, filename~) {
     Ok(m) => m
     Err(e) => return Err(e)
@@ -6450,6 +6458,57 @@ test "wast_to_binary_module lowers advanced reference no-immediate instructions"
       fail(
         "expected lowered function body containing advanced reference instructions",
       )
+  }
+}
+
+///|
+test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $helper (param i32 i32))
+    #|  (func
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (br $label)))))))
+  match wast_text_binary_roundtrip(src, filename="legacy-pop-roundtrip.wat") {
+    Ok(_) => fail("expected legacy pop roundtrip to stay unsupported")
+    Err(err) => {
+      assert_true(err.contains("legacy"), msg=err)
+      assert_true(err.contains("pop"), msg=err)
+      assert_true(err.contains("real legacy Try"), msg=err)
+      assert_true(err.contains("catch payload"), msg=err)
+    }
+  }
+}
+
+///|
+test "wast_text_binary_roundtrip rejects unsupported stack switching explicitly" {
+  let src =
+    #|(module
+    #|  (type $function (func))
+    #|  (type $cont (cont $function))
+    #|  (tag $tag)
+    #|  (func (param $c (ref $cont))
+    #|    (block $exit
+    #|      (drop
+    #|        (block $handle_effect (result (ref $cont))
+    #|          (resume $cont (on $tag $handle_effect)
+    #|            (local.get $c)))))))
+  match
+    wast_text_binary_roundtrip(src, filename="stack-switching-roundtrip.wat") {
+    Ok(_) => fail("expected stack-switching roundtrip to stay unsupported")
+    Err(err) => {
+      assert_true(err.contains("stack-switching"), msg=err)
+      assert_true(err.contains("cont"), msg=err)
+      assert_true(err.contains("resume"), msg=err)
+      assert_true(err.contains("resume_throw"), msg=err)
+      assert_true(err.contains("on"), msg=err)
+    }
   }
 }
 

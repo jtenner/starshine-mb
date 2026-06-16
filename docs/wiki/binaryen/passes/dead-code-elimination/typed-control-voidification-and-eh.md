@@ -91,7 +91,7 @@ Then the loop is replaced by the body.
 
 If the try body is unreachable and every catch body is unreachable, DCE changes the try node type to `unreachable`.
 
-Starshine currently records full legacy-try parity as a representation blocker rather than closed local coverage: `@lib` has no real legacy `Try`/`pop` representation, and valid legacy `try` text lowers to a synthetic sequential check block. The DCE audit covers only that synthetic surface for now: reachable alternate arms force a conservative raw skip, while all-unreachable lowered arms may still make following roots dead. The 2026-06-16 legacy `Try` / `pop` feasibility slice inspected the local surfaces and kept the blocker: real parity needs `@lib.Instruction::Try`, a Binaryen `pop` or equivalent catch-payload representation, binary/text decode+encode, validation/typechecking, and HOT lift/lower support before DCE can safely implement Binaryen's `hasPop && addedBlock` repair. Until then, Binaryen legacy `pop` text fails closed with an explicit diagnostic.
+Starshine currently records full legacy-try parity as a representation blocker rather than closed local coverage: `@lib` has no real legacy `Try`/`pop` representation, and valid legacy `try` text lowers to a synthetic sequential check block. The DCE audit covers only that synthetic surface for now: reachable alternate arms force a conservative raw skip, while all-unreachable lowered arms may still make following roots dead. The 2026-06-16 legacy `Try` / `pop` feasibility slice inspected the local surfaces and kept the blocker: real parity needs `@lib.Instruction::Try`, a Binaryen `pop` or equivalent catch-payload representation, binary/text decode+encode, validation/typechecking, and HOT lift/lower support before DCE can safely implement Binaryen's `hasPop && addedBlock` repair. Until then, Binaryen legacy `pop` text fails closed through both WAST-to-binary entrypoints with an explicit diagnostic.
 
 ### `try_table`
 
@@ -143,7 +143,7 @@ The stack-switching file guards against a tempting mistake: assuming a surroundi
 
 In the `resume` / `resume_throw` tests, the result type of a handler block must remain because the handler can branch to that block and still depend on its typed label contract.
 
-Starshine currently cannot express this fixture locally because the WAST/lib surface lacks `cont`, `resume`, `resume_throw`, and `on` handler-label instructions; this remains a tooling blocker with the same semantic reopening criterion. The 2026-06-16 boundary slice now makes `wast_to_binary_module` fail closed with an explicit stack-switching diagnostic for those tokens, rather than relying on a generic parser/type error.
+Starshine currently cannot express this fixture locally because the WAST/lib surface lacks `cont`, `resume`, `resume_throw`, and `on` handler-label instructions; this remains a tooling blocker with the same semantic reopening criterion. The 2026-06-16 boundary slices now make the WAST-to-binary entrypoints fail closed with explicit stack-switching diagnostics for those tokens, rather than relying on generic parser/type errors.
 
 So a future port must preserve this lesson:
 

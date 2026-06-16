@@ -396,6 +396,25 @@ test "dead-code-elimination skips loop bodies that branch to an outer block" {
 }
 
 ///|
+test "dead-code-elimination drops if arms and suffix after unreachable condition" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) unreachable if (result i32) i32.const 1 else i32.const 2 end i32.const 3))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected unreachable-condition if DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("I32(2)"), msg=pretty)
+  assert_false(pretty.contains("I32(3)"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination preserves suffix after lowered legacy try with reachable catch" {
   let trace : Array[String] = []
   let optimized = match
