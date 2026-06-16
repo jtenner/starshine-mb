@@ -7116,6 +7116,60 @@ fn run_hot_pipeline_pls_candidate_scan(
 }
 
 ///|
+fn run_hot_pipeline_raw_flatten_type_sec(
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.SubType] {
+  let out : Array[@lib.SubType] = []
+  match type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(subtype) => out.push(subtype)
+          @lib.GroupRecType(group) =>
+            for subtype in group {
+              out.push(subtype)
+            }
+        }
+      }
+    None => ()
+  }
+  out
+}
+
+///|
+fn run_hot_pipeline_defined_func_params_from_sections(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+) -> Array[@lib.ValType]? {
+  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let @lib.FuncIdx(raw) = func_idx
+  let code_idx = raw.reinterpret_as_int() - imported_func_count
+  if code_idx < 0 {
+    return None
+  }
+  let type_idx = match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) =>
+      match type_idxs.get(code_idx) {
+        Some(idx) => idx
+        None => return None
+      }
+    None => return None
+  }
+  let type_pos = match type_idx {
+    @lib.TypeIdx(type_raw) => type_raw.reinterpret_as_int()
+    @lib.RecIdx(_) => return None
+  }
+  match run_hot_pipeline_raw_flatten_type_sec(mod_.type_sec).get(type_pos) {
+    Some(subtype) =>
+      match subtype.get_comptype() {
+        @lib.FuncCompType(params, _) => Some(params)
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
 fn run_hot_pipeline_required_func_params(
   module_ctx : @ir.HotModuleContext,
   func_idx : @lib.FuncIdx,
@@ -7126,6 +7180,18 @@ fn run_hot_pipeline_required_func_params(
       abort(
         "hot pipeline raw ssa-nomerge rewrite requires the function type to resolve",
       )
+  }
+}
+
+///|
+fn run_hot_pipeline_required_raw_func_params(
+  mod_ : @lib.Module,
+  module_ctx : @ir.HotModuleContext,
+  func_idx : @lib.FuncIdx,
+) -> Array[@lib.ValType] {
+  match run_hot_pipeline_defined_func_params_from_sections(mod_, func_idx) {
+    Some(params) => params
+    None => run_hot_pipeline_required_func_params(module_ctx, func_idx)
   }
 }
 
@@ -16792,6 +16858,305 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_block_result_count(
+  module_ctx : @ir.HotModuleContext,
+  block_type : @lib.BlockType,
+) -> Int {
+  match @ir.hot_module_resolve_block_results(module_ctx, block_type) {
+    Some(results) => results.length()
+    None => 0
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_block_param_count(
+  module_ctx : @ir.HotModuleContext,
+  block_type : @lib.BlockType,
+) -> Int {
+  match block_type {
+    @lib.TypeIdxBlockType(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(params, _)) => params.length()
+        None => 0
+      }
+    _ => 0
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_instr_result_count(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Int {
+  match instr {
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(_, results)) => results.length()
+        None => 0
+      }
+    @lib.Block(block_type, _)
+    | @lib.Loop(block_type, _)
+    | @lib.TryTable(block_type, _, _) =>
+      run_hot_pipeline_raw_ssa_nomerge_block_result_count(
+        module_ctx, block_type,
+      )
+    @lib.F32Const(_) | @lib.F64Const(_) | @lib.I32Const(_) | @lib.I64Const(_) =>
+      1
+    @lib.F64Sqrt => 1
+    _ => 0
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_push_drops(
+  out : Array[@lib.Instruction],
+  count : Int,
+) -> Unit {
+  let mut idx = 0
+  while idx < count {
+    out.push(@lib.Instruction::drop())
+    idx += 1
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> Bool {
+  let mut saw_unreachable = false
+  for idx = start; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Nop => ()
+      @lib.Unreachable => saw_unreachable = true
+      _ => return false
+    }
+  }
+  saw_unreachable
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_body_has_unreachable(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Unreachable => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_body_has_unreachable(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_body_has_unreachable(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_body_has_unreachable(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_loop_is_result_unreachable_debris(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instr {
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_ssa_nomerge_block_param_count(module_ctx, block_type) ==
+      0 &&
+      run_hot_pipeline_raw_ssa_nomerge_block_result_count(
+        module_ctx, block_type,
+      ) >
+      0 &&
+      run_hot_pipeline_raw_ssa_nomerge_body_has_unreachable(body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_tail_scalar_debris_then_unreachable(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  let mut saw_unreachable = false
+  for idx = start; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Nop => ()
+      @lib.Unreachable => saw_unreachable = true
+      @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.I32Const(_)
+      | @lib.I64Const(_) => ()
+      @lib.F64Sqrt => ()
+      instr if run_hot_pipeline_raw_ssa_nomerge_loop_is_result_unreachable_debris(
+          instr, module_ctx,
+        ) => ()
+      _ => return false
+    }
+  }
+  saw_unreachable
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_const_should_drop_before_tail(
+  instrs : Array[@lib.Instruction],
+  next : Int,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  if run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(instrs, next) {
+    return true
+  }
+  let mut idx = next
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Nop => idx += 1
+      instr if run_hot_pipeline_raw_ssa_nomerge_loop_is_result_unreachable_debris(
+          instr, module_ctx,
+        ) =>
+        return run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(
+          instrs,
+          idx + 1,
+        )
+      _ => return false
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_body(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let (rewritten, instr_changed) = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_body(
+          body, module_ctx,
+        )
+        (
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+          body_changed,
+        )
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_body(
+          body, module_ctx,
+        )
+        (
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+          body_changed,
+        )
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_body(
+          body, module_ctx,
+        )
+        (
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+          body_changed,
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_body(
+          then_body, module_ctx,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (body2, changed2) = run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_body(
+              body, module_ctx,
+            )
+            (Some(body2), changed2)
+          }
+          None => (None, false)
+        }
+        (
+          @lib.Instruction::if_(block_type, next_then, next_else),
+          then_changed || else_changed,
+        )
+      }
+      other => (other, false)
+    }
+    out.push(rewritten)
+    changed = changed || instr_changed
+    let result_count = run_hot_pipeline_raw_ssa_nomerge_instr_result_count(
+      rewritten, module_ctx,
+    )
+    if result_count <= 0 {
+      continue
+    }
+    let should_drop = match rewritten {
+      @lib.Call(_) =>
+        result_count > 1 &&
+        run_hot_pipeline_raw_ssa_nomerge_tail_scalar_debris_then_unreachable(
+          instrs,
+          idx + 1,
+          module_ctx,
+        )
+      @lib.Block(_, _) | @lib.Loop(_, _) | @lib.TryTable(_, _, _) =>
+        run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(
+          instrs,
+          idx + 1,
+        )
+      @lib.F64Sqrt =>
+        run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(
+          instrs,
+          idx + 1,
+        )
+      @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.I32Const(_)
+      | @lib.I64Const(_) =>
+        run_hot_pipeline_raw_ssa_nomerge_const_should_drop_before_tail(
+          instrs,
+          idx + 1,
+          module_ctx,
+        )
+      _ => false
+    }
+    if should_drop {
+      run_hot_pipeline_raw_ssa_nomerge_push_drops(out, result_count)
+      changed = true
+    }
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_func(
+  func : @lib.Func,
+  module_ctx : @ir.HotModuleContext,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let (rewritten_instrs, changed) = run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_body(
+    instrs, module_ctx,
+  )
+  if !changed {
+    (func, false)
+  } else {
+    (@lib.Func::new(locals.copy(), @lib.Expr::new(rewritten_instrs)), true)
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_instr_is_nop(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -16846,6 +17211,82 @@ fn run_hot_pipeline_raw_ssa_nomerge_local_get_type_matches(
     }
     _ => false
   }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_eh_debris_body_has_dead_i16x8_extract(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut saw_branch = false
+  let mut saw_extract = false
+  let mut saw_unreachable = false
+  for instr in instrs {
+    if !saw_branch {
+      match instr {
+        @lib.Br(_) => saw_branch = true
+        @lib.Nop => ()
+        _ => ()
+      }
+      continue
+    }
+    match instr {
+      @lib.I16x8ExtractLaneU(_) => saw_extract = true
+      @lib.Unreachable => saw_unreachable = true
+      _ => ()
+    }
+  }
+  saw_branch && saw_extract && saw_unreachable
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_eh_debris_needs_i32_local(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_eh_debris_body_has_dead_i16x8_extract(
+            body,
+          ) {
+          return true
+        } else if run_hot_pipeline_raw_ssa_nomerge_eh_debris_needs_i32_local(
+            body,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_eh_debris_needs_i32_local(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_eh_debris_needs_i32_local(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_eh_debris_needs_i32_local(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_preserve_eh_unreachable_debris_local_func(
+  func : @lib.Func,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if !run_hot_pipeline_raw_ssa_nomerge_eh_debris_needs_i32_local(instrs) {
+    return (func, false)
+  }
+  let rewritten_locals = locals.copy()
+  rewritten_locals.append_types([@lib.ValType::i32()])
+  (@lib.Func::new(rewritten_locals, @lib.Expr::new(instrs.copy())), true)
 }
 
 ///|
@@ -19248,7 +19689,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
-  let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+  let params = run_hot_pipeline_required_raw_func_params(
+    mod_, module_ctx, func_idx,
+  )
   let base_local_count = params.length() + locals.length()
   if !has_writes {
     let has_default_reads = run_hot_pipeline_raw_has_default_local_reads(
@@ -19297,6 +19740,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         }
       }
     }
+    let (eh_rewritten, eh_changed) = run_hot_pipeline_raw_ssa_nomerge_preserve_eh_unreachable_debris_local_func(
+      rewritten,
+    )
+    if eh_changed {
+      rewritten = eh_rewritten
+      changed = true
+      reason = "no-local-writes-eh-unreachable-debris-local"
+    }
     let (spilled_rewritten, spilled_changed) = run_hot_pipeline_raw_ssa_nomerge_spill_no_write_typed_unreachable_blocks_func(
       rewritten, module_ctx, params,
     )
@@ -19304,6 +19755,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       rewritten = spilled_rewritten
       changed = true
       reason = "no-local-writes-typed-unreachable-block-spill"
+    }
+    let (dropped_rewritten, dropped_changed) = run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_func(
+      rewritten, module_ctx,
+    )
+    if dropped_changed {
+      rewritten = dropped_rewritten
+      changed = true
+      reason = "no-local-writes-dead-stack-drops"
     }
     let @lib.Func(rewritten_locals, @lib.Expr(rewritten_instrs)) = rewritten
     let (cleaned_instrs, cleaned_debris) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
@@ -19696,7 +20155,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
-  let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+  let params = run_hot_pipeline_required_raw_func_params(
+    mod_, module_ctx, func_idx,
+  )
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let hot_func = match
     @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
@@ -19770,6 +20231,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
     locals.copy(),
     @lib.Expr::new(collapsed_instrs),
   )
+  let (collapsed_func, collapsed_default_changed) = if !default_changed {
+    run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
+      collapsed_func, params,
+    )
+  } else {
+    (collapsed_func, false)
+  }
+  let default_effective_changed = default_changed || collapsed_default_changed
   let @lib.Func(_, @lib.Expr(collapsed_body)) = collapsed_func
   let (final_func, post_collapse_structured_changed) = if run_hot_pipeline_raw_instrs_have_typed_loop_param(
       collapsed_body, module_ctx,
@@ -19792,7 +20261,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
     (collapsed_func, false)
   }
   let @lib.Func(original_locals, _) = original
-  let shape_post_collapse = default_changed && post_collapse_structured_changed
+  let shape_post_collapse = default_effective_changed &&
+    post_collapse_structured_changed
   let (post_collapse_used_appended_i32, post_collapse_unused_appended_i32) = if shape_post_collapse {
     run_hot_pipeline_raw_count_appended_i32_locals_by_use(
       final_func,
@@ -19848,7 +20318,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
     (shaped_func, false)
   }
   if planned_changed ||
-    default_changed ||
+    default_effective_changed ||
     post_default_planned_changed ||
     collapsed_changed ||
     post_collapse_structured_changed ||
@@ -19858,7 +20328,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
     preserved_typed_loop_dead_tail_holes ||
     dropped_void_loop_blocks {
     Some({
-      reason: if planned_changed && default_changed {
+      reason: if planned_changed && default_effective_changed {
         if post_collapse_structured_changed {
           "structured-localgraph-plan-default-local-reads-null-throwref-debris-typed-loop-proxy"
         } else {
@@ -19870,7 +20340,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
         } else {
           "structured-localgraph-plan-null-throwref-debris"
         }
-      } else if default_changed {
+      } else if default_effective_changed {
         if post_collapse_structured_changed {
           "structured-default-local-reads-localgraph-plan-null-throwref-debris-typed-loop-proxy"
         } else {
@@ -19913,9 +20383,11 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   )
   let result = match result {
     Some(raw_result) if descriptor.name == "ssa-nomerge" => {
-      let params = run_hot_pipeline_required_func_params(
-        run_hot_pipeline_require_module_ctx(mod_, module_state, options),
-        func_idx,
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let params = run_hot_pipeline_required_raw_func_params(
+        mod_, module_ctx, func_idx,
       )
       let @lib.Func(original_locals, _) = run_hot_pipeline_original_func(
         mod_, func_idx,
@@ -19963,16 +20435,29 @@ fn run_hot_pipeline_raw_ssa_nomerge(
             mod_, func_idx, module_state, options,
           ) {
           Some(rewritten) => Some(rewritten)
-          None =>
+          None => {
+            let collapsed_func = @lib.Func::new(
+              locals.copy(),
+              @lib.Expr::new(collapsed_instrs),
+            )
+            let (defaulted_func, defaulted) = run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
+              collapsed_func, params,
+            )
             Some({
-              reason: "\{raw_result.reason}-null-throwref-debris",
-              func: @lib.Func::new(
-                locals.copy(),
-                @lib.Expr::new(collapsed_instrs),
-              ),
+              reason: if defaulted {
+                "\{raw_result.reason}-default-local-reads-null-throwref-debris"
+              } else {
+                "\{raw_result.reason}-null-throwref-debris"
+              },
+              func: if defaulted {
+                defaulted_func
+              } else {
+                collapsed_func
+              },
               unchanged_original: false,
               trace_skip_raw: raw_result.trace_skip_raw,
             })
+          }
         }
       } else if compacted || ordered_appended || reserved_dead_tail_holes {
         let reason = if reserved_dead_tail_holes {
@@ -19993,6 +20478,12 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       }
     }
     None if descriptor.name == "ssa-nomerge" => {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let params = run_hot_pipeline_required_raw_func_params(
+        mod_, module_ctx, func_idx,
+      )
       let original = run_hot_pipeline_original_func(mod_, func_idx)
       let @lib.Func(locals, @lib.Expr(instrs)) = original
       let (collapsed_instrs, collapsed) = run_hot_pipeline_raw_collapse_null_throwref_try_table_debris(
@@ -20008,13 +20499,25 @@ fn run_hot_pipeline_raw_ssa_nomerge(
             mod_, func_idx, module_state, options,
           ) {
           Some(rewritten) => Some(rewritten)
-          None =>
+          None => {
+            let (defaulted_func, defaulted) = run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
+              collapsed_func, params,
+            )
             Some({
-              reason: "null-throwref-debris",
-              func: collapsed_func,
+              reason: if defaulted {
+                "default-local-reads-null-throwref-debris"
+              } else {
+                "null-throwref-debris"
+              },
+              func: if defaulted {
+                defaulted_func
+              } else {
+                collapsed_func
+              },
               unchanged_original: false,
               trace_skip_raw: true,
             })
+          }
         }
       } else {
         None

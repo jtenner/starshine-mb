@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Clear broad mismatch replay
+
+- Fixed the remaining saved `[SSANM-012b]` broad-lane output-shape replay cases after the typed-unreachable spill slice: `394789`, `782997`, `395085`, `555621`, and `577037`.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) with narrow EH unreachable-debris local preservation, defined-function parameter lookup from the function section after imports, post-debris default materialization, and no-write dead-stack drop insertion for multivalue call/loop results before trailing `unreachable`.
+- Added red-first coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the EH local budget, import/ref-index shifted no-write default read, and multivalue dead-stack drop families. These were treated as parity gaps, not accepted Starshine-win drift.
+- Evidence: focused `ssa_nomerge_test.mbt` failed before each family fix and then passed `471/471`; `moon fmt`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; final mismatch replay `.tmp/replay-ssanm-final-tuple-gap-fix` compared `9/9`, normalized `9`, cleanup-normalized `0`, mismatches `0`, and had `0` validation/property/generator/command failures with Binaryen cache `9/0`.
+- Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012b]` still needs a fresh broad rerun and the separately classified validator/command-failure policy decision before final closeout.
+
 ## [2026-06-16] passes/ssa-nomerge | Spill typed unreachable block traffic
 
 - Reduced broad-lane `[SSANM-012b]` mismatch case `332901`: Binaryen spills a no-write, local-get-fed type-indexed `(param f64) (result f64)` block with an unreachable body through distinct fresh parameter/result locals before the trailing `unreachable`; Starshine previously dropped the parameter directly.

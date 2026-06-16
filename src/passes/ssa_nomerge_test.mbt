@@ -381,6 +381,29 @@ fn ssa_nomerge_test_local_get_indices(
 }
 
 ///|
+fn ssa_nomerge_test_count_drops(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Drop => count += 1
+      @lib.If(_, then_body, else_body) => {
+        count += ssa_nomerge_test_count_drops(then_body)
+        match else_body {
+          Some(body) => count += ssa_nomerge_test_count_drops(body)
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += ssa_nomerge_test_count_drops(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn ssa_nomerge_test_has_brtable_default_zero_drop(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -24763,10 +24786,136 @@ test "ssa-nomerge materializes no-write numeric and simd default local reads" {
     msg=import_shifted_text,
   )
 
+  let ref_index_shifted = ssa_test_decode_wasm_bytes([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 2, 14, 2, 1, 6, 0, 0, 0, 3, 4,
+    96, 49, 0, 4, 0, 0, 3, 3, 2, 0, 0, 4, 6, 1, 99, 0, 4, 174, 73, 6, 7, 1, 99, 0,
+    1, 210, 1, 11, 9, 15, 1, 6, 0, 66, 27, 11, 99, 0, 2, 210, 0, 11, 208, 0, 11,
+    10, 13, 2, 8, 1, 1, 125, 32, 0, 0, 0, 11, 2, 0, 11,
+  ])
+  let ref_index_shifted_output = match
+    run_hot_pipeline(
+      ref_index_shifted,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref-index-shifted default-read rewrite success, got \{err}",
+      )
+  }
+  let (_, ref_index_shifted_instrs) = try! ssa_test_first_defined_func(
+    ref_index_shifted_output,
+  )
+  let ref_index_shifted_text = ref_index_shifted_instrs.to_string()
+  assert_true(
+    ref_index_shifted_text.contains("f32.const"),
+    msg=ref_index_shifted_text,
+  )
+  assert_false(
+    ref_index_shifted_text.contains("local.get"),
+    msg=ref_index_shifted_text,
+  )
+
   assert_true(
     trace.any(fn(line) {
       line.contains(
         "pass[ssa-nomerge]:skip-raw reason=default-local-reads-localgraph-plan",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge drops no-write multivalue dead stack before unreachable" {
+  // Reduced from broad-lane tuple cases 395085/555621/577037. Binaryen drains
+  // dead scalar lanes from multivalue calls/loops before the trailing
+  // unreachable. Keeping implicit unreachable-polymorphic stack traffic creates
+  // unproven tuple spill drift after canonicalization, so preserve Binaryen's
+  // explicit drops.
+  let loop_source =
+    #|(module
+    #|  (type $pair (func (result i32 i32)))
+    #|  (func (type $pair) (result i32 i32)
+    #|    f64.const -nan:0xfffffbfffffff
+    #|    loop (type $pair) (result i32 i32)
+    #|      f64.const 0
+    #|      unreachable
+    #|    end
+    #|    unreachable))
+  let loop_optimized = ssa_test_validate_ssa_nomerge_pipeline(loop_source)
+  let (_, loop_instrs) = try! ssa_test_first_defined_func(loop_optimized)
+  assert_true(
+    ssa_nomerge_test_count_drops(loop_instrs) >= 4,
+    msg=loop_instrs.to_string(),
+  )
+
+  let call_source =
+    #|(module
+    #|  (type $pair (func (result f64 f64)))
+    #|  (func (type $pair) (result f64 f64)
+    #|    unreachable)
+    #|  (func (type $pair) (result f64 f64)
+    #|    call 0
+    #|    f64.const -nan:0xfffffffffffbf
+    #|    f64.sqrt
+    #|    nop
+    #|    unreachable))
+  let call_optimized = ssa_test_validate_ssa_nomerge_pipeline(call_source)
+  let (_, call_instrs) = try! ssa_test_defined_func(call_optimized, 1)
+  assert_true(
+    ssa_nomerge_test_count_drops(call_instrs) >= 3,
+    msg=call_instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge no-write EH unreachable debris preserves Binaryen temp locals" {
+  // Reduced from broad-lane case 394789. Binaryen keeps two i32 scratch locals
+  // after simplifying a no-write try_table body with branch-to-catch/unreachable
+  // debris. Starshine raw output must carry one explicit i32 scratch so the
+  // Binaryen canonicalizer's own expression temp brings the normalized local
+  // declaration budget to parity.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (type (;0;) (sub (func)))
+    #|  (start 0)
+    #|  (func (;0;) (type 0)
+    #|    (local f64)
+    #|    try_table (type 0) (catch_all 0) (catch_all 0) (catch_all 0) (catch_all 0) (catch_all 0) (catch_all 0) (catch_all 0) (catch_all 0)
+    #|      br 0
+    #|      v128.const i32x4 0x55faa05c 0x7887d882 0x2fda82a4 0x78240cdb
+    #|      i16x8.extract_lane_u 2
+    #|      nop
+    #|      i64.extend_i32_u
+    #|      loop
+    #|      end
+    #|      unreachable
+    #|    end))
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected EH no-write debris rewrite success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::f64(), @lib.ValType::i32()]),
+  )
+  let text = instrs.to_string()
+  assert_true(text.contains("try_table"), msg=text)
+  assert_true(text.contains("unreachable"), msg=text)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=no-local-writes-eh-unreachable-debris-local",
       )
     }),
     msg=trace.join("\n"),
