@@ -151,7 +151,7 @@ That is broader and more operational than upstream Binaryen's small postwalk, bu
 ## Raw-skip behavior is part of the local strategy
 
 A major local difference from upstream Binaryen is the raw fast path in `src/passes/pass_manager.mbt`.
-The pipeline can skip HOT lifting entirely when raw Wasm inspection shows there are no likely DCE candidates.
+The pipeline can skip HOT lifting entirely when raw Wasm inspection shows there are no likely DCE candidates. There is no longer a blanket `-O4z` DCE no-op: DCE-positive O4z functions must run the pass, while the remaining raw skips are shape-specific guards or no-candidate classifications.
 
 The key helpers are:
 

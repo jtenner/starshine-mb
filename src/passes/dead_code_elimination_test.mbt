@@ -30,11 +30,11 @@ fn dead_code_elimination_test_count_occurrences(
 }
 
 ///|
-test "dead-code-elimination skips O4z raw pass until self-opt pipeline state is safe" {
+test "dead-code-elimination runs DCE-positive O4z raw pass" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
-      "(module (func i32.const 1 drop))",
+      "(module (func (result i32) i32.const 5 return i32.const 9 drop))",
       ["dead-code-elimination"],
       options=HotPipelineOptions::new(
         optimize_level=4,
@@ -42,17 +42,19 @@ test "dead-code-elimination skips O4z raw pass until self-opt pipeline state is 
         trace=Some(fn(line) { trace.push(line) }),
       ),
     ) {
-    Ok(_) => ()
-    Err(err) =>
-      fail("expected O4z dead-code-elimination skip success, got \{err}")
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z dead-code-elimination success, got \{err}")
   }
-  assert_true(
+  assert_false(
     trace.any(fn(line) {
       line.contains(
         "pass[dead-code-elimination]:skip-raw reason=o4z-dead-code-elimination-noop",
       )
     }),
   )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
 }
 
 ///|

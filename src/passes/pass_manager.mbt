@@ -21195,16 +21195,6 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  if descriptor.name == "dead-code-elimination" &&
-    options.optimize_level >= 4 &&
-    options.shrink_level >= 1 {
-    return Some({
-      reason: "o4z-dead-code-elimination-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
   if descriptor.name == "dead-code-elimination" {
     let @lib.Func(_, @lib.Expr(instrs)) = original
     if run_hot_pipeline_dce_raw_has_load_call_set_hazard(instrs) {
