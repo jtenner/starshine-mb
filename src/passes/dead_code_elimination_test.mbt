@@ -416,6 +416,22 @@ test "dead-code-elimination trims non-control operands after unreachable child" 
 }
 
 ///|
+test "dead-code-elimination preserves branch child when trimming unary wrapper" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (drop (i32.ctz (block $label (result i32) (br $label (i32.const 8)))))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unary branch-child DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(8)"), msg=pretty)
+  assert_false(pretty.contains("i32.ctz"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination drops if arms and suffix after unreachable condition" {
   let optimized = match
     pass_test_run_pipeline(

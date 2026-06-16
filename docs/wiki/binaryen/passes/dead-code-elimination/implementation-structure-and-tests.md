@@ -129,7 +129,7 @@ Earlier children are preserved by wrapping them in `drop`s, then the first unrea
 - dropped earlier children
 - the first unreachable child
 
-This is the core “preserve what still executes, kill what cannot execute after the first unreachable child” rule. A 2026-06-16 Starshine slice now covers the `dce_all-features.wast`-style `note-loss-of-non-control-flow-children` shape where a result block becomes unreachable before a later branch operand of a dropped binary expression; the raw DCE pretrim voidifies the branchless nonfallthrough result block and removes the later branch/operator/drop tail instead of leaving a spurious break.
+This is the core “preserve what still executes, kill what cannot execute after the first unreachable child” rule. 2026-06-16 Starshine slices now cover the `dce_all-features.wast`-style `note-loss-of-non-control-flow-children` shape where a result block becomes unreachable before a later branch operand of a dropped binary expression, plus the `replace-unary-with-br-child` shape where a unary wrapper is dead around a branch-valued child. The raw DCE pretrim voidifies branchless nonfallthrough result blocks for the binary/drop case and replaces unary-wrapper/drop tails with a direct drop of the preserved child.
 
 ### `block`
 
@@ -200,7 +200,7 @@ It proves that DCE handles shapes like:
 - ifs whose condition is unreachable
 - ifs whose arms are both unreachable
 - loops whose body becomes fully unreachable
-- non-control expressions with an unreachable child where earlier children must be converted to `drop`; Starshine has focused coverage for the branch-operand-after-unreachable-child binary/drop shape, but broader non-control expression coverage should continue to be widened under the active audit
+- non-control expressions with an unreachable child where earlier children must be converted to `drop`; Starshine has focused coverage for the branch-operand-after-unreachable-child binary/drop shape and unary-wrapper branch-child shape, but broader non-control expression coverage should continue to be widened under the active audit
 
 It is the best single file for the pass's ordinary AST rewrite surface.
 

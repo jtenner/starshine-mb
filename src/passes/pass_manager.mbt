@@ -6704,6 +6704,87 @@ fn run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_instr_is_drop(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Drop => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_unary_combiner(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Eqz
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Eqz
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I32TruncF32S
+    | @lib.I32TruncF32U
+    | @lib.I32TruncF64S
+    | @lib.I32TruncF64U
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.I64TruncF32S
+    | @lib.I64TruncF32U
+    | @lib.I64TruncF64S
+    | @lib.I64TruncF64U
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.RefIsNull
+    | @lib.RefAsNonNull => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_nonfallthrough_value_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      block_type != @lib.BlockType::void_() &&
+      !run_hot_pipeline_dce_raw_body_may_fallthrough(body)
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
   instr : @lib.Instruction,
 ) -> (@lib.Instruction, Bool) {
@@ -6814,6 +6895,14 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
       instrs[idx],
     )
     changed = changed || instr_changed
+    if idx + 2 < instrs.length() &&
+      run_hot_pipeline_dce_raw_nonfallthrough_value_block(instr) &&
+      run_hot_pipeline_dce_raw_unary_combiner(instrs[idx + 1]) &&
+      run_hot_pipeline_dce_raw_instr_is_drop(instrs[idx + 2]) {
+      rewritten.push(instr)
+      rewritten.push(@lib.Instruction::drop())
+      return (rewritten, true)
+    }
     let branchless_nonfallthrough_control = run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
       instr,
     )
