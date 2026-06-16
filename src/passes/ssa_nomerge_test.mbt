@@ -22470,7 +22470,8 @@ test "ssa-nomerge LocalGraph materializes straight-line default numeric and vect
   @debug.assert_eq(vector_instrs, [
     @lib.Instruction::i32_const(@lib.I32(1)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-    @lib.Instruction::v128_const(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32x4_splat(),
   ])
   assert_true(
     vector_trace.any(fn(line) {
@@ -22602,6 +22603,48 @@ test "ssa-nomerge LocalGraph materializes pre-write body defaults" {
       )
     }),
     msg=table_trace.join("\n"),
+  )
+
+  let straight_trace : Array[String] = []
+  let straight_source =
+    #|(module
+    #|  (func (param f32) (local i32)
+    #|    local.get 1
+    #|    i32.extend16_s
+    #|    f64.convert_i32_s
+    #|    i32.trunc_sat_f64_s
+    #|    local.tee 1
+    #|    nop
+    #|    unreachable))
+  let straight_optimized = match
+    pass_test_run_pipeline(
+      straight_source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(
+        trace=Some(fn(line) { straight_trace.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected straight-line pre-write default materialization success, got \{err}",
+      )
+  }
+  let (_, straight_instrs) = try! ssa_test_first_defined_func(
+    straight_optimized,
+  )
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(straight_instrs), [])
+  assert_true(
+    straight_instrs.to_string().contains("i32.const I32(0)"),
+    msg=straight_instrs.to_string(),
+  )
+  assert_true(
+    straight_trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=straight-line-local-writes-localgraph-plan",
+      )
+    }),
+    msg=straight_trace.join("\n"),
   )
 }
 
@@ -24669,7 +24712,8 @@ test "ssa-nomerge materializes no-write numeric and simd default local reads" {
   let text = instrs.to_string()
   assert_true(text.contains("f32.const"), msg=text)
   assert_true(text.contains("f64.const"), msg=text)
-  assert_true(text.contains("v128.const"), msg=text)
+  assert_true(text.contains("I32x4Splat") || text.contains("i32x4"), msg=text)
+  assert_false(text.contains("v128.const"), msg=text)
   assert_false(text.contains("local.get"), msg=text)
 
   let folded = match
@@ -24687,6 +24731,38 @@ test "ssa-nomerge materializes no-write numeric and simd default local reads" {
   assert_true(folded_text.contains("f32.const"), msg=folded_text)
   assert_false(folded_text.contains("local.get"), msg=folded_text)
 
+  let import_shifted_source =
+    #|(module
+    #|  (type $t (func))
+    #|  (import "m" "f" (func (type $t)))
+    #|  (func (local f32)
+    #|    local.get 0
+    #|    unreachable))
+  let import_shifted = match
+    pass_test_run_pipeline(
+      import_shifted_source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected import-shifted no-write default-read rewrite success, got \{err}",
+      )
+  }
+  let (_, import_shifted_instrs) = try! ssa_test_first_defined_func(
+    import_shifted,
+  )
+  let import_shifted_text = import_shifted_instrs.to_string()
+  assert_true(
+    import_shifted_text.contains("f32.const"),
+    msg=import_shifted_text,
+  )
+  assert_false(
+    import_shifted_text.contains("local.get"),
+    msg=import_shifted_text,
+  )
+
   assert_true(
     trace.any(fn(line) {
       line.contains(
@@ -24695,6 +24771,21 @@ test "ssa-nomerge materializes no-write numeric and simd default local reads" {
     }),
     msg=trace.join("\n"),
   )
+}
+
+///|
+test "ssa-nomerge fails closed instead of aborting on unsupported atomic debris" {
+  let input = ssa_test_decode_wasm_bytes([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 80, 0, 96, 0, 0, 2, 6, 1, 1, 96, 0, 0,
+    0, 3, 2, 1, 0, 4, 13, 1, 64, 0, 99, 0, 1, 1, 205, 211, 28, 208, 0, 11, 7, 4,
+    1, 0, 1, 0, 10, 23, 1, 21, 0, 254, 3, 0, 12, 0, 254, 3, 0, 254, 3, 0, 252, 16,
+    0, 193, 103, 105, 0, 0, 11,
+  ])
+  match run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected unsupported atomic debris to fail closed, got \{err}")
+  }
 }
 
 ///|

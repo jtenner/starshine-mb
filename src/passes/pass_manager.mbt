@@ -7413,6 +7413,157 @@ fn run_hot_pipeline_raw_default_instr_for_local(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_is_zero_v128_const(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.V128Const(
+      b0,
+      b1,
+      b2,
+      b3,
+      b4,
+      b5,
+      b6,
+      b7,
+      b8,
+      b9,
+      b10,
+      b11,
+      b12,
+      b13,
+      b14,
+      b15
+    ) =>
+      b0 == b'\x00' &&
+      b1 == b'\x00' &&
+      b2 == b'\x00' &&
+      b3 == b'\x00' &&
+      b4 == b'\x00' &&
+      b5 == b'\x00' &&
+      b6 == b'\x00' &&
+      b7 == b'\x00' &&
+      b8 == b'\x00' &&
+      b9 == b'\x00' &&
+      b10 == b'\x00' &&
+      b11 == b'\x00' &&
+      b12 == b'\x00' &&
+      b13 == b'\x00' &&
+      b14 == b'\x00' &&
+      b15 == b'\x00'
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_body(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    if run_hot_pipeline_raw_ssa_nomerge_is_zero_v128_const(instr) {
+      out.push(@lib.Instruction::i32_const(@lib.I32::new(0)))
+      out.push(@lib.Instruction::i32x4_splat())
+      changed = true
+    } else {
+      match instr {
+        @lib.Block(block_type, @lib.Expr(body)) => {
+          let (rewritten_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_body(
+            body,
+          )
+          out.push(
+            if body_changed {
+              @lib.Instruction::block(
+                block_type,
+                @lib.Expr::new(rewritten_body),
+              )
+            } else {
+              instr
+            },
+          )
+          changed = changed || body_changed
+        }
+        @lib.Loop(block_type, @lib.Expr(body)) => {
+          let (rewritten_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_body(
+            body,
+          )
+          out.push(
+            if body_changed {
+              @lib.Instruction::loop_(
+                block_type,
+                @lib.Expr::new(rewritten_body),
+              )
+            } else {
+              instr
+            },
+          )
+          changed = changed || body_changed
+        }
+        @lib.If(block_type, then_body, else_body) => {
+          let (rewritten_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_body(
+            then_body,
+          )
+          let mut instr_changed = then_changed
+          let rewritten_else = match else_body {
+            Some(body) => {
+              let (next_body, else_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_body(
+                body,
+              )
+              instr_changed = instr_changed || else_changed
+              Some(next_body)
+            }
+            None => None
+          }
+          out.push(
+            if instr_changed {
+              @lib.Instruction::if_(block_type, rewritten_then, rewritten_else)
+            } else {
+              instr
+            },
+          )
+          changed = changed || instr_changed
+        }
+        @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+          let (rewritten_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_body(
+            body,
+          )
+          out.push(
+            if body_changed {
+              @lib.Instruction::try_table(
+                block_type,
+                catches,
+                @lib.Expr::new(rewritten_body),
+              )
+            } else {
+              instr
+            },
+          )
+          changed = changed || body_changed
+        }
+        _ => out.push(instr)
+      }
+    }
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_func(
+  func : @lib.Func,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let (rewritten_instrs, changed) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_body(
+    instrs,
+  )
+  if changed {
+    (@lib.Func::new(locals.copy(), @lib.Expr::new(rewritten_instrs)), true)
+  } else {
+    (func, false)
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_append_local_read(
   out : Array[@lib.Instruction],
   source_aliases : Array[@lib.LocalIdx],
@@ -16629,7 +16780,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
   if !changed.changed {
     (func, false)
   } else {
-    (@lib.Func::new(locals.copy(), @lib.Expr::new(rewritten_instrs)), true)
+    let rewritten = @lib.Func::new(
+      locals.copy(),
+      @lib.Expr::new(rewritten_instrs),
+    )
+    let (expanded, _) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_func(
+      rewritten,
+    )
+    (expanded, true)
   }
 }
 
@@ -16655,7 +16813,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
   if !changed {
     (func, false)
   } else {
-    (@lib.Func::new(locals.copy(), @lib.Expr::new(rewritten_instrs)), true)
+    let rewritten = @lib.Func::new(
+      locals.copy(),
+      @lib.Expr::new(rewritten_instrs),
+    )
+    let (expanded, _) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_func(
+      rewritten,
+    )
+    (expanded, true)
   }
 }
 
@@ -16856,6 +17021,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
   let extra_local_types : Array[@lib.ValType] = []
   let base_local_count = params.length() + locals.length()
   let fresh_aliases : Array[Int] = Array::make(base_local_count, -1)
+  let initialized_locals = run_hot_pipeline_raw_initialized_locals(
+    base_local_count,
+    params.length(),
+  )
   let mut write_cursor = 0
   let mut get_cursor = 0
   for instr in instrs {
@@ -16889,7 +17058,20 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
               )
             }
           Some(SsaNoMergeGetDecision::KeepCanonical) | None =>
-            rewritten_instrs.push(instr)
+            if original_local >= params.length() &&
+              original_local < initialized_locals.length() &&
+              !initialized_locals[original_local] &&
+              run_hot_pipeline_raw_local_has_legal_default(
+                params, locals, original_local,
+              ) {
+              rewritten_instrs.push(
+                run_hot_pipeline_raw_default_instr_for_local(
+                  params, locals, original_local,
+                ),
+              )
+            } else {
+              rewritten_instrs.push(instr)
+            }
         }
         get_cursor = get_cursor + 1
       }
@@ -16910,10 +17092,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
             if original_local >= 0 && original_local < fresh_aliases.length() {
               fresh_aliases[original_local] = fresh_local_id
             }
+            if original_local >= 0 &&
+              original_local < initialized_locals.length() {
+              initialized_locals[original_local] = true
+            }
           }
           Some(SsaNoMergeWriteDecision::KeepCanonical) | None => {
             if original_local >= 0 && original_local < fresh_aliases.length() {
               fresh_aliases[original_local] = -1
+            }
+            if original_local >= 0 &&
+              original_local < initialized_locals.length() {
+              initialized_locals[original_local] = true
             }
             rewritten_instrs.push(instr)
           }
@@ -16937,10 +17127,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
             if original_local >= 0 && original_local < fresh_aliases.length() {
               fresh_aliases[original_local] = fresh_local_id
             }
+            if original_local >= 0 &&
+              original_local < initialized_locals.length() {
+              initialized_locals[original_local] = true
+            }
           }
           Some(SsaNoMergeWriteDecision::KeepCanonical) | None => {
             if original_local >= 0 && original_local < fresh_aliases.length() {
               fresh_aliases[original_local] = -1
+            }
+            if original_local >= 0 &&
+              original_local < initialized_locals.length() {
+              initialized_locals[original_local] = true
             }
             rewritten_instrs.push(instr)
           }
@@ -16952,7 +17150,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
   }
   let rewritten_locals = locals.copy()
   rewritten_locals.append_types(extra_local_types)
-  @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs))
+  let rewritten = @lib.Func::new(
+    rewritten_locals,
+    @lib.Expr::new(rewritten_instrs),
+  )
+  let (expanded, _) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_func(
+    rewritten,
+  )
+  expanded
 }
 
 ///|
@@ -18830,18 +19035,32 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     let mut default_changed = false
     let mut reason = "no-local-writes"
     if has_default_reads {
-      let hot_func = @ir.hot_lift_func(mod_, func_idx)
-      let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
-      let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
-      let (planned_rewritten, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
-        original, params, plan,
-      )
-      if planned_changed {
-        rewritten = planned_rewritten
-        changed = true
-        default_changed = true
-        reason = "default-local-reads-localgraph-plan"
-      } else {
+      let mut planned_changed = false
+      match @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+        Ok(hot_func) =>
+          match @ir.hot_verify_all(hot_func, cache=Some(())) {
+            Ok(_) => {
+              let local_graph = @ir.local_graph_build(
+                hot_func,
+                @ir.cfg_build(hot_func),
+              )
+              let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
+              let (planned_rewritten, did_plan_change) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
+                original, params, plan,
+              )
+              if did_plan_change {
+                rewritten = planned_rewritten
+                changed = true
+                default_changed = true
+                planned_changed = true
+                reason = "default-local-reads-localgraph-plan"
+              }
+            }
+            Err(_) => ()
+          }
+        Err(_) => ()
+      }
+      if !planned_changed {
         let (fallback_rewritten, fallback_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
           original, params,
         )
@@ -19246,7 +19465,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   )
   let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  let hot_func = @ir.hot_lift_func(mod_, func_idx)
+  let hot_func = match
+    @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+    Ok(func) => func
+    Err(_) => return None
+  }
+  match @ir.hot_verify_all(hot_func, cache=Some(())) {
+    Ok(_) => ()
+    Err(_) => return None
+  }
   let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
   let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
   let (planned, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
@@ -19256,7 +19483,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   let materialize_mod = run_hot_pipeline_module_with_rewritten_func(
     mod_, func_idx, materialize_base,
   )
-  let materialize_hot_func = @ir.hot_lift_func(materialize_mod, func_idx)
+  let materialize_hot_func = match
+    @ir.hot_lift_func_with_context_result(materialize_mod, func_idx, module_ctx) {
+    Ok(func) => func
+    Err(_) => return None
+  }
+  match @ir.hot_verify_all(materialize_hot_func, cache=Some(())) {
+    Ok(_) => ()
+    Err(_) => return None
+  }
   let materialize_local_graph = @ir.local_graph_build(
     materialize_hot_func,
     @ir.cfg_build(materialize_hot_func),
@@ -19271,7 +19506,15 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
     let default_mod = run_hot_pipeline_module_with_rewritten_func(
       mod_, func_idx, default_rewritten,
     )
-    let default_hot_func = @ir.hot_lift_func(default_mod, func_idx)
+    let default_hot_func = match
+      @ir.hot_lift_func_with_context_result(default_mod, func_idx, module_ctx) {
+      Ok(func) => func
+      Err(_) => return None
+    }
+    match @ir.hot_verify_all(default_hot_func, cache=Some(())) {
+      Ok(_) => ()
+      Err(_) => return None
+    }
     let default_local_graph = @ir.local_graph_build(
       default_hot_func,
       @ir.cfg_build(default_hot_func),

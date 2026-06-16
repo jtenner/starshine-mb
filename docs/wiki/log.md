@@ -15779,3 +15779,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - [2026-06-14] passes/ssa-nomerge | Guard branch result-carrier defaults
   - Fixed `[SSANM-009b8]` after the debug-WASI first diff `defined=1163 abs=1190` reduced to `ar_rewrite_load_reinterpret_pair`: written branch-continuation locals are no longer materialized as default `i32.const 0` constructor operands.
   - Evidence: focused red/green `ssa_nomerge_test.mbt`, `moon fmt`, `moon info`, `moon test src/passes`, full `moon test`, native `src/cmd` build, self-compare `.tmp/self-ssa-nomerge-debug-wasi-ssanm009b8-branch-result-carriers-20260614c` moving first diff to `defined=1286 abs=1313`, and direct 10000-case `ssa-nomerge` compare with `9977` normalized matches and `0` mismatches.
+
+## 2026-06-16 ssa-nomerge closeout replay narrowing
+
+- Reduced the broad-lane `ssa-nomerge` mismatch replay from 9 to 6 cases by matching Binaryen's zero-SIMD default shape and straight-line pre-write default materialization.
+- Hardened the raw no-write/default-debris path so unsupported HOT lift or HOT verification rejects fail closed instead of aborting on wasm-smith atomic/unreachable-tail cases.
+- Added pass-fuzz command-failure classes for Starshine validator policy gaps (`starshine-atomic-unshared-memory-validator` and `starshine-unreachable-ref-validator`) and recorded replay evidence in the SSA no-merge fuzzing/parity pages.

@@ -809,6 +809,8 @@ export function runPassFuzzCompareListFailureClassesCommandTest(): void {
   }
   assert(result.stdout.includes("starshine-invalid-limits"), `expected starshine-invalid-limits in list output:\n${result.stdout}`);
   assert(result.stdout.includes("starshine-invalid-range-for-limits"), `expected starshine-invalid-range-for-limits in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("starshine-atomic-unshared-memory-validator"), `expected starshine-atomic-unshared-memory-validator in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("starshine-unreachable-ref-validator"), `expected starshine-unreachable-ref-validator in list output:\n${result.stdout}`);
   assert(result.stdout.includes("binaryen-rec-group-zero"), `expected binaryen-rec-group-zero in list output:\n${result.stdout}`);
   assert(result.stdout.includes("binaryen-invalid-wasm-type-neg64"), `expected binaryen-invalid-wasm-type-neg64 in list output:\n${result.stdout}`);
   assert(result.stdout.includes("binaryen-initializer-expression-not-constant"), `expected binaryen-initializer-expression-not-constant in list output:\n${result.stdout}`);

@@ -61,6 +61,8 @@ type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
   | "starshine-invalid-range-for-limits"
+  | "starshine-atomic-unshared-memory-validator"
+  | "starshine-unreachable-ref-validator"
   | "binaryen-invalid-type-index"
   | "binaryen-invalid-tag-index"
   | "binaryen-rec-group-zero"
@@ -393,6 +395,8 @@ function supportedCommandFailureClasses(): CommandFailureClass[] {
     "starshine-command-failed",
     "starshine-invalid-limits",
     "starshine-invalid-range-for-limits",
+    "starshine-atomic-unshared-memory-validator",
+    "starshine-unreachable-ref-validator",
     "binaryen-invalid-type-index",
     "binaryen-invalid-tag-index",
     "binaryen-rec-group-zero",
@@ -480,6 +484,8 @@ function normalizeCommandFailureClass(raw: string): CommandFailureClass {
     case "starshine-command-failed":
     case "starshine-invalid-limits":
     case "starshine-invalid-range-for-limits":
+    case "starshine-atomic-unshared-memory-validator":
+    case "starshine-unreachable-ref-validator":
     case "binaryen-invalid-type-index":
     case "binaryen-invalid-tag-index":
     case "binaryen-rec-group-zero":
@@ -941,6 +947,15 @@ function classifyCommandFailure(detail: string): CommandFailureClass {
     }
     if (detail.includes("Invalid range for limits")) {
       return "starshine-invalid-range-for-limits";
+    }
+    if (detail.includes("atomic memory access requires shared memory")) {
+      return "starshine-atomic-unshared-memory-validator";
+    }
+    if (
+      detail.includes("ref.as_non_null expects") ||
+      detail.includes("ref.cast target does not match operand type")
+    ) {
+      return "starshine-unreachable-ref-validator";
     }
     return "starshine-command-failed";
   }
