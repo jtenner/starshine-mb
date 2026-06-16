@@ -5509,7 +5509,7 @@ test "gen_invalid_ast_generate supports function-body atomic.load address type s
 }
 
 ///|
-test "gen_invalid_ast_generate supports function-body atomic.load non-shared memory strategy" {
+test "gen_invalid_ast_generate keeps atomic.load non-shared strategy invalid via alignment" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d36UL),
@@ -5523,7 +5523,7 @@ test "gen_invalid_ast_generate supports function-body atomic.load non-shared mem
   match validate_module(generated.mutation.mutated_module) {
     Ok(_) =>
       fail(
-        "expected invalid-function-body-atomic-load-non-shared-memory mutation to fail",
+        "expected invalid-function-body-atomic-load-non-shared-memory mutation to fail via alignment",
       )
     Err(err) => {
       let family = validation_issue_family(

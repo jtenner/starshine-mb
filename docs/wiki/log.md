@@ -3,6 +3,13 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] validate | Accept ssanm validator boundary cases
+
+- Resolved the remaining Starshine-specific command-failure classes from the fresh broad `ssa-nomerge` lane. User directed Starshine to accept atomics on unshared memories; [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) now validates atomic memory operations against unshared memories while still checking memory index and alignment, and [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt) locks the acceptance.
+- Investigated the three unreachable/ref cases and fixed validator acceptance for unreachable-polymorphic `ref.as_non_null`, `ref.as_non_null` on already non-null operands, and `ref.cast` from an exact heap reference to the same inexact heap target. These were validator policy/typechecking gaps surfaced by the broad `ssa-nomerge` lane, not pass transform mismatches.
+- Evidence: focused validate tests passed (`typecheck_negative_tests.mbt` `69/69`, `typecheck.mbt` `538/538`); focused replays `.tmp/replay-ssanm-final-atomic-validator-accept` and `.tmp/replay-ssanm-final-unreachable-ref-validator-accept` compared `2/2` and `3/3`, both normalized with no command failures; final broad rerun `.tmp/pass-fuzz-ssa-nomerge-final-rerun3-validator-1000000` compared `997573/1000000`, normalized `997573`, mismatches `0`, validation/property/generator failures `0`, command failures `2427`, cache wasm-smith `500000/0`, Binaryen `997573/0`, Binaryen failures `2427/0`.
+- Remaining command failures are Binaryen/oracle tool boundaries only: `binaryen-rec-group-zero=2126`, `binaryen-bad-section-size=132`, `binaryen-command-failed=105`, `binaryen-table-index-out-of-range=38`, `binaryen-invalid-tag-index=15`, and `binaryen-invalid-type-index=11`. Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] passes/ssa-nomerge | Green fresh broad rerun
 
 - Ran the fresh broad `[SSANM-012b]` direct lane after clearing saved mismatch replays. The first fresh rerun `.tmp/pass-fuzz-ssa-nomerge-final-rerun-1000000` compared `997568/1000000`, normalized `997567`, and found one new wasm-smith mismatch, case `967225`.

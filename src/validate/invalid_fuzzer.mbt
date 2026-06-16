@@ -1735,7 +1735,7 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
     validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyAtomicLoadNonSharedMemory,
       "invalid-function-body-atomic-load-non-shared-memory",
-      "invalid function-body atomic.load non-shared memory",
+      "retired function-body atomic.load non-shared memory boundary",
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
@@ -8586,9 +8586,13 @@ fn validate_invalid_ast_mutate_invalid_function_body_atomic_load_non_shared_memo
   mod : Module,
 ) -> ValidateInvalidAstMutation {
   ignore(mod)
+  // Non-shared atomic memory operations are accepted by Starshine. Preserve the
+  // historical strategy id for deterministic repro stability, but make the
+  // generated module invalid via an overlarge atomic alignment rather than via
+  // the non-shared memory bit itself.
   let body = Expr::new([
     Instruction::i32_const(I32(0)),
-    Instruction::i32_atomic_load(MemArg::new(2U, None, 0UL)),
+    Instruction::i32_atomic_load(MemArg::new(3U, None, 0UL)),
     Instruction::drop(),
   ])
   let (with_func, _, _) = validate_invalid_ast_append_defined_func(
@@ -14992,19 +14996,6 @@ test "invalid atomic.load address type strategy rejects with FunctionBody family
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidFunctionBodyAtomicLoadAddressType,
       0x10d2dUL,
-      FunctionBodyFamily,
-    ) {
-    Ok(_) => ()
-    Err(msg) => fail(msg)
-  }
-}
-
-///|
-test "invalid atomic.load non-shared memory strategy rejects with FunctionBody family" {
-  match
-    invalid_ast_expect_strategy_rejects_with_family(
-      InvalidFunctionBodyAtomicLoadNonSharedMemory,
-      0x10d36UL,
       FunctionBodyFamily,
     ) {
     Ok(_) => ()

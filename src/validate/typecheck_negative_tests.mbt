@@ -311,7 +311,7 @@ test "Typecheck atomic load rejects invalid memory index in memarg" {
 }
 
 ///|
-test "Typecheck atomic load rejects non-shared memory" {
+test "Typecheck atomic load accepts non-shared memory" {
   let env = tcneg_i32_mem_env()
   let mem_arg = MemArg::new(U32(2), None, U64(0))
   let state = tcneg_make_state(env, [ValType::i32()])
@@ -319,9 +319,10 @@ test "Typecheck atomic load rejects non-shared memory" {
     Instruction::i32_atomic_load(mem_arg),
     state,
   )
-  tcneg_assert_err_contains(
-    result, "atomic memory access requires shared memory",
-  )
+  match result {
+    Ok(new_state) => @debug.assert_eq(new_state.stack, [ValType::i32()])
+    Err(err) => fail("expected non-shared atomic load to validate, got \{err}")
+  }
 }
 
 ///|

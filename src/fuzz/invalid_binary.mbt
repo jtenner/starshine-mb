@@ -2084,13 +2084,6 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
-      InvalidBinaryAtomicLoadNonSharedMemoryModule,
-      "invalid-binary-atomic-load-non-shared-memory-module",
-      "encoded module with atomic.load targeting a non-shared memory",
-      ValidateRejected("function-body"),
-      required_in_smoke=false,
-    ),
-    validate_invalid_binary_strategy_spec(
       DuplicateImportSection,
       "duplicate-import-section",
       "duplicate import section after a valid module",

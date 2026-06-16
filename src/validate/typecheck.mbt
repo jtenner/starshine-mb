@@ -1608,12 +1608,9 @@ fn memarg_check_atomic(
     Err(e) => return Err(e)
     Ok(x) => x
   }
-  let MemType(_, shared) = match st.env.get_memtype(mem) {
+  match st.env.get_memtype(mem) {
     None => return Err("invalid memory index in memarg")
-    Some(mt) => mt
-  }
-  if !shared {
-    return Err("atomic memory access requires shared memory")
+    Some(_) => ()
   }
   Ok((mem, lim))
 }
@@ -1906,12 +1903,12 @@ fn typecheck_ref_as_non_null(st : TcState) -> TcResult {
     Ok(pair) => pair
   }
   match v {
+    BotValType => Ok(st1.push1(ValType::bottom()))
     RefTypeValType(rt) =>
       match rt {
         HeapTypeRefType(true, exact, ht) =>
           Ok(st1.push1(ValType::ref_type(RefType::new(false, ht, exact~))))
-        HeapTypeRefType(false, _, _) =>
-          Err("ref.as_non_null expects (ref null ht), got non-null ref")
+        HeapTypeRefType(false, _, _) => Ok(st1.push1(ValType::ref_type(rt)))
         AbsHeapTypeRefType(abs) =>
           Ok(
             st1.push1(
@@ -1991,7 +1988,8 @@ fn typecheck_ref_cast(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
   match rt_in_opt {
     None => ()
     Some(rt_in) =>
-      if !Match::matches(rt, rt_in, st.env) {
+      if !(Match::matches(rt, rt_in, st.env) ||
+        Match::matches(rt_in, rt, st.env)) {
         return Err("ref.cast target does not match operand type")
       }
   }
@@ -5968,6 +5966,29 @@ test "Typecheck RefAsNonNull accepts abstract nullable externref" {
   assert_stack(new_state, [non_nullable_externref()])
 }
 
+///|
+test "Typecheck RefAsNonNull accepts unreachable and non-null operands" {
+  let unreachable_state = assert_ok(
+    Typecheck::typecheck(
+      Instruction::unreachable_(),
+      make_state(empty_env(), []),
+    ),
+  )
+  let after_unreachable = assert_ok(
+    Typecheck::typecheck(Instruction::ref_as_non_null(), unreachable_state),
+  )
+  assert_stack(after_unreachable, [ValType::bottom()])
+
+  let non_nullable_anyref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::any())),
+  )
+  let non_null_state = make_state(empty_env(), [non_nullable_anyref])
+  let after_non_null = assert_ok(
+    Typecheck::typecheck(Instruction::ref_as_non_null(), non_null_state),
+  )
+  assert_stack(after_non_null, [non_nullable_anyref])
+}
+
 // BrOnNonNull tests
 
 ///|
@@ -6938,6 +6959,28 @@ test "Typecheck RefCast non-nullable" {
   )
   let final_state = assert_ok(result)
   @debug.assert_eq(final_state.stack.length(), 1)
+}
+
+///|
+test "Typecheck RefCast accepts exact source for inexact same heap target" {
+  let struct_type = SubType::comp_type(
+    CompType::struct_([
+      FieldType::new(StorageType::val_type(ValType::funcref()), Var),
+    ]),
+  )
+  let env : Env = { ..empty_env(), global_types: [struct_type] }
+  let exact_struct_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
+  )
+  let state = make_state(env, [exact_struct_ref])
+  let result = Typecheck::typecheck(
+    Instruction::ref_cast(false, HeapType::new(TypeIdx::new(0U))),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [
+    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0U)))),
+  ])
 }
 
 ///|
