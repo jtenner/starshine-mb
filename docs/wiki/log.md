@@ -3,6 +3,11 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Raise final closeout fuzz counts
+
+- Updated the `ssa-nomerge` closeout expectation from the generic final-pass counts to the user's requested high-confidence lanes: `100000` requested cases for the `ssa-nomerge-all` dedicated GenValid aggregate lane and `1000000` requested cases for the broad mixed-generator direct lane.
+- Refreshed [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md) so the next handoff thread does not accidentally run the older `10000`/`100000` closeout counts.
+
 ## [2026-06-16] fuzzing | GenValid composite pass profiles
 
 - Added deterministic GenValid profile composition with `ssa-nomerge-all` sampling the current singleton SSA profiles (`ssa-nomerge-parity`, `ssa-nomerge-smoke`, `ssa-nomerge-coverage`, and `ssa-nomerge-stress`) from root seed plus selected case index.
