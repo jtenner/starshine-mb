@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Group ssanm numeric locals and simple func types
+
+- Reduced the dedicated `ssa-nomerge-smoke` raw-size-losing family after unused-local compaction: the current sample still preserved mixed numeric body-local declaration order and duplicate simple function types, while Binaryen raw output grouped numeric locals and canonicalized duplicate simple function types.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to group numeric-only body locals by stable type buckets after `ssa-nomerge` hot-pass output, remap local refs, drop local names, and reuse the duplicate-function-elimination simple type-index canonicalizer. The grouping is deliberately scoped away from ref/v128 locals after broad grouping disturbed typed-loop and SIMD/default fixtures. Added red-first coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge groups mixed body locals and duplicate func types like Binaryen raw output`.
+- Evidence: red-first focused test failed on duplicate type count; after the fix focused `ssa_nomerge_test.mbt` passed `458/458`; `moon fmt`; `moon test src/passes` passed `2493/2493`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5799/5799`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-local-type-grouping-10000` compared `7092/10000`, normalized `7092`, mismatches `0`, cached Binaryen command failures `20`.
+- Dedicated lanes remain open but moved: smoke `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-local-type-grouping-10000` requested `10000`, compared `55`, normalized `28`, mismatches `27`, command failures `0`, raw Starshine deltas improved to `+15..+18` bytes (sum `+408`) with equal normalized sizes; coverage `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-local-type-grouping-10000` requested `10000`, compared `55`, normalized `28`, mismatches `27`, command failures `0`, raw Starshine deltas are smaller by `-30..-27` bytes (sum `-807`) with equal normalized sizes. `[SSANM-012c]` remains open for branch/dead-tail raw cleanup and final profile decisions.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] passes/ssa-nomerge | Compact post-default unused locals
 
 - Reduced a dedicated `ssa-nomerge-smoke` GenValid local-declaration drift from `case-000002-gen-valid`: after default materialization, planned freshening, and branch-copy redirection compose, Starshine can retain locals appended by an intermediate plan even when no final instruction references them.

@@ -21,6 +21,23 @@ fn ssa_test_defined_func(
 }
 
 ///|
+fn ssa_test_type_count(mod_ : @lib.Module) -> Int raise {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(types)) => types.length()
+    None => fail("expected type section")
+  }
+}
+
+///|
+fn ssa_test_local_types(locals : @lib.Locals) -> Array[@lib.ValType] {
+  let types : Array[@lib.ValType] = []
+  for idx = 0; idx < locals.length(); idx = idx + 1 {
+    types.push(locals.get(idx))
+  }
+  types
+}
+
+///|
 fn ssa_test_collect_local_write_indices(
   instrs : Array[@lib.Instruction],
   out : Array[UInt],
@@ -29239,6 +29256,51 @@ test "ssa-nomerge redirects if-arm branch copy aliases" {
   }
   assert_false(
     ssa_nomerge_test_local_get_indices(instrs).contains(final_tee),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge groups mixed body locals and duplicate func types like Binaryen raw output" {
+  // Binaryen parses/writes function body-local declarations in grouped type
+  // order and canonicalizes duplicate simple function types around SSAify(false).
+  // Starshine's raw `ssa-nomerge` path must not keep mixed local declarations or
+  // duplicate function-type entries that make dedicated smoke samples raw larger
+  // before the normalized writer repairs them.
+  let source =
+    #|(module
+    #|  (type $p (func (param i32)))
+    #|  (type $dup (func (param i32)))
+    #|  (func (export "main") (type $p) (param i32)
+    #|    (local i32 i64 i32)
+    #|    i32.const 1
+    #|    local.set 3
+    #|    local.get 3
+    #|    drop
+    #|    i32.const 2
+    #|    local.set 3
+    #|    local.get 3
+    #|    drop)
+    #|  (func (type $dup) (param i32)
+    #|    local.get 0
+    #|    drop))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected mixed-local grouping success, got \{err}")
+  }
+  @debug.assert_eq(ssa_test_type_count(optimized), 1)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(ssa_test_local_types(locals), [
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ])
+  assert_false(
+    ssa_test_local_write_indices(instrs).contains(5U) ||
+    ssa_nomerge_test_local_get_indices(instrs).contains(5U),
     msg=instrs.to_string(),
   )
 }

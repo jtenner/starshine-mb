@@ -7755,6 +7755,126 @@ fn run_hot_pipeline_raw_compact_unused_locals_after_prefix(
 }
 
 ///|
+fn run_hot_pipeline_raw_local_type_bucket_index(
+  buckets : Array[@lib.ValType],
+  ty : @lib.ValType,
+) -> Int {
+  for idx = 0; idx < buckets.length(); idx = idx + 1 {
+    if buckets[idx] == ty {
+      return idx
+    }
+  }
+  -1
+}
+
+///|
+fn run_hot_pipeline_raw_numeric_local_type(ty : @lib.ValType) -> Bool {
+  match ty {
+    @lib.NumTypeValType(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_group_body_locals_by_type_func(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if locals.length() <= 1 {
+    return (func, false)
+  }
+  for param in params {
+    if !run_hot_pipeline_raw_numeric_local_type(param) {
+      return (func, false)
+    }
+  }
+  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+    if !run_hot_pipeline_raw_numeric_local_type(locals.get(local_idx)) {
+      return (func, false)
+    }
+  }
+  let buckets : Array[@lib.ValType] = []
+  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+    let ty = locals.get(local_idx)
+    if run_hot_pipeline_raw_local_type_bucket_index(buckets, ty) < 0 {
+      buckets.push(ty)
+    }
+  }
+  if buckets.length() <= 1 {
+    return (func, false)
+  }
+  let param_count = params.length()
+  let total_local_count = param_count + locals.length()
+  let local_remap : Array[Int] = []
+  for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
+    local_remap.push(local_id)
+  }
+  let grouped_local_types : Array[@lib.ValType] = []
+  let mut changed = false
+  for bucket_idx = 0; bucket_idx < buckets.length(); bucket_idx = bucket_idx + 1 {
+    let bucket_ty = buckets[bucket_idx]
+    for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+      if locals.get(local_idx) == bucket_ty {
+        let old_local_id = param_count + local_idx
+        let next_local_id = param_count + grouped_local_types.length()
+        if old_local_id != next_local_id {
+          changed = true
+          local_remap[old_local_id] = next_local_id
+        }
+        grouped_local_types.push(bucket_ty)
+      }
+    }
+  }
+  if !changed {
+    return (func, false)
+  }
+  (
+    @lib.Func::new(
+      @lib.Locals::from_types(grouped_local_types),
+      @lib.Expr::new(
+        run_hot_pipeline_raw_compact_rewrite_local_refs(instrs, local_remap),
+      ),
+    ),
+    true,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_group_body_locals_by_type_module(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+      let module_ctx = @ir.hot_module_context_from_module(mod_)
+      let next_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
+      let mut changed = false
+      for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+        let func_idx = @lib.FuncIdx::new(
+          (imported_func_count + code_idx).reinterpret_as_uint(),
+        )
+        let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+        let (grouped, func_changed) = run_hot_pipeline_raw_group_body_locals_by_type_func(
+          funcs[code_idx],
+          params,
+        )
+        next_funcs.push(grouped)
+        if func_changed {
+          changed = true
+        }
+      }
+      if changed {
+        mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+      } else {
+        mod_
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_instrs_have_br_table(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -22120,7 +22240,11 @@ fn run_hot_pipeline_apply_hot_pass(
           current_mod.with_code_sec(code_sec),
         )
         if descriptor.name == "ssa-nomerge" {
-          run_hot_pipeline_drop_local_names(next_mod)
+          dfe_canonicalize_duplicate_simple_type_indices(
+            run_hot_pipeline_raw_group_body_locals_by_type_module(
+              run_hot_pipeline_drop_local_names(next_mod),
+            ),
+          )
         } else {
           next_mod
         }
