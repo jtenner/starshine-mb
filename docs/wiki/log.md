@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Preserve ssanm dead-tail local holes
+
+- Reduced the remaining equal-size `ssa-nomerge-smoke` output-shape family after appended numeric local ordering: Binaryen `SSAify(false)` allocates fresh locals for dead tail writes before later cleanup collapses the void child-branch exits, leaving two unused i32 declarations before the final fresh tee pair. Starshine had compacted those declarations and emitted the final tees as locals `18/19` instead of Binaryen's `20/21`.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) with a narrow `default-local-reads` post-shape reservation for the collapsed-dead-tail/final-consecutive-i32-tee family, and added focused coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge preserves Binaryen dead-tail fresh local holes before later tees`.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `463/463`; `moon fmt`; `moon test src/passes` passed `2498/2498`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5804/5804`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-dead-tail-local-holes-10000` compared `7093/10000`, normalized `7093`, mismatches `0`, cached Binaryen command failures `20`.
+- Dedicated smoke is green for this slice: `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-dead-tail-local-holes-10000` requested `10000`, compared `8496`, normalized `8496`, mismatches `0`, command failures `20`. Dedicated coverage remains open: `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-dead-tail-local-holes-10000` requested `10000`, compared `58`, normalized `29`, mismatches `29`, command failures `0`, with sampled raw Starshine output still `30` bytes smaller and differing in typed-loop/proxy local numbering. `[SSANM-012c]` remains open.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] passes/ssa-nomerge | Order ssanm appended numeric locals
 
 - Reduced the remaining equal-size `ssa-nomerge-smoke` output-shape family after unused simple type suffix pruning: Binaryen `SSAify(false)` fresh locals are allocated in source visitation order before numeric local grouping, while Starshine's composed default/planned rewrite emitted later fresh locals first.

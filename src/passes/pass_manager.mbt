@@ -7896,6 +7896,120 @@ fn run_hot_pipeline_raw_order_appended_numeric_locals_by_first_ref(
 }
 
 ///|
+fn run_hot_pipeline_raw_count_void_blocks_ending_br0(
+  instrs : Array[@lib.Instruction],
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+        if body.length() > 0 {
+          match body[body.length() - 1] {
+            @lib.Br(@lib.LabelIdx(raw)) if raw == 0U => count += 1
+            _ => ()
+          }
+        }
+        count += run_hot_pipeline_raw_count_void_blocks_ending_br0(body)
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += run_hot_pipeline_raw_count_void_blocks_ending_br0(body)
+      @lib.If(_, then_body, else_body) => {
+        count += run_hot_pipeline_raw_count_void_blocks_ending_br0(then_body)
+        match else_body {
+          Some(body) =>
+            count += run_hot_pipeline_raw_count_void_blocks_ending_br0(body)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_reserve_dead_tail_i32_holes_before_final_tees(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  prefix_local_count : Int,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if run_hot_pipeline_raw_count_void_blocks_ending_br0(instrs) < 2 {
+    return (func, false)
+  }
+  let param_count = params.length()
+  let mut last_tee = -1
+  let mut prev_tee = -1
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        prev_tee = last_tee
+        last_tee = raw.reinterpret_as_int()
+      }
+      _ => ()
+    }
+  }
+  if prev_tee < param_count + prefix_local_count || last_tee != prev_tee + 1 {
+    return (func, false)
+  }
+  let prev_local_idx = prev_tee - param_count
+  let last_local_idx = last_tee - param_count
+  if prev_local_idx < 0 || last_local_idx >= locals.length() {
+    return (func, false)
+  }
+  if locals.get(prev_local_idx) != @lib.ValType::i32() ||
+    locals.get(last_local_idx) != @lib.ValType::i32() {
+    return (func, false)
+  }
+  if prev_local_idx >= 2 {
+    let local_gets : Array[Int] = Array::make(param_count + locals.length(), 0)
+    let local_sets : Array[Int] = Array::make(param_count + locals.length(), 0)
+    let local_tees : Array[Int] = Array::make(param_count + locals.length(), 0)
+    run_hot_pipeline_raw_collect_local_ref_counts(
+      instrs, local_gets, local_sets, local_tees,
+    )
+    let first_hole_id = param_count + prev_local_idx - 2
+    let second_hole_id = param_count + prev_local_idx - 1
+    if locals.get(prev_local_idx - 1) == @lib.ValType::i32() &&
+      locals.get(prev_local_idx - 2) == @lib.ValType::i32() &&
+      local_gets[first_hole_id] == 0 &&
+      local_sets[first_hole_id] == 0 &&
+      local_tees[first_hole_id] == 0 &&
+      local_gets[second_hole_id] == 0 &&
+      local_sets[second_hole_id] == 0 &&
+      local_tees[second_hole_id] == 0 {
+      return (func, false)
+    }
+  }
+  let total_local_count = param_count + locals.length()
+  let local_remap : Array[Int] = []
+  for local_id = 0; local_id < total_local_count; local_id = local_id + 1 {
+    if local_id >= prev_tee {
+      local_remap.push(local_id + 2)
+    } else {
+      local_remap.push(local_id)
+    }
+  }
+  let next_types : Array[@lib.ValType] = []
+  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+    if local_idx == prev_local_idx {
+      next_types.push(@lib.ValType::i32())
+      next_types.push(@lib.ValType::i32())
+    }
+    next_types.push(locals.get(local_idx))
+  }
+  (
+    @lib.Func::new(
+      @lib.Locals::from_types(next_types),
+      @lib.Expr::new(
+        run_hot_pipeline_raw_compact_rewrite_local_refs(instrs, local_remap),
+      ),
+    ),
+    true,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_local_type_bucket_index(
   buckets : Array[@lib.ValType],
   ty : @lib.ValType,
@@ -18772,7 +18886,18 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       } else {
         (compacted_func, false)
       }
-      let @lib.Func(locals, @lib.Expr(instrs)) = ordered_func
+      let (hole_reserved_func, reserved_dead_tail_holes) = if raw_result.reason.contains(
+          "default-local-reads",
+        ) {
+        run_hot_pipeline_raw_reserve_dead_tail_i32_holes_before_final_tees(
+          ordered_func,
+          params,
+          original_locals.length(),
+        )
+      } else {
+        (ordered_func, false)
+      }
+      let @lib.Func(locals, @lib.Expr(instrs)) = hole_reserved_func
       let (collapsed_instrs, collapsed) = run_hot_pipeline_raw_collapse_null_throwref_try_table_debris(
         instrs,
       )
@@ -18793,15 +18918,17 @@ fn run_hot_pipeline_raw_ssa_nomerge(
               trace_skip_raw: raw_result.trace_skip_raw,
             })
         }
-      } else if compacted || ordered_appended {
-        let reason = if compacted {
+      } else if compacted || ordered_appended || reserved_dead_tail_holes {
+        let reason = if reserved_dead_tail_holes {
+          "\{raw_result.reason}-dead-tail-local-holes"
+        } else if compacted {
           "\{raw_result.reason}-unused-appended-locals"
         } else {
           "\{raw_result.reason}-ordered-appended-locals"
         }
         Some({
           reason,
-          func: ordered_func,
+          func: hole_reserved_func,
           unchanged_original: false,
           trace_skip_raw: raw_result.trace_skip_raw,
         })

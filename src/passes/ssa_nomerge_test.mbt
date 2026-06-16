@@ -29273,6 +29273,23 @@ fn ssa_test_local_set_after_i32_const(
 }
 
 ///|
+fn ssa_test_local_tee_after_i32_const(
+  instrs : Array[@lib.Instruction],
+  value : Int,
+) -> UInt? {
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (@lib.I32Const(@lib.I32(found)), @lib.LocalTee(@lib.LocalIdx(raw))) =>
+        if found == value {
+          return Some(raw)
+        }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
 test "ssa-nomerge orders appended numeric locals by first reference like Binaryen raw output" {
   // Reduced from the remaining equal-size `ssa-nomerge-smoke` GenValid family
   // after unused simple type suffix pruning. Binaryen's raw SSAify(false)
@@ -29773,6 +29790,221 @@ test "ssa-nomerge drops unused appended locals after post-default branch plannin
     locals.length() <= 26,
     msg=locals.to_string() + "\n" + instrs.to_string(),
   )
+}
+
+///|
+test "ssa-nomerge preserves Binaryen dead-tail fresh local holes before later tees" {
+  // Reduced from dedicated `ssa-nomerge-smoke` GenValid
+  // `case-000004-gen-valid` after appended-local first-reference ordering.
+  // Binaryen `SSAify(false)` allocates fresh locals for dead tail writes before
+  // later DCE collapses the void child `block { br 1 }` exits, so two unused i32
+  // declarations remain before the final fresh local. Starshine must keep those
+  // holes when later fresh writes still use the same type bucket; otherwise the
+  // profile remains equal-size but normalized-output different.
+  let source =
+    #|(module
+    #|  (type $p (func (param i32)))
+    #|  (type $q (func))
+    #|  (type $q_dup (func))
+    #|  (func (export "main") (type $p) (param i32)
+    #|    (local i32 i32 i32 i32 i32 i64 f32 f64)
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 101
+    #|    local.set 4
+    #|    local.get 4
+    #|    drop
+    #|    i32.const 1
+    #|    if
+    #|      i32.const 103
+    #|      local.set 3
+    #|    end
+    #|    local.get 3
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 104
+    #|      local.set 0
+    #|    end
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 102
+    #|    local.set 5
+    #|    block
+    #|      br 0
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 1
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.tee 1
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    local.get 1
+    #|    if
+    #|      i32.const 1
+    #|      local.set 1
+    #|    else
+    #|      i32.const 2
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 1
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      i32.const 7
+    #|      local.set 1
+    #|      return
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 7
+    #|        local.set 1
+    #|        br 1
+    #|      end
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.set 1
+    #|    block
+    #|      local.get 0
+    #|      br_if 0
+    #|      i32.const 9
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if
+    #|      nop
+    #|    end
+    #|    i32.const 12
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.set 0
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 0
+    #|      i32.const 2
+    #|    end
+    #|    drop
+    #|    local.get 0
+    #|    drop
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 20
+    #|      local.set 2
+    #|      i32.const 2
+    #|    else
+    #|      i32.const 30
+    #|      local.set 3
+    #|      i32.const 3
+    #|    end
+    #|    drop
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 37
+    #|        local.set 1
+    #|      else
+    #|        i32.const 38
+    #|        local.set 1
+    #|      end
+    #|      block
+    #|        br 1
+    #|      end
+    #|      i32.const 39
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        i32.const 80
+    #|        local.set 1
+    #|      else
+    #|        i32.const 82
+    #|        local.set 1
+    #|      end
+    #|      block
+    #|        br 1
+    #|      end
+    #|      i32.const 84
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 0
+    #|    local.set 3
+    #|    local.get 3
+    #|    if
+    #|      i32.const 120
+    #|      local.tee 3
+    #|      drop
+    #|    end
+    #|    local.get 3
+    #|    drop
+    #|    i32.const 121
+    #|    local.tee 5
+    #|    i32.const 1
+    #|    i32.add
+    #|    drop
+    #|    local.get 5
+    #|    drop
+    #|    i32.const 122
+    #|    local.tee 2
+    #|    drop)
+    #|  (func (type $q)
+    #|    (local i32 i32 i32 i32 i32 f64 f64 f32 i32 i64))
+    #|  (func (type $q_dup)
+    #|    (local i32 i32 i32 i32 i32 f32 i64 f32 f64)))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dead-tail local-hole preservation success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(ssa_test_local_tee_after_i32_const(instrs, 121), Some(20U))
+  @debug.assert_eq(ssa_test_local_tee_after_i32_const(instrs, 122), Some(21U))
 }
 
 ///|
