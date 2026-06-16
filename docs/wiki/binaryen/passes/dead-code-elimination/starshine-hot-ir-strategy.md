@@ -153,9 +153,12 @@ That is broader and more operational than upstream Binaryen's small postwalk, bu
 A major local difference from upstream Binaryen is the raw fast path in `src/passes/pass_manager.mbt`.
 The pipeline can skip HOT lifting entirely when raw Wasm inspection shows there are no likely DCE candidates. There is no longer a blanket `-O4z` DCE no-op: DCE-positive O4z functions must run the pass, while the remaining raw skips are shape-specific guards or no-candidate classifications.
 
+As of 2026-06-16, the `load-call-set-dce-noop` and `loop-outer-branch-dce-noop` guards are narrowed for simple root dead suffixes. If either guarded hazard shape is present but the root body later reaches an explicit `return`, `return_call*`, `throw*`, `br`, `br_table`, or `unreachable`, Starshine performs a raw root-suffix trim and still avoids HOT lifting the guarded function. This matches Binaryen v130 `--dce` on the focused load/call/set and loop-outer-branch fixtures while preserving the guard for no-candidate hazard-only bodies. Structured-control fallthrough is intentionally not inferred by this raw trimmer because loop bodies with outer branches can make a containing block appear nonfallthrough without making following roots dead.
+
 The key helpers are:
 
 - `run_hot_pipeline_dce_raw_has_early_terminator(...)`
+- `run_hot_pipeline_dce_raw_trim_root_dead_suffix(...)`
 - `run_hot_pipeline_dce_raw_void_structured_noop(...)`
 - `run_hot_pipeline_dce_raw_live_typed_control_only(...)`
 - `run_hot_pipeline_dce_can_skip_raw(...)`
@@ -188,8 +191,9 @@ The local proof surface is broader than one regression file.
 `src/passes/dead_code_elimination_test.mbt` locks the main local families, including:
 
 - ordinary dead dropped-value cleanup
-- unreachable-root pruning after `return`
+- unreachable-root pruning after `return`, including raw root-suffix trimming before the load/call/set and loop-outer-branch hazard guards
 - dead-result typed `if` and block cleanup
+- modern EH `try_table` body-fallthrough handling, including unreachable-body suffix trimming and result-drop collapse
 - payload-forwarder rewrites
 - split-`local.set` wrapper rewrites
 - explicit `unreachable` tail repair

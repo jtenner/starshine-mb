@@ -6566,6 +6566,40 @@ fn run_hot_pipeline_dce_raw_body_may_fallthrough(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Br(_)
+    | @lib.BrTable(_, _)
+    | @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_trim_root_dead_suffix(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    rewritten.push(instr)
+    if run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) &&
+      idx + 1 < instrs.length() {
+      return (rewritten, true)
+    }
+  }
+  (instrs.copy(), false)
+}
+
+///|
 fn run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -21198,6 +21232,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   if descriptor.name == "dead-code-elimination" {
     let @lib.Func(_, @lib.Expr(instrs)) = original
     if run_hot_pipeline_dce_raw_has_load_call_set_hazard(instrs) {
+      let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_root_dead_suffix(
+        instrs,
+      )
+      if trimmed_dead_suffix {
+        let @lib.Func(locals, _) = original
+        return Some({
+          reason: "load-call-set-dce-root-dead-suffix",
+          func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+          unchanged_original: false,
+          trace_skip_raw: true,
+        })
+      }
       return Some({
         reason: "load-call-set-dce-noop",
         func: original,
@@ -21206,6 +21252,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       })
     }
     if run_hot_pipeline_dce_raw_has_loop_outer_branch(instrs) {
+      let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_root_dead_suffix(
+        instrs,
+      )
+      if trimmed_dead_suffix {
+        let @lib.Func(locals, _) = original
+        return Some({
+          reason: "loop-outer-branch-dce-root-dead-suffix",
+          func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+          unchanged_original: false,
+          trace_skip_raw: true,
+        })
+      }
       return Some({
         reason: "loop-outer-branch-dce-noop",
         func: original,

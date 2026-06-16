@@ -58,6 +58,49 @@ test "dead-code-elimination runs DCE-positive O4z raw pass" {
 }
 
 ///|
+test "dead-code-elimination trims root dead suffix before load-call-set hazard guard" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "decref" (func $decref (param i32)))
+        #|  (memory 1)
+        #|  (func (param $cell i32) (result i32)
+        #|    (local $out i32)
+        #|    local.get $cell
+        #|    i32.load offset=8
+        #|    local.get $cell
+        #|    call $decref
+        #|    local.set $out
+        #|    local.get $out
+        #|    return
+        #|    i32.const 9
+        #|    drop))
+        #|,
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected load-call-set dead-tail dead-code-elimination success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=load-call-set-dce-noop",
+      )
+    }),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination skips load-call-set ownership hazards" {
   let trace : Array[String] = []
   match
@@ -90,6 +133,50 @@ test "dead-code-elimination skips load-call-set ownership hazards" {
       )
     }),
   )
+}
+
+///|
+test "dead-code-elimination trims root dead suffix before loop outer-branch guard" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32)
+        #|    block
+        #|      loop
+        #|        local.get 0
+        #|        if
+        #|          br 2
+        #|        end
+        #|        br 0
+        #|      end
+        #|    end
+        #|    i32.const 1
+        #|    return
+        #|    i32.const 9
+        #|    drop))
+        #|,
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected loop outer-branch dead-tail dead-code-elimination success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=loop-outer-branch-dce-noop",
+      )
+    }),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
 }
 
 ///|
@@ -128,6 +215,63 @@ test "dead-code-elimination skips loop bodies that branch to an outer block" {
       )
     }),
   )
+}
+
+///|
+test "dead-code-elimination treats try_table unreachable body as nonfallthrough" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func
+        #|    (try_table (catch_all 0)
+        #|      unreachable)
+        #|    i32.const 9
+        #|    drop))
+        #|,
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected try_table dead-code-elimination success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination collapses result try_table with unreachable body" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func
+        #|    (block $h
+        #|      (try_table (result i32) (catch_all $h)
+        #|        unreachable)
+        #|      drop
+        #|      i32.const 9
+        #|      drop)))
+        #|,
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected result try_table dead-code-elimination success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
 }
 
 ///|

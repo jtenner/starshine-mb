@@ -838,12 +838,6 @@ fn dead_code_elimination_node_may_fallthrough_uncached(
         branch_user_cache,
         fallthrough_cache,
         @ir.hot_region_body_ref(func, node_id),
-      ) ||
-      dead_code_elimination_region_may_fallthrough(
-        func,
-        branch_user_cache,
-        fallthrough_cache,
-        @ir.hot_region_catch_list_ref(func, node_id),
       )
     }
     _ => dead_code_elimination_op_has_fallthrough_edge(node.op)

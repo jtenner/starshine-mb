@@ -170,6 +170,7 @@ If both are true and the try node is not already marked unreachable, DCE changes
 
 For `try_table`, DCE uses the simpler rule that the construct can finish normally only if its body finishes normally.
 So if the body is unreachable and the `try_table` type is still concrete, DCE changes the node type to `unreachable`.
+Starshine locks this with focused 2026-06-16 fixtures in `src/passes/dead_code_elimination_test.mbt`: a void `try_table` with an unreachable body must make the following root suffix dead, and a result `try_table` with an unreachable body must collapse through its following `drop` so later roots are trimmed. The local HOT fallthrough rule intentionally ignores `try_table` catch-list regions as normal fallthrough paths; catch clauses branch to labels rather than completing the `try_table` normally.
 
 ## What the source does **not** do here
 
@@ -215,6 +216,7 @@ This file covers modern EH and `try_table` behavior, including:
 
 - reachable catch making later code still reachable
 - both body and catch unreachable allowing later code to die
+- `try_table` body-unreachable cases where catch labels are exits, not normal fallthrough
 - `throw` and `throw_ref` dead-wrapper cleanup that preserves the actually executing path
 
 ### `dce-eh-legacy.wast`
