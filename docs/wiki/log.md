@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Green fresh broad rerun
+
+- Ran the fresh broad `[SSANM-012b]` direct lane after clearing saved mismatch replays. The first fresh rerun `.tmp/pass-fuzz-ssa-nomerge-final-rerun-1000000` compared `997568/1000000`, normalized `997567`, and found one new wasm-smith mismatch, case `967225`.
+- Fixed case `967225` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): zero-v128 shaping now applies only to materialized v128 defaults that replace `local.get`, not to existing dropped `v128.const 0` stack debris; the no-write dead-stack dropper now drains existing zero-v128 constants before `unreachable`. [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) extends the no-write numeric/SIMD default regression for this distinction.
+- Evidence: focused test passed `471/471`; `moon fmt`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; focused replay `.tmp/replay-ssanm-final-rerun-mismatch-fix` compared `1/1`, normalized `1`, mismatches `0`, command failures `0`; second fresh broad rerun `.tmp/pass-fuzz-ssa-nomerge-final-rerun2-1000000` compared `997568/1000000`, normalized `997568`, cleanup-normalized `0`, raw mismatches `0`, validation/property/generator failures `0`, command failures `2432`, cache wasm-smith `500000/0`, Binaryen `997568/0`, Binaryen failures `2427/0`.
+- Remaining command classes are policy/tool boundaries, not `ssa-nomerge` output-shape mismatches: `binaryen-rec-group-zero=2126`, `binaryen-bad-section-size=132`, `binaryen-command-failed=105`, `binaryen-table-index-out-of-range=38`, `binaryen-invalid-tag-index=15`, `binaryen-invalid-type-index=11`, `starshine-atomic-unshared-memory-validator=2`, and `starshine-unreachable-ref-validator=3`.
+- Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-16] passes/ssa-nomerge | Clear broad mismatch replay
 
 - Fixed the remaining saved `[SSANM-012b]` broad-lane output-shape replay cases after the typed-unreachable spill slice: `394789`, `782997`, `395085`, `555621`, and `577037`.

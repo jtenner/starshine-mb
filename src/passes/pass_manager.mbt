@@ -7630,6 +7630,128 @@ fn run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_func(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_body(
+  original : Array[@lib.Instruction],
+  rewritten : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  if original.length() != rewritten.length() {
+    return (rewritten, false)
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for idx = 0; idx < rewritten.length(); idx = idx + 1 {
+    match (original[idx], rewritten[idx]) {
+      (@lib.LocalGet(_), instr) =>
+        if run_hot_pipeline_raw_ssa_nomerge_is_zero_v128_const(instr) {
+          out.push(@lib.Instruction::i32_const(@lib.I32::new(0)))
+          out.push(@lib.Instruction::i32x4_splat())
+          changed = true
+        } else {
+          out.push(rewritten[idx])
+        }
+      (
+        @lib.Block(_, @lib.Expr(original_body)),
+        @lib.Block(block_type, @lib.Expr(rewritten_body)),
+      ) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_body(
+          original_body, rewritten_body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          } else {
+            rewritten[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      (
+        @lib.Loop(_, @lib.Expr(original_body)),
+        @lib.Loop(block_type, @lib.Expr(rewritten_body)),
+      ) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_body(
+          original_body, rewritten_body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+          } else {
+            rewritten[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      (
+        @lib.TryTable(_, _, @lib.Expr(original_body)),
+        @lib.TryTable(block_type, catches, @lib.Expr(rewritten_body)),
+      ) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_body(
+          original_body, rewritten_body,
+        )
+        out.push(
+          if body_changed {
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            )
+          } else {
+            rewritten[idx]
+          },
+        )
+        changed = changed || body_changed
+      }
+      (
+        @lib.If(_, original_then, original_else),
+        @lib.If(block_type, rewritten_then, rewritten_else),
+      ) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_body(
+          original_then, rewritten_then,
+        )
+        let mut instr_changed = then_changed
+        let next_else = match (original_else, rewritten_else) {
+          (Some(original_body), Some(rewritten_body)) => {
+            let (body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_body(
+              original_body, rewritten_body,
+            )
+            instr_changed = instr_changed || body_changed
+            Some(body)
+          }
+          _ => rewritten_else
+        }
+        out.push(
+          if instr_changed {
+            @lib.Instruction::if_(block_type, next_then, next_else)
+          } else {
+            rewritten[idx]
+          },
+        )
+        changed = changed || instr_changed
+      }
+      _ => out.push(rewritten[idx])
+    }
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_func(
+  original : @lib.Func,
+  rewritten : @lib.Func,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(_, @lib.Expr(original_instrs)) = original
+  let @lib.Func(locals, @lib.Expr(rewritten_instrs)) = rewritten
+  let (expanded_instrs, changed) = run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_body(
+    original_instrs, rewritten_instrs,
+  )
+  if changed {
+    (@lib.Func::new(locals.copy(), @lib.Expr::new(expanded_instrs)), true)
+  } else {
+    (rewritten, false)
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_append_local_read(
   out : Array[@lib.Instruction],
   source_aliases : Array[@lib.LocalIdx],
@@ -16850,8 +16972,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_all_unwritten_defaults_func(
       locals.copy(),
       @lib.Expr::new(rewritten_instrs),
     )
-    let (expanded, _) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_func(
-      rewritten,
+    let (expanded, _) = run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_func(
+      func, rewritten,
     )
     (expanded, true)
   }
@@ -16902,7 +17024,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_instr_result_count(
       )
     @lib.F32Const(_) | @lib.F64Const(_) | @lib.I32Const(_) | @lib.I64Const(_) =>
       1
-    @lib.F64Sqrt => 1
+    @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => 1
+    @lib.F64Sqrt | @lib.I32x4Splat => 1
     _ => 0
   }
 }
@@ -16998,8 +17121,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_tail_scalar_debris_then_unreachable(
       @lib.F32Const(_)
       | @lib.F64Const(_)
       | @lib.I32Const(_)
-      | @lib.I64Const(_) => ()
-      @lib.F64Sqrt => ()
+      | @lib.I64Const(_)
+      | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => ()
+      @lib.F64Sqrt | @lib.I32x4Splat => ()
       instr if run_hot_pipeline_raw_ssa_nomerge_loop_is_result_unreachable_debris(
           instr, module_ctx,
         ) => ()
@@ -17022,6 +17146,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_const_should_drop_before_tail(
   while idx < instrs.length() {
     match instrs[idx] {
       @lib.Nop => idx += 1
+      @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        return run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(
+          instrs,
+          idx + 1,
+        )
       instr if run_hot_pipeline_raw_ssa_nomerge_loop_is_result_unreachable_debris(
           instr, module_ctx,
         ) =>
@@ -17116,7 +17245,12 @@ fn run_hot_pipeline_raw_ssa_nomerge_drop_dead_stack_before_unreachable_body(
           instrs,
           idx + 1,
         )
-      @lib.F64Sqrt =>
+      @lib.F64Sqrt | @lib.I32x4Splat =>
+        run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(
+          instrs,
+          idx + 1,
+        )
+      @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         run_hot_pipeline_raw_ssa_nomerge_tail_only_nop_unreachable(
           instrs,
           idx + 1,
@@ -17483,8 +17617,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
       locals.copy(),
       @lib.Expr::new(rewritten_instrs),
     )
-    let (expanded, _) = run_hot_pipeline_raw_ssa_nomerge_expand_zero_v128_defaults_func(
-      rewritten,
+    let (expanded, _) = run_hot_pipeline_raw_ssa_nomerge_expand_v128_defaults_from_gets_func(
+      func, rewritten,
     )
     (expanded, true)
   }

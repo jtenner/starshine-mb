@@ -24817,6 +24817,45 @@ test "ssa-nomerge materializes no-write numeric and simd default local reads" {
     msg=ref_index_shifted_text,
   )
 
+  let existing_zero_v128_source =
+    #|(module
+    #|  (func (local f64)
+    #|    local.get 0
+    #|    v128.const i32x4 0 0 0 0
+    #|    unreachable))
+  let existing_zero_v128 = match
+    pass_test_run_pipeline(
+      existing_zero_v128_source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected existing zero-v128 dead stack rewrite success, got \{err}")
+  }
+  let (_, existing_zero_v128_instrs) = try! ssa_test_first_defined_func(
+    existing_zero_v128,
+  )
+  let existing_zero_v128_text = existing_zero_v128_instrs.to_string()
+  assert_true(
+    existing_zero_v128_text.contains("f64.const"),
+    msg=existing_zero_v128_text,
+  )
+  assert_true(
+    existing_zero_v128_text.contains("v128.const") ||
+    existing_zero_v128_text.contains("V128Const"),
+    msg=existing_zero_v128_text,
+  )
+  assert_false(
+    existing_zero_v128_text.contains("i32x4.splat") ||
+    existing_zero_v128_text.contains("I32x4Splat"),
+    msg=existing_zero_v128_text,
+  )
+  assert_true(
+    ssa_nomerge_test_count_drops(existing_zero_v128_instrs) >= 2,
+    msg=existing_zero_v128_text,
+  )
+
   assert_true(
     trace.any(fn(line) {
       line.contains(
