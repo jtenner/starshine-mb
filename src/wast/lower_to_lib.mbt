@@ -3618,10 +3618,47 @@ pub fn wast_ast_to_binary_module(mod : Module) -> Result[@lib.Module, String] {
 }
 
 ///|
+fn wt_lower_source_to_bytes(source : String) -> Bytes {
+  let bytes = @buffer.new(size_hint=source.length())
+  for i = 0; i < source.length(); i = i + 1 {
+    bytes.write_byte(source[i].to_int().to_byte())
+  }
+  bytes.to_bytes()
+}
+
+///|
+fn wt_unsupported_stack_switching_reason(
+  source : String,
+  filename : String,
+) -> String? {
+  let lexer = WastLexer::new(wt_lower_source_to_bytes(source), filename)
+  while true {
+    let token = lexer.get_token()
+    match token.token_type {
+      Eof => return None
+      Reserved =>
+        match token.value {
+          Text("cont") | Text("resume") | Text("resume_throw") | Text("on") =>
+            return Some(
+              "stack-switching text is unsupported: @lib/@wast do not represent cont, resume, resume_throw, or on handler labels",
+            )
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
 pub fn wast_to_binary_module(
   source : String,
   filename? : String = "<memory>",
 ) -> Result[@lib.Module, String] {
+  match wt_unsupported_stack_switching_reason(source, filename) {
+    Some(reason) => return Err("\{reason} in \{filename}")
+    None => ()
+  }
   match wast_to_module(source, filename~) {
     Ok(mod) => wast_ast_to_binary_module(mod)
     Err(e) => Err(e)
@@ -6385,6 +6422,32 @@ test "wast_to_binary_module lowers advanced reference no-immediate instructions"
       fail(
         "expected lowered function body containing advanced reference instructions",
       )
+  }
+}
+
+///|
+test "wast_to_binary_module rejects unsupported stack switching explicitly" {
+  let src =
+    #|(module
+    #|  (type $function (func))
+    #|  (type $cont (cont $function))
+    #|  (tag $tag)
+    #|  (func (param $c (ref $cont))
+    #|    (block $exit
+    #|      (drop
+    #|        (block $handle_effect (result (ref $cont))
+    #|          (resume $cont (on $tag $handle_effect)
+    #|            (local.get $c)))))))
+  match wast_to_binary_module(src, filename="stack-switching-boundary.wat") {
+    Ok(_) => fail("expected stack-switching text to stay unsupported")
+    Err(err) => {
+      assert_true(err.contains("stack-switching"), msg=err)
+      assert_true(err.contains("cont"), msg=err)
+      assert_true(err.contains("resume"), msg=err)
+      assert_true(err.contains("resume_throw"), msg=err)
+      assert_true(err.contains("on"), msg=err)
+      assert_true(err.contains("stack-switching-boundary.wat"), msg=err)
+    }
   }
 }
 

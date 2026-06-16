@@ -486,14 +486,13 @@ test "dead-code-elimination documents unsupported stack-switching boundary" {
       fail(
         "stack-switching handler-label DCE fixtures must stay unsupported until @lib/@wast represent cont/resume/on labels",
       )
-    Err(err) =>
-      assert_true(
-        err.contains("cont") ||
-        err.contains("resume") ||
-        err.contains("unknown") ||
-        err.contains("type body"),
-        msg=err,
-      )
+    Err(err) => {
+      assert_true(err.contains("stack-switching"), msg=err)
+      assert_true(err.contains("cont"), msg=err)
+      assert_true(err.contains("resume"), msg=err)
+      assert_true(err.contains("resume_throw"), msg=err)
+      assert_true(err.contains("on"), msg=err)
+    }
   }
 }
 
