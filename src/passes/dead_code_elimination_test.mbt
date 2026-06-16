@@ -416,6 +416,22 @@ test "dead-code-elimination trims non-control operands after unreachable child" 
 }
 
 ///|
+test "dead-code-elimination trims global.set wrapper around unreachable value" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (global $g (mut f64) (f64.const 0)) (func i32.const 0 if (result f64) unreachable else unreachable end global.set $g))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected global.set unreachable-value DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination preserves branch child when trimming unary wrapper" {
   let optimized = match
     pass_test_run_pipeline(

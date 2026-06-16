@@ -6673,6 +6673,19 @@ fn run_hot_pipeline_dce_raw_instrs_have_label_branch(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_body_is_literal_unreachable(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() != 1 {
+    return false
+  }
+  match instrs[0] {
+    @lib.Unreachable => true
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -6681,6 +6694,10 @@ fn run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
       block_type != @lib.BlockType::void_() &&
       !run_hot_pipeline_dce_raw_instrs_have_label_branch(body) &&
       !run_hot_pipeline_dce_raw_body_may_fallthrough(body)
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      block_type != @lib.BlockType::void_() &&
+      run_hot_pipeline_dce_raw_body_is_literal_unreachable(then_body) &&
+      run_hot_pipeline_dce_raw_body_is_literal_unreachable(else_body)
     _ => false
   }
 }
@@ -6795,6 +6812,18 @@ fn run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
       !run_hot_pipeline_dce_raw_body_may_fallthrough(body) =>
       (
         @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(body)),
+        true,
+      )
+    @lib.If(block_type, then_body, Some(else_body)) if block_type !=
+      @lib.BlockType::void_() &&
+      run_hot_pipeline_dce_raw_body_is_literal_unreachable(then_body) &&
+      run_hot_pipeline_dce_raw_body_is_literal_unreachable(else_body) =>
+      (
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          then_body,
+          Some(else_body),
+        ),
         true,
       )
     _ => (instr, false)

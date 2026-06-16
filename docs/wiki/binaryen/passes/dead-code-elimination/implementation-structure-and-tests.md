@@ -148,7 +148,7 @@ For `if`, DCE handles two special cases.
 2. If the `if` itself is not already unreachable, has an `else`, and both arms are unreachable, DCE changes the `if` type to `unreachable`.
 
 That is narrower than “generic dead arm simplification.”
-It is really type repair around already-unreachable parts.
+It is really type repair around already-unreachable parts. Starshine's 2026-06-16 `global.set` wrapper slice now covers the `dce_all-features.wast` family where a result `if` with both arms literally `unreachable` feeds a non-control side-effect wrapper: raw DCE voidifies the unreachable `if`, drops the dead `global.set`, and keeps the existing HOT lift path for return-valued typed `if` cases.
 
 ### `loop`
 
@@ -198,7 +198,7 @@ It proves that DCE handles shapes like:
 
 - blocks with dead suffixes after `br`, `return`, `br_table`, and `unreachable`; Starshine's 2026-06-16 focused fixtures also lock raw nested explicit-suffix trimming and literal-unreachable block/loop collapse when conservative load/call/set, loop-outer-branch, or no-candidate raw skips would otherwise skip the HOT pass
 - ifs whose condition is unreachable
-- ifs whose arms are both unreachable
+- ifs whose arms are both unreachable, including a result `if` feeding `global.set` where DCE must trim the dead non-control wrapper while preserving the unreachable control expression
 - loops whose body becomes fully unreachable
 - non-control expressions with an unreachable child where earlier children must be converted to `drop`; Starshine has focused coverage for the branch-operand-after-unreachable-child binary/drop shape and unary-wrapper branch-child shape, but broader non-control expression coverage should continue to be widened under the active audit
 
