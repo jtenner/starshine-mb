@@ -18061,9 +18061,30 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       let hot_func = @ir.hot_lift_func(mod_, func_idx)
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
       let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
-      run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
+      let (materialized, materialized_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
         original, params, plan,
       )
+      if materialized_changed {
+        let materialized_mod = run_hot_pipeline_module_with_rewritten_func(
+          mod_, func_idx, materialized,
+        )
+        let materialized_hot_func = @ir.hot_lift_func(
+          materialized_mod, func_idx,
+        )
+        let materialized_local_graph = @ir.local_graph_build(
+          materialized_hot_func,
+          @ir.cfg_build(materialized_hot_func),
+        )
+        let materialized_plan = ssa_nomerge_build_rewrite_plan(
+          materialized_hot_func, materialized_local_graph,
+        )
+        let (planned, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
+          materialized, params, materialized_plan,
+        )
+        (if planned_changed { planned } else { materialized }, true)
+      } else {
+        (materialized, materialized_changed)
+      }
     } else {
       (original, false)
     }
@@ -18132,29 +18153,19 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   func_idx : @lib.FuncIdx,
   module_state : HotPipelineModuleState,
   options : HotPipelineOptions,
-  collapsed : @lib.Func,
 ) -> HotPipelineFuncResult? {
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
   let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
-  let @lib.Func(_, @lib.Expr(instrs)) = collapsed
-  if !run_hot_pipeline_raw_ssa_nomerge_should_try_default_materialization(
-      instrs,
-      params.length(),
-    ) {
-    return None
-  }
-  let collapsed_mod = run_hot_pipeline_module_with_rewritten_func(
-    mod_, func_idx, collapsed,
-  )
-  let hot_func = @ir.hot_lift_func(collapsed_mod, func_idx)
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let hot_func = @ir.hot_lift_func(mod_, func_idx)
   let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
   let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
   let (planned, planned_changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
-    collapsed, params, plan,
+    original, params, plan,
   )
-  let materialize_base = if planned_changed { planned } else { collapsed }
+  let materialize_base = if planned_changed { planned } else { original }
   let materialize_mod = run_hot_pipeline_module_with_rewritten_func(
     mod_, func_idx, materialize_base,
   )
@@ -18166,19 +18177,47 @@ fn run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
   let materialize_plan = ssa_nomerge_build_rewrite_plan(
     materialize_hot_func, materialize_local_graph,
   )
-  let (rewritten, default_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
+  let (default_rewritten, default_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
     materialize_base, params, materialize_plan,
   )
-  if planned_changed || default_changed {
+  let (rewritten, post_default_planned_changed) = if default_changed {
+    let default_mod = run_hot_pipeline_module_with_rewritten_func(
+      mod_, func_idx, default_rewritten,
+    )
+    let default_hot_func = @ir.hot_lift_func(default_mod, func_idx)
+    let default_local_graph = @ir.local_graph_build(
+      default_hot_func,
+      @ir.cfg_build(default_hot_func),
+    )
+    let default_plan = ssa_nomerge_build_rewrite_plan(
+      default_hot_func, default_local_graph,
+    )
+    let (default_planned, changed) = run_hot_pipeline_raw_ssa_nomerge_planned_structured(
+      default_rewritten, params, default_plan,
+    )
+    (if changed { default_planned } else { default_rewritten }, changed)
+  } else {
+    (default_rewritten, false)
+  }
+  let @lib.Func(locals, @lib.Expr(rewritten_instrs)) = rewritten
+  let (collapsed_instrs, collapsed_changed) = run_hot_pipeline_raw_collapse_null_throwref_try_table_debris(
+    rewritten_instrs,
+  )
+  if planned_changed ||
+    default_changed ||
+    post_default_planned_changed ||
+    collapsed_changed {
     Some({
       reason: if planned_changed && default_changed {
         "structured-localgraph-plan-default-local-reads-null-throwref-debris"
       } else if planned_changed {
         "structured-localgraph-plan-null-throwref-debris"
-      } else {
+      } else if default_changed {
         "structured-default-local-reads-localgraph-plan-null-throwref-debris"
+      } else {
+        "null-throwref-debris"
       },
-      func: rewritten,
+      func: @lib.Func::new(locals.copy(), @lib.Expr::new(collapsed_instrs)),
       unchanged_original: false,
       trace_skip_raw: true,
     })
@@ -18215,12 +18254,22 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         instrs,
       )
       if collapsed {
-        Some({
-          reason: "\{raw_result.reason}-null-throwref-debris",
-          func: @lib.Func::new(locals.copy(), @lib.Expr::new(collapsed_instrs)),
-          unchanged_original: false,
-          trace_skip_raw: raw_result.trace_skip_raw,
-        })
+        match
+          run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
+            mod_, func_idx, module_state, options,
+          ) {
+          Some(rewritten) => Some(rewritten)
+          None =>
+            Some({
+              reason: "\{raw_result.reason}-null-throwref-debris",
+              func: @lib.Func::new(
+                locals.copy(),
+                @lib.Expr::new(collapsed_instrs),
+              ),
+              unchanged_original: false,
+              trace_skip_raw: raw_result.trace_skip_raw,
+            })
+        }
       } else {
         Some(raw_result)
       }
@@ -18238,7 +18287,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
         )
         match
           run_hot_pipeline_raw_ssa_nomerge_materialize_defaults_after_debris_collapse(
-            mod_, func_idx, module_state, options, collapsed_func,
+            mod_, func_idx, module_state, options,
           ) {
           Some(rewritten) => Some(rewritten)
           None =>

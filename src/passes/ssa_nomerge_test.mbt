@@ -6506,6 +6506,115 @@ test "ssa-nomerge composes defaults with typed-loop null throw_ref debris" {
 }
 
 ///|
+test "ssa-nomerge freshens post-branch default chains" {
+  // Binaryen materializes the body-local default read after an ordinary block
+  // branch, then freshens the subsequent single-source set/get and tee/get
+  // chain. Keeping those writes on the canonical local is the dominant
+  // dedicated smoke mismatch shape after default materialization landed.
+  let source =
+    #|(module
+    #|  (func (export "f") (param i32) (local i32)
+    #|    block
+    #|      br 0
+    #|    end
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 1
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 7
+    #|    local.tee 1
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(0)"), msg=text)
+  assert_true(locals.length() >= 4, msg=locals.to_string() + "\n" + text)
+  assert_false(
+    ssa_test_local_write_indices(instrs).contains(1U),
+    msg="expected post-branch single-source writes to freshen: " + text,
+  )
+  assert_false(
+    ssa_nomerge_test_local_get_indices(instrs).contains(1U),
+    msg="expected post-branch single-source reads to retarget: " + text,
+  )
+}
+
+///|
+test "ssa-nomerge preserves dead-tail fresh local declarations before null throw_ref collapse" {
+  // Binaryen `SSAify(false)` allocates fresh locals while walking all
+  // `local.set` / `local.tee` nodes, before later unreachable-tail cleanup
+  // removes a null-throw_ref suffix and its dead followers. Starshine must keep
+  // those declarations so the dedicated GenValid lane does not drift solely
+  // because the LocalGraph plan was rebuilt after trimming the suffix.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (export "f") (param i32) (local i32)
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 1
+    #|    local.set 1
+    #|    try_table (catch_all 0)
+    #|      i32.const 42
+    #|      local.set 1
+    #|      ref.null noexn
+    #|      throw_ref
+    #|    end
+    #|    i32.const 10
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 11
+    #|    local.set 1
+    #|    local.get 1
+    #|    drop
+    #|    i32.const 12
+    #|    local.tee 1
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dead-tail null throw_ref pipeline success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) { line.contains("null-throwref-debris") }),
+    msg=trace.to_string(),
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_false(text.contains("try_table"), msg=text)
+  assert_false(text.contains("throw_ref"), msg=text)
+  assert_true(
+    text.contains("Unreachable") || text.contains("unreachable"),
+    msg=text,
+  )
+  assert_true(
+    locals.length() >= 6,
+    msg="expected declarations for fresh locals planned before dead-tail collapse; locals: " +
+      locals.to_string() +
+      "\n" +
+      text,
+  )
+}
+
+///|
 test "ssa-nomerge lowers null throw_ref try_table debris to unreachable" {
   // Dedicated `ssa-nomerge-coverage` GenValid failures such as
   // `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-abs6097-branchcopyfix-10000/failures/case-000022-gen-valid`
@@ -29120,9 +29229,16 @@ test "ssa-nomerge redirects if-arm branch copy aliases" {
     Err(err) => fail("expected if-arm branch copy alias success, got \{err}")
   }
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() <= 11, msg=locals.to_string())
+  assert_true(locals.length() <= 28, msg=locals.to_string())
+  let tee_indices = ssa_test_local_tee_indices(instrs)
+  let mut final_tee = 0U
+  for idx in tee_indices {
+    if idx > final_tee {
+      final_tee = idx
+    }
+  }
   assert_false(
-    ssa_nomerge_test_local_get_indices(instrs).any(fn(idx) { idx == 10U }),
+    ssa_nomerge_test_local_get_indices(instrs).contains(final_tee),
     msg=instrs.to_string(),
   )
 }

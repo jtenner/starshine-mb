@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] passes/ssa-nomerge | Compose post-branch defaults with freshening
+
+- Fixed a reduced `ssa-nomerge` default/freshening ordering gap from the dedicated GenValid smoke family: after an ordinary `block; br 0; end`, Binaryen materializes the body-local default read and then freshens the following single-source set/get and tee/get chain, while Starshine had stopped after default materialization.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to rebuild LocalGraph and run the planned structured rewrite after default materialization; the null-`throw_ref` debris path now applies original/default/post-default planning before collapsing the local-only EH debris. Added red-first coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): `ssa-nomerge freshens post-branch default chains` and `ssa-nomerge preserves dead-tail fresh local declarations before null throw_ref collapse`; generalized the branch-copy alias regression so it no longer depends on the old local number.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `456/456`; `moon fmt`; `moon test src/passes` passed `2491/2491`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5797/5797`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-postbranch-default-10000` compared `7094/10000`, normalized `7094`, mismatches `0`, cached Binaryen command failures `20`.
+- Dedicated GenValid lanes remain open rather than closeout evidence: smoke `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-postbranch-default-10000` requested `10000`, compared `58`, normalized `29`, mismatches `29`, command failures `0`; coverage `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-postbranch-default-10000` requested `10000`, compared `57`, normalized `29`, mismatches `28`, command failures `0`.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-15] passes/ssa-nomerge | Narrow loop-carried canonical freshening
 
 - Fixed a remaining dedicated GenValid `ssa-nomerge` under-freshening shape where a local has single-source pre-loop writes before a later loop-carried canonical merge region. Binaryen freshens the overwritten pre-loop writes while preserving only the merge-feeding loop-entry/backedge writes on the canonical local; Starshine's planner had kept every write to that local canonical once any loop read-before-write existed.
