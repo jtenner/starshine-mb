@@ -5244,10 +5244,85 @@ fn emit_gen_valid_batch_selection(
 }
 
 ///|
+fn format_gen_valid_batch_compact_manifest_json(
+  args : EmitGenValidBatchArgs,
+  profile : GenValidProfile,
+  feature_stats : GenValidFeatureStats,
+  selected : Int,
+  attempts : Int,
+  skipped_candidates : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"generator\":\"gen-valid\",\"seed\":\{args.seed},\"count\":\{args.count},\"profile\":\"\{fuzz_json_escape(args.profile)}\",\"max_attempts\":\{args.max_attempts},\"attempts\":\{attempts},\"selected\":\{selected},\"skipped_candidates\":\{skipped_candidates},\"metamorphic_transform_ids\":\{format_gen_valid_batch_transform_ids_json(args.metamorphic_transform_ids)},\"required_features\":\{format_validate_valid_feature_floors_json(args.required_features)},\"excluded_features\":\{format_gen_valid_batch_feature_keys_json(args.excluded_features)},\"feature_stats\":\{format_gen_valid_feature_stats_json(feature_stats)},\"stream_derivations\":\{format_gen_valid_stream_derivations_json(args.seed)},\"records\":[",
+  )
+  let requested_profile_label = gen_valid_profile_name(profile)
+  let config_label = if gen_valid_profile_is_composite(profile) {
+    requested_profile_label
+  } else {
+    args.profile
+  }
+  let mut i = 1
+  while i <= selected {
+    if i > 1 {
+      out.write_char(',')
+    }
+    let leaf_profile = gen_valid_profile_leaf_for_case(profile, args.seed, i)
+    let selected_profile_label = gen_valid_profile_name(leaf_profile)
+    let transform_json = if args.metamorphic_transform_ids.length() > 0 {
+      let transform_id = args.metamorphic_transform_ids[(i - 1) %
+        args.metamorphic_transform_ids.length()]
+      "\"\{fuzz_json_escape(transform_id)}\""
+    } else {
+      "null"
+    }
+    out.write_string(
+      "{\"file_name\":\"gen-valid-\{fuzz_zero_pad_decimal(i, 6)}.wasm\",\"seed\":\{args.seed},\"index\":\{i},\"config_label\":\"\{fuzz_json_escape(config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(selected_profile_label)}\",\"attempts\":1,\"validated\":true,\"validation_error_message\":null,\"transform_id\":\{transform_json}}",
+    )
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
 fn emit_gen_valid_batch_to_dir(
   args : EmitGenValidBatchArgs,
 ) -> Result[GenValidCoverageSelection, String] {
-  let selection = match emit_gen_valid_batch_selection(args) {
+  if args.count < 0 {
+    return Err("count must be non-negative")
+  }
+  if args.max_attempts < 0 {
+    return Err("max_attempts must be non-negative")
+  }
+  if args.count == 0 {
+    let selection = match emit_gen_valid_batch_selection(args) {
+      Ok(v) => v
+      Err(e) => return Err(e)
+    }
+    match create_dir(args.out_dir) {
+      Ok(_) => ()
+      Err(e) =>
+        return Err(
+          "failed to create gen-valid output dir \{args.out_dir}: \{e}",
+        )
+    }
+    match args.manifest_path {
+      Some(path) => {
+        let manifest_json = format_gen_valid_batch_manifest_json(
+          args, selection,
+        )
+        match write_file_bytes(path, fuzz_string_to_bytes(manifest_json)) {
+          Ok(_) => ()
+          Err(e) =>
+            return Err("failed to write gen-valid manifest \{path}: \{e}")
+        }
+      }
+      None => ()
+    }
+    return Ok(selection)
+  }
+  let profile = match gen_valid_profile_by_name(args.profile) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -5256,16 +5331,119 @@ fn emit_gen_valid_batch_to_dir(
     Err(e) =>
       return Err("failed to create gen-valid output dir \{args.out_dir}: \{e}")
   }
-  for artifact in selection.artifacts {
-    let path = fuzz_join_path(args.out_dir, artifact.0)
-    match write_file_bytes(path, artifact.1) {
+  let first_leaf = gen_valid_profile_leaf_for_case(profile, args.seed, 1)
+  let mut feature_stats = GenValidFeatureStats::empty(
+    GenValidConfig::for_profile(first_leaf).mode,
+  )
+  let mut selected = 0
+  let mut attempts = 0
+  let mut skipped_candidates = 0
+  while attempts < args.max_attempts && selected < args.count {
+    let case_index = selected + 1
+    let leaf_profile = gen_valid_profile_leaf_for_case(
+      profile,
+      args.seed,
+      case_index,
+    )
+    let selected_profile_label = gen_valid_profile_name(leaf_profile)
+    let config = GenValidConfig::for_profile(leaf_profile)
+    attempts += 1
+    let generated = match
+      gen_valid_module_result_from_seed(
+        emit_gen_valid_batch_candidate_seed(args.seed, attempts),
+        config,
+      ) {
+      Ok(v) => v
+      Err(failure) =>
+        return Err(
+          "gen-valid coverage selection failed at attempt \{attempts} with selected profile \{selected_profile_label} after \{failure.attempts} generator attempts: \{failure.validation_error_message}",
+        )
+    }
+    if gen_valid_coverage_facts_has_excluded(
+        generated.facts,
+        config.mode,
+        args.excluded_features,
+      ) {
+      skipped_candidates += 1
+      continue
+    }
+    let next_stats = feature_stats.record(generated.facts)
+    if !gen_valid_coverage_contributes(
+        feature_stats,
+        next_stats,
+        args.required_features,
+      ) {
+      skipped_candidates += 1
+      continue
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) =>
+        return Err(
+          "gen-valid coverage selection produced invalid module at attempt \{attempts} with selected profile \{selected_profile_label}: \{validation_error_message(err)}",
+        )
+    }
+    let mut artifact_module = generated.wasm_module
+    if args.metamorphic_transform_ids.length() > 0 {
+      let requested_id = args.metamorphic_transform_ids[selected %
+        args.metamorphic_transform_ids.length()]
+      let transform = match metamorphic_valid_transform_by_id(requested_id) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      if !gen_valid_coverage_candidate_transform_applicable(
+          generated.wasm_module,
+          transform,
+        ) {
+        skipped_candidates += 1
+        continue
+      }
+      let transformed = match
+        metamorphic_apply_transform(generated.wasm_module, transform) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      artifact_module = transformed.wasm_module
+    }
+    let bytes = match encode_module(artifact_module) {
+      Ok(v) => v
+      Err(err) =>
+        return Err(
+          "gen-valid coverage selection encode failed at attempt \{attempts}: \{err}",
+        )
+    }
+    selected += 1
+    let file_name = "gen-valid-\{fuzz_zero_pad_decimal(selected, 6)}.wasm"
+    let path = fuzz_join_path(args.out_dir, file_name)
+    match write_file_bytes(path, bytes) {
       Ok(_) => ()
       Err(e) => return Err("failed to write gen-valid artifact \{path}: \{e}")
     }
+    feature_stats = next_stats
+  }
+  let floor_failures = check_validate_valid_feature_floors(
+    feature_stats,
+    args.required_features,
+  )
+  if selected < args.count || !floor_failures.is_empty() {
+    return Err(
+      "gen-valid coverage selection unmet feature floors after \{attempts} attempts: selected=\{selected}/\{args.count} skipped=\{skipped_candidates} \{gen_valid_coverage_floor_failures_message(floor_failures)}",
+    )
+  }
+  let selection = {
+    artifacts: [],
+    manifest: [],
+    feature_stats,
+    floor_failures,
+    selected,
+    attempts,
+    skipped_candidates,
   }
   match args.manifest_path {
     Some(path) => {
-      let manifest_json = format_gen_valid_batch_manifest_json(args, selection)
+      let manifest_json = format_gen_valid_batch_compact_manifest_json(
+        args, profile, feature_stats, selected, attempts, skipped_candidates,
+      )
       match write_file_bytes(path, fuzz_string_to_bytes(manifest_json)) {
         Ok(_) => ()
         Err(e) => return Err("failed to write gen-valid manifest \{path}: \{e}")

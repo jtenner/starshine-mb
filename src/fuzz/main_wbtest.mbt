@@ -2645,6 +2645,8 @@ test "emit_gen_valid_batch_to_dir writes opt-in manifest for selected modules" {
     Err(e) => fail("expected manifest-backed gen-valid selection, got \{e}")
   }
   @debug.assert_eq(selection.selected, 1)
+  @debug.assert_eq(selection.artifacts.length(), 0)
+  @debug.assert_eq(selection.manifest.length(), 0)
   let manifest = match read_file_sync(manifest_path) {
     Ok(v) => v
     Err(e) => fail("expected manifest file to exist, got \{e}")
