@@ -337,7 +337,8 @@ pub fn ssa_nomerge_build_rewrite_plan(
       continue
     }
     let decision = if node_id < loop_carried_canonical_writes.length() &&
-      loop_carried_canonical_writes[node_id] {
+      loop_carried_canonical_writes[node_id] &&
+      @ir.local_graph_write_has_merge_influences(graph, node_id) {
       SsaNoMergeWriteDecision::KeepCanonical
     } else if @ir.local_graph_write_is_no_merge_freshenable(graph, node_id) {
       let fresh_local = next_fresh_local

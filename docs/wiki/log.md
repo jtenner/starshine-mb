@@ -3,6 +3,14 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-15] passes/ssa-nomerge | Narrow loop-carried canonical freshening
+
+- Fixed a remaining dedicated GenValid `ssa-nomerge` under-freshening shape where a local has single-source pre-loop writes before a later loop-carried canonical merge region. Binaryen freshens the overwritten pre-loop writes while preserving only the merge-feeding loop-entry/backedge writes on the canonical local; Starshine's planner had kept every write to that local canonical once any loop read-before-write existed.
+- Updated [`../../src/passes/ssa_nomerge.mbt`](../../src/passes/ssa_nomerge.mbt) so the loop-carried canonical-write override applies only to writes that actually influence a merge get; ordinary prelude writes fall back to the existing LocalGraph no-merge freshening rule. Strengthened [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) with a red-first planner fixture and a public typed-loop/null-throwref debris assertion requiring the pre-loop single-source `local.tee` to freshen.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `454/454`; `moon fmt`; `moon test src/passes` passed `2489/2489`; `moon info` passed with three pre-existing GenValid warnings; full `moon test` passed `5795/5795`; native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings; direct compare `.tmp/pass-fuzz-ssa-nomerge-loop-carried-freshen-10000` compared `7606/10000`, normalized `7606`, mismatches `0`, cached Binaryen command failures `20`.
+- Dedicated smoke `.tmp/pass-fuzz-ssa-nomerge-genvalid-smoke-loop-carried-freshen-10000` requested `10000`, compared `56`, normalized `28`, mismatches `28`, command failures `0`; dedicated coverage `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-loop-carried-freshen-10000` requested `10000`, compared `56`, normalized `28`, mismatches `28`, command failures `0`. The prior sample now freshens the pre-loop chain, but `[SSANM-012c]` remains open because remaining dedicated failures still show Binaryen declaring more unused/future locals around hard-unreachable tails.
+- Updated [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-15] passes/ssa-nomerge | Compose pre-write defaults with debris cleanup
 
 - Fixed actionable equal-size dedicated GenValid smoke/coverage mismatch families where Binaryen materialized a body-local entry read before later writes as `i32.const 0`, while Starshine kept `local.get` because it skipped default rewrites for locals written anywhere later in the function or returned after null-`throw_ref` debris cleanup.

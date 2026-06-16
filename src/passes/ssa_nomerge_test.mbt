@@ -718,6 +718,82 @@ test "ssa-nomerge planner classifies loop-carried no-read set and dead tee write
     Some(SsaNoMergeGetDecision::KeepCanonical),
   )
 
+  let overwritten_before_loop_func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let preloop_set = @ir.hot_build_local_set(
+    overwritten_before_loop_func,
+    0,
+    @ir.hot_build_const_i32(overwritten_before_loop_func, @lib.I32(7)),
+  )
+  let preloop_get = @ir.hot_build_local_get(overwritten_before_loop_func, 0)
+  let loop_entry_set = @ir.hot_build_local_set(
+    overwritten_before_loop_func,
+    0,
+    @ir.hot_build_const_i32(overwritten_before_loop_func, @lib.I32(0)),
+  )
+  let carried_get = @ir.hot_build_local_get(overwritten_before_loop_func, 0)
+  let carried_set = @ir.hot_build_local_set(
+    overwritten_before_loop_func,
+    0,
+    @ir.hot_build_const_i32(overwritten_before_loop_func, @lib.I32(2)),
+  )
+  let carried_loop = @ir.hot_build_loop(
+    overwritten_before_loop_func,
+    @lib.BlockType::void_(),
+    [],
+  )
+  let carried_label = @ir.hot_control_node_label(
+    overwritten_before_loop_func, carried_loop,
+  )
+  @ir.hot_region_replace_body(
+    overwritten_before_loop_func,
+    @ir.hot_region_body_ref(overwritten_before_loop_func, carried_loop),
+    [
+      @ir.hot_build_drop(overwritten_before_loop_func, carried_get),
+      carried_set,
+      @ir.hot_build_br_if(
+        overwritten_before_loop_func,
+        carried_label,
+        @ir.hot_build_const_i32(overwritten_before_loop_func, @lib.I32(1)),
+      ),
+    ],
+  )
+  @ir.hot_root_append(overwritten_before_loop_func, preloop_set)
+  @ir.hot_root_append(
+    overwritten_before_loop_func,
+    @ir.hot_build_drop(overwritten_before_loop_func, preloop_get),
+  )
+  @ir.hot_root_append(overwritten_before_loop_func, loop_entry_set)
+  @ir.hot_root_append(overwritten_before_loop_func, carried_loop)
+
+  let overwritten_before_loop_plan = ssa_nomerge_test_plan(
+    overwritten_before_loop_func,
+  )
+
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(overwritten_before_loop_plan, preloop_set),
+    Some(SsaNoMergeWriteDecision::Freshen(1)),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_get_decision(overwritten_before_loop_plan, preloop_get),
+    Some(SsaNoMergeGetDecision::Retarget(1)),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(
+      overwritten_before_loop_plan, loop_entry_set,
+    ),
+    Some(SsaNoMergeWriteDecision::KeepCanonical),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_write_decision(overwritten_before_loop_plan, carried_set),
+    Some(SsaNoMergeWriteDecision::KeepCanonical),
+  )
+  @debug.assert_eq(
+    ssa_nomerge_test_get_decision(overwritten_before_loop_plan, carried_get),
+    Some(SsaNoMergeGetDecision::KeepCanonical),
+  )
+
   let dead_set_func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
   )
@@ -6416,6 +6492,11 @@ test "ssa-nomerge composes defaults with typed-loop null throw_ref debris" {
   assert_false(text.contains("try_table"), msg=text)
   assert_false(text.contains("throw_ref"), msg=text)
   assert_true(ssa_nomerge_test_has_brtable_default_zero_drop(instrs), msg=text)
+  assert_true(
+    ssa_test_local_tee_indices(instrs).any(fn(idx) { idx > 1U }),
+    msg="expected the pre-loop single-source local.tee to freshen; output: " +
+      text,
+  )
   assert_true(
     trace.any(fn(line) {
       line.contains("localgraph-plan") && line.contains("null-throwref-debris")
