@@ -463,6 +463,41 @@ test "dead-code-elimination treats lowered legacy try with all arms unreachable 
 }
 
 ///|
+test "dead-code-elimination documents unsupported legacy pop boundary" {
+  match
+    @wast.wast_to_binary_module(
+      (
+        #|(module
+        #|  (tag $e-i32 (param i32))
+        #|  (func $helper (param i32 i32))
+        #|  (func
+        #|    (block $label
+        #|      (try
+        #|        (do nop)
+        #|        (catch $e-i32
+        #|          (call $helper
+        #|            (pop i32)
+        #|            (br $label))
+        #|          nop)))))
+        #|)
+        #|,
+      ),
+      filename="dce-legacy-pop-boundary.wat",
+    ) {
+    Ok(_) =>
+      fail(
+        "Binaryen legacy pop DCE fixtures must stay unsupported until @lib/@wast represent real legacy Try catch payloads and pop",
+      )
+    Err(err) => {
+      assert_true(err.contains("legacy"), msg=err)
+      assert_true(err.contains("pop"), msg=err)
+      assert_true(err.contains("real legacy Try"), msg=err)
+      assert_true(err.contains("catch payload"), msg=err)
+    }
+  }
+}
+
+///|
 test "dead-code-elimination documents unsupported stack-switching boundary" {
   match
     @wast.wast_to_binary_module(

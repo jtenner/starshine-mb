@@ -3651,11 +3651,39 @@ fn wt_unsupported_stack_switching_reason(
 }
 
 ///|
+fn wt_unsupported_legacy_pop_reason(
+  source : String,
+  filename : String,
+) -> String? {
+  let lexer = WastLexer::new(wt_lower_source_to_bytes(source), filename)
+  while true {
+    let token = lexer.get_token()
+    match token.token_type {
+      Eof => return None
+      Reserved =>
+        match token.value {
+          Text("pop") =>
+            return Some(
+              "legacy exception pop text is unsupported: @lib/@wast do not represent Binaryen pop, real legacy Try, or catch payload flow",
+            )
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
 pub fn wast_to_binary_module(
   source : String,
   filename? : String = "<memory>",
 ) -> Result[@lib.Module, String] {
   match wt_unsupported_stack_switching_reason(source, filename) {
+    Some(reason) => return Err("\{reason} in \{filename}")
+    None => ()
+  }
+  match wt_unsupported_legacy_pop_reason(source, filename) {
     Some(reason) => return Err("\{reason} in \{filename}")
     None => ()
   }

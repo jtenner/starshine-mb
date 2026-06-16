@@ -166,7 +166,7 @@ For legacy `try`, DCE checks whether:
 
 If both are true and the try node is not already marked unreachable, DCE changes the try type to `unreachable`.
 
-Starshine does **not** currently claim full local coverage for this legacy `try` behavior: `@lib.Instruction` has `TryTable` but no real legacy `Try` node, and WAST lowering represents legacy try/catch as a synthetic sequential check block. As of 2026-06-16, focused DCE tests cover the two observed Binaryen v130 reachability cases on that local synthetic surface: reachable lowered arms trigger a conservative raw skip reason, `legacy-synthetic-try-reachable-arm-dce-noop`, so following roots stay reachable; all-unreachable lowered arms can still make following roots dead. Reopen for full parity when `@lib` / lowering can represent real legacy `Try` semantics, including `pop`, rather than relying on synthetic check blocks.
+Starshine does **not** currently claim full local coverage for this legacy `try` behavior: `@lib.Instruction` has `TryTable` but no real legacy `Try` node, and WAST lowering represents legacy try/catch as a synthetic sequential check block. As of 2026-06-16, focused DCE tests cover the two observed Binaryen v130 reachability cases on that local synthetic surface: reachable lowered arms trigger a conservative raw skip reason, `legacy-synthetic-try-reachable-arm-dce-noop`, so following roots stay reachable; all-unreachable lowered arms can still make following roots dead. The later legacy-`pop` feasibility slice confirmed real parity is not feasible as a small DCE-only change: `@lib` / binary decode+encode / validation / HOT lower still lack a real legacy `Try` plus Binaryen `pop` / catch-payload-flow surface. `wast_to_binary_module` now rejects Binaryen legacy `pop` text with an explicit diagnostic instead of a generic parse/type error. Reopen for full parity only when those representation APIs exist, then implement the real `try` type-to-`unreachable` rule and the exact `hasPop && addedBlock` nested-pop repair trigger rather than relying on synthetic check blocks.
 
 ### `try_table`
 
@@ -226,7 +226,7 @@ This file covers modern EH and `try_table` behavior, including:
 This file covers legacy EH `try` plus the subtle `pop` story.
 Most importantly, it demonstrates why `hasPop` plus `addedBlock` triggers `EHUtils::handleBlockNestedPops(...)` at function end.
 The file includes shapes where DCE-created blocks would otherwise leave nested `pop`s in invalid positions.
-Starshine currently treats the full file as a tooling/representation blocker, not a closed DCE behavior surface, because the local lib IR has no real legacy `Try` or `pop` instruction. The current focused tests only cover the safe synthetic-lowering reachability subset described above.
+Starshine currently treats the full file as a tooling/representation blocker, not a closed DCE behavior surface, because the local lib IR has no real legacy `Try` or `pop` instruction. The current focused tests only cover the safe synthetic-lowering reachability subset described above, plus an explicit fail-closed `pop` diagnostic fixture sourced from Binaryen v130's `call-pop-catch` shape. Binaryen v130 proof lives in `.tmp/dce-legacy-pop-boundary/call-pop-catch.dce.wat`; local Starshine proof is the DCE boundary test in `src/passes/dead_code_elimination_test.mbt`.
 
 ### `dce-stack-switching.wast`
 

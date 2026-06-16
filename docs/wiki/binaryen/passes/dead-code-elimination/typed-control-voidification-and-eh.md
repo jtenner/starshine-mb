@@ -91,7 +91,7 @@ Then the loop is replaced by the body.
 
 If the try body is unreachable and every catch body is unreachable, DCE changes the try node type to `unreachable`.
 
-Starshine currently records full legacy-try parity as a representation blocker rather than closed local coverage: `@lib` has no real legacy `Try`/`pop` representation, and valid legacy `try` text lowers to a synthetic sequential check block. The DCE audit covers only that synthetic surface for now: reachable alternate arms force a conservative raw skip, while all-unreachable lowered arms may still make following roots dead.
+Starshine currently records full legacy-try parity as a representation blocker rather than closed local coverage: `@lib` has no real legacy `Try`/`pop` representation, and valid legacy `try` text lowers to a synthetic sequential check block. The DCE audit covers only that synthetic surface for now: reachable alternate arms force a conservative raw skip, while all-unreachable lowered arms may still make following roots dead. The 2026-06-16 legacy `Try` / `pop` feasibility slice inspected the local surfaces and kept the blocker: real parity needs `@lib.Instruction::Try`, a Binaryen `pop` or equivalent catch-payload representation, binary/text decode+encode, validation/typechecking, and HOT lift/lower support before DCE can safely implement Binaryen's `hasPop && addedBlock` repair. Until then, Binaryen legacy `pop` text fails closed with an explicit diagnostic.
 
 ### `try_table`
 
@@ -154,5 +154,5 @@ So a future port must preserve this lesson:
 - Do not implement generic control voidification under the name `dce`.
 - Keep the block `hasBreaks(...)` guard before collapsing block type to `unreachable`.
 - Keep `if`, `loop`, `try`, and `try_table` as separate special cases.
-- Preserve the exact EH repair trigger: `hasPop && addedBlock`.
+- Preserve the exact EH repair trigger: `hasPop && addedBlock` once real `pop` is represented; do not claim this using synthetic lowering.
 - Treat stack-switching handler labels as part of the real liveness boundary.
