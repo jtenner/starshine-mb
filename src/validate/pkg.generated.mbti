@@ -873,6 +873,14 @@ pub struct GenValidFeatureFacts {
   has_gc_tail_call_combo : Bool
   has_shared_memory_atomics : Bool
   has_imports_start_exports : Bool
+  has_dce_non_control_unreachable_child : Bool
+  has_dce_block_dead_suffix : Bool
+  has_dce_block_has_break_guard : Bool
+  has_dce_if_unreachable_condition : Bool
+  has_dce_if_both_arms_unreachable : Bool
+  has_dce_loop_literal_unreachable_body : Bool
+  has_dce_try_table_unreachable : Bool
+  has_dce_drop_unreachable : Bool
   has_ssa_straight_line_local_chain : Bool
   has_ssa_already_ssa_local : Bool
   has_ssa_multi_def_same_local : Bool
@@ -992,6 +1000,14 @@ pub struct GenValidFeatureStats {
   gc_tail_call_combo : Int
   shared_memory_atomics : Int
   imports_start_exports : Int
+  dce_non_control_unreachable_child : Int
+  dce_block_dead_suffix : Int
+  dce_block_has_break_guard : Int
+  dce_if_unreachable_condition : Int
+  dce_if_both_arms_unreachable : Int
+  dce_loop_literal_unreachable_body : Int
+  dce_try_table_unreachable : Int
+  dce_drop_unreachable : Int
   ssa_straight_line_local_chain : Int
   ssa_already_ssa_local : Int
   ssa_multi_def_same_local : Int
@@ -1076,6 +1092,7 @@ pub struct GenValidFeatureToggles {
   allow_name_custom_sections : Bool
   allow_typed_body_generator : Bool
   allow_ssa_nomerge_body_generator : Bool
+  allow_dce_body_generator : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self
@@ -1109,6 +1126,7 @@ pub enum GenValidProfile {
   ValidatorStressProfile
   PassCleanupProfile
   PassDaeProfile
+  DceProfile
   PassInliningProfile
   PassMemoryProfile
   PassGcRefProfile
@@ -1670,6 +1688,14 @@ pub enum ValidateValidFeatureKey {
   GcTailCallCombo
   SharedMemoryAtomics
   ImportsStartExports
+  DceNonControlUnreachableChild
+  DceBlockDeadSuffix
+  DceBlockHasBreakGuard
+  DceIfUnreachableCondition
+  DceIfBothArmsUnreachable
+  DceLoopLiteralUnreachableBody
+  DceTryTableUnreachable
+  DceDropUnreachable
   InvalidAstStrategies
   InvalidBinaryStrategies
   WastArbitraryParity

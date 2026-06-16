@@ -3446,6 +3446,14 @@ pub enum ValidateValidFeatureKey {
   GcTailCallCombo
   SharedMemoryAtomics
   ImportsStartExports
+  DceNonControlUnreachableChild
+  DceBlockDeadSuffix
+  DceBlockHasBreakGuard
+  DceIfUnreachableCondition
+  DceIfBothArmsUnreachable
+  DceLoopLiteralUnreachableBody
+  DceTryTableUnreachable
+  DceDropUnreachable
   InvalidAstStrategies
   InvalidBinaryStrategies
   WastArbitraryParity
@@ -3559,6 +3567,17 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
     GcTailCallCombo => logger.write_string("GcTailCallCombo")
     SharedMemoryAtomics => logger.write_string("SharedMemoryAtomics")
     ImportsStartExports => logger.write_string("ImportsStartExports")
+    DceNonControlUnreachableChild =>
+      logger.write_string("DceNonControlUnreachableChild")
+    DceBlockDeadSuffix => logger.write_string("DceBlockDeadSuffix")
+    DceBlockHasBreakGuard => logger.write_string("DceBlockHasBreakGuard")
+    DceIfUnreachableCondition =>
+      logger.write_string("DceIfUnreachableCondition")
+    DceIfBothArmsUnreachable => logger.write_string("DceIfBothArmsUnreachable")
+    DceLoopLiteralUnreachableBody =>
+      logger.write_string("DceLoopLiteralUnreachableBody")
+    DceTryTableUnreachable => logger.write_string("DceTryTableUnreachable")
+    DceDropUnreachable => logger.write_string("DceDropUnreachable")
     InvalidAstStrategies => logger.write_string("InvalidAstStrategies")
     InvalidBinaryStrategies => logger.write_string("InvalidBinaryStrategies")
     WastArbitraryParity => logger.write_string("WastArbitraryParity")
@@ -3802,6 +3821,14 @@ pub fn validate_valid_feature_actual_count(
     GcTailCallCombo => stats.gc_tail_call_combo
     SharedMemoryAtomics => stats.shared_memory_atomics
     ImportsStartExports => stats.imports_start_exports
+    DceNonControlUnreachableChild => stats.dce_non_control_unreachable_child
+    DceBlockDeadSuffix => stats.dce_block_dead_suffix
+    DceBlockHasBreakGuard => stats.dce_block_has_break_guard
+    DceIfUnreachableCondition => stats.dce_if_unreachable_condition
+    DceIfBothArmsUnreachable => stats.dce_if_both_arms_unreachable
+    DceLoopLiteralUnreachableBody => stats.dce_loop_literal_unreachable_body
+    DceTryTableUnreachable => stats.dce_try_table_unreachable
+    DceDropUnreachable => stats.dce_drop_unreachable
     InvalidAstStrategies => 0
     InvalidBinaryStrategies => 0
     WastArbitraryParity => 0
@@ -3926,6 +3953,14 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     GcTailCallCombo,
     SharedMemoryAtomics,
     ImportsStartExports,
+    DceNonControlUnreachableChild,
+    DceBlockDeadSuffix,
+    DceBlockHasBreakGuard,
+    DceIfUnreachableCondition,
+    DceIfBothArmsUnreachable,
+    DceLoopLiteralUnreachableBody,
+    DceTryTableUnreachable,
+    DceDropUnreachable,
     InvalidAstStrategies,
     InvalidBinaryStrategies,
     WastArbitraryParity,
@@ -4095,6 +4130,14 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     GcTailCallCombo => "gc_tail_call_combo"
     SharedMemoryAtomics => "shared_memory_atomics"
     ImportsStartExports => "imports_start_exports"
+    DceNonControlUnreachableChild => "dce-non-control-unreachable-child"
+    DceBlockDeadSuffix => "dce-block-dead-suffix"
+    DceBlockHasBreakGuard => "dce-block-has-break-guard"
+    DceIfUnreachableCondition => "dce-if-unreachable-condition"
+    DceIfBothArmsUnreachable => "dce-if-both-arms-unreachable"
+    DceLoopLiteralUnreachableBody => "dce-loop-literal-unreachable-body"
+    DceTryTableUnreachable => "dce-try-table-unreachable"
+    DceDropUnreachable => "dce-drop-unreachable"
     InvalidAstStrategies => "invalid_ast_strategies"
     InvalidBinaryStrategies => "invalid_binary_strategies"
     WastArbitraryParity => "wast_arbitrary_parity"
@@ -4217,6 +4260,14 @@ fn validate_valid_feature_key_from_label(
     "gc_tail_call_combo" => Some(GcTailCallCombo)
     "shared_memory_atomics" => Some(SharedMemoryAtomics)
     "imports_start_exports" => Some(ImportsStartExports)
+    "dce-non-control-unreachable-child" => Some(DceNonControlUnreachableChild)
+    "dce-block-dead-suffix" => Some(DceBlockDeadSuffix)
+    "dce-block-has-break-guard" => Some(DceBlockHasBreakGuard)
+    "dce-if-unreachable-condition" => Some(DceIfUnreachableCondition)
+    "dce-if-both-arms-unreachable" => Some(DceIfBothArmsUnreachable)
+    "dce-loop-literal-unreachable-body" => Some(DceLoopLiteralUnreachableBody)
+    "dce-try-table-unreachable" => Some(DceTryTableUnreachable)
+    "dce-drop-unreachable" => Some(DceDropUnreachable)
     "invalid_ast_strategies" => Some(InvalidAstStrategies)
     "invalid_binary_strategies" => Some(InvalidBinaryStrategies)
     "wast_arbitrary_parity" => Some(WastArbitraryParity)
