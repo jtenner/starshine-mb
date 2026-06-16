@@ -3,6 +3,13 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-16] fuzzing | GenValid composite pass profiles
+
+- Added deterministic GenValid profile composition with `ssa-nomerge-all` sampling the current singleton SSA profiles (`ssa-nomerge-parity`, `ssa-nomerge-smoke`, `ssa-nomerge-coverage`, and `ssa-nomerge-stress`) from root seed plus selected case index.
+- Updated the GenValid batch manifest contract so each record has the requested `config_label` and a replay-oriented `selected_profile`; composite records keep `config_label` on the aggregate and expose the sampled leaf separately.
+- Updated pass-fuzzing guidance in [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), the pass implementation skill, and every pass folder's new `fuzzing.md` smoke-profile note. Ordinary `ssa-nomerge` dedicated closeout should now use `--gen-valid-profile ssa-nomerge-all`; singleton profiles remain targeted repro lanes.
+- Evidence: red-first profile tests failed on the missing composite constructor/API; after implementation, `moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt` passed `76/76`, `moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt` passed `91/91`, `bun test scripts/lib/pass-fuzz-compare-task.test.ts scripts/test/pass-fuzz-compare-command.ts` passed the matched Bun test file (`29/29`), `moon info` passed with the three pre-existing GenValid warnings, full `moon test` passed `5810/5810`, native `moon build --target native --release src/cmd` passed with pre-existing pass-manager warnings, a 4-artifact `ssa-nomerge-all` manifest probe showed per-record `selected_profile`, and `.tmp/pass-fuzz-ssa-nomerge-genvalid-all-smoke-100` compared `100/100` with `100` normalized matches, `0` mismatches, and sampled all four singleton leaves.
+
 ## [2026-06-16] passes/ssa-nomerge | Freshen ssanm pre-branch mixed writes
 
 - Reduced the dedicated `ssa-nomerge-parity` failure `.tmp/pass-fuzz-ssa-nomerge-genvalid-parity-typed-loop-dead-tail-blockshape-10000/failures/case-000002-gen-valid`: Binaryen freshens straight-line single-source writes before later branch-merge traffic on the same original local, while Starshine kept the pre-branch `local.set` / `local.tee` chain canonical because the mixed structured gate only admitted tee-bearing shapes with at most four writes.

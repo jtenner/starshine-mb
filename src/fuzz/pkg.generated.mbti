@@ -51,6 +51,8 @@ pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Byte
 
 pub fn emit_gen_valid_batch_artifacts_until_features(Int, UInt64, @validate.GenValidConfig, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int, metamorphic_transform_ids? : Array[String]) -> Result[GenValidCoverageSelection, String]
 
+pub fn emit_gen_valid_batch_artifacts_until_profile_features(Int, UInt64, @validate.GenValidProfile, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int, metamorphic_transform_ids? : Array[String]) -> Result[GenValidCoverageSelection, String]
+
 pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenValidBatchArtifacts, String]
 
 pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
@@ -570,6 +572,7 @@ pub struct GenValidBatchManifestEntry {
   seed : UInt64
   index : Int
   config_label : String
+  selected_profile : String
   attempts : Int
   validated : Bool
   validation_error_message : String?

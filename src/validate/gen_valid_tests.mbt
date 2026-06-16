@@ -7235,6 +7235,7 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
   assert_true(gen_valid_profile_names().contains("ssa-nomerge-smoke"))
   assert_true(gen_valid_profile_names().contains("ssa-nomerge-parity"))
   assert_true(gen_valid_profile_names().contains("ssa-nomerge-stress"))
+  assert_true(gen_valid_profile_names().contains("ssa-nomerge-all"))
   match gen_valid_profile_by_name("ssa-nomerge") {
     Ok(profile) => @debug.assert_eq(profile, SsaNomergeCoverageProfile)
     Err(msg) => fail(msg)
@@ -7251,6 +7252,16 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
     Ok(profile) => @debug.assert_eq(profile, SsaNomergeParityProfile)
     Err(msg) => fail(msg)
   }
+  match gen_valid_profile_by_name("ssa-nomerge-all") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, SsaNomergeAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(members.length() >= 4)
+      @debug.assert_eq(members[0].profile, SsaNomergeParityProfile)
+    }
+    Err(msg) => fail(msg)
+  }
   let config = GenValidConfig::for_profile(SsaNomergeCoverageProfile)
   @debug.assert_eq(gen_valid_config_label(config), "ssa-nomerge-coverage")
   assert_true(config.features.allow_ssa_nomerge_body_generator)
@@ -7260,6 +7271,65 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
   )
   assert_false(config.features.allow_imports)
   assert_false(config.features.allow_mems)
+}
+
+///|
+test "composite gen-valid profile sampling is deterministic and replayable" {
+  let first = gen_valid_profile_leaf_for_case(SsaNomergeAllProfile, 0x5eedUL, 1)
+  let replayed = gen_valid_profile_leaf_for_case(
+    SsaNomergeAllProfile,
+    0x5eedUL,
+    1,
+  )
+  let second = gen_valid_profile_leaf_for_case(
+    SsaNomergeAllProfile,
+    0x5eedUL,
+    2,
+  )
+  @debug.assert_eq(first, replayed)
+  assert_true(!gen_valid_profile_is_composite(first))
+  assert_true(!gen_valid_profile_is_composite(second))
+  assert_true(
+    [
+      SsaNomergeParityProfile,
+      SsaNomergeSmokeProfile,
+      SsaNomergeCoverageProfile,
+      SsaNomergeStressProfile,
+    ].contains(first),
+  )
+  assert_true(
+    [
+      SsaNomergeParityProfile,
+      SsaNomergeSmokeProfile,
+      SsaNomergeCoverageProfile,
+      SsaNomergeStressProfile,
+    ].contains(second),
+  )
+  @debug.assert_eq(
+    gen_valid_profile_leaf_for_case(SsaNomergeSmokeProfile, 0x5eedUL, 42),
+    SsaNomergeSmokeProfile,
+  )
+}
+
+///|
+test "ssa-nomerge aggregate profile samples every current SSA profile family" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 64 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      SsaNomergeAllProfile,
+      0x551aUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(SsaNomergeParityProfile))
+  assert_true(seen.contains(SsaNomergeSmokeProfile))
+  assert_true(seen.contains(SsaNomergeCoverageProfile))
+  assert_true(seen.contains(SsaNomergeStressProfile))
 }
 
 ///|

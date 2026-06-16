@@ -115,6 +115,7 @@ type StarshineInvocation = {
 
 type EffectTrapCounts = Record<keyof EffectTrapFacts, number>;
 type GenValidTransformCounts = Record<string, number>;
+type GenValidSelectedProfileCounts = Record<string, number>;
 
 type CaseRecord = {
   caseIndex: number;
@@ -123,6 +124,7 @@ type CaseRecord = {
   detail: string;
   failureClass?: CommandFailureClass;
   transformId?: string;
+  genValidSelectedProfile?: string;
   genValidFeatureFacts?: unknown;
   inputEffectTrapFacts?: EffectTrapFacts;
 };
@@ -163,6 +165,7 @@ export type PassFuzzCompareSummary = {
   genValidMetamorphicTransforms: string[];
   genValidManifestPath: string | null;
   genValidTransformCounts: GenValidTransformCounts;
+  genValidSelectedProfileCounts: GenValidSelectedProfileCounts;
   externalValidators: ExternalValidatorKind[];
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
@@ -1879,11 +1882,28 @@ function genValidManifestFeatureFacts(genValidManifestEntry: unknown | null): un
   return null;
 }
 
+function genValidManifestSelectedProfile(genValidManifestEntry: unknown | null): string | null {
+  if (genValidManifestEntry !== null && typeof genValidManifestEntry === "object" && "selected_profile" in genValidManifestEntry) {
+    const selectedProfile = (genValidManifestEntry as { selected_profile?: unknown }).selected_profile;
+    if (typeof selectedProfile === "string" && selectedProfile.length > 0) {
+      return selectedProfile;
+    }
+  }
+  return null;
+}
+
 function noteGenValidTransformCount(summary: PassFuzzCompareSummary, transformId: string | null): void {
   if (transformId === null) {
     return;
   }
   summary.genValidTransformCounts[transformId] = (summary.genValidTransformCounts[transformId] ?? 0) + 1;
+}
+
+function noteGenValidSelectedProfileCount(summary: PassFuzzCompareSummary, selectedProfile: string | null): void {
+  if (selectedProfile === null) {
+    return;
+  }
+  summary.genValidSelectedProfileCounts[selectedProfile] = (summary.genValidSelectedProfileCounts[selectedProfile] ?? 0) + 1;
 }
 
 function noteRuntimeExportInvocationMatrix(
@@ -1960,6 +1980,9 @@ export function passFuzzSummaryCoverageReport(summary: PassFuzzCompareSummary): 
   addCounter(strategies, "optional_generator_gen_valid", summary.generatorCounts.genValid);
   for (const [transform, count] of Object.entries(summary.genValidTransformCounts)) {
     addCounter(strategies, `optional_gen_valid_transform_${sanitizeCounterKey(transform)}`, count);
+  }
+  for (const [profile, count] of Object.entries(summary.genValidSelectedProfileCounts)) {
+    addCounter(strategies, `optional_gen_valid_selected_profile_${sanitizeCounterKey(profile)}`, count);
   }
   addCounter(strategies, "optional_property_idempotence_checked", summary.idempotenceCheckedCount);
   addCounter(strategies, "optional_property_idempotence_matched", summary.idempotenceMatchCount);
@@ -2761,6 +2784,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         ? path.relative(outDir, genValidManifestPath)
         : null,
     genValidTransformCounts: {},
+    genValidSelectedProfileCounts: {},
     externalValidators: options.externalValidators,
     runtimeExecution: options.runtimeExecution,
     propertyMode: options.propertyMode,
@@ -2804,14 +2828,19 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   let nextReplayIndex = 0;
   const caseRecords: CaseRecord[] = [];
   const caseTransformIds = new Map<number, string>();
+  const caseGenValidSelectedProfiles = new Map<number, string>();
   const caseGenValidFeatureFacts = new Map<number, unknown>();
 
   function recordCase(record: CaseRecord): void {
     const transformId = caseTransformIds.get(record.caseIndex);
+    const genValidSelectedProfile = caseGenValidSelectedProfiles.get(record.caseIndex);
     const genValidFeatureFacts = caseGenValidFeatureFacts.get(record.caseIndex);
     const enrichedRecord = {
       ...record,
       ...(record.transformId === undefined && transformId !== undefined ? { transformId } : {}),
+      ...(record.genValidSelectedProfile === undefined && genValidSelectedProfile !== undefined
+        ? { genValidSelectedProfile }
+        : {}),
       ...(record.genValidFeatureFacts === undefined && genValidFeatureFacts !== undefined
         ? { genValidFeatureFacts }
         : {}),
@@ -2861,6 +2890,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         transformId = genValidManifestTransformId(genValidManifestEntry);
         if (transformId !== null) {
           caseTransformIds.set(caseNumber, transformId);
+        }
+        const selectedProfile = genValidManifestSelectedProfile(genValidManifestEntry);
+        if (selectedProfile !== null) {
+          caseGenValidSelectedProfiles.set(caseNumber, selectedProfile);
+          noteGenValidSelectedProfileCount(summary, selectedProfile);
         }
         const featureFacts = genValidManifestFeatureFacts(genValidManifestEntry);
         if (featureFacts !== null) {

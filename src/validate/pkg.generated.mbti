@@ -74,6 +74,12 @@ pub fn gen_valid_numtype(GenValidContext) -> @lib.NumType
 
 pub fn gen_valid_profile_by_name(String) -> Result[GenValidProfile, String]
 
+pub fn gen_valid_profile_is_composite(GenValidProfile) -> Bool
+
+pub fn gen_valid_profile_leaf_for_case(GenValidProfile, UInt64, Int) -> GenValidProfile
+
+pub fn gen_valid_profile_members(GenValidProfile) -> Array[GenValidProfileMember]
+
 pub fn gen_valid_profile_name(GenValidProfile) -> String
 
 pub fn gen_valid_profile_names() -> Array[String]
@@ -1120,7 +1126,14 @@ pub enum GenValidProfile {
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
   SsaNomergeStressProfile
+  SsaNomergeAllProfile
 } derive(Eq, @debug.Debug)
+
+pub struct GenValidProfileMember {
+  profile : GenValidProfile
+  weight : Int
+} derive(Eq, @debug.Debug)
+pub fn GenValidProfileMember::new(GenValidProfile, Int) -> Self
 
 pub enum GenValidProposalFeature {
   GcFeature

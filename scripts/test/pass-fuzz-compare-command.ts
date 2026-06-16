@@ -199,6 +199,7 @@ process.exit(0);
     genValidMetamorphicTransforms: string[];
     genValidManifestPath: string | null;
     genValidTransformCounts: Record<string, number>;
+    genValidSelectedProfileCounts: Record<string, number>;
     inputEffectTrapCounts: Record<string, number>;
     runtimeExecutionMatrix: {
       summary: {

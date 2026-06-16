@@ -656,7 +656,22 @@ pub enum GenValidProfile {
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
   SsaNomergeStressProfile
+  SsaNomergeAllProfile
 } derive(Eq, Debug)
+
+///|
+pub struct GenValidProfileMember {
+  profile : GenValidProfile
+  weight : Int
+} derive(Eq, Debug)
+
+///|
+pub fn GenValidProfileMember::new(
+  profile : GenValidProfile,
+  weight : Int,
+) -> GenValidProfileMember {
+  { profile, weight }
+}
 
 ///|
 pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
@@ -691,7 +706,72 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
     SsaNomergeStressProfile => "ssa-nomerge-stress"
+    SsaNomergeAllProfile => "ssa-nomerge-all"
   }
+}
+
+///|
+pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
+  match profile {
+    SsaNomergeAllProfile => true
+    _ => false
+  }
+}
+
+///|
+pub fn gen_valid_profile_members(
+  profile : GenValidProfile,
+) -> Array[GenValidProfileMember] {
+  match profile {
+    SsaNomergeAllProfile =>
+      [
+        GenValidProfileMember::new(SsaNomergeParityProfile, 3),
+        GenValidProfileMember::new(SsaNomergeSmokeProfile, 2),
+        GenValidProfileMember::new(SsaNomergeCoverageProfile, 2),
+        GenValidProfileMember::new(SsaNomergeStressProfile, 1),
+      ]
+    _ => []
+  }
+}
+
+///|
+fn gen_valid_profile_case_roll(seed : UInt64, case_index : Int) -> UInt64 {
+  let normalized_index = if case_index <= 0 { 1 } else { case_index }
+  gen_valid_derive_stream_seed(seed, HarnessShufflingStream) ^
+  (normalized_index.to_uint64() * 0x9e3779b97f4a7c15UL) ^
+  0xbf58476d1ce4e5b9UL
+}
+
+///|
+pub fn gen_valid_profile_leaf_for_case(
+  profile : GenValidProfile,
+  seed : UInt64,
+  case_index : Int,
+) -> GenValidProfile {
+  let members = gen_valid_profile_members(profile)
+  if members.is_empty() {
+    return profile
+  }
+  let mut total_weight = 0
+  for entry in members {
+    if entry.weight > 0 {
+      total_weight += entry.weight
+    }
+  }
+  if total_weight <= 0 {
+    return profile
+  }
+  let mut roll = (gen_valid_profile_case_roll(seed, case_index) %
+  total_weight.to_uint64()).to_int()
+  for entry in members {
+    if entry.weight > 0 {
+      if roll < entry.weight {
+        return gen_valid_profile_leaf_for_case(entry.profile, seed, case_index)
+      }
+      roll -= entry.weight
+    }
+  }
+  members[members.length() - 1].profile
 }
 
 ///|
@@ -727,6 +807,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
     SsaNomergeStressProfile,
+    SsaNomergeAllProfile,
   ]
 }
 
@@ -778,6 +859,7 @@ pub fn gen_valid_profile_by_name(
     "portable-coverage-forced" => Ok(CoverageForcedPortableProfile)
     "binaryen-oracle-coverage-forced" => Ok(BinaryenOraclePortableProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
+    "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
     _ =>
       Err(
         "unknown gen-valid profile '\{name}'; expected \{gen_valid_join_profile_names(gen_valid_profile_names())}",
@@ -1108,6 +1190,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
     | SsaNomergeStressProfile => gen_valid_ssa_nomerge_profile_config(profile)
+    SsaNomergeAllProfile =>
+      gen_valid_ssa_nomerge_profile_config(SsaNomergeCoverageProfile)
   }
 }
 

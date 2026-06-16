@@ -140,9 +140,9 @@ Final closeout must use the `100000`-case direct pass lane, not the ordinary `10
 
 ### Pass-specific generator fuzz lanes
 
-Some passes have dedicated in-repo GenValid profiles that intentionally generate shapes the general alternating smith/GenValid lane may hit only rarely. When a pass has a named profile, when you change `src/validate/gen_valid*`, or when an audit mentions pass-specific generated shapes, add a separate `compare-pass` lane with `--gen-valid-profile <profile>` after the standard direct lane.
+Some passes have dedicated in-repo GenValid profiles that intentionally generate shapes the general alternating smith/GenValid lane may hit only rarely. When a pass has a named profile, when you change `src/validate/gen_valid*`, or when an audit mentions pass-specific generated shapes, add a separate `compare-pass` lane with `--gen-valid-profile <profile>` after the standard direct lane. If the pass has a composite/aggregate profile documented in `docs/wiki/binaryen/passes/<pass>/fuzzing.md`, use that aggregate profile for ordinary dedicated-profile signoff and final closeout; keep singleton profiles for targeted reproduction, feature-floor narrowing, and development probes.
 
-For ordinary implementation slices, use at least `10000` requested cases for the dedicated profile. For final closeout or audit-close claims, use a wider dedicated-profile lane unless the user explicitly approves a smaller run:
+For ordinary implementation slices, use at least `10000` requested cases for the dedicated aggregate/profile. For final closeout or audit-close claims, use a wider dedicated-profile lane unless the user explicitly approves a smaller run:
 
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 50000 --seed 0x551a --pass <canonical-name> --gen-valid-profile <profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-<profile>-50000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
@@ -150,9 +150,9 @@ bun scripts/pass-fuzz-compare.ts --count 50000 --seed 0x551a --pass <canonical-n
 
 Current dedicated pass-profile examples:
 
-- `ssa-nomerge`: run `ssa-nomerge-coverage` for shape breadth, `ssa-nomerge-smoke` for quick structured-branch SSA coverage smoke, and `ssa-nomerge-parity` when the slice specifically changed parity-safe SSA generator templates. Use explicit out dirs such as `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-50000`. If the user asks for “ssa-genvalid fuzz”, treat this as `--pass ssa-nomerge --gen-valid-profile ssa-nomerge-coverage` unless they specify another SSA profile.
+- `ssa-nomerge`: use `ssa-nomerge-all` as the ordinary aggregate dedicated-profile lane and final closeout lane. It deterministically samples the singleton SSA profiles and records both `config_label: "ssa-nomerge-all"` and per-case `selected_profile` in the GenValid manifest. Use `ssa-nomerge-smoke`, `ssa-nomerge-coverage`/`ssa-nomerge`, `ssa-nomerge-parity`, or `ssa-nomerge-stress` only for targeted reproduction, required-feature narrowing, or when a slice specifically changes that singleton surface. Use explicit out dirs such as `.tmp/pass-fuzz-ssa-nomerge-genvalid-all-50000`. If the user asks for “ssa-genvalid fuzz” without naming a profile, treat this as `--pass ssa-nomerge --gen-valid-profile ssa-nomerge-all`.
 
-Report dedicated-profile lanes separately from the general compare lane: profile name, requested count, compared count, normalized matches, cleanup-normalized matches, raw mismatches, command failures, and any profile-specific feature-floor or generation failures.
+Report dedicated-profile lanes separately from the general compare lane: requested profile, selected subprofile counts when the manifest has `selected_profile`, requested count, compared count, normalized matches, cleanup-normalized matches, raw mismatches, command failures, and any profile-specific feature-floor or generation failures.
 
 For DAE / `dae-optimizing` mixed-generator lanes, add the documented compare normalizer so generated dropped-constant debris does not consume the mismatch budget:
 
