@@ -29,6 +29,17 @@
 
 ### json-as debug artifact triage
 
+- [JSON-AS]009 - Direct `ssa-nomerge` still fails latest json-as whitespace SIMD artifact
+  - Status: active correctness blocker as of 2026-06-16 after fixing the first allocator, map-loop, and string-concat SSANoMerge hazards.
+  - Goal: make direct Starshine `--ssa-nomerge` on `.tmp/json-as-f707d68/.as-test/build/simd/whitespace.spec.wasm` validate and pass the actual `as-test` whitespace SIMD runtime suite, matching Binaryen's no-error behavior.
+  - Why: Starshine output validates but runtime still aborts after the latest fixes. Current direct Node/WASI replay fails with `abort: in ~lib/rt/itcms.ts(295:14)`. Function-swap bisection against Binaryen output after the latest commit points at defined function index `848` as the next failing single-function Starshine transform; swapping only that function causes a timeout/failure.
+  - Recent completed fixes: `~lib/rt/tlsf/removeBlock` stale nested mask `eqz` retargeting, `~lib/rt/tlsf/addMemory` param-alias merge before branch writes, Map#find loop backedge carrier retargeting, and `String.__concat` stack-spill argument alias repair.
+  - Deliverables:
+    - [ ] Extract and inspect defined function `848` from `.tmp/jsonas-ssa-nomerge-smoke-20260616/swap-debug-next3/{binaryen,starshine}.strip.named.wat` and reduce the transform mismatch before changing behavior.
+    - [ ] Add a focused failing `ssa_nomerge_test.mbt` regression for the function-848 family.
+    - [ ] Fix the SSANoMerge transform, rerun the focused pass test, rebuild native Starshine, replay direct Node/WASI, then rerun the actual `ast run assembly/__tests__/whitespace.spec.ts --config as-test.node.config.json --mode simd --enable try-as --clean` artifact smoke.
+  - Suggested tests: `moon fmt`, `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt`, `moon build --target native --release src/cmd`, `wasm-tools validate --features all .tmp/jsonas-ssa-nomerge-smoke-20260616/starshine.ssa-nomerge.wasm`, direct Node/WASI replay, and cloned `json-as` `ast run` runtime smoke.
+
 - [JSON-AS]001 - `remove-unused-brs` corrupts AssemblyScript incremental-GC loop exits
   - Status: fixed for the 2026-06-05/2026-06-06 runtime and direct-compare evidence; keep only artifact/preset follow-ups elsewhere.
   - Goal: make `remove-unused-brs` preserve normal loop fallthrough exits when stripping tail branches/returns from nested regions.

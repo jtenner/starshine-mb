@@ -14535,6 +14535,31 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_sub = false
         previous_was_select = false
         previous_local_get_id = -1
+        let branch_aliases = param_aliases.copy()
+        for local_id = 0; local_id < params.length(); local_id = local_id + 1 {
+          let else_writes = match else_body {
+            Some(body) =>
+              run_hot_pipeline_raw_branch_writes_local(body, local_id)
+            None => false
+          }
+          if run_hot_pipeline_raw_branch_writes_local(then_body, local_id) ||
+            else_writes {
+            if local_id >= 0 && local_id < branch_aliases.length() {
+              match branch_aliases[local_id] {
+                Some(mapped_local) => {
+                  rewritten.push(@lib.Instruction::local_get(mapped_local))
+                  rewritten.push(
+                    @lib.Instruction::local_set(
+                      @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+                    ),
+                  )
+                  branch_aliases[local_id] = None
+                }
+                None => ()
+              }
+            }
+          }
+        }
         rewritten.push(
           @lib.Instruction::if_(
             block_type,
@@ -14544,7 +14569,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               params,
               locals,
               extra_local_types,
-              param_aliases.copy(),
+              branch_aliases.copy(),
               no_else_branch_merge_locals,
             ),
             match else_body {
@@ -14556,7 +14581,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                     params,
                     locals,
                     extra_local_types,
-                    param_aliases.copy(),
+                    branch_aliases.copy(),
                     no_else_branch_merge_locals,
                   ),
                 )
@@ -15908,6 +15933,448 @@ fn run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_find_mask_update_tee_from_local(
+  instrs : Array[@lib.Instruction],
+  local_id : Int,
+) -> Int? {
+  let mut saw_source_get = false
+  let mut saw_and = false
+  let mut fresh_local = -1
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        if raw.reinterpret_as_int() == local_id {
+          saw_source_get = true
+        }
+      @lib.I32And => saw_and = saw_source_get
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let tee_id = raw.reinterpret_as_int()
+        if saw_and && tee_id != local_id {
+          fresh_local = tee_id
+        }
+      }
+      _ => ()
+    }
+  }
+  if fresh_local >= 0 {
+    Some(fresh_local)
+  } else {
+    None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let child_rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
+          body,
+        )
+        child_rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+        )
+        changed = changed || body_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
+          body,
+        )
+        child_rewritten.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+        )
+        changed = changed || body_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
+          body,
+        )
+        child_rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
+          then_body,
+        )
+        let next_else = match else_body {
+          Some(body) => {
+            let (rewritten_else, else_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
+              body,
+            )
+            changed = changed || else_changed
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        child_rewritten.push(
+          @lib.Instruction::if_(block_type, next_then, next_else),
+        )
+        changed = changed || then_changed
+      }
+      _ => child_rewritten.push(instr)
+    }
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < child_rewritten.length() {
+    if idx + 2 < child_rewritten.length() {
+      match
+        (
+          child_rewritten[idx],
+          child_rewritten[idx + 1],
+          child_rewritten[idx + 2],
+        ) {
+        (
+          @lib.Block(_, @lib.Expr(body)),
+          @lib.LocalGet(@lib.LocalIdx(raw)),
+          @lib.I32Eqz,
+        ) => {
+          let local_id = raw.reinterpret_as_int()
+          match
+            run_hot_pipeline_raw_ssa_nomerge_find_mask_update_tee_from_local(
+              body, local_id,
+            ) {
+            Some(fresh_local) => {
+              out.push(child_rewritten[idx])
+              out.push(
+                @lib.Instruction::local_get(
+                  @lib.LocalIdx::new(fresh_local.reinterpret_as_uint()),
+                ),
+              )
+              out.push(child_rewritten[idx + 2])
+              changed = true
+              idx = idx + 3
+              continue
+            }
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
+    out.push(child_rewritten[idx])
+    idx = idx + 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let child_rewritten : Array[@lib.Instruction] = []
+  let mut child_changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+          body,
+        )
+        child_rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+        )
+        child_changed = child_changed || changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+          body,
+        )
+        child_rewritten.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+        )
+        child_changed = child_changed || changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+          body,
+        )
+        child_rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        )
+        child_changed = child_changed || changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+          then_body,
+        )
+        let next_else = match else_body {
+          Some(body) => {
+            let (rewritten_else, else_changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+              body,
+            )
+            child_changed = child_changed || else_changed
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        child_rewritten.push(
+          @lib.Instruction::if_(block_type, next_then, next_else),
+        )
+        child_changed = child_changed || then_changed
+      }
+      _ => child_rewritten.push(instr)
+    }
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut changed = child_changed
+  let mut last_spilled_local = -1
+  let mut idx = 0
+  while idx < child_rewritten.length() {
+    if idx + 2 < child_rewritten.length() {
+      match
+        (
+          child_rewritten[idx],
+          child_rewritten[idx + 1],
+          child_rewritten[idx + 2],
+        ) {
+        (
+          @lib.GlobalGet(_),
+          @lib.LocalGet(@lib.LocalIdx(spilled_raw)),
+          @lib.I32Store(_),
+        ) => last_spilled_local = spilled_raw.reinterpret_as_int()
+        _ => ()
+      }
+    }
+    if idx + 5 < child_rewritten.length() && last_spilled_local >= 0 {
+      match
+        (
+          child_rewritten[idx],
+          child_rewritten[idx + 1],
+          child_rewritten[idx + 2],
+          child_rewritten[idx + 3],
+          child_rewritten[idx + 4],
+          child_rewritten[idx + 5],
+        ) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(first_raw)),
+          @lib.LocalGet(_),
+          @lib.LocalSet(@lib.LocalIdx(set_raw)),
+          @lib.GlobalGet(_),
+          @lib.LocalGet(@lib.LocalIdx(stored_raw)),
+          @lib.I32Store(_),
+        ) => {
+          let first_id = first_raw.reinterpret_as_int()
+          let set_id = set_raw.reinterpret_as_int()
+          let stored_id = stored_raw.reinterpret_as_int()
+          if first_id == set_id &&
+            stored_id == set_id &&
+            first_id != last_spilled_local {
+            out.push(
+              @lib.Instruction::local_get(
+                @lib.LocalIdx::new(last_spilled_local.reinterpret_as_uint()),
+              ),
+            )
+            for copy_idx = idx + 1; copy_idx < idx + 6; copy_idx = copy_idx + 1 {
+              out.push(child_rewritten[copy_idx])
+            }
+            changed = true
+            idx = idx + 6
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
+    out.push(child_rewritten[idx])
+    idx = idx + 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
+  func : @lib.Func,
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let (repaired_instrs, changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+    instrs,
+  )
+  if changed {
+    @lib.Func::new(locals, @lib.Expr::new(repaired_instrs))
+  } else {
+    func
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_loop_condition_carrier(
+  instrs : Array[@lib.Instruction],
+) -> Int? {
+  if instrs.length() >= 2 {
+    match (instrs[0], instrs[1]) {
+      (@lib.LocalGet(@lib.LocalIdx(raw)), @lib.If(_, _, _)) =>
+        Some(raw.reinterpret_as_int())
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
+  instrs : Array[@lib.Instruction],
+  carrier : Int,
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalSet(@lib.LocalIdx(raw)), @lib.Br(_)) => {
+          let local_id = raw.reinterpret_as_int()
+          if local_id != carrier {
+            rewritten.push(
+              @lib.Instruction::local_set(
+                @lib.LocalIdx::new(carrier.reinterpret_as_uint()),
+              ),
+            )
+            rewritten.push(instrs[idx + 1])
+            changed = true
+            idx = idx + 2
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
+          body, carrier,
+        )
+        rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+        )
+        changed = changed || body_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
+          body, carrier,
+        )
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
+          then_body, carrier,
+        )
+        let next_else = match else_body {
+          Some(body) => {
+            let (rewritten_else, else_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
+              body, carrier,
+            )
+            changed = changed || else_changed
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
+        changed = changed || then_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(body)),
+        )
+      _ => rewritten.push(instrs[idx])
+    }
+    idx = idx + 1
+  }
+  (rewritten, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_carriers(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (nested_body, nested_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_carriers(
+          body,
+        )
+        let (next_body, body_changed) = match
+          run_hot_pipeline_raw_ssa_nomerge_loop_condition_carrier(nested_body) {
+          Some(carrier) =>
+            run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
+              nested_body, carrier,
+            )
+          None => (nested_body, false)
+        }
+        rewritten.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+        )
+        changed = changed || nested_changed || body_changed
+      }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_carriers(
+          body,
+        )
+        rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+        )
+        changed = changed || body_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_carriers(
+          body,
+        )
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_carriers(
+          then_body,
+        )
+        let next_else = match else_body {
+          Some(body) => {
+            let (rewritten_else, else_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_carriers(
+              body,
+            )
+            changed = changed || else_changed
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
+        changed = changed || then_changed
+      }
+      _ => rewritten.push(instr)
+    }
+  }
+  (rewritten, changed)
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext,
@@ -15956,8 +16423,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let (dead_tail_cleaned, _) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
         redirected_instrs,
       )
+      let (mask_retargeted_instrs, _) = run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
+        dead_tail_cleaned,
+      )
+      let (loop_retargeted_instrs, _) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_carriers(
+        mask_retargeted_instrs,
+      )
+      let (spill_arg_repaired_instrs, _) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+        loop_retargeted_instrs,
+      )
       let (compacted_instrs, compacted_locals, compacted_extra_local_types) = run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
-        dead_tail_cleaned, params, locals, extra_local_types,
+        spill_arg_repaired_instrs, params, locals, extra_local_types,
       )
       if run_hot_pipeline_raw_has_unwritten_appended_local_get(
           compacted_instrs, base_local_count,
@@ -15977,8 +16453,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
         run_hot_pipeline_raw_compact_existing_one_use_scratch_func(
           rewritten_func, params,
         ) {
-        Some(compacted_func) => Some(compacted_func)
-        None => Some(rewritten_func)
+        Some(compacted_func) =>
+          Some(
+            run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
+              compacted_func,
+            ),
+          )
+        None =>
+          Some(
+            run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
+              rewritten_func,
+            ),
+          )
       }
     }
     None => {
@@ -15998,8 +16484,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let (dead_tail_cleaned, _) = run_hot_pipeline_raw_ssa_nomerge_collapse_child_br_blocks_body(
         redirected_instrs,
       )
+      let (mask_retargeted_instrs, mask_retargeted) = run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
+        dead_tail_cleaned,
+      )
+      let (loop_retargeted_instrs, loop_retargeted) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_carriers(
+        mask_retargeted_instrs,
+      )
+      let (spill_arg_repaired_instrs, spill_arg_repaired) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
+        loop_retargeted_instrs,
+      )
       let (compacted_instrs, compacted_locals, compacted_extra_local_types) = run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
-        dead_tail_cleaned, params, locals, fallback_extra_local_types,
+        spill_arg_repaired_instrs, params, locals, fallback_extra_local_types,
       )
       if run_hot_pipeline_raw_has_unwritten_appended_local_get(
           compacted_instrs, base_local_count,
@@ -16009,7 +16504,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
         ) {
         return None
       }
-      if compacted_extra_local_types.length() == 0 {
+      if compacted_extra_local_types.length() == 0 &&
+        !mask_retargeted &&
+        !loop_retargeted &&
+        !spill_arg_repaired {
         None
       } else {
         let rewritten_locals = compacted_locals.copy()
@@ -16022,8 +16520,18 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
           run_hot_pipeline_raw_compact_existing_one_use_scratch_func(
             rewritten_func, params,
           ) {
-          Some(compacted_func) => Some(compacted_func)
-          None => Some(rewritten_func)
+          Some(compacted_func) =>
+            Some(
+              run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
+                compacted_func,
+              ),
+            )
+          None =>
+            Some(
+              run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
+                rewritten_func,
+              ),
+            )
         }
       }
     }
@@ -20656,6 +21164,20 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       } else {
         None
       }
+    }
+    other => other
+  }
+  let result = match result {
+    Some(raw_result) if descriptor.name == "ssa-nomerge" => {
+      let repaired_func = run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
+        raw_result.func,
+      )
+      Some({
+        reason: raw_result.reason,
+        func: repaired_func,
+        unchanged_original: raw_result.unchanged_original,
+        trace_skip_raw: raw_result.trace_skip_raw,
+      })
     }
     other => other
   }

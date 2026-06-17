@@ -135,6 +135,73 @@ fn ssa_test_local_tee_indices(instrs : Array[@lib.Instruction]) -> Array[UInt] {
 }
 
 ///|
+fn ssa_test_body_has_mask_update_tee_from_local(
+  instrs : Array[@lib.Instruction],
+  local_id : UInt,
+) -> Bool {
+  let mut saw_source_get = false
+  let mut saw_and = false
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(idx)) =>
+        if idx == local_id {
+          saw_source_get = true
+        }
+      @lib.I32And => saw_and = saw_source_get
+      @lib.LocalTee(@lib.LocalIdx(idx)) =>
+        if saw_and && idx != local_id {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_test_has_stale_mask_eqz_after_nested_update(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+      (
+        @lib.Block(_, @lib.Expr(body)),
+        @lib.LocalGet(@lib.LocalIdx(local_id)),
+        @lib.I32Eqz,
+      ) =>
+        if ssa_test_body_has_mask_update_tee_from_local(body, local_id) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      @lib.If(_, then_instrs, else_instrs) => {
+        if ssa_test_has_stale_mask_eqz_after_nested_update(then_instrs) {
+          return true
+        }
+        match else_instrs {
+          Some(else_body) =>
+            if ssa_test_has_stale_mask_eqz_after_nested_update(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_has_stale_mask_eqz_after_nested_update(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_root_i32_add_local_tee_targets(
   instrs : Array[@lib.Instruction],
 ) -> Array[UInt] {
@@ -3663,6 +3730,53 @@ test "ssa-nomerge artifact parity freshens parameter scratch writes in nested un
     ssa_test_local_write_indices(instrs).any(fn(idx) { idx < 2U }),
     msg=instrs.to_string(),
   )
+  assert_false(
+    ssa_test_has_stale_mask_eqz_after_nested_update(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge repairs nested mask eqz after freshened block update" {
+  // Reduced from the 2026-06-16 `json-as` SIMD whitespace artifact smoke.
+  // The legacy structured raw path can freshen an allocator bit-mask update into
+  // a nested block. The following `eqz` must observe the freshened mask, not the
+  // pre-update word, or TLSF leaves a stale non-empty size class bit set.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    i32.const 7
+    #|    local.set 2
+    #|    block
+    #|      local.get 2
+    #|      i32.const 1
+    #|      local.get 1
+    #|      i32.shl
+    #|      i32.const -1
+    #|      i32.xor
+    #|      i32.and
+    #|      local.tee 4
+    #|      local.set 5
+    #|      local.get 0
+    #|      local.get 5
+    #|      i32.store
+    #|    end
+    #|    local.get 2
+    #|    i32.eqz
+    #|    if
+    #|      i32.const 1
+    #|      return
+    #|    end
+    #|    i32.const 0))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_false(
+    ssa_test_has_stale_mask_eqz_after_nested_update(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
@@ -5638,6 +5752,299 @@ test "ssa-nomerge validates non-one dropped increment boundary" {
   assert_true(text.contains("i32.const I32(2)"), msg=text)
   assert_true(text.contains("i32.add"), msg=text)
   assert_true(text.contains("drop"), msg=text)
+}
+
+///|
+test "ssa-nomerge preserves call argument after stack spill store" {
+  // Reduced from json-as `String.__concat`: spilling a call's following stack
+  // arguments must not redirect the first argument read to the scratch local
+  // reserved for the second argument.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $sp (mut i32) i32.const 1000)
+    #|  (func $clear)
+    #|  (func $concat (param i32 i32) (result i32) local.get 0)
+    #|  (func (param $left i32) (param $right i32) (result i32)
+    #|    (local $result i32) (local $left_tmp i32) (local $right_tmp i32) (local $ret_tmp i32)
+    #|    global.get $sp
+    #|    i32.const 8
+    #|    i32.sub
+    #|    global.set $sp
+    #|    call $clear
+    #|    global.get $sp
+    #|    i64.const 0
+    #|    i64.store
+    #|    local.get $left
+    #|    local.set $left_tmp
+    #|    global.get $sp
+    #|    local.get $left_tmp
+    #|    i32.store
+    #|    local.get $left
+    #|    local.get $right
+    #|    local.set $right_tmp
+    #|    global.get $sp
+    #|    local.get $right_tmp
+    #|    i32.store offset=4
+    #|    local.get $right_tmp
+    #|    call $concat
+    #|    local.set $ret_tmp
+    #|    global.get $sp
+    #|    i32.const 8
+    #|    i32.add
+    #|    global.set $sp
+    #|    local.get $ret_tmp)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 2)
+  let text = instrs.to_string()
+  assert_false(
+    text.contains(
+      "(local.get (Local 4)), (local.get (Local 1)), (local.set (Local 4))",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "(local.get (Local 0)), (local.get (Local 1)), (local.set (Local 4))",
+    ) ||
+    text.contains(
+      "(local.get (Local 3)), (local.get (Local 1)), (local.set (Local 4))",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "ssa-nomerge preserves loop carrier update before backedge" {
+  // Reduced from json-as Map#find: the loop condition reads the bucket local,
+  // so the backedge must update that same carrier. Freshening the backedge set
+  // into a scratch local leaves the loop condition stale and can hang.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $sp (mut i32) i32.const 1000)
+    #|  (func $clear)
+    #|  (func $hashA (param i32) (result i32) local.get 0)
+    #|  (func $hashB (param i32) (result i32) local.get 0)
+    #|  (func $info (param i32) (result i32) local.get 0 i32.const -2 i32.and)
+    #|  (func $key (param i32) (result i32) local.get 0)
+    #|  (func $eq (param i32 i32) (result i32) local.get 0 local.get 1 i32.eq)
+    #|  (func (param $this i32) (param $keyArg i32) (param $hashCode i32) (result i32)
+    #|    (local $bucket i32) (local $infoTmp i32) (local $unused i32)
+    #|    (local $thisTmp i32) (local $thisTmp2 i32) (local $keyTmp i32)
+    #|    (local $retTmp i32) (local $zeroTmp i32) (local $tmp i32)
+    #|    global.get $sp
+    #|    i32.const 8
+    #|    i32.sub
+    #|    global.set $sp
+    #|    call $clear
+    #|    global.get $sp
+    #|    i64.const 0
+    #|    i64.store
+    #|    local.get $this
+    #|    local.set $thisTmp
+    #|    global.get $sp
+    #|    local.get $thisTmp
+    #|    i32.store
+    #|    local.get $thisTmp
+    #|    call $hashA
+    #|    local.get $hashCode
+    #|    local.get $this
+    #|    local.set $thisTmp2
+    #|    global.get $sp
+    #|    local.get $thisTmp2
+    #|    i32.store
+    #|    local.get $thisTmp2
+    #|    call $hashB
+    #|    i32.and
+    #|    i32.const 4
+    #|    i32.mul
+    #|    i32.add
+    #|    i32.load
+    #|    local.set $bucket
+    #|    loop
+    #|      local.get $bucket
+    #|      if
+    #|        local.get $bucket
+    #|        call $info
+    #|        local.set $infoTmp
+    #|        local.get $infoTmp
+    #|        i32.const 1
+    #|        i32.and
+    #|        i32.eqz
+    #|        if (result i32)
+    #|          local.get $bucket
+    #|          call $key
+    #|          local.set $tmp
+    #|          global.get $sp
+    #|          local.get $tmp
+    #|          i32.store
+    #|          local.get $tmp
+    #|          local.get $keyArg
+    #|          local.set $keyTmp
+    #|          global.get $sp
+    #|          local.get $keyTmp
+    #|          i32.store offset=4
+    #|          local.get $keyTmp
+    #|          call $eq
+    #|        else
+    #|          i32.const 0
+    #|        end
+    #|        if
+    #|          local.get $bucket
+    #|          local.set $retTmp
+    #|          global.get $sp
+    #|          i32.const 8
+    #|          i32.add
+    #|          global.set $sp
+    #|          local.get $retTmp
+    #|          return
+    #|        end
+    #|        local.get $infoTmp
+    #|        i32.const -2
+    #|        i32.and
+    #|        local.set $bucket
+    #|        br 1
+    #|      end
+    #|    end
+    #|    i32.const 0
+    #|    local.set $zeroTmp
+    #|    global.get $sp
+    #|    i32.const 8
+    #|    i32.add
+    #|    global.set $sp
+    #|    local.get $zeroTmp)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 6)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains("(local.set (Local 3)) (br (Label 1))") ||
+    text.contains("(local.set (Local 3)), (br (Label 1))"),
+    msg=text,
+  )
+}
+
+///|
+test "ssa-nomerge preserves param alias across conditional branch write" {
+  // Reduced from json-as `~lib/rt/tlsf/addMemory`: the aligned start param is
+  // freshened to an appended local, then a conditional branch may write the
+  // canonical param. The branch boundary must merge the fresh alias back before
+  // the branch so the suffix cannot read the stale original parameter value.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $getInfo (param i32) (result i32) local.get 0)
+    #|  (func $setInfo (param i32 i32))
+    #|  (func $setPrev (param i32 i32))
+    #|  (func $setNext (param i32 i32))
+    #|  (func $insert (param i32 i32))
+    #|  (func (param $heap i32) (param $start i32) (param $end i64) (result i32)
+    #|    (local $wrapped i32) (local $tmp i32) (local $tail i32)
+    #|    (local $mm i32) (local $size i32) (local $payload i32)
+    #|    (local $block i32) (local $heap_tmp i32) (local $tail_tmp i32)
+    #|    local.get $end
+    #|    i32.wrap_i64
+    #|    local.set $wrapped
+    #|    local.get $start
+    #|    i32.const 4
+    #|    i32.add
+    #|    i32.const 15
+    #|    i32.add
+    #|    i32.const -16
+    #|    i32.and
+    #|    i32.const 4
+    #|    i32.sub
+    #|    local.set $start
+    #|    local.get $wrapped
+    #|    i32.const -16
+    #|    i32.and
+    #|    local.set $wrapped
+    #|    block (result i32)
+    #|      local.get $heap
+    #|      local.set $tmp
+    #|      local.get $tmp
+    #|      i32.load offset=1568
+    #|      br 0
+    #|    end
+    #|    local.set $tail
+    #|    i32.const 0
+    #|    local.set $mm
+    #|    local.get $tail
+    #|    if
+    #|      local.get $start
+    #|      local.get $tail
+    #|      i32.const 4
+    #|      i32.add
+    #|      i32.ge_u
+    #|      drop
+    #|      local.get $start
+    #|      i32.const 16
+    #|      i32.sub
+    #|      local.get $tail
+    #|      i32.eq
+    #|      if
+    #|        local.get $start
+    #|        i32.const 16
+    #|        i32.sub
+    #|        local.set $start
+    #|        local.get $tail
+    #|        call $getInfo
+    #|        local.set $mm
+    #|      end
+    #|    else
+    #|      local.get $start
+    #|      local.get $heap
+    #|      i32.const 1572
+    #|      i32.add
+    #|      i32.ge_u
+    #|      drop
+    #|    end
+    #|    local.get $wrapped
+    #|    local.get $start
+    #|    i32.sub
+    #|    local.set $size
+    #|    local.get $size
+    #|    i32.const 8
+    #|    i32.sub
+    #|    local.set $payload
+    #|    local.get $start
+    #|    local.set $block
+    #|    local.get $block
+    #|    local.get $payload
+    #|    call $setInfo
+    #|    local.get $block
+    #|    i32.const 0
+    #|    call $setPrev
+    #|    local.get $block
+    #|    i32.const 0
+    #|    call $setNext
+    #|    block
+    #|      local.get $heap
+    #|      local.set $heap_tmp
+    #|      local.get $start
+    #|      local.get $payload
+    #|      i32.add
+    #|      local.set $tail_tmp
+    #|      local.get $heap_tmp
+    #|      local.get $tail_tmp
+    #|      i32.store offset=1568
+    #|    end
+    #|    local.get $heap
+    #|    local.get $block
+    #|    call $insert
+    #|    i32.const 1)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 5)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains(
+      "(local.get (Local 5)), (local.get (Local 6)), (local.set (Local 1)), (if",
+    ),
+    msg=text,
+  )
 }
 
 ///|
