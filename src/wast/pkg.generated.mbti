@@ -256,6 +256,7 @@ pub enum Instruction {
   TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
   Drop
   Select(Array[ValueType]?)
+  Pop(ValueType)
   LocalGet(Index)
   LocalSet(Index)
   LocalTee(Index)

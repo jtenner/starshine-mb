@@ -695,6 +695,14 @@ fn assert_encode_err_contains(
 }
 
 ///|
+test "encode rejects legacy pop placeholder explicitly" {
+  assert_encode_err_contains(
+    Encode::encode(Instruction::pop(ValType::i32()), @buffer.new()),
+    BinaryEncodeError::CannotEncodeLegacyPop,
+  )
+}
+
+///|
 fn binary_test_write_u32_leb(buf : @buffer.Buffer, value : Int) -> Unit {
   encode_unsigned(value.to_uint64(), buf, 32).unwrap()
 }

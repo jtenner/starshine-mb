@@ -1000,6 +1000,7 @@ pub enum Instruction {
   ReturnCallRef(TypeIdx)
   Drop
   Select(Array[ValType]?)
+  Pop(ValType)
   Try(BlockType, Expr, Array[LegacyCatch], LabelIdx?)
   TryTable(BlockType, Array[Catch], Expr)
   LocalGet(LocalIdx)
@@ -1968,6 +1969,7 @@ pub fn Instruction::memory_grow(MemIdx) -> Self
 pub fn Instruction::memory_init(DataIdx, MemIdx) -> Self
 pub fn Instruction::memory_size(MemIdx) -> Self
 pub fn Instruction::nop() -> Self
+pub fn Instruction::pop(ValType) -> Self
 pub fn Instruction::ref_as_non_null() -> Self
 pub fn Instruction::ref_cast(Bool, HeapType) -> Self
 pub fn Instruction::ref_cast_desc_eq(Bool, HeapType) -> Self

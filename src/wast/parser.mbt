@@ -388,6 +388,7 @@ pub enum Instruction {
   // Parametric
   Drop
   Select(Array[ValueType]?)
+  Pop(ValueType)
 
   // Variable
   LocalGet(Index)
@@ -1535,6 +1536,13 @@ fn WastParser::parse_folded_instruction(
       let _ = self.advance()
       [Rethrow(self.parse_index())]
     }
+    Reserved =>
+      if self.get_text(self.current) == "pop" {
+        let _ = self.advance()
+        [Pop(self.parse_value_type())]
+      } else {
+        raise UnexpectedToken(self.current, "expected instruction")
+      }
     Opcode(op) => {
       let _ = self.advance()
       if op is TryTable {
@@ -1652,6 +1660,13 @@ fn WastParser::try_parse_plain_instruction(
       let _ = self.advance()
       Some(self.parse_try_table_instruction(true))
     }
+    Reserved =>
+      if self.get_text(self.current) == "pop" {
+        let _ = self.advance()
+        Some(Pop(self.parse_value_type()))
+      } else {
+        None
+      }
     Opcode(op) => {
       let _ = self.advance()
       Some(self.parse_opcode_instruction(op))

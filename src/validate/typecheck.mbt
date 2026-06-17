@@ -3442,6 +3442,7 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     Drop => typecheck_drop(st)
     Select(None) => typecheck_select_untyped(st)
     Select(Some(ts)) => typecheck_select_typed(st, ts)
+    Pop(vt) => Ok(st.push1(vt))
     LocalGet(i) => typecheck_local_get(st, i)
     LocalSet(i) => typecheck_local_set(st, i)
     LocalTee(i) => typecheck_local_tee(st, i)

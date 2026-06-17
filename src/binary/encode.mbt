@@ -19,6 +19,7 @@ pub suberror BinaryEncodeError {
   CannotEncodeStringConstWithoutModuleContext
   StringConstLiteralMissingFromSection
   CannotEncodeLegacyTry
+  CannotEncodeLegacyPop
 } derive(Eq, Debug)
 
 ///|
@@ -57,6 +58,7 @@ pub impl Show for BinaryEncodeError with fn output(self, logger) {
     StringConstLiteralMissingFromSection =>
       logger.write_string("StringConstLiteralMissingFromSection")
     CannotEncodeLegacyTry => logger.write_string("CannotEncodeLegacyTry")
+    CannotEncodeLegacyPop => logger.write_string("CannotEncodeLegacyPop")
   }
 }
 
@@ -2072,6 +2074,7 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
+    Pop(_) => return Err(BinaryEncodeError::CannotEncodeLegacyPop)
     Try(_, _, _, _) => return Err(BinaryEncodeError::CannotEncodeLegacyTry)
     TryTable(bt, c, e) => {
       buf.write_byte(0x1F)

@@ -910,6 +910,11 @@ pub impl Show for Instruction with fn output(self, logger) {
       }
       logger.write_char(')')
     }
+    Pop(vt) => {
+      logger.write_string("(pop ")
+      Show::output(vt, logger)
+      logger.write_char(')')
+    }
     Try(bt, body, catches, delegate_target) => {
       logger.write_string("(try ")
       Show::output(bt, logger)

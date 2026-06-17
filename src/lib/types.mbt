@@ -554,6 +554,7 @@ pub enum Instruction {
   ReturnCallRef(TypeIdx)
   Drop
   Select(Array[ValType]?)
+  Pop(ValType)
   Try(BlockType, Expr, Array[LegacyCatch], LabelIdx?)
   TryTable(BlockType, Array[Catch], Expr)
   LocalGet(LocalIdx)
@@ -3063,6 +3064,11 @@ pub fn Instruction::drop() -> Instruction {
 ///|
 pub fn Instruction::select(types? : Array[ValType]? = None) -> Instruction {
   Select(types)
+}
+
+///|
+pub fn Instruction::pop(vt : ValType) -> Instruction {
+  Pop(vt)
 }
 
 ///|

@@ -1859,6 +1859,13 @@ fn wt_instr_to_lib(
       }
       Ok(@lib.Instruction::select(types=lib_types))
     }
+    Pop(vt) => {
+      let lib_vt = match wt_value_type(ctx, vt) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::pop(lib_vt))
+    }
     TryTable(bt, catches, body) => {
       let next_labels = labels.copy()
       next_labels.push(None)
@@ -6299,6 +6306,50 @@ test "wast_to_binary_module preserves real legacy try without pop" {
           fail("expected real @lib.Try with one catch body, got \{try_instr}")
       }
     _ => fail("expected lowered legacy try function body")
+  }
+}
+
+///|
+test "wast_ast_to_binary_module represents legacy pop distinctly" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (drop (pop i32))))))
+  let parsed = match
+    wast_to_module(src, filename="legacy-pop-representation.wat") {
+    Ok(m) => m
+    Err(e) => fail("expected parser to accept legacy pop text: \{e}")
+  }
+  let lowered = match wast_ast_to_binary_module(parsed) {
+    Ok(m) => m
+    Err(e) => fail("expected AST lowering to preserve legacy pop: \{e}")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
+      match try_instr {
+        @lib.Try(
+          _,
+          _,
+          [
+            @lib.LegacyCatch(
+              @lib.TagIdx(0),
+              @lib.Expr(
+                [@lib.Pop(@lib.NumTypeValType(@lib.I32NumType)), @lib.Drop]
+              )
+            ),
+          ],
+          None
+        ) => ()
+        _ =>
+          fail(
+            "expected catch body to contain real @lib.Pop(i32), got \{try_instr}",
+          )
+      }
+    _ => fail("expected lowered function with real legacy try/pop")
   }
 }
 

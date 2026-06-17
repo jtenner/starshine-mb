@@ -391,6 +391,7 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
       out.write_char(')')
       out.to_string()
     }
+    Pop(vt) => "pop \{keyword_from_value_type(vt)}"
     LocalGet(idx) => "local.get \{index_text(idx)}"
     LocalSet(idx) => "local.set \{index_text(idx)}"
     LocalTee(idx) => "local.tee \{index_text(idx)}"

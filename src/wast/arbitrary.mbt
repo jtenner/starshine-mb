@@ -124,6 +124,12 @@ fn wast_arbitrary_count_instructions(
         }
       Drop | Select(_) =>
         { ..wast_arbitrary_empty_feature_stats(), parametric_ops: 1 }
+      Pop(_) =>
+        {
+          ..wast_arbitrary_empty_feature_stats(),
+          parametric_ops: 1,
+          exception_ops: 1,
+        }
       LocalGet(_) | LocalSet(_) | LocalTee(_) | GlobalGet(_) | GlobalSet(_) =>
         { ..wast_arbitrary_empty_feature_stats(), variable_ops: 1 }
       TableGet(_) | TableSet(_) | TableSize(_) | TableGrow(_) =>

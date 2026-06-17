@@ -425,6 +425,14 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-17] passes/dead-code-elimination | Add legacy pop placeholder surface
+
+- Added red-first WAST lowering coverage in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) requiring `(pop i32)` inside a legacy catch to survive parser/AST-to-lib lowering as a distinct `@lib.Instruction::Pop`, rather than remaining only a raw-text rejection.
+- Added WAST AST `Pop(ValueType)` and public `@lib.Instruction::Pop(ValType)` with constructor/display support, AST lowering, validation stack production, text rendering, and final binary encode fail-closed `CannotEncodeLegacyPop`.
+- Kept the high-level `wast_to_binary_module` and `wast_text_binary_roundtrip` legacy-pop diagnostics fail-closed until catch-payload flow, binary legacy EH encode/decode, exact HOT catch-arm preservation, and DCE `hasPop && addedBlock` nested-pop repair exist.
+- Evidence: red-first focused `moon test src/wast` failed because `@lib.Pop` did not exist; after implementation `moon test src/wast` passed (`386/386`), `moon test src/binary` passed (`95/95`), `moon test src/passes` passed (`2519/2519`), `moon fmt` passed, full `moon test` passed (`5835/5835`), native `moon build --target native --release src/cmd` passed with existing pass-manager warnings, and `moon info` passed with existing GenValid warnings. `[O4Z-AUDIT-DCE]` remains active.
+- Updated [`binaryen/passes/dead-code-elimination/implementation-structure-and-tests.md`](binaryen/passes/dead-code-elimination/implementation-structure-and-tests.md), [`binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md`](binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-17] passes/dead-code-elimination | Add first real legacy Try surface
 
 - Added red-first WAST lowering coverage in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) requiring legacy `try` without `pop` to lower to a real `@lib.Instruction::Try` instead of the old synthetic sequential check block.
