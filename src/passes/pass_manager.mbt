@@ -16170,9 +16170,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
           let first_id = first_raw.reinterpret_as_int()
           let set_id = set_raw.reinterpret_as_int()
           let stored_id = stored_raw.reinterpret_as_int()
-          if first_id == set_id &&
-            stored_id == set_id &&
-            first_id != last_spilled_local {
+          if stored_id == set_id &&
+            first_id != last_spilled_local &&
+            (first_id == set_id || first_id > set_id) {
             out.push(
               @lib.Instruction::local_get(
                 @lib.LocalIdx::new(last_spilled_local.reinterpret_as_uint()),
@@ -16247,6 +16247,26 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
             rewritten.push(instrs[idx + 1])
             changed = true
             idx = idx + 2
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.LocalTee(@lib.LocalIdx(raw)), @lib.I32Store(_), @lib.Br(_)) => {
+          let local_id = raw.reinterpret_as_int()
+          if local_id != carrier {
+            rewritten.push(
+              @lib.Instruction::local_tee(
+                @lib.LocalIdx::new(carrier.reinterpret_as_uint()),
+              ),
+            )
+            rewritten.push(instrs[idx + 1])
+            rewritten.push(instrs[idx + 2])
+            changed = true
+            idx = idx + 3
             continue
           }
         }

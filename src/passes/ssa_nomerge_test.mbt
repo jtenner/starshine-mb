@@ -5927,6 +5927,280 @@ test "ssa-nomerge preserves loop carrier update before backedge" {
 }
 
 ///|
+test "ssa-nomerge preserves loop carrier tee through stack spill before backedge" {
+  // Reduced from json-as `snapshotKey`: the loop condition reads the freshened
+  // list carrier, while the backedge computes the next node with `local.tee`,
+  // spills it to the stack map, then branches. Retargeting only adjacent
+  // `local.set; br` backedges leaves the condition local stale and can hang.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $sp (mut i32) i32.const 1000)
+    #|  (global $base i32 i32.const 4096)
+    #|  (global $root i32 i32.const 8)
+    #|  (func $clear)
+    #|  (func $concat (param i32 i32) (result i32) local.get 1)
+    #|  (func $abort (param i32 i32 i32 i32) unreachable)
+    #|  (func $make (param i32 i32) (result i32) local.get 1)
+    #|  (func $visit (param i32) (result i32) local.get 0)
+    #|  (func $use (param i32) (result i32) local.get 0)
+    #|  (func $next (param i32) (result i32) local.get 0 i32.const 1 i32.sub)
+    #|  (func $join (param i32 i32) (result i32) local.get 0)
+    #|  (func (result i32)
+    #|    (local $head i32) (local $list i32) (local $acc i32)
+    #|    (local $cursor i32) (local $tmp i32)
+    #|    global.get $sp
+    #|    i32.const 28
+    #|    i32.sub
+    #|    global.set $sp
+    #|    call $clear
+    #|    global.get $root
+    #|    i32.eqz
+    #|    if
+    #|      global.get $base
+    #|      i32.const 10
+    #|      call $concat
+    #|      local.set $tmp
+    #|      global.get $sp
+    #|      i32.const 28
+    #|      i32.add
+    #|      global.set $sp
+    #|      local.get $tmp
+    #|      return
+    #|    end
+    #|    global.get $sp
+    #|    global.get $sp
+    #|    global.get $root
+    #|    local.tee $head
+    #|    i32.store
+    #|    local.get $head
+    #|    if (result i32)
+    #|      local.get $head
+    #|    else
+    #|      i32.const 1
+    #|      i32.const 2
+    #|      i32.const 3
+    #|      i32.const 4
+    #|      call $abort
+    #|      unreachable
+    #|    end
+    #|    local.tee $list
+    #|    i32.store offset=4
+    #|    global.get $sp
+    #|    i32.const 0
+    #|    i32.const 0
+    #|    call $make
+    #|    local.tee $acc
+    #|    i32.store offset=8
+    #|    global.get $sp
+    #|    local.get $list
+    #|    local.tee $cursor
+    #|    i32.store offset=12
+    #|    block
+    #|      loop
+    #|        local.get $cursor
+    #|        if
+    #|          local.get $acc
+    #|          local.set $tmp
+    #|          global.get $sp
+    #|          local.get $tmp
+    #|          i32.store offset=16
+    #|          local.get $tmp
+    #|          local.get $cursor
+    #|          local.set $tmp
+    #|          global.get $sp
+    #|          local.get $tmp
+    #|          i32.store offset=24
+    #|          local.get $tmp
+    #|          call $visit
+    #|          local.set $tmp
+    #|          global.get $sp
+    #|          local.get $tmp
+    #|          i32.store offset=20
+    #|          local.get $tmp
+    #|          call $use
+    #|          drop
+    #|          global.get $sp
+    #|          local.get $cursor
+    #|          local.set $tmp
+    #|          global.get $sp
+    #|          local.get $tmp
+    #|          i32.store offset=16
+    #|          local.get $tmp
+    #|          call $next
+    #|          local.tee $cursor
+    #|          i32.store offset=12
+    #|          br 1
+    #|        end
+    #|      end
+    #|    end
+    #|    global.get $base
+    #|    i32.const 20
+    #|    call $concat
+    #|    local.set $tmp
+    #|    global.get $sp
+    #|    local.get $tmp
+    #|    i32.store offset=16
+    #|    local.get $tmp
+    #|    local.get $acc
+    #|    local.set $tmp
+    #|    global.get $sp
+    #|    local.get $tmp
+    #|    i32.store offset=24
+    #|    local.get $tmp
+    #|    i32.const 30
+    #|    call $join
+    #|    local.set $tmp
+    #|    global.get $sp
+    #|    local.get $tmp
+    #|    i32.store offset=20
+    #|    local.get $tmp
+    #|    call $concat
+    #|    local.set $tmp
+    #|    global.get $sp
+    #|    i32.const 28
+    #|    i32.add
+    #|    global.set $sp
+    #|    local.get $tmp
+    #|    return)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 8)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains("(local.tee (Local 6)), (i32.store") ||
+    text.contains("(local.tee (Local 6)) (i32.store"),
+    msg=text,
+  )
+}
+
+///|
+test "ssa-nomerge retargets stale loop carrier tee before stack spill backedge" {
+  // Reduced from the final stale json-as `snapshotKey` output after local
+  // compaction: the loop condition reads local 6, but the backedge tees the
+  // next cursor into old local 3 before spilling and branching. The backedge
+  // write must be retargeted to the condition carrier.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $sp (mut i32) i32.const 1000)
+    #|  (func $next (param i32) (result i32) local.get 0 i32.const 1 i32.sub)
+    #|  (func (param $p i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32)
+    #|    local.get $p
+    #|    local.set 6
+    #|    block
+    #|      loop
+    #|        local.get 6
+    #|        if
+    #|          global.get $sp
+    #|          local.get 6
+    #|          call $next
+    #|          local.tee 3
+    #|          i32.store offset=12
+    #|          br 1
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 6)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains("(local.tee (Local 6)), (i32.store") ||
+    text.contains("(local.tee (Local 6)) (i32.store"),
+    msg=text,
+  )
+}
+
+///|
+test "ssa-nomerge preserves sequential stack-spill scratch aliases" {
+  // Reduced from json-as `expect<String>`: a single source scratch is reused to
+  // stage value, message, suite, and location arguments through stack spills.
+  // After SSA freshening, reads that are still live operands must point at the
+  // just-spilled alias, not the later alias from a future write.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $sp (mut i32) i32.const 1000)
+    #|  (func $clear)
+    #|  (func $suite (param i32) (result i32) local.get 0)
+    #|  (func $makeLoc (param i32 i32 i32 i32) (result i32) local.get 3)
+    #|  (func $newExpectation (result i32) i32.const 7)
+    #|  (func $add (param i32 i32))
+    #|  (func (param $value i32) (param $message i32) (param $location i32) (result i32)
+    #|    (local $expectation i32) (local $scratch i32)
+    #|    global.get $sp
+    #|    i32.const 20
+    #|    i32.sub
+    #|    global.set $sp
+    #|    call $clear
+    #|    global.get $sp
+    #|    i32.const 0
+    #|    local.get $value
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store
+    #|    local.get $scratch
+    #|    local.get $message
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store offset=4
+    #|    local.get $scratch
+    #|    call $suite
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store offset=8
+    #|    local.get $scratch
+    #|    local.get $location
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store offset=12
+    #|    local.get $scratch
+    #|    call $makeLoc
+    #|    local.tee $expectation
+    #|    i32.store offset=16
+    #|    call $newExpectation
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store
+    #|    local.get $scratch
+    #|    local.get $expectation
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store offset=4
+    #|    local.get $scratch
+    #|    call $add
+    #|    local.get $expectation
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    i32.const 20
+    #|    i32.add
+    #|    global.set $sp
+    #|    local.get $scratch)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 5)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains(
+      "(local.get (Local 5)), (local.get (Local 1)), (local.set (Local 6))",
+    ) &&
+    text.contains(
+      "(i32.store align=U32(2) offset=U64(4)), (local.get (Local 6)), (call (Func 1))",
+    ),
+    msg=text,
+  )
+}
+
+///|
 test "ssa-nomerge preserves param alias across conditional branch write" {
   // Reduced from json-as `~lib/rt/tlsf/addMemory`: the aligned start param is
   // freshened to an appended local, then a conditional branch may write the
