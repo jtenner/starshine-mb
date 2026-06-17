@@ -1000,6 +1000,7 @@ pub enum Instruction {
   ReturnCallRef(TypeIdx)
   Drop
   Select(Array[ValType]?)
+  Try(BlockType, Expr, Array[LegacyCatch], LabelIdx?)
   TryTable(BlockType, Array[Catch], Expr)
   LocalGet(LocalIdx)
   LocalSet(LocalIdx)
@@ -2013,6 +2014,7 @@ pub fn Instruction::table_set(TableIdx) -> Self
 pub fn Instruction::table_size(TableIdx) -> Self
 pub fn Instruction::throw_(TagIdx) -> Self
 pub fn Instruction::throw_ref() -> Self
+pub fn Instruction::try_(BlockType, Expr, Array[LegacyCatch], delegate_target? : LabelIdx?) -> Self
 pub fn Instruction::try_table(BlockType, Array[Catch], Expr) -> Self
 pub fn Instruction::unreachable_() -> Self
 pub fn Instruction::v128_and() -> Self
@@ -2059,6 +2061,13 @@ pub fn LaneIdx::new(Byte) -> Self
 pub impl PrettyPrint for LaneIdx
 pub impl Show for LaneIdx
 pub impl @quickcheck.Arbitrary for LaneIdx
+
+pub enum LegacyCatch {
+  LegacyCatch(TagIdx, Expr)
+  LegacyCatchAll(Expr)
+} derive(Eq, Hash, @debug.Debug)
+pub fn LegacyCatch::all(Expr) -> Self
+pub fn LegacyCatch::new(TagIdx, Expr) -> Self
 
 pub enum Limits {
   I32Limits(UInt, UInt?)

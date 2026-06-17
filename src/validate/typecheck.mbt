@@ -1371,6 +1371,85 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
 }
 
 ///|
+fn typecheck_legacy_try(
+  st : TcState,
+  bt : BlockType,
+  catches : Array[LegacyCatch],
+  body : Expr,
+) -> TcResult {
+  let (params, results) = match st.env.expand_blocktype(bt) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let st1 = match st.pop_types(params) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let env2 = st1.env.with_label(results)
+  let body_start = TcState::{
+    env: env2,
+    stack: tc_stack_from_types(params),
+    reachable: st1.reachable,
+    escape: st1.escape,
+    reachable_escape_depths: [],
+  }
+  let st_body = match Typecheck::typecheck(body, body_start) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  match validate_end_stack(st_body, results) {
+    Err(e) => return Err(e)
+    Ok(_) => ()
+  }
+  let mut reachable = st_body.reachable
+  let mut escape = st_body.escape
+  let child_depths = st_body.reachable_escape_depths.copy()
+  for catch_ in catches {
+    let catch_body = match catch_ {
+      LegacyCatch(tag, catch_body) => {
+        if Validate::validate(tag, st.env) is Err(e) {
+          return Err(e)
+        }
+        catch_body
+      }
+      LegacyCatchAll(catch_body) => catch_body
+    }
+    let catch_start = TcState::{
+      env: env2,
+      stack: [],
+      reachable: st1.reachable,
+      escape: st1.escape,
+      reachable_escape_depths: [],
+    }
+    let st_catch = match Typecheck::typecheck(catch_body, catch_start) {
+      Err(e) => return Err(e)
+      Ok(s) => s
+    }
+    match validate_end_stack(st_catch, results) {
+      Err(e) => return Err(e)
+      Ok(_) => ()
+    }
+    reachable = reachable || st_catch.reachable
+    escape = merge_nonfallthrough_if_exits(escape, st_catch.escape)
+    child_depths.append(st_catch.reachable_escape_depths)
+  }
+  let out = TcState::{
+    env: st.env,
+    stack: st1.stack,
+    reachable,
+    escape,
+    reachable_escape_depths: st.reachable_escape_depths,
+  }.merge_child_reachable_escape_depths(TcState::{
+    env: st.env,
+    stack: [],
+    reachable,
+    escape,
+    reachable_escape_depths: child_depths,
+  })
+  Ok(out.push_types(results))
+}
+
+///|
 fn typecheck_try_table(
   st : TcState,
   bt : BlockType,
@@ -3511,6 +3590,7 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     ReturnCallRef(tidx) => typecheck_return_call_ref(st, tidx)
     Throw(t) => typecheck_throw(st, t)
     ThrowRef => typecheck_throw_ref(st)
+    Try(bt, body, catches, _) => typecheck_legacy_try(st, bt, catches, body)
     TryTable(bt, cs, e) => typecheck_try_table(st, bt, cs, e)
     Loop(bt, e) => typecheck_loop(st, bt, e)
     RefNull(ht) => typecheck_ref_null(st, ht)

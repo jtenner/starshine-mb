@@ -1194,6 +1194,48 @@ fn hot_lower_impl_emit_instruction(
         hot_lower_impl_pop_label(label_frames, next_stack)
       }
     }
+    HotOp::Try => {
+      let label_id = hot_control_node_label(func, id)
+      let next_stack = if label_id >= 0 {
+        hot_lower_impl_push_label(label_frames, label_stack_head, label_id)
+      } else {
+        label_stack_head
+      }
+      let catch_id = func.children[node.child_base + 1]
+      let catches : Array[LegacyCatch] = []
+      if catch_id != HOT_NONE_NODE {
+        catches.push(
+          LegacyCatch::all(
+            Expr::new(
+              hot_lower_impl_region_body(
+                func, catch_id, use_def, label_frames, next_stack, extra_locals,
+                options,
+              ),
+            ),
+          ),
+        )
+      }
+      out.push(
+        Instruction::try_(
+          hot_lower_impl_control_block_type(func, id),
+          Expr::new(
+            hot_lower_impl_region_body(
+              func,
+              func.children[node.child_base],
+              use_def,
+              label_frames,
+              next_stack,
+              extra_locals,
+              options,
+            ),
+          ),
+          catches,
+        ),
+      )
+      if next_stack != label_stack_head {
+        hot_lower_impl_pop_label(label_frames, next_stack)
+      }
+    }
     HotOp::TryTable => {
       let label_id = hot_control_node_label(func, id)
       let next_stack = if label_id >= 0 {

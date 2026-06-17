@@ -506,6 +506,12 @@ pub enum Catch {
 } derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
+pub enum LegacyCatch {
+  LegacyCatch(TagIdx, Expr)
+  LegacyCatchAll(Expr)
+} derive(Eq, Hash, Debug)
+
+///|
 pub struct CodeSec(Array[Func]) derive(Eq, Hash, Debug)
 
 ///|
@@ -548,6 +554,7 @@ pub enum Instruction {
   ReturnCallRef(TypeIdx)
   Drop
   Select(Array[ValType]?)
+  Try(BlockType, Expr, Array[LegacyCatch], LabelIdx?)
   TryTable(BlockType, Array[Catch], Expr)
   LocalGet(LocalIdx)
   LocalSet(LocalIdx)
@@ -2750,6 +2757,16 @@ pub fn Catch::all_ref(li : LabelIdx) -> Catch {
 }
 
 ///|
+pub fn LegacyCatch::new(ti : TagIdx, body : Expr) -> LegacyCatch {
+  LegacyCatch(ti, body)
+}
+
+///|
+pub fn LegacyCatch::all(body : Expr) -> LegacyCatch {
+  LegacyCatchAll(body)
+}
+
+///|
 pub fn rec_idx(idx : UInt) -> TypeIdx {
   RecIdx(idx)
 }
@@ -3046,6 +3063,16 @@ pub fn Instruction::drop() -> Instruction {
 ///|
 pub fn Instruction::select(types? : Array[ValType]? = None) -> Instruction {
   Select(types)
+}
+
+///|
+pub fn Instruction::try_(
+  bt : BlockType,
+  body : Expr,
+  catches : Array[LegacyCatch],
+  delegate_target? : LabelIdx? = None,
+) -> Instruction {
+  Try(bt, body, catches, delegate_target)
 }
 
 ///|

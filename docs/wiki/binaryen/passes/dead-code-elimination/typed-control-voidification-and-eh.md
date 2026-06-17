@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-16
+last_reviewed: 2026-06-17
 sources:
   - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
@@ -92,7 +92,7 @@ Then the loop is replaced by the body.
 
 If the try body is unreachable and every catch body is unreachable, DCE changes the try node type to `unreachable`.
 
-Starshine currently records full legacy-try parity as a representation blocker rather than closed local coverage: `@lib` has no real legacy `Try`/`pop` representation, and valid legacy `try` text lowers to a synthetic sequential check block. The DCE audit covers only that synthetic surface for now: reachable alternate arms force a conservative raw skip, while all-unreachable lowered arms may still make following roots dead. The 2026-06-16 legacy `Try` / `pop` feasibility slice inspected the local surfaces and kept the blocker: real parity needs `@lib.Instruction::Try`, a Binaryen `pop` or equivalent catch-payload representation, binary/text decode+encode, validation/typechecking, and HOT lift/lower support before DCE can safely implement Binaryen's `hasPop && addedBlock` repair. Until then, Binaryen legacy `pop` text fails closed through both WAST-to-binary entrypoints with an explicit diagnostic.
+Starshine now has a first real legacy-`try` representation slice: `@lib.Instruction::Try` carries a body, catch bodies, and an optional delegate label; WAST lowering preserves legacy `try` without `pop` as that node, validation/typechecking can check the body/catch regions, and HOT lift/lower can carry a narrow catch-all-shaped region. Focused DCE coverage now runs the reachable-catch and all-unreachable legacy-`try` cases through a real local `Try` node instead of the old synthetic sequential check block. This is blocker-enabling representation progress, not full Binaryen legacy EH parity: Binaryen `pop` / catch-payload flow is still intentionally unsupported, binary encoding of `Try` fails closed, binary decoding is not implemented, HOT lowering currently reconstructs a simplified catch-all region, and DCE still lacks the exact `hasPop && addedBlock` nested-pop repair. Binaryen legacy `pop` text continues to fail closed through both WAST-to-binary entrypoints with an explicit diagnostic naming `pop`, real legacy `Try` without pop, and catch payload flow.
 
 ### `try_table`
 

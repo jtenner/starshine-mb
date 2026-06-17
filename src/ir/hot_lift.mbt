@@ -1929,6 +1929,96 @@ fn hot_lift_impl_lift_control(
       hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }
+    Instruction::Try(block_type, body, catches, _delegate_target) => {
+      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
+      let (params, results) = match
+        hot_lift_impl_block_results(tc_state.env, block_type) {
+        Ok(types) => types
+        Err(err) => return Err(err)
+      }
+      let entry_state = match tc_state_pop_types(tc_state, params) {
+        Ok(next) => next
+        Err(err) => return Err(hot_lift_impl_invalid_body_state(err))
+      }
+      let (entry_values, entry_types) = match
+        hot_lift_impl_pop_typed_values_for_instr(
+          instr,
+          values,
+          concrete_values,
+          params.length(),
+          "legacy try entry values",
+        ) {
+        Ok(entry_values) => entry_values
+        Err(err) => return Err(err)
+      }
+      let ty = hot_lift_impl_intern_control_result_type(
+        func, block_type, params, results,
+      )
+      let result_arity = results.length()
+      let id = hot_build_node(func, HotOp::Try, ty)
+      let label_id = hot_label_alloc(
+        func,
+        HotLabelKind::TryLabel,
+        ty,
+        id,
+        result_arity,
+      )
+      let next_stack = hot_lift_impl_push_label(
+        label_frames, label_stack_head, label_id,
+      )
+      let region_env = entry_state.env.with_label(results)
+      let body_state = hot_lift_impl_region_state(
+        entry_state, region_env, entry_types,
+      )
+      let (body_roots, _, _) = match
+        hot_lift_impl_lift_region(
+          func,
+          body,
+          body_state,
+          label_frames,
+          next_stack,
+          initial_values=entry_values,
+          initial_value_types=entry_types,
+        ) {
+        Ok(state) => state
+        Err(err) => return Err(err)
+      }
+      let catch_roots : Array[NodeId] = []
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          LegacyCatch(_, catch_body) => catch_body
+          LegacyCatchAll(catch_body) => catch_body
+        }
+        let catch_state = hot_lift_impl_region_state(entry_state, region_env, [])
+        let (roots, _, _) = match
+          hot_lift_impl_lift_region(
+            func,
+            catch_body,
+            catch_state,
+            label_frames,
+            next_stack,
+            initial_values=[],
+            initial_value_types=[],
+          ) {
+          Ok(state) => state
+          Err(err) => return Err(err)
+        }
+        catch_roots.append(roots)
+      }
+      hot_lift_impl_pop_label(label_frames, next_stack)
+      ignore(
+        hot_replace_child_span(func, id, [
+          hot_lift_impl_make_region(func, body_roots, result_arity),
+          hot_lift_impl_make_region(func, catch_roots, result_arity),
+        ]),
+      )
+      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+      hot_lift_impl_push_node(roots, values, concrete_values, id, results)
+      Ok(after_state)
+    }
     Instruction::TryTable(block_type, catches, body) => {
       let (params, results) = match
         hot_lift_impl_block_results(tc_state.env, block_type) {
@@ -2053,6 +2143,7 @@ fn hot_lift_impl_lift_instruction(
     Instruction::Block(_, _)
     | Instruction::Loop(_, _)
     | Instruction::If(_, _, _)
+    | Instruction::Try(_, _, _, _)
     | Instruction::TryTable(_, _, _) =>
       return hot_lift_impl_lift_control(
         func, instr, tc_state, label_frames, label_stack_head, roots, values, concrete_values,

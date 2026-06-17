@@ -5,6 +5,7 @@ using @lib {
   type Elem,
   type Expr,
   type Instruction,
+  type LegacyCatch,
   type LocalIdx,
   type FuncIdx,
   type MemArg,

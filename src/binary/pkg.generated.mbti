@@ -98,6 +98,7 @@ pub suberror BinaryEncodeError {
   RawNameCustomSectionUnsupported
   CannotEncodeStringConstWithoutModuleContext
   StringConstLiteralMissingFromSection
+  CannotEncodeLegacyTry
 } derive(Eq, @debug.Debug)
 pub impl Show for BinaryEncodeError
 

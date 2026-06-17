@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-16
+last_reviewed: 2026-06-17
 sources:
   - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
@@ -167,7 +167,7 @@ For legacy `try`, DCE checks whether:
 
 If both are true and the try node is not already marked unreachable, DCE changes the try type to `unreachable`.
 
-Starshine does **not** currently claim full local coverage for this legacy `try` behavior: `@lib.Instruction` has `TryTable` but no real legacy `Try` node, and WAST lowering represents legacy try/catch as a synthetic sequential check block. As of 2026-06-16, focused DCE tests cover the two observed Binaryen v130 reachability cases on that local synthetic surface: reachable lowered arms trigger a conservative raw skip reason, `legacy-synthetic-try-reachable-arm-dce-noop`, so following roots stay reachable; all-unreachable lowered arms can still make following roots dead. The later legacy-`pop` feasibility slice confirmed real parity is not feasible as a small DCE-only change: `@lib` / binary decode+encode / validation / HOT lower still lack a real legacy `Try` plus Binaryen `pop` / catch-payload-flow surface. `wast_to_binary_module` and `wast_text_binary_roundtrip` now reject Binaryen legacy `pop` text with an explicit diagnostic instead of a generic parse/type error. Reopen for full parity only when those representation APIs exist, then implement the real `try` type-to-`unreachable` rule and the exact `hasPop && addedBlock` nested-pop repair trigger rather than relying on synthetic check blocks.
+Starshine does **not** yet claim full Binaryen legacy EH parity, but the local surface has moved past the old synthetic-only blocker. `@lib.Instruction` now has a real legacy `Try` node with body, catch bodies, and optional delegate label; WAST lowering preserves legacy `try` without `pop`; validation/typechecking covers the body/catch regions; HOT lift/lower can carry the narrow real-`Try` surface; and focused DCE tests now exercise the reachable-catch and all-unreachable cases through that node. Remaining blockers are narrower: Binaryen `pop` / catch-payload flow still has no local representation, binary encoding currently rejects `Try`, binary decoding is not implemented, HOT lowering reconstructs a simplified catch-all catch region, and DCE still lacks the exact `hasPop && addedBlock` nested-pop repair trigger. `wast_to_binary_module` and `wast_text_binary_roundtrip` continue to reject Binaryen legacy `pop` text with an explicit diagnostic instead of a generic parse/type error. Reopen for full parity when the `pop`/payload and binary surfaces exist, then implement the exact nested-pop repair rather than treating this first real-`Try` slice as complete parity.
 
 ### `try_table`
 

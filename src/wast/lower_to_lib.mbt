@@ -451,20 +451,6 @@ fn wt_type_group(
 }
 
 ///|
-fn wt_append_lib_func_type(
-  ctx : WTLowerCtx,
-  params : Array[@lib.ValType],
-  results : Array[@lib.ValType],
-) -> UInt {
-  let rec = @lib.RecType::new(
-    @lib.SubType::comp_type(@lib.CompType::func(params, results)),
-  )
-  let idx = wt_flat_type_count(ctx)
-  ctx.type_recs.push(rec)
-  idx
-}
-
-///|
 fn wt_flat_type_count(ctx : WTLowerCtx) -> UInt {
   let mut count = 0U
   for rec in ctx.type_recs {
@@ -510,151 +496,6 @@ fn wt_find_matching_func_type_index(
     }
   }
   None
-}
-
-///|
-fn wt_resolve_functype_sig_by_index(
-  ctx : WTLowerCtx,
-  type_idx : UInt,
-) -> Result[(Array[@lib.ValType], Array[@lib.ValType]), String] {
-  let mut flat = 0U
-  for rec in ctx.type_recs {
-    match rec {
-      SingleRecType(st) =>
-        match st.get_comptype() {
-          FuncCompType(params, results) => {
-            if flat == type_idx {
-              return Ok((params, results))
-            }
-            flat += 1
-          }
-          _ => {
-            if flat == type_idx {
-              return Err(
-                "type index does not reference a function type: \{type_idx}",
-              )
-            }
-            flat += 1
-          }
-        }
-      GroupRecType(sts) =>
-        for st in sts {
-          match st.get_comptype() {
-            FuncCompType(params, results) => {
-              if flat == type_idx {
-                return Ok((params, results))
-              }
-              flat += 1
-            }
-            _ => {
-              if flat == type_idx {
-                return Err(
-                  "type index does not reference a function type: \{type_idx}",
-                )
-              }
-              flat += 1
-            }
-          }
-        }
-    }
-  }
-  Err("type index out of bounds: \{type_idx}")
-}
-
-///|
-fn wt_block_type_results(
-  ctx : WTLowerCtx,
-  bt : BlockType,
-) -> Result[Array[@lib.ValType], String] {
-  match bt.type_use {
-    None => Ok([])
-    Some(tu) =>
-      match tu.type_index {
-        Some(idx) => {
-          let ti = match
-            wt_resolve_named_or_num_index(
-              idx,
-              ctx.type_ids,
-              ctx.type_recs.length().reinterpret_as_uint(),
-              "type",
-            ) {
-            Ok(v) => v
-            Err(e) => return Err(e)
-          }
-          let (_, results) = match wt_resolve_functype_sig_by_index(ctx, ti) {
-            Ok(v) => v
-            Err(e) => return Err(e)
-          }
-          Ok(results)
-        }
-        None => {
-          let (_, results) = match wt_func_sig(ctx, tu.func_type) {
-            Ok(v) => v
-            Err(e) => return Err(e)
-          }
-          Ok(results)
-        }
-      }
-  }
-}
-
-///|
-fn wt_tag_payload_types(
-  ctx : WTLowerCtx,
-  tag_idx : UInt,
-) -> Result[Array[@lib.ValType], String] {
-  let ti = match ctx.tag_type_idxs.get(tag_idx.reinterpret_as_int()) {
-    Some(v) => v
-    None => return Err("unknown tag index: \{tag_idx}")
-  }
-  let (params, _) = match wt_resolve_functype_sig_by_index(ctx, ti) {
-    Ok(v) => v
-    Err(e) => return Err(e)
-  }
-  Ok(params)
-}
-
-///|
-fn wt_default_value_instrs_for_valtype(
-  vt : @lib.ValType,
-) -> Result[Array[@lib.Instruction], String] {
-  match vt {
-    @lib.NumTypeValType(@lib.I32NumType) =>
-      Ok([@lib.Instruction::i32_const(@lib.I32(0))])
-    @lib.NumTypeValType(@lib.I64NumType) =>
-      Ok([@lib.Instruction::i64_const(@lib.I64(0L))])
-    @lib.NumTypeValType(@lib.F32NumType) =>
-      Ok([@lib.Instruction::f32_const(@lib.F32(0.0))])
-    @lib.NumTypeValType(@lib.F64NumType) =>
-      Ok([@lib.Instruction::f64_const(@lib.F64(0.0))])
-    @lib.VecTypeValType =>
-      Ok([
-        @lib.Instruction::v128_const(
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ),
-      ])
-    @lib.RefTypeValType(rt) => {
-      let ref_null = @lib.Instruction::ref_null(rt.get_heap_type())
-      if rt.is_nullable() {
-        Ok([ref_null])
-      } else {
-        Ok([ref_null, @lib.Instruction::ref_as_non_null()])
-      }
-    }
-    @lib.BotValType =>
-      Err("cannot synthesize legacy-catch payload value for bottom type")
-  }
-}
-
-///|
-fn wt_drop_n_instrs(n : Int) -> Array[@lib.Instruction] {
-  let drops : Array[@lib.Instruction] = []
-  let mut i = 0
-  while i < n {
-    drops.push(@lib.Instruction::drop())
-    i += 1
-  }
-  drops
 }
 
 ///|
@@ -1719,105 +1560,6 @@ fn wt_instrs_to_lib(
 }
 
 ///|
-fn wt_legacy_synthetic_check_instrs(
-  ctx : WTLowerCtx,
-  lib_bt : @lib.BlockType,
-  bt : BlockType,
-  bt_results : Array[@lib.ValType],
-  body : Array[Instruction],
-  catches : Array[LegacyCatchClause],
-  local_ids : Map[String, UInt],
-  labels : Array[String?],
-  legacy : WTLegacyCtx,
-) -> Result[Array[@lib.Instruction], String] {
-  let try_labels = legacy.try_labels.copy()
-  match bt.label {
-    Some(label) => try_labels.push(label)
-    None => ()
-  }
-  let nested_base : WTLegacyCtx = {
-    catch_depth: legacy.catch_depth,
-    enclosing_try_count: legacy.enclosing_try_count + 1U,
-    try_labels,
-  }
-  let next_labels = labels.copy()
-  next_labels.push(bt.label)
-
-  let checks : Array[@lib.Instruction] = []
-
-  let lib_body = match
-    wt_instrs_to_lib(ctx, body, local_ids, next_labels, nested_base) {
-    Ok(v) => v
-    Err(e) => return Err(e)
-  }
-  checks.push(@lib.Instruction::block(lib_bt, @lib.Expr::new(lib_body)))
-  for drop_instr in wt_drop_n_instrs(bt_results.length()) {
-    checks.push(drop_instr)
-  }
-
-  for clause in catches {
-    let (payload, catch_body) = match clause {
-      LegacyCatch(tag_idx, catch_body) => {
-        let ti = match
-          wt_resolve_named_or_num_index(
-            tag_idx,
-            ctx.tag_ids,
-            ctx.next_tag_idx,
-            "tag",
-          ) {
-          Ok(v) => v
-          Err(e) => return Err(e)
-        }
-        let payload = match wt_tag_payload_types(ctx, ti) {
-          Ok(v) => v
-          Err(e) => return Err(e)
-        }
-        (payload, catch_body)
-      }
-      LegacyCatchAll(catch_body) => ([], catch_body)
-    }
-
-    let catch_ctx : WTLegacyCtx = {
-      catch_depth: nested_base.catch_depth + 1U,
-      enclosing_try_count: nested_base.enclosing_try_count,
-      try_labels: nested_base.try_labels,
-    }
-    let lib_catch_body = match
-      wt_instrs_to_lib(ctx, catch_body, local_ids, next_labels, catch_ctx) {
-      Ok(v) => v
-      Err(e) => return Err(e)
-    }
-
-    for vt in payload {
-      let defaults = match wt_default_value_instrs_for_valtype(vt) {
-        Ok(v) => v
-        Err(e) => return Err(e)
-      }
-      for instr in defaults {
-        checks.push(instr)
-      }
-    }
-
-    let loop_type_idx = match
-      wt_find_matching_func_type_index(ctx, payload, bt_results) {
-      Some(idx) => idx
-      None => wt_append_lib_func_type(ctx, payload, bt_results)
-    }
-    checks.push(
-      @lib.Instruction::loop_(
-        @lib.BlockType::type_idx(@lib.TypeIdx::new(loop_type_idx)),
-        @lib.Expr::new(lib_catch_body),
-      ),
-    )
-    for drop_instr in wt_drop_n_instrs(bt_results.length()) {
-      checks.push(drop_instr)
-    }
-  }
-
-  Ok(checks)
-}
-
-///|
 fn wt_local_idx(
   idx : Index,
   local_ids : Map[String, UInt],
@@ -2017,7 +1759,7 @@ fn wt_instr_to_lib(
       } else {
         Err("invalid legacy rethrow label: \{wt_index_text(idx)}")
       }
-    TryLegacy(bt, body, catches, _) => {
+    TryLegacy(bt, body, catches, delegate_target) => {
       match wt_legacy_instr_invalid_reason(instr, legacy) {
         Some(reason) => return Err(reason)
         None => ()
@@ -2026,20 +1768,88 @@ fn wt_instr_to_lib(
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      let bt_results = match wt_block_type_results(ctx, bt) {
+      let try_labels = legacy.try_labels.copy()
+      match bt.label {
+        Some(label) => try_labels.push(label)
+        None => ()
+      }
+      let nested_base : WTLegacyCtx = {
+        catch_depth: legacy.catch_depth,
+        enclosing_try_count: legacy.enclosing_try_count + 1U,
+        try_labels,
+      }
+      let next_labels = labels.copy()
+      next_labels.push(bt.label)
+      let lib_body = match
+        wt_instrs_to_lib(ctx, body, local_ids, next_labels, nested_base) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      let checks = match
-        wt_legacy_synthetic_check_instrs(
-          ctx, lib_bt, bt, bt_results, body, catches, local_ids, labels, legacy,
-        ) {
-        Ok(v) => v
-        Err(e) => return Err(e)
+      let lib_catches : Array[@lib.LegacyCatch] = []
+      for clause in catches {
+        match clause {
+          LegacyCatch(tag_idx, catch_body) => {
+            let ti = match
+              wt_resolve_named_or_num_index(
+                tag_idx,
+                ctx.tag_ids,
+                ctx.next_tag_idx,
+                "tag",
+              ) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            let catch_ctx : WTLegacyCtx = {
+              catch_depth: nested_base.catch_depth + 1U,
+              enclosing_try_count: nested_base.enclosing_try_count,
+              try_labels: nested_base.try_labels,
+            }
+            let lib_catch_body = match
+              wt_instrs_to_lib(
+                ctx, catch_body, local_ids, next_labels, catch_ctx,
+              ) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            lib_catches.push(
+              @lib.LegacyCatch::new(
+                @lib.TagIdx::new(ti),
+                @lib.Expr::new(lib_catch_body),
+              ),
+            )
+          }
+          LegacyCatchAll(catch_body) => {
+            let catch_ctx : WTLegacyCtx = {
+              catch_depth: nested_base.catch_depth + 1U,
+              enclosing_try_count: nested_base.enclosing_try_count,
+              try_labels: nested_base.try_labels,
+            }
+            let lib_catch_body = match
+              wt_instrs_to_lib(
+                ctx, catch_body, local_ids, next_labels, catch_ctx,
+              ) {
+              Ok(v) => v
+              Err(e) => return Err(e)
+            }
+            lib_catches.push(
+              @lib.LegacyCatch::all(@lib.Expr::new(lib_catch_body)),
+            )
+          }
+        }
       }
-      let block_body = checks.copy()
-      block_body.push(@lib.Instruction::unreachable_())
-      Ok(@lib.Instruction::block(lib_bt, @lib.Expr::new(block_body)))
+      let lib_delegate : @lib.LabelIdx? = match delegate_target {
+        Some(Num(n)) => Some(@lib.LabelIdx::new(n))
+        Some(Id(_)) => None
+        None => None
+      }
+      Ok(
+        @lib.Instruction::try_(
+          lib_bt,
+          @lib.Expr::new(lib_body),
+          lib_catches,
+          delegate_target=lib_delegate,
+        ),
+      )
     }
     Drop => Ok(@lib.Instruction::drop())
     Select(types) => {
@@ -3664,7 +3474,7 @@ fn wt_unsupported_legacy_pop_reason(
         match token.value {
           Text("pop") =>
             return Some(
-              "legacy exception pop text is unsupported: @lib/@wast do not represent Binaryen pop, real legacy Try, or catch payload flow",
+              "legacy exception pop text is unsupported: @lib/@wast represent real legacy Try without pop, but not Binaryen pop or catch payload flow",
             )
           _ => ()
         }
@@ -6462,6 +6272,37 @@ test "wast_to_binary_module lowers advanced reference no-immediate instructions"
 }
 
 ///|
+test "wast_to_binary_module preserves real legacy try without pop" {
+  let src =
+    #|(module
+    #|  (tag $e)
+    #|  (func
+    #|    (try
+    #|      (do unreachable)
+    #|      (catch $e unreachable))))
+  let lowered = match
+    wast_to_binary_module(src, filename="legacy-try-real-surface.wat") {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected legacy try without pop to lower to real @lib.Try: \{e}")
+  }
+  match lowered.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
+      match try_instr {
+        @lib.Try(
+          _,
+          @lib.Expr([@lib.Unreachable]),
+          [@lib.LegacyCatch(@lib.TagIdx(0), @lib.Expr([@lib.Unreachable]))],
+          None
+        ) => ()
+        _ =>
+          fail("expected real @lib.Try with one catch body, got \{try_instr}")
+      }
+    _ => fail("expected lowered legacy try function body")
+  }
+}
+
+///|
 test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
   let src =
     #|(module
@@ -6480,7 +6321,7 @@ test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
     Err(err) => {
       assert_true(err.contains("legacy"), msg=err)
       assert_true(err.contains("pop"), msg=err)
-      assert_true(err.contains("real legacy Try"), msg=err)
+      assert_true(err.contains("real legacy Try without pop"), msg=err)
       assert_true(err.contains("catch payload"), msg=err)
     }
   }

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-16
+last_reviewed: 2026-06-17
 sources:
   - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
@@ -195,7 +195,7 @@ The local proof surface is broader than one regression file.
 - unreachable-root pruning after `return`, including raw root and nested explicit-suffix trimming before the load/call/set, loop-outer-branch, and no-candidate raw skips
 - dead-result typed `if` and block cleanup
 - modern EH `try_table` body-fallthrough handling, including unreachable-body suffix trimming and result-drop collapse
-- the limited lowered-legacy-`try` DCE reachability subset, including a conservative raw skip for reachable synthetic arms, plus the remaining stack-switching handler-label tooling boundary
+- the first real legacy-`try` DCE reachability subset for legacy `try` without `pop`, plus the remaining `pop`/catch-payload and stack-switching handler-label tooling boundaries
 - payload-forwarder rewrites
 - split-`local.set` wrapper rewrites
 - explicit `unreachable` tail repair
@@ -203,7 +203,7 @@ The local proof surface is broader than one regression file.
 
 This file is the best compact proof surface for what the MoonBit owner file actually tries to do.
 
-The legacy `try`, legacy `pop`, and stack-switching tests are intentionally narrow. Binaryen v130 supports these surfaces, but Starshine cannot yet represent them faithfully in `@lib`: legacy `try` text lowers to a synthetic sequential check block rather than a real `Try` node, `pop` / catch payload flow has no local `@lib` / validator / binary / HOT-lower representation, and stack-switching `cont` / `resume` handler labels are rejected by the current WAST/lib type surface. The DCE tests therefore cover only the local legacy synthetic subset: skip when an alternate arm can fall through, and still trim when all lowered arms are unreachable. The legacy `pop` and stack-switching boundaries are now fail-closed at both WAST-to-binary entrypoints with explicit diagnostics naming the missing APIs. Reopen full legacy-EH and stack-switching DCE parity when the local representation exists; do not count the synthetic guard or explicit rejections as full Binaryen parity for those surfaces.
+The legacy `try`, legacy `pop`, and stack-switching tests are intentionally narrow. Binaryen v130 supports these surfaces, and Starshine now has a first real local representation for legacy `try` without `pop`: WAST lowering creates `@lib.Instruction::Try`, validation/typechecking covers body/catch regions, and HOT lift/lower can carry the narrow real-`Try` surface. The DCE tests therefore no longer rely on the old synthetic sequential check for the reachable-catch and all-unreachable legacy-`try` cases. Full legacy EH parity is still blocked because Binaryen `pop` / catch payload flow lacks a local representation, binary encode/decode for legacy `Try` is not complete, HOT lowering currently reconstructs a simplified catch-all region, and the DCE pass still lacks `hasPop && addedBlock` nested-pop repair. The legacy `pop` and stack-switching boundaries remain fail-closed at both WAST-to-binary entrypoints with explicit diagnostics naming the missing APIs. Reopen full legacy-EH and stack-switching DCE parity when the remaining local representations exist; do not count this first real-`Try` slice or explicit rejections as full Binaryen parity for those surfaces.
 
 ### Live repro coverage
 

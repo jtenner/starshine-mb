@@ -18,6 +18,7 @@ pub suberror BinaryEncodeError {
   RawNameCustomSectionUnsupported
   CannotEncodeStringConstWithoutModuleContext
   StringConstLiteralMissingFromSection
+  CannotEncodeLegacyTry
 } derive(Eq, Debug)
 
 ///|
@@ -55,6 +56,7 @@ pub impl Show for BinaryEncodeError with fn output(self, logger) {
       logger.write_string("CannotEncodeStringConstWithoutModuleContext")
     StringConstLiteralMissingFromSection =>
       logger.write_string("StringConstLiteralMissingFromSection")
+    CannotEncodeLegacyTry => logger.write_string("CannotEncodeLegacyTry")
   }
 }
 
@@ -1089,6 +1091,39 @@ fn binary_encode_rewrite_instruction(
       }
       out.push(Instruction::if_(bt, next_then, next_else))
     }
+    Try(bt, body, catches, delegate_target) => {
+      let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
+        body, subtypes, env,
+      )
+      let next_body = binary_encode_rewrite_instr_array(
+        body_instrs, subtypes, env,
+      )
+      let next_catches : Array[LegacyCatch] = []
+      for catch_ in catches {
+        match catch_ {
+          LegacyCatch(tag, Expr(catch_instrs)) => {
+            let rewritten = binary_encode_rewrite_instr_array(
+              catch_instrs, subtypes, env,
+            )
+            next_catches.push(LegacyCatch::new(tag, Expr::new(rewritten)))
+          }
+          LegacyCatchAll(Expr(catch_instrs)) => {
+            let rewritten = binary_encode_rewrite_instr_array(
+              catch_instrs, subtypes, env,
+            )
+            next_catches.push(LegacyCatch::all(Expr::new(rewritten)))
+          }
+        }
+      }
+      out.push(
+        Instruction::try_(
+          bt,
+          Expr::new(next_body),
+          next_catches,
+          delegate_target~,
+        ),
+      )
+    }
     TryTable(bt, catches, body) => {
       let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
         body, subtypes, env,
@@ -1582,6 +1617,7 @@ fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
       StringConst(bytes) => push_unique(out, bytes)
       Block(_, Expr(instrs))
       | Loop(_, Expr(instrs))
+      | Try(_, Expr(instrs), _, _)
       | TryTable(_, _, Expr(instrs)) =>
         for child in instrs {
           collect_instruction(child, out)
@@ -2036,6 +2072,7 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
+    Try(_, _, _, _) => return Err(BinaryEncodeError::CannotEncodeLegacyTry)
     TryTable(bt, c, e) => {
       buf.write_byte(0x1F)
       if Encode::encode(bt, buf) is Err(t) {

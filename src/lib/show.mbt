@@ -910,6 +910,35 @@ pub impl Show for Instruction with fn output(self, logger) {
       }
       logger.write_char(')')
     }
+    Try(bt, body, catches, delegate_target) => {
+      logger.write_string("(try ")
+      Show::output(bt, logger)
+      logger.write_char(' ')
+      Show::output(body, logger)
+      for catch_ in catches {
+        logger.write_char(' ')
+        match catch_ {
+          LegacyCatch(tag, catch_body) => {
+            logger.write_string("(catch ")
+            Show::output(tag, logger)
+            logger.write_char(' ')
+            Show::output(catch_body, logger)
+            logger.write_char(')')
+          }
+          LegacyCatchAll(catch_body) => {
+            logger.write_string("(catch_all ")
+            Show::output(catch_body, logger)
+            logger.write_char(')')
+          }
+        }
+      }
+      if delegate_target is Some(target) {
+        logger.write_string(" (delegate ")
+        Show::output(target, logger)
+        logger.write_char(')')
+      }
+      logger.write_char(')')
+    }
     TryTable(bt, c, e) => {
       logger.write_string("(try_table ")
       Show::output(bt, logger)

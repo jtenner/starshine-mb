@@ -505,8 +505,7 @@ test "dead-code-elimination drops if arms and suffix after unreachable condition
 }
 
 ///|
-test "dead-code-elimination preserves suffix after lowered legacy try with reachable catch" {
-  let trace : Array[String] = []
+test "dead-code-elimination preserves suffix after real legacy try with reachable catch" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -521,7 +520,6 @@ test "dead-code-elimination preserves suffix after lowered legacy try with reach
         #|,
       ),
       ["dead-code-elimination"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -530,14 +528,9 @@ test "dead-code-elimination preserves suffix after lowered legacy try with reach
       )
   }
 
-  assert_true(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[dead-code-elimination]:skip-raw reason=legacy-synthetic-try-reachable-arm-dce-noop",
-      )
-    }),
-  )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("try"), msg=pretty)
+  assert_true(pretty.contains("catch_all"), msg=pretty)
   assert_true(pretty.contains("call"), msg=pretty)
 }
 
@@ -595,12 +588,12 @@ test "dead-code-elimination documents unsupported legacy pop boundary" {
     ) {
     Ok(_) =>
       fail(
-        "Binaryen legacy pop DCE fixtures must stay unsupported until @lib/@wast represent real legacy Try catch payloads and pop",
+        "Binaryen legacy pop DCE fixtures must stay unsupported until @lib/@wast represent Binaryen pop and catch payload flow",
       )
     Err(err) => {
       assert_true(err.contains("legacy"), msg=err)
       assert_true(err.contains("pop"), msg=err)
-      assert_true(err.contains("real legacy Try"), msg=err)
+      assert_true(err.contains("real legacy Try without pop"), msg=err)
       assert_true(err.contains("catch payload"), msg=err)
     }
   }
