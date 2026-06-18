@@ -3793,6 +3793,106 @@ fn wt_legacy_pop_loop_label_results(
 }
 
 ///|
+fn wt_legacy_pop_interleaved_root_prefix_supported(
+  instrs : Array[@lib.Instruction],
+  payloads : Array[@lib.ValType],
+) -> Int? {
+  let mut instr_idx = 0
+  let mut payload_idx = payloads.length() - 1
+  while payload_idx >= 0 {
+    if instr_idx >= instrs.length() {
+      return None
+    }
+    match instrs[instr_idx] {
+      @lib.Nop => instr_idx += 1
+      @lib.Pop(vt) if vt == payloads[payload_idx] => {
+        payload_idx -= 1
+        instr_idx += 1
+      }
+      _ => return None
+    }
+  }
+  let mut consumer_count = 0
+  let mut scan_idx = instr_idx
+  while scan_idx < instrs.length() && consumer_count < payloads.length() {
+    match instrs[scan_idx] {
+      @lib.Nop => scan_idx += 1
+      @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) => {
+        consumer_count += 1
+        scan_idx += 1
+      }
+      _ => return None
+    }
+  }
+  if consumer_count == payloads.length() {
+    Some(scan_idx)
+  } else {
+    None
+  }
+}
+
+///|
+fn wt_legacy_pop_nested_carrier_instr_supported(
+  instr : @lib.Instruction,
+  payloads : Array[@lib.ValType],
+  cursor : Int,
+) -> (Int, Bool) {
+  match instr {
+    @lib.Pop(vt) => {
+      let payload_idx = payloads.length() - 1 - cursor
+      if payload_idx < 0 || vt != payloads[payload_idx] {
+        return (cursor, false)
+      }
+      (cursor + 1, true)
+    }
+    @lib.Block(_, body) | @lib.Loop(_, body) =>
+      wt_legacy_pop_nested_carrier_expr_supported(body, payloads, cursor)
+    @lib.Nop | @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) => (cursor, true)
+    _ => (cursor, false)
+  }
+}
+
+///|
+fn wt_legacy_pop_nested_carrier_expr_supported(
+  expr : @lib.Expr,
+  payloads : Array[@lib.ValType],
+  cursor : Int,
+) -> (Int, Bool) {
+  let @lib.Expr(instrs) = expr
+  let mut next_cursor = cursor
+  for instr in instrs {
+    let (instr_cursor, ok) = wt_legacy_pop_nested_carrier_instr_supported(
+      instr, payloads, next_cursor,
+    )
+    if !ok {
+      return (instr_cursor, false)
+    }
+    next_cursor = instr_cursor
+  }
+  (next_cursor, true)
+}
+
+///|
+fn wt_legacy_pop_nested_carrier_supported(
+  instrs : Array[@lib.Instruction],
+  payloads : Array[@lib.ValType],
+) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  match instrs[0] {
+    @lib.Pop(_) => return false
+    _ => ()
+  }
+  let (cursor, ok) = wt_legacy_pop_nested_carrier_expr_supported(
+    @lib.Expr::new(instrs),
+    payloads,
+    0,
+  )
+  ok && cursor == payloads.length()
+}
+
+///|
 fn wt_direct_legacy_pop_expr_supported(
   env : @validate.Env,
   expr : @lib.Expr,
@@ -3906,48 +4006,67 @@ fn wt_direct_legacy_pop_instr_supported(
                         payload_idx -= 1
                         instr_idx += 1
                       }
-                      _ => return false
+                      _ =>
+                        match
+                          wt_legacy_pop_interleaved_root_prefix_supported(
+                            catch_instrs, payloads,
+                          ) {
+                          Some(next_idx) => {
+                            instr_idx = next_idx
+                            payload_idx = -1
+                            break
+                          }
+                          None => return false
+                        }
                     }
                   }
                   if payload_idx >= 0 {
                     return false
                   }
-                  let prefix_flows_to_nonfallthrough = instr_idx <
-                    catch_instrs.length() &&
-                    (
-                      wt_legacy_pop_prefix_tail_is_nonfallthrough(
-                        catch_instrs[instr_idx],
-                        nested_labels,
-                        func_results,
-                        prefix_types,
-                      ) ||
-                      wt_legacy_pop_prefix_tail_starts_br_table_statement(
-                        env, catch_instrs, instr_idx, nested_labels, prefix_types,
-                      ) ||
-                      wt_legacy_pop_prefix_tail_is_pop_within_block_repairable(
-                        env, catch_instrs, instr_idx, prefix_types,
-                      ) ||
-                      wt_legacy_pop_prefix_tail_is_struct_new_before_void_nonfallthrough(
-                        env, catch_instrs, instr_idx, nested_labels, func_results,
-                        prefix_types,
+                  if instr_idx != catch_instrs.length() ||
+                    prefix_types.length() == payloads.length() {
+                    let prefix_flows_to_nonfallthrough = instr_idx <
+                      catch_instrs.length() &&
+                      (
+                        wt_legacy_pop_prefix_tail_is_nonfallthrough(
+                          catch_instrs[instr_idx],
+                          nested_labels,
+                          func_results,
+                          prefix_types,
+                        ) ||
+                        wt_legacy_pop_prefix_tail_starts_br_table_statement(
+                          env, catch_instrs, instr_idx, nested_labels, prefix_types,
+                        ) ||
+                        wt_legacy_pop_prefix_tail_is_pop_within_block_repairable(
+                          env, catch_instrs, instr_idx, prefix_types,
+                        ) ||
+                        wt_legacy_pop_prefix_tail_is_struct_new_before_void_nonfallthrough(
+                          env, catch_instrs, instr_idx, nested_labels, func_results,
+                          prefix_types,
+                        )
                       )
-                    )
-                  if !prefix_flows_to_nonfallthrough {
-                    if catch_instrs.length() < instr_idx + payloads.length() {
-                      return false
-                    }
-                    for consumer_idx = instr_idx
-                        consumer_idx < instr_idx + payloads.length()
-                        consumer_idx = consumer_idx + 1 {
-                      match catch_instrs[consumer_idx] {
-                        @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) => ()
-                        _ => return false
+                    if !prefix_flows_to_nonfallthrough {
+                      if catch_instrs.length() < instr_idx + payloads.length() {
+                        return false
                       }
+                      for consumer_idx = instr_idx
+                          consumer_idx < instr_idx + payloads.length()
+                          consumer_idx = consumer_idx + 1 {
+                        match catch_instrs[consumer_idx] {
+                          @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) => ()
+                          _ => return false
+                        }
+                      }
+                      instr_idx += payloads.length()
                     }
-                    instr_idx += payloads.length()
                   }
                 }
-                _ => ()
+                _ =>
+                  if wt_legacy_pop_nested_carrier_supported(
+                      catch_instrs, payloads,
+                    ) {
+                    instr_idx = catch_instrs.length()
+                  }
               }
             }
             while instr_idx < catch_instrs.length() {
@@ -7165,7 +7284,7 @@ test "wast_text_binary_roundtrip supports direct multi-payload legacy pop prefix
 }
 
 ///|
-test "wast_text_binary_roundtrip rejects interrupted legacy pop prefix explicitly" {
+test "wast_text_binary_roundtrip supports nop-interleaved legacy pop prefix" {
   let src =
     #|(module
     #|  (tag $e-pair (param i32 i64))
@@ -7178,8 +7297,35 @@ test "wast_text_binary_roundtrip rejects interrupted legacy pop prefix explicitl
     #|        (pop i32)
     #|        (local.set 0)
     #|        (local.set 1)))))
-  match wast_text_binary_roundtrip(src, filename="legacy-pop-interleaved.wat") {
-    Ok(_) => fail("expected interrupted legacy pop prefix to stay unsupported")
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(src, filename="legacy-pop-interleaved.wat") {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected nop-interleaved legacy pop prefix to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip rejects incomplete nop-interleaved legacy pop prefix" {
+  let src =
+    #|(module
+    #|  (tag $e-pair (param i32 i64))
+    #|  (func (local i32 i64)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-pair
+    #|        (pop i64)
+    #|        nop
+    #|        (local.set 1)))))
+  match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-interleaved-incomplete.wat",
+    ) {
+    Ok(_) => fail("expected incomplete nop-interleaved legacy pop to reject")
     Err(err) => {
       assert_true(err.contains("legacy"), msg=err)
       assert_true(err.contains("pop"), msg=err)
@@ -7244,7 +7390,7 @@ test "wast_to_binary_module rejects pop-within-block payload mismatch" {
 }
 
 ///|
-test "wast_text_binary_roundtrip rejects nested legacy pop payload explicitly" {
+test "wast_text_binary_roundtrip supports nested block legacy pop payload" {
   let src =
     #|(module
     #|  (tag $e-i32 (param i32))
@@ -7254,14 +7400,15 @@ test "wast_text_binary_roundtrip rejects nested legacy pop payload explicitly" {
     #|      (catch $e-i32
     #|        (block
     #|          (drop (pop i32)))))))
-  match wast_text_binary_roundtrip(src, filename="legacy-pop-nested.wat") {
-    Ok(_) => fail("expected nested legacy pop payload to stay unsupported")
-    Err(err) => {
-      assert_true(err.contains("legacy"), msg=err)
-      assert_true(err.contains("pop"), msg=err)
-      assert_true(err.contains("catch payload"), msg=err)
-    }
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(src, filename="legacy-pop-nested.wat") {
+    Ok(m) => m
+    Err(e) => fail("expected nested legacy pop payload to roundtrip: \{e}")
   }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
 }
 
 ///|
