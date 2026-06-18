@@ -2578,19 +2578,23 @@ fn remove_unused_brs_try_optimize_switch(
   let values : Array[Int] = []
   if !stack_selector {
     for i = 0; i < selector_slot; i = i + 1 {
-      values.push(@ir.hot_child_get(func, br_table_id, i))
+      let value = @ir.hot_child_get(func, br_table_id, i)
+      if value < 0 || !@ir.hot_node_is_live(func, value) {
+        return false
+      }
+      values.push(value)
     }
   }
-  let has_payload = values.length() > 0
-  if has_payload || @ir.hot_label_branch_arity(func, default_target) != 0 {
-    // Binaryen only skips the condition-reordering switch-to-branch rewrites for
-    // value-carrying switches. Starshine leaves the whole value-carrying family
-    // conservative for now because trimming can expose older function-wide
-    // br_table-sensitive payload rewrites in the same RUB cycle.
+  let default_arity = @ir.hot_label_branch_arity(func, default_target)
+  let value_carrying = values.length() > 0 || default_arity != 0
+  if stack_selector && value_carrying {
+    // Child-less value-carrying br_table forms would need stack-payload root
+    // surgery around the selector. Keep that uncommon local shape conservative;
+    // ordinary lifted value switches carry payloads as br_table children.
     return false
   }
   for target in targets {
-    if @ir.hot_label_branch_arity(func, target) != 0 {
+    if @ir.hot_label_branch_arity(func, target) != default_arity {
       return false
     }
   }
@@ -2602,6 +2606,28 @@ fn remove_unused_brs_try_optimize_switch(
       condition,
       @ir.hot_build_const_i32(func, @lib.I32(leading_defaults)),
     )
+  }
+
+  if value_carrying {
+    if targets.length() != original_targets_len || leading_defaults > 0 {
+      let replacement = @ir.hot_build_br_table(
+        func,
+        targets,
+        default_target,
+        condition,
+        values~,
+      )
+      let detached : Array[Int] = [replacement]
+      @ir.hot_replace_node(
+        func,
+        br_table_id,
+        @ir.hot_node_get(func, replacement),
+      )
+      remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+      remove_unused_brs_mark_mutated(ctx, func, "optimize-switch-value-targets")
+      return true
+    }
+    return false
   }
 
   if targets.length() == 0 {

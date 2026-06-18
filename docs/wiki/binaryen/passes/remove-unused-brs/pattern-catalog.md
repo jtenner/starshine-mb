@@ -277,10 +277,14 @@ Detailed page:
   - `rewrites stack-style branch-payload result wrappers around br_if prefixes`
   - `rewrites sibling-carried branch payload wrappers around br_if prefixes`
 - `remove_unused_brs_try_optimize_switch(...)`
-  Mirrors the safe no-payload subset of Binaryen's early `optimizeSwitch(...)`: trims trailing explicit default targets, offsets leading explicit defaults by subtracting from the selector, lowers default-only tables to a dropped selector plus branch, and lowers one-explicit-target/two-option tables to branch-if structure. Value-carrying tables stay conservative, and the large mostly-default nested stack-style lowering is documented as fail-closed until the nested traversal can be widened without regressing long branch-drain shapes.
+  Mirrors the safe early subset of Binaryen's `optimizeSwitch(...)`: trims trailing explicit default targets, offsets leading explicit defaults by subtracting from the selector, preserves value-carrying payload children while applying those target-list cleanups, lowers no-payload default-only tables to a dropped selector plus branch, and lowers no-payload one-explicit-target/two-option tables to branch-if structure. Value-carrying tables deliberately stop after target-list cleanup because Binaryen bails before condition-reordering switch-to-branch lowerings when a switch carries a value; child-less local stack-payload switch shapes stay conservative. The large mostly-default nested stack-style lowering is documented as fail-closed until the nested traversal can be widened without regressing long branch-drain shapes.
   Covered by:
   - `remove-unused-brs trims trailing default br_table targets`
   - `remove-unused-brs offsets leading default br_table targets`
+  - `remove-unused-brs trims trailing default value br_table targets`
+  - `remove-unused-brs offsets leading default value br_table targets`
+  - `remove-unused-brs keeps default-only value br_table instead of branch lowering`
+  - `remove-unused-brs keeps two-option value br_table instead of branch-if lowering`
   - `remove-unused-brs lowers default-only br_table to dropped selector branch`
   - `remove-unused-brs lowers two-option br_table to branch if structure`
   - `remove-unused-brs documents nested stack-style large br_table lowering blocker`

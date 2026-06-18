@@ -64,7 +64,7 @@ related:
   - branch-payload `if` cleanup
   - carried-guard/result-block cleanup
   - repeated-constant `br_if` ladders to `br_table`
-  - safe no-payload early `br_table`/switch cleanup for trailing defaults, leading-default offsets, default-only tables, and two-option tables
+  - safe early `br_table`/switch cleanup for trailing defaults and leading-default offsets on no-payload and value-carrying tables, plus no-payload default-only and two-option lowerings
 - The 2026-06-09 merge-blocks/RUB result-fallback audit is covered by [`../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md`](../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md):
   - `remove_unused_brs_try_fold_constant_br_if(...)` now preserves branch payload children while folding constant `br_if` roots
   - `merge-blocks -> remove-unused-brs` has a focused guard proving the result-block fallback remains live when the prefix guard can fall through to the block end
@@ -260,12 +260,13 @@ The active backlog now says the next work should be reduced in this order:
   - the first saved mismatches reduce to local declaration shaping / normalization drift with no inspected instruction-body diffs yet
   - keep that queue under focused backlog slice `[RUB]003` unless a later reduced repro proves a real mutation-backed RUB body delta
 
-- `[O4Z-AUDIT-RUB-B]` landed the safe no-payload early switch subset from Binaryen `optimizeSwitch(...)`:
+- `[O4Z-AUDIT-RUB-B]` landed the safe early switch subset from Binaryen `optimizeSwitch(...)`:
   - trailing explicit defaults are trimmed from `br_table` targets
   - leading explicit defaults are removed by rewriting the selector as `selector - offset`
-  - default-only tables lower to selector-drop plus branch
-  - one-explicit-target/two-option tables lower to branch-if structure
-  - value-carrying tables are deliberately left conservative because even target-only trimming can expose older br_table-sensitive payload rewrites in the same RUB cycle
+  - value-carrying target-list cleanup preserves payload children and branch arity, then stops before Binaryen's condition-reordering switch-to-branch bailout for switches with values
+  - no-payload default-only tables lower to selector-drop plus branch
+  - no-payload one-explicit-target/two-option tables lower to branch-if structure
+  - value-carrying default-only and two-option tables deliberately remain `br_table` forms, matching Binaryen's value-sensitive bailout boundary
   - large mostly-default nested stack-style tables are covered by a fail-closed test; the first nested traversal widening regressed long two-arm branch-drain behavior, so this remains a narrow blocker rather than a hidden parity claim
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.

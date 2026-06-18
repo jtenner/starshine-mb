@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-18] passes/remove-unused-brs | Add RUB value switch target cleanup
+
+- Extended `[O4Z-AUDIT-RUB-B]` switch cleanup parity for value-carrying `br_table` forms. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now applies Binaryen's target-list cleanup before the value-sensitive bailout: trailing explicit defaults are trimmed and leading explicit defaults rewrite the selector with `i32.sub` while preserving payload children and branch arity.
+- Added focused coverage in [`../../src/passes/remove_unused_brs_test.mbt`](../../src/passes/remove_unused_brs_test.mbt) for value-carrying trailing-default trimming, value-carrying leading-default selector offsets, and Binaryen-compatible negative boundaries where default-only and two-option value switches remain `br_table` forms instead of lowering to branch-if structures.
+- Updated [`binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md`](binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md), [`binaryen/passes/remove-unused-brs/pattern-catalog.md`](binaryen/passes/remove-unused-brs/pattern-catalog.md), [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). Remaining switch blockers are narrowed to the large mostly-default nested stack-style lowering and child-less local stack-payload switch shapes; ordinary lifted value switches carry payloads as `br_table` children and are covered for target-list cleanup.
+
 ## [2026-06-18] passes/remove-unused-brs | Land RUB-B switch safe subset
 
 - Completed `[O4Z-AUDIT-RUB-B]` for the safe no-payload subset of Binaryen `RemoveUnusedBrs.cpp` early `optimizeSwitch(...)` parity. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now trims trailing explicit default targets, offsets leading explicit default targets with `i32.sub`, lowers default-only tables to selector-drop plus branch, and lowers one-explicit-target/two-option tables to branch-if structure.

@@ -1,4 +1,18 @@
 ///|
+fn remove_unused_brs_test_first_live_br_table(func : @ir.HotFunc) -> Int {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::BrTable => return node_id
+      _ => ()
+    }
+  }
+  -1
+}
+
+///|
 fn remove_unused_brs_large_jsonas_dispatch_fixture() -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (param i32) (result i32) (local i32")
@@ -2449,6 +2463,126 @@ test "remove-unused-brs offsets leading default br_table targets" {
   assert_false(pretty.contains("br_table"), msg=pretty)
   assert_true(pretty.contains("i32.sub"), msg=pretty)
   assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs trims trailing default value br_table targets" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (block $default (result i32)
+    #|      (block $case1 (result i32)
+    #|        (block $case0 (result i32)
+    #|          (i32.const 42)
+    #|          (local.get 0)
+    #|          (br_table $case0 $case1 $default $default))
+    #|        drop
+    #|        (i32.const 11))
+    #|      drop
+    #|      (i32.const 22))
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs value br_table trailing-default trim success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected value-carrying br_table to remain after target trimming")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  @debug.assert_eq(targets.length(), 2)
+  @debug.assert_eq(@ir.hot_node_get(func, br_table).child_count, 2)
+}
+
+///|
+test "remove-unused-brs offsets leading default value br_table targets" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (block $default (result i32)
+    #|      (block $case1 (result i32)
+    #|        (block $case0 (result i32)
+    #|          (i32.const 42)
+    #|          (local.get 0)
+    #|          (br_table $default $default $case0 $case1 $default))
+    #|        drop
+    #|        (i32.const 11))
+    #|      drop
+    #|      (i32.const 22))
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs value br_table leading-default offset success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected value-carrying br_table to remain after selector offset")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  @debug.assert_eq(targets.length(), 2)
+  @debug.assert_eq(@ir.hot_node_get(func, br_table).child_count, 2)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.sub"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps default-only value br_table instead of branch lowering" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (block $default (result i32)
+    #|      (i32.const 42)
+    #|      (local.get 0)
+    #|      (br_table $default))
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs default-only value br_table success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps two-option value br_table instead of branch-if lowering" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (block $default (result i32)
+    #|      (block $case0 (result i32)
+    #|        (i32.const 42)
+    #|        (local.get 0)
+    #|        (br_table $case0 $default))
+    #|      drop
+    #|      (i32.const 22))
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs two-option value br_table success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("(if"), msg=pretty)
 }
 
 ///|
