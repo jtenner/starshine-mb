@@ -3893,6 +3893,82 @@ fn wt_legacy_pop_nested_carrier_supported(
 }
 
 ///|
+fn wt_legacy_pop_call_arg_instr_supported(
+  instr : @lib.Instruction,
+  payloads : Array[@lib.ValType],
+  cursor : Int,
+) -> (Int, Bool) {
+  match instr {
+    @lib.Nop => (cursor, true)
+    @lib.Pop(vt) => {
+      let payload_idx = payloads.length() - 1 - cursor
+      if payload_idx < 0 || vt != payloads[payload_idx] {
+        return (cursor, false)
+      }
+      (cursor + 1, true)
+    }
+    @lib.LocalGet(_)
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_) => (cursor, true)
+    _ => (cursor, false)
+  }
+}
+
+///|
+fn wt_legacy_pop_call_payload_supported(
+  env : @validate.Env,
+  instrs : Array[@lib.Instruction],
+  payloads : Array[@lib.ValType],
+) -> Bool {
+  if instrs.length() < 2 || payloads.length() == 0 {
+    return false
+  }
+  let func_type = match instrs[instrs.length() - 1] {
+    @lib.Call(fidx) =>
+      match env.get_functype_by_funcidx(fidx) {
+        Some(ft) => ft
+        None => return false
+      }
+    _ => return false
+  }
+  let @lib.FuncType(params, _) = func_type
+  let mut cursor = 0
+  let mut arg_count = 0
+  for i = 0; i < instrs.length() - 1; i = i + 1 {
+    match instrs[i] {
+      @lib.Nop => {
+        let (next_cursor, ok) = wt_legacy_pop_call_arg_instr_supported(
+          instrs[i],
+          payloads,
+          cursor,
+        )
+        if !ok {
+          return false
+        }
+        cursor = next_cursor
+      }
+      _ => {
+        let (next_cursor, ok) = wt_legacy_pop_call_arg_instr_supported(
+          instrs[i],
+          payloads,
+          cursor,
+        )
+        if !ok {
+          return false
+        }
+        cursor = next_cursor
+        arg_count += 1
+      }
+    }
+  }
+  arg_count == params.length() && cursor == payloads.length()
+}
+
+///|
 fn wt_direct_legacy_pop_expr_supported(
   env : @validate.Env,
   expr : @lib.Expr,
@@ -4064,6 +4140,9 @@ fn wt_direct_legacy_pop_instr_supported(
                 _ =>
                   if wt_legacy_pop_nested_carrier_supported(
                       catch_instrs, payloads,
+                    ) ||
+                    wt_legacy_pop_call_payload_supported(
+                      env, catch_instrs, payloads,
                     ) {
                     instr_idx = catch_instrs.length()
                   }
@@ -7531,7 +7610,7 @@ test "wast_text_binary_roundtrip supports call pop before br_table argument" {
 }
 
 ///|
-test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
+test "wast_text_binary_roundtrip supports non-prefix legacy pop call payload" {
   let src =
     #|(module
     #|  (tag $e-i32 (param i32))
@@ -7543,13 +7622,65 @@ test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
     #|        (call $helper
     #|          (i32.const 0)
     #|          (pop i32))))))
-  match wast_text_binary_roundtrip(src, filename="legacy-pop-roundtrip.wat") {
-    Ok(_) =>
-      fail("expected non-prefix legacy pop roundtrip to stay unsupported")
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(src, filename="legacy-pop-call-payload.wat") {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected non-prefix legacy pop call payload to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("i32.const"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip supports local and multi-pop call payloads" {
+  let src =
+    #|(module
+    #|  (tag $e-pair (param i32 i64))
+    #|  (func $helper (param i32 i64 i32))
+    #|  (func (param i32)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-pair
+    #|        (call $helper
+    #|          (local.get 0)
+    #|          (pop i64)
+    #|          (pop i32))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-call-multi-payload.wat",
+    ) {
+    Ok(m) => m
+    Err(e) => fail("expected local/multi-pop call payloads to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip rejects wrong-order legacy pop call payload" {
+  let src =
+    #|(module
+    #|  (tag $e-pair (param i32 i64))
+    #|  (func $helper (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-pair
+    #|        (call $helper
+    #|          (pop i32)
+    #|          (pop i64))))))
+  match
+    wast_text_binary_roundtrip(src, filename="legacy-pop-call-wrong-order.wat") {
+    Ok(_) => fail("expected wrong-order legacy pop call payload to reject")
     Err(err) => {
       assert_true(err.contains("legacy"), msg=err)
       assert_true(err.contains("pop"), msg=err)
-      assert_true(err.contains("real legacy Try without pop"), msg=err)
       assert_true(err.contains("catch payload"), msg=err)
     }
   }
