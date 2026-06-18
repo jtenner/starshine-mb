@@ -3542,6 +3542,11 @@ fn wt_legacy_pop_prefix_tail_starts_br_table_statement(
   match (instrs[instr_idx], instrs[instr_idx + 1]) {
     (@lib.I32Const(_), @lib.BrTable(_, _)) => true
     (@lib.LocalGet(_), @lib.BrTable(_, _)) => true
+    (@lib.LocalGet(_), @lib.I32Const(_)) if instr_idx + 3 < instrs.length() =>
+      match (instrs[instr_idx + 2], instrs[instr_idx + 3]) {
+        (@lib.I32And, @lib.BrTable(_, _)) => true
+        _ => false
+      }
     _ => false
   }
 }
@@ -6951,6 +6956,40 @@ test "wast_text_binary_roundtrip supports call pop before br_table argument" {
   assert_true(local_pretty.contains("pop"), msg=local_pretty)
   assert_true(local_pretty.contains("br_table"), msg=local_pretty)
   assert_true(local_pretty.contains("call"), msg=local_pretty)
+
+  let computed_selector_src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $helper (param i32 i32))
+    #|  (func (param i32)
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (local.get 0)
+    #|            (i32.const 1)
+    #|            (i32.and)
+    #|            (br_table $label $label)))))))
+  let (_, decoded_computed_selector) = match
+    wast_text_binary_roundtrip(
+      computed_selector_src,
+      filename="legacy-pop-call-br-table-computed-prefix.wat",
+    ) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected call-pop-catch computed br_table prefix to roundtrip: \{e}",
+      )
+  }
+  let computed_pretty = decoded_computed_selector.pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(computed_pretty.contains("pop"), msg=computed_pretty)
+  assert_true(computed_pretty.contains("br_table"), msg=computed_pretty)
+  assert_true(computed_pretty.contains("i32.and"), msg=computed_pretty)
+  assert_true(computed_pretty.contains("call"), msg=computed_pretty)
 }
 
 ///|
