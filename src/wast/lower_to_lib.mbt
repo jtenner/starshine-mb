@@ -3471,27 +3471,150 @@ fn wt_unsupported_stack_switching_reason(
 }
 
 ///|
-fn wt_unsupported_legacy_pop_reason(
-  source : String,
-  filename : String,
-) -> String? {
+fn wt_legacy_pop_unsupported_message() -> String {
+  "legacy exception pop text is unsupported: @lib/@wast represent real legacy Try without pop, but not Binaryen pop or catch payload flow"
+}
+
+///|
+fn wt_source_contains_legacy_pop(source : String, filename : String) -> Bool {
   let lexer = WastLexer::new(wt_lower_source_to_bytes(source), filename)
   while true {
     let token = lexer.get_token()
     match token.token_type {
-      Eof => return None
+      Eof => return false
       Reserved =>
         match token.value {
-          Text("pop") =>
-            return Some(
-              "legacy exception pop text is unsupported: @lib/@wast represent real legacy Try without pop, but not Binaryen pop or catch payload flow",
-            )
+          Text("pop") => return true
           _ => ()
         }
       _ => ()
     }
   }
-  None
+  false
+}
+
+///|
+fn wt_legacy_tag_payloads(
+  env : @validate.Env,
+  tag : @lib.TagIdx,
+) -> Array[@lib.ValType] {
+  match env.resolve_tag_functype(tag) {
+    Some(@lib.FuncType(params, _)) => params
+    None => []
+  }
+}
+
+///|
+fn wt_direct_legacy_pop_expr_supported(
+  env : @validate.Env,
+  expr : @lib.Expr,
+) -> Bool {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    if !wt_direct_legacy_pop_instr_supported(env, instr) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn wt_direct_legacy_pop_instr_supported(
+  env : @validate.Env,
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Pop(_) => false
+    @lib.Block(_, body) | @lib.Loop(_, body) =>
+      wt_direct_legacy_pop_expr_supported(env, body)
+    @lib.If(_, then_body, else_body) => {
+      for i in then_body {
+        if !wt_direct_legacy_pop_instr_supported(env, i) {
+          return false
+        }
+      }
+      match else_body {
+        Some(body) =>
+          for i in body {
+            if !wt_direct_legacy_pop_instr_supported(env, i) {
+              return false
+            }
+          }
+        None => ()
+      }
+      true
+    }
+    @lib.Try(_, body, catches, _) => {
+      if !wt_direct_legacy_pop_expr_supported(env, body) {
+        return false
+      }
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(tag, catch_body) => {
+            let payloads = wt_legacy_tag_payloads(env, tag)
+            let @lib.Expr(catch_instrs) = catch_body
+            let mut instr_idx = 0
+            if catch_instrs.length() > 0 {
+              match catch_instrs[0] {
+                @lib.Pop(vt) => {
+                  if payloads.length() != 1 || vt != payloads[0] {
+                    return false
+                  }
+                  if catch_instrs.length() < 2 {
+                    return false
+                  }
+                  match catch_instrs[1] {
+                    @lib.Drop | @lib.LocalSet(_) => ()
+                    _ => return false
+                  }
+                  instr_idx = 2
+                }
+                _ => ()
+              }
+            }
+            while instr_idx < catch_instrs.length() {
+              if !wt_direct_legacy_pop_instr_supported(
+                  env,
+                  catch_instrs[instr_idx],
+                ) {
+                return false
+              }
+              instr_idx += 1
+            }
+          }
+          @lib.LegacyCatchAll(catch_body) =>
+            if !wt_direct_legacy_pop_expr_supported(env, catch_body) {
+              return false
+            }
+        }
+      }
+      true
+    }
+    @lib.TryTable(_, _, body) => wt_direct_legacy_pop_expr_supported(env, body)
+    _ => true
+  }
+}
+
+///|
+fn wt_legacy_pop_text_supported(
+  source_has_pop : Bool,
+  mod : @lib.Module,
+) -> Bool {
+  if !source_has_pop {
+    return true
+  }
+  let env = @validate.empty_env().with_module(mod)
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, body) = func
+        if !wt_direct_legacy_pop_expr_supported(env, body) {
+          return false
+        }
+      }
+    None => ()
+  }
+  true
 }
 
 ///|
@@ -3503,14 +3626,19 @@ pub fn wast_to_binary_module(
     Some(reason) => return Err("\{reason} in \{filename}")
     None => ()
   }
-  match wt_unsupported_legacy_pop_reason(source, filename) {
-    Some(reason) => return Err("\{reason} in \{filename}")
-    None => ()
+  let source_has_pop = wt_source_contains_legacy_pop(source, filename)
+  let parsed = match wast_to_module(source, filename~) {
+    Ok(m) => m
+    Err(e) => return Err(e)
   }
-  match wast_to_module(source, filename~) {
-    Ok(mod) => wast_ast_to_binary_module(mod)
-    Err(e) => Err(e)
+  let lowered = match wast_ast_to_binary_module(parsed) {
+    Ok(m) => m
+    Err(e) => return Err(e)
   }
+  if !wt_legacy_pop_text_supported(source_has_pop, lowered) {
+    return Err("\{wt_legacy_pop_unsupported_message()} in \{filename}")
+  }
+  Ok(lowered)
 }
 
 ///|
@@ -3522,10 +3650,7 @@ pub fn wast_text_binary_roundtrip(
     Some(reason) => return Err("\{reason} in \{filename}")
     None => ()
   }
-  match wt_unsupported_legacy_pop_reason(source, filename) {
-    Some(reason) => return Err("\{reason} in \{filename}")
-    None => ()
-  }
+  let source_has_pop = wt_source_contains_legacy_pop(source, filename)
   let parsed = match wast_to_module(source, filename~) {
     Ok(m) => m
     Err(e) => return Err(e)
@@ -3537,6 +3662,9 @@ pub fn wast_text_binary_roundtrip(
   let lowered = match wast_ast_to_binary_module(parsed) {
     Ok(m) => m
     Err(e) => return Err("text lowering failed during roundtrip: \{e}")
+  }
+  if !wt_legacy_pop_text_supported(source_has_pop, lowered) {
+    return Err("\{wt_legacy_pop_unsupported_message()} in \{filename}")
   }
   let bytes = match @binary.encode_module(lowered) {
     Ok(raw) => raw
@@ -6435,6 +6563,44 @@ test "wast_ast_to_binary_module represents legacy pop distinctly" {
           )
       }
     _ => fail("expected lowered function with real legacy try/pop")
+  }
+}
+
+///|
+test "wast_text_binary_roundtrip supports direct legacy catch pop consumer" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (drop (pop i32))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(src, filename="legacy-pop-direct-roundtrip.wat") {
+    Ok(m) => m
+    Err(e) => fail("expected direct catch-prefix legacy pop to roundtrip: \{e}")
+  }
+  match decoded.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
+      match try_instr {
+        @lib.Try(
+          _,
+          _,
+          [
+            @lib.LegacyCatch(
+              @lib.TagIdx(0),
+              @lib.Expr(
+                [@lib.Pop(@lib.NumTypeValType(@lib.I32NumType)), @lib.Drop]
+              )
+            ),
+          ],
+          None
+        ) => ()
+        _ =>
+          fail("expected decoded legacy try catch direct pop, got \{try_instr}")
+      }
+    _ => fail("expected decoded function with real legacy try/pop")
   }
 }
 

@@ -1268,6 +1268,127 @@ fn[T : Decode] decode_optional_section_with_detail(
 }
 
 ///|
+fn binary_decode_legacy_tag_payloads(env : Env, tag : TagIdx) -> Array[ValType] {
+  match env.resolve_tag_functype(tag) {
+    Some(FuncType(params, _)) => params
+    None => []
+  }
+}
+
+///|
+fn binary_decode_inject_legacy_pops_expr(env : Env, expr : Expr) -> Expr {
+  let Expr(instrs) = expr
+  let out : Array[Instruction] = []
+  for instr in instrs {
+    out.push(binary_decode_inject_legacy_pops_instr(env, instr))
+  }
+  Expr::new(out)
+}
+
+///|
+fn binary_decode_inject_legacy_pops_instr(
+  env : Env,
+  instr : Instruction,
+) -> Instruction {
+  match instr {
+    Block(bt, body) =>
+      Instruction::block(bt, binary_decode_inject_legacy_pops_expr(env, body))
+    Loop(bt, body) =>
+      Instruction::loop_(bt, binary_decode_inject_legacy_pops_expr(env, body))
+    If(bt, then_body, else_body) => {
+      let next_then : Array[Instruction] = []
+      for i in then_body {
+        next_then.push(binary_decode_inject_legacy_pops_instr(env, i))
+      }
+      let next_else = match else_body {
+        None => None
+        Some(body) => {
+          let rewritten : Array[Instruction] = []
+          for i in body {
+            rewritten.push(binary_decode_inject_legacy_pops_instr(env, i))
+          }
+          Some(rewritten)
+        }
+      }
+      Instruction::if_(bt, next_then, next_else)
+    }
+    Try(bt, body, catches, delegate_target) => {
+      let next_catches : Array[LegacyCatch] = []
+      for catch_ in catches {
+        match catch_ {
+          LegacyCatch(tag, catch_body) => {
+            let prefixed : Array[Instruction] = []
+            for
+              payload in binary_decode_legacy_tag_payloads(env, tag).rev_iter() {
+              prefixed.push(Instruction::pop(payload))
+            }
+            let Expr(rewritten_body) = binary_decode_inject_legacy_pops_expr(
+              env, catch_body,
+            )
+            prefixed.append(rewritten_body)
+            next_catches.push(LegacyCatch::new(tag, Expr::new(prefixed)))
+          }
+          LegacyCatchAll(catch_body) =>
+            next_catches.push(
+              LegacyCatch::all(
+                binary_decode_inject_legacy_pops_expr(env, catch_body),
+              ),
+            )
+        }
+      }
+      Instruction::try_(
+        bt,
+        binary_decode_inject_legacy_pops_expr(env, body),
+        next_catches,
+        delegate_target~,
+      )
+    }
+    TryTable(bt, catches, body) =>
+      Instruction::try_table(
+        bt,
+        catches,
+        binary_decode_inject_legacy_pops_expr(env, body),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn binary_decode_inject_legacy_pops_module(mod : Module) -> Module {
+  match (mod.tag_sec, mod.code_sec) {
+    (Some(TagSec(_)), Some(CodeSec(funcs))) => {
+      let env = empty_env().with_module(mod)
+      let mut has_payload_tag = false
+      match mod.tag_sec {
+        Some(TagSec(tags)) =>
+          for i = 0; i < tags.length(); i = i + 1 {
+            if binary_decode_legacy_tag_payloads(
+                env,
+                TagIdx::new(i.reinterpret_as_uint()),
+              ).length() >
+              0 {
+              has_payload_tag = true
+            }
+          }
+        None => ()
+      }
+      if !has_payload_tag {
+        return mod
+      }
+      let next_funcs : Array[Func] = []
+      for func in funcs {
+        let Func(locals, body) = func
+        next_funcs.push(
+          Func::new(locals, binary_decode_inject_legacy_pops_expr(env, body)),
+        )
+      }
+      mod.with_code_sec(CodeSec::new(next_funcs))
+    }
+    _ => mod
+  }
+}
+
+///|
 pub fn decode_module_with_detail(
   bytes : Bytes,
   i : Int,
@@ -1559,7 +1680,7 @@ pub fn decode_module_with_detail(
     None => ()
   }
   if i == bytes.length() {
-    Ok((mod, i))
+    Ok((binary_decode_inject_legacy_pops_module(mod), i))
   } else {
     Err(
       module_decode_error(

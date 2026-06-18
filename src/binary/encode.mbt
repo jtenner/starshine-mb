@@ -1673,7 +1673,143 @@ fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
 }
 
 ///|
+fn binary_encode_legacy_tag_payloads(env : Env, tag : TagIdx) -> Array[ValType] {
+  match env.resolve_tag_functype(tag) {
+    Some(FuncType(params, _)) => params
+    None => []
+  }
+}
+
+///|
+fn binary_encode_strip_contextual_legacy_pops_expr(
+  env : Env,
+  expr : Expr,
+) -> Expr {
+  let Expr(instrs) = expr
+  let out : Array[Instruction] = []
+  for instr in instrs {
+    out.push(binary_encode_strip_contextual_legacy_pops_instr(env, instr))
+  }
+  Expr::new(out)
+}
+
+///|
+fn binary_encode_strip_contextual_legacy_pops_instr(
+  env : Env,
+  instr : Instruction,
+) -> Instruction {
+  match instr {
+    Block(bt, body) =>
+      Instruction::block(
+        bt,
+        binary_encode_strip_contextual_legacy_pops_expr(env, body),
+      )
+    Loop(bt, body) =>
+      Instruction::loop_(
+        bt,
+        binary_encode_strip_contextual_legacy_pops_expr(env, body),
+      )
+    If(bt, then_body, else_body) => {
+      let next_then : Array[Instruction] = []
+      for i in then_body {
+        next_then.push(binary_encode_strip_contextual_legacy_pops_instr(env, i))
+      }
+      let next_else = match else_body {
+        None => None
+        Some(body) => {
+          let rewritten : Array[Instruction] = []
+          for i in body {
+            rewritten.push(
+              binary_encode_strip_contextual_legacy_pops_instr(env, i),
+            )
+          }
+          Some(rewritten)
+        }
+      }
+      Instruction::if_(bt, next_then, next_else)
+    }
+    Try(bt, body, catches, delegate_target) => {
+      let next_catches : Array[LegacyCatch] = []
+      for catch_ in catches {
+        match catch_ {
+          LegacyCatch(tag, catch_body) => {
+            let payloads = binary_encode_legacy_tag_payloads(env, tag)
+            let next_body : Array[Instruction] = []
+            let mut payload_idx = payloads.length() - 1
+            let mut payload_prefix = true
+            let Expr(catch_instrs) = catch_body
+            for i in catch_instrs {
+              match i {
+                Pop(vt) =>
+                  if payload_prefix &&
+                    payload_idx >= 0 &&
+                    vt == payloads[payload_idx] {
+                    payload_idx -= 1
+                  } else {
+                    payload_prefix = false
+                    next_body.push(
+                      binary_encode_strip_contextual_legacy_pops_instr(env, i),
+                    )
+                  }
+                _ => {
+                  payload_prefix = false
+                  next_body.push(
+                    binary_encode_strip_contextual_legacy_pops_instr(env, i),
+                  )
+                }
+              }
+            }
+            next_catches.push(LegacyCatch::new(tag, Expr::new(next_body)))
+          }
+          LegacyCatchAll(catch_body) =>
+            next_catches.push(
+              LegacyCatch::all(
+                binary_encode_strip_contextual_legacy_pops_expr(env, catch_body),
+              ),
+            )
+        }
+      }
+      Instruction::try_(
+        bt,
+        binary_encode_strip_contextual_legacy_pops_expr(env, body),
+        next_catches,
+        delegate_target~,
+      )
+    }
+    TryTable(bt, catches, body) =>
+      Instruction::try_table(
+        bt,
+        catches,
+        binary_encode_strip_contextual_legacy_pops_expr(env, body),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn binary_encode_strip_contextual_legacy_pops_module(mod : Module) -> Module {
+  match (mod.tag_sec, mod.code_sec) {
+    (Some(TagSec(_)), Some(CodeSec(funcs))) => {
+      let env = empty_env().with_module(mod)
+      let next_funcs : Array[Func] = []
+      for func in funcs {
+        let Func(locals, body) = func
+        next_funcs.push(
+          Func::new(
+            locals,
+            binary_encode_strip_contextual_legacy_pops_expr(env, body),
+          ),
+        )
+      }
+      mod.with_code_sec(CodeSec::new(next_funcs))
+    }
+    _ => mod
+  }
+}
+
+///|
 pub impl Encode for Module with fn encode(val, buf) {
+  let val = binary_encode_strip_contextual_legacy_pops_module(val)
   buf.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
   // custom sections
   for sec in val.custom_secs {
