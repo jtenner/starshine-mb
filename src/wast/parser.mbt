@@ -364,6 +364,12 @@ pub enum LegacyCatchClause {
 } derive(Eq, Debug)
 
 ///|
+pub struct ResumeHandler {
+  tag : Index
+  label : Index
+} derive(Eq, Debug)
+
+///|
 pub enum Instruction {
   // Control
   Unreachable
@@ -385,6 +391,7 @@ pub enum Instruction {
   Rethrow(Index)
   TryTable(BlockType, Array[CatchClause], Array[Instruction])
   TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
+  Resume(Index, Array[ResumeHandler], Array[Instruction])
 
   // Parametric
   Drop
@@ -1537,13 +1544,18 @@ fn WastParser::parse_folded_instruction(
       let _ = self.advance()
       [Rethrow(self.parse_index())]
     }
-    Reserved =>
-      if self.get_text(self.current) == "pop" {
+    Reserved => {
+      let text = self.get_text(self.current)
+      if text == "pop" {
         let _ = self.advance()
         [Pop(self.parse_value_type())]
+      } else if text == "resume" {
+        let _ = self.advance()
+        [self.parse_resume_instruction()]
       } else {
         raise UnexpectedToken(self.current, "expected instruction")
       }
+    }
     Opcode(op) => {
       let _ = self.advance()
       if op is TryTable {
@@ -1661,19 +1673,76 @@ fn WastParser::try_parse_plain_instruction(
       let _ = self.advance()
       Some(self.parse_try_table_instruction(true))
     }
-    Reserved =>
-      if self.get_text(self.current) == "pop" {
+    Reserved => {
+      let text = self.get_text(self.current)
+      if text == "pop" {
         let _ = self.advance()
         Some(Pop(self.parse_value_type()))
+      } else if text == "resume" {
+        let _ = self.advance()
+        Some(self.parse_resume_instruction())
       } else {
         None
       }
+    }
     Opcode(op) => {
       let _ = self.advance()
       Some(self.parse_opcode_instruction(op))
     }
     _ => None
   }
+}
+
+///|
+fn WastParser::parse_resume_on_handler(
+  self : WastParser,
+) -> ResumeHandler raise ParserError {
+  self.expect_lpar()
+  if !self.is_reserved_word("on") {
+    raise UnexpectedToken(self.current, "expected 'on'")
+  }
+  let _ = self.advance()
+  let tag = self.parse_index()
+  let label = self.parse_index()
+  self.expect_rpar()
+  { tag, label }
+}
+
+///|
+fn WastParser::next_is_resume_on_handler(
+  self : WastParser,
+) -> Bool raise ParserError {
+  if !self.check(Lpar) {
+    return false
+  }
+  let saved_state = self.save_lexer_state()
+  let saved_token = self.current
+  self.expect_lpar()
+  let is_on = self.is_reserved_word("on")
+  self.restore_lexer_state(saved_state)
+  self.current = saved_token
+  is_on
+}
+
+///|
+fn WastParser::parse_resume_instruction(
+  self : WastParser,
+) -> Instruction raise ParserError {
+  let cont = self.parse_index()
+  let handlers : Array[ResumeHandler] = []
+  let body : Array[Instruction] = []
+  while self.next_is_resume_on_handler() {
+    handlers.push(self.parse_resume_on_handler())
+  }
+  while self.check(Lpar) {
+    self.expect_lpar()
+    let nested = self.parse_folded_instruction()
+    for instr in nested {
+      body.push(instr)
+    }
+    self.expect_rpar()
+  }
+  Resume(cont, handlers, body)
 }
 
 ///|
@@ -4263,6 +4332,45 @@ test "parse stack switching cont type body" {
     Err(err) => fail("expected cont type to print: \{err}")
   }
   assert_true(printed.contains("(type $cont (cont $function))"), msg=printed)
+}
+
+///|
+test "parse stack switching resume placeholder instruction" {
+  let source =
+    #|(module
+    #|  (type $function (func))
+    #|  (type $cont (cont $function))
+    #|  (tag $tag)
+    #|  (func $resume (param $c (ref $cont))
+    #|    (block $handle_effect (result (ref $cont))
+    #|      (resume $cont (on $tag $handle_effect)
+    #|        (local.get $c)))))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [TypeField(_), TypeField(_), TagField(_), FuncField(func)] =>
+      match func.body {
+        [Block(_, [Resume(cont, handlers, body)])] => {
+          @debug.assert_eq(cont, Index::Id("$cont"))
+          @debug.assert_eq(handlers, [
+            { tag: Index::Id("$tag"), label: Index::Id("$handle_effect") },
+          ])
+          @debug.assert_eq(body, [LocalGet(Index::Id("$c"))])
+        }
+        _ => fail("expected block containing parsed resume placeholder")
+      }
+    _ => fail("expected types, tag, and resume function")
+  }
+  let printed = match module_to_wast(mod) {
+    Ok(text) => text
+    Err(err) => fail("expected resume placeholder to print: \{err}")
+  }
+  assert_true(
+    printed.contains("resume $cont (on $tag $handle_effect)"),
+    msg=printed,
+  )
 }
 
 ///|

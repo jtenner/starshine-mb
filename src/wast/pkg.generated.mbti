@@ -254,6 +254,7 @@ pub enum Instruction {
   Rethrow(Index)
   TryTable(BlockType, Array[CatchClause], Array[Instruction])
   TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
+  Resume(Index, Array[ResumeHandler], Array[Instruction])
   Drop
   Select(Array[ValueType]?)
   Pop(ValueType)
@@ -980,6 +981,11 @@ pub struct ParseError {
 } derive(Eq, @debug.Debug)
 pub impl @lib.PrettyPrint for ParseError
 pub impl Show for ParseError
+
+pub struct ResumeHandler {
+  tag : Index
+  label : Index
+} derive(Eq, @debug.Debug)
 
 pub struct ShuffleLanes {
   lanes : FixedArray[UInt]

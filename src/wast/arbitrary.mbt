@@ -116,7 +116,8 @@ fn wast_arbitrary_count_instructions(
       | ThrowRef
       | Rethrow(_)
       | TryTable(_, _, _)
-      | TryLegacy(_, _, _, _) =>
+      | TryLegacy(_, _, _, _)
+      | Resume(_, _, _) =>
         {
           ..wast_arbitrary_empty_feature_stats(),
           control_ops: 1,
@@ -248,7 +249,8 @@ fn wast_arbitrary_count_instructions(
           wast_arbitrary_count_instructions(then_body),
           wast_arbitrary_count_instructions(else_body),
         )
-      TryTable(_, _, body) => wast_arbitrary_count_instructions(body)
+      TryTable(_, _, body) | Resume(_, _, body) =>
+        wast_arbitrary_count_instructions(body)
       _ => wast_arbitrary_empty_feature_stats()
     }
     stats = wast_arbitrary_add_feature_stats(stats, nested)

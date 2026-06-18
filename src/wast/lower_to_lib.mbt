@@ -393,7 +393,7 @@ fn wt_comp_type(
       }
     TypeDefBody::Cont(_) =>
       Err(
-        "stack-switching text is unsupported: unsupported token `cont`; @lib/@wast do not represent cont, resume, resume_throw, or on handler labels",
+        "stack-switching text is unsupported: unsupported token `cont`; stack-switching is WAST-placeholder-only and has no @lib/binary lowering for cont, resume, resume_throw, or on handler labels",
       )
   }
 }
@@ -1873,6 +1873,10 @@ fn wt_instr_to_lib(
       }
       Ok(@lib.Instruction::pop(lib_vt))
     }
+    Resume(_, _, _) =>
+      Err(
+        "stack-switching text is unsupported: unsupported token `resume`; stack-switching is WAST-placeholder-only and has no @lib/binary lowering for cont, resume, resume_throw, or on handler labels",
+      )
     TryTable(bt, catches, body) => {
       let next_labels = labels.copy()
       next_labels.push(None)
@@ -3468,7 +3472,7 @@ fn wt_unsupported_stack_switching_reason(
               name == "resume_throw" ||
               name == "on" {
               return Some(
-                "stack-switching text is unsupported: unsupported token `\{name}`; @lib/@wast do not represent cont, resume, resume_throw, or on handler labels",
+                "stack-switching text is unsupported: unsupported token `\{name}`; stack-switching is WAST-placeholder-only and has no @lib/binary lowering for cont, resume, resume_throw, or on handler labels",
               )
             }
           _ => ()
