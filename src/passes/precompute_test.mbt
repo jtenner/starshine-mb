@@ -204,6 +204,198 @@ test "precompute folds constant true result ifs to the chosen arm" {
 }
 
 ///|
+test "precompute preserves labels when folding nested constant void ifs" {
+  let source =
+    #|(module
+    #|  (type $result (func (param i32) (result i32)))
+    #|  (type $sink (func (param i32)))
+    #|  (memory 4)
+    #|  (global $g0 i32 (i32.const 205200))
+    #|  (global $g1 i32 (i32.const 205220))
+    #|  (global $g2 i32 (i32.const 205240))
+    #|  (global $g3 i32 (i32.const 205260))
+    #|  (global $g4 i32 (i32.const 205280))
+    #|  (global $g5 i32 (i32.const 205300))
+    #|  (global $g6 i32 (i32.const 205320))
+    #|  (global $g7 i32 (i32.const 205340))
+    #|  (global $g8 i32 (i32.const 205360))
+    #|  (global $g9 i32 (i32.const 205380))
+    #|  (func $mark (type $sink) (param i32))
+    #|  (func $touch (type $sink) (param i32))
+    #|  (func (export "f") (type $result) (param i32) (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    i32.load offset=8 align=1
+    #|    local.set 1
+    #|    block (result i32)
+    #|      block
+    #|        block
+    #|          block
+    #|            block
+    #|              block
+    #|                block
+    #|                  block
+    #|                    block
+    #|                      block
+    #|                        block
+    #|                          block
+    #|                            local.get 1
+    #|                            i32.const 31
+    #|                            i32.sub
+    #|                            br_table 0 1 2 3 4 5 6 7 8 9 10
+    #|                          end
+    #|                          local.get 0
+    #|                          call $touch
+    #|                          global.get $g0
+    #|                          if
+    #|                            global.get $g0
+    #|                            call $mark
+    #|                          end
+    #|                          global.get $g0
+    #|                          br 10
+    #|                        end
+    #|                        local.get 0
+    #|                        call $touch
+    #|                        global.get $g1
+    #|                        if
+    #|                          global.get $g1
+    #|                          call $mark
+    #|                        end
+    #|                        global.get $g1
+    #|                        br 9
+    #|                      end
+    #|                      local.get 0
+    #|                      call $touch
+    #|                      global.get $g2
+    #|                      if
+    #|                        global.get $g2
+    #|                        call $mark
+    #|                      end
+    #|                      global.get $g2
+    #|                      br 8
+    #|                    end
+    #|                    local.get 0
+    #|                    call $touch
+    #|                    global.get $g3
+    #|                    if
+    #|                      global.get $g3
+    #|                      call $mark
+    #|                    end
+    #|                    global.get $g3
+    #|                    br 7
+    #|                  end
+    #|                  local.get 0
+    #|                  call $touch
+    #|                  global.get $g4
+    #|                  if
+    #|                    global.get $g4
+    #|                    call $mark
+    #|                  end
+    #|                  global.get $g4
+    #|                  br 6
+    #|                end
+    #|                local.get 0
+    #|                call $touch
+    #|                global.get $g5
+    #|                if
+    #|                  global.get $g5
+    #|                  call $mark
+    #|                end
+    #|                global.get $g5
+    #|                br 5
+    #|              end
+    #|              local.get 0
+    #|              call $touch
+    #|              global.get $g6
+    #|              if
+    #|                global.get $g6
+    #|                call $mark
+    #|              end
+    #|              global.get $g6
+    #|              br 4
+    #|            end
+    #|            local.get 0
+    #|            call $touch
+    #|            global.get $g7
+    #|            if
+    #|              global.get $g7
+    #|              call $mark
+    #|            end
+    #|            global.get $g7
+    #|            br 3
+    #|          end
+    #|          local.get 0
+    #|          call $touch
+    #|          global.get $g8
+    #|          if
+    #|            global.get $g8
+    #|            call $mark
+    #|          end
+    #|          global.get $g8
+    #|          br 2
+    #|        end
+    #|        local.get 0
+    #|        call $touch
+    #|        global.get $g9
+    #|        if
+    #|          global.get $g9
+    #|          call $mark
+    #|        end
+    #|        global.get $g9
+    #|        br 1
+    #|      end
+    #|      local.get 0
+    #|      call $touch
+    #|      i32.const 0
+    #|      br 0
+    #|    end))
+    #|)
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      source,
+      ["precompute"],
+      options=HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected precompute to preserve folded-if labels, got \{err}")
+  }
+  for line in trace {
+    assert_false(
+      line.contains("precompute-hot-label-owner-noop"),
+      msg="unexpected fail-closed precompute skip: \{line}",
+    )
+  }
+}
+
+///|
+test "precompute rehomes labels when folding constant ifs to blocks" {
+  let source =
+    #|(module
+    #|  (func (result i32)
+    #|    i32.const 1
+    #|    if (result i32)
+    #|      i32.const 0
+    #|      drop
+    #|      block (result i32)
+    #|        i32.const 42
+    #|      end
+    #|    else
+    #|      i32.const 7
+    #|    end))
+    #|)
+  match pass_test_run_pipeline(source, ["precompute"]) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected precompute folded block label owner success, got \{err}")
+  }
+}
+
+///|
 test "precompute retargets split local.set wrappers with void-if forwarders" {
   let optimized = match
     pass_test_run_pipeline(

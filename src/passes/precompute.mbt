@@ -17,6 +17,19 @@ pub fn precompute_summary() -> String {
 }
 
 ///|
+fn precompute_replace_node_rehoming_control_label(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  replacement : @ir.HotNode,
+) -> Unit {
+  @ir.hot_replace_node(func, node_id, replacement)
+  let label_id = @ir.hot_control_node_label(func, node_id)
+  if label_id >= 0 {
+    @ir.hot_label_owner_set(func, label_id, node_id)
+  }
+}
+
+///|
 pub fn precompute_propagate_prefix_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
     "precompute-propagate-prefix",
@@ -139,7 +152,7 @@ fn precompute_replace_with_const_i32(
   let temp = @ir.hot_build_const_i32(func, value)
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_delete_node(func, temp)
-  @ir.hot_replace_node(func, node_id, replacement)
+  precompute_replace_node_rehoming_control_label(func, node_id, replacement)
   pass_mark_mutated(ctx, func)
 }
 
@@ -153,7 +166,7 @@ fn precompute_replace_with_const_i64(
   let temp = @ir.hot_build_const_i64(func, value)
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_delete_node(func, temp)
-  @ir.hot_replace_node(func, node_id, replacement)
+  precompute_replace_node_rehoming_control_label(func, node_id, replacement)
   pass_mark_mutated(ctx, func)
 }
 
@@ -180,7 +193,7 @@ fn precompute_try_fold_global_get(
       }
       let replacement = @ir.hot_node_get(func, temp)
       @ir.hot_delete_node(func, temp)
-      @ir.hot_replace_node(func, node_id, replacement)
+      precompute_replace_node_rehoming_control_label(func, node_id, replacement)
       pass_mark_mutated(ctx, func)
       true
     }
@@ -724,8 +737,7 @@ fn precompute_try_fold_constant_if(
     match @ir.hot_region_else_ref(func, node_id) {
       Some(region) => region
       None => {
-        let nop = @ir.hot_build_nop(func)
-        @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
+        @ir.hot_control_demote_if_to_block(func, node_id, [])
         pass_mark_mutated(ctx, func)
         return true
       }
@@ -735,37 +747,11 @@ fn precompute_try_fold_constant_if(
   if !precompute_constant_if_chosen_region_can_inline(func, chosen_region) {
     return false
   }
-  if root_count == 0 {
-    let nop = @ir.hot_build_nop(func)
-    @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
-    pass_mark_mutated(ctx, func)
-    return true
-  }
-  if root_count == 1 {
-    @ir.hot_replace_node(
-      func,
-      node_id,
-      @ir.hot_node_get(func, @ir.hot_region_get(func, chosen_region, 0)),
-    )
-    pass_mark_mutated(ctx, func)
-    return true
-  }
-  let block_type = match
-    @ir.hot_type_get(func, @ir.hot_node_type(func, node_id)) {
-    @ir.HotTypeInfo::BlockResult(block_type)
-    | @ir.HotTypeInfo::BlockResultResolved(block_type, _, _) => Some(block_type)
-    _ => None
-  }
-  let block_type = match block_type {
-    Some(block_type) => block_type
-    None => return false
-  }
-  let body : Array[Int] = []
+  let replacement : Array[Int] = []
   for i = 0; i < root_count; i = i + 1 {
-    body.push(@ir.hot_region_get(func, chosen_region, i))
+    replacement.push(@ir.hot_region_get(func, chosen_region, i))
   }
-  let block_id = @ir.hot_build_block(func, block_type, body)
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, block_id))
+  @ir.hot_control_demote_if_to_block(func, node_id, replacement)
   pass_mark_mutated(ctx, func)
   true
 }
@@ -829,7 +815,11 @@ fn precompute_try_eliminate_dead_drop(
     return false
   }
   let nop = @ir.hot_build_nop(func)
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
+  precompute_replace_node_rehoming_control_label(
+    func,
+    node_id,
+    @ir.hot_node_get(func, nop),
+  )
   pass_mark_mutated(ctx, func)
   true
 }
@@ -1032,14 +1022,16 @@ fn precompute_simplify_region_roots(
                       }
                     None => ()
                   }
-                  if replacement.length() == 0 &&
-                    @ir.hot_region_root_count(func, region_ref) == 1 {
-                    replacement.push(@ir.hot_build_nop(func))
-                  }
-                  let removed = pass_splice_region(
-                    ctx, func, region_ref, idx, 1, replacement,
+                  // Preserve the old if label on a detached empty block before
+                  // splicing the chosen arm into the parent region. Deleting the
+                  // detached owner would leave the label table pointing at a dead
+                  // control node.
+                  @ir.hot_control_demote_if_to_block(func, node_id, [])
+                  ignore(
+                    pass_splice_region(
+                      ctx, func, region_ref, idx, 1, replacement,
+                    ),
                   )
-                  pass_delete_detached_nodes(ctx, func, removed)
                   changed = true
                   continue
                 }
@@ -3100,7 +3092,11 @@ fn precompute_propagate_prefix_fold_local_gets(
     }
     let next_node = @ir.hot_node_get(func, temp)
     @ir.hot_delete_node(func, temp)
-    @ir.hot_replace_node(func, replacement.node_id, next_node)
+    precompute_replace_node_rehoming_control_label(
+      func,
+      replacement.node_id,
+      next_node,
+    )
     pass_mark_mutated(ctx, func)
   }
   true
