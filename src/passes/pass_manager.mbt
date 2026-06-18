@@ -16532,11 +16532,41 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_loop_condition_carrier(
   instrs : Array[@lib.Instruction],
-) -> Int? {
+) -> (Int, Int)? {
   if instrs.length() >= 2 {
     match (instrs[0], instrs[1]) {
       (@lib.LocalGet(@lib.LocalIdx(raw)), @lib.If(_, _, _)) =>
-        Some(raw.reinterpret_as_int())
+        return Some((raw.reinterpret_as_int(), -1))
+      _ => ()
+    }
+  }
+  if instrs.length() >= 4 {
+    match instrs[0] {
+      @lib.LocalGet(@lib.LocalIdx(raw_carrier)) => {
+        let carrier = raw_carrier.reinterpret_as_int()
+        let mut idx = 1
+        while idx < instrs.length() {
+          match instrs[idx] {
+            @lib.If(_, _, _) => {
+              if idx >= 2 {
+                match instrs[idx - 1] {
+                  @lib.LocalSet(@lib.LocalIdx(raw_target)) => {
+                    let target = raw_target.reinterpret_as_int()
+                    if target != carrier {
+                      return Some((carrier, target))
+                    }
+                  }
+                  _ => ()
+                }
+              }
+              return None
+            }
+            _ => ()
+          }
+          idx = idx + 1
+        }
+        None
+      }
       _ => None
     }
   } else {
@@ -16545,9 +16575,50 @@ fn run_hot_pipeline_raw_ssa_nomerge_loop_condition_carrier(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_tail_set(
+  instrs : Array[@lib.Instruction],
+  carrier : Int,
+  copied_target : Int,
+) -> (Array[@lib.Instruction], Bool) {
+  if copied_target < 0 || instrs.length() == 0 {
+    return (instrs, false)
+  }
+  let last_idx = instrs.length() - 1
+  match instrs[last_idx] {
+    @lib.LocalSet(@lib.LocalIdx(raw)) => {
+      let local_id = raw.reinterpret_as_int()
+      if copied_target >= 0 && local_id != carrier {
+        let rewritten : Array[@lib.Instruction] = []
+        let mut idx = 0
+        while idx < last_idx {
+          rewritten.push(instrs[idx])
+          idx = idx + 1
+        }
+        rewritten.push(instrs[last_idx])
+        rewritten.push(
+          @lib.Instruction::local_get(
+            @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+          ),
+        )
+        rewritten.push(
+          @lib.Instruction::local_set(
+            @lib.LocalIdx::new(carrier.reinterpret_as_uint()),
+          ),
+        )
+        (rewritten, true)
+      } else {
+        (instrs, false)
+      }
+    }
+    _ => (instrs, false)
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
   instrs : Array[@lib.Instruction],
   carrier : Int,
+  copied_target : Int,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
@@ -16557,7 +16628,25 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
       match (instrs[idx], instrs[idx + 1]) {
         (@lib.LocalSet(@lib.LocalIdx(raw)), @lib.Br(_)) => {
           let local_id = raw.reinterpret_as_int()
-          if local_id != carrier {
+          if copied_target >= 0 {
+            if local_id != carrier {
+              rewritten.push(instrs[idx])
+              rewritten.push(
+                @lib.Instruction::local_get(
+                  @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+                ),
+              )
+              rewritten.push(
+                @lib.Instruction::local_set(
+                  @lib.LocalIdx::new(carrier.reinterpret_as_uint()),
+                ),
+              )
+              rewritten.push(instrs[idx + 1])
+              changed = true
+              idx = idx + 2
+              continue
+            }
+          } else if local_id != carrier {
             rewritten.push(
               @lib.Instruction::local_set(
                 @lib.LocalIdx::new(carrier.reinterpret_as_uint()),
@@ -16576,7 +16665,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
       match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
         (@lib.LocalTee(@lib.LocalIdx(raw)), @lib.I32Store(_), @lib.Br(_)) => {
           let local_id = raw.reinterpret_as_int()
-          if local_id != carrier {
+          if copied_target < 0 && local_id != carrier {
             rewritten.push(
               @lib.Instruction::local_tee(
                 @lib.LocalIdx::new(carrier.reinterpret_as_uint()),
@@ -16593,9 +16682,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
       }
     }
     match instrs[idx] {
+      @lib.Br(_) => rewritten.push(instrs[idx])
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
-          body, carrier,
+          body, carrier, copied_target,
         )
         rewritten.push(
           @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
@@ -16604,7 +16694,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
-          body, carrier,
+          body, carrier, copied_target,
         )
         rewritten.push(
           @lib.Instruction::try_table(
@@ -16616,21 +16706,27 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
         changed = changed || body_changed
       }
       @lib.If(block_type, then_body, else_body) => {
-        let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
-          then_body, carrier,
+        let (rewritten_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
+          then_body, carrier, copied_target,
+        )
+        let (next_then, then_tail_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_tail_set(
+          rewritten_then, carrier, copied_target,
         )
         let next_else = match else_body {
           Some(body) => {
             let (rewritten_else, else_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
-              body, carrier,
+              body, carrier, copied_target,
             )
-            changed = changed || else_changed
-            Some(rewritten_else)
+            let (tail_else, else_tail_changed) = run_hot_pipeline_raw_ssa_nomerge_retarget_loop_tail_set(
+              rewritten_else, carrier, copied_target,
+            )
+            changed = changed || else_changed || else_tail_changed
+            Some(tail_else)
           }
           None => None
         }
         rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
-        changed = changed || then_changed
+        changed = changed || then_changed || then_tail_changed
       }
       @lib.Loop(block_type, @lib.Expr(body)) =>
         rewritten.push(
@@ -16657,9 +16753,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_carriers(
         )
         let (next_body, body_changed) = match
           run_hot_pipeline_raw_ssa_nomerge_loop_condition_carrier(nested_body) {
-          Some(carrier) =>
+          Some((carrier, copied_target)) =>
             run_hot_pipeline_raw_ssa_nomerge_retarget_loop_backedge_body(
-              nested_body, carrier,
+              nested_body, carrier, copied_target,
             )
           None => (nested_body, false)
         }

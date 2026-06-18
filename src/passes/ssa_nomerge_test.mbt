@@ -5927,6 +5927,89 @@ test "ssa-nomerge preserves loop carrier update before backedge" {
 }
 
 ///|
+test "ssa-nomerge preserves copied loop condition carrier through nested branches" {
+  // Reduced from json-as staticarray bool deserialization: the second scan loop
+  // freshens `srcStart` into a condition carrier, copies it back before the
+  // `if`, then updates `srcStart` inside nested branches before a plain
+  // backedge. The backedge must update the condition carrier, not only the
+  // copied canonical local, or the next iteration reuses a stale cursor.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $cover (param i32))
+    #|  (func $use (param i32 i32))
+    #|  (func (param $srcStart i32) (param $srcEnd i32) (param $dst i32) (result i32)
+    #|    (local $index i32) (local $srcCopy i32) (local $block i64) (local $tmp i32)
+    #|    local.get $srcStart
+    #|    i32.const 2
+    #|    i32.add
+    #|    local.set $srcCopy
+    #|    block
+    #|      loop
+    #|        local.get $srcCopy
+    #|        local.get $srcEnd
+    #|        i32.lt_u
+    #|        local.get $srcCopy
+    #|        local.set $srcStart
+    #|        if
+    #|          local.get $srcStart
+    #|          i64.load
+    #|          local.set $block
+    #|          local.get $block
+    #|          i64.const 11
+    #|          i64.eq
+    #|          if
+    #|            local.get $dst
+    #|            local.get $index
+    #|            call $use
+    #|            local.get $index
+    #|            i32.const 1
+    #|            i32.add
+    #|            local.set $index
+    #|            local.get $srcStart
+    #|            i32.const 10
+    #|            i32.add
+    #|            local.set $srcStart
+    #|          else
+    #|            local.get $block
+    #|            i64.const 22
+    #|            i64.eq
+    #|            if
+    #|              local.get $dst
+    #|              local.get $index
+    #|              call $use
+    #|              local.get $index
+    #|              i32.const 1
+    #|              i32.add
+    #|              local.set $index
+    #|              local.get $srcStart
+    #|              i32.const 12
+    #|              i32.add
+    #|              local.set $srcStart
+    #|            else
+    #|              local.get $srcStart
+    #|              i32.const 2
+    #|              i32.add
+    #|              local.set $srcStart
+    #|            end
+    #|          end
+    #|          br 1
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get $srcStart)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 2)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains("(local.set (Local 4)) else") &&
+    text.contains("(local.set (Local 4)) ) ) (br (Label 1))"),
+    msg=text,
+  )
+}
+
+///|
 test "ssa-nomerge preserves loop carrier tee through stack spill before backedge" {
   // Reduced from json-as `snapshotKey`: the loop condition reads the freshened
   // list carrier, while the backedge computes the next node with `local.tee`,
