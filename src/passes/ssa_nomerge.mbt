@@ -321,6 +321,55 @@ pub fn ssa_nomerge_loop_carried_canonical_writes(
 }
 
 ///|
+fn ssa_nomerge_func_has_plain_br(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Br => return true
+        _ => ()
+      }
+    }
+  }
+  false
+}
+
+///|
+fn ssa_nomerge_has_local_get(
+  func : @ir.HotFunc,
+  local_id : @ir.LocalId,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::LocalGet => if node.imm0 == local_id { return true }
+        _ => ()
+      }
+    }
+  }
+  false
+}
+
+///|
+fn ssa_nomerge_write_is_branch_carried_param_tee(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalTee =>
+      node.imm0 >= 0 &&
+      node.imm0 < @ir.hot_param_count(func) &&
+      ssa_nomerge_func_has_plain_br(func) &&
+      ssa_nomerge_has_local_get(func, node.imm0)
+    _ => false
+  }
+}
+
+///|
 /// Build the analysis-only no-merge rewrite plan from LocalGraph facts.
 pub fn ssa_nomerge_build_rewrite_plan(
   func : @ir.HotFunc,
@@ -336,9 +385,14 @@ pub fn ssa_nomerge_build_rewrite_plan(
       !@ir.local_graph_node_is_write(graph, node_id) {
       continue
     }
-    let decision = if node_id < loop_carried_canonical_writes.length() &&
-      loop_carried_canonical_writes[node_id] &&
-      @ir.local_graph_write_has_merge_influences(graph, node_id) {
+    let decision = if ssa_nomerge_write_is_branch_carried_param_tee(
+        func, node_id,
+      ) ||
+      (
+        node_id < loop_carried_canonical_writes.length() &&
+        loop_carried_canonical_writes[node_id] &&
+        @ir.local_graph_write_has_merge_influences(graph, node_id)
+      ) {
       SsaNoMergeWriteDecision::KeepCanonical
     } else if @ir.local_graph_write_is_no_merge_freshenable(graph, node_id) {
       let fresh_local = next_fresh_local
@@ -732,6 +786,12 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   }
   let before_revision = @ir.hot_revision_current(func)
   let loop_carried_writes = ssa_nomerge_loop_carried_canonical_writes(func)
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if node_id < loop_carried_writes.length() &&
+      ssa_nomerge_write_is_branch_carried_param_tee(func, node_id) {
+      loop_carried_writes[node_id] = true
+    }
+  }
   ignore(
     @ir.ssa_destroy_into_hot(
       func,

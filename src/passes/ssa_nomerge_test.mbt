@@ -6201,6 +6201,566 @@ test "ssa-nomerge preserves sequential stack-spill scratch aliases" {
 }
 
 ///|
+test "ssa-nomerge retargets previous stack-spill alias to just-spilled value" {
+  // Reduced from the current json-as whitespace SIMD `Suite#addExpectation<String>`
+  // SSANM-only runtime failure. After spilling one root-stack argument, the next
+  // live operand must read the just-spilled alias, not the previous spilled alias.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $sp (mut i32) i32.const 1000)
+    #|  (func $clear)
+    #|  (func $len (param i32 i32 i32) (result i32) local.get 2)
+    #|  (func $grow (param i32))
+    #|  (func $use (param i32))
+    #|  (func $suite (param i32) (result i32) local.get 0)
+    #|  (func $add (param i32 i32))
+    #|  (func (param $suite_arg i32) (param $expectation i32)
+    #|    (local $order i32) (local $scratch i32)
+    #|    global.get $sp
+    #|    i32.const 12
+    #|    i32.sub
+    #|    global.set $sp
+    #|    call $clear
+    #|    global.get $sp
+    #|    i64.const 0
+    #|    i64.store
+    #|    global.get $sp
+    #|    i32.const 0
+    #|    i32.store offset=8
+    #|    local.get $expectation
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store
+    #|    local.get $scratch
+    #|    local.get $suite_arg
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store offset=4
+    #|    local.get $scratch
+    #|    local.get $suite_arg
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store offset=8
+    #|    local.get $scratch
+    #|    call $len
+    #|    local.tee $order
+    #|    i32.const 1
+    #|    i32.add
+    #|    call $grow
+    #|    local.get $order
+    #|    call $use
+    #|    local.get $suite_arg
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store offset=8
+    #|    local.get $scratch
+    #|    call $suite
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store
+    #|    local.get $scratch
+    #|    local.get $expectation
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store offset=4
+    #|    local.get $scratch
+    #|    call $add
+    #|    global.get $sp
+    #|    i32.const 12
+    #|    i32.add
+    #|    global.set $sp)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 6)
+  let text = instrs.to_string()
+  assert_false(
+    text.contains(
+      "(i32.store align=U32(2) offset=U64(4)), (local.get (Local 4)), (local.get (Local 0)), (local.set (Local 6))",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "(i32.store align=U32(2) offset=U64(4)), (local.get (Local 5)), (local.get (Local 0)), (local.set (Local 6))",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "ssa-nomerge keeps call result local after sequential scratch spills" {
+  // Reduced from the next json-as whitespace SIMD SSANM-only failure after the
+  // previous-spill repair: `Array<String>#join` stores two call results in stable
+  // locals, while a reused scratch local is repeatedly spilled to the root stack.
+  // Reads of the stable call-result locals must not be retargeted to a freshened
+  // scratch alias.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $sp (mut i32) i32.const 1000)
+    #|  (func $clear)
+    #|  (func $dataStart (param i32) (result i32) local.get 0)
+    #|  (func $length (param i32) (result i32) local.get 0)
+    #|  (func $join (param i32 i32 i32) (result i32) local.get 0)
+    #|  (func (param $this i32) (param $separator i32) (result i32)
+    #|    (local $ptr i32) (local $len i32) (local $scratch i32)
+    #|    global.get $sp
+    #|    i32.const 4
+    #|    i32.sub
+    #|    global.set $sp
+    #|    call $clear
+    #|    global.get $sp
+    #|    i32.const 0
+    #|    i32.store
+    #|    local.get $this
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store
+    #|    local.get $scratch
+    #|    call $dataStart
+    #|    local.set $ptr
+    #|    local.get $this
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store
+    #|    local.get $scratch
+    #|    call $length
+    #|    local.set $len
+    #|    i32.const 0
+    #|    drop
+    #|    i32.const 1
+    #|    drop
+    #|    local.get $ptr
+    #|    local.get $len
+    #|    local.get $separator
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    local.get $scratch
+    #|    i32.store
+    #|    local.get $scratch
+    #|    call $join
+    #|    local.set $scratch
+    #|    global.get $sp
+    #|    i32.const 4
+    #|    i32.add
+    #|    global.set $sp
+    #|    local.get $scratch
+    #|    return)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 4)
+  let text = instrs.to_string()
+  assert_false(
+    text.contains(
+      "(local.get (Local 2)), (local.get (Local 6)), (local.get (Local 1))",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "(local.get (Local 2)), (local.get (Local 3)), (local.get (Local 1))",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "ssa-nomerge keeps freshly loaded char across result block whitespace check" {
+  // Reduced from JSON-AS whitespace SIMD function #func984 after the two stack
+  // spill alias fixes. The parser loads a UTF-16 code unit into a scratch local
+  // inside a value block and immediately uses that local in both arms of an
+  // `if (result i32)`. SSANM may freshen the load's `local.set`, but it must not
+  // materialize the following reads as the local's default zero.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $trace (param i32))
+    #|  (func (param $pos i32) (param $end i32) (result i32)
+    #|    (local $ch i32) (local $defaulted i32)
+    #|    local.get $defaulted
+    #|    drop
+    #|    loop $scan
+    #|      local.get $pos
+    #|      local.get $end
+    #|      i32.lt_u
+    #|      if (result i32)
+    #|        i32.const 1234
+    #|        call $trace
+    #|        block (result i32)
+    #|          local.get $pos
+    #|          i32.load16_u
+    #|          local.set $ch
+    #|          local.get $ch
+    #|          i32.const 32
+    #|          i32.eq
+    #|          if (result i32)
+    #|            i32.const 1
+    #|          else
+    #|            local.get $ch
+    #|            i32.const 9
+    #|            i32.sub
+    #|            i32.const 65535
+    #|            i32.and
+    #|            i32.const 4
+    #|            i32.le_u
+    #|          end
+    #|          br 0
+    #|        end
+    #|      else
+    #|        i32.const 0
+    #|      end
+    #|      if
+    #|        local.get $pos
+    #|        i32.const 2
+    #|        i32.add
+    #|        local.set $pos
+    #|        br $scan
+    #|      end
+    #|    end
+    #|    local.get $pos)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  let text = instrs.to_string()
+  ignore(locals)
+  assert_false(
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0))(local.set (Local 4))(i32.const I32(0))(i32.const I32(32))i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0)), (local.set (Local 4)), (i32.const I32(0)), (i32.const I32(32)), i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0))(local.set (Local 4))(local.get (Local 2))(i32.const I32(32))i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0)), (local.set (Local 4)), (local.get (Local 2)), (i32.const I32(32)), i32.eq",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0))(local.set (Local 2))(local.get (Local 2))(i32.const I32(32))i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0)), (local.set (Local 2)), (local.get (Local 2)), (i32.const I32(32)), i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0))(local.set (Local 4))(local.get (Local 4))(i32.const I32(32))i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0)), (local.set (Local 4)), (local.get (Local 4)), (i32.const I32(32)), i32.eq",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "ssa-nomerge keeps branch-value load after null throw_ref debris planning" {
+  // Reduced from JSON-AS whitespace SIMD function #func984's remaining
+  // SSANM-only drift after the branch-value sub-fix. The artifact enters the
+  // null-throw_ref debris composition path: LocalGraph first freshens a parser
+  // scratch write inside a branch-value block, then default materialization is
+  // rebuilt over that freshened body. The canonical scratch reads in the same
+  // branch-value block must not be reclassified as unwritten defaults.
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $trace (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    local.get 3
+    #|    drop
+    #|    loop
+    #|      local.get 0
+    #|      local.get 1
+    #|      i32.lt_u
+    #|      if (result i32)
+    #|        i32.const 1234
+    #|        call $trace
+    #|        block (result i32)
+    #|          local.get 0
+    #|          i32.load16_u
+    #|          local.set 2
+    #|          local.get 2
+    #|          i32.const 32
+    #|          i32.eq
+    #|          if (result i32)
+    #|            i32.const 1
+    #|          else
+    #|            local.get 2
+    #|            i32.const 9
+    #|            i32.sub
+    #|            i32.const 65535
+    #|            i32.and
+    #|            i32.const 4
+    #|            i32.le_u
+    #|          end
+    #|          br 0
+    #|        end
+    #|      else
+    #|        i32.const 0
+    #|      end
+    #|      if
+    #|        local.get 0
+    #|        i32.const 2
+    #|        i32.add
+    #|        local.set 0
+    #|        br 0
+    #|      end
+    #|    end
+    #|    block
+    #|      try_table (catch_all 0)
+    #|        i32.const 42
+    #|        local.set 2
+    #|        ref.null noexn
+    #|        throw_ref
+    #|      end
+    #|    end
+    #|    local.get 0)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branch-value/null-debris pipeline success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
+  let text = instrs.to_string()
+  assert_true(
+    trace.any(fn(line) { line.contains("null-throwref-debris") }),
+    msg=trace.join("\n"),
+  )
+  assert_false(text.contains("try_table"), msg=text)
+  assert_false(text.contains("throw_ref"), msg=text)
+  assert_false(
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0))(local.set (Local 4))(i32.const I32(0))(i32.const I32(32))i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0)), (local.set (Local 4)), (i32.const I32(0)), (i32.const I32(32)), i32.eq",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0))(local.set (Local 2))(local.get (Local 2))(i32.const I32(32))i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0)), (local.set (Local 2)), (local.get (Local 2)), (i32.const I32(32)), i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0))(local.set (Local 4))(local.get (Local 4))(i32.const I32(32))i32.eq",
+    ) ||
+    text.contains(
+      "(i32.load16u align=U32(1) offset=U64(0)), (local.set (Local 4)), (local.get (Local 4)), (i32.const I32(32)), i32.eq",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "ssa-nomerge keeps branch allocation result canonical across final merge read" {
+  // Reduced from JSON-AS whitespace SIMD `~lib/util/number/itoa32` after the
+  // parser-load fix. Each branch allocates a string and writes the result to the
+  // same scratch local; the suffix reads that scratch after the branch. Binaryen
+  // `SSAify(false)` keeps these writes canonical because the suffix read is a
+  // multi-source merge. Freshening branch-local `tee`s while leaving the suffix
+  // canonical returns the default/null pointer.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $sp (mut i32) (i32.const 0))
+    #|  (func $alloc (param i32) (result i32) local.get 0)
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    local.get 0
+    #|    i32.eqz
+    #|    if
+    #|      global.get $sp
+    #|      i32.const 10
+    #|      call $alloc
+    #|      local.tee 3
+    #|      i32.store
+    #|    else
+    #|      local.get 0
+    #|      i32.const 1
+    #|      i32.eq
+    #|      if
+    #|        global.get $sp
+    #|        i32.const 20
+    #|        call $alloc
+    #|        local.tee 3
+    #|        i32.store
+    #|      else
+    #|        global.get $sp
+    #|        i32.const 30
+    #|        call $alloc
+    #|        local.tee 3
+    #|        i32.store
+    #|      end
+    #|    end
+    #|    local.get 3)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
+  let text = instrs.to_string()
+  assert_false(
+    text.contains("local.tee (Local 17)") ||
+    text.contains("local.tee (Local 18)") ||
+    text.contains("local.tee (Local 19)"),
+    msg=text,
+  )
+  assert_true(text.contains("local.tee (Local 3)"), msg=text)
+  assert_true(text.contains("local.get (Local 3)"), msg=text)
+}
+
+///|
+test "ssa-nomerge keeps allocator tee canonical across branch merge read" {
+  // Reduced from JSON-AS function 3 (`~lib/rt/tlsf/__renew`-like allocator
+  // helper). The in-place/coalesce path writes the return block pointer with
+  // `local.tee $ptr` and branches over the fallback `local.set $ptr`. The suffix
+  // still reads `$ptr`; freshening the tee to a temp without copying back leaves
+  // the branch path reading the stale entry pointer.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global (mut i32) (i32.const 0))
+    #|  (func $unlink (param i32 i32))
+    #|  (func $init)
+    #|  (func $resize (param i32 i32 i32))
+    #|  (func $sizeClass (param i32) (result i32) local.get 0)
+    #|  (func $fallback (param i32 i32 i32) (result i32) local.get 1)
+    #|  (func (param $ptr i32) (param $newSize i32) (result i32)
+    #|    (local $block i32) (local $heap i32) (local $sizeClass i32)
+    #|    (local $oldInfo i32) (local $oldSize i32) (local $next i32)
+    #|    (local $nextInfo i32)
+    #|    global.get 0
+    #|    i32.eqz
+    #|    if
+    #|      call $init
+    #|    end
+    #|    local.get $ptr
+    #|    i32.const 58708
+    #|    i32.lt_u
+    #|    if
+    #|      local.get $ptr
+    #|      i32.const 4
+    #|      i32.sub
+    #|      local.set $block
+    #|      global.get 0
+    #|      local.get $block
+    #|      local.get $newSize
+    #|      call $fallback
+    #|      local.set $ptr
+    #|    else
+    #|      local.get $ptr
+    #|      i32.const 4
+    #|      i32.sub
+    #|      local.set $block
+    #|      global.get 0
+    #|      local.set $heap
+    #|      block
+    #|        local.get $newSize
+    #|        call $sizeClass
+    #|        local.tee $sizeClass
+    #|        local.get $block
+    #|        local.tee $ptr
+    #|        i32.load
+    #|        local.tee $oldInfo
+    #|        i32.const -4
+    #|        i32.and
+    #|        local.tee $oldSize
+    #|        i32.le_u
+    #|        if
+    #|          local.get $heap
+    #|          local.get $ptr
+    #|          local.get $sizeClass
+    #|          call $resize
+    #|          br 1
+    #|        end
+    #|        local.get $ptr
+    #|        i32.const 4
+    #|        i32.add
+    #|        local.get $ptr
+    #|        i32.load
+    #|        i32.const -4
+    #|        i32.and
+    #|        i32.add
+    #|        local.tee $next
+    #|        i32.load
+    #|        local.tee $nextInfo
+    #|        i32.const 1
+    #|        i32.and
+    #|        if
+    #|          local.get $oldSize
+    #|          i32.const 4
+    #|          i32.add
+    #|          local.get $nextInfo
+    #|          i32.const -4
+    #|          i32.and
+    #|          i32.add
+    #|          local.tee $oldSize
+    #|          local.get $sizeClass
+    #|          i32.ge_u
+    #|          if
+    #|            local.get $heap
+    #|            local.get $next
+    #|            call $unlink
+    #|            local.get $ptr
+    #|            local.get $oldInfo
+    #|            i32.const 3
+    #|            i32.and
+    #|            local.get $oldSize
+    #|            i32.or
+    #|            i32.store
+    #|            local.get $heap
+    #|            local.get $ptr
+    #|            local.get $sizeClass
+    #|            call $resize
+    #|            br 2
+    #|          end
+    #|        end
+    #|        local.get $heap
+    #|        local.get $ptr
+    #|        local.get $newSize
+    #|        call $fallback
+    #|        local.set $ptr
+    #|      end
+    #|    end
+    #|    local.get $ptr
+    #|    i32.const 4
+    #|    i32.add)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 5)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains("local.tee (Local 0)") ||
+    (
+      text.contains("(local.tee (Local 9))") &&
+      text.contains("(local.get (Local 9)) (local.set (Local 0)) (br")
+    ),
+    msg=text,
+  )
+  assert_true(text.contains("local.get (Local 0)"), msg=text)
+}
+
+///|
 test "ssa-nomerge preserves param alias across conditional branch write" {
   // Reduced from json-as `~lib/rt/tlsf/addMemory`: the aligned start param is
   // freshened to an appended local, then a conditional branch may write the
@@ -25022,6 +25582,808 @@ test "ssa-nomerge keeps call result assigned when a later loop reads the local" 
     ssa_test_has_adjacent_call_drop(instrs, 3U),
     msg=instrs.to_string(),
   )
+}
+
+///|
+fn ssa_test_jsonas_func36_numeric_formatter_fixture() -> String {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i64) (i64.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (global (mut i32) (i32.const 0))
+    #|  (func (param i64 i32) (result i64)
+    #|    (local i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i32 i32 i32 i32)
+    #|    local.get 0
+    #|    i64.const 1
+    #|    i64.and
+    #|    i64.eqz
+    #|    local.set 15
+    #|    local.get 0
+    #|    i64.const 1
+    #|    i64.shl
+    #|    local.set 2
+    #|    block (result i32) ;; label = @1
+    #|      local.get 1
+    #|      if ;; label = @2
+    #|        local.get 1
+    #|        i32.const 1075
+    #|        i32.sub
+    #|        local.set 1
+    #|        local.get 2
+    #|        i64.eqz
+    #|        if ;; label = @3
+    #|          local.get 1
+    #|          local.get 1
+    #|          i32.const 631305
+    #|          i32.mul
+    #|          i32.const 261663
+    #|          i32.sub
+    #|          i32.const 21
+    #|          i32.shr_s
+    #|          local.tee 15
+    #|          i32.const -1741647
+    #|          i32.mul
+    #|          i32.const 19
+    #|          i32.shr_s
+    #|          i32.add
+    #|          local.set 16
+    #|          i32.const 292
+    #|          local.get 15
+    #|          i32.sub
+    #|          i32.const 4
+    #|          i32.shl
+    #|          local.tee 17
+    #|          i32.const 2672
+    #|          i32.add
+    #|          i64.load
+    #|          local.set 2
+    #|          local.get 17
+    #|          i32.const 2680
+    #|          i32.add
+    #|          i64.load
+    #|          drop
+    #|          local.get 2
+    #|          local.get 2
+    #|          i64.const 54
+    #|          i64.shr_u
+    #|          i64.sub
+    #|          i64.const 11
+    #|          local.get 16
+    #|          i64.extend_i32_s
+    #|          local.tee 3
+    #|          i64.sub
+    #|          local.tee 0
+    #|          i64.shr_u
+    #|          local.tee 4
+    #|          local.get 4
+    #|          i64.const 1
+    #|          i64.add
+    #|          local.get 1
+    #|          i32.const 3
+    #|          i32.le_s
+    #|          local.get 1
+    #|          i32.const 2
+    #|          i32.ge_s
+    #|          i32.and
+    #|          select
+    #|          local.set 4
+    #|          local.get 2
+    #|          local.get 2
+    #|          i64.const 53
+    #|          i64.shr_u
+    #|          i64.add
+    #|          local.get 0
+    #|          i64.shr_u
+    #|          local.tee 0
+    #|          i32.wrap_i64
+    #|          i64.extend_i32_u
+    #|          local.tee 5
+    #|          i64.const 429496729
+    #|          i64.mul
+    #|          local.set 6
+    #|          local.get 0
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          local.tee 0
+    #|          i64.const 2576980378
+    #|          i64.mul
+    #|          local.set 7
+    #|          local.get 15
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.get 4
+    #|          local.get 0
+    #|          i64.const 429496729
+    #|          i64.mul
+    #|          local.get 6
+    #|          i32.wrap_i64
+    #|          i64.extend_i32_u
+    #|          local.get 7
+    #|          i32.wrap_i64
+    #|          i64.extend_i32_u
+    #|          local.get 5
+    #|          i64.const 2576980378
+    #|          i64.mul
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          i64.add
+    #|          i64.add
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          i64.add
+    #|          local.get 7
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          i64.add
+    #|          local.get 6
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          i64.add
+    #|          local.tee 0
+    #|          i64.const 10
+    #|          i64.mul
+    #|          i64.le_u
+    #|          br_if 2 (;@1;)
+    #|          drop
+    #|          local.get 15
+    #|          global.set 21
+    #|          local.get 2
+    #|          i64.const 10
+    #|          local.get 3
+    #|          i64.sub
+    #|          i64.shr_u
+    #|          i64.const 1
+    #|          i64.add
+    #|          i64.const 1
+    #|          i64.shr_u
+    #|          local.tee 0
+    #|          i64.const 1
+    #|          i64.sub
+    #|          local.get 0
+    #|          i64.const 1
+    #|          i64.add
+    #|          local.get 0
+    #|          local.get 0
+    #|          local.get 4
+    #|          i64.lt_u
+    #|          select
+    #|          local.get 0
+    #|          i64.const 1
+    #|          i64.and
+    #|          i32.wrap_i64
+    #|          local.get 1
+    #|          i32.const -77
+    #|          i32.eq
+    #|          i32.and
+    #|          select
+    #|          return
+    #|        end
+    #|        local.get 2
+    #|        i64.const 9007199254740992
+    #|        i64.or
+    #|        local.set 2
+    #|      else
+    #|        i32.const -1074
+    #|        local.set 1
+    #|      end
+    #|      i32.const 292
+    #|      local.get 1
+    #|      i32.const 315653
+    #|      i32.mul
+    #|      i32.const 20
+    #|      i32.shr_s
+    #|      i32.const 2
+    #|      i32.sub
+    #|      local.tee 16
+    #|      i32.sub
+    #|      i32.const 4
+    #|      i32.shl
+    #|      local.tee 17
+    #|      i32.const 2672
+    #|      i32.add
+    #|      i64.load
+    #|      local.tee 5
+    #|      i64.const 63
+    #|      local.get 1
+    #|      local.get 16
+    #|      i32.const -1741647
+    #|      i32.mul
+    #|      i32.const 19
+    #|      i32.shr_s
+    #|      i32.add
+    #|      local.tee 1
+    #|      i64.extend_i32_s
+    #|      local.tee 0
+    #|      i64.sub
+    #|      i64.shr_u
+    #|      local.set 6
+    #|      local.get 2
+    #|      i64.const 1
+    #|      i64.or
+    #|      local.get 0
+    #|      i64.shl
+    #|      local.tee 0
+    #|      i32.wrap_i64
+    #|      i64.extend_i32_u
+    #|      local.tee 3
+    #|      local.get 5
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      local.tee 7
+    #|      i64.mul
+    #|      local.tee 8
+    #|      i32.wrap_i64
+    #|      i64.extend_i32_u
+    #|      local.get 0
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      local.tee 9
+    #|      local.get 5
+    #|      i32.wrap_i64
+    #|      i64.extend_i32_u
+    #|      local.tee 0
+    #|      i64.mul
+    #|      local.tee 10
+    #|      i32.wrap_i64
+    #|      i64.extend_i32_u
+    #|      local.get 0
+    #|      local.get 3
+    #|      i64.mul
+    #|      local.tee 0
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      i64.add
+    #|      i64.add
+    #|      local.set 11
+    #|      local.get 3
+    #|      local.get 17
+    #|      i32.const 2680
+    #|      i32.add
+    #|      i64.load
+    #|      local.tee 4
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      local.tee 13
+    #|      i64.mul
+    #|      local.set 14
+    #|      local.get 0
+    #|      i32.wrap_i64
+    #|      i64.extend_i32_u
+    #|      local.get 11
+    #|      i64.const 32
+    #|      i64.shl
+    #|      i64.add
+    #|      local.tee 12
+    #|      local.get 9
+    #|      local.get 13
+    #|      i64.mul
+    #|      local.get 14
+    #|      i32.wrap_i64
+    #|      i64.extend_i32_u
+    #|      local.get 9
+    #|      local.get 4
+    #|      i32.wrap_i64
+    #|      i64.extend_i32_u
+    #|      local.tee 13
+    #|      i64.mul
+    #|      local.tee 0
+    #|      i32.wrap_i64
+    #|      i64.extend_i32_u
+    #|      local.get 3
+    #|      local.get 13
+    #|      i64.mul
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      i64.add
+    #|      i64.add
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      i64.add
+    #|      local.get 0
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      i64.add
+    #|      local.get 14
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      i64.add
+    #|      i64.add
+    #|      local.tee 0
+    #|      local.get 12
+    #|      i64.lt_u
+    #|      i64.extend_i32_u
+    #|      local.get 7
+    #|      local.get 9
+    #|      i64.mul
+    #|      local.get 11
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      i64.add
+    #|      local.get 10
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      i64.add
+    #|      local.get 8
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      i64.add
+    #|      i64.add
+    #|      global.set 22
+    #|      local.get 0
+    #|      i64.eqz
+    #|      global.set 23
+    #|      global.get 22
+    #|      local.tee 0
+    #|      i32.wrap_i64
+    #|      i64.extend_i32_u
+    #|      local.tee 3
+    #|      i64.const 1099511627
+    #|      i64.mul
+    #|      local.set 7
+    #|      local.get 0
+    #|      i64.const 32
+    #|      i64.shr_u
+    #|      local.tee 0
+    #|      i64.const 3332894622
+    #|      i64.mul
+    #|      local.set 8
+    #|      block ;; label = @2
+    #|        local.get 6
+    #|        global.get 22
+    #|        local.get 0
+    #|        i64.const 1099511627
+    #|        i64.mul
+    #|        local.get 7
+    #|        i32.wrap_i64
+    #|        i64.extend_i32_u
+    #|        local.get 8
+    #|        i32.wrap_i64
+    #|        i64.extend_i32_u
+    #|        local.get 3
+    #|        i64.const 3332894622
+    #|        i64.mul
+    #|        i64.const 32
+    #|        i64.shr_u
+    #|        i64.add
+    #|        i64.add
+    #|        i64.const 32
+    #|        i64.shr_u
+    #|        i64.add
+    #|        local.get 8
+    #|        i64.const 32
+    #|        i64.shr_u
+    #|        i64.add
+    #|        local.get 7
+    #|        i64.const 32
+    #|        i64.shr_u
+    #|        i64.add
+    #|        i64.const 8
+    #|        i64.shr_u
+    #|        local.tee 0
+    #|        i64.const 1000
+    #|        i64.mul
+    #|        i64.sub
+    #|        local.tee 3
+    #|        i64.gt_u
+    #|        if ;; label = @3
+    #|          local.get 15
+    #|          i64.extend_i32_u
+    #|          local.get 3
+    #|          global.get 23
+    #|          i32.eqz
+    #|          i64.extend_i32_u
+    #|          i64.or
+    #|          i64.or
+    #|          i64.const 0
+    #|          i64.ne
+    #|          br_if 1 (;@2;)
+    #|          i64.const 1000
+    #|          local.set 3
+    #|          local.get 0
+    #|          i64.const 1
+    #|          i64.sub
+    #|          local.set 0
+    #|        else
+    #|          local.get 3
+    #|          local.get 6
+    #|          i64.eq
+    #|          if ;; label = @4
+    #|            local.get 2
+    #|            i64.const 1
+    #|            i64.sub
+    #|            local.tee 7
+    #|            i32.wrap_i64
+    #|            i64.extend_i32_u
+    #|            local.tee 8
+    #|            local.get 4
+    #|            i64.const 32
+    #|            i64.shr_u
+    #|            local.tee 9
+    #|            i64.mul
+    #|            local.set 10
+    #|            local.get 4
+    #|            i32.wrap_i64
+    #|            i64.extend_i32_u
+    #|            local.tee 11
+    #|            local.get 7
+    #|            i64.const 32
+    #|            i64.shr_u
+    #|            local.tee 12
+    #|            i64.mul
+    #|            local.set 13
+    #|            local.get 9
+    #|            local.get 12
+    #|            i64.mul
+    #|            local.get 10
+    #|            i32.wrap_i64
+    #|            i64.extend_i32_u
+    #|            local.get 13
+    #|            i32.wrap_i64
+    #|            i64.extend_i32_u
+    #|            local.get 8
+    #|            local.get 11
+    #|            i64.mul
+    #|            local.tee 8
+    #|            i64.const 32
+    #|            i64.shr_u
+    #|            i64.add
+    #|            i64.add
+    #|            local.tee 9
+    #|            i64.const 32
+    #|            i64.shr_u
+    #|            i64.add
+    #|            local.get 13
+    #|            i64.const 32
+    #|            i64.shr_u
+    #|            i64.add
+    #|            local.get 10
+    #|            i64.const 32
+    #|            i64.shr_u
+    #|            i64.add
+    #|            local.get 5
+    #|            local.get 7
+    #|            i64.mul
+    #|            i64.add
+    #|            local.tee 7
+    #|            i64.const 64
+    #|            local.get 1
+    #|            i64.extend_i32_s
+    #|            local.tee 10
+    #|            i64.sub
+    #|            local.tee 11
+    #|            i64.shr_u
+    #|            i64.const 1
+    #|            i64.and
+    #|            i32.wrap_i64
+    #|            global.set 24
+    #|            local.get 7
+    #|            local.get 10
+    #|            i64.shl
+    #|            local.get 8
+    #|            i32.wrap_i64
+    #|            i64.extend_i32_u
+    #|            local.get 9
+    #|            i64.const 32
+    #|            i64.shl
+    #|            i64.add
+    #|            local.get 11
+    #|            i64.shr_u
+    #|            i64.or
+    #|            i64.eqz
+    #|            global.set 23
+    #|            i32.const 1
+    #|            local.get 15
+    #|            i32.const 0
+    #|            global.get 23
+    #|            select
+    #|            global.get 24
+    #|            select
+    #|            br_if 2 (;@2;)
+    #|          else
+    #|            local.get 3
+    #|            local.get 6
+    #|            i64.lt_u
+    #|            br_if 2 (;@2;)
+    #|          end
+    #|        end
+    #|        local.get 3
+    #|        local.get 6
+    #|        i64.const 1
+    #|        i64.shr_u
+    #|        i64.sub
+    #|        i64.const 50
+    #|        i64.add
+    #|        local.tee 3
+    #|        i64.const 50
+    #|        i64.xor
+    #|        i64.const 1
+    #|        i64.and
+    #|        i32.wrap_i64
+    #|        local.set 15
+    #|        local.get 0
+    #|        i64.const 10
+    #|        i64.mul
+    #|        local.get 3
+    #|        i64.const 656
+    #|        i64.mul
+    #|        i32.wrap_i64
+    #|        local.tee 17
+    #|        i32.const 65535
+    #|        i32.and
+    #|        i32.const 656
+    #|        i32.lt_u
+    #|        i64.extend_i32_u
+    #|        local.get 17
+    #|        i32.const 16
+    #|        i32.shr_u
+    #|        i64.extend_i32_u
+    #|        i64.const 32
+    #|        i64.shl
+    #|        i64.or
+    #|        local.tee 0
+    #|        i64.const 32
+    #|        i64.shr_u
+    #|        i64.add
+    #|        local.set 3
+    #|        local.get 16
+    #|        i32.const 2
+    #|        i32.add
+    #|        global.set 21
+    #|        local.get 0
+    #|        i64.const 1
+    #|        i64.and
+    #|        i32.wrap_i64
+    #|        if (result i64) ;; label = @3
+    #|          local.get 2
+    #|          i32.wrap_i64
+    #|          i64.extend_i32_u
+    #|          local.tee 0
+    #|          local.get 4
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          local.tee 6
+    #|          i64.mul
+    #|          local.set 7
+    #|          local.get 2
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          local.tee 8
+    #|          local.get 4
+    #|          i32.wrap_i64
+    #|          i64.extend_i32_u
+    #|          local.tee 4
+    #|          i64.mul
+    #|          local.set 9
+    #|          local.get 6
+    #|          local.get 8
+    #|          i64.mul
+    #|          local.get 7
+    #|          i32.wrap_i64
+    #|          i64.extend_i32_u
+    #|          local.get 9
+    #|          i32.wrap_i64
+    #|          i64.extend_i32_u
+    #|          local.get 0
+    #|          local.get 4
+    #|          i64.mul
+    #|          local.tee 0
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          i64.add
+    #|          i64.add
+    #|          local.tee 4
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          i64.add
+    #|          local.get 9
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          i64.add
+    #|          local.get 7
+    #|          i64.const 32
+    #|          i64.shr_u
+    #|          i64.add
+    #|          local.get 2
+    #|          local.get 5
+    #|          i64.mul
+    #|          i64.add
+    #|          local.tee 2
+    #|          i64.const 64
+    #|          local.get 1
+    #|          i64.extend_i32_s
+    #|          local.tee 5
+    #|          i64.sub
+    #|          local.tee 6
+    #|          i64.shr_u
+    #|          i64.const 1
+    #|          i64.and
+    #|          i32.wrap_i64
+    #|          global.set 24
+    #|          local.get 2
+    #|          local.get 5
+    #|          i64.shl
+    #|          local.get 0
+    #|          i32.wrap_i64
+    #|          i64.extend_i32_u
+    #|          local.get 4
+    #|          i64.const 32
+    #|          i64.shl
+    #|          i64.add
+    #|          local.get 6
+    #|          i64.shr_u
+    #|          i64.or
+    #|          i64.eqz
+    #|          global.set 23
+    #|          global.get 24
+    #|          local.get 15
+    #|          i32.ne
+    #|          if (result i64) ;; label = @4
+    #|            local.get 3
+    #|            i64.const 1
+    #|            i64.sub
+    #|          else
+    #|            local.get 3
+    #|            i64.const 1
+    #|            i64.sub
+    #|            local.get 3
+    #|            global.get 23
+    #|            i32.const 0
+    #|            local.get 3
+    #|            i64.const 1
+    #|            i64.and
+    #|            i32.wrap_i64
+    #|            select
+    #|            select
+    #|          end
+    #|        else
+    #|          local.get 3
+    #|        end
+    #|        return
+    #|      end
+    #|      local.get 16
+    #|      i32.const 3
+    #|      i32.add
+    #|    end
+    #|    local.get 0
+    #|    i64.const 28999941890838049
+    #|    i64.mul
+    #|    local.tee 2
+    #|    i64.const 56
+    #|    i64.shl
+    #|    local.get 2
+    #|    i64.const 8
+    #|    i64.shr_u
+    #|    i64.or
+    #|    local.tee 2
+    #|    i64.const 184467440738
+    #|    i64.lt_u
+    #|    local.set 16
+    #|    local.get 2
+    #|    local.get 0
+    #|    local.get 16
+    #|    select
+    #|    local.tee 0
+    #|    i64.const 182622766329724561
+    #|    i64.mul
+    #|    local.tee 2
+    #|    i64.const 60
+    #|    i64.shl
+    #|    local.get 2
+    #|    i64.const 4
+    #|    i64.shr_u
+    #|    i64.or
+    #|    local.tee 2
+    #|    i64.const 1844674407370956
+    #|    i64.lt_u
+    #|    local.set 17
+    #|    local.get 2
+    #|    local.get 0
+    #|    local.get 17
+    #|    select
+    #|    local.tee 0
+    #|    i64.const -8116567392432202711
+    #|    i64.mul
+    #|    local.tee 2
+    #|    i64.const 62
+    #|    i64.shl
+    #|    local.get 2
+    #|    i64.const 2
+    #|    i64.shr_u
+    #|    i64.or
+    #|    local.tee 2
+    #|    i64.const 184467440737095517
+    #|    i64.lt_u
+    #|    local.set 1
+    #|    local.get 2
+    #|    local.get 0
+    #|    local.get 1
+    #|    select
+    #|    local.tee 0
+    #|    i64.const -3689348814741910323
+    #|    i64.mul
+    #|    local.tee 2
+    #|    i64.const 63
+    #|    i64.shl
+    #|    local.get 2
+    #|    i64.const 1
+    #|    i64.shr_u
+    #|    i64.or
+    #|    local.tee 2
+    #|    i64.const 1844674407370955162
+    #|    i64.lt_u
+    #|    local.tee 18
+    #|    local.get 1
+    #|    local.get 17
+    #|    local.get 16
+    #|    i32.const 1
+    #|    i32.shl
+    #|    i32.add
+    #|    i32.const 1
+    #|    i32.shl
+    #|    i32.add
+    #|    i32.const 1
+    #|    i32.shl
+    #|    i32.add
+    #|    global.set 25
+    #|    global.get 25
+    #|    i32.add
+    #|    global.set 21
+    #|    local.get 2
+    #|    local.get 0
+    #|    local.get 18
+    #|    select
+    #|  )
+    #|)
+  source
+}
+
+///|
+test "ssa-nomerge preserves JSON-AS function 36 formatter canonical locals" {
+  // Reduced from the JSON-AS SIMD benchmark function #36 numeric/f64 formatting
+  // helper. Current freshening corrupts the benchmark's float fields
+  // (`4e+326`, `5.4e+325`) while leaving the original/canonical helper shape
+  // validates, prints `1000.0`/`108.0`/`0.108`, and is smaller on the artifact.
+  let optimized = match
+    pass_test_run_pipeline(ssa_test_jsonas_func36_numeric_formatter_fixture(), [
+      "ssa-nomerge",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected JSON-AS func36 ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(locals.length(), 17)
+  let writes = ssa_test_local_write_indices(instrs)
+  for idx in writes {
+    assert_true(
+      idx < 19U,
+      msg="func36 formatter must not introduce fresh locals; writes=\{writes}",
+    )
+  }
 }
 
 ///|
