@@ -16310,6 +16310,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_retarget_mask_eqz_after_nested_update(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
   instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
 ) -> (Array[@lib.Instruction], Bool) {
   let child_rewritten : Array[@lib.Instruction] = []
   let mut child_changed = false
@@ -16317,7 +16320,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-          body,
+          body, params, locals, extra_local_types,
         )
         child_rewritten.push(
           @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
@@ -16326,7 +16329,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-          body,
+          body, params, locals, extra_local_types,
         )
         child_rewritten.push(
           @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
@@ -16335,7 +16338,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-          body,
+          body, params, locals, extra_local_types,
         )
         child_rewritten.push(
           @lib.Instruction::try_table(
@@ -16348,12 +16351,12 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-          then_body,
+          then_body, params, locals, extra_local_types,
         )
         let next_else = match else_body {
           Some(body) => {
             let (rewritten_else, else_changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-              body,
+              body, params, locals, extra_local_types,
             )
             child_changed = child_changed || else_changed
             Some(rewritten_else)
@@ -16473,7 +16476,14 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
           let first_id = first_raw.reinterpret_as_int()
           let set_id = set_raw.reinterpret_as_int()
           let stored_id = stored_raw.reinterpret_as_int()
+          let same_typed_replacement = run_hot_pipeline_raw_rewritten_local_type(
+              params, locals, extra_local_types, first_id,
+            ) ==
+            run_hot_pipeline_raw_rewritten_local_type(
+              params, locals, extra_local_types, last_spilled_local,
+            )
           if stored_id == set_id &&
+            same_typed_replacement &&
             first_id != last_spilled_local &&
             (
               first_id == set_id ||
@@ -16505,10 +16515,12 @@ fn run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
   func : @lib.Func,
+  params : Array[@lib.ValType],
 ) -> @lib.Func {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let no_extra_local_types : Array[@lib.ValType] = []
   let (repaired_instrs, changed) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-    instrs,
+    instrs, params, locals, no_extra_local_types,
   )
   if changed {
     @lib.Func::new(locals, @lib.Expr::new(repaired_instrs))
@@ -16757,7 +16769,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
         mask_retargeted_instrs,
       )
       let (spill_arg_repaired_instrs, _) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-        loop_retargeted_instrs,
+        loop_retargeted_instrs, params, locals, extra_local_types,
       )
       let (compacted_instrs, compacted_locals, compacted_extra_local_types) = run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
         spill_arg_repaired_instrs, params, locals, extra_local_types,
@@ -16783,13 +16795,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
         Some(compacted_func) =>
           Some(
             run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
-              compacted_func,
+              compacted_func, params,
             ),
           )
         None =>
           Some(
             run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
-              rewritten_func,
+              rewritten_func, params,
             ),
           )
       }
@@ -16818,7 +16830,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
         mask_retargeted_instrs,
       )
       let (spill_arg_repaired_instrs, spill_arg_repaired) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-        loop_retargeted_instrs,
+        loop_retargeted_instrs, params, locals, fallback_extra_local_types,
       )
       let (compacted_instrs, compacted_locals, compacted_extra_local_types) = run_hot_pipeline_raw_compact_appended_one_use_scratch_locals(
         spill_arg_repaired_instrs, params, locals, fallback_extra_local_types,
@@ -16850,13 +16862,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
           Some(compacted_func) =>
             Some(
               run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
-                compacted_func,
+                compacted_func, params,
               ),
             )
           None =>
             Some(
               run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
-                rewritten_func,
+                rewritten_func, params,
               ),
             )
         }
@@ -18531,6 +18543,54 @@ fn run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_branching_value_block(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
+            block_type, body, false, false,
+          ) ||
+          run_hot_pipeline_raw_ssa_nomerge_has_branching_value_block(body) {
+          return true
+        }
+      @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_branching_value_block(body) {
+          return true
+        }
+      @lib.TryTable(block_type, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
+            block_type, body, false, false,
+          ) ||
+          run_hot_pipeline_raw_ssa_nomerge_has_branching_value_block(body) {
+          return true
+        }
+      @lib.If(block_type, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
+            block_type, then_body, false, false,
+          ) ||
+          run_hot_pipeline_raw_ssa_nomerge_has_branching_value_block(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_child_in_branching_value_block(
+                block_type, body, false, false,
+              ) ||
+              run_hot_pipeline_raw_ssa_nomerge_has_branching_value_block(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_rewrite_planned_structured_instr(
   instr : @lib.Instruction,
   params : Array[@lib.ValType],
@@ -18826,6 +18886,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_planned_structured(
   plan : SsaNoMergeRewritePlan,
 ) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if run_hot_pipeline_raw_ssa_nomerge_has_branching_value_block(instrs) {
+    return (func, false)
+  }
   let extra_local_types : Array[@lib.ValType] = []
   let base_local_count = params.length() + locals.length()
   let written_locals = @bitset.BitSet::new(base_local_count)
@@ -18843,7 +18906,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_planned_structured(
     rewritten_instrs, params, locals, extra_local_types,
   )
   let (spill_repaired_instrs, _) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-    compacted_instrs,
+    compacted_instrs, params, locals, compacted_extra_local_types,
   )
   let rewritten_locals = locals.copy()
   rewritten_locals.append_types(compacted_extra_local_types)
@@ -19006,7 +19069,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
     }
   }
   let (spill_repaired_instrs, _) = run_hot_pipeline_raw_ssa_nomerge_repair_stack_spill_arg_alias(
-    rewritten_instrs,
+    rewritten_instrs, params, locals, extra_local_types,
   )
   let rewritten_locals = locals.copy()
   rewritten_locals.append_types(extra_local_types)
@@ -21799,8 +21862,15 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   }
   let result = match result {
     Some(raw_result) if descriptor.name == "ssa-nomerge" => {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let params = run_hot_pipeline_required_raw_func_params(
+        mod_, module_ctx, func_idx,
+      )
       let repaired_func = run_hot_pipeline_raw_ssa_nomerge_repair_func_stack_spill_arg_alias(
         raw_result.func,
+        params,
       )
       Some({
         reason: raw_result.reason,

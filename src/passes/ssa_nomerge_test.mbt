@@ -26387,6 +26387,73 @@ test "ssa-nomerge preserves JSON-AS function 36 formatter canonical locals" {
 }
 
 ///|
+test "ssa-nomerge keeps stacked f64 across JSON-AS spill argument repair" {
+  // Reduced from the old JSON-AS prefix artifacts' stack-spill repair family.
+  // A f64 value can sit below an i32 stack-spill argument while the i32 is copied
+  // through a canonical temp for `i32.store`. The spill repair must not replace
+  // the stacked f64 local with the previous i32 spill local.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $sp (mut i32) (i32.const 0))
+    #|  (func $id (param i32) (result i32) local.get 0)
+    #|  (func (param f64) (param i32) (result i32)
+    #|    (local $tmp i32) (local $i i32) (local $f f64) (local $slot i32)
+    #|    local.get 0
+    #|    f64.const 1000
+    #|    f64.mul
+    #|    local.set $f
+    #|    local.get 1
+    #|    call $id
+    #|    local.set $slot
+    #|    loop $loop
+    #|      local.get $i
+    #|      i32.const 0
+    #|      i32.ge_s
+    #|      if
+    #|        global.get $sp
+    #|        local.get $slot
+    #|        local.set $tmp
+    #|        global.get $sp
+    #|        local.get $tmp
+    #|        i32.store offset=8
+    #|        local.get $f
+    #|        local.get $slot
+    #|        local.set $tmp
+    #|        global.get $sp
+    #|        local.get $tmp
+    #|        i32.store offset=8
+    #|        local.get $tmp
+    #|        f64.convert_i32_s
+    #|        f64.ge
+    #|        if
+    #|          i32.const 1
+    #|          return
+    #|        end
+    #|        local.get $i
+    #|        i32.const 1
+    #|        i32.sub
+    #|        local.set $i
+    #|        br $loop
+    #|      end
+    #|    end
+    #|    local.get $f
+    #|    f64.const 100
+    #|    f64.mul
+    #|    f64.const 0
+    #|    f64.ge)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
+  let text = instrs.to_string()
+  assert_true(text.contains("f64.ge"), msg=text)
+  assert_false(
+    text.contains("(local.get (Local 2))(local.get (Local 5))(i32.store"),
+    msg=text,
+  )
+}
+
+///|
 test "ssa-nomerge keeps the latest straight-line local alias live" {
   let optimized = match
     pass_test_run_pipeline(
