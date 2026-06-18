@@ -751,6 +751,91 @@ test "dead-code-elimination repairs legacy pop in dead call argument before unre
 }
 
 ///|
+test "dead-code-elimination repairs legacy pop nested by drop ref-eq unreachable child" {
+  let eqref = @lib.ValType::eqref_null()
+  let func = @ir.HotFunc::new()
+  let struct_new = @ir.hot_build_heap(
+    func,
+    [eqref],
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    [@ir.hot_build_legacy_pop(func, eqref)],
+  )
+  let ref_eq = @ir.hot_build_heap(
+    func,
+    [@lib.ValType::i32()],
+    @lib.Instruction::ref_eq(),
+    [
+      struct_new,
+      @ir.hot_build_block(func, @lib.BlockType::val_type(eqref), [
+        @ir.hot_build_unreachable(func),
+      ]),
+    ],
+  )
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [@ir.hot_build_const_i32(func, @lib.I32(0))],
+    catch_body=Some([
+      @ir.hot_build_drop(func, ref_eq),
+      @ir.hot_build_const_i32(func, @lib.I32(0)),
+    ]),
+  )
+  @ir.hot_legacy_try_catches_set(func, try_id, [
+    @ir.HotCatchArm::legacy_catch(@lib.TagIdx::new(0U), 2),
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  @ir.hot_root_append(func, @ir.hot_build_const_i32(func, @lib.I32(9)))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected pop-within-block legacy DCE success, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(eqref),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([eqref], [])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(2U))]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination treats lowered legacy try with all arms unreachable as nonfallthrough" {
   let optimized = match
     pass_test_run_pipeline(

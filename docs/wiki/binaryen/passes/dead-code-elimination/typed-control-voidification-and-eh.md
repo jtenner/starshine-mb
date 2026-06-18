@@ -100,7 +100,9 @@ The first DCE-side repair slice implements the narrow Starshine equivalent for r
 
 The follow-up repair slice covers a closer represented analogue of Binaryen's `$call-pop-catch` hazard: when DCE replaces a non-control root whose child is already `unreachable`, it preserves evaluated children before the first unreachable as roots/drops inside a new block and drops the dead operator plus later children. If one of those preserved children is a legacy catch `pop`, the same end-of-pass repair extracts it to a fresh local before the catch root and rewrites the nested use to `local.get`. The repair now also tolerates catch-arm root counts becoming stale after DCE removes roots from the combined HOT catch region, rebuilding legacy arm root counts from the surviving roots instead of indexing past the shortened catch body.
 
-Remaining blockers: binary encoding of `Try` and `Pop` fails closed, binary decoding is not implemented, high-level WAST-to-binary entrypoints still reject legacy `pop` text with an explicit diagnostic, and broader Binaryen `pop` movement/repair shapes still need coverage beyond the currently represented HOT block-subtree and non-control-unreachable-child extraction cases.
+The next blocker slice extends that represented repair toward Binaryen's `$pop-within-block` shape: a dead `drop` wrapper around a non-control child with a nonfallthrough child, such as `drop(ref.eq(struct.new(pop), typed-unreachable-block))`, is now rewritten using the child-preserving block path before the same legacy-pop repair hoists the nested payload. This keeps the work scoped to blocker-enabling nested-pop repair, not broad ordinary expression parity.
+
+Remaining blockers: binary encoding of `Try` and `Pop` fails closed, binary decoding is not implemented, high-level WAST-to-binary entrypoints still reject legacy `pop` text with an explicit diagnostic, and broader Binaryen `pop` movement/repair shapes still need coverage beyond the currently represented HOT block-subtree, direct non-control-unreachable-child, and drop-wrapped nonfallthrough-child extraction cases.
 
 ### `try_table`
 

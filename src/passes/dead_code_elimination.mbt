@@ -2438,32 +2438,43 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
 fn dead_code_elimination_try_replace_noncontrol_unreachable_root(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  branch_user_cache : DeadCodeEliminationBranchUserCache,
   node_use_cache : DeadCodeEliminationNodeUseCache,
+  fallthrough_cache : DeadCodeEliminationFallthroughCache,
   region_ref : @ir.HotRegionRef,
   idx : Int,
   node_id : Int,
 ) -> Bool {
-  if node_id < 0 ||
-    !@ir.hot_node_is_live(func, node_id) ||
-    @ir.hot_is_control_node(func, node_id) {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  match @ir.hot_node_get(func, node_id).op {
+  let mut source_id = node_id
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
     @ir.HotOp::Unreachable => return false
+    @ir.HotOp::Drop if @ir.hot_child_count(func, node_id) == 1 => {
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      if child_id < 0 ||
+        !@ir.hot_node_is_live(func, child_id) ||
+        @ir.hot_is_control_node(func, child_id) {
+        return false
+      }
+      source_id = child_id
+    }
+    _ if @ir.hot_is_control_node(func, node_id) => return false
     _ => ()
   }
-  let child_count = @ir.hot_child_count(func, node_id)
+  let child_count = @ir.hot_child_count(func, source_id)
   let mut unreachable_slot = -1
   for slot = 0; slot < child_count; slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, node_id, slot)
-    if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
-      match @ir.hot_node_get(func, child_id).op {
-        @ir.HotOp::Unreachable => {
-          unreachable_slot = slot
-          break
-        }
-        _ => ()
-      }
+    let child_id = @ir.hot_child_get(func, source_id, slot)
+    if child_id >= 0 &&
+      @ir.hot_node_is_live(func, child_id) &&
+      !dead_code_elimination_node_may_fallthrough(
+        func, branch_user_cache, fallthrough_cache, child_id,
+      ) {
+      unreachable_slot = slot
+      break
     }
   }
   if unreachable_slot < 0 {
@@ -2471,7 +2482,7 @@ fn dead_code_elimination_try_replace_noncontrol_unreachable_root(
   }
   let replacement_roots : Array[Int] = []
   for slot = 0; slot <= unreachable_slot; slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, node_id, slot)
+    let child_id = @ir.hot_child_get(func, source_id, slot)
     if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
       return false
     }
@@ -2930,7 +2941,8 @@ fn dead_code_elimination_visit_region(
     let mut node_use_count = -1
 
     if dead_code_elimination_try_replace_noncontrol_unreachable_root(
-        ctx, func, node_use_cache, region_ref, idx, node_id,
+        ctx, func, branch_user_cache, node_use_cache, fallthrough_cache, region_ref,
+        idx, node_id,
       ) {
       changed = true
       continue
