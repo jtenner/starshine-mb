@@ -3551,9 +3551,11 @@ fn wt_legacy_pop_br_table_targets_are_void(
 fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
   instr : @lib.Instruction,
   label_results : Array[Array[@lib.ValType]],
+  func_results : Array[@lib.ValType],
 ) -> Bool {
   match instr {
-    @lib.Unreachable | @lib.Return => true
+    @lib.Unreachable => true
+    @lib.Return => func_results.length() == 0
     @lib.Br(label) => wt_legacy_pop_label_is_void(label_results, label)
     @lib.BrTable(labels, fallback) =>
       wt_legacy_pop_br_table_targets_are_void(label_results, labels, fallback)
@@ -3626,10 +3628,13 @@ fn wt_direct_legacy_pop_expr_supported(
   env : @validate.Env,
   expr : @lib.Expr,
   label_results : Array[Array[@lib.ValType]],
+  func_results : Array[@lib.ValType],
 ) -> Bool {
   let @lib.Expr(instrs) = expr
   for instr in instrs {
-    if !wt_direct_legacy_pop_instr_supported(env, instr, label_results) {
+    if !wt_direct_legacy_pop_instr_supported(
+        env, instr, label_results, func_results,
+      ) {
       return false
     }
   }
@@ -3641,6 +3646,7 @@ fn wt_direct_legacy_pop_instr_supported(
   env : @validate.Env,
   instr : @lib.Instruction,
   label_results : Array[Array[@lib.ValType]],
+  func_results : Array[@lib.ValType],
 ) -> Bool {
   match instr {
     @lib.Pop(_) => false
@@ -3654,6 +3660,7 @@ fn wt_direct_legacy_pop_instr_supported(
         env,
         body,
         wt_legacy_pop_label_stack_push(label_results, pushed_results),
+        func_results,
       )
     }
     @lib.Loop(block_type, body) => {
@@ -3666,6 +3673,7 @@ fn wt_direct_legacy_pop_instr_supported(
         env,
         body,
         wt_legacy_pop_label_stack_push(label_results, pushed_results),
+        func_results,
       )
     }
     @lib.If(block_type, then_body, else_body) => {
@@ -3678,14 +3686,18 @@ fn wt_direct_legacy_pop_instr_supported(
         label_results, pushed_results,
       )
       for i in then_body {
-        if !wt_direct_legacy_pop_instr_supported(env, i, nested_labels) {
+        if !wt_direct_legacy_pop_instr_supported(
+            env, i, nested_labels, func_results,
+          ) {
           return false
         }
       }
       match else_body {
         Some(body) =>
           for i in body {
-            if !wt_direct_legacy_pop_instr_supported(env, i, nested_labels) {
+            if !wt_direct_legacy_pop_instr_supported(
+                env, i, nested_labels, func_results,
+              ) {
               return false
             }
           }
@@ -3702,7 +3714,9 @@ fn wt_direct_legacy_pop_instr_supported(
       let nested_labels = wt_legacy_pop_label_stack_push(
         label_results, pushed_results,
       )
-      if !wt_direct_legacy_pop_expr_supported(env, body, nested_labels) {
+      if !wt_direct_legacy_pop_expr_supported(
+          env, body, nested_labels, func_results,
+        ) {
         return false
       }
       for catch_ in catches {
@@ -3733,6 +3747,7 @@ fn wt_direct_legacy_pop_instr_supported(
                       wt_legacy_pop_prefix_tail_is_nonfallthrough(
                         catch_instrs[instr_idx],
                         nested_labels,
+                        func_results,
                       ) ||
                       wt_legacy_pop_prefix_tail_starts_br_table_statement(
                         catch_instrs, instr_idx, nested_labels,
@@ -3761,6 +3776,7 @@ fn wt_direct_legacy_pop_instr_supported(
                   env,
                   catch_instrs[instr_idx],
                   nested_labels,
+                  func_results,
                 ) {
                 return false
               }
@@ -3769,7 +3785,7 @@ fn wt_direct_legacy_pop_instr_supported(
           }
           @lib.LegacyCatchAll(catch_body) =>
             if !wt_direct_legacy_pop_expr_supported(
-                env, catch_body, nested_labels,
+                env, catch_body, nested_labels, func_results,
               ) {
               return false
             }
@@ -3787,6 +3803,7 @@ fn wt_direct_legacy_pop_instr_supported(
         env,
         body,
         wt_legacy_pop_label_stack_push(label_results, pushed_results),
+        func_results,
       )
     }
     _ => true
@@ -3803,13 +3820,28 @@ fn wt_legacy_pop_text_supported(
   }
   let env = @validate.empty_env().with_module(mod)
   match mod.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
+    Some(@lib.CodeSec(funcs)) => {
+      let func_type_idxs = match mod.func_sec {
+        Some(@lib.FuncSec(type_idxs)) => type_idxs
+        None => []
+      }
+      let mut func_idx = 0
       for func in funcs {
         let @lib.Func(_, body) = func
-        if !wt_direct_legacy_pop_expr_supported(env, body, []) {
+        let func_results = match func_type_idxs.get(func_idx) {
+          Some(type_idx) =>
+            match env.resolve_functype(type_idx) {
+              Some(@lib.FuncType(_, results)) => results
+              None => return false
+            }
+          None => return false
+        }
+        if !wt_direct_legacy_pop_expr_supported(env, body, [], func_results) {
           return false
         }
+        func_idx += 1
       }
+    }
     None => ()
   }
   true

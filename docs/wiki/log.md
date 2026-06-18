@@ -373,6 +373,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`binaryen/passes/global-refining/parity.md`](binaryen/passes/global-refining/parity.md), [`binaryen/passes/global-refining/starshine-hot-ir-strategy.md`](binaryen/passes/global-refining/starshine-hot-ir-strategy.md), [`binaryen/passes/global-refining/implementation-structure-and-tests.md`](binaryen/passes/global-refining/implementation-structure-and-tests.md), and [`../../agent-todo.md`](../../agent-todo.md) with the reopening criterion: revisit only if Starshine gains feature-disabled direct-pass execution or a compare lane intentionally runs Binaryen without GC enabled.
 - `[GR-002]` through `[GR-006]` remain open for exact function refs, broader initializer typing, public-type validation parity, `global.get` retagging/refinalization, and refreshed oracle evidence.
 
+## [2026-06-18] passes/dead-code-elimination | Reject catch-pop nonvoid return boundary
+
+- Added [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) coverage for the intentionally unsupported nonvoid-return counterpart: a complete catch-payload `pop` prefix flowing into `return` in a function with results must stay rejected until return-payload repair is represented.
+- Extended the label-aware WAST legacy-pop ingress in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) with the current defined function result types, so `pop; return` is admitted only for void-return functions. This makes the documented nonvoid-return guard fail closed at WAST admission rather than relying on later DCE repair guards.
+
 ## [2026-06-18] passes/dead-code-elimination | Reject catch-pop value branch boundary
 
 - Added [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) coverage for the intentionally unsupported `$call-pop-catch` value-branch boundary: a complete catch-payload `pop` prefix flowing into a branch targeting a result block must stay rejected until Starshine has label-type-aware branch-payload repair.

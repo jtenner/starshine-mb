@@ -1242,6 +1242,36 @@ test "dead-code-elimination rejects unsupported catch pop value branch boundary"
 }
 
 ///|
+test "dead-code-elimination rejects unsupported catch pop nonvoid return boundary" {
+  let source =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func (result i32)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (pop i32)
+    #|          (return))
+    #|        nop))
+    #|    (i32.const 0))
+    #|  (func $helper (param i32 i32)))
+    #|)
+    #|
+  match
+    @wast.wast_to_binary_module(
+      source,
+      filename="dce-catch-pop-nonvoid-return-boundary.wat",
+    ) {
+    Ok(mod_) =>
+      fail(
+        "unsupported nonvoid-return catch-pop flow must stay rejected until return payload repair is represented: \{mod_.pretty_print_func(@lib.FuncIdx::new(0U))}",
+      )
+    Err(err) => assert_true(err.contains("legacy exception pop text"), msg=err)
+  }
+}
+
+///|
 test "dead-code-elimination documents unsupported stack-switching boundary" {
   let source =
     #|(module
