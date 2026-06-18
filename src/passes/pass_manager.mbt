@@ -7098,38 +7098,58 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
       result_count,
     )
     changed = changed || instr_changed
-    if idx + 1 < instrs.length() {
-      match (instr, instrs[idx + 1]) {
-        (@lib.Pop(vt), @lib.Br(label)) => {
-          let local_id = @lib.LocalIdx::new(
-            (param_count + locals.length()).reinterpret_as_uint(),
-          )
-          locals.push(vt)
-          rewritten.push(@lib.Instruction::pop(vt))
-          rewritten.push(@lib.Instruction::local_set(local_id))
-          rewritten.push(@lib.Instruction::local_get(local_id))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::br(label))
-          idx = idx + 2
-          changed = true
-          continue
+    match instr {
+      @lib.Pop(first_vt) => {
+        let pop_types : Array[@lib.ValType] = [first_vt]
+        let mut scan = idx + 1
+        while scan < instrs.length() {
+          match instrs[scan] {
+            @lib.Pop(vt) => {
+              pop_types.push(vt)
+              scan = scan + 1
+            }
+            _ => break
+          }
         }
-        (@lib.Pop(vt), @lib.Return) if result_count == 0 => {
-          let local_id = @lib.LocalIdx::new(
-            (param_count + locals.length()).reinterpret_as_uint(),
-          )
-          locals.push(vt)
-          rewritten.push(@lib.Instruction::pop(vt))
-          rewritten.push(@lib.Instruction::local_set(local_id))
-          rewritten.push(@lib.Instruction::local_get(local_id))
-          rewritten.push(@lib.Instruction::drop())
-          rewritten.push(@lib.Instruction::return_())
-          idx = idx + 2
-          changed = true
-          continue
+        if scan < instrs.length() {
+          match instrs[scan] {
+            @lib.Br(label) => {
+              for vt in pop_types {
+                let local_id = @lib.LocalIdx::new(
+                  (param_count + locals.length()).reinterpret_as_uint(),
+                )
+                locals.push(vt)
+                rewritten.push(@lib.Instruction::pop(vt))
+                rewritten.push(@lib.Instruction::local_set(local_id))
+                rewritten.push(@lib.Instruction::local_get(local_id))
+                rewritten.push(@lib.Instruction::drop())
+              }
+              rewritten.push(@lib.Instruction::br(label))
+              idx = scan + 1
+              changed = true
+              continue
+            }
+            @lib.Return if result_count == 0 => {
+              for vt in pop_types {
+                let local_id = @lib.LocalIdx::new(
+                  (param_count + locals.length()).reinterpret_as_uint(),
+                )
+                locals.push(vt)
+                rewritten.push(@lib.Instruction::pop(vt))
+                rewritten.push(@lib.Instruction::local_set(local_id))
+                rewritten.push(@lib.Instruction::local_get(local_id))
+                rewritten.push(@lib.Instruction::drop())
+              }
+              rewritten.push(@lib.Instruction::return_())
+              idx = scan + 1
+              changed = true
+              continue
+            }
+            _ => ()
+          }
         }
-        _ => ()
       }
+      _ => ()
     }
     rewritten.push(instr)
     idx = idx + 1

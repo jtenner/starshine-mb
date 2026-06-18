@@ -1011,6 +1011,55 @@ test "dead-code-elimination repairs call-pop-catch dead call before return text"
 }
 
 ///|
+test "dead-code-elimination repairs multi-pop catch dead call before branch text" {
+  let source =
+    #|(module
+    #|  (tag $e-i32-i32 (param i32 i32))
+    #|  (func
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (pop i32)
+    #|            (br $label))
+    #|          nop))))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multi-pop call-pop-catch DCE pipeline success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "dead-code-elimination documents unsupported stack-switching boundary" {
   let source =
     #|(module
