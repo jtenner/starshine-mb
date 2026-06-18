@@ -3577,7 +3577,7 @@ fn wt_direct_legacy_pop_instr_supported(
                       consumer_idx < instr_idx + payloads.length()
                       consumer_idx = consumer_idx + 1 {
                     match catch_instrs[consumer_idx] {
-                      @lib.Drop | @lib.LocalSet(_) => ()
+                      @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) => ()
                       _ => return false
                     }
                   }
@@ -6615,6 +6615,56 @@ test "wast_text_binary_roundtrip supports direct legacy catch pop consumer" {
           fail("expected decoded legacy try catch direct pop, got \{try_instr}")
       }
     _ => fail("expected decoded function with real legacy try/pop")
+  }
+}
+
+///|
+test "wast_text_binary_roundtrip supports direct legacy catch pop local tee" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func (local i32)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (drop (local.tee 0 (pop i32)))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-local-tee-roundtrip.wat",
+    ) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected direct catch-prefix legacy pop local.tee to roundtrip: \{e}",
+      )
+  }
+  match decoded.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
+      match try_instr {
+        @lib.Try(
+          _,
+          _,
+          [
+            @lib.LegacyCatch(
+              @lib.TagIdx(0),
+              @lib.Expr(
+                [
+                  @lib.Pop(@lib.NumTypeValType(@lib.I32NumType)),
+                  @lib.LocalTee(@lib.LocalIdx(0)),
+                  @lib.Drop,
+                ]
+              )
+            ),
+          ],
+          None
+        ) => ()
+        _ =>
+          fail(
+            "expected decoded legacy try catch direct pop local.tee, got \{try_instr}",
+          )
+      }
+    _ => fail("expected decoded function with real legacy try/pop local.tee")
   }
 }
 

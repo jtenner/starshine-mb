@@ -425,6 +425,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-17] wast | Direct legacy pop local.tee consumer
+
+- Extended the narrow high-level WAST legacy-pop direct-prefix gate in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) to treat `local.tee` as an admitted immediate payload consumer alongside `drop` and `local.set`.
+- Added focused text/binary roundtrip coverage for `(drop (local.tee 0 (pop i32)))`, preserving the decoded `Pop`, `LocalTee`, `Drop` catch-body order. Broader nested/interleaved `$call-pop-catch`-style flows remain fail-closed; `[O4Z-AUDIT-DCE]` remains active.
+- Evidence so far: red-first `moon test src/wast --filter "wast_text_binary_roundtrip supports direct legacy catch pop local tee"` failed with the legacy-pop unsupported diagnostic; after implementation that test and the focused multi-payload-prefix and unsupported-pop tests passed.
+
 ## [2026-06-17] wast | Direct multi-payload legacy pop prefix
 
 - Widened the deliberately narrow high-level legacy-pop WAST gate in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) from single-payload direct consumers to complete direct payload-prefix consumers: multi-payload catch prefixes must match tag payloads in LIFO order and be immediately consumed by `drop` or `local.set` before the rest of the catch body is admitted.
