@@ -3538,13 +3538,21 @@ fn wt_legacy_pop_types_match(
 }
 
 ///|
+fn wt_legacy_pop_label_results(
+  label_results : Array[Array[@lib.ValType]],
+  label : @lib.LabelIdx,
+) -> Array[@lib.ValType]? {
+  let @lib.LabelIdx(raw) = label
+  label_results.get(raw.reinterpret_as_int())
+}
+
+///|
 fn wt_legacy_pop_label_matches_branch(
   label_results : Array[Array[@lib.ValType]],
   label : @lib.LabelIdx,
   payload_types : Array[@lib.ValType],
 ) -> Bool {
-  let @lib.LabelIdx(raw) = label
-  match label_results.get(raw.reinterpret_as_int()) {
+  match wt_legacy_pop_label_results(label_results, label) {
     Some(results) =>
       results.length() == 0 || wt_legacy_pop_types_match(results, payload_types)
     None => false
@@ -3683,6 +3691,38 @@ fn wt_legacy_pop_struct_new_consumes_payload(
     }
   }
   true
+}
+
+///|
+fn wt_legacy_pop_prefix_tail_is_struct_new_before_void_nonfallthrough(
+  env : @validate.Env,
+  instrs : Array[@lib.Instruction],
+  instr_idx : Int,
+  label_results : Array[Array[@lib.ValType]],
+  func_results : Array[@lib.ValType],
+  payload_types : Array[@lib.ValType],
+) -> Bool {
+  if instr_idx + 1 >= instrs.length() {
+    return false
+  }
+  match instrs[instr_idx] {
+    @lib.StructNew(type_idx) =>
+      if !wt_legacy_pop_struct_new_consumes_payload(
+          env, type_idx, payload_types,
+        ) {
+        return false
+      }
+    _ => return false
+  }
+  match instrs[instr_idx + 1] {
+    @lib.Br(label) =>
+      match wt_legacy_pop_label_results(label_results, label) {
+        Some(results) => results.length() == 0
+        None => false
+      }
+    @lib.Return => func_results.length() == 0
+    _ => false
+  }
 }
 
 ///|
@@ -3886,6 +3926,10 @@ fn wt_direct_legacy_pop_instr_supported(
                       ) ||
                       wt_legacy_pop_prefix_tail_is_pop_within_block_repairable(
                         env, catch_instrs, instr_idx, prefix_types,
+                      ) ||
+                      wt_legacy_pop_prefix_tail_is_struct_new_before_void_nonfallthrough(
+                        env, catch_instrs, instr_idx, nested_labels, func_results,
+                        prefix_types,
                       )
                     )
                   if !prefix_flows_to_nonfallthrough {

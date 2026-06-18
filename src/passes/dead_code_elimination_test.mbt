@@ -957,6 +957,98 @@ test "dead-code-elimination repairs pop-within-block dead ref-eq text" {
 }
 
 ///|
+test "dead-code-elimination repairs struct-new pop call arg before branch text" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (struct.new $box
+    #|              (pop i32))
+    #|            (br $label))
+    #|          nop))))
+    #|  (func $helper (param (ref $box) i32)))
+    #|)
+    #|
+  let input_mod = match @wast.wast_to_binary_module(source) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected struct-new pop text lowering success: \{err}")
+  }
+  match @validate.validate_module(input_mod) {
+    Ok(_) => ()
+    Err(err) => fail("expected struct-new pop text validation success: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input_mod, HotPipelineOptions::new(), [
+      "dead-code-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected struct-new pop DCE pipeline success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs struct-new pop call arg before return text" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (struct.new $box
+    #|            (pop i32))
+    #|          (return))
+    #|        nop)))
+    #|  (func $helper (param (ref $box) i32)))
+    #|)
+    #|
+  let input_mod = match @wast.wast_to_binary_module(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected struct-new return pop text lowering success: \{err}")
+  }
+  match @validate.validate_module(input_mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected struct-new return pop text validation success: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input_mod, HotPipelineOptions::new(), [
+      "dead-code-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected struct-new return pop DCE pipeline success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination treats lowered legacy try with all arms unreachable as nonfallthrough" {
   let optimized = match
     pass_test_run_pipeline(

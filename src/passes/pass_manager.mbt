@@ -7326,6 +7326,55 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
                   changed = true
                   continue
                 }
+                @lib.Br(label) => {
+                  let target_results = match
+                    run_hot_pipeline_dce_raw_label_results(label_results, label) {
+                    Some(results) => results
+                    None => []
+                  }
+                  if target_results.length() == 0 {
+                    let carrier_locals : Array[@lib.LocalIdx] = []
+                    for vt in pop_types {
+                      let local_id = @lib.LocalIdx::new(
+                        (param_count + locals.length()).reinterpret_as_uint(),
+                      )
+                      locals.push(vt)
+                      carrier_locals.push(local_id)
+                      rewritten.push(@lib.Instruction::pop(vt))
+                      rewritten.push(@lib.Instruction::local_set(local_id))
+                    }
+                    for local_id in carrier_locals {
+                      rewritten.push(@lib.Instruction::local_get(local_id))
+                    }
+                    rewritten.push(instrs[scan])
+                    rewritten.push(@lib.Instruction::drop())
+                    rewritten.push(@lib.Instruction::br(label))
+                    idx = scan + 2
+                    changed = true
+                    continue
+                  }
+                }
+                @lib.Return if func_results.length() == 0 => {
+                  let carrier_locals : Array[@lib.LocalIdx] = []
+                  for vt in pop_types {
+                    let local_id = @lib.LocalIdx::new(
+                      (param_count + locals.length()).reinterpret_as_uint(),
+                    )
+                    locals.push(vt)
+                    carrier_locals.push(local_id)
+                    rewritten.push(@lib.Instruction::pop(vt))
+                    rewritten.push(@lib.Instruction::local_set(local_id))
+                  }
+                  for local_id in carrier_locals {
+                    rewritten.push(@lib.Instruction::local_get(local_id))
+                  }
+                  rewritten.push(instrs[scan])
+                  rewritten.push(@lib.Instruction::drop())
+                  rewritten.push(@lib.Instruction::return_())
+                  idx = scan + 2
+                  changed = true
+                  continue
+                }
                 _ => ()
               }
             @lib.Br(label) => {
