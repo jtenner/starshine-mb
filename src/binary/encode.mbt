@@ -1784,9 +1784,377 @@ fn binary_encode_strip_contextual_legacy_pops_instr(
 }
 
 ///|
+fn binary_encode_replace_legacy_pops_expr_with_carriers(
+  env : Env,
+  expr : Expr,
+  payloads : Array[ValType],
+  carriers : Array[LocalIdx],
+  cursor : Int,
+) -> (Expr, Int, Bool) {
+  let Expr(instrs) = expr
+  let out : Array[Instruction] = []
+  let mut next_cursor = cursor
+  let mut ok = true
+  for instr in instrs {
+    if !ok {
+      out.push(instr)
+      continue
+    }
+    let (next_instr, instr_cursor, instr_ok) = binary_encode_replace_legacy_pops_instr_with_carriers(
+      env, instr, payloads, carriers, next_cursor,
+    )
+    out.push(next_instr)
+    next_cursor = instr_cursor
+    ok = instr_ok
+  }
+  (Expr::new(out), next_cursor, ok)
+}
+
+///|
+fn binary_encode_replace_legacy_pops_instr_with_carriers(
+  env : Env,
+  instr : Instruction,
+  payloads : Array[ValType],
+  carriers : Array[LocalIdx],
+  cursor : Int,
+) -> (Instruction, Int, Bool) {
+  match instr {
+    Pop(vt) => {
+      let payload_idx = payloads.length() - 1 - cursor
+      if payload_idx < 0 || vt != payloads[payload_idx] {
+        return (instr, cursor, false)
+      }
+      (Instruction::local_get(carriers[payload_idx]), cursor + 1, true)
+    }
+    Block(bt, body) => {
+      let (next_body, next_cursor, ok) = binary_encode_replace_legacy_pops_expr_with_carriers(
+        env, body, payloads, carriers, cursor,
+      )
+      (Instruction::block(bt, next_body), next_cursor, ok)
+    }
+    Loop(bt, body) => {
+      let (next_body, next_cursor, ok) = binary_encode_replace_legacy_pops_expr_with_carriers(
+        env, body, payloads, carriers, cursor,
+      )
+      (Instruction::loop_(bt, next_body), next_cursor, ok)
+    }
+    If(bt, then_body, else_body) => {
+      let then_expr = Expr::new(then_body)
+      let (next_then_expr, then_cursor, then_ok) = binary_encode_replace_legacy_pops_expr_with_carriers(
+        env, then_expr, payloads, carriers, cursor,
+      )
+      let Expr(next_then) = next_then_expr
+      if !then_ok {
+        return (Instruction::if_(bt, next_then, else_body), then_cursor, false)
+      }
+      let mut next_cursor = then_cursor
+      let next_else = match else_body {
+        None => None
+        Some(body) => {
+          let (next_else_expr, else_cursor, else_ok) = binary_encode_replace_legacy_pops_expr_with_carriers(
+            env,
+            Expr::new(body),
+            payloads,
+            carriers,
+            then_cursor,
+          )
+          if !else_ok {
+            return (
+              Instruction::if_(bt, next_then, Some(body)),
+              else_cursor,
+              false,
+            )
+          }
+          let Expr(next_else_body) = next_else_expr
+          next_cursor = else_cursor
+          Some(next_else_body)
+        }
+      }
+      (Instruction::if_(bt, next_then, next_else), next_cursor, true)
+    }
+    Try(bt, body, catches, delegate_target) => {
+      let (next_body, next_cursor, ok) = binary_encode_replace_legacy_pops_expr_with_carriers(
+        env, body, payloads, carriers, cursor,
+      )
+      if !ok {
+        return (instr, next_cursor, false)
+      }
+      let next_catches : Array[LegacyCatch] = []
+      for catch_ in catches {
+        match catch_ {
+          LegacyCatch(tag, catch_body) =>
+            next_catches.push(
+              LegacyCatch::new(
+                tag,
+                binary_encode_strip_contextual_legacy_pops_expr(env, catch_body),
+              ),
+            )
+          LegacyCatchAll(catch_body) =>
+            next_catches.push(
+              LegacyCatch::all(
+                binary_encode_strip_contextual_legacy_pops_expr(env, catch_body),
+              ),
+            )
+        }
+      }
+      (
+        Instruction::try_(bt, next_body, next_catches, delegate_target~),
+        next_cursor,
+        true,
+      )
+    }
+    TryTable(bt, catches, body) => {
+      let (next_body, next_cursor, ok) = binary_encode_replace_legacy_pops_expr_with_carriers(
+        env, body, payloads, carriers, cursor,
+      )
+      (Instruction::try_table(bt, catches, next_body), next_cursor, ok)
+    }
+    _ => (instr, cursor, true)
+  }
+}
+
+///|
+fn binary_encode_rewrite_legacy_catch_with_carriers(
+  env : Env,
+  tag : TagIdx,
+  catch_body : Expr,
+  next_local : Int,
+) -> (Expr, Array[ValType])? {
+  let payloads = binary_encode_legacy_tag_payloads(env, tag)
+  if payloads.is_empty() {
+    return None
+  }
+  let carriers : Array[LocalIdx] = []
+  for i = 0; i < payloads.length(); i = i + 1 {
+    carriers.push(LocalIdx::new((next_local + i).reinterpret_as_uint()))
+  }
+  let (replaced, cursor, ok) = binary_encode_replace_legacy_pops_expr_with_carriers(
+    env, catch_body, payloads, carriers, 0,
+  )
+  if !ok || cursor != payloads.length() {
+    return None
+  }
+  let prefix : Array[Instruction] = []
+  for i = 0; i < payloads.length(); i = i + 1 {
+    prefix.push(Instruction::local_set(carriers[i]))
+  }
+  let Expr(replaced_instrs) = replaced
+  prefix.append(replaced_instrs)
+  Some((Expr::new(prefix), payloads))
+}
+
+///|
+fn binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+  env : Env,
+  expr : Expr,
+  next_local : Int,
+) -> (Expr, Int, Array[ValType]) {
+  let Expr(instrs) = expr
+  let out : Array[Instruction] = []
+  let extras : Array[ValType] = []
+  let mut cursor = next_local
+  for instr in instrs {
+    let (next_instr, next_cursor, next_extras) = binary_encode_strip_contextual_legacy_pops_instr_with_carriers(
+      env, instr, cursor,
+    )
+    out.push(next_instr)
+    cursor = next_cursor
+    extras.append(next_extras)
+  }
+  (Expr::new(out), cursor, extras)
+}
+
+///|
+fn binary_encode_strip_contextual_legacy_pops_instr_with_carriers(
+  env : Env,
+  instr : Instruction,
+  next_local : Int,
+) -> (Instruction, Int, Array[ValType]) {
+  match instr {
+    Block(bt, body) => {
+      let (next_body, cursor, extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+        env, body, next_local,
+      )
+      (Instruction::block(bt, next_body), cursor, extras)
+    }
+    Loop(bt, body) => {
+      let (next_body, cursor, extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+        env, body, next_local,
+      )
+      (Instruction::loop_(bt, next_body), cursor, extras)
+    }
+    If(bt, then_body, else_body) => {
+      let (next_then_expr, then_cursor, then_extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+        env,
+        Expr::new(then_body),
+        next_local,
+      )
+      let Expr(next_then) = next_then_expr
+      let mut cursor = then_cursor
+      let extras = then_extras
+      let next_else = match else_body {
+        None => None
+        Some(body) => {
+          let (next_else_expr, else_cursor, else_extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+            env,
+            Expr::new(body),
+            cursor,
+          )
+          cursor = else_cursor
+          extras.append(else_extras)
+          let Expr(next_else_body) = next_else_expr
+          Some(next_else_body)
+        }
+      }
+      (Instruction::if_(bt, next_then, next_else), cursor, extras)
+    }
+    Try(bt, try_body, catches, delegate_target) => {
+      let (next_try_body, body_cursor, extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+        env, try_body, next_local,
+      )
+      let mut cursor = body_cursor
+      let next_catches : Array[LegacyCatch] = []
+      for catch_ in catches {
+        match catch_ {
+          LegacyCatch(tag, catch_body) => {
+            let payloads = binary_encode_legacy_tag_payloads(env, tag)
+            let Expr(catch_instrs) = catch_body
+            let mut payload_idx = payloads.length() - 1
+            let mut scan_idx = 0
+            while scan_idx < catch_instrs.length() && payload_idx >= 0 {
+              match catch_instrs[scan_idx] {
+                Pop(vt) if vt == payloads[payload_idx] => {
+                  payload_idx -= 1
+                  scan_idx += 1
+                }
+                _ => break
+              }
+            }
+            let strip_prefix_len = if payload_idx < 0 { scan_idx } else { 0 }
+            if strip_prefix_len > 0 {
+              let tail : Array[Instruction] = []
+              for i = strip_prefix_len; i < catch_instrs.length(); i = i + 1 {
+                tail.push(catch_instrs[i])
+              }
+              let (next_body, next_cursor, next_extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+                env,
+                Expr::new(tail),
+                cursor,
+              )
+              cursor = next_cursor
+              extras.append(next_extras)
+              next_catches.push(LegacyCatch::new(tag, next_body))
+            } else {
+              match
+                binary_encode_rewrite_legacy_catch_with_carriers(
+                  env, tag, catch_body, cursor,
+                ) {
+                Some((carrier_body, added_types)) => {
+                  for vt in added_types {
+                    extras.push(vt)
+                  }
+                  cursor += added_types.length()
+                  let (next_body, next_cursor, next_extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+                    env, carrier_body, cursor,
+                  )
+                  cursor = next_cursor
+                  extras.append(next_extras)
+                  next_catches.push(LegacyCatch::new(tag, next_body))
+                }
+                None => {
+                  let (next_body, next_cursor, next_extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+                    env, catch_body, cursor,
+                  )
+                  cursor = next_cursor
+                  extras.append(next_extras)
+                  next_catches.push(LegacyCatch::new(tag, next_body))
+                }
+              }
+            }
+          }
+          LegacyCatchAll(catch_body) => {
+            let (next_body, next_cursor, next_extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+              env, catch_body, cursor,
+            )
+            cursor = next_cursor
+            extras.append(next_extras)
+            next_catches.push(LegacyCatch::all(next_body))
+          }
+        }
+      }
+      (
+        Instruction::try_(bt, next_try_body, next_catches, delegate_target~),
+        cursor,
+        extras,
+      )
+    }
+    TryTable(bt, catches, body) => {
+      let (next_body, cursor, extras) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+        env, body, next_local,
+      )
+      (Instruction::try_table(bt, catches, next_body), cursor, extras)
+    }
+    _ => (instr, next_local, [])
+  }
+}
+
+///|
+fn binary_encode_strip_contextual_legacy_pops_func(
+  env : Env,
+  func_type_idx : TypeIdx,
+  func : Func,
+) -> Func {
+  let Func(locals, body) = func
+  let param_count = match env.resolve_functype(func_type_idx) {
+    Some(FuncType(params, _)) => params.length()
+    None => 0
+  }
+  let (next_body, _, extra_local_types) = binary_encode_strip_contextual_legacy_pops_expr_with_carriers(
+    env,
+    body,
+    param_count + locals.length(),
+  )
+  if extra_local_types.is_empty() {
+    Func::new(locals, next_body)
+  } else {
+    let next_locals = locals.copy()
+    for vt in extra_local_types {
+      next_locals.push_run(LocalRun::new(1U, vt))
+    }
+    Func::new(next_locals, next_body)
+  }
+}
+
+///|
 fn binary_encode_strip_contextual_legacy_pops_module(mod : Module) -> Module {
-  match (mod.tag_sec, mod.code_sec) {
-    (Some(TagSec(_)), Some(CodeSec(funcs))) => {
+  match (mod.tag_sec, mod.code_sec, mod.func_sec) {
+    (Some(TagSec(_)), Some(CodeSec(funcs)), Some(FuncSec(type_idxs))) => {
+      let env = empty_env().with_module(mod)
+      let next_funcs : Array[Func] = []
+      for i = 0; i < funcs.length(); i = i + 1 {
+        match type_idxs.get(i) {
+          Some(tidx) =>
+            next_funcs.push(
+              binary_encode_strip_contextual_legacy_pops_func(
+                env,
+                tidx,
+                funcs[i],
+              ),
+            )
+          None => {
+            let Func(locals, body) = funcs[i]
+            next_funcs.push(
+              Func::new(
+                locals,
+                binary_encode_strip_contextual_legacy_pops_expr(env, body),
+              ),
+            )
+          }
+        }
+      }
+      mod.with_code_sec(CodeSec::new(next_funcs))
+    }
+    (Some(TagSec(_)), Some(CodeSec(funcs)), None) => {
       let env = empty_env().with_module(mod)
       let next_funcs : Array[Func] = []
       for func in funcs {

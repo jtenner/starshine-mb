@@ -915,6 +915,123 @@ test "legacy multi-payload catch pop prefix preserves lifo order through module 
 }
 
 ///|
+test "legacy interleaved catch payload pops roundtrip through module binary carriers" {
+  let type_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let type_i32_i64 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32(), ValType::i64()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([type_void, type_i32_i64]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1U))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::new([
+            LocalRun::new(1U, ValType::i32()),
+            LocalRun::new(1U, ValType::i64()),
+          ]),
+          Expr::new([
+            Instruction::try_(
+              BlockType::void_(),
+              Expr::new([Instruction::nop()]),
+              [
+                LegacyCatch::new(
+                  TagIdx::new(0U),
+                  Expr::new([
+                    Instruction::pop(ValType::i64()),
+                    Instruction::nop(),
+                    Instruction::pop(ValType::i32()),
+                    Instruction::local_set(LocalIdx::new(0U)),
+                    Instruction::local_set(LocalIdx::new(1U)),
+                  ]),
+                ),
+              ],
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let buf = @buffer.new()
+  match Encode::encode(mod, buf) {
+    Ok(_) => ()
+    Err(err) => fail("expected interleaved legacy pop module to encode: \{err}")
+  }
+  let bytes = buf.to_bytes()
+  match (Decode::decode(bytes, 0) : Result[(Module, Int), BinaryDecodeError]) {
+    Ok((decoded, pos)) => {
+      @debug.assert_eq(pos, bytes.length())
+      match @validate.validate_module(decoded) {
+        Ok(_) => ()
+        Err(err) =>
+          fail(
+            "expected decoded interleaved legacy pop module to validate: \{@validate.validation_error_message(err)}",
+          )
+      }
+    }
+    Err(err) => fail("expected interleaved legacy pop module to decode: \{err}")
+  }
+}
+
+///|
+test "legacy nested catch payload pop roundtrips through module binary carriers" {
+  let type_void = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let type_i32 = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([type_void, type_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1U))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::try_(
+              BlockType::void_(),
+              Expr::new([Instruction::nop()]),
+              [
+                LegacyCatch::new(
+                  TagIdx::new(0U),
+                  Expr::new([
+                    Instruction::block(
+                      BlockType::void_(),
+                      Expr::new([
+                        Instruction::pop(ValType::i32()),
+                        Instruction::drop(),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ],
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let buf = @buffer.new()
+  match Encode::encode(mod, buf) {
+    Ok(_) => ()
+    Err(err) => fail("expected nested legacy pop module to encode: \{err}")
+  }
+  let bytes = buf.to_bytes()
+  match (Decode::decode(bytes, 0) : Result[(Module, Int), BinaryDecodeError]) {
+    Ok((decoded, pos)) => {
+      @debug.assert_eq(pos, bytes.length())
+      match @validate.validate_module(decoded) {
+        Ok(_) => ()
+        Err(err) =>
+          fail(
+            "expected decoded nested legacy pop module to validate: \{@validate.validation_error_message(err)}",
+          )
+      }
+    }
+    Err(err) => fail("expected nested legacy pop module to decode: \{err}")
+  }
+}
+
+///|
 test "encode rejects uncontextualized legacy pop placeholder explicitly" {
   assert_encode_err_contains(
     Encode::encode(Instruction::pop(ValType::i32()), @buffer.new()),
@@ -999,77 +1116,6 @@ test "encode rejects uncontextualized legacy pop placeholder explicitly" {
     )
   assert_encode_err_contains(
     Encode::encode(incomplete_prefix_mod, @buffer.new()),
-    BinaryEncodeError::CannotEncodeLegacyPop,
-  )
-  let interleaved_prefix_mod = Module::new()
-    .with_type_sec(TypeSec::new([type_void, type_i32_i64]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1U))]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::new(
-          Locals::new([
-            LocalRun::new(1U, ValType::i32()),
-            LocalRun::new(1U, ValType::i64()),
-          ]),
-          Expr::new([
-            Instruction::try_(
-              BlockType::void_(),
-              Expr::new([Instruction::nop()]),
-              [
-                LegacyCatch::new(
-                  TagIdx::new(0U),
-                  Expr::new([
-                    Instruction::pop(ValType::i64()),
-                    Instruction::nop(),
-                    Instruction::pop(ValType::i32()),
-                    Instruction::local_set(LocalIdx::new(0U)),
-                    Instruction::local_set(LocalIdx::new(1U)),
-                  ]),
-                ),
-              ],
-            ),
-          ]),
-        ),
-      ]),
-    )
-  assert_encode_err_contains(
-    Encode::encode(interleaved_prefix_mod, @buffer.new()),
-    BinaryEncodeError::CannotEncodeLegacyPop,
-  )
-  let nested_pop_mod = Module::new()
-    .with_type_sec(TypeSec::new([type_void, type_i32]))
-    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1U))]))
-    .with_code_sec(
-      CodeSec::new([
-        Func::new(
-          Locals::empty(),
-          Expr::new([
-            Instruction::try_(
-              BlockType::void_(),
-              Expr::new([Instruction::nop()]),
-              [
-                LegacyCatch::new(
-                  TagIdx::new(0U),
-                  Expr::new([
-                    Instruction::block(
-                      BlockType::void_(),
-                      Expr::new([
-                        Instruction::pop(ValType::i32()),
-                        Instruction::drop(),
-                      ]),
-                    ),
-                  ]),
-                ),
-              ],
-            ),
-          ]),
-        ),
-      ]),
-    )
-  assert_encode_err_contains(
-    Encode::encode(nested_pop_mod, @buffer.new()),
     BinaryEncodeError::CannotEncodeLegacyPop,
   )
 }
