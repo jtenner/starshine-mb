@@ -3893,28 +3893,240 @@ fn wt_legacy_pop_nested_carrier_supported(
 }
 
 ///|
+fn wt_legacy_pop_call_value_instr_stack_neutral(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Eqz
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Eqz
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32Load(_)
+    | @lib.I64Load(_)
+    | @lib.F32Load(_)
+    | @lib.F64Load(_)
+    | @lib.I32Load8S(_)
+    | @lib.I32Load8U(_)
+    | @lib.I32Load16S(_)
+    | @lib.I32Load16U(_)
+    | @lib.I64Load8S(_)
+    | @lib.I64Load8U(_)
+    | @lib.I64Load16S(_)
+    | @lib.I64Load16U(_)
+    | @lib.I64Load32S(_)
+    | @lib.I64Load32U(_)
+    | @lib.I32AtomicLoad(_)
+    | @lib.I64AtomicLoad(_)
+    | @lib.I32AtomicLoad8U(_)
+    | @lib.I32AtomicLoad16U(_)
+    | @lib.I64AtomicLoad8U(_)
+    | @lib.I64AtomicLoad16U(_)
+    | @lib.I64AtomicLoad32U(_) => true
+    _ => false
+  }
+}
+
+///|
+fn wt_legacy_pop_call_value_instr_binary(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64DivS
+    | @lib.I64DivU
+    | @lib.I64RemS
+    | @lib.I64RemU
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign => true
+    _ => false
+  }
+}
+
+///|
+fn wt_legacy_pop_call_arg_expr_supported(
+  env : @validate.Env,
+  expr : @lib.Expr,
+  payloads : Array[@lib.ValType],
+  cursor : Int,
+  depth : Int,
+) -> (Int, Int, Bool) {
+  let @lib.Expr(instrs) = expr
+  let mut next_cursor = cursor
+  let mut next_depth = depth
+  for instr in instrs {
+    let (instr_cursor, instr_depth, ok) = wt_legacy_pop_call_arg_instr_supported(
+      env, instr, payloads, next_cursor, next_depth,
+    )
+    if !ok {
+      return (instr_cursor, instr_depth, false)
+    }
+    next_cursor = instr_cursor
+    next_depth = instr_depth
+  }
+  (next_cursor, next_depth, true)
+}
+
+///|
 fn wt_legacy_pop_call_arg_instr_supported(
+  env : @validate.Env,
   instr : @lib.Instruction,
   payloads : Array[@lib.ValType],
   cursor : Int,
-) -> (Int, Bool) {
+  depth : Int,
+) -> (Int, Int, Bool) {
   match instr {
-    @lib.Nop => (cursor, true)
+    @lib.Nop => (cursor, depth, true)
+    @lib.Unreachable | @lib.Br(_) | @lib.Return => (cursor, -1, true)
     @lib.Pop(vt) => {
+      if depth < 0 {
+        return (cursor, depth, false)
+      }
       let payload_idx = payloads.length() - 1 - cursor
       if payload_idx < 0 || vt != payloads[payload_idx] {
-        return (cursor, false)
+        return (cursor, depth, false)
       }
-      (cursor + 1, true)
+      (cursor + 1, depth + 1, true)
     }
     @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
     | @lib.I32Const(_)
     | @lib.I64Const(_)
     | @lib.F32Const(_)
-    | @lib.F64Const(_)
-    | @lib.RefNull(_)
-    | @lib.RefFunc(_) => (cursor, true)
-    _ => (cursor, false)
+    | @lib.F64Const(_) =>
+      if depth < 0 {
+        (cursor, depth, true)
+      } else {
+        (cursor, depth + 1, true)
+      }
+    @lib.Block(block_type, body) | @lib.Loop(block_type, body) => {
+      if depth < 0 {
+        return (cursor, depth, true)
+      }
+      let (params, results) = match env.expand_blocktype(block_type) {
+        Ok(pair) => pair
+        Err(_) => return (cursor, depth, false)
+      }
+      if depth < params.length() {
+        return (cursor, depth, false)
+      }
+      let (body_cursor, body_depth, ok) = wt_legacy_pop_call_arg_expr_supported(
+        env,
+        body,
+        payloads,
+        cursor,
+        params.length(),
+      )
+      if !ok || body_depth != results.length() {
+        return (body_cursor, body_depth, false)
+      }
+      (body_cursor, depth - params.length() + results.length(), true)
+    }
+    _ if wt_legacy_pop_call_value_instr_stack_neutral(instr) => {
+      if depth < 0 {
+        return (cursor, depth, true)
+      }
+      if depth < 1 {
+        return (cursor, depth, false)
+      }
+      (cursor, depth, true)
+    }
+    _ if wt_legacy_pop_call_value_instr_binary(instr) => {
+      if depth < 0 {
+        return (cursor, depth, true)
+      }
+      if depth < 2 {
+        return (cursor, depth, false)
+      }
+      (cursor, depth - 1, true)
+    }
+    _ => (cursor, depth, false)
   }
 }
 
@@ -3936,36 +4148,15 @@ fn wt_legacy_pop_call_payload_supported(
     _ => return false
   }
   let @lib.FuncType(params, _) = func_type
-  let mut cursor = 0
-  let mut arg_count = 0
+  let arg_instrs : Array[@lib.Instruction] = []
   for i = 0; i < instrs.length() - 1; i = i + 1 {
-    match instrs[i] {
-      @lib.Nop => {
-        let (next_cursor, ok) = wt_legacy_pop_call_arg_instr_supported(
-          instrs[i],
-          payloads,
-          cursor,
-        )
-        if !ok {
-          return false
-        }
-        cursor = next_cursor
-      }
-      _ => {
-        let (next_cursor, ok) = wt_legacy_pop_call_arg_instr_supported(
-          instrs[i],
-          payloads,
-          cursor,
-        )
-        if !ok {
-          return false
-        }
-        cursor = next_cursor
-        arg_count += 1
-      }
-    }
+    arg_instrs.push(instrs[i])
   }
-  arg_count == params.length() && cursor == payloads.length()
+  let arg_expr = @lib.Expr::new(arg_instrs)
+  let (cursor, depth, ok) = wt_legacy_pop_call_arg_expr_supported(
+    env, arg_expr, payloads, 0, 0,
+  )
+  ok && (depth == params.length() || depth < 0) && cursor == payloads.length()
 }
 
 ///|
@@ -7660,6 +7851,93 @@ test "wast_text_binary_roundtrip supports local and multi-pop call payloads" {
   assert_true(pretty.contains("pop"), msg=pretty)
   assert_true(pretty.contains("local.get"), msg=pretty)
   assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip supports effectful legacy pop call payload" {
+  let src =
+    #|(module
+    #|  (memory 1)
+    #|  (tag $e-i32 (param i32))
+    #|  (func $helper (param i32 i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (i32.load (i32.const 0))
+    #|          (pop i32))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-call-effectful-payload.wat",
+    ) {
+    Ok(m) => m
+    Err(e) => fail("expected effectful call payload to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip supports nested control legacy pop call payload" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $helper (param i32 i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (block (result i32)
+    #|            (i32.const 7))
+    #|          (block (result i32)
+    #|            (pop i32)))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-call-nested-control-payload.wat",
+    ) {
+    Ok(m) => m
+    Err(e) => fail("expected nested control call payload to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip rejects branch-alternative legacy pop call payload" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $helper (param i32))
+    #|  (func (param i32)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (if (result i32)
+    #|            (local.get 0)
+    #|            (then (pop i32))
+    #|            (else (i32.const 0))))))))
+  match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-call-if-alternative.wat",
+    ) {
+    Ok(_) =>
+      fail("expected branch-alternative legacy pop call payload to reject")
+    Err(err) => {
+      assert_true(err.contains("legacy"), msg=err)
+      assert_true(err.contains("pop"), msg=err)
+      assert_true(err.contains("catch payload"), msg=err)
+    }
+  }
 }
 
 ///|
