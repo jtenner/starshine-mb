@@ -128,14 +128,14 @@ If Starshine tightens or re-ports `global-refining`, the local port should prese
 - module pass, not hot pass
 - GC gate, or an explicit local feature-model proof when the Starshine execution mode always has GC enabled
 - defined-functions-only `global.set` scan
-- initializer-plus-writes LUB aggregation
+- initializer-plus-writes LUB aggregation, with initializer facts coming from expression result typing rather than a narrow syntax whitelist, including exact struct and array constructor result types
 - imported-global skip
 - open-world exported mutable skip
 - current closed-world exported-global skip
-- public-type validation for the remaining exported immutable globals
+- public-type validation for the remaining exported immutable globals, including the custom-descriptors-enabled rule that accepts every type under the current Starshine/Binaryen `--all-features` direct-pass lane
 - declaration rewrite only, with no hidden constant/global-store simplifier
-- `global.get` cached-type repair in both functions and module code
-- `ReFinalize` after changed `global.get`s
+- `global.get` cached-type repair in both functions and module code when the local representation caches expression types; current Starshine boundary IR has no cached `global.get` result type and covers this with focused validation/typechecking proof fixtures
+- `ReFinalize` after changed `global.get`s when using a representation with cached enclosing expression types
 - no non-nullable-local fixups required
 
 ## Sources

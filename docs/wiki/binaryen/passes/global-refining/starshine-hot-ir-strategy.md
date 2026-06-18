@@ -47,20 +47,22 @@ The easiest way to follow the in-tree implementation is this file map:
 
 - `src/passes/global_refining.mbt:2`
   - summary string used by the registry and preset docs
-- `src/passes/global_refining.mbt:103`
-  - `gr_expr_result_type(...)`: initializer classification for `ref.null`, immutable `global.get`, exact `ref.func`, `ref.i31`, `string.const`, and GC constructor results
-- `src/passes/global_refining.mbt:147`
+- `src/passes/global_refining.mbt:131`
+  - `gr_expr_result_type(...)`: initializer result typing via the validator expression typechecker, with a direct `ref.null` bottom-reference special case
+- `src/passes/global_refining.mbt:139`
   - local public-type helper family: rejects exact exported refinements and recursively checks referenced type bodies
-- `src/passes/global_refining.mbt:451`
+- `src/passes/global_refining.mbt:488`
   - `gr_join_reftypes(...)`: local join over heap type, nullability, and exactness
-- `src/passes/global_refining.mbt:499`
+- `src/passes/global_refining.mbt:533`
   - `gr_scan_candidate_sets(...)`: cheap instruction pre-scan before HOT lifting
-- `src/passes/global_refining.mbt:536`
+- `src/passes/global_refining.mbt:570`
   - `gr_collect_func_global_sets(...)`: HOT-side `global.set` value collection
-- `src/passes/global_refining.mbt:586`
+- `src/passes/global_refining.mbt:760`
   - `global_refining_run_module_pass(...)`: exported-global filtering, initializer seeding, per-function collection, public export guard, and declaration rewrite
 - `src/validate/typecheck.mbt:1891`
   - `typecheck_ref_func(...)`: gives concrete `ref.func` results exact heap refs when a type index is available
+- `src/validate/typecheck.mbt:2744`
+  - `extern.convert_any` / `any.convert_extern` instruction typing preserves operand nullability, which lets initializer expression typing expose non-null conversion results
 - `src/passes/global_refining_test.mbt:17`
   - private narrowing positive
 - `src/passes/global_refining_test.mbt:46`
@@ -104,22 +106,13 @@ That means current Starshine intentionally skips:
 
 So the local boundary policy now matches Binaryen's broad open-world mutable-export and closed-world exported-global split.
 
-## 2. Initializer typing is tiny and syntax-driven
+## 2. Initializer typing uses the local expression typechecker
 
-`gr_expr_result_type(...)` seeds the pass's initial facts from a small but now broader initializer vocabulary:
+`gr_expr_result_type(...)` now seeds initializer facts by typechecking the full initializer expression under the module validation environment. That mirrors Binaryen's `global->init->type` contract more closely than the previous syntax whitelist and covers nested reference-producing constant expressions such as arithmetic feeding `ref.i31`, conversions such as `extern.convert_any`, string expressions, exact struct/array aggregate constructors, and dependent `global.get` initializers according to the local validator's result type.
 
-- `ref.null`
-- `global.get`
-- exact `ref.func`
-- `ref.i31`
-- `string.const`
-- GC constructors whose result type is exact and non-null, including `struct.new_default`
+Direct `ref.null` initializers remain a deliberate special case. Starshine classifies them with Binaryen-style bottom reference types (`none`, `nofunc`, `noextern`, `noexn`) instead of reusing the broader declared heap kind directly. This preserves the null-bottom behavior used by the exact `ref.func` LUB fixtures and by abstract null initializer narrowing.
 
-If an initializer is not recognized as one of those reference-producing forms, it simply contributes nothing to the candidate type.
-
-One important 2026-05-07 correction is that `ref.null` is now classified using Binaryen-style bottom reference types (`none`, `nofunc`, `noextern`, `noexn`) instead of reusing the broader declared heap kind directly.
-
-That is still smaller than Binaryen's broad AST-plus-refinalization context, but it now covers the focused nullability/type-tightening mismatch family that direct fuzz exposed.
+The 2026-06-18 `[GR-003]` compare lane confirmed that the known direct mismatches from nested `ref.i31` and `extern.convert_any(ref.i31)` initializers are gone: `.tmp/pass-fuzz-global-refining-gr003-10000` compared `7602/10000` with `7602` normalized matches and `0` mismatches; the remaining `20` failures were Binaryen/tool command failures.
 
 ## 3. The local LUB story is custom but clearly Binaryen-inspired
 
@@ -154,9 +147,10 @@ The local pass pays a HOT-lift cost only for functions that matter, then reasons
 
 ## 5. Exported immutable refinements pass through a local public-type filter
 
-For open-world immutable exports, Starshine now checks that the refined reference type remains public before rewriting the declaration.
-The local filter rejects exact reference types and recursively scans referenced function, struct, and array type bodies for non-public exact references.
-This preserves the Binaryen boundary rule that an exported immutable global may narrow only to a public type.
+For open-world immutable exports, Starshine checks the Binaryen public-type boundary through the local feature model before rewriting the declaration.
+Because the current direct-pass and preset feature model runs with custom descriptors enabled, matching the Binaryen `--all-features` oracle lane, the public-type guard accepts every exported immutable refined type locally. That includes exact reference types and referenced type bodies that mention exact refs.
+
+The non-custom-descriptor scan remains present as the documented fallback shape: without custom descriptors, exact refs are not public and referenced function, struct, and array type bodies would need recursive exact-reference scanning. Starshine does not currently expose that feature-disabled pass mode.
 
 ## 6. The actual rewrite surface is declaration-only
 
@@ -172,7 +166,7 @@ Important negative fact:
 
 - the local pass does **not** rewrite `global.get` expressions afterward
 
-That is a real source-backed split from Binaryen. The local representation currently avoids the Binaryen need for a separate `GetUpdater` plus `ReFinalize` pass because it is not carrying the same cached expression-result-type obligations on this path.
+That is a real source-backed split from Binaryen. Focused `[GR-005]` tests cover the local proof: dependent global initializers remain valid after source-global refinement, and fresh function-body `global.get` typechecking reads the refined declaration from the validation environment. The local representation currently avoids the Binaryen need for a separate `GetUpdater` plus `ReFinalize` pass because it is not carrying the same cached expression-result-type obligations on this path.
 
 ## 7. Current tests prove a narrow but clear contract
 
@@ -183,13 +177,12 @@ The focused local tests lock these main families:
 - exported mutable bailout
 - closed-world exported-global bailout
 - abstract `ref.null` bottom-type tightening
-- exact `ref.func`, `ref.i31`, and exact GC constructor initializer facts, including nullable-bottom exact joins for function refs
-- exported exact/private initializer bailout through the local public-type filter
+- exact `ref.func`, nested `ref.i31`, conversion, exact struct/array constructor initializer facts, including nullable-bottom exact joins for function refs
+- exported exact/private initializer refinement under the local all-features/custom-descriptors public-type model
 - sibling-write join at the shared declared supertype
 - direct `-O4z` option slot execution
 
-That is a much better local floor for the current implementation.
-It is still smaller than the official `global-refining.wast` surface, which is why the parity page keeps the remaining Binaryen-retagging representation differences explicit.
+That is a much better local floor for the current implementation. The direct audit is closed for ordinary `global-refining`; future work should reopen only if Starshine adds feature-disabled pass modes or typed caches that need a local `global.get` repair equivalent.
 
 ## Feature-model note: GC is assumed enabled locally
 
@@ -202,6 +195,7 @@ Starshine does not expose a Binaryen-style per-module no-GC feature bit to passe
 Compared with upstream Binaryen `version_130`, Starshine currently does **not** do these `global-refining` behaviors here:
 
 - broad AST-side `FindAll<GlobalSet>` collection; Starshine now recognizes direct HOT `ref.func` writes as exact for the local collection path, but the traversal strategy remains different
+- feature-disabled non-custom-descriptor public-type validation mode; Starshine currently matches the Binaryen `--all-features` custom-descriptor lane for direct pass execution
 - explicit `global.get` retagging after declaration rewrites
 - `runOnModuleCode(...)` repair of dependent global initializers
 - `ReFinalize` after changed `global.get` users

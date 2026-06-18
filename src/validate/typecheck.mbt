@@ -2713,21 +2713,41 @@ fn typecheck_memory_fill(st : TcState, mem : MemIdx) -> TcResult {
 }
 
 ///|
-fn typecheck_any_convert_extern(st : TcState) -> TcResult {
-  let st1 = match st.pop_expect(ValType::externref()) {
+fn typecheck_ref_conversion(
+  st : TcState,
+  expected : ValType,
+  result_heap : AbsHeapType,
+) -> TcResult {
+  let (st1, actual) = match st.pop1() {
     Err(e) => return Err(e)
-    Ok(s) => s
+    Ok(pair) => pair
   }
-  Ok(st1.push1(ValType::anyref()))
+  match actual {
+    BotValType => Ok(st1.push1(ValType::bottom()))
+    RefTypeValType(ref_type) =>
+      if Match::matches(actual, expected, st.env) {
+        Ok(
+          st1.push1(
+            ValType::ref_type(
+              RefType::new(ref_type.is_nullable(), HeapType::abs(result_heap)),
+            ),
+          ),
+        )
+      } else {
+        Err("type mismatch")
+      }
+    _ => Err("type mismatch")
+  }
+}
+
+///|
+fn typecheck_any_convert_extern(st : TcState) -> TcResult {
+  typecheck_ref_conversion(st, ValType::externref(), AbsHeapType::any())
 }
 
 ///|
 fn typecheck_extern_convert_any(st : TcState) -> TcResult {
-  let st1 = match st.pop_expect(ValType::anyref()) {
-    Err(e) => return Err(e)
-    Ok(s) => s
-  }
-  Ok(st1.push1(ValType::externref()))
+  typecheck_ref_conversion(st, ValType::anyref(), AbsHeapType::extern_())
 }
 
 ///|
@@ -2767,7 +2787,11 @@ fn typecheck_array_new(st : TcState, x : TypeIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  Ok(st2.push1(ValType::ref_array_nonnull(x)))
+  Ok(
+    st2.push1(
+      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+    ),
+  )
 }
 
 ///|
@@ -2784,7 +2808,11 @@ fn typecheck_array_new_default(st : TcState, x : TypeIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  Ok(st1.push1(ValType::ref_array_nonnull(x)))
+  Ok(
+    st1.push1(
+      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+    ),
+  )
 }
 
 ///|
@@ -2807,7 +2835,11 @@ fn typecheck_array_new_fixed(st : TcState, x : TypeIdx, n : U32) -> TcResult {
       Ok(s) => s
     }
   }
-  Ok(cur.push1(ValType::ref_array_nonnull(x)))
+  Ok(
+    cur.push1(
+      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+    ),
+  )
 }
 
 ///|
@@ -3136,7 +3168,11 @@ fn typecheck_array_new_elem(st : TcState, x : TypeIdx, y : ElemIdx) -> TcResult 
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  Ok(st2.push1(ValType::ref_array_nonnull(x)))
+  Ok(
+    st2.push1(
+      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+    ),
+  )
 }
 
 ///|
@@ -3167,7 +3203,11 @@ fn typecheck_array_new_data(st : TcState, x : TypeIdx, y : DataIdx) -> TcResult 
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  Ok(st2.push1(ValType::ref_array_nonnull(x)))
+  Ok(
+    st2.push1(
+      ValType::ref_type(RefType::new(false, HeapType::new(x), exact=true)),
+    ),
+  )
 }
 
 ///|
@@ -6163,10 +6203,18 @@ test "Typecheck I31GetU" {
 test "Typecheck AnyConvertExtern" {
   let state = make_state(empty_env(), [nullable_externref()])
   let result = Typecheck::typecheck(Instruction::any_convert_extern(), state)
-  match result {
-    Ok(new_state) => @debug.assert_eq(new_state.stack.length(), 1)
-    Err(_) => ()
-  }
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [ValType::anyref()])
+}
+
+///|
+test "Typecheck AnyConvertExtern preserves non-null operands" {
+  let state = make_state(empty_env(), [non_nullable_externref()])
+  let result = Typecheck::typecheck(Instruction::any_convert_extern(), state)
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [
+    ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::any()))),
+  ])
 }
 
 ///|
@@ -6176,10 +6224,19 @@ test "Typecheck ExternConvertAny" {
   )
   let state = make_state(empty_env(), [any_ref])
   let result = Typecheck::typecheck(Instruction::extern_convert_any(), state)
-  match result {
-    Ok(new_state) => @debug.assert_eq(new_state.stack.length(), 1)
-    Err(_) => ()
-  }
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [ValType::externref()])
+}
+
+///|
+test "Typecheck ExternConvertAny preserves non-null operands" {
+  let any_ref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::any())),
+  )
+  let state = make_state(empty_env(), [any_ref])
+  let result = Typecheck::typecheck(Instruction::extern_convert_any(), state)
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [non_nullable_externref()])
 }
 
 // =============================================================================
@@ -7541,7 +7598,11 @@ test "Typecheck ArrayNew" {
     state,
   )
   let final_state = assert_ok(result)
-  @debug.assert_eq(final_state.stack.length(), 1)
+  assert_stack(final_state, [
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(0)), exact=true),
+    ),
+  ])
 }
 
 ///|
@@ -7556,7 +7617,11 @@ test "Typecheck ArrayNewDefault" {
     state,
   )
   let final_state = assert_ok(result)
-  @debug.assert_eq(final_state.stack.length(), 1)
+  assert_stack(final_state, [
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(0)), exact=true),
+    ),
+  ])
 }
 
 ///|
@@ -7571,7 +7636,11 @@ test "Typecheck ArrayNewFixed" {
     state,
   )
   let final_state = assert_ok(result)
-  @debug.assert_eq(final_state.stack.length(), 1)
+  assert_stack(final_state, [
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(0)), exact=true),
+    ),
+  ])
 }
 
 ///|
@@ -7587,7 +7656,11 @@ test "Typecheck ArrayNewData" {
     state,
   )
   let final_state = assert_ok(result)
-  @debug.assert_eq(final_state.stack.length(), 1)
+  assert_stack(final_state, [
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(0)), exact=true),
+    ),
+  ])
 }
 
 ///|
@@ -7606,7 +7679,11 @@ test "Typecheck ArrayNewElem" {
     state,
   )
   let final_state = assert_ok(result)
-  @debug.assert_eq(final_state.stack.length(), 1)
+  assert_stack(final_state, [
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(0)), exact=true),
+    ),
+  ])
 }
 
 ///|

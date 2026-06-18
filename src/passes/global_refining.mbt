@@ -112,50 +112,27 @@ fn gr_ref_null_result_type(
 }
 
 ///|
+fn gr_expr_typechecked_result_type(
+  env : @validate.Env,
+  expr : @lib.Expr,
+) -> @lib.ValType? {
+  match @validate.Typecheck::typecheck(expr, @validate.make_state(env, [])) {
+    Ok(state) =>
+      if state.reachable && state.stack.length() == 1 {
+        Some(state.stack[0])
+      } else {
+        None
+      }
+    Err(_) => None
+  }
+}
+
+///|
 fn gr_expr_result_type(env : @validate.Env, expr : @lib.Expr) -> @lib.ValType? {
   match expr {
     @lib.Expr([@lib.RefNull(ref_type)]) =>
       Some(@lib.ValType::ref_type(gr_ref_null_result_type(ref_type, env)))
-    @lib.Expr([@lib.GlobalGet(global_idx)]) =>
-      match env.get_global_type(global_idx) {
-        Some(global_type) =>
-          match gr_global_ref_type(global_type) {
-            Some(ref_type) => Some(@lib.ValType::ref_type(ref_type))
-            None => None
-          }
-        None => None
-      }
-    @lib.Expr([@lib.RefFunc(func_idx)]) =>
-      match gr_ref_func_result_type(env, func_idx) {
-        Some(ref_type) => Some(@lib.ValType::ref_type(ref_type))
-        None => None
-      }
-    @lib.Expr([_, @lib.RefI31]) =>
-      Some(
-        @lib.ValType::ref_type(
-          @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
-        ),
-      )
-    @lib.Expr([@lib.StringConst(_)]) => Some(@lib.ValType::stringref())
-    @lib.Expr(instrs) if instrs.length() > 0 =>
-      match instrs[instrs.length() - 1] {
-        @lib.StructNew(type_idx)
-        | @lib.StructNewDefault(type_idx)
-        | @lib.StructNewDesc(type_idx)
-        | @lib.StructNewDefaultDesc(type_idx)
-        | @lib.ArrayNew(type_idx)
-        | @lib.ArrayNewDefault(type_idx)
-        | @lib.ArrayNewFixed(type_idx, _)
-        | @lib.ArrayNewData(type_idx, _)
-        | @lib.ArrayNewElem(type_idx, _) =>
-          Some(
-            @lib.ValType::ref_type(
-              @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
-            ),
-          )
-        _ => None
-      }
-    _ => None
+    _ => gr_expr_typechecked_result_type(env, expr)
   }
 }
 
@@ -294,10 +271,23 @@ fn gr_reftype_is_public(
 }
 
 ///|
+fn gr_custom_descriptors_enabled_locally(_env : @validate.Env) -> Bool {
+  // Starshine's current direct-pass and preset feature model runs with the
+  // custom-descriptors proposal available, matching the `--all-features`
+  // Binaryen oracle lane used by pass-fuzz-compare. Binaryen's
+  // PublicTypeValidator accepts every exported immutable refinement under that
+  // feature, including exact refs and types whose bodies mention exact refs.
+  true
+}
+
+///|
 fn gr_refined_export_type_is_public(
   ref_type : @lib.RefType,
   env : @validate.Env,
 ) -> Bool {
+  if gr_custom_descriptors_enabled_locally(env) {
+    return true
+  }
   gr_reftype_is_public(ref_type, env, Array::make(env.global_types.length(), 0))
 }
 

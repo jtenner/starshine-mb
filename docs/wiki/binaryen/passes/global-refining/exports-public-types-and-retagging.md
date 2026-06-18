@@ -109,6 +109,7 @@ Important beginner-friendly summary:
 - basic public types are okay
 - tuples are checked recursively
 - exact reference types are **not** public when custom descriptors are off
+- when custom descriptors are enabled, Binaryen accepts every type as public for this validator
 
 That means:
 
@@ -129,15 +130,15 @@ After `global-refining`, Binaryen can print it as:
 
 because `nullfuncref` is still a public type.
 
-### Public negative example
+### Feature-disabled public negative example
 
-This kind of exact refined type is not public in the same way:
+When custom descriptors are disabled, this kind of exact refined type is not public in the same way:
 
 ```wat
 (ref null (exact $foo_t))
 ```
 
-So an exported immutable global is not allowed to refine to that kind of exact private heap type in open world.
+So an exported immutable global is not allowed to refine to that kind of exact private heap type in open world on the non-custom-descriptor path. Under the current Starshine direct-pass model and the Binaryen `--all-features` oracle lane, custom descriptors are enabled and this exact type is accepted.
 
 ## Why exactness is the tricky part
 
@@ -153,7 +154,7 @@ Inside the module, `global-refining` is perfectly happy to infer:
 
 for private globals.
 
-At a public boundary, that same exactness may be invalid.
+At a public boundary, that same exactness may be invalid only on the feature-disabled non-custom-descriptor path. With custom descriptors enabled, Binaryen's public-type validator accepts exact refs, and Starshine now matches that all-features behavior for direct `global-refining`.
 
 So future parity work must not confuse:
 
@@ -237,6 +238,8 @@ The current MoonBit pass differs from Binaryen in a few relevant ways:
 - it preserves exported mutable globals and now allows immutable exported refinement only when a local public-type filter accepts the refined type
 - it now models the official closed-world exported-global distinction on this path by skipping exported globals when `closed_world` is set
 - it does not need Binaryen-style AST retagging because the local representation does not cache expression types the same way
+
+Focused `[GR-005]` tests lock that local proof for both missed Binaryen repair surfaces: dependent global initializers remain valid after source-global refinement, and fresh function-body `global.get` typechecking reads the refined declaration type from the validation environment.
 
 That means a future parity port must decide carefully:
 

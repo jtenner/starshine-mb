@@ -146,28 +146,31 @@ After, conceptually:
 This is the most important shape for understanding the algorithm.
 It shows that Binaryen is computing a meaningful least upper bound over all observed values, not just picking one example write.
 
-## Positive family 6: constant-expression i31 and GC constructor initializers
+## Positive family 6: expression-typed i31, conversion, and GC constructor initializers
 
 Before:
 
 ```wat
 (type $s (struct))
-(global $i (mut anyref) (ref.i31 (i32.const 7)))
+(global $i (mut anyref) (ref.i31 (i32.sub (i32.const 0) (i32.const 7))))
+(global $extern externref (extern.convert_any (ref.i31 (i32.const 7))))
 (global $sref (mut anyref) (struct.new_default $s))
 ```
 
 After, conceptually:
 
 ```wat
-(global $i (mut (ref i31)) (ref.i31 (i32.const 7)))
+(global $i (mut (ref i31)) (ref.i31 (i32.sub (i32.const 0) (i32.const 7))))
+(global $extern (ref extern) (extern.convert_any (ref.i31 (i32.const 7))))
 (global $sref (mut (ref (exact $s))) (struct.new_default $s))
 ```
 
 Why this matters:
 
 - initializer facts are not limited to `ref.null` and `ref.func`
+- the pass should use expression result typing so nested numeric producers, `ref.i31`, and conversions carry Binaryen-equivalent non-null reference facts
 - GC constructors can prove exact non-null private heap types
-- exported immutable globals still need the public-type guard before exposing those exact/private types
+- exported immutable globals still need the public-type guard before exposing those exact/private types; under the Starshine/Binaryen `--all-features` custom-descriptor lane, that guard accepts exact/private types
 
 ## Positive family 7: dependent global initializer needs retagging
 
@@ -269,7 +272,7 @@ Why this still blocks optimization in official `version_130` closed world:
 - the implementation currently skips all exported globals in closed world
 - this is a source-backed current limitation, not a theoretical requirement of the idea
 
-## Negative family 5: immutable exported exact/private target
+## Feature-disabled negative family 5: immutable exported exact/private target without custom descriptors
 
 Conceptually:
 
@@ -280,10 +283,35 @@ Conceptually:
 (export "g" (global $g))
 ```
 
-Why Binaryen does not refine this exported global all the way to `ref null (exact $foo_t)` in open world:
+Why Binaryen does not refine this exported global all the way to `ref null (exact $foo_t)` in open world when custom descriptors are disabled:
 
-- exact heap-ref types are not valid public types on this path
+- exact heap-ref types are not valid public types on the non-custom-descriptor path
 - the boundary rule, not the LUB, is what stops the rewrite
+
+Under the current Starshine direct-pass feature model and the Binaryen `--all-features` oracle lane, custom descriptors are enabled and Binaryen's public-type validator accepts exact refs. Starshine now follows that all-features behavior locally for exported immutable globals.
+
+## Positive family 6: exact array constructor initializer
+
+Before:
+
+```wat
+(type $array (array i32))
+(global $g eqref
+  (array.new_default $array (i32.const 1)))
+```
+
+After:
+
+```wat
+(type $array (array i32))
+(global $g (ref (exact $array))
+  (array.new_default $array (i32.const 1)))
+```
+
+Why this matters:
+
+- Binaryen records array constructor result expressions as exact non-null references
+- Starshine's initializer typing relies on validator instruction typing, so `array.new`, `array.new_default`, `array.new_fixed`, `array.new_data`, and `array.new_elem` must expose exact result refs for `global-refining` parity
 
 ## Negative family 6: no improvement because the LUB equals the old type
 

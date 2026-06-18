@@ -68,8 +68,11 @@ It is a small whole-module **global declaration tightening** pass.
   - the next `remove-unused-module-elements` and later `gsi` see a cleaner, more precise module
 - The 2026-06-18 O4z closeout audit reopened `[O4Z-AUDIT-GR]` for source-backed Binaryen `version_130` watchpoints.
   - `[GR-001]` is closed as a Starshine feature-model proof for the Binaryen GC gate.
-  - `[GR-002]` exact `ref.func` LUB implementation/tests are locally Moon-validated and closed for the targeted function-ref exactness behavior; the direct 10000-case compare is blocked by existing `[GR-003]` initializer-typing mismatches, not by function-ref exactness drift.
-  - `[GR-003]` through `[GR-006]` remain open for broader initializer typing, public-type validation parity, `global.get` retagging/refinalization evidence, and refreshed oracle evidence.
+  - `[GR-002]` exact `ref.func` LUB implementation/tests are locally Moon-validated and closed for the targeted function-ref exactness behavior.
+  - `[GR-003]` initializer expression typing is locally Moon-validated and direct-compare green for the known nested `ref.i31` / conversion mismatch families.
+  - `[GR-004]` custom-descriptor public-type behavior is locally Moon-validated and direct-compare green under the Binaryen `--all-features` oracle lane.
+  - `[GR-005]` proves Binaryen-style `global.get` retagging/refinalization is representation-specific locally and covered by dependent-initializer plus function-body typechecking fixtures.
+  - `[GR-006]` final direct closeout is complete: the 100000-case lane has zero true `global-refining` semantic mismatches; the only raw mismatches are pass-independent unreachable-debris canonicalization on no-global modules.
 - In the saved generated-artifact `-O4z` audit, slot `5` (`global-refining`) was already green:
   - exact wasm equal: `yes`
   - normalized WAT equal: `yes`
@@ -95,12 +98,12 @@ It is a small whole-module **global declaration tightening** pass.
   - refinalize changed code
 - The current local Starshine pass is still narrower than upstream Binaryen in representation, but now covers the important boundary matrix:
   - it refines defined reference globals and still skips exported mutable ones
-  - it filters immutable exported refinements through a local public-type check and skips exported globals when `closed_world` is set
-  - it recognizes more constant-expression initializers, including exact `ref.func`, `ref.i31`, `string.const`, and GC constructors such as `struct.new_default`
+  - it filters immutable exported refinements through the local all-features/custom-descriptors public-type model and skips exported globals when `closed_world` is set
+  - it seeds initializer facts from full local expression typechecking, with direct `ref.null` bottom-reference handling and coverage for exact `ref.func`, nested `ref.i31`, conversions, `string.const`, and exact GC constructors such as `struct.new_default` plus array constructors
   - it collects writes through HOT lifting only for functions that mention candidate globals
   - and it rewrites declarations without Binaryen-style post-pass `global.get` retagging because the local representation does not use the same cached expression-type model here
 - The pass does **not** remove `global.set`s, replace `global.get`s with constants, or run `gsi`-style field-value inference.
-- The active 2026-06-18 audit treats Binaryen `version_130` as the released oracle and keeps remaining watchpoints in `agent-todo.md` until validated or explicitly deferred.
+- The 2026-06-18 audit treats Binaryen `version_130` as the released oracle and is complete for ordinary direct `global-refining`; future watchpoints should reopen from new evidence rather than from the old GR-001..GR-006 checklist. `agent-todo.md` no longer carries a pass-specific `global-refining` follow-up; remaining mentions are preset/artifact contexts where this pass is only one step in a larger pipeline.
 
 ## Biggest beginner correction
 
@@ -142,7 +145,7 @@ What it actually is in `version_130`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering init-only null and `ref.func` positives, exactness/nullability outcomes, heterogeneous `anyref`-to-`eqref` joins, exported/imported bailouts, and the main non-goals.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy: immutable-export-aware and closed-world-aware candidate selection, local public-type filtering, expanded initializer facts, HOT-assisted `global.set` collection, Binaryen-style bottom-null tightening, declaration rewrite, and the remaining Binaryen retagging representation differences.
+  - Current in-tree Starshine strategy: immutable-export-aware and closed-world-aware candidate selection, local public-type filtering, expression-typechecked initializer facts, HOT-assisted `global.set` collection, Binaryen-style bottom-null tightening, declaration rewrite, and the remaining Binaryen retagging representation differences.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, the green saved generated-artifact evidence, and the honest remaining gaps between the local MoonBit pass and the full official Binaryen boundary matrix.
 

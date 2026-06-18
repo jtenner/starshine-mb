@@ -319,6 +319,132 @@ test "global-refining refines private i31 const-expression initializers" {
 }
 
 ///|
+test "global-refining refines nested i31 initializers through expression typing" {
+  let input =
+    #| (module
+    #|   (global $g anyref (ref.i31 (i32.sub (i32.const 0) (i32.const 41605)))))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested i31 initializer global-refining success, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+      ),
+      false,
+    ),
+  )
+}
+
+///|
+test "global-refining refines mutable eqref i31 initializers to non-null i31" {
+  let input =
+    #| (module
+    #|   (global $g (mut eqref) (ref.i31 (i32.xor (i32.const 11) (i32.const 3)))))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected mutable eqref i31 initializer global-refining success, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining refines mutable i31ref initializers to non-null i31" {
+  let input =
+    #| (module
+    #|   (global $g (mut i31ref) (ref.i31 (i32.add (i32.const 1) (i32.const 2)))))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected mutable i31ref initializer global-refining success, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining refines extern.convert_any initializers to non-null extern" {
+  let input =
+    #| (module
+    #|   (global $g (export "g") externref
+    #|     (extern.convert_any (ref.i31 (i32.const 9)))))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected extern.convert_any initializer global-refining success, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+        ),
+      ),
+      false,
+    ),
+  )
+}
+
+///|
+test "global-refining refines any.convert_extern initializers to non-null any" {
+  let input =
+    #| (module
+    #|   (global $g (mut anyref)
+    #|     (any.convert_extern
+    #|       (extern.convert_any (ref.i31 (i32.const 10))))))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected any.convert_extern initializer global-refining success, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
 test "global-refining refines private struct default initializers" {
   let input =
     #| (module
@@ -346,7 +472,7 @@ test "global-refining refines private struct default initializers" {
 }
 
 ///|
-test "global-refining keeps exported immutable exact private initializers public" {
+test "global-refining refines exported immutable exact private initializers when custom descriptors are enabled locally" {
   let input =
     #| (module
     #|   (type $s (sub (struct)))
@@ -361,7 +487,38 @@ test "global-refining keeps exported immutable exact private initializers public
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          exact=true,
+        ),
+      ),
+      false,
+    ),
+  )
+}
+
+///|
+test "global-refining refines exported immutable types whose bodies contain exact refs when custom descriptors are enabled locally" {
+  let input =
+    #| (module
+    #|   (type $private (sub (struct)))
+    #|   (type $wrapper (sub (struct (field (ref null (exact $private))))))
+    #|   (global $src (ref null $wrapper) (ref.null $wrapper))
+    #|   (global $g (export "g") anyref (global.get $src)))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected exported descriptor-body global-refining success, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
       ),
       false,
     ),
@@ -419,6 +576,82 @@ test "global-refining preserves exported globals in closed world" {
       false,
     ),
   )
+}
+
+///|
+test "global-refining keeps dependent global initializers valid after source global refinement" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct)))
+    #|   (global $a anyref (struct.new_default $box))
+    #|   (global $b anyref (global.get $a)))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dependent global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          exact=true,
+        ),
+      ),
+      false,
+    ),
+  )
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 1),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+      ),
+      false,
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dependent global-refining output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "global-refining exposes refined global.get result types to downstream typechecking" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct)))
+    #|   (global $g anyref (struct.new_default $box))
+    #|   (func (export "get") (result anyref)
+    #|     global.get $g))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected function global.get global-refining success, got \{err}")
+  }
+  let env = @validate.Env::new().with_module(optimized)
+  let state = match
+    @validate.Typecheck::typecheck(
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @validate.make_state(env, []),
+    ) {
+    Ok(state) => state
+    Err(err) => fail("expected refined global.get to typecheck, got \{err}")
+  }
+  @debug.assert_eq(state.stack, [
+    @lib.ValType::ref_type(
+      @lib.RefType::new(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+        exact=true,
+      ),
+    ),
+  ])
 }
 
 ///|
