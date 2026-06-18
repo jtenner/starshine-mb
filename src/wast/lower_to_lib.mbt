@@ -6605,6 +6605,55 @@ test "wast_text_binary_roundtrip supports direct legacy catch pop consumer" {
 }
 
 ///|
+test "wast_text_binary_roundtrip supports direct legacy catch pop local set" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func (local i32)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (local.set 0 (pop i32))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-local-set-roundtrip.wat",
+    ) {
+    Ok(m) => m
+    Err(e) =>
+      fail(
+        "expected direct catch-prefix legacy pop local.set to roundtrip: \{e}",
+      )
+  }
+  match decoded.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
+      match try_instr {
+        @lib.Try(
+          _,
+          _,
+          [
+            @lib.LegacyCatch(
+              @lib.TagIdx(0),
+              @lib.Expr(
+                [
+                  @lib.Pop(@lib.NumTypeValType(@lib.I32NumType)),
+                  @lib.LocalSet(@lib.LocalIdx(0)),
+                ]
+              )
+            ),
+          ],
+          None
+        ) => ()
+        _ =>
+          fail(
+            "expected decoded legacy try catch direct pop local.set, got \{try_instr}",
+          )
+      }
+    _ => fail("expected decoded function with real legacy try/pop local.set")
+  }
+}
+
+///|
 test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
   let src =
     #|(module

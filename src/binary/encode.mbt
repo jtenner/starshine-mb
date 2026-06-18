@@ -1734,30 +1734,27 @@ fn binary_encode_strip_contextual_legacy_pops_instr(
         match catch_ {
           LegacyCatch(tag, catch_body) => {
             let payloads = binary_encode_legacy_tag_payloads(env, tag)
-            let next_body : Array[Instruction] = []
-            let mut payload_idx = payloads.length() - 1
-            let mut payload_prefix = true
             let Expr(catch_instrs) = catch_body
-            for i in catch_instrs {
-              match i {
-                Pop(vt) =>
-                  if payload_prefix &&
-                    payload_idx >= 0 &&
-                    vt == payloads[payload_idx] {
-                    payload_idx -= 1
-                  } else {
-                    payload_prefix = false
-                    next_body.push(
-                      binary_encode_strip_contextual_legacy_pops_instr(env, i),
-                    )
-                  }
-                _ => {
-                  payload_prefix = false
-                  next_body.push(
-                    binary_encode_strip_contextual_legacy_pops_instr(env, i),
-                  )
+            let mut payload_idx = payloads.length() - 1
+            let mut scan_idx = 0
+            while scan_idx < catch_instrs.length() && payload_idx >= 0 {
+              match catch_instrs[scan_idx] {
+                Pop(vt) if vt == payloads[payload_idx] => {
+                  payload_idx -= 1
+                  scan_idx += 1
                 }
+                _ => break
               }
+            }
+            let strip_prefix_len = if payload_idx < 0 { scan_idx } else { 0 }
+            let next_body : Array[Instruction] = []
+            for i = strip_prefix_len; i < catch_instrs.length(); i = i + 1 {
+              next_body.push(
+                binary_encode_strip_contextual_legacy_pops_instr(
+                  env,
+                  catch_instrs[i],
+                ),
+              )
             }
             next_catches.push(LegacyCatch::new(tag, Expr::new(next_body)))
           }
