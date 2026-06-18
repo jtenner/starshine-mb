@@ -184,6 +184,7 @@ pub enum TypeDefBody {
   Func(FuncType)
   Struct(Array[StructFieldDef])
   Array(StructFieldDef)
+  Cont(Index)
 } derive(Eq, Debug)
 
 ///|
@@ -2399,6 +2400,12 @@ fn WastParser::parse_type_def_body(
     self.expect_rpar()
     return TypeDefBody::Array(field)
   }
+  if self.is_reserved_word("cont") {
+    let _ = self.advance()
+    let idx = self.parse_index()
+    self.expect_rpar()
+    return TypeDefBody::Cont(idx)
+  }
   raise UnexpectedToken(self.current, "expected type body")
 }
 
@@ -4234,6 +4241,28 @@ test "parse type with no params no results" {
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
   @debug.assert_eq(mod.fields.length(), 1)
+}
+
+///|
+test "parse stack switching cont type body" {
+  let source = "(module (type $function (func)) (type $cont (cont $function)))"
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [TypeField(_), TypeField(cont_type)] =>
+      @debug.assert_eq(
+        cont_type.body,
+        TypeDefBody::Cont(Index::Id("$function")),
+      )
+    _ => fail("expected function type followed by cont type")
+  }
+  let printed = match module_to_wast(mod) {
+    Ok(text) => text
+    Err(err) => fail("expected cont type to print: \{err}")
+  }
+  assert_true(printed.contains("(type $cont (cont $function))"), msg=printed)
 }
 
 ///|

@@ -425,6 +425,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-18] wast | Parse stack-switching cont type placeholder
+
+- Added the first WAST-layer placeholder for stack switching in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt): `(type $c (cont $f))` now parses as `TypeDefBody::Cont(Index)` and prints back through [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt).
+- Kept the boundary fail-closed in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt): lowering a parsed `cont` type still reports the token-specific stack-switching diagnostic, so this is AST/tooling groundwork rather than lib/binary representation support.
+- Evidence: red-first focused `moon test src/wast --filter "parse stack switching cont type body"` failed on the new public variant until parser/printer/lowering matches were added; after implementation the focused parser and token-diagnostic tests passed, `moon test src/wast` passed (`397/397`), and `moon info` regenerated [`../../src/wast/pkg.generated.mbti`](../../src/wast/pkg.generated.mbti).
+
 ## [2026-06-18] wast | Token-specific stack-switching boundary
 
 - Started the minimal stack-switching tooling probe in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) without adding representation support: WAST-to-binary entrypoints still fail closed for `cont`, `resume`, `resume_throw`, and `on`, but now report the first unsupported token explicitly.

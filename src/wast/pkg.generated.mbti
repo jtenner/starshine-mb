@@ -1145,6 +1145,7 @@ pub enum TypeDefBody {
   Func(FuncType)
   Struct(Array[StructFieldDef])
   Array(StructFieldDef)
+  Cont(Index)
 } derive(Eq, @debug.Debug)
 pub impl Show for TypeDefBody
 

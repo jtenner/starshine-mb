@@ -391,6 +391,10 @@ fn wt_comp_type(
         Ok(v) => Ok(@lib.CompType::array(v))
         Err(e) => Err(e)
       }
+    TypeDefBody::Cont(_) =>
+      Err(
+        "stack-switching text is unsupported: unsupported token `cont`; @lib/@wast do not represent cont, resume, resume_throw, or on handler labels",
+      )
   }
 }
 

@@ -282,6 +282,7 @@ fn render_type_def_body(body : TypeDefBody) -> String {
       }
       "(array \{field_text})"
     }
+    TypeDefBody::Cont(idx) => "(cont \{index_text(idx)})"
   }
 }
 
