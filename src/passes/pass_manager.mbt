@@ -7208,6 +7208,27 @@ fn run_hot_pipeline_dce_raw_br_table_selector_depth_after_instr(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_struct_new_consumes_payload(
+  env : @validate.Env,
+  type_idx : @lib.TypeIdx,
+  payload_types : Array[@lib.ValType],
+) -> Bool {
+  let fields = match env.resolve_struct_fields(type_idx) {
+    Ok(fields) => fields
+    Err(_) => return false
+  }
+  if fields.length() != payload_types.length() {
+    return false
+  }
+  for idx = 0; idx < fields.length(); idx = idx + 1 {
+    if fields[idx].unpack() != payload_types[idx] {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_dce_raw_find_root_pop_br_table_selector(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -7279,6 +7300,34 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
         }
         if scan < instrs.length() {
           match instrs[scan] {
+            @lib.StructNew(type_idx) if scan + 1 < instrs.length() &&
+              run_hot_pipeline_dce_raw_struct_new_consumes_payload(
+                env, type_idx, pop_types,
+              ) =>
+              match instrs[scan + 1] {
+                @lib.Unreachable => {
+                  let carrier_locals : Array[@lib.LocalIdx] = []
+                  for vt in pop_types {
+                    let local_id = @lib.LocalIdx::new(
+                      (param_count + locals.length()).reinterpret_as_uint(),
+                    )
+                    locals.push(vt)
+                    carrier_locals.push(local_id)
+                    rewritten.push(@lib.Instruction::pop(vt))
+                    rewritten.push(@lib.Instruction::local_set(local_id))
+                  }
+                  for local_id in carrier_locals {
+                    rewritten.push(@lib.Instruction::local_get(local_id))
+                  }
+                  rewritten.push(instrs[scan])
+                  rewritten.push(@lib.Instruction::drop())
+                  rewritten.push(@lib.Instruction::unreachable_())
+                  idx = scan + 2
+                  changed = true
+                  continue
+                }
+                _ => ()
+              }
             @lib.Br(label) => {
               let target_results = match
                 run_hot_pipeline_dce_raw_label_results(label_results, label) {

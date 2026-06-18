@@ -911,6 +911,52 @@ test "dead-code-elimination repairs legacy pop nested by drop ref-eq unreachable
 }
 
 ///|
+test "dead-code-elimination repairs pop-within-block dead ref-eq text" {
+  let source =
+    #|(module
+    #|  (type $struct (struct (field eqref)))
+    #|  (tag $e-eqref (param eqref))
+    #|  (func (result i32)
+    #|    (try (result i32)
+    #|      (do
+    #|        i32.const 0)
+    #|      (catch $e-eqref
+    #|        (drop
+    #|          (ref.eq
+    #|            (struct.new $struct
+    #|              (pop eqref))
+    #|            (unreachable)))
+    #|        i32.const 0)))
+    #|)
+    #|
+  let input_mod = match @wast.wast_to_binary_module(source) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected pop-within-block text lowering success: \{err}")
+  }
+  match @validate.validate_module(input_mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected pop-within-block text validation success: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input_mod, HotPipelineOptions::new(), [
+      "dead-code-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected pop-within-block text DCE pipeline success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination treats lowered legacy try with all arms unreachable as nonfallthrough" {
   let optimized = match
     pass_test_run_pipeline(

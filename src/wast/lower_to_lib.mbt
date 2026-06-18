@@ -3665,6 +3665,60 @@ fn wt_legacy_pop_prefix_tail_starts_br_table_statement(
 }
 
 ///|
+fn wt_legacy_pop_struct_new_consumes_payload(
+  env : @validate.Env,
+  type_idx : @lib.TypeIdx,
+  payload_types : Array[@lib.ValType],
+) -> Bool {
+  let fields = match env.resolve_struct_fields(type_idx) {
+    Ok(fields) => fields
+    Err(_) => return false
+  }
+  if fields.length() != payload_types.length() {
+    return false
+  }
+  for idx = 0; idx < fields.length(); idx = idx + 1 {
+    if fields[idx].unpack() != payload_types[idx] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn wt_legacy_pop_prefix_tail_is_pop_within_block_repairable(
+  env : @validate.Env,
+  instrs : Array[@lib.Instruction],
+  instr_idx : Int,
+  payload_types : Array[@lib.ValType],
+) -> Bool {
+  if instr_idx + 3 >= instrs.length() {
+    return false
+  }
+  match instrs[instr_idx] {
+    @lib.StructNew(type_idx) =>
+      if !wt_legacy_pop_struct_new_consumes_payload(
+          env, type_idx, payload_types,
+        ) {
+        return false
+      }
+    _ => return false
+  }
+  match instrs[instr_idx + 1] {
+    @lib.Unreachable => ()
+    _ => return false
+  }
+  match instrs[instr_idx + 2] {
+    @lib.RefEq => ()
+    _ => return false
+  }
+  match instrs[instr_idx + 3] {
+    @lib.Drop => true
+    _ => false
+  }
+}
+
+///|
 fn wt_legacy_pop_label_stack_push(
   label_results : Array[Array[@lib.ValType]],
   pushed_results : Array[@lib.ValType],
@@ -3829,6 +3883,9 @@ fn wt_direct_legacy_pop_instr_supported(
                       ) ||
                       wt_legacy_pop_prefix_tail_starts_br_table_statement(
                         env, catch_instrs, instr_idx, nested_labels, prefix_types,
+                      ) ||
+                      wt_legacy_pop_prefix_tail_is_pop_within_block_repairable(
+                        env, catch_instrs, instr_idx, prefix_types,
                       )
                     )
                   if !prefix_flows_to_nonfallthrough {
@@ -7079,6 +7136,61 @@ test "wast_text_binary_roundtrip rejects interrupted legacy pop prefix explicitl
     #|        (local.set 1)))))
   match wast_text_binary_roundtrip(src, filename="legacy-pop-interleaved.wat") {
     Ok(_) => fail("expected interrupted legacy pop prefix to stay unsupported")
+    Err(err) => {
+      assert_true(err.contains("legacy"), msg=err)
+      assert_true(err.contains("pop"), msg=err)
+      assert_true(err.contains("catch payload"), msg=err)
+    }
+  }
+}
+
+///|
+test "wast_to_binary_module supports pop-within-block DCE ingress shape" {
+  let src =
+    #|(module
+    #|  (type $struct (struct (field eqref)))
+    #|  (tag $e-eqref (param eqref))
+    #|  (func (result i32)
+    #|    (try (result i32)
+    #|      (do i32.const 0)
+    #|      (catch $e-eqref
+    #|        (drop
+    #|          (ref.eq
+    #|            (struct.new $struct
+    #|              (pop eqref))
+    #|            (unreachable)))
+    #|        i32.const 0))))
+  let lowered = match
+    wast_to_binary_module(src, filename="legacy-pop-within-block-dce.wat") {
+    Ok(m) => m
+    Err(e) => fail("expected pop-within-block DCE ingress to lower: \{e}")
+  }
+  let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "wast_to_binary_module rejects pop-within-block payload mismatch" {
+  let src =
+    #|(module
+    #|  (type $struct (struct (field i64)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func (result i32)
+    #|    (try (result i32)
+    #|      (do i32.const 0)
+    #|      (catch $e-i32
+    #|        (drop
+    #|          (ref.eq
+    #|            (struct.new $struct
+    #|              (pop i32))
+    #|            (unreachable)))
+    #|        i32.const 0))))
+  match
+    wast_to_binary_module(src, filename="legacy-pop-within-block-mismatch.wat") {
+    Ok(_) =>
+      fail("expected mismatched pop-within-block payload to stay unsupported")
     Err(err) => {
       assert_true(err.contains("legacy"), msg=err)
       assert_true(err.contains("pop"), msg=err)
