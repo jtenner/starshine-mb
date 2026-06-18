@@ -866,7 +866,7 @@ test "dead-code-elimination treats lowered legacy try with all arms unreachable 
 }
 
 ///|
-test "dead-code-elimination admits call-pop-catch text boundary" {
+test "dead-code-elimination removes call-pop-catch dead call text" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -892,8 +892,7 @@ test "dead-code-elimination admits call-pop-catch text boundary" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("call"), msg=pretty)
-  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_false(pretty.contains("call"), msg=pretty)
   assert_true(pretty.contains("br"), msg=pretty)
 }
 

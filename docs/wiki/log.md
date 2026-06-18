@@ -425,6 +425,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-18] passes/dead-code-elimination | Call-pop-catch text DCE path
+
+- Narrowed the DCE raw no-candidate skip in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so legacy `try` bodies and catches participate in the raw candidate scan and void-structured no-op check.
+- Updated the `$call-pop-catch` WAST pipeline fixture in [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt): the fixture now reaches hot DCE and removes the dead call instead of being skipped as `no-dce-candidates`.
+- This is still not full Binaryen legacy-pop repair/output parity; Starshine does not yet reproduce Binaryen's local.set/local.get nested-pop repair shape for this text path. `[O4Z-AUDIT-DCE]` remains active.
+- Evidence: red-first focused `moon test src/passes --filter "dead-code-elimination admits call-pop-catch text boundary"` failed while the fixture still contained `call`; after implementation the renamed focused test passed, `moon test src/passes` passed (`2523/2523`), `moon info`, `moon fmt`, full `moon test` (`5861/5861`), native `moon build --target native --release src/cmd`, direct `.tmp/pass-fuzz-dce-call-pop-text-10000`, dedicated `.tmp/pass-fuzz-dce-call-pop-text-genvalid-dce-10000`, and `git diff --check` passed. Both compare lanes used `_build/native/release/build/cmd/cmd.exe`, compared `9977/10000`, and had `0` mismatches plus `23` cached Binaryen/tool command failures.
+
 ## [2026-06-18] wast | Parse stack-switching resume_throw placeholder
 
 - Added the WAST-layer stack-switching `resume_throw` instruction placeholder in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt): `(resume_throw $cont $tag (on $tag $label) ...)` now parses as an AST node carrying continuation type, throw tag, handler labels, and operand body.

@@ -920,6 +920,43 @@ fn run_hot_pipeline_instr_scan(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        has_structured_control = true
+        let (
+          nested_writes,
+          _,
+          nested_branches,
+          nested_drop,
+          nested_dead_tail,
+          nested_instr_count,
+        ) = run_hot_pipeline_instr_scan(body)
+        has_writes = has_writes || nested_writes
+        has_branches = has_branches || nested_branches
+        has_drop = has_drop || nested_drop
+        has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
+          nested_dead_tail
+        instr_count = instr_count + nested_instr_count
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(body))
+            | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+          }
+          let (
+            catch_writes,
+            _,
+            catch_branches,
+            catch_drop,
+            catch_dead_tail,
+            catch_instr_count,
+          ) = run_hot_pipeline_instr_scan(catch_body)
+          has_writes = has_writes || catch_writes
+          has_branches = has_branches || catch_branches
+          has_drop = has_drop || catch_drop
+          has_dead_tail_after_nonfallthrough = has_dead_tail_after_nonfallthrough ||
+            catch_dead_tail
+          instr_count = instr_count + catch_instr_count
+        }
+      }
       @lib.TryTable(_, _, @lib.Expr(body)) => {
         has_structured_control = true
         let (
@@ -6617,6 +6654,21 @@ fn run_hot_pipeline_dce_raw_instr_may_fallthrough(
       }
       then_may_fallthrough || else_may_fallthrough
     }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if run_hot_pipeline_dce_raw_body_may_fallthrough(body) {
+        return true
+      }
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(body))
+          | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+        }
+        if run_hot_pipeline_dce_raw_body_may_fallthrough(catch_body) {
+          return true
+        }
+      }
+      false
+    }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
       run_hot_pipeline_dce_raw_body_may_fallthrough(body)
     _ => true
@@ -7190,6 +7242,21 @@ fn run_hot_pipeline_dce_raw_void_structured_noop(
               return false
             }
           None => ()
+        }
+      }
+      @lib.Try(block_type, @lib.Expr(body), catches, _) => {
+        if block_type != @lib.BlockType::void_() ||
+          !run_hot_pipeline_dce_raw_void_structured_noop(body) {
+          return false
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(body))
+            | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+          }
+          if !run_hot_pipeline_dce_raw_void_structured_noop(catch_body) {
+            return false
+          }
         }
       }
       @lib.TryTable(block_type, _, @lib.Expr(body)) =>
