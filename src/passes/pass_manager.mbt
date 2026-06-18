@@ -7166,6 +7166,27 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
                 }
                 _ => ()
               }
+            @lib.LocalGet(selector_local) if scan + 1 < instrs.length() =>
+              match instrs[scan + 1] {
+                @lib.BrTable(labels, fallback) => {
+                  for vt in pop_types {
+                    let local_id = @lib.LocalIdx::new(
+                      (param_count + locals.length()).reinterpret_as_uint(),
+                    )
+                    locals.push(vt)
+                    rewritten.push(@lib.Instruction::pop(vt))
+                    rewritten.push(@lib.Instruction::local_set(local_id))
+                    rewritten.push(@lib.Instruction::local_get(local_id))
+                    rewritten.push(@lib.Instruction::drop())
+                  }
+                  rewritten.push(@lib.Instruction::local_get(selector_local))
+                  rewritten.push(@lib.Instruction::br_table(labels, fallback))
+                  idx = scan + 2
+                  changed = true
+                  continue
+                }
+                _ => ()
+              }
             _ => ()
           }
         }

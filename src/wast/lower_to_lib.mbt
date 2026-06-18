@@ -3541,6 +3541,7 @@ fn wt_legacy_pop_prefix_tail_starts_br_table_statement(
   }
   match (instrs[instr_idx], instrs[instr_idx + 1]) {
     (@lib.I32Const(_), @lib.BrTable(_, _)) => true
+    (@lib.LocalGet(_), @lib.BrTable(_, _)) => true
     _ => false
   }
 }
@@ -6894,7 +6895,7 @@ test "wast_text_binary_roundtrip supports call pop before nonfallthrough argumen
 
 ///|
 test "wast_text_binary_roundtrip supports call pop before br_table argument" {
-  let src =
+  let const_selector_src =
     #|(module
     #|  (tag $e-i32 (param i32))
     #|  (func $helper (param i32 i32))
@@ -6907,18 +6908,49 @@ test "wast_text_binary_roundtrip supports call pop before br_table argument" {
     #|            (pop i32)
     #|            (i32.const 0)
     #|            (br_table $label $label)))))))
-  let (_, decoded) = match
+  let (_, decoded_const_selector) = match
     wast_text_binary_roundtrip(
-      src,
+      const_selector_src,
       filename="legacy-pop-call-br-table-prefix.wat",
     ) {
     Ok(m) => m
     Err(e) => fail("expected call-pop-catch br_table prefix to roundtrip: \{e}")
   }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("br_table"), msg=pretty)
-  assert_true(pretty.contains("call"), msg=pretty)
+  let const_pretty = decoded_const_selector.pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(const_pretty.contains("pop"), msg=const_pretty)
+  assert_true(const_pretty.contains("br_table"), msg=const_pretty)
+  assert_true(const_pretty.contains("call"), msg=const_pretty)
+
+  let local_selector_src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $helper (param i32 i32))
+    #|  (func (param i32)
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (local.get 0)
+    #|            (br_table $label $label)))))))
+  let (_, decoded_local_selector) = match
+    wast_text_binary_roundtrip(
+      local_selector_src,
+      filename="legacy-pop-call-br-table-local-prefix.wat",
+    ) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected call-pop-catch local br_table prefix to roundtrip: \{e}")
+  }
+  let local_pretty = decoded_local_selector.pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(local_pretty.contains("pop"), msg=local_pretty)
+  assert_true(local_pretty.contains("br_table"), msg=local_pretty)
+  assert_true(local_pretty.contains("call"), msg=local_pretty)
 }
 
 ///|
