@@ -156,7 +156,7 @@ The stack-switching file guards against a tempting mistake: assuming a surroundi
 
 In the `resume` / `resume_throw` tests, the result type of a handler block must remain because the handler can branch to that block and still depend on its typed label contract.
 
-Starshine currently cannot express this fixture locally because the WAST/lib surface lacks `cont`, `resume`, `resume_throw`, and `on` handler-label instructions; this remains a tooling blocker with the same semantic reopening criterion. The 2026-06-16 boundary slices now make the WAST-to-binary entrypoints fail closed with explicit stack-switching diagnostics for those tokens, rather than relying on generic parser/type errors.
+Starshine currently cannot express this fixture locally because the WAST/lib surface lacks `cont`, `resume`, `resume_throw`, and `on` handler-label instructions; this remains a tooling blocker with the same semantic reopening criterion. The 2026-06-16 boundary slices made the WAST-to-binary entrypoints fail closed with explicit stack-switching diagnostics for those tokens, rather than relying on generic parser/type errors. The 2026-06-18 probe keeps that boundary fail-closed but makes the diagnostic token-specific, so isolated `cont`, `resume`, `resume_throw`, and `on` fixtures identify the first unsupported stack-switching token before parser/lowering fallback.
 
 So a future port must preserve this lesson:
 

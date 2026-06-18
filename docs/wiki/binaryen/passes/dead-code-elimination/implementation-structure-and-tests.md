@@ -237,7 +237,7 @@ Starshine currently treats the full file as a tooling/representation blocker, no
 
 This file proves DCE must respect stack-switching label liveness.
 In particular, a surrounding `drop` does **not** mean the block result is dead if stack-switching handlers can still branch to that block and use its result type.
-Starshine currently documents this as an unsupported tooling boundary: the WAST/lib surface does not represent `cont`, `resume`, `resume_throw`, or their `on` handler labels, so the local DCE test asserts rejection rather than inventing fake coverage. A 2026-06-16 follow-up made both WAST-to-binary entrypoints reject these stack-switching tokens with an explicit `stack-switching` diagnostic, including the missing API names, so the boundary is fail-closed and easy to reopen when the representation lands.
+Starshine currently documents this as an unsupported tooling boundary: the WAST/lib surface does not represent `cont`, `resume`, `resume_throw`, or their `on` handler labels, so the local DCE test asserts rejection rather than inventing fake coverage. A 2026-06-16 follow-up made both WAST-to-binary entrypoints reject these stack-switching tokens with an explicit `stack-switching` diagnostic, including the missing API names, so the boundary is fail-closed and easy to reopen when the representation lands. A 2026-06-18 probe keeps the same fail-closed policy but adds token-specific diagnostics for isolated `cont`, `resume`, `resume_throw`, and `on` fixtures, which is a minimal tooling improvement rather than representation support.
 
 ## Scheduler map
 

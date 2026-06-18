@@ -3458,10 +3458,15 @@ fn wt_unsupported_stack_switching_reason(
       Eof => return None
       Reserved =>
         match token.value {
-          Text("cont") | Text("resume") | Text("resume_throw") | Text("on") =>
-            return Some(
-              "stack-switching text is unsupported: @lib/@wast do not represent cont, resume, resume_throw, or on handler labels",
-            )
+          Text(name) =>
+            if name == "cont" ||
+              name == "resume" ||
+              name == "resume_throw" ||
+              name == "on" {
+              return Some(
+                "stack-switching text is unsupported: unsupported token `\{name}`; @lib/@wast do not represent cont, resume, resume_throw, or on handler labels",
+              )
+            }
           _ => ()
         }
       _ => ()
@@ -6877,6 +6882,34 @@ test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
       assert_true(err.contains("pop"), msg=err)
       assert_true(err.contains("real legacy Try without pop"), msg=err)
       assert_true(err.contains("catch payload"), msg=err)
+    }
+  }
+}
+
+///|
+test "wast_text_binary_roundtrip reports first unsupported stack switching token" {
+  let cases : Array[(String, String)] = [
+    (
+      "cont",
+      (
+        #|(module
+        #|  (type $function (func))
+        #|  (type $cont (cont $function)))
+      ),
+    ),
+    ("resume", "(module (func (resume)))"),
+    ("resume_throw", "(module (func (resume_throw)))"),
+    ("on", "(module (func (on)))"),
+  ]
+  for case in cases {
+    let (token, src) = case
+    match
+      wast_text_binary_roundtrip(src, filename="stack-switching-\{token}.wat") {
+      Ok(_) => fail("expected stack-switching \{token} fixture to reject")
+      Err(err) => {
+        assert_true(err.contains("stack-switching"), msg=err)
+        assert_true(err.contains("unsupported token `\{token}`"), msg=err)
+      }
     }
   }
 }
