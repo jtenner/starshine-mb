@@ -3556,18 +3556,32 @@ fn wt_direct_legacy_pop_instr_supported(
             let mut instr_idx = 0
             if catch_instrs.length() > 0 {
               match catch_instrs[0] {
-                @lib.Pop(vt) => {
-                  if payloads.length() != 1 || vt != payloads[0] {
+                @lib.Pop(_) => {
+                  let mut payload_idx = payloads.length() - 1
+                  while instr_idx < catch_instrs.length() && payload_idx >= 0 {
+                    match catch_instrs[instr_idx] {
+                      @lib.Pop(vt) if vt == payloads[payload_idx] => {
+                        payload_idx -= 1
+                        instr_idx += 1
+                      }
+                      _ => return false
+                    }
+                  }
+                  if payload_idx >= 0 {
                     return false
                   }
-                  if catch_instrs.length() < 2 {
+                  if catch_instrs.length() < instr_idx + payloads.length() {
                     return false
                   }
-                  match catch_instrs[1] {
-                    @lib.Drop | @lib.LocalSet(_) => ()
-                    _ => return false
+                  for consumer_idx = instr_idx
+                      consumer_idx < instr_idx + payloads.length()
+                      consumer_idx = consumer_idx + 1 {
+                    match catch_instrs[consumer_idx] {
+                      @lib.Drop | @lib.LocalSet(_) => ()
+                      _ => return false
+                    }
                   }
-                  instr_idx = 2
+                  instr_idx += payloads.length()
                 }
                 _ => ()
               }
@@ -6650,6 +6664,58 @@ test "wast_text_binary_roundtrip supports direct legacy catch pop local set" {
           )
       }
     _ => fail("expected decoded function with real legacy try/pop local.set")
+  }
+}
+
+///|
+test "wast_text_binary_roundtrip supports direct multi-payload legacy pop prefix" {
+  let src =
+    #|(module
+    #|  (tag $e-pair (param i32 i64))
+    #|  (func (local i32 i64)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-pair
+    #|        (pop i64)
+    #|        (pop i32)
+    #|        (local.set 0)
+    #|        (local.set 1)))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-multi-prefix-roundtrip.wat",
+    ) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected direct multi-payload legacy pop prefix to roundtrip: \{e}")
+  }
+  match decoded.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
+      match try_instr {
+        @lib.Try(
+          _,
+          _,
+          [
+            @lib.LegacyCatch(
+              @lib.TagIdx(0),
+              @lib.Expr(
+                [
+                  @lib.Pop(@lib.NumTypeValType(@lib.I64NumType)),
+                  @lib.Pop(@lib.NumTypeValType(@lib.I32NumType)),
+                  @lib.LocalSet(@lib.LocalIdx(0)),
+                  @lib.LocalSet(@lib.LocalIdx(1)),
+                ]
+              )
+            ),
+          ],
+          None
+        ) => ()
+        _ =>
+          fail(
+            "expected decoded legacy try catch multi-payload prefix, got \{try_instr}",
+          )
+      }
+    _ => fail("expected decoded function with real legacy try/pop prefix")
   }
 }
 

@@ -425,6 +425,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-17] wast | Direct multi-payload legacy pop prefix
+
+- Widened the deliberately narrow high-level legacy-pop WAST gate in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) from single-payload direct consumers to complete direct payload-prefix consumers: multi-payload catch prefixes must match tag payloads in LIFO order and be immediately consumed by `drop` or `local.set` before the rest of the catch body is admitted.
+- Added focused WAST text/binary roundtrip coverage for a `(param i32 i64)` legacy tag whose catch body starts with `pop i64`, `pop i32`, `local.set 0`, `local.set 1`. Broader `$call-pop-catch`-style and nested/interleaved payload flows remain fail-closed; `[O4Z-AUDIT-DCE]` remains active.
+- Evidence so far: red-first `moon test src/wast --filter "wast_text_binary_roundtrip supports direct multi-payload legacy pop prefix"` failed with the legacy-pop unsupported diagnostic; after implementation that test and the existing direct-pop/drop, direct-pop/local.set, and unsupported-pop focused tests passed.
+- Updated [`binaryen/passes/dead-code-elimination/implementation-structure-and-tests.md`](binaryen/passes/dead-code-elimination/implementation-structure-and-tests.md), [`binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md`](binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-17] binary | Complete legacy pop prefix guard
 
 - Tightened the narrow module-level binary catch-payload bridge in [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt): encode now strips only a complete direct catch-body `Pop` prefix matching the tag payload signature in LIFO order, so incomplete multi-payload prefixes remain fail-closed with `CannotEncodeLegacyPop` instead of silently producing a partial payload reconstruction.
