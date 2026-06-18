@@ -41,7 +41,7 @@ For the exact helper walk and finer-grained code map, use [`./starshine-hot-ir-s
 
 ## Short version
 
-Current Starshine `src/passes/remove_unused_brs.mbt` is a real HOT pass, but it is still narrower than Binaryen `version_129` `RemoveUnusedBrs.cpp`.
+Current Starshine `src/passes/remove_unused_brs.mbt` is a real HOT pass, but it is still narrower than the current local Binaryen `version_130` `RemoveUnusedBrs.cpp` oracle.
 
 The implemented center of gravity is:
 

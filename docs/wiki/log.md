@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-18] passes/remove-unused-brs | Complete RUB-A source matrix
+
+- Completed `[O4Z-AUDIT-RUB-A]` as a docs/source-audit slice. Local `wasm-opt --version` reports `wasm-opt version 130 (version_130)`, so the RUB dossier now treats Binaryen `version_130` as the local release oracle instead of the older `version_129` baseline.
+- Added [`raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md`](raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md) after re-reading `RemoveUnusedBrs.cpp`, `branch-utils.h`, `branch-hints.h`, `cost.h`, `drop.h`, `effects.h`, `gc-type-utils.h`, `localize.h`, `properties.h`, and the full official `remove-unused-brs*` lit roster at `version_130`.
+- Updated [`binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md`](binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md) with the RUB-A behavior matrix covering main flow cleanup, switch cleanup, EH throw cleanup, loop cleanup, block sinking, GC BrOn cleanup, JumpThreader, final optimizer families, branch hints / `never-unconditionalize`, and branch-to-trap behavior, mapped to follow-up slices `[O4Z-AUDIT-RUB-B]` through `[O4Z-AUDIT-RUB-N]`.
+- Refreshed [`binaryen/passes/remove-unused-brs/index.md`](binaryen/passes/remove-unused-brs/index.md), [`binaryen/passes/remove-unused-brs/binaryen-strategy.md`](binaryen/passes/remove-unused-brs/binaryen-strategy.md), [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md), [`binaryen/passes/remove-unused-brs/pattern-catalog.md`](binaryen/passes/remove-unused-brs/pattern-catalog.md), and [`../../agent-todo.md`](../../agent-todo.md). The older JumpThreader type-equality relaxation and branch-to-trap rewrite are now release-oracle behavior for this repo; current `main` showed no drift in `RemoveUnusedBrs.cpp` or the requested helper headers, only narrow multivalue lit expectation text drift. The user Wasm 3.0 baseline rule is recorded explicitly: GC is not optional/gated for this audit unless a local parser/tool blocker is documented.
+
 ## [2026-06-18] passes/global-refining | Close retagging proof and direct audit
 
 - Completed `[GR-005]` and `[GR-006]` for the `global-refining` Binaryen behavior audit. Focused tests in [`../../src/passes/global_refining_test.mbt`](../../src/passes/global_refining_test.mbt) now prove Starshine's representation-specific retagging contract: dependent global initializers remain valid after source-global refinement, and fresh function-body `global.get` typechecking reads refined declarations from the validation environment.

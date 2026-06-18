@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-09
+last_reviewed: 2026-06-18
 sources:
+  - ../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md
   - ../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
@@ -47,6 +48,10 @@ This page is the exhaustive rewrite inventory for the current tree.
 - "HOT" means lifted work in `remove_unused_brs.mbt`.
 - "Preserve" means the pass recognized the family but intentionally left it alone.
 - Test names below refer to focused regressions in [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt) unless a perf or CLI file is named explicitly.
+
+The `[O4Z-AUDIT-RUB-A]` source-refresh matrix in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md#rub-a-version_130-behavior-matrix) is the current Binaryen `version_130` phase-to-Starshine coverage map. This catalog remains the exhaustive **current Starshine** inventory; missing Binaryen families are tracked in `agent-todo.md` slices `[O4Z-AUDIT-RUB-B]` through `[O4Z-AUDIT-RUB-N]`.
+
+For this audit, WebAssembly 3.0 baseline features are assumed enabled by default. In particular, GC BrOn cleanup is not optional/gated in the coverage matrix unless a local parser/tool blocker is documented.
 
 ## Raw Pre-Lift Patterns And Skips
 

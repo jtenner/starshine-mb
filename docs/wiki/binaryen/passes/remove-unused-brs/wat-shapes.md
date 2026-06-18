@@ -6,22 +6,22 @@ sources:
   - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedBrs.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-gc.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-desc.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-exact.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-exact-only.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-intrinsics.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_all-features.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_branch-hints.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_branch-hints-shrink.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_enable-multivalue.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_levels.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_shrink-level=1.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_trap.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/RemoveUnusedBrs.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-gc.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-desc.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-exact.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-exact-only.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-intrinsics.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_branch-hints.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_branch-hints-shrink.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_enable-multivalue.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_levels.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_shrink-level=1.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_trap.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -618,7 +618,7 @@ The source explicitly declines to reason through mixed old/new EH handling in th
 
 RUB only builds `br_table` when the range is dense enough and the constants do not overlap.
 
-## Negative shape 7: version_129 jump-threading keeps a same-type guard on one-child block redirects
+## Shape 7: `version_130` jump-threading redirects through one-child named block shells
 
 ### Before
 
@@ -628,16 +628,16 @@ RUB only builds `br_table` when the range is dense enough and the constants do n
     ...))
 ```
 
-### After in `version_129`
+### After in `version_130`
 
 ```wat
-;; no redirect through this one-child shell
+;; branches to the inner named block may be redirected through the outer shell
+;; when sent-type constraints allow the JumpThreader retargeting.
 ```
 
 ### Why
 
-In `version_129`, `JumpThreader` keeps the parent/child type-equality guard before redirecting branches from the parent to the child.
-Current `main` removed that check, so this is also a current-main drift boundary.
+The local `version_130` `JumpThreader` no longer has the older parent/child type-equality guard that existed in `version_129`. The 2026-06-18 source refresh found current `main` matching `version_130` in `RemoveUnusedBrs.cpp`, so this is now release-oracle behavior for Starshine follow-up slice `[O4Z-AUDIT-RUB-G]`, not a trunk-only drift boundary.
 
 ## Nearby-pass interactions that are easy to miss
 

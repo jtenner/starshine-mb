@@ -1,39 +1,40 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-18
 sources:
+  - ../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
   - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedBrs.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-hints.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/cost.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/drop.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/gc-type-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/localize.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-gc.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-desc.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-exact.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-exact-only.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-intrinsics.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_all-features.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_branch-hints.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_branch-hints-shrink.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_enable-multivalue.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_levels.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_shrink-level=1.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_trap.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/RemoveUnusedBrs.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-hints.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/cost.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/drop.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/effects.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/gc-type-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/localize.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/properties.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-gc.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-desc.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-exact.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-exact-only.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-intrinsics.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_branch-hints.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_branch-hints-shrink.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_enable-multivalue.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_levels.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_shrink-level=1.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs_trap.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedBrs.cpp
 related:
   - ./index.md
@@ -126,17 +127,19 @@ RUB is structured-control-heavy, not generic-control-flow-heavy.
 
 ## Current-main freshness note
 
-A 2026-05-06 current-main recheck found:
+A 2026-06-18 source refresh found:
 
-- the `remove-unused-brs*` lit roster is unchanged between `version_129` and current `main`
-- the core implementation is still recognizably the same staged algorithm
-- the already-tracked `JumpThreader` type-equality relaxation remains the only documented drift on the reviewed surface
+- local `wasm-opt --version` reports `wasm-opt version 130 (version_130)`, so `version_130` is the current local release oracle for this pass
+- the `version_130` helper stack and `RemoveUnusedBrs.cpp` are the same staged algorithm this dossier already described
+- the previous JumpThreader one-child block type-equality relaxation is now part of the local release oracle, not merely current-`main` drift
+- the branch-to-trap rewrite is also part of the local `version_130` source and `remove-unused-brs_trap.wast` baseline
+- a fresh `version_130` versus `main` check found no drift in `RemoveUnusedBrs.cpp` or the requested helper headers; only `remove-unused-brs_enable-multivalue.wast` expectation text drift remains, with several expected `local.tee` lines on `version_130` expected as `local.set` on `main`
 
-Treat that as a **tracked drift**, not as permission to rewrite the `version_129` teaching story.
+Treat `version_130` as the release-oracle teaching story here. Keep the narrow lit-expectation-only `main` drift separate from release behavior.
 
 ## Official lit-family map
 
-The upstream `version_129` lit roster contains fifteen `remove-unused-brs*` files.
+The upstream `version_130` lit roster contains fifteen `remove-unused-brs*` files.
 That alone is a helpful teaching fact: Binaryen itself treats RUB as much broader than plain dead-branch stripping.
 
 ### `remove-unused-brs.wast`
@@ -240,6 +243,29 @@ The official test roster says RUB has at least these stable teaching buckets:
 - multivalue and all-features coverage
 
 Any dossier that only explains tail `br` / `return` stripping is therefore incomplete.
+
+## RUB-A `version_130` behavior matrix
+
+This matrix is the `[O4Z-AUDIT-RUB-A]` source-backed shape map for follow-up slices. It uses the local `version_130` Binaryen oracle verified on 2026-06-18. Per user instruction, WebAssembly 3.0 baseline features are assumed enabled by default; GC is not modeled as an optional gated feature for Starshine unless a local parser/tool limitation is documented as a blocker.
+
+| Binaryen phase / helper | Source and lit evidence | Behavior family | Current Starshine coverage | Missing / partial / local blocker | Owning slice | Wasm 3.0 feature-gate note |
+| --- | --- | --- | --- | --- | --- | --- |
+| Main flow cleanup fixpoint: `visitAny`, `scan`, return-flow drain | `RemoveUnusedBrs.cpp` records flowing plain `br` / `return`, removes same-target block breaks, strips terminal block `nop`, merges `if` arm flows, and drains flowing returns; core coverage lives in `remove-unused-brs.wast` and multivalue edge coverage in `remove-unused-brs_enable-multivalue.wast`. | Tail `br` / `return` removal, value-forwarding of branch/return payloads, one-arm flow stops, unreachable/value-flow bailouts. | Meaningful HOT subset is implemented: tail branch/return removal, multi-value branch/return tail cleanup, tail `if` exit stripping, return-context tail stripping, carried wrapper/result-block families, and trailing-`nop` preservation rules. | Keep as current core baseline; future slices should avoid regressing payload/value-flow safety while implementing broader phases. | Covered by current core; rechecked under RUB-O final signoff. | Baseline structured-control and multivalue behavior. |
+| Early `optimizeSwitch(...)` | `RemoveUnusedBrs.cpp` trims trailing default targets, removes leading defaults by subtracting an offset, handles default-only / one-target / two-option tables, and lowers very large mostly-default tables to nested `if`; `remove-unused-brs_shrink-level=1.wast` has `simple-switch*` cases. | Early switch cleanup before final optimizer. | Starshine currently has br_table continuation-wrapper retargeting and repeated equality-ladder-to-`br_table`; it does not model the full early Binaryen `Switch` simplifier. | Need test-first coverage for default trimming, leading default offset, single real target, two-option table, and large mostly-default nested-`if` lowering. | `[O4Z-AUDIT-RUB-B]` | Baseline `br_table`; no optional gate. |
+| Early one-arm `visitIf(...)` cleanup | `RemoveUnusedBrs.cpp` turns one-arm `if { br }` into `br_if`, combines nested one-arm conditions with `select`, preserves branch hints, and honors effect/cost/multivalue/`neverUnconditionalize` guards; covered by `remove-unused-brs.wast`, branch-hint lit files, and multivalue lit. | One-arm branch lowering and nested condition folding. | Starshine covers one-armed `if br`, nested condition merges, two-arm branch exits, and many payload/value-if variants. | Adjacent/final optimizer variants and full `never-unconditionalize`/branch-hint semantics remain separate follow-ups. | `[O4Z-AUDIT-RUB-H]`, `[O4Z-AUDIT-RUB-N]`; some current core. | Baseline; branch hints are metadata, not a feature gate. |
+| EH `visitThrow(...)` | `RemoveUnusedBrs.cpp` rewrites definitely caught `throw` to `br` for exact `catch` and `catch_all` without exnref; it drops children for catch_all and bails on `catch_ref`, `catch_all_ref`, and mixed legacy `Try`; proven by `remove-unused-brs-eh.wast`. | Caught exception-as-control-flow cleanup. | No current Starshine RUB coverage is listed for caught `throw` cleanup. | Requires focused `try_table` fixtures and local EH representation support; negative cases must stay explicit for exnref-transport and mixed old/new EH control. | `[O4Z-AUDIT-RUB-E]` | EH is part of the Wasm 3.0 baseline framing for this audit; document local parser/tool blockers if they appear. |
+| Loop cleanup: `optimizeLoop(...)` | `RemoveUnusedBrs.cpp` records loops, then after the main walk moves/conditionalizes trailing `br $loop` patterns, flips adjacent `br_if`, moves trailing slices into dead-end `if` arms, uses `BranchSeeker::count`, and stops on intervening control transfer; covered by core and multivalue lit loop cases plus branch-hint loop cases. | Loop-top branch conditionalization and suffix movement to expose removable exits. | Starshine has some block/loop rotation and tail cleanup, but not the full Binaryen loop reshaper. | Need coverage for named loop bodies ending in simple `br $loop`, earlier exit-driving `if`/`br_if`, suffix movement, condition flipping, single-use target proofs, and hazards. | `[O4Z-AUDIT-RUB-C]` | Baseline loop/control behavior. |
+| Block sinking: `sinkBlocks(...)` | `RemoveUnusedBrs.cpp` sinks named one-child blocks into a wrapped loop body or into a safe `if` arm, skips unreachable conditions, rejects condition label use, and refinalizes; lit evidence is spread through core/multivalue shapes where later cleanup is exposed. | Move outer exit label inward so later flow cleanup can fire. | Starshine has self-target if-arm block-branch sinking and some wrapper cleanup, but not full Binaryen block sinking for one-loop/one-if wrappers. | Need Binaryen-style loop/if block-sinking tests, including label-use negatives and unreachable-condition negatives. | `[O4Z-AUDIT-RUB-D]` | Baseline structured-control behavior. |
+| GC `optimizeGC(...)` BrOn cleanup | `RemoveUnusedBrs.cpp` uses `Properties::getFallthroughType`, `GCTypeUtils::evaluateCastCheck`, `ChildLocalizer`, `getDroppedChildrenAndAppend`, casts, descriptor handling, and `ReFinalize`; proven by `remove-unused-brs-gc.wast`, `remove-unused-brs-desc.wast`, `remove-unused-brs-exact*.wast`, and all-features lit. | `br_on_null`, `br_on_non_null`, `br_on_cast`, `br_on_cast_fail`, descriptor variants, definitely taken/not-taken, success/failure/unreachable, refinalization. | No current Starshine RUB coverage is listed for GC BrOn cleanup. | Implement or fail-close per family with tests for definitely-taken, definitely-not-taken, success-only-if-non-null, unreachable input, dropped children, descriptor/null descriptor preservation, and refinalization. | `[O4Z-AUDIT-RUB-F]` | GC is baseline under the user rule; do not defer as “flag-gated” unless a local parser/tool limitation is documented. |
+| JumpThreader | `RemoveUnusedBrs.cpp` collects no-value scope uses via `operateOnScopeNameUsesAndSentTypes`, redirects through one-child named blocks, redirects child jumps to a following simple `br`, and turns simple jumps to child-plus-`unreachable` into direct `unreachable`; `remove-unused-brs_trap.wast` proves trap-sensitive behavior. | Trivial jump retargeting and branch-to-trap direct trap rewrite. | Starshine has wrapper cleanup and continuation retargeting subsets, but not general JumpThreader parity. | Need branch retargeting through named shells, child-to-child jump chains, child-plus-`unreachable`, scope sent-type preservation, and the now-release-baseline type-equality relaxation. | `[O4Z-AUDIT-RUB-G]`, `[O4Z-AUDIT-RUB-M]` for branch-to-trap | Baseline; branch-to-trap is in local `version_130`, not optional drift. |
+| FinalOptimizer block-tail `if br else br` and adjacent `br_if` merge | `RemoveUnusedBrs.cpp` late `visitBlock` turns block-tail if/else breaks into `br_if` plus fallthrough, flips as needed, merges adjacent same-target `br_if`s under shrink with `i32.or`, and preserves/combines branch hints; lit evidence includes core, shrink-level, and branch-hints-shrink files. | Late branch lowering and adjacent conditional merge. | Starshine covers two-arm branch exits and many one-arm/payload branch rewrites. | Adjacent `br_if` merge, shrink-specific condition OR, and full branch-hint outcomes are still missing/partial. | `[O4Z-AUDIT-RUB-H]`, `[O4Z-AUDIT-RUB-N]` | Baseline; shrink level is pass option behavior, not feature gating. |
+| FinalOptimizer `tablify(...)` and `visitSwitch(...)` | `RemoveUnusedBrs.cpp` lowers dense same-value equality `br_if` runs to `br_table`, requiring unique constants, no values, side-effect-free shared condition, range heuristics, fresh default labels, and uniquification; late `visitSwitch` collapses one-target switches when condition/value reorder is safe. | Dense `br_if` ladder to `br_table`; late single-target switch collapse. | Starshine has repeated branch-target equality ladder to `br_table` and br_table wrapper cleanup subsets. | Needs full Binaryen heuristic/cost/range/label behavior and late switch collapse parity. | `[O4Z-AUDIT-RUB-I]`, plus `[O4Z-AUDIT-RUB-B]` for early switch | Baseline `br_table`. |
+| FinalOptimizer `restructureIf(...)` | `RemoveUnusedBrs.cpp` rewrites named blocks starting with self-target `br_if`/`drop(br_if)` into `if` or `select`, requires single target use, side-effect/reorder safety, and `neverUnconditionalize`; core and branch-hints lit files cover the family. | Block-sinking-like reconstruction of `if` / `select` around self-exit `br_if`. | Starshine covers carried-guard/result-block cleanup and several block-carried one-arm payload/value-selection forms. | Full Binaryen `restructureIf` remains partial, especially side-effectful payload via `select`, single-target proof boundaries, and hint preservation. | `[O4Z-AUDIT-RUB-J]`, `[O4Z-AUDIT-RUB-N]` | Baseline. |
+| FinalOptimizer `selectify(...)` | `RemoveUnusedBrs.cpp` turns pure two-arm `if` into `select` when arms are emit-select-compatible, condition is reachable, arms have no side effects, condition does not invalidate arms, and the cost model permits unconditional execution; covered by core, levels, intrinsics, multivalue, all-features, and branch-hints-unconditionalize lit. | Pure value-`if` to `select` with cost/effect/refinement guards. | Starshine covers many value-if/select rewrites and reorder-safe condition ladders. | Full cost-level, intrinsic-cost, branch-hint, multivalue, and refinalization behavior is still partial. | `[O4Z-AUDIT-RUB-K]`, `[O4Z-AUDIT-RUB-N]` | Baseline; multivalue/all-features are assumed available under audit framing. |
+| FinalOptimizer `optimizeSetIf(...)` | `RemoveUnusedBrs.cpp` rewrites `local.set/tee (if ...)` when one arm is a simple `br`, or when one arm copies the same local; it can recurse and flips branch hints as needed; covered by core and branch-hints lit. | Local-set/tee if-arm cleanup. | Starshine covers local-set copy-arm and br-arm subsets. | Full recursive Binaryen behavior, tee block result handling, hint propagation, and negative cases remain partial. | `[O4Z-AUDIT-RUB-L]`, `[O4Z-AUDIT-RUB-N]` | Baseline local/control behavior. |
+| FinalOptimizer constant-condition `visitBreak(...)` | `RemoveUnusedBrs.cpp` uses `Properties::getFallthrough` and `ChildLocalizer` to fold constant `br_if` conditions to unconditional `br` or fallthrough while preserving child evaluation and refinalizing; core lit covers constant branch restructuring. | Constant `br_if` cleanup with payload/child preservation. | Starshine covers constant `br_if` folding, including payload-carrying forms after the 2026-06-09 audit. | Treat as current core but recheck under final signoff for child-localizer-equivalent order preservation. | Covered by current core; rechecked under RUB-O. | Baseline. |
+| Branch hints and `never-unconditionalize` | `branch-hints.h` provides `copyTo`, `copyFlippedTo`, `applyAndTo`, `applyOrTo`, `flip`, and `clear`; `RemoveUnusedBrs.cpp` calls them across early/final rewrites; branch-hint lit files and `remove-unused-brs_branch-hints-unconditionalize.wast` prove metadata and the pass argument. | Preserve/transform branch-hint annotations and avoid unconditionalizing when requested. | Starshine matrix does not list branch-hint metadata support for RUB. | Need explicit Starshine branch-hint policy: preserve if represented, fail-close/document if metadata is absent, and model `never-unconditionalize` where public behavior requires it. | `[O4Z-AUDIT-RUB-N]` | Branch hints are metadata; not a Wasm feature gate. |
+| Helper safety layer | `branch-utils.h`, `effects.h`, `cost.h`, `drop.h`, `localize.h`, `properties.h`, and `gc-type-utils.h` provide target search, retargeting, effect/reorder checks, unconditionalization cost, dropped-child preservation, child localization, fallthrough types, select legality, and cast-result reasoning. | Safety contract for all phase rows. | Starshine has local HOT/raw safety checks but not a one-to-one port of Binaryen helper semantics. | Each implementation slice must state which helper semantics it mirrors or which local proof replaces them. | All RUB-B..RUB-N slices | Feature bits are not the primary blocker; local IR/tool support must be named specifically. |
 
 ## Practical porting lesson
 

@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-06-09
+last_reviewed: 2026-06-18
 sources:
+  - ../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md
   - ../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md
   - ../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
@@ -103,7 +104,7 @@ related:
 - The next hot layer follow-up now has one more lifted no-op retirement too:
   - the later localset-heavy value-if mesh family now reports `skip-hot reason=localset-heavy-value-if-mesh-noop`
   - the traced unchanged artifact cluster `Func 837`, `Func 3021`, `Func 3120`, `Func 3130`, and `Func 3134` is now retired after lift
-- Newer upstream evidence now matters explicitly too: the Chromium-hosted Binaryen mirror shows a 2026-02-27 `RemoveUnusedBrs` change that rewrites branches-to-traps directly to traps. That behavior is newer than this repo's older `version_129` Binaryen oracle, so treat it as trunk drift to reconcile deliberately instead of assuming the current Starshine parity target already includes it.
+- The 2026-06-18 source refresh re-baselines the local oracle to Binaryen `version_130`. The branch-to-trap rewrite is now part of the local release oracle and is covered by `remove-unused-brs_trap.wast`; it should be implemented or explicitly tracked as `[O4Z-AUDIT-RUB-M]`, not dismissed as trunk-only drift.
 - The early ordered generated-artifact slot-14 corruption is now fixed too:
   - the slot-13 predecessor replay no longer emits the invalid `func 1354` raw output
   - the extracted `Func 1354` replay is now locked by an external `wasm-tools validate` cmd wbtest instead of only the in-tree decode path
@@ -133,8 +134,8 @@ related:
   [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - CLI and artifact replay coverage:
   [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- New upstream drift watch:
-  Binaryen Chromium mirror commit `42f1f12ad89d0329f70d5c4ae5ecb7f7889034c0` (`2026-02-27`) rewrites branches-to-traps directly to traps, but this repo has not yet re-baselined the living RUB parity target around that newer behavior.
+- Local release-oracle watch:
+  Binaryen `version_130` includes the 2026-02-27 branch-to-trap behavior and the relaxed JumpThreader one-child block retargeting behavior. Fresh `version_130` versus `main` source review on 2026-06-18 found no `RemoveUnusedBrs.cpp` / requested-helper C++ drift; the only observed current-main difference was multivalue lit expectation text (`local.tee` expected as `local.set` in a few CHECK lines).
 
 ## What Is Already In Good Shape
 
