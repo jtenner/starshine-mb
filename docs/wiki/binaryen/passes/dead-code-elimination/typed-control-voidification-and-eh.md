@@ -98,7 +98,9 @@ The next blocker-enabling surface is a placeholder for catch payload consumption
 
 The first DCE-side repair slice implements the narrow Starshine equivalent for represented HOT shapes after a DCE mutation in a function that had legacy `pop`: if a legacy catch arm contains a root whose subtree has `pop` nested under a block, DCE extracts that payload into a fresh local before the catch root and replaces the nested use with `local.get`, then updates the legacy catch-arm root counts. This directly targets the Binaryen nested-pop hazard, but it is still a first local subset rather than complete Binaryen legacy EH parity.
 
-Remaining blockers: binary encoding of `Try` and `Pop` fails closed, binary decoding is not implemented, high-level WAST-to-binary entrypoints still reject legacy `pop` text with an explicit diagnostic, and broader Binaryen `pop` movement/repair shapes still need coverage beyond the first represented HOT block-subtree extraction.
+The follow-up repair slice covers a closer represented analogue of Binaryen's `$call-pop-catch` hazard: when DCE replaces a non-control root whose child is already `unreachable`, it preserves evaluated children before the first unreachable as roots/drops inside a new block and drops the dead operator plus later children. If one of those preserved children is a legacy catch `pop`, the same end-of-pass repair extracts it to a fresh local before the catch root and rewrites the nested use to `local.get`. The repair now also tolerates catch-arm root counts becoming stale after DCE removes roots from the combined HOT catch region, rebuilding legacy arm root counts from the surviving roots instead of indexing past the shortened catch body.
+
+Remaining blockers: binary encoding of `Try` and `Pop` fails closed, binary decoding is not implemented, high-level WAST-to-binary entrypoints still reject legacy `pop` text with an explicit diagnostic, and broader Binaryen `pop` movement/repair shapes still need coverage beyond the currently represented HOT block-subtree and non-control-unreachable-child extraction cases.
 
 ### `try_table`
 

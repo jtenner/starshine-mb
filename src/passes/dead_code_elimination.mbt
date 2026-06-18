@@ -2435,6 +2435,67 @@ fn dead_code_elimination_try_voidify_nonfallthrough_block_with_pure_incoming_bra
 }
 
 ///|
+fn dead_code_elimination_try_replace_noncontrol_unreachable_root(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_use_cache : DeadCodeEliminationNodeUseCache,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_is_control_node(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Unreachable => return false
+    _ => ()
+  }
+  let child_count = @ir.hot_child_count(func, node_id)
+  let mut unreachable_slot = -1
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
+      match @ir.hot_node_get(func, child_id).op {
+        @ir.HotOp::Unreachable => {
+          unreachable_slot = slot
+          break
+        }
+        _ => ()
+      }
+    }
+  }
+  if unreachable_slot < 0 {
+    return false
+  }
+  let replacement_roots : Array[Int] = []
+  for slot = 0; slot <= unreachable_slot; slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      return false
+    }
+    if slot == unreachable_slot {
+      replacement_roots.push(child_id)
+    } else {
+      match @ir.hot_node_result_arity(func, child_id) {
+        0 => replacement_roots.push(child_id)
+        1 => replacement_roots.push(@ir.hot_build_drop(func, child_id))
+        _ => return false
+      }
+    }
+  }
+  let replacement = if replacement_roots.length() == 1 {
+    replacement_roots[0]
+  } else {
+    @ir.hot_build_block(func, @lib.BlockType::void_(), replacement_roots)
+  }
+  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [replacement])
+  dead_code_elimination_delete_unused_nodes(ctx, func, node_use_cache, removed)
+  true
+}
+
+///|
 fn dead_code_elimination_remove_roots(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2627,11 +2688,22 @@ fn dead_code_elimination_repair_legacy_try_nested_pops(
   let new_arms : Array[@ir.HotCatchArm] = []
   let mut offset = 0
   let mut changed = false
-  for arm in catch_info.catches {
+  let current_root_count = @ir.hot_region_root_count(func, catch_region)
+  for arm_idx = 0; arm_idx < catch_info.catches.length(); arm_idx = arm_idx + 1 {
+    let arm = catch_info.catches[arm_idx]
+    let is_last_arm = arm_idx + 1 == catch_info.catches.length()
     match arm {
       @ir.HotCatchArm::LegacyCatchArm(tag, root_count) => {
+        let available = current_root_count - offset
+        let actual_root_count = if available <= 0 {
+          0
+        } else if is_last_arm || root_count > available {
+          available
+        } else {
+          root_count
+        }
         let mut arm_count = 0
-        for idx = 0; idx < root_count; idx = idx + 1 {
+        for idx = 0; idx < actual_root_count; idx = idx + 1 {
           let root = @ir.hot_region_get(func, catch_region, offset + idx)
           let prefix_roots : Array[Int] = []
           if dead_code_elimination_repair_extract_nested_pops_for_root(
@@ -2644,11 +2716,19 @@ fn dead_code_elimination_repair_legacy_try_nested_pops(
           new_roots.push(root)
         }
         new_arms.push(@ir.HotCatchArm::legacy_catch(tag, arm_count))
-        offset += root_count
+        offset += actual_root_count
       }
       @ir.HotCatchArm::LegacyCatchAllArm(root_count) => {
+        let available = current_root_count - offset
+        let actual_root_count = if available <= 0 {
+          0
+        } else if is_last_arm || root_count > available {
+          available
+        } else {
+          root_count
+        }
         let mut arm_count = 0
-        for idx = 0; idx < root_count; idx = idx + 1 {
+        for idx = 0; idx < actual_root_count; idx = idx + 1 {
           let root = @ir.hot_region_get(func, catch_region, offset + idx)
           let prefix_roots : Array[Int] = []
           if dead_code_elimination_repair_extract_nested_pops_for_root(
@@ -2661,10 +2741,13 @@ fn dead_code_elimination_repair_legacy_try_nested_pops(
           new_roots.push(root)
         }
         new_arms.push(@ir.HotCatchArm::legacy_all(arm_count))
-        offset += root_count
+        offset += actual_root_count
       }
       _ => return false
     }
+  }
+  if offset != current_root_count {
+    return false
   }
   if changed {
     @ir.hot_region_replace_body(func, catch_region, new_roots)
@@ -2845,6 +2928,13 @@ fn dead_code_elimination_visit_region(
       func, node_id,
     )
     let mut node_use_count = -1
+
+    if dead_code_elimination_try_replace_noncontrol_unreachable_root(
+        ctx, func, node_use_cache, region_ref, idx, node_id,
+      ) {
+      changed = true
+      continue
+    }
 
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
