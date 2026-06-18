@@ -255,6 +255,7 @@ pub enum Instruction {
   TryTable(BlockType, Array[CatchClause], Array[Instruction])
   TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
   Resume(Index, Array[ResumeHandler], Array[Instruction])
+  ResumeThrow(Index, Index, Array[ResumeHandler], Array[Instruction])
   Drop
   Select(Array[ValueType]?)
   Pop(ValueType)

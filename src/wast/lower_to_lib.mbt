@@ -1877,6 +1877,10 @@ fn wt_instr_to_lib(
       Err(
         "stack-switching text is unsupported: unsupported token `resume`; stack-switching is WAST-placeholder-only and has no @lib/binary lowering for cont, resume, resume_throw, or on handler labels",
       )
+    ResumeThrow(_, _, _, _) =>
+      Err(
+        "stack-switching text is unsupported: unsupported token `resume_throw`; stack-switching is WAST-placeholder-only and has no @lib/binary lowering for cont, resume, resume_throw, or on handler labels",
+      )
     TryTable(bt, catches, body) => {
       let next_labels = labels.copy()
       next_labels.push(None)

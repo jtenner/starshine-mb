@@ -393,6 +393,21 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
       }
       out.to_string()
     }
+    ResumeThrow(cont, tag, handlers, _) => {
+      let out = StringBuilder::new()
+      out.write_string("resume_throw ")
+      out.write_string(index_text(cont))
+      out.write_char(' ')
+      out.write_string(index_text(tag))
+      for handler in handlers {
+        out.write_string(" (on ")
+        out.write_string(index_text(handler.tag))
+        out.write_char(' ')
+        out.write_string(index_text(handler.label))
+        out.write_char(')')
+      }
+      out.to_string()
+    }
     Drop => "drop"
     Select(None) => "select"
     Select(Some(vts)) => {
@@ -599,7 +614,7 @@ fn write_instruction(
       }
       out.write_string("\{pad}end\n")
     }
-    Resume(_, _, body) if body.length() > 0 => {
+    Resume(_, _, body) | ResumeThrow(_, _, _, body) if body.length() > 0 => {
       out.write_string(pad)
       out.write_char('(')
       out.write_string(render_instruction_head(instr))

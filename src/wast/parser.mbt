@@ -392,6 +392,7 @@ pub enum Instruction {
   TryTable(BlockType, Array[CatchClause], Array[Instruction])
   TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
   Resume(Index, Array[ResumeHandler], Array[Instruction])
+  ResumeThrow(Index, Index, Array[ResumeHandler], Array[Instruction])
 
   // Parametric
   Drop
@@ -1552,6 +1553,9 @@ fn WastParser::parse_folded_instruction(
       } else if text == "resume" {
         let _ = self.advance()
         [self.parse_resume_instruction()]
+      } else if text == "resume_throw" {
+        let _ = self.advance()
+        [self.parse_resume_throw_instruction()]
       } else {
         raise UnexpectedToken(self.current, "expected instruction")
       }
@@ -1681,6 +1685,9 @@ fn WastParser::try_parse_plain_instruction(
       } else if text == "resume" {
         let _ = self.advance()
         Some(self.parse_resume_instruction())
+      } else if text == "resume_throw" {
+        let _ = self.advance()
+        Some(self.parse_resume_throw_instruction())
       } else {
         None
       }
@@ -1729,6 +1736,24 @@ fn WastParser::parse_resume_instruction(
   self : WastParser,
 ) -> Instruction raise ParserError {
   let cont = self.parse_index()
+  let (handlers, body) = self.parse_resume_handlers_and_body()
+  Resume(cont, handlers, body)
+}
+
+///|
+fn WastParser::parse_resume_throw_instruction(
+  self : WastParser,
+) -> Instruction raise ParserError {
+  let cont = self.parse_index()
+  let tag = self.parse_index()
+  let (handlers, body) = self.parse_resume_handlers_and_body()
+  ResumeThrow(cont, tag, handlers, body)
+}
+
+///|
+fn WastParser::parse_resume_handlers_and_body(
+  self : WastParser,
+) -> (Array[ResumeHandler], Array[Instruction]) raise ParserError {
   let handlers : Array[ResumeHandler] = []
   let body : Array[Instruction] = []
   while self.next_is_resume_on_handler() {
@@ -1742,7 +1767,7 @@ fn WastParser::parse_resume_instruction(
     }
     self.expect_rpar()
   }
-  Resume(cont, handlers, body)
+  (handlers, body)
 }
 
 ///|
@@ -4369,6 +4394,46 @@ test "parse stack switching resume placeholder instruction" {
   }
   assert_true(
     printed.contains("resume $cont (on $tag $handle_effect)"),
+    msg=printed,
+  )
+}
+
+///|
+test "parse stack switching resume_throw placeholder instruction" {
+  let source =
+    #|(module
+    #|  (type $function (func))
+    #|  (type $cont (cont $function))
+    #|  (tag $tag)
+    #|  (func $resume_throw (param $c (ref $cont))
+    #|    (block $handle_effect (result (ref $cont))
+    #|      (resume_throw $cont $tag (on $tag $handle_effect)
+    #|        (local.get $c)))))
+  let lexer = make_lexer(source)
+  let parser = WastParser::new(lexer)
+  let mod = parser.parse_module()
+  assert_false(parser.has_errors())
+  match mod.fields {
+    [TypeField(_), TypeField(_), TagField(_), FuncField(func)] =>
+      match func.body {
+        [Block(_, [ResumeThrow(cont, tag, handlers, body)])] => {
+          @debug.assert_eq(cont, Index::Id("$cont"))
+          @debug.assert_eq(tag, Index::Id("$tag"))
+          @debug.assert_eq(handlers, [
+            { tag: Index::Id("$tag"), label: Index::Id("$handle_effect") },
+          ])
+          @debug.assert_eq(body, [Instruction::LocalGet(Index::Id("$c"))])
+        }
+        _ => fail("expected block containing parsed resume_throw placeholder")
+      }
+    _ => fail("expected types, tag, and resume_throw function")
+  }
+  let printed = match module_to_wast(mod) {
+    Ok(text) => text
+    Err(err) => fail("expected resume_throw placeholder to print: \{err}")
+  }
+  assert_true(
+    printed.contains("resume_throw $cont $tag (on $tag $handle_effect)"),
     msg=printed,
   )
 }

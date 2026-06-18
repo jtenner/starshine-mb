@@ -425,6 +425,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-18] wast | Parse stack-switching resume_throw placeholder
+
+- Added the WAST-layer stack-switching `resume_throw` instruction placeholder in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt): `(resume_throw $cont $tag (on $tag $label) ...)` now parses as an AST node carrying continuation type, throw tag, handler labels, and operand body.
+- Printed the placeholder through [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), counted its nested body in [`../../src/wast/arbitrary.mbt`](../../src/wast/arbitrary.mbt), and kept [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) fail-closed; stack-switching remains unsupported for lib/binary lowering and DCE handler-label liveness.
+- Evidence: red-first focused `moon test src/wast --filter "parse stack switching resume_throw placeholder instruction"` failed because `Instruction` had no `ResumeThrow` constructor; after implementation the focused parser test, token-diagnostic test, `moon test src/wast` (`399/399`), `moon info`, `moon fmt`, full `moon test` (`5861/5861`), and `git diff --check` passed. `[O4Z-AUDIT-DCE]` remains active.
+
 ## [2026-06-18] wast | Parse stack-switching resume placeholder
 
 - Added a WAST-layer stack-switching instruction placeholder in [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt): `(resume $cont (on $tag $label) ...)` now parses as an AST node carrying its continuation type, handler labels, and operand body.
