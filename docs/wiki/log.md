@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-18] passes/ssa-nomerge | Publish final direct closeout
+
+- Published `[SSANM-012e]` and closed the direct `ssa-nomerge` audit scope in [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md). The final report records the green `1000000`-requested broad mixed-generator lane, green `100000`-requested `ssa-nomerge-all` GenValid aggregate lane, debug-WASI artifact boundary classification, JSON-AS direct runtime evidence, current-head freshness validation including a 10000-request sanity lane, retained boundaries, non-goals, and reopening criteria.
+- Updated [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) and [`index.md`](index.md) so the owner-file map and catalog point to the final closeout report.
+- Pruned stale active SSANM closeout tasks from [`../../agent-todo.md`](../../agent-todo.md), leaving the full `ssa` sibling audit, JSON-AS optimize/replay/preset follow-ups, and `[WALL]001` attribution as separate active work rather than direct `ssa-nomerge` blockers.
+
 
 ## [2026-06-16] passes/ssa-nomerge | Classify final artifact boundaries
 

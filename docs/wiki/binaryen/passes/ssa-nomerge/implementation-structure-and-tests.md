@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-15
+last_reviewed: 2026-06-18
 sources:
   - ../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
@@ -93,6 +93,12 @@ For `ssa-nomerge`, the decisive rule is still per-set: if any get influenced by 
 | Typed-control and loop-param/result ABI shapes | Dedicated Binaryen no-merge WAST does not isolate typed loop params/results or branch operand ABI rewrites; those shapes are Starshine-local lowering boundaries over the upstream LocalGraph local-source policy. | `ssa_nomerge_test.mbt` has typed-loop, multi-param/result, `br_table`, and `br_on_*` coverage; GenValid `[SSANM-011e]` floors typed-loop, branch-operand, and nested-loop boundaries. | `[SSANM-007b]` is now child-sliced: `[SSANM-007b1]` refreshes typed-control source and fixture inventory, `[SSANM-007b2]` locks typed loop param/result ABI boundaries, and `[SSANM-007b3]` classifies typed branch operands plus cast/null branch exits. |
 
 The explicit coverage gap after this matrix is not a missing upstream source refresh: the `version_130` owner/test surfaces did not drift. The remaining gaps are implementation planning gaps where Starshine must consume LocalGraph facts instead of the current HOT/raw heuristics for merge and broader structured-control families, plus local representation boundaries (structured `local.tee`, EH, typed control, and Binaryen tuple locals) that need either focused micro-replays or documented fail-closed evidence in their owning slices.
+
+## Final direct closeout status (2026-06-18)
+
+The direct `ssa-nomerge` audit is closed for the current v0.1.0 scope. Use [`./parity.md`](./parity.md) as the final evidence report: the broad `1000000` requested mixed-generator lane and the dedicated `100000` requested `ssa-nomerge-all` GenValid aggregate lane are green, the debug-WASI first diff is a retained artifact boundary rather than a direct-pass blocker, and reopening criteria are explicit.
+
+This page remains the owner-file and proof-surface map. It should be updated if a future change moves code ownership, changes public registry/dispatcher behavior, adds or removes the retained artifact boundary, or reopens direct `ssa-nomerge` under the criteria in the parity page. Full `ssa` merge-local work remains in the sibling [`../ssa/implementation-structure-and-tests.md`](../ssa/implementation-structure-and-tests.md) dossier and is not a no-merge closeout prerequisite.
 
 ## Starshine implementation map
 
