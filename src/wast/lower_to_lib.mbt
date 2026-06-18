@@ -3505,6 +3505,16 @@ fn wt_legacy_tag_payloads(
 }
 
 ///|
+fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Unreachable | @lib.Br(_) | @lib.BrTable(_, _) | @lib.Return => true
+    _ => false
+  }
+}
+
+///|
 fn wt_direct_legacy_pop_expr_supported(
   env : @validate.Env,
   expr : @lib.Expr,
@@ -3570,18 +3580,25 @@ fn wt_direct_legacy_pop_instr_supported(
                   if payload_idx >= 0 {
                     return false
                   }
-                  if catch_instrs.length() < instr_idx + payloads.length() {
-                    return false
-                  }
-                  for consumer_idx = instr_idx
-                      consumer_idx < instr_idx + payloads.length()
-                      consumer_idx = consumer_idx + 1 {
-                    match catch_instrs[consumer_idx] {
-                      @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) => ()
-                      _ => return false
+                  let prefix_flows_to_nonfallthrough = instr_idx <
+                    catch_instrs.length() &&
+                    wt_legacy_pop_prefix_tail_is_nonfallthrough(
+                      catch_instrs[instr_idx],
+                    )
+                  if !prefix_flows_to_nonfallthrough {
+                    if catch_instrs.length() < instr_idx + payloads.length() {
+                      return false
                     }
+                    for consumer_idx = instr_idx
+                        consumer_idx < instr_idx + payloads.length()
+                        consumer_idx = consumer_idx + 1 {
+                      match catch_instrs[consumer_idx] {
+                        @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) => ()
+                        _ => return false
+                      }
+                    }
+                    instr_idx += payloads.length()
                   }
-                  instr_idx += payloads.length()
                 }
                 _ => ()
               }
@@ -6815,7 +6832,7 @@ test "wast_text_binary_roundtrip rejects nested legacy pop payload explicitly" {
 }
 
 ///|
-test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
+test "wast_text_binary_roundtrip supports call pop before nonfallthrough argument" {
   let src =
     #|(module
     #|  (tag $e-i32 (param i32))
@@ -6828,8 +6845,33 @@ test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
     #|          (call $helper
     #|            (pop i32)
     #|            (br $label)))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(src, filename="legacy-pop-call-prefix.wat") {
+    Ok(m) => m
+    Err(e) => fail("expected call-pop-catch prefix to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $helper (param i32 i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (pop i32))))))
   match wast_text_binary_roundtrip(src, filename="legacy-pop-roundtrip.wat") {
-    Ok(_) => fail("expected legacy pop roundtrip to stay unsupported")
+    Ok(_) =>
+      fail("expected non-prefix legacy pop roundtrip to stay unsupported")
     Err(err) => {
       assert_true(err.contains("legacy"), msg=err)
       assert_true(err.contains("pop"), msg=err)

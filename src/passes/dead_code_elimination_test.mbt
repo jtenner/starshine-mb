@@ -866,13 +866,12 @@ test "dead-code-elimination treats lowered legacy try with all arms unreachable 
 }
 
 ///|
-test "dead-code-elimination documents unsupported legacy pop boundary" {
-  match
-    @wast.wast_to_binary_module(
+test "dead-code-elimination admits call-pop-catch text boundary" {
+  let optimized = match
+    pass_test_run_pipeline(
       (
         #|(module
         #|  (tag $e-i32 (param i32))
-        #|  (func $helper (param i32 i32))
         #|  (func
         #|    (block $label
         #|      (try
@@ -881,23 +880,21 @@ test "dead-code-elimination documents unsupported legacy pop boundary" {
         #|          (call $helper
         #|            (pop i32)
         #|            (br $label))
-        #|          nop)))))
+        #|          nop))))
+        #|  (func $helper (param i32 i32)))
         #|)
         #|,
       ),
-      filename="dce-legacy-pop-boundary.wat",
+      ["dead-code-elimination"],
     ) {
-    Ok(_) =>
-      fail(
-        "Binaryen legacy pop DCE fixtures must stay unsupported until @lib/@wast represent Binaryen pop and catch payload flow",
-      )
-    Err(err) => {
-      assert_true(err.contains("legacy"), msg=err)
-      assert_true(err.contains("pop"), msg=err)
-      assert_true(err.contains("real legacy Try without pop"), msg=err)
-      assert_true(err.contains("catch payload"), msg=err)
-    }
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call-pop-catch DCE pipeline success: \{err}")
   }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
 }
 
 ///|

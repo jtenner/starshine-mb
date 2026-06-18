@@ -425,6 +425,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-18] wast/passes | Call-pop-catch ingress probe
+
+- Narrowly admitted the Binaryen `$call-pop-catch` ingress shape in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt): a complete legacy catch-payload `pop` prefix may now flow directly into an immediately following nonfallthrough branch argument, while interrupted, nested, and non-prefix payload flows remain fail-closed.
+- Added WAST text/binary roundtrip coverage for the admitted call-pop prefix and a DCE pipeline boundary test in [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) proving the fixture now enters the local pass pipeline. This is not a Binaryen repair/output parity claim: the WAST-lowered DCE path still preserves the call shape, while represented HOT repair fixtures remain the current coverage for nested-pop repair.
+- Evidence: focused call-pop WAST and DCE pipeline tests passed, `moon test src/wast` passed (`395/395`), `moon test src/passes` passed (`2523/2523`), `moon test src/binary --filter "encode rejects uncontextualized legacy pop placeholder explicitly"` passed (`1/1`), `moon fmt` passed, and `git diff --check` passed.
+
 ## [2026-06-18] binary/wast | Legacy pop fail-closed boundary tests
 
 - Added focused fail-closed coverage in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) for interrupted multi-payload catch-pop prefixes and nested catch-payload `pop` so the high-level WAST roundtrip gate remains limited to complete direct payload-prefix consumers.
