@@ -7171,7 +7171,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
   instrs : Array[@lib.Instruction],
   locals : @lib.Locals,
   param_count : Int,
-  result_count : Int,
+  func_results : Array[@lib.ValType],
   label_results : Array[Array[@lib.ValType]],
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
@@ -7183,7 +7183,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
       instrs[idx],
       locals,
       param_count,
-      result_count,
+      func_results,
       label_results,
     )
     changed = changed || instr_changed
@@ -7235,21 +7235,33 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
                 continue
               }
             }
-            @lib.Return if result_count == 0 => {
-              for vt in pop_types {
-                let local_id = @lib.LocalIdx::new(
-                  (param_count + locals.length()).reinterpret_as_uint(),
-                )
-                locals.push(vt)
-                rewritten.push(@lib.Instruction::pop(vt))
-                rewritten.push(@lib.Instruction::local_set(local_id))
-                rewritten.push(@lib.Instruction::local_get(local_id))
-                rewritten.push(@lib.Instruction::drop())
+            @lib.Return => {
+              let preserve_payload = run_hot_pipeline_dce_raw_valtypes_match(
+                  func_results, pop_types,
+                ) &&
+                func_results.length() > 0
+              if func_results.length() == 0 || preserve_payload {
+                let carrier_locals : Array[@lib.LocalIdx] = []
+                for vt in pop_types {
+                  let local_id = @lib.LocalIdx::new(
+                    (param_count + locals.length()).reinterpret_as_uint(),
+                  )
+                  locals.push(vt)
+                  carrier_locals.push(local_id)
+                  rewritten.push(@lib.Instruction::pop(vt))
+                  rewritten.push(@lib.Instruction::local_set(local_id))
+                }
+                for local_id in carrier_locals {
+                  rewritten.push(@lib.Instruction::local_get(local_id))
+                  if !preserve_payload {
+                    rewritten.push(@lib.Instruction::drop())
+                  }
+                }
+                rewritten.push(@lib.Instruction::return_())
+                idx = scan + 1
+                changed = true
+                continue
               }
-              rewritten.push(@lib.Instruction::return_())
-              idx = scan + 1
-              changed = true
-              continue
             }
             @lib.I32Const(selector) if scan + 1 < instrs.length() =>
               match instrs[scan + 1] {
@@ -7405,7 +7417,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
   instr : @lib.Instruction,
   locals : @lib.Locals,
   param_count : Int,
-  result_count : Int,
+  func_results : Array[@lib.ValType],
   label_results : Array[Array[@lib.ValType]],
 ) -> (@lib.Instruction, Bool) {
   match instr {
@@ -7415,7 +7427,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
         run_hot_pipeline_dce_raw_block_label_results(env, block_type),
       )
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        env, body, locals, param_count, result_count, nested_labels,
+        env, body, locals, param_count, func_results, nested_labels,
       )
       if changed {
         (
@@ -7432,7 +7444,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
         run_hot_pipeline_dce_raw_loop_label_results(env, block_type),
       )
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        env, body, locals, param_count, result_count, nested_labels,
+        env, body, locals, param_count, func_results, nested_labels,
       )
       if changed {
         (
@@ -7449,7 +7461,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
         run_hot_pipeline_dce_raw_block_label_results(env, block_type),
       )
       let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        env, body, locals, param_count, result_count, nested_labels,
+        env, body, locals, param_count, func_results, nested_labels,
       )
       let rewritten_catches : Array[@lib.LegacyCatch] = []
       let mut catches_changed = false
@@ -7457,7 +7469,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
         match catch_ {
           @lib.LegacyCatch(tag, @lib.Expr(catch_body)) => {
             let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-              env, catch_body, locals, param_count, result_count, nested_labels,
+              env, catch_body, locals, param_count, func_results, nested_labels,
             )
             catches_changed = catches_changed || catch_changed
             rewritten_catches.push(
@@ -7466,7 +7478,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
           }
           @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
             let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-              env, catch_body, locals, param_count, result_count, nested_labels,
+              env, catch_body, locals, param_count, func_results, nested_labels,
             )
             catches_changed = catches_changed || catch_changed
             rewritten_catches.push(
@@ -7495,7 +7507,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
         run_hot_pipeline_dce_raw_block_label_results(env, block_type),
       )
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        env, body, locals, param_count, result_count, nested_labels,
+        env, body, locals, param_count, func_results, nested_labels,
       )
       if changed {
         (
@@ -7516,13 +7528,13 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
         run_hot_pipeline_dce_raw_block_label_results(env, block_type),
       )
       let (rewritten_then, then_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        env, then_body, locals, param_count, result_count, nested_labels,
+        env, then_body, locals, param_count, func_results, nested_labels,
       )
       let mut else_changed = false
       let rewritten_else = match else_body {
         Some(else_body) => {
           let (rewritten_else, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-            env, else_body, locals, param_count, result_count, nested_labels,
+            env, else_body, locals, param_count, func_results, nested_labels,
           )
           else_changed = changed
           Some(rewritten_else)
@@ -7547,7 +7559,7 @@ fn run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
   param_count : Int,
-  result_count : Int,
+  func_results : Array[@lib.ValType],
   env : @validate.Env,
 ) -> @lib.Func {
   let repaired_locals = locals.copy()
@@ -7556,7 +7568,7 @@ fn run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
     instrs,
     repaired_locals,
     param_count,
-    result_count,
+    func_results,
     [],
   )
   @lib.Func::new(repaired_locals, @lib.Expr::new(repaired_instrs))
@@ -22229,16 +22241,16 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         let param_count = run_hot_pipeline_required_func_params(
           module_ctx, func_idx,
         ).length()
-        let result_count = run_hot_pipeline_required_func_results(
+        let func_results = run_hot_pipeline_required_func_results(
           module_ctx, func_idx,
-        ).length()
+        )
         return Some({
           reason: "load-call-set-dce-explicit-dead-suffix",
           func: run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
             locals,
             rewritten_instrs,
             param_count,
-            result_count,
+            func_results,
             @validate.empty_env().with_module(mod_),
           ),
           unchanged_original: false,
@@ -22264,16 +22276,16 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         let param_count = run_hot_pipeline_required_func_params(
           module_ctx, func_idx,
         ).length()
-        let result_count = run_hot_pipeline_required_func_results(
+        let func_results = run_hot_pipeline_required_func_results(
           module_ctx, func_idx,
-        ).length()
+        )
         return Some({
           reason: "loop-outer-branch-dce-explicit-dead-suffix",
           func: run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
             locals,
             rewritten_instrs,
             param_count,
-            result_count,
+            func_results,
             @validate.empty_env().with_module(mod_),
           ),
           unchanged_original: false,
@@ -22300,16 +22312,16 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       let param_count = run_hot_pipeline_required_func_params(
         module_ctx, func_idx,
       ).length()
-      let result_count = run_hot_pipeline_required_func_results(
+      let func_results = run_hot_pipeline_required_func_results(
         module_ctx, func_idx,
-      ).length()
+      )
       return Some({
         reason: "dce-explicit-dead-suffix",
         func: run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
           locals,
           rewritten_instrs,
           param_count,
-          result_count,
+          func_results,
           @validate.empty_env().with_module(mod_),
         ),
         unchanged_original: false,

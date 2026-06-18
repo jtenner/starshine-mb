@@ -1425,7 +1425,7 @@ test "dead-code-elimination repairs catch pop type-index br_table payload" {
 }
 
 ///|
-test "dead-code-elimination rejects unsupported catch pop nonvoid return boundary" {
+test "dead-code-elimination repairs catch pop value return payload" {
   let source =
     #|(module
     #|  (tag $e-i32 (param i32))
@@ -1441,14 +1441,106 @@ test "dead-code-elimination rejects unsupported catch pop nonvoid return boundar
     #|  (func $helper (param i32 i32)))
     #|)
     #|
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected value-return catch-pop DCE pipeline success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    1,
+    msg=pretty,
+  )
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs catch pop multivalue return payload" {
+  let source =
+    #|(module
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func (result i32 i64)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return))
+    #|        nop))
+    #|    (i32.const 0)
+    #|    (i64.const 0))
+    #|  (func $helper (param i32 i64 i32 i64)))
+    #|)
+    #|
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multivalue-return catch-pop DCE pipeline success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination rejects catch pop mismatched return payload boundary" {
+  let source =
+    #|(module
+    #|  (tag $e-i64 (param i64))
+    #|  (func (result i32)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64
+    #|        (call $helper
+    #|          (pop i64)
+    #|          (return))
+    #|        nop))
+    #|    (i32.const 0))
+    #|  (func $helper (param i64 i32)))
+    #|)
+    #|
   match
     @wast.wast_to_binary_module(
       source,
-      filename="dce-catch-pop-nonvoid-return-boundary.wat",
+      filename="dce-catch-pop-mismatched-return-boundary.wat",
     ) {
     Ok(mod_) =>
       fail(
-        "unsupported nonvoid-return catch-pop flow must stay rejected until return payload repair is represented: \{mod_.pretty_print_func(@lib.FuncIdx::new(0U))}",
+        "mismatched nonvoid-return catch-pop flow must stay rejected: \{mod_.pretty_print_func(@lib.FuncIdx::new(0U))}",
       )
     Err(err) => assert_true(err.contains("legacy exception pop text"), msg=err)
   }

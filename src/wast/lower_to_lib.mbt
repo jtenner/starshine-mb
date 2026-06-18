@@ -3575,7 +3575,9 @@ fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
 ) -> Bool {
   match instr {
     @lib.Unreachable => true
-    @lib.Return => func_results.length() == 0
+    @lib.Return =>
+      func_results.length() == 0 ||
+      wt_legacy_pop_types_match(func_results, payload_types)
     @lib.Br(label) =>
       wt_legacy_pop_label_matches_branch(label_results, label, payload_types)
     @lib.BrTable(labels, fallback) =>
