@@ -1200,6 +1200,7 @@ fn validate_const_expr(
     reachable: true,
     escape: NoTcEscape,
     reachable_escape_depths: [],
+    legacy_pop_payloads: [],
   }
   let st1 = match Typecheck::typecheck(expr, st0) {
     Ok(s) => s
@@ -1449,6 +1450,7 @@ fn validate_func_body_against_functype(
         reachable: true,
         escape: NoTcEscape,
         reachable_escape_depths: [],
+        legacy_pop_payloads: [],
       }
       let st1 = match Typecheck::typecheck(body, st0) {
         Ok(s) => s

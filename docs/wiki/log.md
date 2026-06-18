@@ -425,6 +425,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-17] passes/dead-code-elimination | Typecheck legacy pop catch payloads
+
+- Added red-first typecheck coverage in [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) requiring `@lib.Instruction::Pop` to be valid only in a legacy `catch` with a matching tag payload type; the test failed while `Pop` was still accepted outside catches.
+- Extended `TcState` with a narrow legacy-pop payload context. Legacy `catch` arms seed it from the caught tag payload signature, `Pop(vt)` consumes one matching payload type and pushes `vt`, and `catch_all` / outside-catch use fails closed.
+- Evidence: red-first `moon test src/validate` failed while `Pop` was still accepted outside catches; after implementation `moon fmt`, `moon test src/validate` (`1609/1609`), `moon test src/wast` (`386/386`), `moon test src/passes` (`2519/2519`), full `moon test` (`5836/5836`), `moon info` (with existing GenValid warnings), and native `moon build --target native --release src/cmd` (with existing pass-manager warnings) passed. This still does not implement binary legacy EH, exact HOT catch-arm preservation, or DCE `hasPop && addedBlock` nested-pop repair; `[O4Z-AUDIT-DCE]` remains active.
+- Updated [`binaryen/passes/dead-code-elimination/implementation-structure-and-tests.md`](binaryen/passes/dead-code-elimination/implementation-structure-and-tests.md), [`binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md`](binaryen/passes/dead-code-elimination/typed-control-voidification-and-eh.md), and [`../../agent-todo.md`](../../agent-todo.md).
+
 ## [2026-06-17] passes/dead-code-elimination | Add legacy pop placeholder surface
 
 - Added red-first WAST lowering coverage in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) requiring `(pop i32)` inside a legacy catch to survive parser/AST-to-lib lowering as a distinct `@lib.Instruction::Pop`, rather than remaining only a raw-text rejection.

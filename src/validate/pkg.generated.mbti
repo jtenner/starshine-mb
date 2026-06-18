@@ -1289,6 +1289,7 @@ pub struct TcState {
   reachable : Bool
   escape : TcEscape
   reachable_escape_depths : Array[Int]
+  legacy_pop_payloads : Array[@lib.ValType]
 }
 pub impl Show for TcState
 
