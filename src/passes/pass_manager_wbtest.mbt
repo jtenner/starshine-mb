@@ -63,6 +63,61 @@ test "ssa-nomerge scratch freshener aliases already-appended locals" {
 }
 
 ///|
+test "ssa-nomerge scratch freshener preserves one-arm branch-overwritten body carriers" {
+  // JSON-AS containers-runtime exposed this shape in an AS runtime helper:
+  // a loaded body scratch local is tee'd, an if then-arm overwrites that same
+  // local while the else arm only reads it, and the post-if code reads the
+  // canonical local as the branch merge carrier. Freshening the pre-if tee and
+  // then-arm tee separately leaves the post-if canonical read stale.
+  let params : Array[@lib.ValType] = [
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+  ]
+  let locals = @lib.Locals::from_types([
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+  ])
+  let extra_local_types : Array[@lib.ValType] = []
+  let carrier = @lib.LocalIdx::new(5U)
+  let rewritten = run_hot_pipeline_raw_freshen_param_scratch_writes(
+    [
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 0UL)),
+      @lib.Instruction::local_tee(carrier),
+      @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 0UL)),
+      @lib.Instruction::local_get(carrier),
+      @lib.Instruction::i32_eqz(),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::local_tee(carrier),
+          @lib.Instruction::drop(),
+        ],
+        Some([@lib.Instruction::local_get(carrier), @lib.Instruction::drop()]),
+      ),
+      @lib.Instruction::local_get(carrier),
+    ],
+    params,
+    locals,
+    extra_local_types,
+  )
+
+  @debug.assert_eq(extra_local_types.length(), 0)
+  @debug.assert_eq(rewritten[3], @lib.Instruction::local_tee(carrier))
+  match rewritten[7] {
+    @lib.If(_, then_body, _) =>
+      @debug.assert_eq(then_body[1], @lib.Instruction::local_tee(carrier))
+    _ => fail("expected if in rewritten scratch fixture")
+  }
+  @debug.assert_eq(rewritten[8], @lib.Instruction::local_get(carrier))
+}
+
+///|
 test "simplify-locals-nostructure lowered cleanup skips stack-root call hazards" {
   let mod_ = pass_test_module_from_wat(
     (

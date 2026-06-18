@@ -777,6 +777,36 @@ test "ssa-nomerge planner keeps merge-feeding branch writes canonical" {
 }
 
 ///|
+test "ssa-nomerge planner keeps branch-overwritten tee merge carriers canonical" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 1
+    #|    local.tee 1
+    #|    drop
+    #|    local.get 1
+    #|    i32.eqz
+    #|    if
+    #|      i32.const 2
+    #|      local.tee 1
+    #|      drop
+    #|    else
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    local.get 1)
+    #|)
+  let shadow = try! ssa_nomerge_test_shadow_summary_from_wat(source)
+
+  @debug.assert_eq(shadow.plan_freshen_writes, 0)
+  @debug.assert_eq(shadow.plan_keep_writes, 2)
+  @debug.assert_eq(shadow.plan_retarget_gets, 0)
+  @debug.assert_eq(shadow.plan_keep_gets, 3)
+  @debug.assert_eq(shadow.current_added_body_locals, 0)
+  @debug.assert_eq(shadow.current_local_gets, [1U, 1U, 1U])
+}
+
+///|
 test "ssa-nomerge planner classifies loop-carried no-read set and dead tee writes" {
   let loop_func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),

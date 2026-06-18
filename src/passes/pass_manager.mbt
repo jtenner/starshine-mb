@@ -14001,14 +14001,32 @@ fn run_hot_pipeline_raw_set_param_alias(
 ///|
 fn run_hot_pipeline_raw_no_else_branch_merge_locals(
   instrs : Array[@lib.Instruction],
+  param_count : Int,
   base_local_count : Int,
 ) -> @bitset.BitSet {
   let locals = @bitset.BitSet::new(base_local_count)
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
-      @lib.If(_, then_body, None) =>
+      @lib.If(_, then_body, else_body) =>
         for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
-          if run_hot_pipeline_raw_branch_writes_local(then_body, local_id) &&
+          let then_writes = run_hot_pipeline_raw_branch_writes_local(
+            then_body, local_id,
+          )
+          let else_writes = match else_body {
+            Some(body) =>
+              run_hot_pipeline_raw_branch_writes_local(body, local_id)
+            None => false
+          }
+          if then_writes &&
+            else_body is None &&
+            run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+              instrs,
+              idx + 1,
+              local_id,
+            ) {
+            locals[local_id] = true
+          } else if local_id >= param_count &&
+            then_writes != else_writes &&
             run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
               instrs,
               idx + 1,
@@ -14248,7 +14266,9 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let base_local_count = params.length() + locals.length()
   let seen_local_writes : Array[Bool] = Array::make(base_local_count, false)
   let no_else_branch_merge_locals = run_hot_pipeline_raw_no_else_branch_merge_locals(
-    instrs, base_local_count,
+    instrs,
+    params.length(),
+    base_local_count,
   )
   let loop_carried_merge_locals = run_hot_pipeline_raw_loop_carried_merge_locals(
     instrs, base_local_count,
