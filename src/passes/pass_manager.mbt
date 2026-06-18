@@ -7081,6 +7081,180 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+  instrs : Array[@lib.Instruction],
+  locals : @lib.Locals,
+  param_count : Int,
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    let (instr, instr_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
+      instrs[idx],
+      locals,
+      param_count,
+    )
+    changed = changed || instr_changed
+    if idx + 1 < instrs.length() {
+      match (instr, instrs[idx + 1]) {
+        (@lib.Pop(vt), @lib.Br(label)) => {
+          let local_id = @lib.LocalIdx::new(
+            (param_count + locals.length()).reinterpret_as_uint(),
+          )
+          locals.push(vt)
+          rewritten.push(@lib.Instruction::pop(vt))
+          rewritten.push(@lib.Instruction::local_set(local_id))
+          rewritten.push(@lib.Instruction::local_get(local_id))
+          rewritten.push(@lib.Instruction::drop())
+          rewritten.push(@lib.Instruction::br(label))
+          idx = idx + 2
+          changed = true
+          continue
+        }
+        _ => ()
+      }
+    }
+    rewritten.push(instr)
+    idx = idx + 1
+  }
+  (rewritten, changed)
+}
+
+///|
+fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
+  instr : @lib.Instruction,
+  locals : @lib.Locals,
+  param_count : Int,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+        body, locals, param_count,
+      )
+      if changed {
+        (
+          @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+        body, locals, param_count,
+      )
+      if changed {
+        (
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate_label) => {
+      let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+        body, locals, param_count,
+      )
+      let rewritten_catches : Array[@lib.LegacyCatch] = []
+      let mut catches_changed = false
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(tag, @lib.Expr(catch_body)) => {
+            let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+              catch_body, locals, param_count,
+            )
+            catches_changed = catches_changed || catch_changed
+            rewritten_catches.push(
+              @lib.LegacyCatch::new(tag, @lib.Expr::new(rewritten_catch_body)),
+            )
+          }
+          @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+            let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+              catch_body, locals, param_count,
+            )
+            catches_changed = catches_changed || catch_changed
+            rewritten_catches.push(
+              @lib.LegacyCatch::all(@lib.Expr::new(rewritten_catch_body)),
+            )
+          }
+        }
+      }
+      if body_changed || catches_changed {
+        (
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(rewritten_body),
+            rewritten_catches,
+            delegate_target=delegate_label,
+          ),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten_body, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+        body, locals, param_count,
+      )
+      if changed {
+        (
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+        then_body, locals, param_count,
+      )
+      let mut else_changed = false
+      let rewritten_else = match else_body {
+        Some(else_body) => {
+          let (rewritten_else, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+            else_body, locals, param_count,
+          )
+          else_changed = changed
+          Some(rewritten_else)
+        }
+        None => None
+      }
+      if then_changed || else_changed {
+        (
+          @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+) -> @lib.Func {
+  let repaired_locals = locals.copy()
+  let (repaired_instrs, _) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
+    instrs, repaired_locals, param_count,
+  )
+  @lib.Func::new(repaired_locals, @lib.Expr::new(repaired_instrs))
+}
+
+///|
 fn run_hot_pipeline_dce_raw_has_dead_drop_after_nonfallthrough(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -21741,9 +21915,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       )
       if trimmed_dead_suffix {
         let @lib.Func(locals, _) = original
+        let module_ctx = run_hot_pipeline_require_module_ctx(
+          mod_, module_state, options,
+        )
+        let param_count = run_hot_pipeline_required_func_params(
+          module_ctx, func_idx,
+        ).length()
         return Some({
           reason: "load-call-set-dce-explicit-dead-suffix",
-          func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+          func: run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
+            locals, rewritten_instrs, param_count,
+          ),
           unchanged_original: false,
           trace_skip_raw: true,
         })
@@ -21761,9 +21943,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       )
       if trimmed_dead_suffix {
         let @lib.Func(locals, _) = original
+        let module_ctx = run_hot_pipeline_require_module_ctx(
+          mod_, module_state, options,
+        )
+        let param_count = run_hot_pipeline_required_func_params(
+          module_ctx, func_idx,
+        ).length()
         return Some({
           reason: "loop-outer-branch-dce-explicit-dead-suffix",
-          func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+          func: run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
+            locals, rewritten_instrs, param_count,
+          ),
           unchanged_original: false,
           trace_skip_raw: true,
         })
@@ -21782,9 +21972,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       instrs,
     )
     if trimmed_dead_suffix {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let param_count = run_hot_pipeline_required_func_params(
+        module_ctx, func_idx,
+      ).length()
       return Some({
         reason: "dce-explicit-dead-suffix",
-        func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+        func: run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
+          locals, rewritten_instrs, param_count,
+        ),
         unchanged_original: false,
         trace_skip_raw: true,
       })

@@ -970,6 +970,8 @@ test "dead-code-elimination removes call-pop-catch dead call text" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("call"), msg=pretty)
   assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
   assert_true(pretty.contains("pop"), msg=pretty)
 }
 
