@@ -975,22 +975,56 @@ test "dead-code-elimination removes call-pop-catch dead call text" {
 
 ///|
 test "dead-code-elimination documents unsupported stack-switching boundary" {
+  let source =
+    #|(module
+    #|  (type $function (func))
+    #|  (type $cont (cont $function))
+    #|  (tag $tag (type $function))
+    #|  (func $resume (param $c (ref $cont))
+    #|    (block $exit
+    #|      (drop
+    #|        (block $handle_effect (result (ref $cont))
+    #|          (resume $cont (on $tag $handle_effect)
+    #|            (local.get $c))
+    #|          (br $exit)))))
+    #|  (func $resume_throw (param $c (ref $cont))
+    #|    (block $exit
+    #|      (drop
+    #|        (block $handle_effect (result (ref $cont))
+    #|          (resume_throw $cont $tag (on $tag $handle_effect)
+    #|            (local.get $c))
+    #|          (br $exit))))))
+    #|)
+    #|
+  let parsed = match
+    @wast.wast_to_module(source, filename="dce-stack-switching-boundary.wat") {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected Binaryen DCE stack-switching fixture to parse as WAST placeholder: \{err}",
+      )
+  }
+  let printed = match @wast.module_to_wast(parsed) {
+    Ok(text) => text
+    Err(err) =>
+      fail(
+        "expected Binaryen DCE stack-switching fixture to print as WAST placeholder: \{err}",
+      )
+  }
+  assert_true(printed.contains("(type $cont (cont $function))"), msg=printed)
+  assert_true(printed.contains("(tag $tag (type $function))"), msg=printed)
+  assert_true(
+    printed.contains("resume $cont (on $tag $handle_effect)"),
+    msg=printed,
+  )
+  assert_true(
+    printed.contains("resume_throw $cont $tag (on $tag $handle_effect)"),
+    msg=printed,
+  )
+
   match
     @wast.wast_to_binary_module(
-      (
-        #|(module
-        #|  (type $function (func))
-        #|  (type $cont (cont $function))
-        #|  (tag $tag)
-        #|  (func (param $c (ref $cont))
-        #|    (block $exit
-        #|      (drop
-        #|        (block $handle_effect (result (ref $cont))
-        #|          (resume $cont (on $tag $handle_effect)
-        #|            (local.get $c))
-        #|          (br $exit))))))
-        #|,
-      ),
+      source,
       filename="dce-stack-switching-boundary.wat",
     ) {
     Ok(_) =>
@@ -1003,6 +1037,7 @@ test "dead-code-elimination documents unsupported stack-switching boundary" {
       assert_true(err.contains("resume"), msg=err)
       assert_true(err.contains("resume_throw"), msg=err)
       assert_true(err.contains("on"), msg=err)
+      assert_true(err.contains("dce-stack-switching-boundary.wat"), msg=err)
     }
   }
 }

@@ -425,6 +425,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-18] passes/dead-code-elimination | Stack-switching lit boundary fixture
+
+- Strengthened the DCE stack-switching boundary coverage in [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) to parse/print the fuller Binaryen `dce-stack-switching.wast` shape: `(type $cont (cont $function))`, `(tag $tag (type $function))`, `$resume`, and `$resume_throw` with `on` handler labels.
+- Kept the behavior intentionally fail-closed for lib/binary lowering; this is WAST placeholder/tooling coverage only, not stack-switching representation or DCE handler-label liveness support. `[O4Z-AUDIT-DCE]` remains active.
+- Evidence: focused `moon test src/passes --filter "dead-code-elimination documents unsupported stack-switching boundary"` passed.
+
 ## [2026-06-18] passes/dead-code-elimination | Preserve call-pop-catch text payload
 
 - Extended DCE's raw explicit-dead-suffix trimming in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) through real legacy `try` bodies and catch arms, so the admitted `$call-pop-catch` text path preserves the catch-payload `pop` while removing the dead call.
