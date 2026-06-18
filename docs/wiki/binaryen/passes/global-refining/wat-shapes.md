@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-18
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
 related:
@@ -264,7 +264,7 @@ Before:
 (export "imm-exp" (global $imm-exp))
 ```
 
-Why this still blocks optimization in official `version_129` closed world:
+Why this still blocks optimization in official `version_130` closed world:
 
 - the implementation currently skips all exported globals in closed world
 - this is a source-backed current limitation, not a theoretical requirement of the idea

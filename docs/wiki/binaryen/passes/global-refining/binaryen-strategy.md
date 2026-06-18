@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-06-18
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
   - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
@@ -18,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
+Use Binaryen `version_130` as the primary source oracle for this pass.
 
 Primary files:
 
@@ -185,7 +185,7 @@ That means:
 
 ### Closed-world exported globals
 
-- all currently disqualified in official `version_129`
+- all currently disqualified in official `version_130`
 - even immutable ones
 
 The code comment explicitly says Binaryen could in theory refine closed-world exports to still-public types later, but the current implementation does not.
@@ -301,9 +301,9 @@ The real contract is easiest to understand once you see the lit coverage Binarye
 The dedicated `global-refining.wast` file covers:
 
 - init-only null-ref narrowing
-- init-only `ref.func` exact-type narrowing
-- null-plus-exact nullable refinement
-- non-null exact refinement
+- init-only `ref.func` exact-type narrowing, e.g. `(ref (exact $foo_t))`
+- null-plus-exact nullable refinement, e.g. `(ref null (exact $foo_t))`
+- non-null exact refinement that removes nullability while preserving exactness
 - heterogeneous `anyref`-to-`eqref` joins
 - dependent global-initializer `global.get` retagging
 - open-vs-closed-world exported mutability differences
@@ -313,12 +313,7 @@ That is broader than the current local MoonBit test file.
 
 ## Current freshness note
 
-A narrow 2026-04-21 check found no semantic drift here:
-
-- current `main` `GlobalRefining.cpp` is identical to `version_129`
-- current `main` `global-refining.wast` is also identical to `version_129`
-
-So the current wiki should continue treating `version_129` as the semantic oracle without an active trunk-drift caveat.
+The active 2026-06-18 audit uses Binaryen `version_130` sources and the dedicated `test/lit/passes/global-refining.wast` surface. That lit file continues to make exact function-reference LUB behavior observable for `ref.func` initializers/writes, nullable bottom joins, and subtype targets.
 
 ## What a future port or parity pass must preserve
 
@@ -328,7 +323,7 @@ A future strict-parity Starshine port or refactor must keep these Binaryen-backe
 - imported globals stay untouched
 - open-world exported mutable globals stay untouched
 - open-world exported immutable globals only refine when the new type is public
-- closed-world exported globals are still conservatively untouched in official `version_129`
+- closed-world exported globals are still conservatively untouched in official `version_130`
 - every declaration rewrite must be paired with `global.get` cached-type repair if the IR representation caches expression result types
 - changed code must be refinalized after retagging
 - this pass does not need generic non-nullable-local fixups in Binaryen's model

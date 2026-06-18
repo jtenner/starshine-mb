@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-18
 sources:
   - ../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
   - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
   - ../../../../../src/passes/global_refining.mbt
   - ../../../../../src/passes/global_refining_test.mbt
+  - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -38,7 +39,7 @@ The most important immediate local rule is:
 
 - **the pass currently refines defined reference globals, preserves exported mutable boundaries, filters open-world immutable exports through a local public-type check, and skips exported globals in closed world**
 
-That is closer to official Binaryen `version_129` than the earlier private-only subset. Starshine still differs architecturally because it uses local boundary/HOT types and does not need Binaryen's cached-`global.get` retagging step today.
+That is closer to official Binaryen `version_130` than the earlier private-only subset. Starshine still differs architecturally because it uses local boundary/HOT types and does not need Binaryen's cached-`global.get` retagging step today.
 
 ## Current local code map
 
@@ -47,7 +48,7 @@ The easiest way to follow the in-tree implementation is this file map:
 - `src/passes/global_refining.mbt:2`
   - summary string used by the registry and preset docs
 - `src/passes/global_refining.mbt:103`
-  - `gr_expr_result_type(...)`: initializer classification for `ref.null`, immutable `global.get`, `ref.func`, `ref.i31`, `string.const`, and GC constructor results
+  - `gr_expr_result_type(...)`: initializer classification for `ref.null`, immutable `global.get`, exact `ref.func`, `ref.i31`, `string.const`, and GC constructor results
 - `src/passes/global_refining.mbt:147`
   - local public-type helper family: rejects exact exported refinements and recursively checks referenced type bodies
 - `src/passes/global_refining.mbt:451`
@@ -58,6 +59,8 @@ The easiest way to follow the in-tree implementation is this file map:
   - `gr_collect_func_global_sets(...)`: HOT-side `global.set` value collection
 - `src/passes/global_refining.mbt:586`
   - `global_refining_run_module_pass(...)`: exported-global filtering, initializer seeding, per-function collection, public export guard, and declaration rewrite
+- `src/validate/typecheck.mbt:1891`
+  - `typecheck_ref_func(...)`: gives concrete `ref.func` results exact heap refs when a type index is available
 - `src/passes/global_refining_test.mbt:17`
   - private narrowing positive
 - `src/passes/global_refining_test.mbt:46`
@@ -107,7 +110,7 @@ So the local boundary policy now matches Binaryen's broad open-world mutable-exp
 
 - `ref.null`
 - `global.get`
-- `ref.func`
+- exact `ref.func`
 - `ref.i31`
 - `string.const`
 - GC constructors whose result type is exact and non-null, including `struct.new_default`
@@ -131,7 +134,7 @@ The join keeps three main dimensions explicit:
 
 - heap-type compatibility
 - nullability
-- exactness preservation only when both sides are exact and on the same precise heap type
+- exactness preservation when both sides are exact on the same precise heap type, or when an exact function/GC reference is joined with the matching nullable bottom (`nofunc` / `none`)
 
 That gives Starshine a local “initializer plus observed writes” join rule even though the details are expressed through MoonBit validation helpers instead of Binaryen `Type::getLeastUpperBound(...)`.
 
@@ -144,7 +147,7 @@ When a function does mention a candidate global, the pass:
 
 - lifts it with `@ir.hot_lift_func_with_context(...)`
 - walks live HOT nodes
-- records the value type of each candidate `GlobalSet`
+- records the value type of each candidate `GlobalSet`, with an explicit local exact-type path for direct `ref.func` writes to keep this pass aligned with Binaryen even if upstream HOT typing changes
 
 This is the biggest architectural difference from Binaryen's tiny AST-side `FindAll<GlobalSet>` approach.
 The local pass pays a HOT-lift cost only for functions that matter, then reasons from HOT node result types.
@@ -163,7 +166,7 @@ After initializer seeding and HOT-side write collection, `global_refining_run_mo
 - the refined type differs from the old one
 - the refined type matches the old one as a subtype under the local validator
 
-Then it rebuilds the global section with the narrower declaration. Use [`../../../binary/type-table-memory-global-tag-sections.md`](../../../binary/type-table-memory-global-tag-sections.md) as the shared checklist for global-section validation order, `GlobalIdx` carriers, exports, and name maps.
+Then it rebuilds the global section with the narrower declaration. For refined globals with direct `ref.null ...; global.set` writes, Starshine also rewrites the immediate `ref.null` type to the refined target so the boundary validator sees the nullable bottom/exact-reference relationship that Binaryen carries through expression typing. Use [`../../../binary/type-table-memory-global-tag-sections.md`](../../../binary/type-table-memory-global-tag-sections.md) as the shared checklist for global-section validation order, `GlobalIdx` carriers, exports, and name maps.
 
 Important negative fact:
 
@@ -180,25 +183,30 @@ The focused local tests lock these main families:
 - exported mutable bailout
 - closed-world exported-global bailout
 - abstract `ref.null` bottom-type tightening
-- `ref.func`, `ref.i31`, and exact GC constructor initializer facts
+- exact `ref.func`, `ref.i31`, and exact GC constructor initializer facts, including nullable-bottom exact joins for function refs
 - exported exact/private initializer bailout through the local public-type filter
 - sibling-write join at the shared declared supertype
 - direct `-O4z` option slot execution
 
 That is a much better local floor for the current implementation.
-It is still smaller than the official `global-refining.wast` surface, which is why the parity page keeps the remaining GC-gate and Binaryen-retagging representation differences explicit.
+It is still smaller than the official `global-refining.wast` surface, which is why the parity page keeps the remaining Binaryen-retagging representation differences explicit.
+
+## Feature-model note: GC is assumed enabled locally
+
+Binaryen `version_130` has two GC gates for this pass: `GlobalRefining::run` returns when `module->features.hasGC()` is false, and the default prepass scheduler adds `global-refining` only for GC-enabled modules at optimize level 2 or higher.
+
+Starshine does not expose a Binaryen-style per-module no-GC feature bit to passes. This repo targets Wasm 3.0 / `wasm-gc`, and direct-pass plus preset execution assumes GC is enabled. Therefore adding a local `hasGC() == false` bailout would model an unavailable execution mode rather than an observable Starshine direct-pass behavior. Reopen this only if Starshine gains feature-disabled pass execution or a compare lane intentionally runs Binaryen without GC enabled.
 
 ## What the local pass does not do
 
-Compared with upstream Binaryen `version_129`, Starshine currently does **not** do these `global-refining` behaviors here:
+Compared with upstream Binaryen `version_130`, Starshine currently does **not** do these `global-refining` behaviors here:
 
-- broad AST-side `FindAll<GlobalSet>` collection
+- broad AST-side `FindAll<GlobalSet>` collection; Starshine now recognizes direct HOT `ref.func` writes as exact for the local collection path, but the traversal strategy remains different
 - explicit `global.get` retagging after declaration rewrites
 - `runOnModuleCode(...)` repair of dependent global initializers
 - `ReFinalize` after changed `global.get` users
-- explicit GC feature gating at the top of the pass
 
-The local pass now does implement the formerly missing public-boundary filter and closed-world exported-global distinction.
+The local pass now does implement the formerly missing public-boundary filter and closed-world exported-global distinction. The explicit Binaryen GC gate is not implemented because it is unobservable under Starshine's current Wasm 3.0 / `wasm-gc` feature model.
 
 Those are real capability and representation differences, not just documentation wording differences.
 

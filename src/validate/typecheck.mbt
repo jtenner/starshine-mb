@@ -1893,7 +1893,11 @@ fn typecheck_ref_func(st : TcState, f : FuncIdx) -> TcResult {
     return Err("invalid function index")
   }
   let heap_type = inferred_ref_func_heap_type(st.env, f)
-  Ok(st.push1(ValType::ref_type(RefType::new(false, heap_type))))
+  let exact = match heap_type {
+    HeapType(_) | DefTypeHeapType(_) => true
+    AbsHeapTypeHeapType(_) => false
+  }
+  Ok(st.push1(ValType::ref_type(RefType::new(false, heap_type, exact~))))
 }
 
 ///|
@@ -6841,7 +6845,9 @@ test "Typecheck RefFunc infers concrete function heap type when unique" {
   )
   let final_state = assert_ok(result)
   assert_stack(final_state, [
-    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(0)))),
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(0)), exact=true),
+    ),
   ])
 }
 
@@ -6860,7 +6866,9 @@ test "Typecheck RefFunc prefers declared function type index when available" {
   )
   let final_state = assert_ok(result)
   assert_stack(final_state, [
-    ValType::ref_type(RefType::new(false, HeapType::new(TypeIdx::new(1)))),
+    ValType::ref_type(
+      RefType::new(false, HeapType::new(TypeIdx::new(1)), exact=true),
+    ),
   ])
 }
 

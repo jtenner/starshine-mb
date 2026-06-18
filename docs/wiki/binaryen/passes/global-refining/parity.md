@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-18
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
   - ../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md
@@ -9,6 +9,7 @@ related:
   - ./starshine-hot-ir-strategy.md
   - ../../../../../src/passes/global_refining.mbt
   - ../../../../../src/passes/global_refining_test.mbt
+  - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -23,9 +24,10 @@ related:
   - imported globals stay untouched
   - exported mutable globals stay untouched in open world
   - exported immutable globals may refine in open world only when the new type is public
-  - current official `version_129` closed-world behavior still skips all exported globals
+  - current official `version_130` closed-world behavior still skips all exported globals
 - The current Starshine implementation now matches the broad exported-boundary split on the direct parity lane: mutable exports stay untouched, immutable exports can refine only when the refined type remains public, closed-world exports stay untouched, and private globals still tighten from initializer-plus-write LUBs.
 - The 2026-06-03 O4z audit also restored the direct `global-refining` slot under `-O4z` options and added initializer coverage for `ref.func`, `ref.i31`, `string.const`, and exact GC constructor results.
+- The 2026-06-18 `[GR-002]` slice aligned Starshine's function-reference LUB behavior with Binaryen `version_130`: `ref.func` facts are exact, nullable function bottom plus exact `ref.func` joins to nullable exact, and all-non-null `ref.func` families refine to non-null exact function refs. Moon validation passed. The direct 10000-case compare stopped on existing `[GR-003]` initializer-typing mismatches (`ref.i31` and `extern.convert_any`), not function-ref exactness drift.
 
 ## Current in-tree status
 
@@ -56,7 +58,7 @@ The focused local tests currently cover these main families:
 - exported immutable global refined from an abstract `ref.null` initializer
 - exported mutable global kept at its declared boundary type
 - abstract `ref.null` initializers tightened to Binaryen's bottom reference types
-- private `ref.func` initializer refinement to the concrete function heap type supported by the local validator
+- private `ref.func` initializer refinement to exact function heap types, including nullable-bottom joins and subtype targets
 - private `ref.i31` initializer refinement
 - private exact GC constructor initializer refinement, currently represented with `struct.new_default`
 - exported immutable exact/private initializer bailout through the local public-type filter
@@ -65,6 +67,14 @@ The focused local tests currently cover these main families:
 - direct `-O4z` option slot execution for `global-refining`
 
 That is a much better local floor for the active mismatch family, but broader descriptor-bearing public-type bodies and additional stringref expression surfaces remain useful follow-up fixtures.
+
+## Recently closed watchpoints
+
+### `[GR-002]` exact `ref.func` LUB behavior
+
+Starshine now treats `ref.func` instruction typing plus initializer-side and direct-write `ref.func` facts as exact function references, matching Binaryen's `ref.func` expression typing in the dedicated `global-refining.wast` surface. The local join also preserves exactness when the other observed value is the nullable function bottom (`nofunc`), so `ref.null func` plus one exact function family refines to `(ref null (exact $f_t))` instead of widening to non-exact `funcref`.
+
+Focused coverage in [`../../../../../src/passes/global_refining_test.mbt`](../../../../../src/passes/global_refining_test.mbt) locks init-only exact refs, null-plus-exact writes, exact-plus-null writes, all-non-null writes, and a function subtype `$sub` initializer refining through a `$super` declaration. Validation on 2026-06-18 passed `moon info`, `moon fmt`, focused `global_refining_test.mbt`, focused `typecheck.mbt`, `moon test src/passes`, `moon test src/validate`, full `moon test`, native `src/cmd` build, and `git diff --check`. Direct compare `.tmp/pass-fuzz-global-refining-gr002-10000` compared `4651/10000` before max-failures, with `4640` normalized matches, `11` mismatches, and `9` Binaryen/tool command failures; sampled mismatches are existing `[GR-003]` initializer-typing gaps (`ref.i31` and `extern.convert_any`), not `[GR-002]` function-ref exactness drift.
 
 ## Main remaining divergences from official Binaryen
 
@@ -88,12 +98,12 @@ Current local pass:
 
 That difference is not automatically wrong, but it is a real architectural divergence.
 
-## 2. The local pass lacks Binaryen's explicit GC gate
+## 2. Binaryen's explicit GC gate is unobservable in Starshine's feature model
 
-Official Binaryen returns immediately when GC is not enabled.
-The current local pass has no equivalent top-level GC feature guard.
+Official Binaryen returns immediately when GC is not enabled and schedules the default prepass only under `wasm->features.hasGC() && optimizeLevel >= 2`.
+Starshine does not carry a Binaryen-style per-module no-GC feature bit into direct pass execution. For this repo's Wasm 3.0 / `wasm-gc` target, GC is enabled for direct-pass and preset execution, so there is no local execution mode in which `global-refining` should observe `hasGC() == false` and bail out.
 
-That may often be a practical no-op difference, but it is still a semantic difference from the official implementation.
+That closes the prior GC-gate watchpoint as a feature-model proof, not an implementation change. Reopen it if Starshine later supports feature-disabled direct-pass execution or compares against Binaryen without GC enabled.
 
 ## 3. Binaryen-style `global.get` retagging is representation-specific locally
 
@@ -116,7 +126,7 @@ That is an inference from the green audit plus the visible local-vs-upstream sou
 ## Practical rule for future work
 
 - Keep the current local mutable-export boundary, closed-world exported-global bailout, public-type filter, and bottom-null handling unless new compare evidence says they are wrong.
-- Future parity work should focus on descriptor-bearing public type bodies, additional stringref-producing initializer forms, and any local IR change that starts caching expression result types.
+- Future parity work should focus on broader Binaryen initializer expression typing, descriptor-bearing public type bodies, dependent `global.get` retagging evidence, and any local IR change that starts caching expression result types.
 - If the local IR ever starts caching expression result types more aggressively, preserve the Binaryen rule that declaration refinement must be paired with `global.get` retagging and refinalization.
 
 ## Sources
@@ -127,6 +137,7 @@ That is an inference from the green audit plus the visible local-vs-upstream sou
 - Local strategy page: [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 - Implementation: [`../../../../../src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt)
 - Focused tests: [`../../../../../src/passes/global_refining_test.mbt`](../../../../../src/passes/global_refining_test.mbt)
+- Ref.func instruction typing: [`../../../../../src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)
 - Dispatch/options surface: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - Registry/preset surface: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - Registry tests: [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)

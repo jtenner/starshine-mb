@@ -62,6 +62,18 @@ fn gr_null_bottom_type_for_comp(comp_type : @lib.CompType) -> @lib.AbsHeapType {
 }
 
 ///|
+fn gr_ref_func_result_type(
+  env : @validate.Env,
+  func_idx : @lib.FuncIdx,
+) -> @lib.RefType? {
+  match env.get_functypeidx_by_funcidx(func_idx) {
+    Some(type_idx) =>
+      Some(@lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true))
+    None => None
+  }
+}
+
+///|
 fn gr_ref_null_result_type(
   ref_type : @lib.RefType,
   env : @validate.Env,
@@ -114,13 +126,8 @@ fn gr_expr_result_type(env : @validate.Env, expr : @lib.Expr) -> @lib.ValType? {
         None => None
       }
     @lib.Expr([@lib.RefFunc(func_idx)]) =>
-      match env.get_functypeidx_by_funcidx(func_idx) {
-        Some(type_idx) =>
-          Some(
-            @lib.ValType::ref_type(
-              @lib.RefType::new(false, @lib.HeapType::new(type_idx)),
-            ),
-          )
+      match gr_ref_func_result_type(env, func_idx) {
+        Some(ref_type) => Some(@lib.ValType::ref_type(ref_type))
         None => None
       }
     @lib.Expr([_, @lib.RefI31]) =>
@@ -448,6 +455,59 @@ fn gr_heaptype_supports_exact(heap_type : @lib.HeapType) -> Bool {
 }
 
 ///|
+fn gr_ref_type_is_nullable_bottom_for_heap(
+  ref_type : @lib.RefType,
+  heap_type : @lib.HeapType,
+  env : @validate.Env,
+) -> Bool {
+  if !ref_type.is_nullable() || ref_type.is_exact() {
+    return false
+  }
+  let bottom = match ref_type.get_heap_type() {
+    @lib.AbsHeapTypeHeapType(abs) => abs
+    _ => return false
+  }
+  match env.resolve_heaptype_subtype(heap_type) {
+    Some(subtype) =>
+      match subtype.get_comptype() {
+        @lib.FuncCompType(_, _) => bottom == @lib.AbsHeapType::no_func()
+        @lib.StructCompType(_) | @lib.ArrayCompType(_) =>
+          bottom == @lib.AbsHeapType::none()
+      }
+    None => false
+  }
+}
+
+///|
+fn gr_join_reftypes_preserves_exact(
+  left : @lib.RefType,
+  right : @lib.RefType,
+  heap_type : @lib.HeapType,
+  env : @validate.Env,
+) -> Bool {
+  if !gr_heaptype_supports_exact(heap_type) {
+    return false
+  }
+  if left.is_exact() &&
+    right.is_exact() &&
+    left.get_heap_type() == heap_type &&
+    right.get_heap_type() == heap_type {
+    return true
+  }
+  if left.is_exact() &&
+    left.get_heap_type() == heap_type &&
+    gr_ref_type_is_nullable_bottom_for_heap(right, heap_type, env) {
+    return true
+  }
+  if right.is_exact() &&
+    right.get_heap_type() == heap_type &&
+    gr_ref_type_is_nullable_bottom_for_heap(left, heap_type, env) {
+    return true
+  }
+  false
+}
+
+///|
 fn gr_join_reftypes(
   left : @lib.RefType,
   right : @lib.RefType,
@@ -458,10 +518,7 @@ fn gr_join_reftypes(
     Some(heap_type) => heap_type
     None => return None
   }
-  let exact = left.is_exact() &&
-    right.is_exact() &&
-    left.get_heap_type() == right.get_heap_type() &&
-    gr_heaptype_supports_exact(heap_type)
+  let exact = gr_join_reftypes_preserves_exact(left, right, heap_type, env)
   let joined = @lib.RefType::new(
     left.is_nullable() || right.is_nullable(),
     heap_type,
@@ -556,14 +613,44 @@ fn gr_collect_func_global_sets(
           if slot >= 0 && @ir.hot_child_count(hot_func, node_id) > 0 {
             let value_id = @ir.hot_child_get(hot_func, node_id, 0)
             if value_id >= 0 {
-              match
-                @ir.hot_type_results(
-                  hot_func,
-                  @ir.hot_node_type(hot_func, value_id),
-                ) {
-                [@lib.RefTypeValType(ref_type)] =>
-                  gr_note_ref_type(noted, slot, ref_type, env)
-                _ => ()
+              let value_node = @ir.hot_node_get(hot_func, value_id)
+              match value_node.op {
+                @ir.HotOp::RefFunc =>
+                  if value_node.imm0 >= 0 {
+                    match
+                      gr_ref_func_result_type(
+                        env,
+                        @lib.FuncIdx::new(value_node.imm0.reinterpret_as_uint()),
+                      ) {
+                      Some(ref_type) =>
+                        gr_note_ref_type(noted, slot, ref_type, env)
+                      None => ()
+                    }
+                  }
+                @ir.HotOp::RefNull =>
+                  if value_node.imm0 >= 0 {
+                    match @ir.hot_const_get(hot_func, value_node.imm0) {
+                      @ir.HotConstPayload::RefNullConst(ref_type) => {
+                        let noted_ref_type = match ref_type.get_heap_type() {
+                          @lib.AbsHeapTypeHeapType(_) =>
+                            gr_ref_null_result_type(ref_type, env)
+                          _ => ref_type
+                        }
+                        gr_note_ref_type(noted, slot, noted_ref_type, env)
+                      }
+                      _ => ()
+                    }
+                  }
+                _ =>
+                  match
+                    @ir.hot_type_results(
+                      hot_func,
+                      @ir.hot_node_type(hot_func, value_id),
+                    ) {
+                    [@lib.RefTypeValType(ref_type)] =>
+                      gr_note_ref_type(noted, slot, ref_type, env)
+                    _ => ()
+                  }
               }
             }
           }
@@ -579,6 +666,116 @@ fn gr_collect_func_global_sets(
         stack.push(child_id)
       }
     }
+  }
+}
+
+///|
+fn gr_rewrite_ref_null_set_instrs(
+  instrs : Array[@lib.Instruction],
+  refined_globals : Array[@lib.RefType?],
+) -> (Array[@lib.Instruction], Bool) {
+  let next = instrs.copy()
+  let mut changed = false
+  for idx = 0; idx < next.length(); idx = idx + 1 {
+    match next[idx] {
+      @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
+        let slot = global_idx.reinterpret_as_int()
+        if idx > 0 && slot >= 0 && slot < refined_globals.length() {
+          match (next[idx - 1], refined_globals[slot]) {
+            (@lib.RefNull(_), Some(refined_ref_type)) => {
+              next[idx - 1] = @lib.Instruction::ref_null_type(refined_ref_type)
+              changed = true
+            }
+            _ => ()
+          }
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = gr_rewrite_ref_null_set_instrs(
+          body, refined_globals,
+        )
+        if body_changed {
+          next[idx] = @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(next_body),
+          )
+          changed = true
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = gr_rewrite_ref_null_set_instrs(
+          body, refined_globals,
+        )
+        if body_changed {
+          next[idx] = @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(next_body),
+          )
+          changed = true
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = gr_rewrite_ref_null_set_instrs(
+          then_body, refined_globals,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, changed) = gr_rewrite_ref_null_set_instrs(
+              else_body, refined_globals,
+            )
+            (Some(rewritten_else), changed)
+          }
+          None => (None, false)
+        }
+        if then_changed || else_changed {
+          next[idx] = @lib.Instruction::if_(block_type, next_then, next_else)
+          changed = true
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = gr_rewrite_ref_null_set_instrs(
+          body, refined_globals,
+        )
+        if body_changed {
+          next[idx] = @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+          changed = true
+        }
+      }
+      _ => ()
+    }
+  }
+  (next, changed)
+}
+
+///|
+fn gr_rewrite_ref_null_sets_in_code(
+  mod_ : @lib.Module,
+  refined_globals : Array[@lib.RefType?],
+) -> (@lib.Module, Bool) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, false)
+  }
+  let next_funcs = funcs.copy()
+  let mut changed = false
+  for idx = 0; idx < funcs.length(); idx = idx + 1 {
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[idx]
+    let (next_body, body_changed) = gr_rewrite_ref_null_set_instrs(
+      body, refined_globals,
+    )
+    if body_changed {
+      next_funcs[idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+      changed = true
+    }
+  }
+  if changed {
+    (mod_.with_code_sec(@lib.CodeSec::new(next_funcs)), true)
+  } else {
+    (mod_, false)
   }
 }
 
@@ -684,6 +881,7 @@ pub fn global_refining_run_module_pass(
   }
 
   let next_globals = globals.copy()
+  let refined_globals : Array[@lib.RefType?] = Array::make(total_globals, None)
   let mut changed = false
   for defined_idx = 0
       defined_idx < globals.length()
@@ -720,10 +918,15 @@ pub fn global_refining_run_module_pass(
       @lib.GlobalType::new(@lib.ValType::ref_type(refined_ref_type), mutable_),
       refined_init,
     )
+    refined_globals[abs_idx] = Some(refined_ref_type)
     changed = true
   }
   if !changed {
     return mod_
   }
-  mod_.with_global_sec(@lib.GlobalSec::new(next_globals))
+  let rewritten = mod_.with_global_sec(@lib.GlobalSec::new(next_globals))
+  let (rewritten, _) = gr_rewrite_ref_null_sets_in_code(
+    rewritten, refined_globals,
+  )
+  rewritten
 }

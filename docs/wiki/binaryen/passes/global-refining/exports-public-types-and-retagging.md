@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-18
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
 related:
@@ -28,7 +28,7 @@ It is tempting to think:
 
 - if closed world gives Binaryen more knowledge, then closed world should obviously let `global-refining` optimize more exported globals
 
-That is **not** what the official `version_129` code does.
+That is **not** what the official `version_130` code does.
 
 The current Binaryen rule is more conservative:
 

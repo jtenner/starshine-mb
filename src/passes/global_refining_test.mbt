@@ -146,7 +146,7 @@ test "global-refining treats abstract ref.null initializers as bottom references
 }
 
 ///|
-test "global-refining refines private ref.func initializers to concrete function heap types" {
+test "global-refining refines private ref.func initializers to exact function heap types" {
   let input =
     #| (module
     #|   (type $f_t (func))
@@ -162,9 +162,136 @@ test "global-refining refines private ref.func initializers to concrete function
     try! gr_test_defined_global_type(optimized, 0),
     @lib.GlobalType::new(
       @lib.ValType::ref_type(
-        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          exact=true,
+        ),
       ),
       true,
+    ),
+  )
+}
+
+///|
+test "global-refining joins ref.null func initializers with exact ref.func writes" {
+  let input =
+    #| (module
+    #|   (type $f_t (func))
+    #|   (global $g (mut funcref) (ref.null func))
+    #|   (func $f (type $f_t)
+    #|     ref.func $f
+    #|     global.set $g)
+    #|   (elem declare func $f))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected null plus ref.func global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          true,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          exact=true,
+        ),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining preserves exact ref.func LUB across nullable writes" {
+  let input =
+    #| (module
+    #|   (type $f_t (func))
+    #|   (global $g (mut funcref) (ref.func $f))
+    #|   (func $f (type $f_t)
+    #|     ref.null func
+    #|     global.set $g)
+    #|   (elem declare func $f))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected ref.func plus null global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          true,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          exact=true,
+        ),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining keeps non-null ref.func initializer and writes exact" {
+  let input =
+    #| (module
+    #|   (type $f_t (func))
+    #|   (global $g (mut funcref) (ref.func $f))
+    #|   (func $f (type $f_t)
+    #|     ref.func $f
+    #|     global.set $g)
+    #|   (elem declare func $f))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected non-null ref.func global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          exact=true,
+        ),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining ref.func subtype LUB keeps the exact subtype" {
+  let input =
+    #| (module
+    #|   (type $super (sub (func)))
+    #|   (type $sub (sub $super (func)))
+    #|   (global $a (ref $super) (ref.func $f))
+    #|   (func $f (type $sub))
+    #|   (elem declare func $f))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected subtype ref.func global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+          exact=true,
+        ),
+      ),
+      false,
     ),
   )
 }

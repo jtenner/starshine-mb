@@ -1,24 +1,25 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-18
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
   - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
   - ../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md
   - ../../../../../src/passes/global_refining.mbt
   - ../../../../../src/passes/global_refining_test.mbt
+  - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../agent-todo.md
   - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalRefining.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/lubs.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/public-type-validator.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/global-refining.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/GlobalRefining.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/lubs.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/public-type-validator.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/pass.h
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/global-refining.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/GlobalRefining.cpp
   - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/global-refining.wast
 related:
@@ -39,7 +40,7 @@ related:
 ## Role
 
 - `global-refining` is an active implemented **module pass** in Starshine.
-- In upstream Binaryen `version_129`, the public `pass.cpp` description is basically:
+- In upstream Binaryen `version_130`, the public `pass.cpp` description is basically:
   - refine the types of globals
 
 That description is accurate, but too vague.
@@ -65,9 +66,10 @@ It is a small whole-module **global declaration tightening** pass.
   - `once-reduction` can simplify run-once scaffolding first
   - `global-refining` then tightens defined global reference types based on surviving observed writes while preserving mutable export boundaries
   - the next `remove-unused-module-elements` and later `gsi` see a cleaner, more precise module
-- The 2026-06-03 O4z audit closed the dedicated `[O4Z-AUDIT-GR]` slice.
-  - Starshine now runs the direct `global-refining` slot even under `-O4z` options instead of silently skipping it.
-  - The active backlog keeps only narrower v0.1.1 follow-ups for broader descriptor/stringref publicity fixtures.
+- The 2026-06-18 O4z closeout audit reopened `[O4Z-AUDIT-GR]` for source-backed Binaryen `version_130` watchpoints.
+  - `[GR-001]` is closed as a Starshine feature-model proof for the Binaryen GC gate.
+  - `[GR-002]` exact `ref.func` LUB implementation/tests are locally Moon-validated and closed for the targeted function-ref exactness behavior; the direct 10000-case compare is blocked by existing `[GR-003]` initializer-typing mismatches, not by function-ref exactness drift.
+  - `[GR-003]` through `[GR-006]` remain open for broader initializer typing, public-type validation parity, `global.get` retagging/refinalization evidence, and refreshed oracle evidence.
 - In the saved generated-artifact `-O4z` audit, slot `5` (`global-refining`) was already green:
   - exact wasm equal: `yes`
   - normalized WAT equal: `yes`
@@ -86,7 +88,7 @@ It is a small whole-module **global declaration tightening** pass.
   - imported globals are never refined
   - open-world exported mutable globals are not refined
   - open-world exported immutable globals may still refine, but only to a valid public type
-  - current official `version_129` closed-world behavior still skips **all** exported globals here
+  - current official `version_130` closed-world behavior still skips **all** exported globals here
 - The actual upstream Binaryen rewrite surface is tiny:
   - change the declared global type
   - update `global.get` result types
@@ -94,11 +96,11 @@ It is a small whole-module **global declaration tightening** pass.
 - The current local Starshine pass is still narrower than upstream Binaryen in representation, but now covers the important boundary matrix:
   - it refines defined reference globals and still skips exported mutable ones
   - it filters immutable exported refinements through a local public-type check and skips exported globals when `closed_world` is set
-  - it recognizes more constant-expression initializers, including `ref.func`, `ref.i31`, `string.const`, and GC constructors such as `struct.new_default`
+  - it recognizes more constant-expression initializers, including exact `ref.func`, `ref.i31`, `string.const`, and GC constructors such as `struct.new_default`
   - it collects writes through HOT lifting only for functions that mention candidate globals
   - and it rewrites declarations without Binaryen-style post-pass `global.get` retagging because the local representation does not use the same cached expression-type model here
 - The pass does **not** remove `global.set`s, replace `global.get`s with constants, or run `gsi`-style field-value inference.
-- A narrow 2026-04-21 source comparison found **no semantic post-`version_129` drift** in the owning pass file or the dedicated lit file.
+- The active 2026-06-18 audit treats Binaryen `version_130` as the released oracle and keeps remaining watchpoints in `agent-todo.md` until validated or explicitly deferred.
 
 ## Biggest beginner correction
 
@@ -121,7 +123,7 @@ What it sounds like:
 
 - refine globals based on global usage
 
-What it actually is in `version_129`:
+What it actually is in `version_130`:
 
 - a GC-gated early module pass,
 - a parallel `global.set` collector,
@@ -146,15 +148,7 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-21 direct source comparison found **no semantic post-`version_129` drift** in the owning official surfaces used for this dossier.
-
-- `src/passes/GlobalRefining.cpp` is identical on current `main` and `version_129`
-- `test/lit/passes/global-refining.wast` is also identical on current `main` and `version_129`
-
-So the durable rule is:
-
-- treat Binaryen `version_129` as the released oracle for this dossier
-- keep the current-main note explicit only to say there is no visible source or dedicated-lit drift right now
+The active 2026-06-18 audit uses Binaryen `version_130` sources and the dedicated lit surface as the released oracle for this dossier. Earlier `version_129` source-refresh notes remain useful history, but the current backlog and docs should cite `version_130` for new parity work.
 
 ## Current maintenance rule
 
@@ -171,18 +165,19 @@ So the durable rule is:
 - [`../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md`](../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md)
 - [`../../../../../src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt)
 - [`../../../../../src/passes/global_refining_test.mbt`](../../../../../src/passes/global_refining_test.mbt)
+- [`../../../../../src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalRefining.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/lubs.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/public-type-validator.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/global-refining.wast>
+- Binaryen `version_130` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/GlobalRefining.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/lubs.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/public-type-validator.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/pass.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/global-refining.wast>
 - Narrow freshness-check surface:
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/GlobalRefining.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/global-refining.wast>

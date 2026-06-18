@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-06-18
 sources:
   - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
 related:
@@ -14,7 +14,7 @@ related:
 
 # `global-refining`: implementation structure and tests
 
-This page is the compact file/test map for the real Binaryen `version_129` `global-refining` contract.
+This page is the compact file/test map for the real Binaryen `version_130` `global-refining` contract.
 
 ## Core implementation files
 
@@ -101,9 +101,9 @@ What it proves:
 What it directly proves:
 
 - init-only null-ref globals can narrow from broad function refs to `nullfuncref`
-- init-only `ref.func` globals can narrow to exact internal function-ref types
-- later null writes can produce nullable exact results instead of forcing a return to broad `funcref`
-- all-non-null function-ref traffic can remove nullability
+- init-only `ref.func` globals can narrow to exact internal function-ref types, e.g. `(ref (exact $foo_t))`
+- later null writes can produce nullable exact results instead of forcing a return to broad `funcref`, e.g. `(ref null (exact $foo_t))`
+- all-non-null function-ref traffic can remove nullability while preserving exactness
 - heterogeneous writes can shrink a broad declaration like `anyref` down to `eqref`
 - a dependent global initializer using `global.get` remains valid after another global narrows
 - exported mutable globals stay unoptimized in open world
@@ -126,7 +126,7 @@ The dedicated test is good, but several important facts are easier to confirm fr
 If Starshine tightens or re-ports `global-refining`, the local port should preserve all of these source-backed facts:
 
 - module pass, not hot pass
-- GC gate
+- GC gate, or an explicit local feature-model proof when the Starshine execution mode always has GC enabled
 - defined-functions-only `global.set` scan
 - initializer-plus-writes LUB aggregation
 - imported-global skip
@@ -141,8 +141,8 @@ If Starshine tightens or re-ports `global-refining`, the local port should prese
 ## Sources
 
 - [`../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md`](../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalRefining.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/lubs.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/public-type-validator.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/global-refining.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/GlobalRefining.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/lubs.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/public-type-validator.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/global-refining.wast>
