@@ -3589,34 +3589,79 @@ fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
 }
 
 ///|
+fn wt_legacy_pop_br_table_selector_depth_after_instr(
+  _env : @validate.Env,
+  instr : @lib.Instruction,
+  depth : Int,
+) -> Int? {
+  match instr {
+    @lib.I32Const(_) | @lib.LocalGet(_) => Some(depth + 1)
+    @lib.I32Eqz | @lib.I32Clz | @lib.I32Ctz | @lib.I32Popcnt =>
+      if depth >= 1 {
+        Some(depth)
+      } else {
+        None
+      }
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr => if depth >= 2 { Some(depth - 1) } else { None }
+    _ => None
+  }
+}
+
+///|
 fn wt_legacy_pop_prefix_tail_starts_br_table_statement(
+  env : @validate.Env,
   instrs : Array[@lib.Instruction],
   instr_idx : Int,
   label_results : Array[Array[@lib.ValType]],
   payload_types : Array[@lib.ValType],
 ) -> Bool {
-  if instr_idx + 1 >= instrs.length() {
-    return false
+  let mut depth = 0
+  let mut idx = instr_idx
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.BrTable(labels, fallback) if depth == 1 =>
+        return wt_legacy_pop_br_table_targets_match_branch(
+          label_results, labels, fallback, payload_types,
+        )
+      @lib.BrTable(_, _) => return false
+      _ =>
+        match
+          wt_legacy_pop_br_table_selector_depth_after_instr(
+            env,
+            instrs[idx],
+            depth,
+          ) {
+          Some(next_depth) => depth = next_depth
+          None => return false
+        }
+    }
+    idx = idx + 1
   }
-  match (instrs[instr_idx], instrs[instr_idx + 1]) {
-    (@lib.I32Const(_), @lib.BrTable(labels, fallback)) =>
-      wt_legacy_pop_br_table_targets_match_branch(
-        label_results, labels, fallback, payload_types,
-      )
-    (@lib.LocalGet(_), @lib.BrTable(labels, fallback)) =>
-      wt_legacy_pop_br_table_targets_match_branch(
-        label_results, labels, fallback, payload_types,
-      )
-    (@lib.LocalGet(_), @lib.I32Const(_)) if instr_idx + 3 < instrs.length() =>
-      match (instrs[instr_idx + 2], instrs[instr_idx + 3]) {
-        (@lib.I32And, @lib.BrTable(labels, fallback)) =>
-          wt_legacy_pop_br_table_targets_match_branch(
-            label_results, labels, fallback, payload_types,
-          )
-        _ => false
-      }
-    _ => false
-  }
+  false
 }
 
 ///|
@@ -3783,7 +3828,7 @@ fn wt_direct_legacy_pop_instr_supported(
                         prefix_types,
                       ) ||
                       wt_legacy_pop_prefix_tail_starts_br_table_statement(
-                        catch_instrs, instr_idx, nested_labels, prefix_types,
+                        env, catch_instrs, instr_idx, nested_labels, prefix_types,
                       )
                     )
                   if !prefix_flows_to_nonfallthrough {

@@ -1173,6 +1173,131 @@ test "dead-code-elimination repairs catch pop dead call before computed br_table
 }
 
 ///|
+test "dead-code-elimination repairs catch pop dead call before arbitrary br_table selector text" {
+  let source =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (i32.const 1)
+    #|            (i32.const 1)
+    #|            (i32.add)
+    #|            (br_table $label $label $label))
+    #|          nop))))
+    #|  (func $helper (param i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected arbitrary selector br_table catch-pop DCE pipeline success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs catch pop multivalue br_table computed selector payload" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func (param i32) (result i32 i64)
+    #|    (block $label (type $pair)
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i64-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (pop i64)
+    #|            (local.get 0)
+    #|            (i32.const 3)
+    #|            (i32.rem_u)
+    #|            (br_table $label $label $label))
+    #|          nop))
+    #|      (i32.const 0)
+    #|      (i64.const 0)))
+    #|  (func $helper (param i32 i64 i32 i64 i32)))
+    #|)
+    #|
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multivalue computed-selector br_table catch-pop DCE pipeline success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("i32.rem_u"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination rejects catch pop mismatched arbitrary br_table payload boundary" {
+  let source =
+    #|(module
+    #|  (tag $e-i64 (param i64))
+    #|  (func (result i32)
+    #|    (block $label (result i32)
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i64
+    #|          (call $helper
+    #|            (pop i64)
+    #|            (i32.const 1)
+    #|            (i32.const 1)
+    #|            (i32.add)
+    #|            (br_table $label $label))
+    #|          nop))
+    #|      (i32.const 0)))
+    #|  (func $helper (param i32 i64 i32)))
+    #|)
+    #|
+  match
+    @wast.wast_to_binary_module(
+      source,
+      filename="dce-mismatched-br-table-pop.wat",
+    ) {
+    Ok(mod_) =>
+      fail(
+        "mismatched arbitrary br_table catch-pop flow must stay rejected at WAST admission: \{mod_.pretty_print_func(@lib.FuncIdx::new(0U))}",
+      )
+    Err(err) => assert_true(err.contains("legacy exception pop text"), msg=err)
+  }
+}
+
+///|
 test "dead-code-elimination repairs catch pop carrier after params and locals" {
   let source =
     #|(module
