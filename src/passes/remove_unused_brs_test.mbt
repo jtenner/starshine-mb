@@ -2615,7 +2615,7 @@ test "remove-unused-brs lowers two-option br_table to branch if structure" {
 }
 
 ///|
-test "remove-unused-brs documents nested stack-style large br_table lowering blocker" {
+test "remove-unused-brs lowers nested stack-style large mostly-default br_table" {
   let source = "(module (func (export \"large\") (param i32) (block $default (block $first (block $last (local.get 0) (br_table $first $default $default $default $default $default $default $default $default $default $default $default $default $last $default)) (unreachable)))))"
   let optimized = match
     pass_test_run_pipeline(
@@ -2631,10 +2631,9 @@ test "remove-unused-brs documents nested stack-style large br_table lowering blo
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  // Intentional fail-closed boundary: the local HOT traversal does not yet
-  // expose Binaryen's nested stack-style large mostly-default switch lowering
-  // without regressing existing two-arm branch-drain behavior.
-  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
 }
 
 ///|

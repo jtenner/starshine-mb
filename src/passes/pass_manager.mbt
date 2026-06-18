@@ -23711,6 +23711,73 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_deep_dispatch_block(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_large_mostly_default_targets(
+  labels : Array[@lib.LabelIdx],
+  default_ : @lib.LabelIdx,
+) -> Bool {
+  let trimmed = labels.copy()
+  while trimmed.length() > 0 && trimmed[trimmed.length() - 1] == default_ {
+    ignore(trimmed.pop())
+  }
+  let mut leading_defaults = 0
+  while leading_defaults < trimmed.length() &&
+        trimmed[leading_defaults] == default_ {
+    leading_defaults = leading_defaults + 1
+  }
+  let remaining_len = trimmed.length() - leading_defaults
+  if remaining_len < 13 {
+    return false
+  }
+  for i = leading_defaults + 1; i < trimmed.length() - 1; i = i + 1 {
+    if trimmed[i] != default_ {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_nested_large_mostly_default_stack_switch(
+  instrs : Array[@lib.Instruction],
+  block_depth : Int,
+) -> Bool {
+  if instrs.length() == 1 {
+    match instrs[0] {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) =>
+        return run_hot_pipeline_raw_remove_unused_brs_has_nested_large_mostly_default_stack_switch(
+          body,
+          block_depth + 1,
+        )
+      _ => return false
+    }
+  }
+  if instrs.length() == 2 {
+    match instrs[0] {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) =>
+        match instrs[1] {
+          @lib.Unreachable =>
+            return run_hot_pipeline_raw_remove_unused_brs_has_nested_large_mostly_default_stack_switch(
+              body,
+              block_depth + 1,
+            )
+          _ => return false
+        }
+      @lib.LocalGet(_) =>
+        match instrs[1] {
+          @lib.BrTable(labels, default_) =>
+            return block_depth >= 2 &&
+              run_hot_pipeline_raw_remove_unused_brs_large_mostly_default_targets(
+                labels, default_,
+              )
+          _ => return false
+        }
+      _ => return false
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -23722,7 +23789,11 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
-  if options.optimize_level >= 4 && options.shrink_level >= 1 {
+  if options.optimize_level >= 4 &&
+    options.shrink_level >= 1 &&
+    !run_hot_pipeline_raw_remove_unused_brs_has_nested_large_mostly_default_stack_switch(
+      instrs, 0,
+    ) {
     return Some({
       reason: "o4z-remove-unused-brs-noop",
       func: original,

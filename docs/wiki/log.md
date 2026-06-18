@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-18] passes/remove-unused-brs | Lower nested large mostly-default switches
+
+- Extended `[O4Z-AUDIT-RUB-B]` switch cleanup parity for no-payload nested stack-style `br_table` forms. [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) now pierces the broad O4z `remove-unused-brs` raw no-op gate only for strict nested void-block chains whose innermost body is exactly stack selector plus a large mostly-default `br_table`; [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt)'s existing HOT switch optimizer then lowers the table to Binaryen-style nested `if` form with a selector temp local.
+- Updated [`../../src/passes/remove_unused_brs_test.mbt`](../../src/passes/remove_unused_brs_test.mbt) so the former fail-closed nested stack-style fixture now requires the `br_table` to disappear and nested `if` / `local.tee` lowering to appear, while below-threshold mostly-default coverage remains conservative. Evidence: focused RUB tests passed `123/123`, `moon test src/passes` passed `2548/2548`, full `moon test` passed `5859/5859`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-remove-unused-brs-nested-large-switch-10000` compared `9977/10000` with `0` mismatches, `5702` normalized matches, `4275` cleanup-normalized matches, and `23` Binaryen/tool command failures (`22` rec-group-zero, `1` bad-section-size).
+- Updated [`binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md`](binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md), [`binaryen/passes/remove-unused-brs/pattern-catalog.md`](binaryen/passes/remove-unused-brs/pattern-catalog.md), [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). Remaining switch blocker is child-less local stack-payload value switch surgery; ordinary lifted value switches carry payloads as children.
+
 ## [2026-06-18] passes/remove-unused-brs | Add RUB value switch target cleanup
 
 - Extended `[O4Z-AUDIT-RUB-B]` switch cleanup parity for value-carrying `br_table` forms. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now applies Binaryen's target-list cleanup before the value-sensitive bailout: trailing explicit defaults are trimmed and leading explicit defaults rewrite the selector with `i32.sub` while preserving payload children and branch arity.

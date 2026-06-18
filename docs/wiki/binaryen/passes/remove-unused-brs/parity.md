@@ -64,7 +64,7 @@ related:
   - branch-payload `if` cleanup
   - carried-guard/result-block cleanup
   - repeated-constant `br_if` ladders to `br_table`
-  - safe early `br_table`/switch cleanup for trailing defaults and leading-default offsets on no-payload and value-carrying tables, plus no-payload default-only and two-option lowerings
+  - safe early `br_table`/switch cleanup for trailing defaults and leading-default offsets on no-payload and value-carrying tables, plus no-payload default-only, two-option, and large mostly-default nested stack-style lowerings
 - The 2026-06-09 merge-blocks/RUB result-fallback audit is covered by [`../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md`](../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md):
   - `remove_unused_brs_try_fold_constant_br_if(...)` now preserves branch payload children while folding constant `br_if` roots
   - `merge-blocks -> remove-unused-brs` has a focused guard proving the result-block fallback remains live when the prefix guard can fall through to the block end
@@ -266,8 +266,9 @@ The active backlog now says the next work should be reduced in this order:
   - value-carrying target-list cleanup preserves payload children and branch arity, then stops before Binaryen's condition-reordering switch-to-branch bailout for switches with values
   - no-payload default-only tables lower to selector-drop plus branch
   - no-payload one-explicit-target/two-option tables lower to branch-if structure
+  - no-payload large mostly-default nested stack-style tables lower to Binaryen-style nested `if` form by narrowly bypassing the O4z raw no-op gate only for strict selector-plus-`br_table` block chains
   - value-carrying default-only and two-option tables deliberately remain `br_table` forms, matching Binaryen's value-sensitive bailout boundary
-  - large mostly-default nested stack-style tables are covered by a fail-closed test; the first nested traversal widening regressed long two-arm branch-drain behavior, so this remains a narrow blocker rather than a hidden parity claim
+  - child-less local stack-payload value switch shapes remain conservative because ordinary lifted value switches carry payloads as `br_table` children
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.
 - Earlier MoonBit attempts tried to find those shapes by scanning more nested regions during the main walk, which hit real oracle cases but reopened the performance cliff.

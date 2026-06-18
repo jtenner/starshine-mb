@@ -90,6 +90,8 @@ For this audit, WebAssembly 3.0 baseline features are assumed enabled by default
   Cancels the raw structured-return skip if a condition-child value-`if` rewrite still exists.
 - `run_hot_pipeline_raw_remove_unused_brs_has_hot_only_candidates(...)`
   Prevents the decision-ladder raw rewrite from skipping lift when other HOT-only candidates remain.
+- `run_hot_pipeline_raw_remove_unused_brs_has_nested_large_mostly_default_stack_switch(...)`
+  Pierces the broad O4z `remove-unused-brs` raw no-op gate only for a strict nested void-block chain whose innermost body is exactly stack selector plus large mostly-default `br_table`, so the existing HOT switch optimizer can lower it without broadly rescanning arbitrary nested regions.
 - `run_hot_pipeline_instr_has_remove_unused_brs_candidate(...)`
   Final raw "anything interesting left?" gate.
 
@@ -277,7 +279,7 @@ Detailed page:
   - `rewrites stack-style branch-payload result wrappers around br_if prefixes`
   - `rewrites sibling-carried branch payload wrappers around br_if prefixes`
 - `remove_unused_brs_try_optimize_switch(...)`
-  Mirrors the safe early subset of Binaryen's `optimizeSwitch(...)`: trims trailing explicit default targets, offsets leading explicit defaults by subtracting from the selector, preserves value-carrying payload children while applying those target-list cleanups, lowers no-payload default-only tables to a dropped selector plus branch, and lowers no-payload one-explicit-target/two-option tables to branch-if structure. Value-carrying tables deliberately stop after target-list cleanup because Binaryen bails before condition-reordering switch-to-branch lowerings when a switch carries a value; child-less local stack-payload switch shapes stay conservative. The large mostly-default nested stack-style lowering is documented as fail-closed until the nested traversal can be widened without regressing long branch-drain shapes.
+  Mirrors the safe early subset of Binaryen's `optimizeSwitch(...)`: trims trailing explicit default targets, offsets leading explicit defaults by subtracting from the selector, preserves value-carrying payload children while applying those target-list cleanups, lowers no-payload default-only tables to a dropped selector plus branch, lowers no-payload one-explicit-target/two-option tables to branch-if structure, and lowers no-payload large mostly-default nested stack-style tables to nested `if` form once the narrow O4z raw-gate exception exposes the exact innermost stack-selector region. Value-carrying tables deliberately stop after target-list cleanup because Binaryen bails before condition-reordering switch-to-branch lowerings when a switch carries a value; child-less local stack-payload switch shapes stay conservative.
   Covered by:
   - `remove-unused-brs trims trailing default br_table targets`
   - `remove-unused-brs offsets leading default br_table targets`
@@ -287,7 +289,7 @@ Detailed page:
   - `remove-unused-brs keeps two-option value br_table instead of branch-if lowering`
   - `remove-unused-brs lowers default-only br_table to dropped selector branch`
   - `remove-unused-brs lowers two-option br_table to branch if structure`
-  - `remove-unused-brs documents nested stack-style large br_table lowering blocker`
+  - `remove-unused-brs lowers nested stack-style large mostly-default br_table`
   - `remove-unused-brs keeps below-threshold mostly-default br_table`
 - `remove_unused_brs_try_rewrite_br_table_continuation_wrappers(...)`
   Retargets nested continuation-wrapper `br_table` arms directly to the outer exit when the wrapper labels are only referenced by that `br_table`, then lowers the now-dead forwarding tails to `unreachable`.
