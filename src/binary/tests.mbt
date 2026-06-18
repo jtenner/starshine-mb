@@ -1001,6 +1001,77 @@ test "encode rejects uncontextualized legacy pop placeholder explicitly" {
     Encode::encode(incomplete_prefix_mod, @buffer.new()),
     BinaryEncodeError::CannotEncodeLegacyPop,
   )
+  let interleaved_prefix_mod = Module::new()
+    .with_type_sec(TypeSec::new([type_void, type_i32_i64]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1U))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::new([
+            LocalRun::new(1U, ValType::i32()),
+            LocalRun::new(1U, ValType::i64()),
+          ]),
+          Expr::new([
+            Instruction::try_(
+              BlockType::void_(),
+              Expr::new([Instruction::nop()]),
+              [
+                LegacyCatch::new(
+                  TagIdx::new(0U),
+                  Expr::new([
+                    Instruction::pop(ValType::i64()),
+                    Instruction::nop(),
+                    Instruction::pop(ValType::i32()),
+                    Instruction::local_set(LocalIdx::new(0U)),
+                    Instruction::local_set(LocalIdx::new(1U)),
+                  ]),
+                ),
+              ],
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_encode_err_contains(
+    Encode::encode(interleaved_prefix_mod, @buffer.new()),
+    BinaryEncodeError::CannotEncodeLegacyPop,
+  )
+  let nested_pop_mod = Module::new()
+    .with_type_sec(TypeSec::new([type_void, type_i32]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(1U))]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::try_(
+              BlockType::void_(),
+              Expr::new([Instruction::nop()]),
+              [
+                LegacyCatch::new(
+                  TagIdx::new(0U),
+                  Expr::new([
+                    Instruction::block(
+                      BlockType::void_(),
+                      Expr::new([
+                        Instruction::pop(ValType::i32()),
+                        Instruction::drop(),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ],
+            ),
+          ]),
+        ),
+      ]),
+    )
+  assert_encode_err_contains(
+    Encode::encode(nested_pop_mod, @buffer.new()),
+    BinaryEncodeError::CannotEncodeLegacyPop,
+  )
 }
 
 ///|

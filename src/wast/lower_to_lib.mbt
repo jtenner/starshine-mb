@@ -6770,6 +6770,51 @@ test "wast_text_binary_roundtrip supports direct multi-payload legacy pop prefix
 }
 
 ///|
+test "wast_text_binary_roundtrip rejects interrupted legacy pop prefix explicitly" {
+  let src =
+    #|(module
+    #|  (tag $e-pair (param i32 i64))
+    #|  (func (local i32 i64)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-pair
+    #|        (pop i64)
+    #|        nop
+    #|        (pop i32)
+    #|        (local.set 0)
+    #|        (local.set 1)))))
+  match wast_text_binary_roundtrip(src, filename="legacy-pop-interleaved.wat") {
+    Ok(_) => fail("expected interrupted legacy pop prefix to stay unsupported")
+    Err(err) => {
+      assert_true(err.contains("legacy"), msg=err)
+      assert_true(err.contains("pop"), msg=err)
+      assert_true(err.contains("catch payload"), msg=err)
+    }
+  }
+}
+
+///|
+test "wast_text_binary_roundtrip rejects nested legacy pop payload explicitly" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (block
+    #|          (drop (pop i32)))))))
+  match wast_text_binary_roundtrip(src, filename="legacy-pop-nested.wat") {
+    Ok(_) => fail("expected nested legacy pop payload to stay unsupported")
+    Err(err) => {
+      assert_true(err.contains("legacy"), msg=err)
+      assert_true(err.contains("pop"), msg=err)
+      assert_true(err.contains("catch payload"), msg=err)
+    }
+  }
+}
+
+///|
 test "wast_text_binary_roundtrip rejects unsupported legacy pop explicitly" {
   let src =
     #|(module

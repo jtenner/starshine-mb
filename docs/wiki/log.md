@@ -425,6 +425,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Debug-WASI artifact replay `.tmp/self-ssa-nomerge-final-closeout-20260616` validates both final outputs and shows Starshine final wasm smaller (`3149504` vs `3156337`) and pass-local time faster (`0.175ms` vs Binaryen `387.072ms`), but canonical equality is still `no` at first diff `defined=2087 abs=2114`.
 - Updated [`binaryen/passes/ssa-nomerge/fuzzing.md`](binaryen/passes/ssa-nomerge/fuzzing.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). `[SSANM-012c]` is complete; `[SSANM-012b]` and `[SSANM-012d]` remain open for the nine mismatch families, Starshine command-failure classification, and huge/artifact/O4z publication.
 
+## [2026-06-18] binary/wast | Legacy pop fail-closed boundary tests
+
+- Added focused fail-closed coverage in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) for interrupted multi-payload catch-pop prefixes and nested catch-payload `pop` so the high-level WAST roundtrip gate remains limited to complete direct payload-prefix consumers.
+- Added module binary encode coverage in [`../../src/binary/tests.mbt`](../../src/binary/tests.mbt) for interleaved and nested `Pop` catch bodies, both still rejected with `CannotEncodeLegacyPop` instead of being silently stripped by the contextual prefix bridge.
+- The `$call-pop-catch` admission path remains a deliberate future step: the current WAST lowering flattens folded call operands to stack-order instructions, while the existing bridge only proves complete direct prefix transport; admitting call-argument payload flow should be tied to represented DCE nested-pop repair rather than broad WAST gate widening. `[O4Z-AUDIT-DCE]` remains active.
+- Evidence: `moon test src/wast` passed (`394/394`), `moon test src/binary --filter "encode rejects uncontextualized legacy pop placeholder explicitly"` passed (`1/1`), `moon test src/binary` passed (`100/100`), and `moon fmt` passed.
+
 ## [2026-06-17] wast | Direct legacy pop local.tee consumer
 
 - Extended the narrow high-level WAST legacy-pop direct-prefix gate in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) to treat `local.tee` as an admitted immediate payload consumer alongside `drop` and `local.set`.
