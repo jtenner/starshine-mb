@@ -276,6 +276,15 @@ Detailed page:
   - `rewrites result-block br_if prefixes with payload bodies into one-arm payload ifs`
   - `rewrites stack-style branch-payload result wrappers around br_if prefixes`
   - `rewrites sibling-carried branch payload wrappers around br_if prefixes`
+- `remove_unused_brs_try_optimize_switch(...)`
+  Mirrors the safe no-payload subset of Binaryen's early `optimizeSwitch(...)`: trims trailing explicit default targets, offsets leading explicit defaults by subtracting from the selector, lowers default-only tables to a dropped selector plus branch, and lowers one-explicit-target/two-option tables to branch-if structure. Value-carrying tables stay conservative, and the large mostly-default nested stack-style lowering is documented as fail-closed until the nested traversal can be widened without regressing long branch-drain shapes.
+  Covered by:
+  - `remove-unused-brs trims trailing default br_table targets`
+  - `remove-unused-brs offsets leading default br_table targets`
+  - `remove-unused-brs lowers default-only br_table to dropped selector branch`
+  - `remove-unused-brs lowers two-option br_table to branch if structure`
+  - `remove-unused-brs documents nested stack-style large br_table lowering blocker`
+  - `remove-unused-brs keeps below-threshold mostly-default br_table`
 - `remove_unused_brs_try_rewrite_br_table_continuation_wrappers(...)`
   Retargets nested continuation-wrapper `br_table` arms directly to the outer exit when the wrapper labels are only referenced by that `br_table`, then lowers the now-dead forwarding tails to `unreachable`.
   Covered by:

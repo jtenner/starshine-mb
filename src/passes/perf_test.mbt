@@ -4780,7 +4780,7 @@ test "remove-unused-brs skips prefix-root scans for nested block dispatch ladder
   let text = perf_test_join_lines(lines)
   assert_false(text.contains("pass[remove-unused-brs]:skip-raw"), msg=text)
   assert_true(
-    text.contains("pass[remove-unused-brs]:done changed=false"),
+    text.contains("pass[remove-unused-brs]:done changed=true"),
     msg=text,
   )
   assert_false(text.contains("rub-prefix-root reject=guard-op"), msg=text)
@@ -4822,7 +4822,7 @@ test "remove-unused-brs skips result-prefix scans for nested block dispatch ladd
   let text = perf_test_join_lines(lines)
   assert_false(text.contains("pass[remove-unused-brs]:skip-raw"), msg=text)
   assert_true(
-    text.contains("pass[remove-unused-brs]:done changed=false"),
+    text.contains("pass[remove-unused-brs]:done changed=true"),
     msg=text,
   )
   assert_false(text.contains("rub-result-prefix reject=guard-op"), msg=text)

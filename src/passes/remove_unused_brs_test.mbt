@@ -2317,7 +2317,7 @@ test "remove-unused-brs lowers carried guard blocks in result-block then arms" {
 }
 
 ///|
-test "remove-unused-brs keeps one-arm payload branch ifs in br_table functions" {
+test "remove-unused-brs keeps one-arm payload branch ifs after switch cleanup" {
   let source =
     #|(module
     #|  (func (param i32) (result i32)
@@ -2343,7 +2343,7 @@ test "remove-unused-brs keeps one-arm payload branch ifs in br_table functions" 
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("br_table"), msg=pretty)
   assert_true(pretty.contains("(if"), msg=pretty)
   assert_false(pretty.contains("drop"), msg=pretty)
 }
@@ -2416,6 +2416,106 @@ test "remove-unused-brs drops carried result wrappers after lowering then-arm gu
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_false(pretty.contains("br_if"), msg=pretty)
   assert_false(pretty.contains("(drop (block I32"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs trims trailing default br_table targets" {
+  let source = "(module (func (param i32) (block $default (block $case0 (local.get 0) (br_table $case0 $default $default $default)) (unreachable))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs trailing-default switch success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs offsets leading default br_table targets" {
+  let source = "(module (func (param i32) (block $default (block $case0 (local.get 0) (br_table $default $default $case0 $default)) (unreachable))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs leading-default switch success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("i32.sub"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs lowers default-only br_table to dropped selector branch" {
+  let source = "(module (func (param i32) (block $outer (block $default (local.get 0) (br_table $outer)) unreachable)))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs default-only switch success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs lowers two-option br_table to branch if structure" {
+  let source = "(module (func (param i32) (block $default (block $case0 (local.get 0) (br_table $case0 $default)) (unreachable))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs two-option switch success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs documents nested stack-style large br_table lowering blocker" {
+  let source = "(module (func (export \"large\") (param i32) (block $default (block $first (block $last (local.get 0) (br_table $first $default $default $default $default $default $default $default $default $default $default $default $default $last $default)) (unreachable)))))"
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs large mostly-default switch success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Intentional fail-closed boundary: the local HOT traversal does not yet
+  // expose Binaryen's nested stack-style large mostly-default switch lowering
+  // without regressing existing two-arm branch-drain behavior.
+  assert_true(pretty.contains("br_table"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps below-threshold mostly-default br_table" {
+  let source = "(module (func (export \"large\") (param i32) (block $default (block $first (block $last (local.get 0) (br_table $first $default $default $default $default $default $default $default $default $default $default $last $default)) (unreachable)))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs below-threshold switch success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
 }
 
 ///|

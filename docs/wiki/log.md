@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-18] passes/remove-unused-brs | Land RUB-B switch safe subset
+
+- Completed `[O4Z-AUDIT-RUB-B]` for the safe no-payload subset of Binaryen `RemoveUnusedBrs.cpp` early `optimizeSwitch(...)` parity. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now trims trailing explicit default targets, offsets leading explicit default targets with `i32.sub`, lowers default-only tables to selector-drop plus branch, and lowers one-explicit-target/two-option tables to branch-if structure.
+- Added focused coverage in [`../../src/passes/remove_unused_brs_test.mbt`](../../src/passes/remove_unused_brs_test.mbt) for trailing-default trimming, leading-default offsetting, default-only lowering, two-option lowering, existing payload-branch preservation after switch cleanup, below-threshold tables, and the fail-closed nested stack-style large mostly-default blocker.
+- Updated [`binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md`](binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md), [`binaryen/passes/remove-unused-brs/pattern-catalog.md`](binaryen/passes/remove-unused-brs/pattern-catalog.md), [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). Remaining switch blockers are explicit: value-carrying tables are conservative because target-only trimming can expose older br_table-sensitive payload rewrites in the same RUB cycle, and large mostly-default nested stack-style lowering needs a narrower traversal proof before implementation.
+
 ## [2026-06-18] passes/remove-unused-brs | Complete RUB-A source matrix
 
 - Completed `[O4Z-AUDIT-RUB-A]` as a docs/source-audit slice. Local `wasm-opt --version` reports `wasm-opt version 130 (version_130)`, so the RUB dossier now treats Binaryen `version_130` as the local release oracle instead of the older `version_129` baseline.

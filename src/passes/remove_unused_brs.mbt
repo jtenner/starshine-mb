@@ -1027,6 +1027,28 @@ fn remove_unused_brs_build_i32_eqz(func : @ir.HotFunc, operand : Int) -> Int {
 }
 
 ///|
+fn remove_unused_brs_build_i32_sub(
+  func : @ir.HotFunc,
+  lhs : Int,
+  rhs : Int,
+) -> Int {
+  let temp = @ir.hot_build_binary(func, @lib.ValType::i32(), lhs, rhs)
+  @ir.hot_node_exact_instr_set(func, temp, @lib.Instruction::i32_sub())
+  temp
+}
+
+///|
+fn remove_unused_brs_build_i32_eq(
+  func : @ir.HotFunc,
+  lhs : Int,
+  rhs : Int,
+) -> Int {
+  let temp = @ir.hot_build_compare(func, lhs, rhs)
+  @ir.hot_node_exact_instr_set(func, temp, @lib.Instruction::i32_eq())
+  temp
+}
+
+///|
 fn remove_unused_brs_local_read_mask_resize(
   reads : @bitset.BitSet,
   local_id : Int,
@@ -2501,6 +2523,183 @@ fn remove_unused_brs_try_inline_single_br_if_block(
   }
   ignore(pass_splice_region(ctx, func, region_ref, idx, 1, [body_root]))
   remove_unused_brs_mark_mutated(ctx, func, "inline-single-br-if-block")
+  true
+}
+
+///|
+fn remove_unused_brs_try_optimize_switch(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  if idx < 0 || idx >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let br_table_id = @ir.hot_region_get(func, region_ref, idx)
+  if br_table_id < 0 || !@ir.hot_node_is_live(func, br_table_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, br_table_id)
+  match node.op {
+    @ir.HotOp::BrTable => ()
+    _ => return false
+  }
+  let stack_selector = node.child_count == 0
+  if stack_selector && idx == 0 {
+    return false
+  }
+
+  let default_target = @ir.hot_branch_table_default_target(func, node.imm0)
+  let mut targets = @ir.hot_branch_table_targets(func, node.imm0).copy()
+  let original_targets_len = targets.length()
+  while targets.length() > 0 && targets[targets.length() - 1] == default_target {
+    ignore(targets.pop())
+  }
+  let mut leading_defaults = 0
+  while leading_defaults < targets.length() &&
+        targets[leading_defaults] == default_target {
+    leading_defaults = leading_defaults + 1
+  }
+  if leading_defaults > 0 {
+    let shifted : Array[Int] = []
+    for i = leading_defaults; i < targets.length(); i = i + 1 {
+      shifted.push(targets[i])
+    }
+    targets = shifted
+  }
+
+  let selector_slot = node.child_count - 1
+  let selector = if stack_selector {
+    @ir.hot_region_get(func, region_ref, idx - 1)
+  } else {
+    @ir.hot_child_get(func, br_table_id, selector_slot)
+  }
+  let values : Array[Int] = []
+  if !stack_selector {
+    for i = 0; i < selector_slot; i = i + 1 {
+      values.push(@ir.hot_child_get(func, br_table_id, i))
+    }
+  }
+  let has_payload = values.length() > 0
+  if has_payload || @ir.hot_label_branch_arity(func, default_target) != 0 {
+    // Binaryen only skips the condition-reordering switch-to-branch rewrites for
+    // value-carrying switches. Starshine leaves the whole value-carrying family
+    // conservative for now because trimming can expose older function-wide
+    // br_table-sensitive payload rewrites in the same RUB cycle.
+    return false
+  }
+  for target in targets {
+    if @ir.hot_label_branch_arity(func, target) != 0 {
+      return false
+    }
+  }
+
+  let mut condition = selector
+  if leading_defaults > 0 {
+    condition = remove_unused_brs_build_i32_sub(
+      func,
+      condition,
+      @ir.hot_build_const_i32(func, @lib.I32(leading_defaults)),
+    )
+  }
+
+  if targets.length() == 0 {
+    let drop_selector = @ir.hot_build_drop(func, condition)
+    let br = @ir.hot_build_br(func, default_target)
+    let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+      drop_selector, br,
+    ])
+    if stack_selector {
+      ignore(@ir.hot_region_splice(func, region_ref, idx - 1, 2, [block]))
+    } else {
+      let detached : Array[Int] = [block]
+      @ir.hot_replace_node(func, br_table_id, @ir.hot_node_get(func, block))
+      remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+    }
+    remove_unused_brs_mark_mutated(ctx, func, "optimize-switch-default-only")
+    return true
+  }
+
+  if targets.length() == 1 {
+    let if_ = @ir.hot_build_if(
+      func,
+      @lib.BlockType::void_(),
+      condition,
+      [@ir.hot_build_br(func, default_target)],
+      else_body=Some([@ir.hot_build_br(func, targets[0])]),
+    )
+    if stack_selector {
+      ignore(@ir.hot_region_splice(func, region_ref, idx - 1, 2, [if_]))
+    } else {
+      let detached : Array[Int] = [if_]
+      @ir.hot_replace_node(func, br_table_id, @ir.hot_node_get(func, if_))
+      remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+    }
+    remove_unused_brs_mark_mutated(ctx, func, "optimize-switch-two-options")
+    return true
+  }
+
+  let min_shrink = 13
+  let threshold_met = targets.length() >= min_shrink
+  if !threshold_met {
+    if targets.length() != original_targets_len || leading_defaults > 0 {
+      let replacement = @ir.hot_build_br_table(
+        func, targets, default_target, condition,
+      )
+      if stack_selector {
+        ignore(
+          @ir.hot_region_splice(func, region_ref, idx - 1, 2, [replacement]),
+        )
+      } else {
+        let detached : Array[Int] = [replacement]
+        @ir.hot_replace_node(
+          func,
+          br_table_id,
+          @ir.hot_node_get(func, replacement),
+        )
+        remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+      }
+      remove_unused_brs_mark_mutated(ctx, func, "optimize-switch-trim-targets")
+      return true
+    }
+    return false
+  }
+  for i = 1; i < targets.length() - 1; i = i + 1 {
+    if targets[i] != default_target {
+      return false
+    }
+  }
+
+  let temp = @ir.hot_append_body_local(func, @lib.ValType::i32())
+  let tee = @ir.hot_build_local_tee(func, temp, condition)
+  let last_eq = remove_unused_brs_build_i32_eq(
+    func,
+    @ir.hot_build_local_get(func, temp),
+    @ir.hot_build_const_i32(func, @lib.I32(targets.length() - 1)),
+  )
+  let inner_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    last_eq,
+    [@ir.hot_build_br(func, targets[targets.length() - 1])],
+    else_body=Some([@ir.hot_build_br(func, default_target)]),
+  )
+  let outer_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    tee,
+    [inner_if],
+    else_body=Some([@ir.hot_build_br(func, targets[0])]),
+  )
+  if stack_selector {
+    ignore(@ir.hot_region_splice(func, region_ref, idx - 1, 2, [outer_if]))
+  } else {
+    let detached : Array[Int] = [outer_if]
+    @ir.hot_replace_node(func, br_table_id, @ir.hot_node_get(func, outer_if))
+    remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+  }
+  remove_unused_brs_mark_mutated(ctx, func, "optimize-switch-large-default-run")
   true
 }
 
@@ -6428,6 +6627,13 @@ fn remove_unused_brs_visit_region(
           continue
         }
       }
+      @ir.HotOp::BrTable =>
+        if remove_unused_brs_try_optimize_switch(
+            ctx, func, region_ref, current_idx,
+          ) {
+          changed = true
+          continue
+        }
       _ => ()
     }
     if !remove_unused_brs_subtree_has_embedded_control(
