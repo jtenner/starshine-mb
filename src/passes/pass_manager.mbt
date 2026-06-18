@@ -6931,6 +6931,46 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
         )
       }
     }
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate_label) => {
+      let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
+        body,
+      )
+      let rewritten_catches : Array[@lib.LegacyCatch] = []
+      let mut changed = body_changed
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(tag, @lib.Expr(catch_body)) => {
+            let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
+              catch_body,
+            )
+            changed = changed || catch_changed
+            rewritten_catches.push(
+              @lib.LegacyCatch::new(tag, @lib.Expr::new(rewritten_catch_body)),
+            )
+          }
+          @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+            let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
+              catch_body,
+            )
+            changed = changed || catch_changed
+            rewritten_catches.push(
+              @lib.LegacyCatch::all(@lib.Expr::new(rewritten_catch_body)),
+            )
+          }
+        }
+      }
+      if changed {
+        return (
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(rewritten_body),
+            rewritten_catches,
+            delegate_target=delegate_label,
+          ),
+          true,
+        )
+      }
+    }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
         body,

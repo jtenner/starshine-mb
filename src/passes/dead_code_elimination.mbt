@@ -163,7 +163,8 @@ fn dead_code_elimination_node_is_intrinsically_impure(
     | @ir.HotOp::TableInit
     | @ir.HotOp::ElemDrop
     | @ir.HotOp::Atomic
-    | @ir.HotOp::Heap => true
+    | @ir.HotOp::Heap
+    | @ir.HotOp::Pop => true
     _ => false
   }
 }

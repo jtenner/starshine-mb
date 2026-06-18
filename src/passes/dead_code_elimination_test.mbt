@@ -751,6 +751,81 @@ test "dead-code-elimination repairs legacy pop in dead call argument before unre
 }
 
 ///|
+test "dead-code-elimination repairs legacy pop in dead call argument before branch" {
+  let func = @ir.HotFunc::new()
+  let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let branch = @ir.hot_build_br(func, @ir.hot_control_node_label(func, block))
+  let call = @ir.hot_build_call(func, 1, [], [
+    @ir.hot_build_legacy_pop(func, @lib.ValType::i32()),
+    branch,
+  ])
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([call, @ir.hot_build_nop(func)]),
+  )
+  @ir.hot_legacy_try_catches_set(func, try_id, [
+    @ir.HotCatchArm::legacy_catch(@lib.TagIdx::new(0U), 2),
+  ])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block), [
+    try_id,
+  ])
+  @ir.hot_root_append(func, block)
+  @ir.hot_root_append(func, @ir.hot_build_const_i32(func, @lib.I32(7)))
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected call-pop-branch legacy DCE success, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(2U))]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        lowered,
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("I32(7)"), msg=pretty)
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination repairs legacy pop nested by drop ref-eq unreachable child" {
   let eqref = @lib.ValType::eqref_null()
   let func = @ir.HotFunc::new()
@@ -867,26 +942,27 @@ test "dead-code-elimination treats lowered legacy try with all arms unreachable 
 
 ///|
 test "dead-code-elimination removes call-pop-catch dead call text" {
+  let source =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (br $label))
+    #|          nop))))
+    #|  (func $helper (param i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
   let optimized = match
-    pass_test_run_pipeline(
-      (
-        #|(module
-        #|  (tag $e-i32 (param i32))
-        #|  (func
-        #|    (block $label
-        #|      (try
-        #|        (do nop)
-        #|        (catch $e-i32
-        #|          (call $helper
-        #|            (pop i32)
-        #|            (br $label))
-        #|          nop))))
-        #|  (func $helper (param i32 i32)))
-        #|)
-        #|,
-      ),
-      ["dead-code-elimination"],
-    ) {
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected call-pop-catch DCE pipeline success: \{err}")
   }
@@ -894,6 +970,7 @@ test "dead-code-elimination removes call-pop-catch dead call text" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("call"), msg=pretty)
   assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
 }
 
 ///|
