@@ -2442,10 +2442,24 @@ fn i8x16_shuffle_from_lanes(lanes : FixedArray[LaneIdx]) -> Instruction {
 }
 
 ///|
+priv enum LegacyTryCatchDecodeState {
+  LegacyTryBody
+  LegacyTryCatch(TagIdx, Array[Instruction])
+  LegacyTryCatchAll(Array[Instruction])
+}
+
+///|
 priv enum StructuredDecodeFrame {
   BlockFrame(BlockType, Int, Array[Instruction])
   LoopFrame(BlockType, Int, Array[Instruction])
   IfFrame(BlockType, Int, Array[Instruction], Array[Instruction]?)
+  TryFrame(
+    BlockType,
+    Int,
+    Array[Instruction],
+    Array[LegacyCatch],
+    LegacyTryCatchDecodeState
+  )
   TryTableFrame(BlockType, Array[Catch], Int, Array[Instruction])
 }
 
@@ -2457,6 +2471,7 @@ fn structured_frame_body_instruction_depth(
     BlockFrame(_, body_depth, _) => body_depth
     LoopFrame(_, body_depth, _) => body_depth
     IfFrame(_, body_depth, _, _) => body_depth
+    TryFrame(_, body_depth, _, _, _) => body_depth
     TryTableFrame(_, _, body_depth, _) => body_depth
   }
 }
@@ -2486,6 +2501,27 @@ fn structured_frame_push_instruction(
           IfFrame(bt, body_depth, then_body, None)
         }
       }
+    TryFrame(bt, body_depth, body, catches, state) =>
+      match state {
+        LegacyTryBody => {
+          body.push(inst)
+          TryFrame(bt, body_depth, body, catches, state)
+        }
+        LegacyTryCatch(tag, catch_body) => {
+          catch_body.push(inst)
+          TryFrame(
+            bt,
+            body_depth,
+            body,
+            catches,
+            LegacyTryCatch(tag, catch_body),
+          )
+        }
+        LegacyTryCatchAll(catch_body) => {
+          catch_body.push(inst)
+          TryFrame(bt, body_depth, body, catches, LegacyTryCatchAll(catch_body))
+        }
+      }
     TryTableFrame(bt, catches, body_depth, body) => {
       body.push(inst)
       TryTableFrame(bt, catches, body_depth, body)
@@ -2503,8 +2539,48 @@ fn structured_frame_finish(frame : StructuredDecodeFrame) -> Instruction {
         Some(else_body) => Instruction::if_(bt, then_body, Some(else_body))
         None => Instruction::if_(bt, then_body, None)
       }
+    TryFrame(bt, _, body, catches, state) => {
+      let finished_catches = structured_legacy_try_finish_catch(catches, state)
+      Instruction::try_(bt, Expr::new(body), finished_catches)
+    }
     TryTableFrame(bt, catches, _, body) =>
       Instruction::try_table(bt, catches, Expr::new(body))
+  }
+}
+
+///|
+fn structured_legacy_try_finish_catch(
+  catches : Array[LegacyCatch],
+  state : LegacyTryCatchDecodeState,
+) -> Array[LegacyCatch] {
+  match state {
+    LegacyTryBody => catches
+    LegacyTryCatch(tag, catch_body) => {
+      catches.push(LegacyCatch::new(tag, Expr::new(catch_body)))
+      catches
+    }
+    LegacyTryCatchAll(catch_body) => {
+      catches.push(LegacyCatch::all(Expr::new(catch_body)))
+      catches
+    }
+  }
+}
+
+///|
+fn structured_legacy_try_start_catch(
+  frame : StructuredDecodeFrame,
+  tag : TagIdx?,
+) -> StructuredDecodeFrame {
+  match frame {
+    TryFrame(bt, body_depth, body, catches, state) => {
+      let catches = structured_legacy_try_finish_catch(catches, state)
+      let next_state = match tag {
+        Some(tag) => LegacyTryCatch(tag, [])
+        None => LegacyTryCatchAll([])
+      }
+      TryFrame(bt, body_depth, body, catches, next_state)
+    }
+    _ => frame
   }
 }
 
@@ -2532,6 +2608,12 @@ fn decode_structured_frame_header(
     Some(0x04) =>
       match Decode::decode(bytes, i + 1) {
         Ok((bt, next)) => Ok((IfFrame(bt, body_depth, [], None), next))
+        Err(err) => Err(err)
+      }
+    Some(0x06) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((bt, next)) =>
+          Ok((TryFrame(bt, body_depth, [], [], LegacyTryBody), next))
         Err(err) => Err(err)
       }
     Some(0x1F) =>
@@ -2568,6 +2650,38 @@ fn decode_structured_instruction_with_depth(
         pos += 1
         frames.push(IfFrame(bt, body_depth, then_body, Some([])))
       }
+      (TryFrame(bt, body_depth, body, catches, state), Some(0x07)) =>
+        match Decode::decode(bytes, pos + 1) {
+          Ok((tag, next)) => {
+            let frame = TryFrame(bt, body_depth, body, catches, state)
+            frames.push(structured_legacy_try_start_catch(frame, Some(tag)))
+            pos = next
+          }
+          Err(err) => return Err(err)
+        }
+      (TryFrame(bt, body_depth, body, catches, state), Some(0x19)) => {
+        let frame = TryFrame(bt, body_depth, body, catches, state)
+        frames.push(structured_legacy_try_start_catch(frame, None))
+        pos += 1
+      }
+      (TryFrame(bt, _, body, catches, LegacyTryBody), Some(0x18)) =>
+        match Decode::decode(bytes, pos + 1) {
+          Ok((target, next)) => {
+            let inst = Instruction::try_(
+              bt,
+              Expr::new(body),
+              catches,
+              delegate_target=Some(target),
+            )
+            pos = next
+            if frames.is_empty() {
+              return Ok((inst, pos))
+            }
+            let parent = frames.pop().unwrap()
+            frames.push(structured_frame_push_instruction(parent, inst))
+          }
+          Err(err) => return Err(err)
+        }
       (frame, Some(0x0B)) => {
         let inst = structured_frame_finish(frame)
         pos += 1
@@ -2580,6 +2694,7 @@ fn decode_structured_instruction_with_depth(
       (frame, Some(0x02))
       | (frame, Some(0x03))
       | (frame, Some(0x04))
+      | (frame, Some(0x06))
       | (frame, Some(0x1F)) => {
         let body_depth = structured_frame_body_instruction_depth(frame)
         frames.push(frame)
@@ -2625,7 +2740,7 @@ fn decode_instruction_with_depth(
         Ok((vts, i)) => Ok((Instruction::select(types=Some(vts)), i))
         Err(t) => Err(t)
       }
-    Some(0x02) | Some(0x03) | Some(0x04) | Some(0x1F) =>
+    Some(0x02) | Some(0x03) | Some(0x04) | Some(0x06) | Some(0x1F) =>
       decode_structured_instruction_with_depth(bytes, i, depth)
     Some(0x08) =>
       match Decode::decode(bytes, i + 1) {

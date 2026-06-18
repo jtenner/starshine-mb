@@ -6310,6 +6310,38 @@ test "wast_to_binary_module preserves real legacy try without pop" {
 }
 
 ///|
+test "wast_text_binary_roundtrip supports real legacy try without pop" {
+  let src =
+    #|(module
+    #|  (tag $e)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e nop))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(src, filename="legacy-try-no-pop-roundtrip.wat") {
+    Ok(m) => m
+    Err(e) => fail("expected legacy try without pop to roundtrip: \{e}")
+  }
+  match decoded.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
+      match try_instr {
+        @lib.Try(
+          _,
+          @lib.Expr([@lib.Nop]),
+          [@lib.LegacyCatch(@lib.TagIdx(0), @lib.Expr([@lib.Nop]))],
+          None
+        ) => ()
+        _ =>
+          fail(
+            "expected decoded real @lib.Try with one catch body, got \{try_instr}",
+          )
+      }
+    _ => fail("expected roundtripped legacy try function body")
+  }
+}
+
+///|
 test "wast_ast_to_binary_module represents legacy pop distinctly" {
   let src =
     #|(module

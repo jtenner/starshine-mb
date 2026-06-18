@@ -695,6 +695,56 @@ fn assert_encode_err_contains(
 }
 
 ///|
+test "legacy try without pop instruction roundtrips" {
+  let instr = Instruction::try_(
+    BlockType::void_(),
+    Expr::new([Instruction::nop()]),
+    [LegacyCatch::new(TagIdx::new(0U), Expr::new([Instruction::nop()]))],
+  )
+  let buf = @buffer.new()
+  match Encode::encode(instr, buf) {
+    Ok(_) => ()
+    Err(err) => fail("expected legacy try without pop to encode, got \{err}")
+  }
+  @debug.assert_eq(buf.to_bytes().to_array(), [
+    0x06, 0x40, 0x01, 0x07, 0x00, 0x01, 0x0B,
+  ])
+  match Decode::decode(buf.to_bytes(), 0) {
+    Ok((decoded, pos)) => {
+      @debug.assert_eq(pos, buf.length())
+      @debug.assert_eq(decoded, instr)
+    }
+    Err(err) => fail("expected legacy try without pop to decode, got \{err}")
+  }
+}
+
+///|
+test "legacy try catch_all without pop instruction roundtrips" {
+  let instr = Instruction::try_(
+    BlockType::void_(),
+    Expr::new([Instruction::nop()]),
+    [LegacyCatch::all(Expr::new([Instruction::nop()]))],
+  )
+  let buf = @buffer.new()
+  match Encode::encode(instr, buf) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected legacy try catch_all without pop to encode, got \{err}")
+  }
+  @debug.assert_eq(buf.to_bytes().to_array(), [
+    0x06, 0x40, 0x01, 0x19, 0x01, 0x0B,
+  ])
+  match Decode::decode(buf.to_bytes(), 0) {
+    Ok((decoded, pos)) => {
+      @debug.assert_eq(pos, buf.length())
+      @debug.assert_eq(decoded, instr)
+    }
+    Err(err) =>
+      fail("expected legacy try catch_all without pop to decode, got \{err}")
+  }
+}
+
+///|
 test "encode rejects legacy pop placeholder explicitly" {
   assert_encode_err_contains(
     Encode::encode(Instruction::pop(ValType::i32()), @buffer.new()),

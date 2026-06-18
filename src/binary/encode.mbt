@@ -2075,7 +2075,48 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       }
     }
     Pop(_) => return Err(BinaryEncodeError::CannotEncodeLegacyPop)
-    Try(_, _, _, _) => return Err(BinaryEncodeError::CannotEncodeLegacyTry)
+    Try(bt, body, catches, delegate_target) => {
+      buf.write_byte(0x06)
+      if Encode::encode(bt, buf) is Err(t) {
+        return Err(t)
+      }
+      for i in body.0.iter() {
+        if Encode::encode(i, buf) is Err(t) {
+          return Err(t)
+        }
+      }
+      if delegate_target is Some(target) {
+        buf.write_byte(0x18)
+        if Encode::encode(target, buf) is Err(t) {
+          return Err(t)
+        }
+      } else {
+        for catch_ in catches.iter() {
+          match catch_ {
+            LegacyCatch(tag, catch_body) => {
+              buf.write_byte(0x07)
+              if Encode::encode(tag, buf) is Err(t) {
+                return Err(t)
+              }
+              for i in catch_body.0.iter() {
+                if Encode::encode(i, buf) is Err(t) {
+                  return Err(t)
+                }
+              }
+            }
+            LegacyCatchAll(catch_body) => {
+              buf.write_byte(0x19)
+              for i in catch_body.0.iter() {
+                if Encode::encode(i, buf) is Err(t) {
+                  return Err(t)
+                }
+              }
+            }
+          }
+        }
+        buf.write_byte(0x0B)
+      }
+    }
     TryTable(bt, c, e) => {
       buf.write_byte(0x1F)
       if Encode::encode(bt, buf) is Err(t) {
