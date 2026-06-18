@@ -655,6 +655,8 @@ fn remove_unused_brs_compute_cycle_scan(
             | @ir.HotCatchArm::CatchRefArm(_, label_id)
             | @ir.HotCatchArm::CatchAllArm(label_id)
             | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
+            @ir.HotCatchArm::LegacyCatchArm(_, _)
+            | @ir.HotCatchArm::LegacyCatchAllArm(_) => continue
           }
           if label_id >= 0 && label_id < label_refs.length() {
             label_refs[label_id] = label_refs[label_id] + 1

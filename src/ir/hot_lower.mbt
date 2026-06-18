@@ -156,6 +156,8 @@ fn hot_lower_impl_label_is_used(func : HotFunc, label_id : LabelId) -> Bool {
             | HotCatchArm::CatchRefArm(_, target)
             | HotCatchArm::CatchAllArm(target)
             | HotCatchArm::CatchAllRefArm(target) => target
+            HotCatchArm::LegacyCatchArm(_, _)
+            | HotCatchArm::LegacyCatchAllArm(_) => HOT_IMPLICIT_FUNCTION_LABEL
           }
           if target == label_id {
             return true
@@ -417,6 +419,8 @@ fn hot_lower_impl_try_catches(
             hot_lower_impl_label_depth(label_frames, label_stack_head, label_id),
           ),
         )
+      HotCatchArm::LegacyCatchArm(_, _) | HotCatchArm::LegacyCatchAllArm(_) =>
+        abort("try_table lowering requires try_table catch arms")
     }
   }
   catches
@@ -1204,16 +1208,36 @@ fn hot_lower_impl_emit_instruction(
       let catch_id = func.children[node.child_base + 1]
       let catches : Array[LegacyCatch] = []
       if catch_id != HOT_NONE_NODE {
-        catches.push(
-          LegacyCatch::all(
-            Expr::new(
-              hot_lower_impl_region_body(
-                func, catch_id, use_def, label_frames, next_stack, extra_locals,
-                options,
-              ),
-            ),
-          ),
+        let catch_body = hot_lower_impl_region_body(
+          func, catch_id, use_def, label_frames, next_stack, extra_locals, options,
         )
+        if node.imm1 >= 0 && node.imm1 < func.catches.length() {
+          let mut offset = 0
+          let catch_info = hot_catch_info_get(func, node.imm1)
+          for arm in catch_info.catches {
+            match arm {
+              LegacyCatchArm(tag, root_count) => {
+                let arm_body : Array[Instruction] = []
+                for i = 0; i < root_count; i = i + 1 {
+                  arm_body.push(catch_body[offset + i])
+                }
+                offset += root_count
+                catches.push(LegacyCatch::new(tag, Expr::new(arm_body)))
+              }
+              LegacyCatchAllArm(root_count) => {
+                let arm_body : Array[Instruction] = []
+                for i = 0; i < root_count; i = i + 1 {
+                  arm_body.push(catch_body[offset + i])
+                }
+                offset += root_count
+                catches.push(LegacyCatch::all(Expr::new(arm_body)))
+              }
+              _ => ()
+            }
+          }
+        } else {
+          catches.push(LegacyCatch::all(Expr::new(catch_body)))
+        }
       }
       out.push(
         Instruction::try_(

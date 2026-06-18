@@ -1987,6 +1987,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let catch_roots : Array[NodeId] = []
+      let legacy_catch_arms : Array[HotCatchArm] = []
       for catch_ in catches {
         let catch_body = match catch_ {
           LegacyCatch(_, catch_body) => catch_body
@@ -2006,8 +2007,20 @@ fn hot_lift_impl_lift_control(
           Ok(state) => state
           Err(err) => return Err(err)
         }
+        match catch_ {
+          LegacyCatch(tag, _) =>
+            legacy_catch_arms.push(
+              HotCatchArm::legacy_catch(tag, roots.length()),
+            )
+          LegacyCatchAll(_) =>
+            legacy_catch_arms.push(HotCatchArm::legacy_all(roots.length()))
+        }
         catch_roots.append(roots)
       }
+      let catch_info_id = hot_alloc_catch_info(
+        func,
+        HotCatchInfo::new(legacy_catch_arms),
+      )
       hot_lift_impl_pop_label(label_frames, next_stack)
       ignore(
         hot_replace_child_span(func, id, [
@@ -2015,7 +2028,11 @@ fn hot_lift_impl_lift_control(
           hot_lift_impl_make_region(func, catch_roots, result_arity),
         ]),
       )
-      hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+      hot_node_set(func, id, {
+        ..hot_node_get(func, id),
+        imm0: label_id,
+        imm1: catch_info_id,
+      })
       hot_lift_impl_push_node(roots, values, concrete_values, id, results)
       Ok(after_state)
     }

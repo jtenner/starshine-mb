@@ -713,6 +713,8 @@ pub fn hot_try_table_catches_set(
       | HotCatchArm::CatchRefArm(_, label_id)
       | HotCatchArm::CatchAllArm(label_id)
       | HotCatchArm::CatchAllRefArm(label_id) => label_id
+      HotCatchArm::LegacyCatchArm(_, _) | HotCatchArm::LegacyCatchAllArm(_) =>
+        abort("hot try_table_catches_set requires try_table catch arms")
     }
     hot_mutate_require_label_id(
       func, label_id, "hot try_table_catches_set catch target",

@@ -981,11 +981,15 @@ pub enum HotCatchArm {
   CatchRefArm(@lib.TagIdx, Int)
   CatchAllArm(Int)
   CatchAllRefArm(Int)
+  LegacyCatchArm(@lib.TagIdx, Int)
+  LegacyCatchAllArm(Int)
 } derive(Eq, @debug.Debug)
 pub fn HotCatchArm::all(Int) -> Self
 pub fn HotCatchArm::all_ref(Int) -> Self
 pub fn HotCatchArm::catch_(@lib.TagIdx, Int) -> Self
 pub fn HotCatchArm::catch_ref(@lib.TagIdx, Int) -> Self
+pub fn HotCatchArm::legacy_all(Int) -> Self
+pub fn HotCatchArm::legacy_catch(@lib.TagIdx, Int) -> Self
 pub impl Show for HotCatchArm
 
 pub struct HotCatchInfo {

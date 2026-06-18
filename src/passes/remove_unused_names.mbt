@@ -98,6 +98,8 @@ fn remove_unused_names_node_targets_any_control(
           | @ir.HotCatchArm::CatchRefArm(_, label_id)
           | @ir.HotCatchArm::CatchAllArm(label_id)
           | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
+          @ir.HotCatchArm::LegacyCatchArm(_, _)
+          | @ir.HotCatchArm::LegacyCatchAllArm(_) => continue
         }
         if targets_label(label_id) {
           return true
@@ -246,6 +248,11 @@ fn remove_unused_names_retarget_node_labels(
             (label_id, fn(next_label) { @ir.HotCatchArm::all(next_label) })
           @ir.HotCatchArm::CatchAllRefArm(label_id) =>
             (label_id, fn(next_label) { @ir.HotCatchArm::all_ref(next_label) })
+          @ir.HotCatchArm::LegacyCatchArm(_, _)
+          | @ir.HotCatchArm::LegacyCatchAllArm(_) => {
+            new_catches.push(catch_)
+            continue
+          }
         }
         let next_label = remove_unused_names_replacement_label_for_controls(
           func, old_label, control_ids, replacement_label,
