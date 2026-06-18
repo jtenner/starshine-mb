@@ -1280,6 +1280,151 @@ test "dead-code-elimination repairs catch pop value br_table payload" {
 }
 
 ///|
+test "dead-code-elimination repairs catch pop multivalue branch payload" {
+  let source =
+    #|(module
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func (result i32 i64)
+    #|    (block $label (result i32 i64)
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i64-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (pop i64)
+    #|            (br $label))
+    #|          nop))
+    #|      (i32.const 0)
+    #|      (i64.const 0)))
+    #|  (func $helper (param i32 i64 i32 i64)))
+    #|)
+    #|
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multivalue-branch catch-pop DCE pipeline success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs catch pop type-index branch payload" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func (result i32 i64)
+    #|    (block $label (type $pair)
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i64-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (pop i64)
+    #|            (br $label))
+    #|          nop))
+    #|      (i32.const 0)
+    #|      (i64.const 0)))
+    #|  (func $helper (param i32 i64 i32 i64)))
+    #|)
+    #|
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected type-index branch catch-pop DCE pipeline success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs catch pop type-index br_table payload" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func (param i32) (result i32 i64)
+    #|    (block $label (type $pair)
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i64-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (pop i64)
+    #|            (local.get 0)
+    #|            (br_table $label $label))
+    #|          nop))
+    #|      (i32.const 0)
+    #|      (i64.const 0)))
+    #|  (func $helper (param i32 i64 i32 i64 i32)))
+    #|)
+    #|
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected type-index br_table catch-pop DCE pipeline success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "dead-code-elimination rejects unsupported catch pop nonvoid return boundary" {
   let source =
     #|(module
