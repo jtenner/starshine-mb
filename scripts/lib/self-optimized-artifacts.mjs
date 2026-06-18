@@ -7,7 +7,7 @@ export function repoRootFromScript(importMetaUrl) {
   const scriptPath = fileURLToPath(importMetaUrl);
   let current = path.dirname(scriptPath);
   while (true) {
-    if (fs.existsSync(path.join(current, 'moon.mod.json'))) {
+    if (fs.existsSync(path.join(current, 'moon.mod.json')) || fs.existsSync(path.join(current, 'moon.mod'))) {
       return current;
     }
     const parent = path.dirname(current);
