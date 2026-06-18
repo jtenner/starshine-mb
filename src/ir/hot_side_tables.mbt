@@ -213,6 +213,7 @@ fn hot_exact_instr_payload_id_for_op(node : HotNode) -> SideTableId? {
     | HotOp::BrOnCastFail => Some(node.imm1)
     HotOp::Select
     | HotOp::Pop
+    | HotOp::Rethrow
     | HotOp::Heap
     | HotOp::Unary
     | HotOp::Binary

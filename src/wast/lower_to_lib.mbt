@@ -1755,7 +1755,10 @@ fn wt_instr_to_lib(
     ThrowRef => Ok(@lib.Instruction::throw_ref())
     Rethrow(idx) =>
       if wt_legacy_rethrow_valid(idx, legacy) {
-        Ok(@lib.Instruction::unreachable_())
+        match idx {
+          Num(n) => Ok(@lib.Instruction::rethrow(@lib.LabelIdx::new(n)))
+          Id(_) => Err("invalid legacy rethrow label: \{wt_index_text(idx)}")
+        }
       } else {
         Err("invalid legacy rethrow label: \{wt_index_text(idx)}")
       }
@@ -6338,6 +6341,56 @@ test "wast_text_binary_roundtrip supports real legacy try without pop" {
           )
       }
     _ => fail("expected roundtripped legacy try function body")
+  }
+}
+
+///|
+test "wast_text_binary_roundtrip preserves legacy rethrow opcode" {
+  let src =
+    #|(module
+    #|  (tag $e)
+    #|  (func
+    #|    (try
+    #|      (do (throw $e))
+    #|      (catch $e
+    #|        (rethrow 0)))))
+  let lowered = match wast_to_binary_module(src) {
+    Ok(m) => m
+    Err(e) => fail("expected legacy rethrow lowering to succeed: \{e}")
+  }
+  let bytes = match @binary.encode_module(lowered) {
+    Ok(raw) => raw.to_array()
+    Err(e) => fail("expected legacy rethrow module to encode: \{e}")
+  }
+  assert_true(
+    bytes.any(fn(b) { b == (0x09).to_byte() }),
+    msg="expected encoded module to contain legacy rethrow opcode 0x09",
+  )
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(src, filename="legacy-rethrow-roundtrip.wat") {
+    Ok(m) => m
+    Err(e) => fail("expected legacy rethrow to roundtrip: \{e}")
+  }
+  match decoded.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
+      match try_instr {
+        @lib.Try(
+          _,
+          @lib.Expr([@lib.Throw(@lib.TagIdx(0))]),
+          [
+            @lib.LegacyCatch(
+              @lib.TagIdx(0),
+              @lib.Expr([@lib.Rethrow(@lib.LabelIdx(0))])
+            ),
+          ],
+          None
+        ) => ()
+        _ =>
+          fail(
+            "expected decoded legacy try with rethrow catch, got \{try_instr}",
+          )
+      }
+    _ => fail("expected roundtripped legacy rethrow function body")
   }
 }
 

@@ -2002,6 +2002,12 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       }
     }
     ThrowRef => buf.write_byte(0x0A)
+    Rethrow(i) => {
+      buf.write_byte(0x09)
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
     Br(i) => {
       buf.write_byte(0x0C)
       if Encode::encode(i, buf) is Err(t) {

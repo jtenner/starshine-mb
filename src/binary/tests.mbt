@@ -745,6 +745,35 @@ test "legacy try catch_all without pop instruction roundtrips" {
 }
 
 ///|
+test "legacy rethrow instruction roundtrips inside catch" {
+  let instr = Instruction::try_(
+    BlockType::void_(),
+    Expr::new([Instruction::throw_(TagIdx::new(0U))]),
+    [
+      LegacyCatch::new(
+        TagIdx::new(0U),
+        Expr::new([Instruction::rethrow(LabelIdx::new(0U))]),
+      ),
+    ],
+  )
+  let buf = @buffer.new()
+  match Encode::encode(instr, buf) {
+    Ok(_) => ()
+    Err(err) => fail("expected legacy try with rethrow to encode, got \{err}")
+  }
+  @debug.assert_eq(buf.to_bytes().to_array(), [
+    0x06, 0x40, 0x08, 0x00, 0x07, 0x00, 0x09, 0x00, 0x0B,
+  ])
+  match Decode::decode(buf.to_bytes(), 0) {
+    Ok((decoded, pos)) => {
+      @debug.assert_eq(pos, buf.length())
+      @debug.assert_eq(decoded, instr)
+    }
+    Err(err) => fail("expected legacy try with rethrow to decode, got \{err}")
+  }
+}
+
+///|
 test "encode rejects legacy pop placeholder explicitly" {
   assert_encode_err_contains(
     Encode::encode(Instruction::pop(ValType::i32()), @buffer.new()),

@@ -2748,6 +2748,11 @@ fn decode_instruction_with_depth(
         Err(t) => Err(t)
       }
     Some(0x0A) => Ok((Instruction::throw_ref(), i + 1))
+    Some(0x09) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((lbl, i)) => Ok((Instruction::rethrow(lbl), i))
+        Err(t) => Err(t)
+      }
     Some(0x0C) =>
       match Decode::decode(bytes, i + 1) {
         Ok((lbl, i)) => Ok((Instruction::br(lbl), i))

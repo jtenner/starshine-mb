@@ -542,6 +542,7 @@ pub enum Instruction {
   If(BlockType, Array[Instruction], Array[Instruction]?)
   Throw(TagIdx)
   ThrowRef
+  Rethrow(LabelIdx)
   Br(LabelIdx)
   BrIf(LabelIdx)
   BrTable(Array[LabelIdx], LabelIdx)
@@ -2995,6 +2996,11 @@ pub fn Instruction::throw_(ti : TagIdx) -> Instruction {
 ///|
 pub fn Instruction::throw_ref() -> Instruction {
   ThrowRef
+}
+
+///|
+pub fn Instruction::rethrow(li : LabelIdx) -> Instruction {
+  Rethrow(li)
 }
 
 ///|

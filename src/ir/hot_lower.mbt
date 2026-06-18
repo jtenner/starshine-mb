@@ -1143,6 +1143,7 @@ fn hot_lower_impl_emit_instruction(
     | HotOp::Store
     | HotOp::Select
     | HotOp::Pop
+    | HotOp::Rethrow
     | HotOp::RefTest
     | HotOp::RefCast
     | HotOp::RefTestDesc

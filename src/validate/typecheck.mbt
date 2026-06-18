@@ -24,6 +24,7 @@ pub struct TcState {
   escape : TcEscape
   reachable_escape_depths : Array[Int]
   legacy_pop_payloads : Array[ValType]
+  legacy_catch_depth : UInt
 }
 
 ///|
@@ -40,6 +41,8 @@ pub impl Show for TcState with fn output(self, logger) {
   self.reachable_escape_depths.output(logger)
   logger.write_string(", legacy_pop_payloads: ")
   self.legacy_pop_payloads.output(logger)
+  logger.write_string(", legacy_catch_depth: ")
+  self.legacy_catch_depth.output(logger)
   logger.write_char('}')
 }
 
@@ -222,6 +225,15 @@ fn typecheck_legacy_pop(st : TcState, vt : ValType) -> TcResult {
         Err("legacy pop payload type mismatch")
       }
   }
+}
+
+///|
+fn typecheck_legacy_rethrow(st : TcState, label : LabelIdx) -> TcResult {
+  let LabelIdx(raw) = label
+  if raw >= st.legacy_catch_depth {
+    return Err("legacy rethrow without matching catch")
+  }
+  Ok(st.set_unreachable())
 }
 
 ///|
@@ -660,6 +672,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     escape: st1.escape,
     reachable_escape_depths: [],
     legacy_pop_payloads: st1.legacy_pop_payloads,
+    legacy_catch_depth: st1.legacy_catch_depth,
   }
   let st_body = match Typecheck::typecheck(Expr::new(body_instrs), st_body0) {
     Err(e) => return Err(e)
@@ -680,6 +693,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       escape: st.escape,
       reachable_escape_depths: st.reachable_escape_depths,
       legacy_pop_payloads: st.legacy_pop_payloads,
+      legacy_catch_depth: st.legacy_catch_depth,
     }.merge_child_reachable_escape_depths(st_body)
     return Ok(out.push_types(results))
   }
@@ -691,6 +705,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       escape: block_escape,
       reachable_escape_depths: st.reachable_escape_depths,
       legacy_pop_payloads: st.legacy_pop_payloads,
+      legacy_catch_depth: st.legacy_catch_depth,
     }.merge_child_reachable_escape_depths(st_body),
   )
 }
@@ -733,6 +748,7 @@ fn typecheck_if(
     escape: st1.escape,
     reachable_escape_depths: [],
     legacy_pop_payloads: st1.legacy_pop_payloads,
+    legacy_catch_depth: st1.legacy_catch_depth,
   }
   let st_then = match Typecheck::typecheck(Expr::new(then_instrs), st_then0) {
     Err(e) => return Err(e)
@@ -747,6 +763,7 @@ fn typecheck_if(
     escape: st1.escape,
     reachable_escape_depths: [],
     legacy_pop_payloads: st1.legacy_pop_payloads,
+    legacy_catch_depth: st1.legacy_catch_depth,
   }
   let st_else = match Typecheck::typecheck(Expr::new(else_instrs), st_else0) {
     Err(e) => return Err(e)
@@ -783,6 +800,7 @@ fn typecheck_if(
         merged_child_depths,
       ),
       legacy_pop_payloads: st.legacy_pop_payloads,
+      legacy_catch_depth: st.legacy_catch_depth,
     }
     return Ok(out.push_types(results))
   }
@@ -796,6 +814,7 @@ fn typecheck_if(
       merged_child_depths,
     ),
     legacy_pop_payloads: st.legacy_pop_payloads,
+    legacy_catch_depth: st.legacy_catch_depth,
   })
 }
 
@@ -1417,6 +1436,7 @@ fn typecheck_legacy_try(
     escape: st1.escape,
     reachable_escape_depths: [],
     legacy_pop_payloads: st1.legacy_pop_payloads,
+    legacy_catch_depth: st1.legacy_catch_depth,
   }
   let st_body = match Typecheck::typecheck(body, body_start) {
     Err(e) => return Err(e)
@@ -1446,6 +1466,7 @@ fn typecheck_legacy_try(
       escape: st1.escape,
       reachable_escape_depths: [],
       legacy_pop_payloads,
+      legacy_catch_depth: st1.legacy_catch_depth + 1U,
     }
     let st_catch = match Typecheck::typecheck(catch_body, catch_start) {
       Err(e) => return Err(e)
@@ -1466,6 +1487,7 @@ fn typecheck_legacy_try(
     escape,
     reachable_escape_depths: st.reachable_escape_depths,
     legacy_pop_payloads: st.legacy_pop_payloads,
+    legacy_catch_depth: st.legacy_catch_depth,
   }.merge_child_reachable_escape_depths(TcState::{
     env: st.env,
     stack: [],
@@ -1473,6 +1495,7 @@ fn typecheck_legacy_try(
     escape,
     reachable_escape_depths: child_depths,
     legacy_pop_payloads: st.legacy_pop_payloads,
+    legacy_catch_depth: st.legacy_catch_depth,
   })
   Ok(out.push_types(results))
 }
@@ -1504,6 +1527,7 @@ fn typecheck_try_table(
     escape: st1.escape,
     reachable_escape_depths: [],
     legacy_pop_payloads: st1.legacy_pop_payloads,
+    legacy_catch_depth: st1.legacy_catch_depth,
   }
 
   // body must typecheck under extended env
@@ -1535,6 +1559,7 @@ fn typecheck_try_table(
     escape: st_body.escape,
     reachable_escape_depths: st.reachable_escape_depths,
     legacy_pop_payloads: st.legacy_pop_payloads,
+    legacy_catch_depth: st.legacy_catch_depth,
   }.merge_child_reachable_escape_depths(st_body)
   Ok(out.push_types(results))
 }
@@ -1910,6 +1935,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     escape: st1.escape,
     reachable_escape_depths: [],
     legacy_pop_payloads: st1.legacy_pop_payloads,
+    legacy_catch_depth: st1.legacy_catch_depth,
   }
   let st_body = match Typecheck::typecheck(body, st_body0) {
     Err(e) => return Err(e)
@@ -1929,6 +1955,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       escape: st.escape,
       reachable_escape_depths: st.reachable_escape_depths,
       legacy_pop_payloads: st.legacy_pop_payloads,
+      legacy_catch_depth: st.legacy_catch_depth,
     }.merge_child_reachable_escape_depths(st_body)
     return Ok(out.push_types(results))
   }
@@ -1940,6 +1967,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       escape: loop_escape,
       reachable_escape_depths: st.reachable_escape_depths,
       legacy_pop_payloads: st.legacy_pop_payloads,
+      legacy_catch_depth: st.legacy_catch_depth,
     }.merge_child_reachable_escape_depths(st_body),
   )
 }
@@ -3476,6 +3504,7 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     Select(None) => typecheck_select_untyped(st)
     Select(Some(ts)) => typecheck_select_typed(st, ts)
     Pop(vt) => typecheck_legacy_pop(st, vt)
+    Rethrow(label) => typecheck_legacy_rethrow(st, label)
     LocalGet(i) => typecheck_local_get(st, i)
     LocalSet(i) => typecheck_local_set(st, i)
     LocalTee(i) => typecheck_local_tee(st, i)
@@ -4261,6 +4290,7 @@ pub fn make_state(env : Env, stack : Array[ValType]) -> TcState {
     escape: NoTcEscape,
     reachable_escape_depths: [],
     legacy_pop_payloads: [],
+    legacy_catch_depth: 0U,
   }
 }
 
@@ -4273,6 +4303,7 @@ pub fn make_state_owned(env : Env, stack : Array[ValType]) -> TcState {
     escape: NoTcEscape,
     reachable_escape_depths: [],
     legacy_pop_payloads: [],
+    legacy_catch_depth: 0U,
   }
 }
 
@@ -4285,6 +4316,7 @@ pub fn tc_state_with_stack(state : TcState, stack : Array[ValType]) -> TcState {
     escape: state.escape,
     reachable_escape_depths: state.reachable_escape_depths,
     legacy_pop_payloads: state.legacy_pop_payloads,
+    legacy_catch_depth: state.legacy_catch_depth,
   }
 }
 
@@ -4300,6 +4332,7 @@ pub fn tc_state_with_owned_stack(
     escape: state.escape,
     reachable_escape_depths: state.reachable_escape_depths,
     legacy_pop_payloads: state.legacy_pop_payloads,
+    legacy_catch_depth: state.legacy_catch_depth,
   }
 }
 
@@ -4309,6 +4342,14 @@ pub fn tc_state_with_legacy_pop_payloads(
   payloads : Array[ValType],
 ) -> TcState {
   { ..state, legacy_pop_payloads: payloads }
+}
+
+///|
+pub fn tc_state_with_legacy_catch_depth(
+  state : TcState,
+  depth : UInt,
+) -> TcState {
+  { ..state, legacy_catch_depth: depth }
 }
 
 ///|
@@ -4325,6 +4366,7 @@ pub fn tc_state_new(
     escape,
     reachable_escape_depths: [],
     legacy_pop_payloads: [],
+    legacy_catch_depth: 0U,
   }
 }
 
@@ -4410,6 +4452,7 @@ test "tc_state_validate_end_stack accepts unreachable virtual-bottom suffixes" {
     escape: NoTcEscape,
     reachable_escape_depths: [],
     legacy_pop_payloads: [],
+    legacy_catch_depth: 0U,
   }
   let result = tc_state_validate_end_stack(state, [ValType::i32()])
   @debug.assert_eq(result, Ok(()))
@@ -7402,6 +7445,47 @@ test "Typecheck legacy pop requires matching catch payload" {
     state,
   )
   assert_err(mismatch)
+}
+
+///|
+test "Typecheck legacy rethrow requires catch context" {
+  let tag_sig = SubType::comp_type(CompType::func([], []))
+  let env = { ..empty_env(), global_types: [tag_sig] }.push_tag(
+    TagType::new(TypeIdx::new(0)),
+  )
+  let state = make_state(env, [])
+  let valid = Typecheck::typecheck(
+    Instruction::try_(
+      BlockType::void_(),
+      Expr::new([Instruction::throw_(TagIdx::new(0))]),
+      [
+        LegacyCatch::new(
+          TagIdx::new(0),
+          Expr::new([Instruction::rethrow(LabelIdx::new(0))]),
+        ),
+      ],
+    ),
+    state,
+  )
+  let final_state = assert_ok(valid)
+  @debug.assert_eq(final_state.reachable, false)
+
+  let outside = Typecheck::typecheck(
+    Instruction::rethrow(LabelIdx::new(0)),
+    state,
+  )
+  assert_err(outside)
+
+  let invalid_depth = Typecheck::typecheck(
+    Instruction::try_(BlockType::void_(), Expr::new([Instruction::nop()]), [
+      LegacyCatch::new(
+        TagIdx::new(0),
+        Expr::new([Instruction::rethrow(LabelIdx::new(1))]),
+      ),
+    ]),
+    state,
+  )
+  assert_err(invalid_depth)
 }
 
 ///|

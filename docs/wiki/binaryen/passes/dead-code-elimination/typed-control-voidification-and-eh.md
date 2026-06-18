@@ -102,9 +102,9 @@ The follow-up repair slice covers a closer represented analogue of Binaryen's `$
 
 The next blocker slice extends that represented repair toward Binaryen's `$pop-within-block` shape: a dead `drop` wrapper around a non-control child with a nonfallthrough child, such as `drop(ref.eq(struct.new(pop), typed-unreachable-block))`, is now rewritten using the child-preserving block path before the same legacy-pop repair hoists the nested payload. This keeps the work scoped to blocker-enabling nested-pop repair, not broad ordinary expression parity.
 
-Binary encode/decode now supports the no-`pop` legacy `try`/`catch`/`catch_all` subset, and `wast_text_binary_roundtrip(...)` covers a real legacy `try` without catch-payload consumption. `Pop` still intentionally fails closed at binary encode time, and raw legacy-pop WAST still rejects before final binary lowering.
+Binary encode/decode now supports the no-`pop` legacy `try`/`catch`/`catch_all` subset, and `wast_text_binary_roundtrip(...)` covers a real legacy `try` without catch-payload consumption. The same blocker-enabling binary surface now preserves legacy `rethrow` opcode `0x09` as `@lib.Instruction::Rethrow(LabelIdx)`, and validation only accepts it under an active legacy catch depth. `Pop` still intentionally fails closed at binary encode time, and raw legacy-pop WAST still rejects before final binary lowering.
 
-Remaining blockers: binary encoding/decoding of legacy `Pop` is not implemented, high-level WAST-to-binary entrypoints still reject legacy `pop` text with an explicit diagnostic, and broader Binaryen `pop` movement/repair shapes still need coverage beyond the currently represented HOT block-subtree, direct non-control-unreachable-child, and drop-wrapped nonfallthrough-child extraction cases.
+Remaining blockers: binary encoding/decoding of legacy `Pop` is not implemented, high-level WAST-to-binary entrypoints still reject legacy `pop` text with an explicit diagnostic, and broader Binaryen `pop` movement/repair shapes still need coverage beyond the currently represented HOT block-subtree, direct non-control-unreachable-child, and drop-wrapped nonfallthrough-child extraction cases. Stack-switching representation/tooling remains missing for `cont`, `resume`, `resume_throw`, and `on` handler-label liveness.
 
 ### `try_table`
 

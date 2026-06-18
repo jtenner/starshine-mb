@@ -988,6 +988,7 @@ pub enum Instruction {
   If(BlockType, Array[Instruction], Array[Instruction]?)
   Throw(TagIdx)
   ThrowRef
+  Rethrow(LabelIdx)
   Br(LabelIdx)
   BrIf(LabelIdx)
   BrTable(Array[LabelIdx], LabelIdx)
@@ -1982,6 +1983,7 @@ pub fn Instruction::ref_null(HeapType) -> Self
 pub fn Instruction::ref_null_type(RefType) -> Self
 pub fn Instruction::ref_test(Bool, HeapType) -> Self
 pub fn Instruction::ref_test_desc(Bool, HeapType) -> Self
+pub fn Instruction::rethrow(LabelIdx) -> Self
 pub fn Instruction::return_() -> Self
 pub fn Instruction::return_call(FuncIdx) -> Self
 pub fn Instruction::return_call_indirect(TypeIdx, TableIdx) -> Self

@@ -846,6 +846,11 @@ pub impl Show for Instruction with fn output(self, logger) {
       logger.write_char(')')
     }
     ThrowRef => logger.write_string("throw_ref")
+    Rethrow(l) => {
+      logger.write_string("(rethrow ")
+      Show::output(l, logger)
+      logger.write_char(')')
+    }
     Br(l) => {
       logger.write_string("(br ")
       Show::output(l, logger)

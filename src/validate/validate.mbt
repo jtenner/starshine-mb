@@ -1201,6 +1201,7 @@ fn validate_const_expr(
     escape: NoTcEscape,
     reachable_escape_depths: [],
     legacy_pop_payloads: [],
+    legacy_catch_depth: 0U,
   }
   let st1 = match Typecheck::typecheck(expr, st0) {
     Ok(s) => s
@@ -1451,6 +1452,7 @@ fn validate_func_body_against_functype(
         escape: NoTcEscape,
         reachable_escape_depths: [],
         legacy_pop_payloads: [],
+        legacy_catch_depth: 0U,
       }
       let st1 = match Typecheck::typecheck(body, st0) {
         Ok(s) => s
