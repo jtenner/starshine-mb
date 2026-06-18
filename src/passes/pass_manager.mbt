@@ -7139,6 +7139,32 @@ fn run_hot_pipeline_dce_raw_label_results(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_br_table_target_results(
+  label_results : Array[Array[@lib.ValType]],
+  labels : Array[@lib.LabelIdx],
+  fallback : @lib.LabelIdx,
+) -> Array[@lib.ValType]? {
+  let fallback_results = match
+    run_hot_pipeline_dce_raw_label_results(label_results, fallback) {
+    Some(results) => results
+    None => return None
+  }
+  for label in labels {
+    let target_results = match
+      run_hot_pipeline_dce_raw_label_results(label_results, label) {
+      Some(results) => results
+      None => return None
+    }
+    if !run_hot_pipeline_dce_raw_valtypes_match(
+        target_results, fallback_results,
+      ) {
+      return None
+    }
+  }
+  Some(fallback_results)
+}
+
+///|
 fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
   instrs : Array[@lib.Instruction],
   locals : @lib.Locals,
@@ -7224,69 +7250,136 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
             }
             @lib.I32Const(selector) if scan + 1 < instrs.length() =>
               match instrs[scan + 1] {
-                @lib.BrTable(labels, fallback) => {
-                  for vt in pop_types {
-                    let local_id = @lib.LocalIdx::new(
-                      (param_count + locals.length()).reinterpret_as_uint(),
-                    )
-                    locals.push(vt)
-                    rewritten.push(@lib.Instruction::pop(vt))
-                    rewritten.push(@lib.Instruction::local_set(local_id))
-                    rewritten.push(@lib.Instruction::local_get(local_id))
-                    rewritten.push(@lib.Instruction::drop())
+                @lib.BrTable(labels, fallback) =>
+                  match
+                    run_hot_pipeline_dce_raw_br_table_target_results(
+                      label_results, labels, fallback,
+                    ) {
+                    Some(target_results) => {
+                      let preserve_payload = run_hot_pipeline_dce_raw_valtypes_match(
+                          target_results, pop_types,
+                        ) &&
+                        target_results.length() > 0
+                      if target_results.length() == 0 || preserve_payload {
+                        let carrier_locals : Array[@lib.LocalIdx] = []
+                        for vt in pop_types {
+                          let local_id = @lib.LocalIdx::new(
+                            (param_count + locals.length()).reinterpret_as_uint(),
+                          )
+                          locals.push(vt)
+                          carrier_locals.push(local_id)
+                          rewritten.push(@lib.Instruction::pop(vt))
+                          rewritten.push(@lib.Instruction::local_set(local_id))
+                        }
+                        for local_id in carrier_locals {
+                          rewritten.push(@lib.Instruction::local_get(local_id))
+                          if !preserve_payload {
+                            rewritten.push(@lib.Instruction::drop())
+                          }
+                        }
+                        rewritten.push(@lib.Instruction::i32_const(selector))
+                        rewritten.push(
+                          @lib.Instruction::br_table(labels, fallback),
+                        )
+                        idx = scan + 2
+                        changed = true
+                        continue
+                      }
+                    }
+                    None => ()
                   }
-                  rewritten.push(@lib.Instruction::i32_const(selector))
-                  rewritten.push(@lib.Instruction::br_table(labels, fallback))
-                  idx = scan + 2
-                  changed = true
-                  continue
-                }
                 _ => ()
               }
             @lib.LocalGet(selector_local) if scan + 1 < instrs.length() =>
               match instrs[scan + 1] {
-                @lib.BrTable(labels, fallback) => {
-                  for vt in pop_types {
-                    let local_id = @lib.LocalIdx::new(
-                      (param_count + locals.length()).reinterpret_as_uint(),
-                    )
-                    locals.push(vt)
-                    rewritten.push(@lib.Instruction::pop(vt))
-                    rewritten.push(@lib.Instruction::local_set(local_id))
-                    rewritten.push(@lib.Instruction::local_get(local_id))
-                    rewritten.push(@lib.Instruction::drop())
+                @lib.BrTable(labels, fallback) =>
+                  match
+                    run_hot_pipeline_dce_raw_br_table_target_results(
+                      label_results, labels, fallback,
+                    ) {
+                    Some(target_results) => {
+                      let preserve_payload = run_hot_pipeline_dce_raw_valtypes_match(
+                          target_results, pop_types,
+                        ) &&
+                        target_results.length() > 0
+                      if target_results.length() == 0 || preserve_payload {
+                        let carrier_locals : Array[@lib.LocalIdx] = []
+                        for vt in pop_types {
+                          let local_id = @lib.LocalIdx::new(
+                            (param_count + locals.length()).reinterpret_as_uint(),
+                          )
+                          locals.push(vt)
+                          carrier_locals.push(local_id)
+                          rewritten.push(@lib.Instruction::pop(vt))
+                          rewritten.push(@lib.Instruction::local_set(local_id))
+                        }
+                        for local_id in carrier_locals {
+                          rewritten.push(@lib.Instruction::local_get(local_id))
+                          if !preserve_payload {
+                            rewritten.push(@lib.Instruction::drop())
+                          }
+                        }
+                        rewritten.push(
+                          @lib.Instruction::local_get(selector_local),
+                        )
+                        rewritten.push(
+                          @lib.Instruction::br_table(labels, fallback),
+                        )
+                        idx = scan + 2
+                        changed = true
+                        continue
+                      }
+                    }
+                    None => ()
                   }
-                  rewritten.push(@lib.Instruction::local_get(selector_local))
-                  rewritten.push(@lib.Instruction::br_table(labels, fallback))
-                  idx = scan + 2
-                  changed = true
-                  continue
-                }
                 @lib.I32Const(mask) if scan + 3 < instrs.length() =>
                   match (instrs[scan + 2], instrs[scan + 3]) {
-                    (@lib.I32And, @lib.BrTable(labels, fallback)) => {
-                      for vt in pop_types {
-                        let local_id = @lib.LocalIdx::new(
-                          (param_count + locals.length()).reinterpret_as_uint(),
-                        )
-                        locals.push(vt)
-                        rewritten.push(@lib.Instruction::pop(vt))
-                        rewritten.push(@lib.Instruction::local_set(local_id))
-                        rewritten.push(@lib.Instruction::local_get(local_id))
-                        rewritten.push(@lib.Instruction::drop())
+                    (@lib.I32And, @lib.BrTable(labels, fallback)) =>
+                      match
+                        run_hot_pipeline_dce_raw_br_table_target_results(
+                          label_results, labels, fallback,
+                        ) {
+                        Some(target_results) => {
+                          let preserve_payload = run_hot_pipeline_dce_raw_valtypes_match(
+                              target_results, pop_types,
+                            ) &&
+                            target_results.length() > 0
+                          if target_results.length() == 0 || preserve_payload {
+                            let carrier_locals : Array[@lib.LocalIdx] = []
+                            for vt in pop_types {
+                              let local_id = @lib.LocalIdx::new(
+                                (param_count + locals.length()).reinterpret_as_uint(),
+                              )
+                              locals.push(vt)
+                              carrier_locals.push(local_id)
+                              rewritten.push(@lib.Instruction::pop(vt))
+                              rewritten.push(
+                                @lib.Instruction::local_set(local_id),
+                              )
+                            }
+                            for local_id in carrier_locals {
+                              rewritten.push(
+                                @lib.Instruction::local_get(local_id),
+                              )
+                              if !preserve_payload {
+                                rewritten.push(@lib.Instruction::drop())
+                              }
+                            }
+                            rewritten.push(
+                              @lib.Instruction::local_get(selector_local),
+                            )
+                            rewritten.push(@lib.Instruction::i32_const(mask))
+                            rewritten.push(@lib.Instruction::i32_and())
+                            rewritten.push(
+                              @lib.Instruction::br_table(labels, fallback),
+                            )
+                            idx = scan + 4
+                            changed = true
+                            continue
+                          }
+                        }
+                        None => ()
                       }
-                      rewritten.push(
-                        @lib.Instruction::local_get(selector_local),
-                      )
-                      rewritten.push(@lib.Instruction::i32_const(mask))
-                      rewritten.push(@lib.Instruction::i32_and())
-                      rewritten.push(
-                        @lib.Instruction::br_table(labels, fallback),
-                      )
-                      idx = scan + 4
-                      changed = true
-                      continue
-                    }
                     _ => ()
                   }
                 _ => ()

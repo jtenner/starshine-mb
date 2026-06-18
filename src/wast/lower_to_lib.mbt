@@ -3552,29 +3552,18 @@ fn wt_legacy_pop_label_matches_branch(
 }
 
 ///|
-fn wt_legacy_pop_label_is_void(
-  label_results : Array[Array[@lib.ValType]],
-  label : @lib.LabelIdx,
-) -> Bool {
-  let @lib.LabelIdx(raw) = label
-  match label_results.get(raw.reinterpret_as_int()) {
-    Some(results) => results.length() == 0
-    None => false
-  }
-}
-
-///|
-fn wt_legacy_pop_br_table_targets_are_void(
+fn wt_legacy_pop_br_table_targets_match_branch(
   label_results : Array[Array[@lib.ValType]],
   labels : Array[@lib.LabelIdx],
   fallback : @lib.LabelIdx,
+  payload_types : Array[@lib.ValType],
 ) -> Bool {
   for label in labels {
-    if !wt_legacy_pop_label_is_void(label_results, label) {
+    if !wt_legacy_pop_label_matches_branch(label_results, label, payload_types) {
       return false
     }
   }
-  wt_legacy_pop_label_is_void(label_results, fallback)
+  wt_legacy_pop_label_matches_branch(label_results, fallback, payload_types)
 }
 
 ///|
@@ -3590,7 +3579,9 @@ fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
     @lib.Br(label) =>
       wt_legacy_pop_label_matches_branch(label_results, label, payload_types)
     @lib.BrTable(labels, fallback) =>
-      wt_legacy_pop_br_table_targets_are_void(label_results, labels, fallback)
+      wt_legacy_pop_br_table_targets_match_branch(
+        label_results, labels, fallback, payload_types,
+      )
     _ => false
   }
 }
@@ -3600,21 +3591,25 @@ fn wt_legacy_pop_prefix_tail_starts_br_table_statement(
   instrs : Array[@lib.Instruction],
   instr_idx : Int,
   label_results : Array[Array[@lib.ValType]],
-  _payload_types : Array[@lib.ValType],
+  payload_types : Array[@lib.ValType],
 ) -> Bool {
   if instr_idx + 1 >= instrs.length() {
     return false
   }
   match (instrs[instr_idx], instrs[instr_idx + 1]) {
     (@lib.I32Const(_), @lib.BrTable(labels, fallback)) =>
-      wt_legacy_pop_br_table_targets_are_void(label_results, labels, fallback)
+      wt_legacy_pop_br_table_targets_match_branch(
+        label_results, labels, fallback, payload_types,
+      )
     (@lib.LocalGet(_), @lib.BrTable(labels, fallback)) =>
-      wt_legacy_pop_br_table_targets_are_void(label_results, labels, fallback)
+      wt_legacy_pop_br_table_targets_match_branch(
+        label_results, labels, fallback, payload_types,
+      )
     (@lib.LocalGet(_), @lib.I32Const(_)) if instr_idx + 3 < instrs.length() =>
       match (instrs[instr_idx + 2], instrs[instr_idx + 3]) {
         (@lib.I32And, @lib.BrTable(labels, fallback)) =>
-          wt_legacy_pop_br_table_targets_are_void(
-            label_results, labels, fallback,
+          wt_legacy_pop_br_table_targets_match_branch(
+            label_results, labels, fallback, payload_types,
           )
         _ => false
       }
