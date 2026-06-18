@@ -976,6 +976,41 @@ test "dead-code-elimination removes call-pop-catch dead call text" {
 }
 
 ///|
+test "dead-code-elimination repairs call-pop-catch dead call before return text" {
+  let source =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (pop i32)
+    #|          (return))
+    #|        nop)))
+    #|  (func $helper (param i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected call-pop-catch return DCE pipeline success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination documents unsupported stack-switching boundary" {
   let source =
     #|(module
