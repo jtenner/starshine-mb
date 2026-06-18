@@ -373,6 +373,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`binaryen/passes/global-refining/parity.md`](binaryen/passes/global-refining/parity.md), [`binaryen/passes/global-refining/starshine-hot-ir-strategy.md`](binaryen/passes/global-refining/starshine-hot-ir-strategy.md), [`binaryen/passes/global-refining/implementation-structure-and-tests.md`](binaryen/passes/global-refining/implementation-structure-and-tests.md), and [`../../agent-todo.md`](../../agent-todo.md) with the reopening criterion: revisit only if Starshine gains feature-disabled direct-pass execution or a compare lane intentionally runs Binaryen without GC enabled.
 - `[GR-002]` through `[GR-006]` remain open for exact function refs, broader initializer typing, public-type validation parity, `global.get` retagging/refinalization, and refreshed oracle evidence.
 
+## [2026-06-18] passes/dead-code-elimination | Reject catch-pop value branch boundary
+
+- Added [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) coverage for the intentionally unsupported `$call-pop-catch` value-branch boundary: a complete catch-payload `pop` prefix flowing into a branch targeting a result block must stay rejected until Starshine has label-type-aware branch-payload repair.
+- Updated [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) so the narrow WAST legacy-pop ingress tracks block/loop/if/try/try_table label result types while scanning admitted catch bodies. Direct `pop; br` and `pop; selector; br_table` flows remain admitted only when every branch target is void; value-target branches/`br_table`s fail closed instead of being accepted and left unrepaired by DCE.
+- Updated the DCE EH docs and backlog. This still does not implement non-void branch payload flow, exact Binaryen nested-block repair shape, broad legacy-pop WAST support, or stack-switching representation.
+
 ## [2026-06-18] passes/dead-code-elimination | Guard catch-pop carrier local budget
 
 - Rebased the DCE parity branch on `main` as requested and kept the worktree clean before adding a focused hardening fixture.

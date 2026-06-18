@@ -1211,6 +1211,37 @@ test "dead-code-elimination repairs catch pop carrier after params and locals" {
 }
 
 ///|
+test "dead-code-elimination rejects unsupported catch pop value branch boundary" {
+  let source =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func (result i32)
+    #|    (block $label (result i32)
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (pop i32)
+    #|            (br $label))
+    #|          nop))
+    #|      (i32.const 0)))
+    #|  (func $helper (param i32 i32)))
+    #|)
+    #|
+  match
+    @wast.wast_to_binary_module(
+      source,
+      filename="dce-catch-pop-value-branch-boundary.wat",
+    ) {
+    Ok(mod_) =>
+      fail(
+        "unsupported value-branch catch-pop flow must stay rejected until branch payload repair is represented: \{mod_.pretty_print_func(@lib.FuncIdx::new(0U))}",
+      )
+    Err(err) => assert_true(err.contains("legacy exception pop text"), msg=err)
+  }
+}
+
+///|
 test "dead-code-elimination documents unsupported stack-switching boundary" {
   let source =
     #|(module
