@@ -1211,7 +1211,7 @@ test "dead-code-elimination repairs catch pop carrier after params and locals" {
 }
 
 ///|
-test "dead-code-elimination rejects unsupported catch pop value branch boundary" {
+test "dead-code-elimination repairs catch pop value branch payload" {
   let source =
     #|(module
     #|  (tag $e-i32 (param i32))
@@ -1228,17 +1228,20 @@ test "dead-code-elimination rejects unsupported catch pop value branch boundary"
     #|  (func $helper (param i32 i32)))
     #|)
     #|
-  match
-    @wast.wast_to_binary_module(
-      source,
-      filename="dce-catch-pop-value-branch-boundary.wat",
-    ) {
-    Ok(mod_) =>
-      fail(
-        "unsupported value-branch catch-pop flow must stay rejected until branch payload repair is represented: \{mod_.pretty_print_func(@lib.FuncIdx::new(0U))}",
-      )
-    Err(err) => assert_true(err.contains("legacy exception pop text"), msg=err)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected value-branch catch-pop DCE pipeline success: \{err}")
   }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
 }
 
 ///|

@@ -3522,6 +3522,36 @@ fn wt_legacy_tag_payloads(
 }
 
 ///|
+fn wt_legacy_pop_types_match(
+  actual : Array[@lib.ValType],
+  expected : Array[@lib.ValType],
+) -> Bool {
+  if actual.length() != expected.length() {
+    return false
+  }
+  for idx = 0; idx < actual.length(); idx = idx + 1 {
+    if actual[idx] != expected[idx] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn wt_legacy_pop_label_matches_branch(
+  label_results : Array[Array[@lib.ValType]],
+  label : @lib.LabelIdx,
+  payload_types : Array[@lib.ValType],
+) -> Bool {
+  let @lib.LabelIdx(raw) = label
+  match label_results.get(raw.reinterpret_as_int()) {
+    Some(results) =>
+      results.length() == 0 || wt_legacy_pop_types_match(results, payload_types)
+    None => false
+  }
+}
+
+///|
 fn wt_legacy_pop_label_is_void(
   label_results : Array[Array[@lib.ValType]],
   label : @lib.LabelIdx,
@@ -3552,11 +3582,13 @@ fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
   instr : @lib.Instruction,
   label_results : Array[Array[@lib.ValType]],
   func_results : Array[@lib.ValType],
+  payload_types : Array[@lib.ValType],
 ) -> Bool {
   match instr {
     @lib.Unreachable => true
     @lib.Return => func_results.length() == 0
-    @lib.Br(label) => wt_legacy_pop_label_is_void(label_results, label)
+    @lib.Br(label) =>
+      wt_legacy_pop_label_matches_branch(label_results, label, payload_types)
     @lib.BrTable(labels, fallback) =>
       wt_legacy_pop_br_table_targets_are_void(label_results, labels, fallback)
     _ => false
@@ -3568,6 +3600,7 @@ fn wt_legacy_pop_prefix_tail_starts_br_table_statement(
   instrs : Array[@lib.Instruction],
   instr_idx : Int,
   label_results : Array[Array[@lib.ValType]],
+  _payload_types : Array[@lib.ValType],
 ) -> Bool {
   if instr_idx + 1 >= instrs.length() {
     return false
@@ -3728,10 +3761,12 @@ fn wt_direct_legacy_pop_instr_supported(
             if catch_instrs.length() > 0 {
               match catch_instrs[0] {
                 @lib.Pop(_) => {
+                  let prefix_types : Array[@lib.ValType] = []
                   let mut payload_idx = payloads.length() - 1
                   while instr_idx < catch_instrs.length() && payload_idx >= 0 {
                     match catch_instrs[instr_idx] {
                       @lib.Pop(vt) if vt == payloads[payload_idx] => {
+                        prefix_types.push(vt)
                         payload_idx -= 1
                         instr_idx += 1
                       }
@@ -3748,9 +3783,10 @@ fn wt_direct_legacy_pop_instr_supported(
                         catch_instrs[instr_idx],
                         nested_labels,
                         func_results,
+                        prefix_types,
                       ) ||
                       wt_legacy_pop_prefix_tail_starts_br_table_statement(
-                        catch_instrs, instr_idx, nested_labels,
+                        catch_instrs, instr_idx, nested_labels, prefix_types,
                       )
                     )
                   if !prefix_flows_to_nonfallthrough {

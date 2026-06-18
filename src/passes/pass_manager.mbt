@@ -7081,11 +7081,70 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_block_label_results(
+  block_type : @lib.BlockType,
+) -> Array[@lib.ValType] {
+  match block_type {
+    @lib.VoidBlockType => []
+    @lib.ValTypeBlockType(vt) => [vt]
+    @lib.TypeIdxBlockType(_) => []
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_loop_label_results(
+  block_type : @lib.BlockType,
+) -> Array[@lib.ValType] {
+  match block_type {
+    @lib.VoidBlockType | @lib.ValTypeBlockType(_) | @lib.TypeIdxBlockType(_) =>
+      []
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_label_stack_push(
+  label_results : Array[Array[@lib.ValType]],
+  pushed_results : Array[@lib.ValType],
+) -> Array[Array[@lib.ValType]] {
+  let next : Array[Array[@lib.ValType]] = [pushed_results]
+  for results in label_results {
+    next.push(results)
+  }
+  next
+}
+
+///|
+fn run_hot_pipeline_dce_raw_valtypes_match(
+  left : Array[@lib.ValType],
+  right : Array[@lib.ValType],
+) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  for idx = 0; idx < left.length(); idx = idx + 1 {
+    if left[idx] != right[idx] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_dce_raw_label_results(
+  label_results : Array[Array[@lib.ValType]],
+  label : @lib.LabelIdx,
+) -> Array[@lib.ValType]? {
+  let @lib.LabelIdx(raw) = label
+  label_results.get(raw.reinterpret_as_int())
+}
+
+///|
 fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
   instrs : Array[@lib.Instruction],
   locals : @lib.Locals,
   param_count : Int,
   result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
@@ -7096,6 +7155,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
       locals,
       param_count,
       result_count,
+      label_results,
     )
     changed = changed || instr_changed
     match instr {
@@ -7114,20 +7174,37 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
         if scan < instrs.length() {
           match instrs[scan] {
             @lib.Br(label) => {
-              for vt in pop_types {
-                let local_id = @lib.LocalIdx::new(
-                  (param_count + locals.length()).reinterpret_as_uint(),
-                )
-                locals.push(vt)
-                rewritten.push(@lib.Instruction::pop(vt))
-                rewritten.push(@lib.Instruction::local_set(local_id))
-                rewritten.push(@lib.Instruction::local_get(local_id))
-                rewritten.push(@lib.Instruction::drop())
+              let target_results = match
+                run_hot_pipeline_dce_raw_label_results(label_results, label) {
+                Some(results) => results
+                None => []
               }
-              rewritten.push(@lib.Instruction::br(label))
-              idx = scan + 1
-              changed = true
-              continue
+              let preserve_payload = run_hot_pipeline_dce_raw_valtypes_match(
+                  target_results, pop_types,
+                ) &&
+                target_results.length() > 0
+              if target_results.length() == 0 || preserve_payload {
+                let carrier_locals : Array[@lib.LocalIdx] = []
+                for vt in pop_types {
+                  let local_id = @lib.LocalIdx::new(
+                    (param_count + locals.length()).reinterpret_as_uint(),
+                  )
+                  locals.push(vt)
+                  carrier_locals.push(local_id)
+                  rewritten.push(@lib.Instruction::pop(vt))
+                  rewritten.push(@lib.Instruction::local_set(local_id))
+                }
+                for local_id in carrier_locals {
+                  rewritten.push(@lib.Instruction::local_get(local_id))
+                  if !preserve_payload {
+                    rewritten.push(@lib.Instruction::drop())
+                  }
+                }
+                rewritten.push(@lib.Instruction::br(label))
+                idx = scan + 1
+                changed = true
+                continue
+              }
             }
             @lib.Return if result_count == 0 => {
               for vt in pop_types {
@@ -7232,11 +7309,16 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
   locals : @lib.Locals,
   param_count : Int,
   result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
+      let nested_labels = run_hot_pipeline_dce_raw_label_stack_push(
+        label_results,
+        run_hot_pipeline_dce_raw_block_label_results(block_type),
+      )
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        body, locals, param_count, result_count,
+        body, locals, param_count, result_count, nested_labels,
       )
       if changed {
         (
@@ -7248,8 +7330,12 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
       }
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
+      let nested_labels = run_hot_pipeline_dce_raw_label_stack_push(
+        label_results,
+        run_hot_pipeline_dce_raw_loop_label_results(block_type),
+      )
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        body, locals, param_count, result_count,
+        body, locals, param_count, result_count, nested_labels,
       )
       if changed {
         (
@@ -7261,8 +7347,12 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
       }
     }
     @lib.Try(block_type, @lib.Expr(body), catches, delegate_label) => {
+      let nested_labels = run_hot_pipeline_dce_raw_label_stack_push(
+        label_results,
+        run_hot_pipeline_dce_raw_block_label_results(block_type),
+      )
       let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        body, locals, param_count, result_count,
+        body, locals, param_count, result_count, nested_labels,
       )
       let rewritten_catches : Array[@lib.LegacyCatch] = []
       let mut catches_changed = false
@@ -7270,7 +7360,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
         match catch_ {
           @lib.LegacyCatch(tag, @lib.Expr(catch_body)) => {
             let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-              catch_body, locals, param_count, result_count,
+              catch_body, locals, param_count, result_count, nested_labels,
             )
             catches_changed = catches_changed || catch_changed
             rewritten_catches.push(
@@ -7279,7 +7369,7 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
           }
           @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
             let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-              catch_body, locals, param_count, result_count,
+              catch_body, locals, param_count, result_count, nested_labels,
             )
             catches_changed = catches_changed || catch_changed
             rewritten_catches.push(
@@ -7303,8 +7393,12 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
       }
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let nested_labels = run_hot_pipeline_dce_raw_label_stack_push(
+        label_results,
+        run_hot_pipeline_dce_raw_block_label_results(block_type),
+      )
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        body, locals, param_count, result_count,
+        body, locals, param_count, result_count, nested_labels,
       )
       if changed {
         (
@@ -7320,14 +7414,18 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_instr(
       }
     }
     @lib.If(block_type, then_body, else_body) => {
+      let nested_labels = run_hot_pipeline_dce_raw_label_stack_push(
+        label_results,
+        run_hot_pipeline_dce_raw_block_label_results(block_type),
+      )
       let (rewritten_then, then_changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-        then_body, locals, param_count, result_count,
+        then_body, locals, param_count, result_count, nested_labels,
       )
       let mut else_changed = false
       let rewritten_else = match else_body {
         Some(else_body) => {
           let (rewritten_else, changed) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-            else_body, locals, param_count, result_count,
+            else_body, locals, param_count, result_count, nested_labels,
           )
           else_changed = changed
           Some(rewritten_else)
@@ -7356,7 +7454,11 @@ fn run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
 ) -> @lib.Func {
   let repaired_locals = locals.copy()
   let (repaired_instrs, _) = run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
-    instrs, repaired_locals, param_count, result_count,
+    instrs,
+    repaired_locals,
+    param_count,
+    result_count,
+    [],
   )
   @lib.Func::new(repaired_locals, @lib.Expr::new(repaired_instrs))
 }
