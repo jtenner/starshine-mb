@@ -55,4 +55,5 @@ using @validate {
   tc_state_validate_end_stack,
   tc_state_with_stack,
   tc_state_with_owned_stack,
+  tc_state_with_legacy_pop_payloads,
 }

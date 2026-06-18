@@ -63,6 +63,7 @@ pub enum HotOp {
   Const
   Drop
   Select
+  Pop
   RefNull
   RefIsNull
   RefFunc

@@ -138,6 +138,8 @@ pub fn tc_state_typecheck_catch_clause(TcState, @lib.Catch) -> Result[Unit, Stri
 
 pub fn tc_state_validate_end_stack(TcState, Array[@lib.ValType]) -> Result[Unit, String]
 
+pub fn tc_state_with_legacy_pop_payloads(TcState, Array[@lib.ValType]) -> TcState
+
 pub fn tc_state_with_owned_stack(TcState, Array[@lib.ValType]) -> TcState
 
 pub fn tc_state_with_stack(TcState, Array[@lib.ValType]) -> TcState

@@ -2538,6 +2538,213 @@ fn dead_code_elimination_ensure_explicit_unreachable_tail(
 }
 
 ///|
+fn dead_code_elimination_repair_collect_nested_pops(
+  func : @ir.HotFunc,
+  node_id : Int,
+  out : Array[Int],
+  inside_block? : Bool = false,
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let next_inside_block = if inside_block {
+    true
+  } else {
+    match node.op {
+      @ir.HotOp::Block => true
+      _ => false
+    }
+  }
+  match node.op {
+    @ir.HotOp::Pop => {
+      if inside_block {
+        out.push(node_id)
+      }
+      return
+    }
+    @ir.HotOp::Try | @ir.HotOp::TryTable => return
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    dead_code_elimination_repair_collect_nested_pops(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      out,
+      inside_block=next_inside_block,
+    )
+  }
+}
+
+///|
+fn dead_code_elimination_repair_extract_nested_pops_for_root(
+  func : @ir.HotFunc,
+  root_id : Int,
+  prefix_roots : Array[Int],
+) -> Bool {
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return false
+  }
+  let nested_pops : Array[Int] = []
+  dead_code_elimination_repair_collect_nested_pops(func, root_id, nested_pops)
+  let mut changed = false
+  for pop_id in nested_pops {
+    match @ir.hot_node_exact_instr(func, pop_id) {
+      Some(@lib.Instruction::Pop(vt)) => {
+        let local_id = @ir.hot_append_body_local(func, vt)
+        let pop_clone = @ir.hot_build_legacy_pop(func, vt)
+        prefix_roots.push(@ir.hot_build_local_set(func, local_id, pop_clone))
+        let local_get = @ir.hot_build_local_get(func, local_id)
+        @ir.hot_replace_node(func, pop_id, @ir.hot_node_get(func, local_get))
+        changed = true
+      }
+      _ => ()
+    }
+  }
+  changed
+}
+
+///|
+fn dead_code_elimination_repair_legacy_try_nested_pops(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  try_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, try_id)
+  match node.op {
+    @ir.HotOp::Try => ()
+    _ => return false
+  }
+  if node.imm1 < 0 || node.imm1 >= func.catches.length() {
+    return false
+  }
+  let catch_region = match @ir.hot_region_catch_ref(func, try_id) {
+    Some(region) => region
+    None => return false
+  }
+  let catch_info = @ir.hot_catch_info_get(func, node.imm1)
+  let new_roots : Array[Int] = []
+  let new_arms : Array[@ir.HotCatchArm] = []
+  let mut offset = 0
+  let mut changed = false
+  for arm in catch_info.catches {
+    match arm {
+      @ir.HotCatchArm::LegacyCatchArm(tag, root_count) => {
+        let mut arm_count = 0
+        for idx = 0; idx < root_count; idx = idx + 1 {
+          let root = @ir.hot_region_get(func, catch_region, offset + idx)
+          let prefix_roots : Array[Int] = []
+          if dead_code_elimination_repair_extract_nested_pops_for_root(
+              func, root, prefix_roots,
+            ) {
+            changed = true
+          }
+          arm_count += prefix_roots.length() + 1
+          new_roots.append(prefix_roots)
+          new_roots.push(root)
+        }
+        new_arms.push(@ir.HotCatchArm::legacy_catch(tag, arm_count))
+        offset += root_count
+      }
+      @ir.HotCatchArm::LegacyCatchAllArm(root_count) => {
+        let mut arm_count = 0
+        for idx = 0; idx < root_count; idx = idx + 1 {
+          let root = @ir.hot_region_get(func, catch_region, offset + idx)
+          let prefix_roots : Array[Int] = []
+          if dead_code_elimination_repair_extract_nested_pops_for_root(
+              func, root, prefix_roots,
+            ) {
+            changed = true
+          }
+          arm_count += prefix_roots.length() + 1
+          new_roots.append(prefix_roots)
+          new_roots.push(root)
+        }
+        new_arms.push(@ir.HotCatchArm::legacy_all(arm_count))
+        offset += root_count
+      }
+      _ => return false
+    }
+  }
+  if changed {
+    @ir.hot_region_replace_body(func, catch_region, new_roots)
+    @ir.hot_legacy_try_catches_set(func, try_id, new_arms)
+    pass_mark_mutated(ctx, func)
+  }
+  changed
+}
+
+///|
+fn dead_code_elimination_repair_legacy_nested_pops_in_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let mut changed = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Try => {
+        changed = dead_code_elimination_repair_legacy_nested_pops_in_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+          ) ||
+          changed
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_region) =>
+            changed = dead_code_elimination_repair_legacy_nested_pops_in_region(
+                ctx, func, catch_region,
+              ) ||
+              changed
+          None => ()
+        }
+        changed = dead_code_elimination_repair_legacy_try_nested_pops(
+            ctx, func, node_id,
+          ) ||
+          changed
+      }
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        changed = dead_code_elimination_repair_legacy_nested_pops_in_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+          ) ||
+          changed
+      @ir.HotOp::If => {
+        changed = dead_code_elimination_repair_legacy_nested_pops_in_region(
+            ctx,
+            func,
+            @ir.hot_region_then_ref(func, node_id),
+          ) ||
+          changed
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_region) =>
+            changed = dead_code_elimination_repair_legacy_nested_pops_in_region(
+                ctx, func, else_region,
+              ) ||
+              changed
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable =>
+        changed = dead_code_elimination_repair_legacy_nested_pops_in_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+          ) ||
+          changed
+      _ => ()
+    }
+  }
+  changed
+}
+
+///|
 fn dead_code_elimination_finish_nonfallthrough_final_root(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2799,15 +3006,24 @@ fn dead_code_elimination_run(
   let node_use_cache = DeadCodeEliminationNodeUseCache::new()
   let fallthrough_cache = dead_code_elimination_new_fallthrough_cache(func)
   let purity_cache = dead_code_elimination_new_purity_cache(func)
-  if dead_code_elimination_visit_region(
+  let had_legacy_pop = @ir.hot_func_has_legacy_pop(func)
+  let changed = dead_code_elimination_visit_region(
+    ctx,
+    func,
+    branch_user_cache,
+    node_use_cache,
+    fallthrough_cache,
+    purity_cache,
+    @ir.HotRegionRef::root(),
+  )
+  let repaired = changed &&
+    had_legacy_pop &&
+    dead_code_elimination_repair_legacy_nested_pops_in_region(
       ctx,
       func,
-      branch_user_cache,
-      node_use_cache,
-      fallthrough_cache,
-      purity_cache,
       @ir.HotRegionRef::root(),
-    ) {
+    )
+  if changed || repaired {
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()

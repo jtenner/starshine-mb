@@ -558,6 +558,63 @@ fn hot_lower_impl_region_body(
 }
 
 ///|
+fn hot_lower_impl_region_root_span_body(
+  func : HotFunc,
+  region_id : NodeId,
+  start_root : Int,
+  root_count : Int,
+  result_arity : Int,
+  use_def : HotUseDef,
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
+  extra_locals : Array[ValType],
+  options : HotLowerOptions,
+) -> Array[Instruction] {
+  let out : Array[Instruction] = []
+  if region_id == HOT_NONE_NODE || root_count <= 0 {
+    return out
+  }
+  let node = hot_node_get(func, region_id)
+  let value_stack : Array[HotLowerStackValue] = []
+  let root_ids : Array[NodeId] = []
+  let end_root = start_root + root_count
+  for idx = start_root; idx < end_root; idx = idx + 1 {
+    if idx >= 0 && idx < node.child_count {
+      let child = func.children[node.child_base + idx]
+      if child != HOT_NONE_NODE {
+        root_ids.push(child)
+      }
+    }
+  }
+  let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
+    func, use_def, root_ids, result_arity,
+  )
+  for idx = 0; idx < root_ids.length(); idx = idx + 1 {
+    let child = root_ids[idx]
+    if hot_query_op(func, child) == HotOp::Unreachable {
+      hot_lower_impl_drop_dead_stack_before_unreachable(child, value_stack, out)
+    }
+    hot_lower_impl_emit_root(
+      func, child, use_def, label_frames, label_stack_head, value_stack, out, extra_locals,
+      options,
+    )
+    hot_lower_impl_drop_dead_nonfinal_root_results(
+      func,
+      child,
+      use_def,
+      preserve_region_results[idx],
+      idx + 1 == root_ids.length(),
+      value_stack,
+      out,
+    )
+  }
+  hot_lower_impl_finalize_region_stack(
+    func, result_arity, value_stack, out, extra_locals,
+  )
+  out
+}
+
+///|
 fn hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
   func : HotFunc,
   block_type : BlockType,
@@ -1085,6 +1142,7 @@ fn hot_lower_impl_emit_instruction(
     HotOp::Load
     | HotOp::Store
     | HotOp::Select
+    | HotOp::Pop
     | HotOp::RefTest
     | HotOp::RefCast
     | HotOp::RefTestDesc
@@ -1208,27 +1266,40 @@ fn hot_lower_impl_emit_instruction(
       let catch_id = func.children[node.child_base + 1]
       let catches : Array[LegacyCatch] = []
       if catch_id != HOT_NONE_NODE {
-        let catch_body = hot_lower_impl_region_body(
-          func, catch_id, use_def, label_frames, next_stack, extra_locals, options,
-        )
         if node.imm1 >= 0 && node.imm1 < func.catches.length() {
           let mut offset = 0
           let catch_info = hot_catch_info_get(func, node.imm1)
           for arm in catch_info.catches {
             match arm {
               LegacyCatchArm(tag, root_count) => {
-                let arm_body : Array[Instruction] = []
-                for i = 0; i < root_count; i = i + 1 {
-                  arm_body.push(catch_body[offset + i])
-                }
+                let arm_body = hot_lower_impl_region_root_span_body(
+                  func,
+                  catch_id,
+                  offset,
+                  root_count,
+                  hot_node_result_arity(func, id),
+                  use_def,
+                  label_frames,
+                  next_stack,
+                  extra_locals,
+                  options,
+                )
                 offset += root_count
                 catches.push(LegacyCatch::new(tag, Expr::new(arm_body)))
               }
               LegacyCatchAllArm(root_count) => {
-                let arm_body : Array[Instruction] = []
-                for i = 0; i < root_count; i = i + 1 {
-                  arm_body.push(catch_body[offset + i])
-                }
+                let arm_body = hot_lower_impl_region_root_span_body(
+                  func,
+                  catch_id,
+                  offset,
+                  root_count,
+                  hot_node_result_arity(func, id),
+                  use_def,
+                  label_frames,
+                  next_stack,
+                  extra_locals,
+                  options,
+                )
                 offset += root_count
                 catches.push(LegacyCatch::all(Expr::new(arm_body)))
               }
@@ -1236,7 +1307,16 @@ fn hot_lower_impl_emit_instruction(
             }
           }
         } else {
-          catches.push(LegacyCatch::all(Expr::new(catch_body)))
+          catches.push(
+            LegacyCatch::all(
+              Expr::new(
+                hot_lower_impl_region_body(
+                  func, catch_id, use_def, label_frames, next_stack, extra_locals,
+                  options,
+                ),
+              ),
+            ),
+          )
         }
       }
       out.push(

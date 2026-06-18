@@ -50,6 +50,16 @@ fn hot_lower_test_legacy_try_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lower_test_legacy_try_i32_payload_module() -> @lib.Module {
+  let tag_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([tag_type]))
+  .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+}
+
+///|
 fn hot_lower_test_count_substring(text : String, needle : String) -> Int {
   if needle.length() == 0 {
     return 0
@@ -90,6 +100,34 @@ test "hot lower preserves individual legacy try catch arms" {
     HotLocals::new(),
     hot_module_context_from_module(hot_lower_test_legacy_try_module()),
   )
+  @debug.assert_eq(hot_lower_body(hot), body)
+}
+
+///|
+test "hot lower roundtrips legacy catch pop payloads" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::try_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::nop()]),
+      [
+        @lib.LegacyCatch::new(
+          @lib.TagIdx::new(0U),
+          @lib.Expr::new([
+            @lib.Instruction::pop(@lib.ValType::i32()),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+      ],
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+    hot_module_context_from_module(
+      hot_lower_test_legacy_try_i32_payload_module(),
+    ),
+  )
+  assert_true(hot_func_has_legacy_pop(hot))
   @debug.assert_eq(hot_lower_body(hot), body)
 }
 

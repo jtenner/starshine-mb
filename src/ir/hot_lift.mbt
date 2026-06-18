@@ -564,6 +564,17 @@ fn hot_lift_impl_resolve_generic_pop_count(
 }
 
 ///|
+fn hot_lift_impl_legacy_tag_payload_types(
+  env : Env,
+  tag : TagIdx,
+) -> Array[ValType] {
+  match env.resolve_tag_functype(tag) {
+    Some(FuncType(params, _)) => params
+    None => []
+  }
+}
+
+///|
 fn hot_lift_impl_call_param_count(env : Env, instr : Instruction) -> Int? {
   match instr {
     Instruction::Call(func_idx) | Instruction::ReturnCall(func_idx) =>
@@ -622,6 +633,7 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
     _ => ()
   }
   match hot_lift_impl_exact_family(instr) {
+    Some(HotOp::Pop) => Some(0)
     Some(HotOp::Select) => Some(3)
     Some(HotOp::Load)
     | Some(HotOp::RefTest)
@@ -755,6 +767,7 @@ fn hot_lift_impl_direct_family(instr : Instruction) -> HotOp? {
 ///|
 fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
   match instr {
+    Instruction::Pop(_) => Some(HotOp::Pop)
     Instruction::Select(_) => Some(HotOp::Select)
     Instruction::I32Load(_)
     | Instruction::I64Load(_)
@@ -1550,11 +1563,14 @@ fn hot_lift_impl_region_state(
   region_env : Env,
   entry_types : Array[ValType],
 ) -> TcState {
-  tc_state_new(
-    region_env,
-    entry_types,
-    entry_state.reachable,
-    entry_state.escape,
+  tc_state_with_legacy_pop_payloads(
+    tc_state_new(
+      region_env,
+      entry_types,
+      entry_state.reachable,
+      entry_state.escape,
+    ),
+    entry_state.legacy_pop_payloads,
   )
 }
 
@@ -1989,11 +2005,18 @@ fn hot_lift_impl_lift_control(
       let catch_roots : Array[NodeId] = []
       let legacy_catch_arms : Array[HotCatchArm] = []
       for catch_ in catches {
-        let catch_body = match catch_ {
-          LegacyCatch(_, catch_body) => catch_body
-          LegacyCatchAll(catch_body) => catch_body
+        let (catch_body, legacy_pop_payloads) = match catch_ {
+          LegacyCatch(tag, catch_body) =>
+            (
+              catch_body,
+              hot_lift_impl_legacy_tag_payload_types(entry_state.env, tag),
+            )
+          LegacyCatchAll(catch_body) => (catch_body, [])
         }
-        let catch_state = hot_lift_impl_region_state(entry_state, region_env, [])
+        let catch_state = tc_state_with_legacy_pop_payloads(
+          hot_lift_impl_region_state(entry_state, region_env, []),
+          legacy_pop_payloads,
+        )
         let (roots, _, _) = match
           hot_lift_impl_lift_region(
             func,

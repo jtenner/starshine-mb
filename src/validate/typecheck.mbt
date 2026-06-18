@@ -4304,6 +4304,14 @@ pub fn tc_state_with_owned_stack(
 }
 
 ///|
+pub fn tc_state_with_legacy_pop_payloads(
+  state : TcState,
+  payloads : Array[ValType],
+) -> TcState {
+  { ..state, legacy_pop_payloads: payloads }
+}
+
+///|
 pub fn tc_state_new(
   env : Env,
   stack : Array[ValType],

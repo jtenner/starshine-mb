@@ -261,6 +261,8 @@ pub fn hot_build_heap(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int]
 
 pub fn hot_build_if(HotFunc, @lib.BlockType, Int, Array[Int], else_body? : Array[Int]?) -> Int
 
+pub fn hot_build_legacy_pop(HotFunc, @lib.ValType) -> Int
+
 pub fn hot_build_load(HotFunc, @lib.ValType, @lib.MemArg, Int) -> Int
 
 pub fn hot_build_local_get(HotFunc, Int) -> Int
@@ -349,6 +351,8 @@ pub fn[S, E] hot_for_each_child(HotFunc, Int, S, (S, Int, Int) -> HotVisitCtl[S,
 
 pub fn[S, E] hot_for_each_root(HotFunc, S, (S, Int, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
+pub fn hot_func_has_legacy_pop(HotFunc) -> Bool
+
 pub fn hot_has_exceptional_succ(HotFunc, Int) -> Bool
 
 pub fn hot_has_side_effect(HotFunc, Int) -> Bool
@@ -374,6 +378,8 @@ pub fn hot_label_owner(HotFunc, Int) -> Int
 pub fn hot_label_owner_set(HotFunc, Int, Int) -> Unit
 
 pub fn hot_label_result_type(HotFunc, Int) -> Int
+
+pub fn hot_legacy_try_catches_set(HotFunc, Int, Array[HotCatchArm]) -> Unit
 
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc
 
@@ -482,6 +488,8 @@ pub fn hot_node_kind_is_exception(HotFunc, Int) -> Bool
 pub fn hot_node_kind_is_global(HotFunc, Int) -> Bool
 
 pub fn hot_node_kind_is_heap(HotFunc, Int) -> Bool
+
+pub fn hot_node_kind_is_legacy_pop(HotFunc, Int) -> Bool
 
 pub fn hot_node_kind_is_local(HotFunc, Int) -> Bool
 
@@ -1286,6 +1294,7 @@ pub enum HotOp {
   Const
   Drop
   Select
+  Pop
   RefNull
   RefIsNull
   RefFunc

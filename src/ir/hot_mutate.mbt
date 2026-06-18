@@ -701,6 +701,31 @@ pub fn hot_branch_table_set(
 }
 
 ///|
+pub fn hot_legacy_try_catches_set(
+  func : HotFunc,
+  node_id : NodeId,
+  catches : Array[HotCatchArm],
+) -> Unit {
+  hot_mutate_require_live_node(func, node_id, "hot legacy_try_catches_set node")
+  for catch_ in catches {
+    match catch_ {
+      HotCatchArm::LegacyCatchArm(_, _) | HotCatchArm::LegacyCatchAllArm(_) =>
+        ()
+      _ => abort("hot legacy_try_catches_set requires legacy catch arms")
+    }
+  }
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::Try => {
+      let catch_id = hot_alloc_catch_info(func, HotCatchInfo::new(catches))
+      func.nodes[node_id] = { ..node, imm1: catch_id }
+      hot_revision_bump(func)
+    }
+    _ => abort("hot legacy_try_catches_set requires a try node")
+  }
+}
+
+///|
 pub fn hot_try_table_catches_set(
   func : HotFunc,
   node_id : NodeId,

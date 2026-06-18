@@ -535,6 +535,151 @@ test "dead-code-elimination preserves suffix after real legacy try with reachabl
 }
 
 ///|
+test "dead-code-elimination repairs legacy pop nested in block after mutation" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let tag_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type, tag_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(1U))]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([@lib.LocalRun::new(1U, @lib.ValType::i32())]),
+          @lib.Expr::new([
+            @lib.Instruction::try_(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([@lib.Instruction::nop()]),
+              [
+                @lib.LegacyCatch::new(
+                  @lib.TagIdx::new(0U),
+                  @lib.Expr::new([
+                    @lib.Instruction::block(
+                      @lib.BlockType::void_(),
+                      @lib.Expr::new([
+                        @lib.Instruction::pop(@lib.ValType::i32()),
+                        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ],
+            ),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+          ]),
+        ),
+      ]),
+    )
+  let func = match
+    @ir.hot_lift_func_with_context_result(
+      mod_,
+      @lib.FuncIdx::new(0U),
+      @ir.hot_module_context_from_module(mod_),
+    ) {
+    Ok(func) => func
+    Err(err) => fail("expected legacy pop fixture to lift, got \{err}")
+  }
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected legacy pop repair DCE success, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = mod_
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs legacy pop nested below catch root block" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let tag_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type, tag_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(1U))]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([
+            @lib.Instruction::try_(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([@lib.Instruction::nop()]),
+              [
+                @lib.LegacyCatch::new(
+                  @lib.TagIdx::new(0U),
+                  @lib.Expr::new([
+                    @lib.Instruction::block(
+                      @lib.BlockType::val_type(@lib.ValType::i32()),
+                      @lib.Expr::new([
+                        @lib.Instruction::pop(@lib.ValType::i32()),
+                      ]),
+                    ),
+                    @lib.Instruction::drop(),
+                  ]),
+                ),
+              ],
+            ),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+          ]),
+        ),
+      ]),
+    )
+  let func = match
+    @ir.hot_lift_func_with_context_result(
+      mod_,
+      @lib.FuncIdx::new(0U),
+      @ir.hot_module_context_from_module(mod_),
+    ) {
+    Ok(func) => func
+    Err(err) => fail("expected nested legacy pop fixture to lift, got \{err}")
+  }
+  let ctx = HotPassContext::new(
+    dead_code_elimination_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested legacy pop repair DCE success, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let pretty = mod_
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination treats lowered legacy try with all arms unreachable as nonfallthrough" {
   let optimized = match
     pass_test_run_pipeline(
