@@ -373,6 +373,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`binaryen/passes/global-refining/parity.md`](binaryen/passes/global-refining/parity.md), [`binaryen/passes/global-refining/starshine-hot-ir-strategy.md`](binaryen/passes/global-refining/starshine-hot-ir-strategy.md), [`binaryen/passes/global-refining/implementation-structure-and-tests.md`](binaryen/passes/global-refining/implementation-structure-and-tests.md), and [`../../agent-todo.md`](../../agent-todo.md) with the reopening criterion: revisit only if Starshine gains feature-disabled direct-pass execution or a compare lane intentionally runs Binaryen without GC enabled.
 - `[GR-002]` through `[GR-006]` remain open for exact function refs, broader initializer typing, public-type validation parity, `global.get` retagging/refinalization, and refreshed oracle evidence.
 
+## [2026-06-18] passes/dead-code-elimination | Guard catch-pop carrier local budget
+
+- Rebased the DCE parity branch on `main` as requested and kept the worktree clean before adding a focused hardening fixture.
+- Added [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) coverage for a WAST-lowered `$call-pop-catch`-style `br_table` repair in a function with two params and two existing body locals. The test requires DCE to remove the dead call, preserve the selector, and route the surviving catch-payload `pop` through fresh carrier `Local 4`, proving carrier allocation accounts for `param_count + locals.length()` and does not clobber existing locals.
+- Updated the DCE EH docs and backlog to keep `[O4Z-AUDIT-DCE]` active. Evidence for this test-only hardening slice: focused `moon test src/passes --filter "dead-code-elimination repairs catch pop carrier after params and locals"` passed after the rebase; the existing computed `br_table` WAST/DCE focused tests also passed after rebase.
+
 ## [2026-06-18] passes/ssa-nomerge | Publish final direct closeout
 
 - Published `[SSANM-012e]` and closed the direct `ssa-nomerge` audit scope in [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md). The final report records the green `1000000`-requested broad mixed-generator lane, green `100000`-requested `ssa-nomerge-all` GenValid aggregate lane, debug-WASI artifact boundary classification, JSON-AS direct runtime evidence, current-head freshness validation including a 10000-request sanity lane, retained boundaries, non-goals, and reopening criteria.
