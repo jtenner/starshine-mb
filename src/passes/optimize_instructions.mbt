@@ -2778,26 +2778,51 @@ fn optimize_instructions_try_expand_tiny_memory_copy(
     return false
   }
   let size_id = @ir.hot_child_get(func, node_id, 2)
-  match optimize_instructions_const_memory_size(func, dead, size_id) {
-    Some(1) => ()
+  let size = match
+    optimize_instructions_const_memory_size(func, dead, size_id) {
+    Some(size) => size
     _ => return false
   }
   let dst_id = @ir.hot_child_get(func, node_id, 0)
   let src_id = @ir.hot_child_get(func, node_id, 1)
   let src_memarg = optimize_instructions_memarg_for_mem_idx(node.imm1)
-  let load = @ir.hot_build_load(func, @lib.ValType::i32(), src_memarg, src_id)
-  @ir.hot_node_exact_instr_set(
-    func,
-    load,
-    @lib.Instruction::i32_load8u(src_memarg),
-  )
-  optimize_instructions_replace_with_store8(
+  let (load_ty, load_instr, store_instr) = match size {
+    1 =>
+      (
+        @lib.ValType::i32(),
+        @lib.Instruction::i32_load8u,
+        @lib.Instruction::i32_store8,
+      )
+    2 =>
+      (
+        @lib.ValType::i32(),
+        @lib.Instruction::i32_load16u,
+        @lib.Instruction::i32_store16,
+      )
+    4 =>
+      (
+        @lib.ValType::i32(),
+        @lib.Instruction::i32_load,
+        @lib.Instruction::i32_store,
+      )
+    8 =>
+      (
+        @lib.ValType::i64(),
+        @lib.Instruction::i64_load,
+        @lib.Instruction::i64_store,
+      )
+    _ => return false
+  }
+  let load = @ir.hot_build_load(func, load_ty, src_memarg, src_id)
+  @ir.hot_node_exact_instr_set(func, load, load_instr(src_memarg))
+  optimize_instructions_replace_with_store_exact(
     ctx,
     func,
     node_id,
     node.imm0,
     dst_id,
     load,
+    store_instr,
   )
   true
 }

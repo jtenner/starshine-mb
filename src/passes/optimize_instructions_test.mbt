@@ -899,6 +899,40 @@ test "optimize-instructions expands one-byte memory.copy to load8/store8" {
 }
 
 ///|
+test "optimize-instructions expands wider tiny memory.copy to exact load/store" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $src i32)
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 2
+        #|    memory.copy
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 4
+        #|    memory.copy
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 8
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected wider memory.copy optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "i32.load16u", "i32.store16", "i32.load", "i32.store", "i64.load", "i64.store",
+  ])
+}
+
+///|
 test "optimize-instructions expands tiny constant memory.fill to store" {
   let optimized = match
     pass_test_run_pipeline(

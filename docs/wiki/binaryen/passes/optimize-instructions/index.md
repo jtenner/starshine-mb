@@ -20,6 +20,7 @@ sources:
   - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
   - ../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md
   - ../../../raw/research/0736-2026-06-19-optimize-instructions-oi-g-local-eight-fill.md
+  - ../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -47,6 +48,7 @@ related:
   - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
   - ../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md
   - ../../../raw/research/0736-2026-06-19-optimize-instructions-oi-g-local-eight-fill.md
+  - ../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -197,3 +199,4 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md`](../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md) records the third `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-8 `memory.fill` lowering to repeated-byte `i64.store` while keeping nonconstant wider fills open.
 - [`../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md`](../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md) records the fourth `[O4Z-AUDIT-OI-G]` sub-slice for local.get value size-2 and size-4 `memory.fill` lowering through low-byte mask and repeat multiply expressions while keeping effectful values and nonconstant size-8 fills open.
 - [`../../../raw/research/0736-2026-06-19-optimize-instructions-oi-g-local-eight-fill.md`](../../../raw/research/0736-2026-06-19-optimize-instructions-oi-g-local-eight-fill.md) records the fifth `[O4Z-AUDIT-OI-G]` sub-slice for local.get value size-8 `memory.fill` lowering through low-byte mask, `i64.extend_i32_u`, and repeated-byte `i64.mul` while keeping effectful values open.
+- [`../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md`](../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md) records the sixth `[O4Z-AUDIT-OI-G]` sub-slice for constant-size `2`/`4`/`8` `memory.copy` lowering to exact load/store pairs while preserving overlap and trap safety.
