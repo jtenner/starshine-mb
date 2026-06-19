@@ -4356,6 +4356,12 @@ fn wt_legacy_pop_dead_call_param_tail_payload_supported(
         if prefix_depth < 1 {
           return false
         }
+      @lib.I32Add =>
+        if prefix_depth < 2 {
+          return false
+        } else {
+          prefix_depth = prefix_depth - 1
+        }
       _ => return false
     }
   }

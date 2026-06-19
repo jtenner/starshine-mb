@@ -7300,6 +7300,33 @@ fn run_hot_pipeline_dce_raw_block_single_result_type(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_simple_value_instr_supported(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_binary_result_instr_supported(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Add => true
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_unary_result_instr_supported(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -7480,6 +7507,24 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
         pop_type = Some(vt)
         rewritten.push(instrs[idx])
         rewritten.push(instrs[idx + 1])
+        rewritten.push(@lib.Instruction::drop())
+      }
+      _ => ()
+    }
+  }
+  if pop_idx < 0 &&
+    idx + 4 < instrs.length() &&
+    run_hot_pipeline_dce_raw_simple_value_instr_supported(instrs[idx]) &&
+    run_hot_pipeline_dce_raw_simple_value_instr_supported(instrs[idx + 1]) &&
+    run_hot_pipeline_dce_raw_binary_result_instr_supported(instrs[idx + 2]) {
+    match instrs[idx + 3] {
+      @lib.Pop(vt) => {
+        pop_idx = idx + 3
+        term_idx = idx + 4
+        pop_type = Some(vt)
+        rewritten.push(instrs[idx])
+        rewritten.push(instrs[idx + 1])
+        rewritten.push(instrs[idx + 2])
         rewritten.push(@lib.Instruction::drop())
       }
       _ => ()
