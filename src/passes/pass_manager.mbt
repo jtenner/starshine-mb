@@ -7377,6 +7377,18 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
             rewritten.push(instrs[idx])
             rewritten.push(@lib.Instruction::drop())
           }
+          @lib.Call(fidx) =>
+            match env.get_functype_by_funcidx(fidx) {
+              Some(@lib.FuncType(params, results)) if params.length() == 0 &&
+                results.length() == 1 => {
+                pop_idx = idx + 1
+                term_idx = idx + 2
+                pop_type = Some(vt)
+                rewritten.push(instrs[idx])
+                rewritten.push(@lib.Instruction::drop())
+              }
+              _ => ()
+            }
           _ => ()
         }
       _ => ()

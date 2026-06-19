@@ -4340,6 +4340,12 @@ fn wt_legacy_pop_dead_call_param_tail_payload_supported(
   for idx = 0; idx < pop_start; idx = idx + 1 {
     match instrs[idx] {
       @lib.I32Const(_) | @lib.LocalGet(_) => prefix_depth = prefix_depth + 1
+      @lib.Call(fidx) =>
+        match env.get_functype_by_funcidx(fidx) {
+          Some(@lib.FuncType(params, results)) if params.length() == 0 &&
+            results.length() == 1 => prefix_depth = prefix_depth + 1
+          _ => return false
+        }
       _ if wt_legacy_pop_call_value_instr_stack_neutral(instrs[idx]) =>
         if prefix_depth < 1 {
           return false
