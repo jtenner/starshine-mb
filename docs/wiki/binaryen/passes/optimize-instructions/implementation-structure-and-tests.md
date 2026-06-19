@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-19
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
 related:
@@ -18,7 +19,7 @@ related:
 
 # `optimize-instructions`: implementation structure and tests
 
-This page is the compact source-confirmed map for Binaryen `version_129` `optimize-instructions`.
+This page is the compact source-confirmed map for Binaryen `optimize-instructions`. Most explanatory prose still comes from the reviewed `version_129` dossier, but the release-gating O4z owner map is now the 2026-06-19 `version_130` source/lit matrix in [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md).
 
 Its main job is to answer two practical questions:
 
@@ -193,18 +194,16 @@ The better mental model is:
 
 That structure matches the real breadth of the pass.
 
-## Current-main freshness note
+## Version_130 O4z source/lit matrix
 
-A narrow 2026-05-05 spot check on:
+`[O4Z-AUDIT-OI-A]` is complete as of 2026-06-19. The new matrix in [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md):
 
-- `src/passes/OptimizeInstructions.cpp`
-- `src/passes/pass.cpp`
-- `test/lit/passes/optimize-instructions-default.wast`
-- `test/lit/passes/optimize-instructions-sign_ext.wast`
-- `test/lit/passes/optimize-instructions-gc.wast`
+- re-anchors `OptimizeInstructions.cpp`, `pass.cpp`, `passes.h`, `opt-utils.h`, and the helper headers at `version_130`;
+- keeps the dedicated `optimize-instructions*` lit roster explicit;
+- maps each upstream visitor/helper family to current Starshine coverage, an explicit local boundary, or an `[O4Z-AUDIT-OI-*]` implementation owner;
+- records that current Starshine remains a useful HOT subset, not full upstream OI parity.
 
-...did not surface a new teaching-relevant contract change beyond what the tagged `version_129` dossier already teaches.
-That is only a spot check, not a full file-by-file drift audit.
+The older 2026-05-05 current-main note is still useful historical provenance, but new release-gating OI work should start from the 2026-06-19 `version_130` matrix.
 
 ## Porting takeaway
 
@@ -213,4 +212,5 @@ If Starshine ever needs a stricter source-level expansion of this pass, this pag
 1. preserve the core pass shell and local prescan from `OptimizeInstructions.cpp`
 2. preserve the helper semantics that make the rewrites legal, not only the surface patterns
 3. keep the distributed lit proof surface explicit instead of teaching the pass from one file
-4. remember that `call_ref`, memory, bulk-memory, GC casts, tuple extraction, and final repair are part of the real contract, not optional side stories
+4. use the `[O4Z-AUDIT-OI-A]` matrix to route work to the current slice owner instead of treating broad missing families as closed
+5. remember that `call_ref`, memory, bulk-memory, GC casts, tuple extraction, and final repair are part of the real contract, not optional side stories

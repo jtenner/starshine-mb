@@ -267,9 +267,64 @@ Preset behavior inventory:
     - [x] `[O4Z-AUDIT-RUB-P]` Late `visitSwitch` one-target collapse parity. Completed 2026-06-19: Starshine now covers the local HOT subset of Binaryen `FinalOptimizer::visitSwitch(...)` for lifted value-carrying one-target `br_table`s, rewriting to `drop(selector); br payload` when the selector is const/local.get and payload values are locally reorder-safe. Focused coverage locks the local-selector positive and an effectful call/call reorder negative; child-less stack-payload switches and broader effect/reorder pairs remain conservative. Evidence: focused RUB tests passed, `moon test src/passes` and full `moon test` passed, native `src/cmd` release build passed, and `.tmp/pass-fuzz-remove-unused-brs-rub-p-10000` compared `9977/10000` with `0` mismatches and `23` Binaryen/tool command failures (`22` rec-group-zero, `1` bad-section-size).
 
 - [O4Z-AUDIT-OI] - Deep audit `optimize-instructions`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
-  - Scope: exact peepholes, shift/compare/boolean rewrites, effect-aware folds, use-def/effects metadata, raw O4z slot16/slot44 predecessors, and pass-local runtime.
-  - Deliverables: apply the common checklist; coordinate descriptor work with `[AUDIT001-A]`/`[AUDIT001-B]`; refresh direct compare and all `OI` slot evidence; classify any missed Binaryen folds by safety/effect reason.
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit. 2026-06-19 source/docs inventory in `docs/wiki/raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md` finds Starshine implements a useful HOT subset but is still far narrower than Binaryen's `OptimizeInstructions.cpp` contract. `[O4Z-AUDIT-OI-A]` is complete with the current `version_130` source/lit matrix in `docs/wiki/raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`; next active slice is `[O4Z-AUDIT-OI-B]`.
+  - Current Starshine coverage: exact `i32.add` / `i64.add` constant folding, selected `eqz` / compare-to-zero rewrites, signed-constant compare canonicalization, commutative ordering with HOT effect/use guards, add/sub neutral and negative-immediate rewrites, multiply-by-power-of-two to shift, shift-mask cleanup, nested boolean `if` cleanup, constant-if folding, duplicate-branch collapse, and artifact-backed dead-suffix/fallback-branch preservation.
+  - Missing behavior families after `[O4Z-AUDIT-OI-A]`: direct/O4z baseline evidence, raw no-op gate accountability, default arithmetic/compare breadth, local `maxBits` / `signExtBits` prescan, boolean/select/ternary shell breadth, branch-hint/no-fold/no-reorder boundaries, memory and bulk-memory lowering, `call_ref` directization, reference/cast/descriptor/null-trap simplification, GC constructors/fields/arrays/atomics, tuple extraction, EH/refinalization repair boundaries, and modern direct/O4z slot signoff.
+  - Coordination: keep descriptor `requires` truthfulness under `[AUDIT001-A]` / `[AUDIT001-B]`, but do not close OI on descriptor metadata alone. Coordinate raw skip threshold tests with `[AUDIT002-*]` where useful, while keeping OI-specific gates accountable here.
+  - Missing Binaryen behavior slices from the 2026-06-19 inventory:
+    - [x] `[O4Z-AUDIT-OI-A]` Refresh the current local-oracle source/lit matrix for `OptimizeInstructions.cpp`. Completed 2026-06-19: filed `docs/wiki/raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`, re-anchoring `OptimizeInstructions.cpp`, `pass.cpp`, `passes.h`, `opt-utils.h`, helper headers, and the dedicated `optimize-instructions*` lit roster at Binaryen `version_130`; mapped source visitor/helper and lit families to current Starshine coverage, explicit boundaries, or `[O4Z-AUDIT-OI-B]` through `[O4Z-AUDIT-OI-N]`; refreshed the OI wiki pages to treat the older `version_129` prose as historical explanatory material and the new `version_130` matrix as release-gating ownership. Docs-only/source-inventory slice; no Moon/Bun/compare-pass commands required.
+    - [ ] `[O4Z-AUDIT-OI-B]` Baseline direct pass and saved O4z slot evidence before behavior changes.
+      - Goal: know the current mismatch, validation, command-failure, slot16/slot44 replay, and pass-local timing state before widening the pass.
+      - Deliverables: native `src/cmd` build, direct `--pass optimize-instructions --count 1000` then `10000` if stable, replay saved generated O4z slot16 and slot44 predecessors/extracted functions, classify mismatches by agent judgment, and record pass-local Starshine/Binaryen timings where available.
+      - Suggested evidence: `moon build --target native --release src/cmd`, `bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 1000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`, then `10000` once triaged.
+    - [ ] `[O4Z-AUDIT-OI-C]` Audit OI raw no-op gates and performance blockers.
+      - Goal: ensure `large-local`, `large-lowered`, `stack-carried-effect`, `load-call`, `call-local-write`, structured call/branch, block-return-call/branch, and loop-branch-local-write no-op gates do not silently hide required OI behavior.
+      - Deliverables: one white-box boundary test per gate family, trace reason assertions, at least one public-pipeline fixture proving intended cleanup still runs outside each gate, timing notes for gates that are purely performance guards, and backlog/docs updates for any gate that must remain a release boundary.
+      - Suggested evidence: focused `pass_manager_wbtest` / `optimize_instructions_test.mbt`, `moon test src/passes`, and direct compare smoke after gate changes.
+    - [ ] `[O4Z-AUDIT-OI-D]` Expand default scalar arithmetic and compare parity.
+      - Goal: cover the smallest non-representation-heavy Binaryen default-lit gaps before GC/call/memory work.
+      - Deliverables: red-first fixtures for missed scalar integer identities and compare canonicalizations; decide whether the disabled relational operand canonicalizer can be safely enabled or replaced; add negative tests for same-local writes, shared tees, traps, and loop-carried values.
+      - Suggested evidence: focused `optimize_instructions_test.mbt`, `moon test src/passes`, direct `--pass optimize-instructions --count 10000`.
+    - [ ] `[O4Z-AUDIT-OI-E]` Add `LocalScanner`-style width/sign facts and first sign-extension slice.
+      - Goal: implement or explicitly design the local `maxBits` / `signExtBits` equivalent that Binaryen uses for sign-extension, masks, and comparison proofs.
+      - Deliverables: analysis data model, tests for params vs non-params, local.set fallthrough facts, signed-load/sign-extension recognition, redundant sign-extension removal, and first explicit sign-extension idiom rewrite; document any HOT/type surface blockers.
+      - Suggested evidence: focused sign_ext fixtures, `moon test src/passes`, direct compare smoke.
+    - [ ] `[O4Z-AUDIT-OI-F]` Classify and widen boolean/select/ternary shell parity.
+      - Goal: separate implementable `if` / `select` shell rewrites from metadata/options boundaries.
+      - Deliverables: source-backed fixtures for condition inversion, select/if shell cleanup, duplicated-arm/ternary transforms, no-fold/no-reorder behavior, and explicit branch-hint boundary documentation until Starshine has expression code-metadata support.
+      - Suggested evidence: focused OI tests, docs update for branch hints, direct compare smoke.
+    - [ ] `[O4Z-AUDIT-OI-G]` Implement memory and bulk-memory OI surface in narrow slices.
+      - Goal: cover Binaryen's OI-owned memory.copy/fill/load/store canonicalization without conflating it with `optimize-added-constants`.
+      - Deliverables: red-first fixtures for tiny `memory.copy`, tiny `memory.fill`, zero-size cleanup under IIT/TNH-compatible local options if available, memory64 variants, and effect/trap negatives; decide how `load-call-optimize-instructions-noop` should treat these shapes.
+      - Suggested evidence: focused OI tests, validation of binary/text fixtures, direct compare smoke.
+    - [ ] `[O4Z-AUDIT-OI-H]` Implement `call_ref` directization parity.
+      - Goal: cover the upstream `visitCallRef(...)` family independently from GC/cast work.
+      - Deliverables: fixtures for `ref.func` target to direct `call` / `return_call`, `table.get` target to `call_indirect` / `return_call_indirect`, fallthrough-known direct target with preserved target-side effects, select-of-known-targets lowering, and type/effect negatives.
+      - Suggested evidence: focused text or binary-AST OI tests depending on WAT support, direct compare smoke, docs update for any unsupported `return_call_ref` surface.
+    - [ ] `[O4Z-AUDIT-OI-I]` Implement non-GC reference equality/null/test/cast basics.
+      - Goal: start the reference surface with locally representable `ref.eq`, `ref.is_null`, `ref.test`, `ref.cast`, and `ref.as_non_null` cases before descriptor/exactness work.
+      - Deliverables: fixtures for impossible equality, `ref.eq(x, null) -> ref.is_null(x)`, known `ref.is_null` constants, definitely successful/failed tests/casts, unreachable/drop-child preservation, and default-mode trap/effect negatives.
+      - Suggested evidence: focused OI tests, `moon test src/passes`, direct compare smoke.
+    - [ ] `[O4Z-AUDIT-OI-J]` Classify descriptor, exactness, TNH, and IIT cast boundaries.
+      - Goal: make trap-sensitive and type-information-sensitive cast behavior explicit instead of hidden inside broad GC backlog.
+      - Deliverables: source-backed tests or fail-closed fixtures for descriptor casts, exact casts, TNH/IIT-only removals, success-only-if-null/non-null cases, and useful-type-info preservation; add public option/pass-arg blockers if Starshine lacks equivalent mode controls.
+      - Suggested evidence: focused OI tests plus docs updates for accepted mode/metadata boundaries.
+    - [ ] `[O4Z-AUDIT-OI-K]` Implement GC constructor/field/array/default and ordering rewrites.
+      - Goal: cover OI-owned GC non-atomic instruction simplifications after the smaller cast/null surface is understood.
+      - Deliverables: fixtures for `struct.new` defaults, `array.new` / `array.new_fixed` defaults or repeated-value lowering, `struct.get/set` and `array.get/set/len` null-trap simplifications, unshared ordering relaxation, and shared/side-effect negatives.
+      - Suggested evidence: binary-AST or WAT OI tests, validation, direct compare smoke.
+    - [ ] `[O4Z-AUDIT-OI-L]` Implement GC RMW/cmpxchg safe subset or explicit boundary.
+      - Goal: cover or deliberately fail-close the OI-owned GC atomic lowering surface.
+      - Deliverables: tests for non-mutating RMW updates, expected==replacement cmpxchg, unshared lowering to get/set/if/local sequences where representable, and seqcst/shared negatives.
+      - Suggested evidence: focused OI tests, validation, direct compare smoke.
+    - [ ] `[O4Z-AUDIT-OI-M]` Implement tuple extraction / multivalue parity surface.
+      - Goal: cover the narrow `tuple.extract(tuple.make(...))` and tee/drop reconstruction families from the multivalue lit surface.
+      - Deliverables: red-first multivalue fixtures, pass-local rewrite support, validation of tuple carriers, and interaction checks with `tuple-optimization` / `simplify-locals` neighbors.
+      - Suggested evidence: focused OI tests, `moon test src/passes`, direct compare smoke.
+    - [ ] `[O4Z-AUDIT-OI-N]` Final direct and O4z slot closeout.
+      - Goal: close OI only after implemented slices and explicit boundaries are documented.
+      - Deliverables: final parity/status note in the OI wiki, exact focused/full test commands, direct 100000-case compare, slot16/slot44 replay results, remaining accepted boundaries with reopening criteria, and backlog cleanup.
+      - Suggested evidence: `moon info`, `moon fmt`, focused OI tests, `moon test src/passes`, full `moon test`, native `src/cmd` build, direct `--pass optimize-instructions --count 100000 --jobs auto`, and slot replay validation.
 
 - [O4Z-AUDIT-HSO] - Deep audit `heap-store-optimization`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.

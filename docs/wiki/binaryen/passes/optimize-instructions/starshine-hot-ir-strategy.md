@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-06-19
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -31,7 +32,7 @@ For the upstream contract, start with [`./binaryen-strategy.md`](./binaryen-stra
 
 ## Short version
 
-Current Starshine `src/passes/optimize_instructions.mbt` is **much narrower** than Binaryen `version_129` `OptimizeInstructions.cpp`.
+Current Starshine `src/passes/optimize_instructions.mbt` is **much narrower** than Binaryen `OptimizeInstructions.cpp`. The 2026-06-19 `version_130` matrix is now the release-gating owner map for the missing visitor and lit families.
 
 The in-tree implementation is still a real, useful hot pass.
 Its center of gravity is:
@@ -335,5 +336,5 @@ Treat the current local implementation as:
 - intentionally carrying extra writeback-safety logic for local artifact history
 - still missing most of the upstream `call_ref`, memory, bulk-memory, GC, tuple, and helper-substrate surface
 
-For this pass, "what Starshine does today" and "what Binaryen `version_129` does" are not the same thing.
-The wiki should keep that difference explicit.
+For this pass, "what Starshine does today" and "what Binaryen `version_130` expects for release-gating O4z parity" are not the same thing.
+The wiki should keep that difference explicit and use `[O4Z-AUDIT-OI-*]` slice owners from the 2026-06-19 matrix when expanding coverage.

@@ -1,13 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-19
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
+  - ../../../raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -24,6 +26,8 @@ related:
   - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
+  - ../../../raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md
+  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../precompute/index.md
@@ -120,21 +124,28 @@ What it actually is in `version_129`:
   - Immutable capture of the official Binaryen release, source, and lit-test URLs re-checked for this dossier on 2026-04-22.
 - [`../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md)
   - Immutable capture of the 2026-05-05 current-main spot check for the same contract surfaces.
+- [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md)
+  - `[O4Z-AUDIT-OI-A]` `version_130` source/lit matrix mapping upstream visitor and lit families to current Starshine coverage, explicit boundaries, and follow-up slice owners.
 
 ## Freshness and provenance note
 
 Current durable answer:
 
-- the official Binaryen GitHub `version_129` release page remains the tagged anchor for the dossier and still showed publish date **2026-04-01** on the reviewed 2026-04-22 capture
-- the dossier now has an immutable raw primary-source manifest for the original release/source/test provenance and a second immutable current-main recheck manifest dated 2026-05-05
-- the 2026-05-05 current-main spot check on `OptimizeInstructions.cpp`, `pass.cpp`, and representative default/sign-extension/bulk-memory/`call_ref`/GC/multivalue tests did not surface a new teaching-relevant contract drift beyond what this dossier already teaches
+- the detailed prose still mostly teaches from the reviewed `version_129` dossier because that is where the original deep read was filed
+- the release-gating O4z audit now uses the 2026-06-19 `version_130` source/lit matrix as the current local-oracle owner map for implementation slices
+- the `version_130` matrix re-anchors `OptimizeInstructions.cpp`, registration, helper headers, and the dedicated `optimize-instructions*` lit roster, and it did not find a reason to collapse the existing OI backlog: Starshine remains an active HOT subset, not full upstream parity
+- future implementation slices should cite the 2026-06-19 matrix for ownership and the older `version_129` pages for explanatory strategy until those pages are fully rewritten around `version_130`
 
-That is still a spot check, not a full current-`main` drift audit.
+That is a `version_130` release-oracle matrix, not a live current-`main` drift audit beyond the release tag.
+
+## Current O4z audit inventory
+
+The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md`](../../../raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md) keeps `[O4Z-AUDIT-OI]` open. The same-day `version_130` matrix [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md) completes `[O4Z-AUDIT-OI-A]` by mapping upstream visitor and lit families to current Starshine coverage, explicit boundaries, or follow-up slice owners. The remaining active backlog starts with direct/slot baseline evidence, OI raw no-op gate coverage, scalar arithmetic/compare breadth, local scanner/sign-extension facts, boolean/select shell parity, memory/bulk-memory, `call_ref`, reference/cast/descriptor/null-trap families, GC non-atomic and atomic rewrites, tuple extraction, and final direct/O4z closeout.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `optimize-instructions` parity and scheduler research.
-- Use Binaryen `version_129` as the current source oracle.
+- Use Binaryen `version_130` as the release-gating O4z source/lit matrix for new implementation slices; use the older `version_129` dossier prose as historical explanatory material until fully refreshed.
 - Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current integer / boolean / control-focused HOT subset.
 - Keep the landing page honest about the ordered-artifact story:
   - slot `16` is retired
@@ -154,3 +165,5 @@ That is still a spot check, not a full current-`main` drift audit.
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [`../../../raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md`](../../../raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md) records the current OI behavior-gap inventory and `[O4Z-AUDIT-OI-A]` through `[O4Z-AUDIT-OI-N]` backlog split.
+- [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md) completes `[O4Z-AUDIT-OI-A]` with the `version_130` source/lit matrix and slice ownership map.

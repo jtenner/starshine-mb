@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-19
 sources:
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
 related:
   - ./index.md
@@ -414,6 +415,8 @@ The pass distinguishes:
 - mutating vs provably non-mutating updates
 
 ## Future Starshine port rules
+
+The 2026-06-19 `version_130` O4z matrix keeps these families open in current Starshine: `[O4Z-AUDIT-OI-H]` owns `call_ref`, `[O4Z-AUDIT-OI-I]` owns the first non-GC reference equality/null/cast/test basics, `[O4Z-AUDIT-OI-J]` owns descriptor/exactness/TNH/IIT boundaries, `[O4Z-AUDIT-OI-K]` owns non-atomic GC constructor/field/array rewrites, and `[O4Z-AUDIT-OI-L]` owns GC RMW/cmpxchg.
 
 A future parity port needs to preserve at least these rules:
 

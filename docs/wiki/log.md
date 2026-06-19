@@ -2,6 +2,16 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/optimize-instructions | Complete OI-A version_130 source matrix
+
+- Completed `[O4Z-AUDIT-OI-A]` by filing [`raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md). The note re-anchors `OptimizeInstructions.cpp`, registration, helper headers, and the dedicated `optimize-instructions*` lit roster at Binaryen `version_130`; maps source visitor/helper and lit families to current Starshine coverage, explicit local boundaries, or `[O4Z-AUDIT-OI-B]` through `[O4Z-AUDIT-OI-N]`; and records that Starshine remains an active HOT subset rather than full upstream parity.
+- Refreshed the OI dossier pages and [`../index.md`](index.md) so new release-gating work uses the `version_130` matrix as the current owner map while keeping the older `version_129` prose as explanatory background. Updated [`../../agent-todo.md`](../../agent-todo.md) to mark `[O4Z-AUDIT-OI-A]` complete and make `[O4Z-AUDIT-OI-B]` the next active slice. This was a docs/source-inventory slice; no Moon, Bun, Binaryen, or compare-pass commands were run.
+
+## [2026-06-19] passes/optimize-instructions | Inventory OI behavior gaps and split audit slices
+
+- Filed [`raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md`](raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md) after reviewing the OI dossier, current Starshine owner/test/dispatcher files, raw O4z slot16/slot44 history, and the existing Binaryen source/lit research. The note records that current Starshine `optimize-instructions` is an active useful HOT subset centered on scalar compare/arithmetic, boolean/control, shift-mask, and artifact-backed dead-suffix cleanup, but it still lacks broad Binaryen `OptimizeInstructions.cpp` surfaces: current-oracle matrix, local maxBits/signExtBits prescan, scalar default breadth, boolean/select shell breadth, memory/bulk-memory, `call_ref`, reference/cast/descriptor/null-trap, GC constructor/field/array/atomic, tuple extraction, repair-boundary, and final direct/O4z signoff.
+- Expanded [`../../agent-todo.md`](../../agent-todo.md) under `[O4Z-AUDIT-OI]` with small actionable slices `[O4Z-AUDIT-OI-A]` through `[O4Z-AUDIT-OI-N]`, including source refresh, baseline direct/slot evidence, OI raw gate audit, scalar arithmetic/compare, local scanner/sign-extension, boolean/select, memory/bulk-memory, `call_ref`, reference/cast, descriptor/TNH/IIT, GC non-atomic, GC atomic, tuple/multivalue, and final closeout tracks. This was docs/backlog analysis only; no Moon or compare-pass commands were run.
+
 ## [2026-06-19] passes/remove-unused-brs | Close RUB final signoff after switch collapse
 
 - Closed `[O4Z-AUDIT-RUB-O]` after the RUB-P commit. The post-RUB-P final direct lane `.tmp/pass-fuzz-remove-unused-brs-rub-o-post-rub-p-final-100000` compared `99751/100000`, with `57148` normalized matches, `42601` cleanup-normalized matches, `2` raw mismatches, and `249` Binaryen/tool command failures (`219` rec-group-zero, `12` bad-section-size, `11` command-failed, `6` table-index-out-of-range, `1` invalid-tag-index).

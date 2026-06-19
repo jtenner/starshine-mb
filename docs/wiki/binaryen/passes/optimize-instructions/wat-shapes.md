@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-19
 sources:
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
 related:
   - ./index.md
@@ -16,7 +17,7 @@ related:
 
 # `optimize-instructions` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `optimize-instructions` pass.
+This page is the beginner-friendly shape catalog for Binaryen's `optimize-instructions` pass. The 2026-06-19 `version_130` matrix now maps these shapes to active Starshine O4z slices; the examples remain explanatory, while implementation ownership lives in [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md).
 
 ## Read this page with one mental model
 
@@ -748,15 +749,15 @@ Binaryen `optimize-instructions` rewrites many more shapes than its name suggest
 
 The most important pattern families to remember are:
 
-- compare / zero / boolean canonicalization
-- add/sub / shift / power-of-two cleanup
-- sign-extension and bit-width reasoning
-- `if` / `select` ternary shell simplification
-- memory and bulk-memory lowering
-- `call_ref` directization
-- GC null-check, cast, and constructor cleanup
-- unshared GC RMW / cmpxchg lowering
-- tuple extraction simplification
+- compare / zero / boolean canonicalization (`[O4Z-AUDIT-OI-D]` and `[O4Z-AUDIT-OI-F]` for the remaining local gaps)
+- add/sub / shift / power-of-two cleanup (`[O4Z-AUDIT-OI-D]`)
+- sign-extension and bit-width reasoning (`[O4Z-AUDIT-OI-E]`)
+- `if` / `select` ternary shell simplification (`[O4Z-AUDIT-OI-F]`)
+- memory and bulk-memory lowering (`[O4Z-AUDIT-OI-G]`)
+- `call_ref` directization (`[O4Z-AUDIT-OI-H]`)
+- GC null-check, cast, and constructor cleanup (`[O4Z-AUDIT-OI-I]`, `[O4Z-AUDIT-OI-J]`, `[O4Z-AUDIT-OI-K]`)
+- unshared GC RMW / cmpxchg lowering (`[O4Z-AUDIT-OI-L]`)
+- tuple extraction simplification (`[O4Z-AUDIT-OI-M]`)
 
 And the most important negative rule is:
 

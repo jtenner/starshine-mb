@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-19
 sources:
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
@@ -31,7 +32,7 @@ For the exact helper walk and finer-grained code map, use [`./starshine-hot-ir-s
 
 ## Short version
 
-Current Starshine `src/passes/optimize_instructions.mbt` is a real HOT pass, but it is still narrower than Binaryen `version_129` `OptimizeInstructions.cpp`.
+Current Starshine `src/passes/optimize_instructions.mbt` is a real HOT pass, but it is still narrower than Binaryen `OptimizeInstructions.cpp`. The `[O4Z-AUDIT-OI-A]` `version_130` matrix now makes that gap actionable by assigning each upstream source/lit family to current coverage, an explicit local boundary, or a follow-up slice.
 
 The implemented center of gravity is:
 
@@ -130,7 +131,7 @@ The local pass does not yet model the upstream visitor families for:
 - a whole-function local prescan equivalent
 - deferred `ReFinalize` / EH-pop repair inside this pass
 
-That gap is intentional and documented so readers do not mistake the current local pass for a full upstream port.
+The 2026-06-19 `version_130` matrix routes those gaps to `[O4Z-AUDIT-OI-D]` through `[O4Z-AUDIT-OI-M]`, with `[O4Z-AUDIT-OI-N]` reserved for final direct/O4z closeout. That gap is intentional and documented so readers do not mistake the current local pass for a full upstream port.
 
 ## How to read this with the rest of the folder
 
