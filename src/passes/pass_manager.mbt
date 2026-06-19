@@ -7284,6 +7284,17 @@ fn run_hot_pipeline_dce_raw_block_single_pop_type(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_return_call_has_no_params(
+  env : @validate.Env,
+  fidx : @lib.FuncIdx,
+) -> Bool {
+  match env.get_functype_by_funcidx(fidx) {
+    Some(@lib.FuncType(params, _)) => params.length() == 0
+    None => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
@@ -7334,6 +7345,9 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
         None => false
       }
     @lib.Return => run_hot_pipeline_dce_raw_valtypes_match(func_results, [vt])
+    @lib.ReturnCall(fidx) if run_hot_pipeline_dce_raw_return_call_has_no_params(
+        env, fidx,
+      ) => false
     _ => return None
   }
   match instrs[term_idx] {
@@ -7343,6 +7357,8 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
         _ => return None
       }
     @lib.Return if func_results.length() == 0 || preserve_payload => ()
+    @lib.ReturnCall(fidx) if !preserve_payload &&
+      run_hot_pipeline_dce_raw_return_call_has_no_params(env, fidx) => ()
     _ => return None
   }
   let local_id = @lib.LocalIdx::new(
@@ -7362,6 +7378,7 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
   match instrs[term_idx] {
     @lib.Br(label) => rewritten.push(@lib.Instruction::br(label))
     @lib.Return => rewritten.push(@lib.Instruction::return_())
+    @lib.ReturnCall(fidx) => rewritten.push(@lib.Instruction::return_call(fidx))
     _ => return None
   }
   Some((rewritten, term_idx + 1))
@@ -7555,6 +7572,28 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
                 changed = true
                 continue
               }
+            }
+            @lib.ReturnCall(fidx) if run_hot_pipeline_dce_raw_return_call_has_no_params(
+                env, fidx,
+              ) => {
+              let carrier_locals : Array[@lib.LocalIdx] = []
+              for vt in pop_types {
+                let local_id = @lib.LocalIdx::new(
+                  (param_count + locals.length()).reinterpret_as_uint(),
+                )
+                locals.push(vt)
+                carrier_locals.push(local_id)
+                rewritten.push(@lib.Instruction::pop(vt))
+                rewritten.push(@lib.Instruction::local_set(local_id))
+              }
+              for local_id in carrier_locals {
+                rewritten.push(@lib.Instruction::local_get(local_id))
+                rewritten.push(@lib.Instruction::drop())
+              }
+              rewritten.push(@lib.Instruction::return_call(fidx))
+              idx = scan + 1
+              changed = true
+              continue
             }
             _ =>
               match

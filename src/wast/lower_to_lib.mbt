@@ -3583,6 +3583,7 @@ fn wt_legacy_pop_br_table_targets_match_branch(
 
 ///|
 fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
+  env : @validate.Env,
   instr : @lib.Instruction,
   label_results : Array[Array[@lib.ValType]],
   func_results : Array[@lib.ValType],
@@ -3599,6 +3600,11 @@ fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
       wt_legacy_pop_br_table_targets_match_branch(
         label_results, labels, fallback, payload_types,
       )
+    @lib.ReturnCall(fidx) =>
+      match env.get_functype_by_funcidx(fidx) {
+        Some(@lib.FuncType(params, _)) => params.length() == 0
+        None => false
+      }
     _ => false
   }
 }
@@ -4069,6 +4075,16 @@ fn wt_legacy_pop_call_arg_instr_supported(
   match instr {
     @lib.Nop => (cursor, depth, true)
     @lib.Unreachable | @lib.Br(_) | @lib.Return => (cursor, -1, true)
+    @lib.ReturnCall(fidx) => {
+      if depth < 0 {
+        return (cursor, depth, true)
+      }
+      match env.get_functype_by_funcidx(fidx) {
+        Some(@lib.FuncType(params, _)) if params.length() == 0 =>
+          (cursor, -1, true)
+        _ => (cursor, depth, false)
+      }
+    }
     @lib.Pop(vt) => {
       if depth < 0 {
         return (cursor, depth, false)
@@ -4399,6 +4415,7 @@ fn wt_direct_legacy_pop_instr_supported(
                       catch_instrs.length() &&
                       (
                         wt_legacy_pop_prefix_tail_is_nonfallthrough(
+                          env,
                           catch_instrs[instr_idx],
                           nested_labels,
                           func_results,
