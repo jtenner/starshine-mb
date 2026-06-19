@@ -933,6 +933,122 @@ test "optimize-instructions expands wider tiny memory.copy to exact load/store" 
 }
 
 ///|
+test "optimize-instructions expands memory64 tiny memory.copy preserving i64 addresses" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i64(), @lib.ValType::i64()], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i64(1UL, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i64_const(@lib.I64(1L)),
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i64_const(@lib.I64(8L)),
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid memory64 input, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory64 memory.copy optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "(local.get (Local 1))", "i32.load8u", "i32.store8",
+    "(local.get (Local 0))", "(local.get (Local 1))", "i64.load", "i64.store",
+  ])
+}
+
+///|
+test "optimize-instructions keeps memory64 memory.copy outside exact tiny lowering boundary" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [@lib.ValType::i64(), @lib.ValType::i64(), @lib.ValType::i64()],
+        [],
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i64(1UL, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i64_const(@lib.I64(2147483648L)),
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid memory64 boundary input, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory64 memory.copy boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Intentional fail-closed memory64 boundary: exact tiny lowering only accepts
+  // constant sizes representable as local Int values and never proves dynamic
+  // memory64 lengths, so oversized and nonconstant lengths remain bulk copies.
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "memory.copy"),
+    2,
+    msg=pretty,
+  )
+  assert_false(pretty.contains("i32.load8u"), msg=pretty)
+  assert_false(pretty.contains("i64.load"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps memory.copy outside exact tiny lowering boundary" {
   let optimized = match
     pass_test_run_pipeline(

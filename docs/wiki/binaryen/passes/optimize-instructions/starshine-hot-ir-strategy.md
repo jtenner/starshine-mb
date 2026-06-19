@@ -16,6 +16,7 @@ sources:
   - ../../../raw/research/0736-2026-06-19-optimize-instructions-oi-g-local-eight-fill.md
   - ../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md
   - ../../../raw/research/0738-2026-06-19-optimize-instructions-oi-g-memory-copy-boundaries.md
+  - ../../../raw/research/0739-2026-06-19-optimize-instructions-oi-g-memory64-copy.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -55,8 +56,8 @@ Its center of gravity is:
 - constant-`if` folding
 - nested boolean-`if` normalization and `eqz` wrapping
 - constant-condition `select` cleanup when the dropped arm is side-effect-free
-- tiny `memory.copy` lowering for constant sizes `1`/`2`/`4`/`8`
-- constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`)
+- tiny `memory.copy` lowering for constant sizes `1`/`2`/`4`/`8`, including direct-core memory64 copy fixtures for `i64` address preservation
+- constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`) on the currently valid fixture surface
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -254,6 +255,7 @@ The local pass now covers no-mode-dependent upstream bulk-memory shapes in narro
 
 - constant-size `1` `memory.copy` to `i32.load8u` + `i32.store8`
 - constant-size `2`/`4`/`8` `memory.copy` to exact `i32.load16u`/`i32.load`/`i64.load` plus matching stores
+- direct-core memory64 `memory.copy` fixtures proving the same size-`1` and size-`8` lowering preserves `i64` destination/source address operands
 - constant-size `1` `memory.fill` to `i32.store8`
 - constant-value size `2` `memory.fill` to repeated-byte `i32.store16`
 - constant-value size `4` `memory.fill` to repeated-byte `i32.store`
@@ -268,7 +270,7 @@ The local pass still does not cover broader upstream families like:
 - nonconstant-size `memory.copy`, because the size expression is not part of the exact tiny lowering proof
 - arbitrary or effectful nonconstant wider `memory.fill` value materialization
 - trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today
-- memory64-focused fixtures beyond accepting a constant `i64` size operand in the helper
+- memory64 `memory.fill` coverage, which remains blocked by the current local validator/typechecker memory64 length caveat
 - stored-value and offset canonicalization for the general load/store surface
 
 ## 4. No GC constructor / field / atomics surface
@@ -385,7 +387,7 @@ Treat the current local implementation as:
 - a real implemented HOT pass
 - strongest today on integer / boolean / control canonicalization
 - intentionally carrying extra writeback-safety logic for local artifact history
-- still missing most of the upstream `call_ref`, memory64/load-store canonicalization, GC, tuple, and helper-substrate surface
+- still missing most of the upstream `call_ref`, memory64-fill/load-store canonicalization, GC, tuple, and helper-substrate surface
 
 For this pass, "what Starshine does today" and "what Binaryen `version_130` expects for release-gating O4z parity" are not the same thing.
 The wiki should keep that difference explicit and use `[O4Z-AUDIT-OI-*]` slice owners from the 2026-06-19 matrix when expanding coverage.
