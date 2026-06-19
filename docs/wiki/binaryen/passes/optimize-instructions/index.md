@@ -23,6 +23,7 @@ sources:
   - ../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md
   - ../../../raw/research/0738-2026-06-19-optimize-instructions-oi-g-memory-copy-boundaries.md
   - ../../../raw/research/0739-2026-06-19-optimize-instructions-oi-g-memory64-copy.md
+  - ../../../raw/research/0740-2026-06-19-optimize-instructions-oi-g-memory64-fill.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -53,6 +54,7 @@ related:
   - ../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md
   - ../../../raw/research/0738-2026-06-19-optimize-instructions-oi-g-memory-copy-boundaries.md
   - ../../../raw/research/0739-2026-06-19-optimize-instructions-oi-g-memory64-copy.md
+  - ../../../raw/research/0740-2026-06-19-optimize-instructions-oi-g-memory64-fill.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -205,4 +207,5 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0736-2026-06-19-optimize-instructions-oi-g-local-eight-fill.md`](../../../raw/research/0736-2026-06-19-optimize-instructions-oi-g-local-eight-fill.md) records the fifth `[O4Z-AUDIT-OI-G]` sub-slice for local.get value size-8 `memory.fill` lowering through low-byte mask, `i64.extend_i32_u`, and repeated-byte `i64.mul` while keeping effectful values open.
 - [`../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md`](../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md) records the sixth `[O4Z-AUDIT-OI-G]` sub-slice for constant-size `2`/`4`/`8` `memory.copy` lowering to exact load/store pairs while preserving overlap and trap safety.
 - [`../../../raw/research/0738-2026-06-19-optimize-instructions-oi-g-memory-copy-boundaries.md`](../../../raw/research/0738-2026-06-19-optimize-instructions-oi-g-memory-copy-boundaries.md) records the seventh `[O4Z-AUDIT-OI-G]` boundary sub-slice for intentionally keeping zero-size, size-16, and nonconstant-size `memory.copy` unchanged without trap-relaxed mode support or overlap-safe multi-store lowering proofs.
-- [`../../../raw/research/0739-2026-06-19-optimize-instructions-oi-g-memory64-copy.md`](../../../raw/research/0739-2026-06-19-optimize-instructions-oi-g-memory64-copy.md) records the eighth `[O4Z-AUDIT-OI-G]` sub-slice for direct-core memory64 `memory.copy` fixtures that prove i64 address preservation for size-1 and size-8 exact lowering plus oversized/nonconstant memory64 length boundaries; memory64 `memory.fill` remains open behind the current validator/typechecker caveat.
+- [`../../../raw/research/0739-2026-06-19-optimize-instructions-oi-g-memory64-copy.md`](../../../raw/research/0739-2026-06-19-optimize-instructions-oi-g-memory64-copy.md) records the eighth `[O4Z-AUDIT-OI-G]` sub-slice for direct-core memory64 `memory.copy` fixtures that prove i64 address preservation for size-1 and size-8 exact lowering plus oversized/nonconstant memory64 length boundaries.
+- [`../../../raw/research/0740-2026-06-19-optimize-instructions-oi-g-memory64-fill.md`](../../../raw/research/0740-2026-06-19-optimize-instructions-oi-g-memory64-fill.md) records the ninth `[O4Z-AUDIT-OI-G]` sub-slice: validator/typechecker memory64 `memory.fill` length acceptance plus direct-core OI fixtures proving size-1 and size-8 fill lowering preserves `i64` destination operands.

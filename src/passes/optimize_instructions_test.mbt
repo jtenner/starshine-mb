@@ -987,6 +987,53 @@ test "optimize-instructions expands memory64 tiny memory.copy preserving i64 add
 }
 
 ///|
+test "optimize-instructions expands memory64 tiny memory.fill preserving i64 address and length" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i64(), @lib.ValType::i32()], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i64(1UL, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i64_const(@lib.I64(1L)),
+            @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i64_const(@lib.I64(8L)),
+            @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid memory64 memory.fill input, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory64 memory.fill optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "i32.store8", "(local.get (Local 0))", "i64.store",
+  ])
+}
+
+///|
 test "optimize-instructions keeps memory64 memory.copy outside exact tiny lowering boundary" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(

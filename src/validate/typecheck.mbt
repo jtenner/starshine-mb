@@ -2696,8 +2696,8 @@ fn typecheck_memory_fill(st : TcState, mem : MemIdx) -> TcResult {
     Ok(t) => t
   }
 
-  // pop len:i32, val:i32, dst:at
-  let st1 = match st.pop_expect(ValType::i32()) {
+  // pop len:at, val:i32, dst:at
+  let st1 = match st.pop_expect(at) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
@@ -5090,6 +5090,19 @@ test "Typecheck MemoryCopy" {
 test "Typecheck MemoryFill" {
   let env : Env = { ..empty_env(), mems: [MemType::new(Limits::i32(1, None))] }
   let state = make_state(env, [ValType::i32(), ValType::i32(), ValType::i32()])
+  let new_state = assert_ok(
+    Typecheck::typecheck(Instruction::memory_fill(MemIdx::new(0)), state),
+  )
+  assert_stack(new_state, [])
+}
+
+///|
+test "Typecheck MemoryFill memory64 length uses address type" {
+  let env : Env = {
+    ..empty_env(),
+    mems: [MemType::new(Limits::i64(1UL, None))],
+  }
+  let state = make_state(env, [ValType::i64(), ValType::i32(), ValType::i64()])
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::memory_fill(MemIdx::new(0)), state),
   )
