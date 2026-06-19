@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-18
+last_reviewed: 2026-06-19
 sources:
   - ../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md
   - ../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md
@@ -194,9 +194,13 @@ Detailed page:
   - `folds constant br-if conditions`
   - `folds constant br-if with carried payloads`
 - `remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(...)`
-  Collapses repeated `br_if (local == const)` ladders to a `br_table` when all branches target the same label and the constant range stays small.
+  Collapses Binaryen-style dense no-payload equality ladders to a `br_table` wrapped in a fresh default block. The matcher accepts `i32.eq` against unique nonnegative constants and `i32.eqz` as constant zero, shares a first `local.tee` selector through later matching `local.get`s, permits distinct branch targets, subtracts the minimum constant for nonzero ranges, and uses Binaryen's `MIN_NUM=3`, `MAX_RANGE=1024`, and `range <= arms * 3` profitability checks. Duplicate constants, sparse ranges, selector mismatches, negative / too-large constants, and value-carrying branches stay conservative.
   Covered by:
   - `rewrites repeated branch-target equality ladders into br_table`
+  - `rewrites dense equality ladders with distinct targets into br_table`
+  - `treats eqz as zero in equality ladder tablify`
+  - `keeps duplicate constants in equality ladder`
+  - `keeps sparse equality ladder below tablify density`
 - `remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(...)`
   Builds a `select` when only one arm ends in a removable stack-style branch/return and the other arm already yields a direct value expression.
   Covered by:

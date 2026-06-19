@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-06-18
+last_reviewed: 2026-06-19
 sources:
   - ../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md
   - ../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md
@@ -63,7 +63,7 @@ related:
   - local-set arm cleanup
   - branch-payload `if` cleanup
   - carried-guard/result-block cleanup
-  - repeated-constant `br_if` ladders to `br_table`
+  - dense no-payload equality `br_if` ladders to `br_table`, including `i32.eqz`, distinct branch targets, unique constants, min-offset selectors, and Binaryen's dense-run thresholds
   - JumpThreader safe subsets: branch-to-trap rewriting for simple branches to void blocks followed by `unreachable`, no-payload `br_if` retargeting through one-child named block shells, and no-payload `br_if` retargeting to a following simple jump
   - Binaryen-style `sinkBlocks(...)` safe subset for void block/loop rotation and void block/single-if sinking into the unique multi-root label-using arm, with condition-label-use and both-arm-use negatives
   - caught-`throw` to branch cleanup for safe `try_table` exact-catch and `catch_all`-without-ref forms, including payload/drop-child preservation and exnref-transport negatives
@@ -115,6 +115,7 @@ related:
 - `[O4Z-AUDIT-RUB-C]` loop cleanup parity is now implemented for the local `version_130` `optimizeLoop(...)` family: named loop bodies ending in simple childless `br $loop` now handle pre-existing `if` suffix movement, adjacent exit-driving `br_if` flipping, single-use block-exit `br_if` suffix movement into an else/fallthrough arm, and conservative negatives for multi-use block labels, intervening control transfer, and nested value-control hazards.
 - `[O4Z-AUDIT-RUB-E]` EH caught-throw parity is now implemented for the local `version_130` `visitThrow(...)` safe `try_table` subset: exact tag catches rewrite `throw` to payload-carrying `br`, `catch_all` without ref rewrites payload children to `drop`s followed by `br`, and tag mismatch / `catch_ref` / `catch_all_ref` / earlier catch-ref-before-catch-all cases remain explicit fail-closed exnref-transport boundaries. Legacy old-`try` mixed-control stays a local representation blocker because the public WAT path lowers legacy `try` away before HOT.
 - `[O4Z-AUDIT-RUB-H]` adjacent `br_if` merge parity is now implemented for the shrink-mode no-payload safe subset: child-form and stack-form adjacent `br_if`s to the same target merge into one `br_if` whose condition is `i32.or(cond1, cond2)`, guarded by a local proof that speculating the later condition is side-effect/trap-safe. The O4z raw no-op gate now admits simple stack-condition candidates so this behavior is observable under `-O4z`-style options. Payload/value branches, broad Binaryen cost/effect modeling, adjacent `br_if` + unconditional `br` cleanup, branch-hint `applyOrTo`, and `never-unconditionalize` remain open under `[O4Z-AUDIT-RUB-N]` or later final-optimizer slices.
+- `[O4Z-AUDIT-RUB-I]` tablify parity is now implemented for Binaryen's no-payload dense equality-ladder family: `i32.eqz` is treated as constant zero, later selectors must safely share the first local/local.tee value, branch targets may differ, constants must be unique and within Binaryen's nonnegative `int32_t` range, and the table uses the upstream `MIN_NUM=3`, `MAX_RANGE=1024`, and `range <= arms * 3` thresholds plus min-offset selector subtraction. Duplicate constants, sparse ranges, selector mismatches, and payload/value branch ladders remain conservative boundaries.
 - The early ordered generated-artifact slot-14 corruption is now fixed too:
   - the slot-13 predecessor replay no longer emits the invalid `func 1354` raw output
   - the extracted `Func 1354` replay is now locked by an external `wasm-tools validate` cmd wbtest instead of only the in-tree decode path

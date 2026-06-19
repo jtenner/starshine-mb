@@ -1633,6 +1633,14 @@ fn remove_unused_brs_match_br_if_ladder_eq_const(
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
+    @ir.HotOp::Unary => {
+      if node.child_count != 1 ||
+        @ir.hot_node_exact_instr(func, node_id) !=
+        Some(@lib.Instruction::i32_eqz()) {
+        return None
+      }
+      return Some((@ir.hot_child_get(func, node_id, 0), 0))
+    }
     @ir.HotOp::Compare =>
       if node.child_count != 2 ||
         @ir.hot_node_exact_instr(func, node_id) !=
@@ -1650,6 +1658,35 @@ fn remove_unused_brs_match_br_if_ladder_eq_const(
         Some(value) => Some((rhs, value))
         None => None
       }
+  }
+}
+
+///|
+fn remove_unused_brs_int_array_contains(
+  values : Array[Int],
+  needle : Int,
+) -> Bool {
+  for value in values {
+    if value == needle {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn remove_unused_brs_ladder_selector_matches(
+  func : @ir.HotFunc,
+  selector_id : Int,
+  selector_local : Int,
+) -> Bool {
+  if selector_id < 0 || !@ir.hot_node_is_live(func, selector_id) {
+    return false
+  }
+  let selector = @ir.hot_node_get(func, selector_id)
+  match selector.op {
+    @ir.HotOp::LocalGet if selector.imm0 == selector_local => true
+    _ => false
   }
 }
 
@@ -1748,7 +1785,7 @@ fn remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(
     @ir.HotOp::BrIf => if first_branch_node.child_count != 1 { return false }
     _ => return false
   }
-  let target_label = match @ir.hot_branch_target(func, first_branch) {
+  let first_target = match @ir.hot_branch_target(func, first_branch) {
     Some(label_id) => label_id
     None => return false
   }
@@ -1763,12 +1800,13 @@ fn remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(
     Some(matched) => matched
     None => return false
   }
-  if first_const < 0 || first_const > 16 {
+  if first_const < 0 || first_const >= 2147483647 {
     return false
   }
 
   let branch_ids : Array[Int] = [first_branch]
   let constants : Array[Int] = [first_const]
+  let target_labels : Array[Int] = [first_target]
   let mut scan_idx = idx + 1
   while scan_idx < @ir.hot_region_root_count(func, region_ref) {
     let branch_id = @ir.hot_region_get(func, region_ref, scan_idx)
@@ -1780,8 +1818,9 @@ fn remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(
       @ir.HotOp::BrIf => if branch_node.child_count != 1 { break }
       _ => break
     }
-    if @ir.hot_branch_target(func, branch_id) != Some(target_label) {
-      break
+    let target_label = match @ir.hot_branch_target(func, branch_id) {
+      Some(label_id) => label_id
+      None => break
     }
     let condition = @ir.hot_child_get(func, branch_id, 0)
     let (selector_id, const_value) = match
@@ -1789,36 +1828,58 @@ fn remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(
       Some(matched) => matched
       None => break
     }
-    let selector = @ir.hot_node_get(func, selector_id)
-    match selector.op {
-      @ir.HotOp::LocalGet if selector.imm0 == selector_local => ()
-      _ => break
+    if !remove_unused_brs_ladder_selector_matches(
+        func, selector_id, selector_local,
+      ) {
+      break
     }
-    if const_value < 0 || const_value > 16 {
+    if const_value < 0 || const_value >= 2147483647 {
+      break
+    }
+    if remove_unused_brs_int_array_contains(constants, const_value) {
       break
     }
     branch_ids.push(branch_id)
     constants.push(const_value)
+    target_labels.push(target_label)
     scan_idx = scan_idx + 1
   }
   if branch_ids.length() < 3 {
     return false
   }
 
+  let mut min_const = constants[0]
   let mut max_const = constants[0]
   for const_value in constants {
+    if const_value < min_const {
+      min_const = const_value
+    }
     if const_value > max_const {
       max_const = const_value
     }
   }
+  let range = max_const - min_const
+  if range > 1024 || range > branch_ids.length() * 3 {
+    return false
+  }
+
   let inner_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
   let inner_label = @ir.hot_control_node_label(func, inner_block)
-  let table_targets = Array::make(max_const + 1, inner_label)
-  for const_value in constants {
-    table_targets[const_value] = target_label
+  let table_targets = Array::make(range + 1, inner_label)
+  for i = 0; i < constants.length(); i = i + 1 {
+    table_targets[constants[i] - min_const] = target_labels[i]
+  }
+  let selector = if min_const == 0 {
+    selector_node
+  } else {
+    remove_unused_brs_build_i32_sub(
+      func,
+      selector_node,
+      @ir.hot_build_const_i32(func, @lib.I32(min_const)),
+    )
   }
   let br_table = @ir.hot_build_br_table(
-    func, table_targets, inner_label, selector_node,
+    func, table_targets, inner_label, selector,
   )
   @ir.hot_region_replace_body(
     func,

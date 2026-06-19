@@ -3384,6 +3384,108 @@ test "remove-unused-brs rewrites repeated branch-target equality ladders into br
 }
 
 ///|
+test "remove-unused-brs rewrites dense equality ladders with distinct targets into br_table" {
+  let source =
+    #|(module
+    #|  (import "env" "hit0" (func $hit0))
+    #|  (import "env" "hit1" (func $hit1))
+    #|  (import "env" "hit2" (func $hit2))
+    #|  (func (param i32)
+    #|    (block $after0
+    #|      (block $after1
+    #|        (block $after2
+    #|          (block $dispatch
+    #|            (br_if $after0 (i32.eq (local.get 0) (i32.const 0)))
+    #|            (br_if $after1 (i32.eq (local.get 0) (i32.const 1)))
+    #|            (br_if $after2 (i32.eq (local.get 0) (i32.const 2))))
+    #|          (call $hit2))
+    #|        (call $hit1))
+    #|      (call $hit0))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs distinct-target tablify success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs treats eqz as zero in equality ladder tablify" {
+  let source =
+    #|(module
+    #|  (import "env" "hit0" (func $hit0))
+    #|  (import "env" "hit1" (func $hit1))
+    #|  (import "env" "hit2" (func $hit2))
+    #|  (func (param i32)
+    #|    (block $after0
+    #|      (block $after1
+    #|        (block $after2
+    #|          (block $dispatch
+    #|            (br_if $after0 (i32.eqz (local.get 0)))
+    #|            (br_if $after1 (i32.eq (local.get 0) (i32.const 1)))
+    #|            (br_if $after2 (i32.eq (local.get 0) (i32.const 2))))
+    #|          (call $hit2))
+    #|        (call $hit1))
+    #|      (call $hit0))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs eqz tablify success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps duplicate constants in equality ladder" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (block $exit
+    #|      (br_if $exit (i32.eq (local.get 0) (i32.const 0)))
+    #|      (br_if $exit (i32.eq (local.get 0) (i32.const 1)))
+    #|      (br_if $exit (i32.eq (local.get 0) (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs duplicate-constant ladder success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps sparse equality ladder below tablify density" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (block $exit
+    #|      (br_if $exit (i32.eq (local.get 0) (i32.const 0)))
+    #|      (br_if $exit (i32.eq (local.get 0) (i32.const 1)))
+    #|      (br_if $exit (i32.eq (local.get 0) (i32.const 10))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs sparse ladder success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs retargets branches through one-child named block shells" {
   let source =
     #| (module

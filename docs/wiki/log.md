@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/remove-unused-brs | Add tablify dense ladder parity
+
+- Completed `[O4Z-AUDIT-RUB-I]` for Binaryen `FinalOptimizer::tablify(...)` no-payload equality ladders. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now recognizes dense `br_if` runs using `i32.eq` or `i32.eqz`, shares a first `local.tee` selector through later `local.get`s, permits distinct branch targets, rejects duplicate constants, applies Binaryen's `MIN_NUM=3` / `MAX_RANGE=1024` / `range <= arms * 3` thresholds, and emits a wrapper-default `br_table` with min-offset selector subtraction.
+- Added focused coverage in [`../../src/passes/remove_unused_brs_test.mbt`](../../src/passes/remove_unused_brs_test.mbt) for distinct-target dense ladders, `eqz` zero cases, duplicate-constant preservation, and sparse-range preservation. Refreshed [`binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md`](binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md), [`binaryen/passes/remove-unused-brs/pattern-catalog.md`](binaryen/passes/remove-unused-brs/pattern-catalog.md), [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md), and [`../../agent-todo.md`](../../agent-todo.md) to mark the tablify slice complete while leaving late `visitSwitch`, branch hints, and later final-optimizer families open.
+
 ## [2026-06-19] passes/remove-unused-brs | Add adjacent br_if merge safe subset
 
 - Completed `[O4Z-AUDIT-RUB-H]` for the shrink-mode no-payload adjacent `br_if` merge family in Binaryen `FinalOptimizer::visitBlock`. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now merges adjacent same-target `br_if` roots by building an `i32.or` condition when the later condition is locally safe to speculate, for both child-form and lifted stack-form branch conditions.
