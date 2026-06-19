@@ -85,6 +85,7 @@ fn KeywordTable::new() -> KeywordTable {
   map.set("return", Opcode(Return))
   map.set("call", Opcode(Call))
   map.set("call_indirect", Opcode(CallIndirect))
+  map.set("call_ref", Opcode(CallRef))
   map.set("return_call", Opcode(ReturnCall))
   map.set("return_call_indirect", Opcode(ReturnCallIndirect))
   map.set("return_call_ref", Opcode(ReturnCallRef))

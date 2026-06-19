@@ -383,6 +383,7 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
+  CallRef(TypeUse)
   ReturnCall(Index)
   ReturnCallIndirect(Index, TypeUse)
   ReturnCallRef(TypeUse)
@@ -2017,6 +2018,7 @@ fn WastParser::parse_opcode_instruction(
       let type_use = self.parse_type_use()
       CallIndirect(table_index, type_use)
     }
+    CallRef => CallRef(self.parse_type_use())
     ReturnCall => ReturnCall(self.parse_index())
     ReturnCallIndirect => {
       let table_index = self.try_parse_index().unwrap_or(Index::Num(0))

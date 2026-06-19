@@ -246,6 +246,7 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
+  CallRef(TypeUse)
   ReturnCall(Index)
   ReturnCallIndirect(Index, TypeUse)
   ReturnCallRef(TypeUse)
@@ -494,6 +495,7 @@ pub enum Opcode {
   Return
   Call
   CallIndirect
+  CallRef
   ReturnCall
   ReturnCallIndirect
   ReturnCallRef

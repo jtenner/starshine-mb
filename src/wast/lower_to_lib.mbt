@@ -1706,6 +1706,13 @@ fn wt_instr_to_lib(
         ),
       )
     }
+    CallRef(type_use) => {
+      let ti = match wt_resolve_type_use(ctx, type_use) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(@lib.Instruction::call_ref(@lib.TypeIdx::new(ti)))
+    }
     ReturnCall(idx) => {
       let fi = match
         wt_resolve_named_or_num_index(
@@ -4086,7 +4093,7 @@ fn wt_legacy_pop_call_arg_instr_supported(
         None => (cursor, depth, false)
       }
     }
-    @lib.CallIndirect(type_idx, _) => {
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) => {
       if depth < 0 {
         return (cursor, depth, true)
       }
@@ -4175,7 +4182,7 @@ fn wt_legacy_pop_call_payload_supported(
         Some(ft) => ft
         None => return false
       }
-    @lib.CallIndirect(type_idx, _) =>
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
       match env.resolve_functype(type_idx) {
         Some(ft) => ft
         None => return false
@@ -4184,7 +4191,7 @@ fn wt_legacy_pop_call_payload_supported(
   }
   let @lib.FuncType(params, _) = func_type
   let required_depth = match instrs[instrs.length() - 1] {
-    @lib.CallIndirect(_, _) => params.length() + 1
+    @lib.CallIndirect(_, _) | @lib.CallRef(_) => params.length() + 1
     _ => params.length()
   }
   let arg_instrs : Array[@lib.Instruction] = []
@@ -4229,7 +4236,7 @@ fn wt_legacy_pop_dead_call_payload_supported(
           return true
         }
       }
-      @lib.CallIndirect(type_idx, _) => {
+      @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) => {
         match env.resolve_functype(type_idx) {
           Some(_) => ()
           None => continue
@@ -8101,6 +8108,60 @@ test "wast_text_binary_roundtrip supports indirect call before legacy pop call p
   let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(pretty.contains("pop"), msg=pretty)
   assert_true(pretty.contains("call_indirect"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip supports call_ref legacy pop call payload" {
+  let src =
+    #|(module
+    #|  (type $helper-type (func (param i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func $helper (type $helper-type))
+    #|  (elem declare func $helper)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call_ref (type $helper-type)
+    #|          (pop i32)
+    #|          (ref.func $helper))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(src, filename="legacy-pop-call-ref-payload.wat") {
+    Ok(m) => m
+    Err(e) => fail("expected call_ref pop payload to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip supports call_ref before legacy pop call payload" {
+  let src =
+    #|(module
+    #|  (type $side-type (func (result i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func $side (type $side-type) (i32.const 11))
+    #|  (elem declare func $side)
+    #|  (func $helper (param i32 i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (call_ref (type $side-type) (ref.func $side))
+    #|          (pop i32))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-call-ref-side-effect-payload.wat",
+    ) {
+    Ok(m) => m
+    Err(e) => fail("expected call_ref payload to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
 }
 
 ///|

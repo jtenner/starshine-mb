@@ -104,8 +104,8 @@ fn wast_arbitrary_count_instructions(
       | BrTable(_, _)
       | Return
       | Call(_)
-      | CallIndirect(_, _) =>
-        { ..wast_arbitrary_empty_feature_stats(), control_ops: 1 }
+      | CallIndirect(_, _)
+      | CallRef(_) => { ..wast_arbitrary_empty_feature_stats(), control_ops: 1 }
       ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
         {
           ..wast_arbitrary_empty_feature_stats(),
@@ -653,6 +653,11 @@ fn append_wide_wast_surface(fields : Array[ModuleField]) -> Unit {
         ElemDrop(Num(0)),
         V128Const({ shape: I32x4, values: ["0", "1", "2", "3"] }),
         Drop,
+        CallRef({
+          type_index: Some(Num(0)),
+          func_type: { params: [], results: [] },
+          param_ids: [],
+        }),
         ReturnCall(Num(0)),
         ReturnCallIndirect(Num(0), {
           type_index: Some(Num(0)),
@@ -818,7 +823,7 @@ test "wast arbitrary widened prelude reports exact FZG mirror counters" {
   @debug.assert_eq(stats.tail_call_ops, 3)
   @debug.assert_eq(stats.exception_ops, 2)
   @debug.assert_eq(stats.simd_const_ops, 1)
-  @debug.assert_eq(stats.control_ops, 6)
+  @debug.assert_eq(stats.control_ops, 7)
   @debug.assert_eq(stats.parametric_ops, 3)
   @debug.assert_eq(stats.variable_ops, 0)
   @debug.assert_eq(stats.table_ops, 4)
