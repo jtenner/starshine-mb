@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/optimize-instructions | Complete OI-B direct and slot baseline
+
+- Completed `[O4Z-AUDIT-OI-B]` by filing [`raw/research/0727-2026-06-19-optimize-instructions-oi-b-baseline.md`](raw/research/0727-2026-06-19-optimize-instructions-oi-b-baseline.md). Evidence: native `src/cmd` release build passed; direct `--pass optimize-instructions --count 1000 --seed 0x5eed --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` wrote `.tmp/pass-fuzz-optimize-instructions-oi-b-1000`, compared `54/1000`, hit the default failure ceiling with `27` normalized matches, `27` raw mismatches, `0` validation failures, and `1` Binaryen/tool command failure (`binaryen-rec-group-zero`); targeted native saved O4z slot16 and slot44 filters each ran `2` tests and passed.
+- Classified the direct mismatches by agent judgment as scalar/default canonicalization parity gaps, not accepted semantic-safe drift or Starshine wins. No pass-local timing fields were available in harness output. The `10000` lane was intentionally not run because the `1000` lane was not stable. Updated [`binaryen/passes/optimize-instructions/index.md`](binaryen/passes/optimize-instructions/index.md), [`index.md`](index.md), and [`../../agent-todo.md`](../../agent-todo.md) so `[O4Z-AUDIT-OI-C]` is the next active slice.
+
 ## [2026-06-19] passes/optimize-instructions | Complete OI-A version_130 source matrix
 
 - Completed `[O4Z-AUDIT-OI-A]` by filing [`raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md). The note re-anchors `OptimizeInstructions.cpp`, registration, helper headers, and the dedicated `optimize-instructions*` lit roster at Binaryen `version_130`; maps source visitor/helper and lit families to current Starshine coverage, explicit local boundaries, or `[O4Z-AUDIT-OI-B]` through `[O4Z-AUDIT-OI-N]`; and records that Starshine remains an active HOT subset rather than full upstream parity.

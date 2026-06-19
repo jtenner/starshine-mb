@@ -425,7 +425,16 @@ fn cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
 ///|
 #cfg(target="native")
 fn cmd_native_wbtest_write_u32_leb(buf : @buffer.Buffer, value : Int) -> Unit {
-  @binary.encode_unsigned(value.to_uint64(), buf, 32).unwrap()
+  let mut x = value.to_uint64()
+  while true {
+    let payload = x & 0x7fUL
+    x = x >> 7
+    let out = if x == 0UL { payload } else { payload | 0x80UL }
+    buf.write_byte(out.to_byte())
+    if x == 0UL {
+      break
+    }
+  }
 }
 
 ///|
