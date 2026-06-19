@@ -2677,6 +2677,46 @@ fn optimize_instructions_repeated_fill_i64(raw : Int) -> @lib.I64 {
 }
 
 ///|
+fn optimize_instructions_build_i32_binary(
+  func : @ir.HotFunc,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Int {
+  let node_id = @ir.hot_build_binary(func, @lib.ValType::i32(), lhs_id, rhs_id)
+  @ir.hot_node_exact_instr_set(func, node_id, instr)
+  node_id
+}
+
+///|
+fn optimize_instructions_repeated_fill_i32_for_local_get(
+  func : @ir.HotFunc,
+  local_id : Int,
+  size : Int,
+) -> Int? {
+  let multiplier = match size {
+    2 => @lib.I32(257)
+    4 => @lib.I32(16843009)
+    _ => return None
+  }
+  let value = @ir.hot_build_local_get(func, local_id)
+  let masked = optimize_instructions_build_i32_binary(
+    func,
+    @lib.Instruction::i32_and(),
+    value,
+    @ir.hot_build_const_i32(func, @lib.I32(255)),
+  )
+  Some(
+    optimize_instructions_build_i32_binary(
+      func,
+      @lib.Instruction::i32_mul(),
+      masked,
+      @ir.hot_build_const_i32(func, multiplier),
+    ),
+  )
+}
+
+///|
 fn optimize_instructions_try_expand_tiny_memory_copy(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2742,16 +2782,30 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
         value_id,
       )
     2 | 4 => {
-      let repeated = match
+      let repeated_id = match
         optimize_instructions_i32_const(func, dead, value_id) {
         Some(@lib.I32(raw)) =>
           match optimize_instructions_repeated_fill_i32(raw, size) {
-            Some(value) => value
+            Some(value) => @ir.hot_build_const_i32(func, value)
             None => return false
           }
-        _ => return false
+        _ => {
+          let value = @ir.hot_node_get(func, value_id)
+          match value.op {
+            @ir.HotOp::LocalGet =>
+              match
+                optimize_instructions_repeated_fill_i32_for_local_get(
+                  func,
+                  value.imm0,
+                  size,
+                ) {
+                Some(repeated_id) => repeated_id
+                None => return false
+              }
+            _ => return false
+          }
+        }
       }
-      let repeated_id = @ir.hot_build_const_i32(func, repeated)
       let instr_for_memarg = match size {
         2 => @lib.Instruction::i32_store16
         4 => @lib.Instruction::i32_store

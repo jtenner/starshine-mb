@@ -1002,7 +1002,7 @@ test "optimize-instructions expands constant eight-byte memory.fill to store" {
 }
 
 ///|
-test "optimize-instructions keeps wider nonconstant memory.fill values" {
+test "optimize-instructions expands local two-byte memory.fill to store16" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -1019,9 +1019,68 @@ test "optimize-instructions keeps wider nonconstant memory.fill values" {
     ) {
     Ok(mod_) => mod_
     Err(err) =>
-      fail("expected nonconstant memory.fill boundary success, got \{err}")
+      fail("expected local two-byte memory.fill optimize success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("i32.store16"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(255)"), msg=pretty)
+  assert_true(pretty.contains("i32.mul"), msg=pretty)
+  assert_true(pretty.contains("I32(257)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions expands local four-byte memory.fill to store" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $value i32)
+        #|    local.get $dst
+        #|    local.get $value
+        #|    i32.const 4
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected local four-byte memory.fill optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(255)"), msg=pretty)
+  assert_true(pretty.contains("i32.mul"), msg=pretty)
+  assert_true(pretty.contains("I32(16843009)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions keeps wider effectful memory.fill values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func $get (result i32) i32.const 3)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    call $get
+        #|    i32.const 2
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful memory.fill boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("memory.fill"), msg=pretty)
 }
 
