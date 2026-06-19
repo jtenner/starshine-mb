@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/remove-unused-brs | Add restructureIf self-branch parity
+
+- Completed `[O4Z-AUDIT-RUB-J]` for the locally representable Binaryen `FinalOptimizer::restructureIf(...)` family. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now rewrites named blocks whose leading self-target `br_if` has no other target uses: void forms become an outer one-arm `if` with an `i32.eqz` condition, dropped value forms become a result `if` when the value is locally reorder-safe, and side-effectful value forms become `select` when the remaining block arm is pure enough to execute unconditionally.
+- Added focused coverage in [`../../src/passes/remove_unused_brs_test.mbt`](../../src/passes/remove_unused_brs_test.mbt) for void `br_if` prefix restructuring, dropped value result-`if` restructuring, side-effectful value-to-`select`, additional-target-use preservation, and effectful-fallthrough preservation. Updated prior one-arm payload branch expectations for the new late restructure step, plus [`binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md`](binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md), [`binaryen/passes/remove-unused-brs/pattern-catalog.md`](binaryen/passes/remove-unused-brs/pattern-catalog.md), [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). Branch-hint metadata and `never-unconditionalize` remain explicit `[O4Z-AUDIT-RUB-N]` boundaries.
+
 ## [2026-06-19] passes/remove-unused-brs | Add tablify dense ladder parity
 
 - Completed `[O4Z-AUDIT-RUB-I]` for Binaryen `FinalOptimizer::tablify(...)` no-payload equality ladders. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now recognizes dense `br_if` runs using `i32.eq` or `i32.eqz`, shares a first `local.tee` selector through later `local.get`s, permits distinct branch targets, rejects duplicate constants, applies Binaryen's `MIN_NUM=3` / `MAX_RANGE=1024` / `range <= arms * 3` thresholds, and emits a wrapper-default `br_table` with min-offset selector subtraction.

@@ -201,6 +201,14 @@ Detailed page:
   - `treats eqz as zero in equality ladder tablify`
   - `keeps duplicate constants in equality ladder`
   - `keeps sparse equality ladder below tablify density`
+- `remove_unused_brs_try_restructure_self_branch_block_prefix(...)`
+  Mirrors Binaryen `restructureIf(...)` for local named-block self-exit prefixes whose target label has no other uses. Void `br_if $block` return-suffix forms become an outer one-arm `if` with an inverted condition; dropped value forms become a result `if` when the branch value is reorder-safe, or `select` when the value must execute and the remaining fallthrough arm is pure/order-safe.
+  Covered by:
+  - `rebuilds self-targeting block br_if prefixes as one-arm ifs`
+  - `rebuilds dropped value br_if prefixes as result ifs`
+  - `selectifies side-effectful dropped value br_if prefixes when rest is pure`
+  - `keeps self-targeting br_if prefixes when block has another target use`
+  - `keeps side-effectful dropped value br_if prefixes when rest has effects`
 - `remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(...)`
   Builds a `select` when only one arm ends in a removable stack-style branch/return and the other arm already yields a direct value expression.
   Covered by:

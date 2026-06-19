@@ -6504,6 +6504,258 @@ fn remove_unused_brs_count_label_uses_in_region(
 }
 
 ///|
+fn remove_unused_brs_region_roots_are_pure_select_arm(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  roots : Array[Int],
+  reorder_cache : Array[Int],
+) -> Bool {
+  remove_unused_brs_region_roots_are_reorder_safe(
+    ctx, func, roots, reorder_cache,
+  )
+}
+
+///|
+fn remove_unused_brs_try_restructure_self_branch_block_prefix(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_refs : Array[Int],
+  reorder_cache : Array[Int],
+) -> Bool {
+  if idx < 0 || idx >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let block_id = @ir.hot_region_get(func, region_ref, idx)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  if block_label < 0 || block_label >= label_refs.length() {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count < 2 {
+    return false
+  }
+  if remove_unused_brs_count_label_uses_in_region(func, body_ref, block_label) !=
+    1 {
+    return false
+  }
+  let first_id = @ir.hot_region_get(func, body_ref, 0)
+  if first_id < 0 || !@ir.hot_node_is_live(func, first_id) {
+    return false
+  }
+  let first_node = @ir.hot_node_get(func, first_id)
+  let mut drop_id = -1
+  let mut consumed_end = 0
+  let mut stack_value = -1
+  let mut stack_condition = -1
+  let br_if_id = match first_node.op {
+    @ir.HotOp::Drop => {
+      if first_node.child_count != 1 {
+        return false
+      }
+      let candidate = @ir.hot_child_get(func, first_id, 0)
+      if candidate < 0 || !@ir.hot_node_is_live(func, candidate) {
+        return false
+      }
+      drop_id = first_id
+      candidate
+    }
+    @ir.HotOp::BrIf => {
+      if first_node.child_count == 2 && body_count >= 2 {
+        let maybe_drop = @ir.hot_region_get(func, body_ref, 1)
+        if maybe_drop >= 0 && @ir.hot_node_is_live(func, maybe_drop) {
+          match @ir.hot_node_get(func, maybe_drop).op {
+            @ir.HotOp::Drop => {
+              drop_id = maybe_drop
+              consumed_end = 1
+            }
+            _ => ()
+          }
+        }
+      }
+      first_id
+    }
+    _ => {
+      if body_count < 2 {
+        return false
+      }
+      let second_id = @ir.hot_region_get(func, body_ref, 1)
+      if second_id < 0 || !@ir.hot_node_is_live(func, second_id) {
+        return false
+      }
+      match @ir.hot_node_get(func, second_id).op {
+        @ir.HotOp::BrIf => {
+          stack_condition = first_id
+          consumed_end = 1
+          second_id
+        }
+        _ => {
+          if body_count < 4 {
+            return false
+          }
+          let third_id = @ir.hot_region_get(func, body_ref, 2)
+          let fourth_id = @ir.hot_region_get(func, body_ref, 3)
+          if third_id < 0 ||
+            fourth_id < 0 ||
+            !@ir.hot_node_is_live(func, third_id) ||
+            !@ir.hot_node_is_live(func, fourth_id) {
+            return false
+          }
+          match
+            (
+              @ir.hot_node_get(func, third_id).op,
+              @ir.hot_node_get(func, fourth_id).op,
+            ) {
+            (@ir.HotOp::BrIf, @ir.HotOp::Drop) => {
+              stack_value = first_id
+              stack_condition = second_id
+              drop_id = fourth_id
+              consumed_end = 3
+              third_id
+            }
+            _ => return false
+          }
+        }
+      }
+    }
+  }
+  let br_if_node = @ir.hot_node_get(func, br_if_id)
+  match br_if_node.op {
+    @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+  if @ir.hot_branch_target(func, br_if_id) != Some(block_label) {
+    return false
+  }
+  let condition = if stack_condition >= 0 {
+    stack_condition
+  } else {
+    if br_if_node.child_count <= 0 {
+      return false
+    }
+    @ir.hot_child_get(func, br_if_id, br_if_node.child_count - 1)
+  }
+  if condition < 0 || !@ir.hot_node_is_live(func, condition) {
+    return false
+  }
+  if !remove_unused_brs_node_is_reorder_safe(
+      ctx, func, condition, reorder_cache,
+    ) {
+    return false
+  }
+  let result_types = @ir.hot_type_results(
+    func,
+    @ir.hot_node_type(func, block_id),
+  )
+  if drop_id < 0 {
+    if !result_types.is_empty() {
+      return false
+    }
+    if stack_condition < 0 && br_if_node.child_count != 1 {
+      return false
+    }
+    if stack_condition >= 0 &&
+      br_if_node.child_count != 0 &&
+      br_if_node.child_count != 1 {
+      return false
+    }
+    for root_idx = 0; root_idx <= consumed_end; root_idx = root_idx + 1 {
+      ignore(
+        @ir.hot_region_set(func, body_ref, root_idx, @ir.hot_build_nop(func)),
+      )
+    }
+    let replacement = @ir.hot_build_if(
+      func,
+      @lib.BlockType::void_(),
+      remove_unused_brs_build_i32_eqz(func, condition),
+      [block_id],
+    )
+    ignore(@ir.hot_region_set(func, region_ref, idx, replacement))
+    remove_unused_brs_mark_mutated(
+      ctx, func, "restructure-self-branch-block-prefix",
+    )
+    return true
+  }
+  if result_types.length() != 1 {
+    return false
+  }
+  if stack_value < 0 && br_if_node.child_count != 2 {
+    return false
+  }
+  if stack_value >= 0 && br_if_node.child_count > 2 {
+    return false
+  }
+  let value = if stack_value >= 0 {
+    stack_value
+  } else {
+    @ir.hot_child_get(func, br_if_id, 0)
+  }
+  if value < 0 || !@ir.hot_node_is_live(func, value) {
+    return false
+  }
+  let result_type = result_types[0]
+  if @ir.hot_node_result_arity(func, value) != 1 {
+    return false
+  }
+  let value_types = @ir.hot_type_results(func, @ir.hot_node_type(func, value))
+  if value_types.length() != 1 || value_types[0] != result_type {
+    return false
+  }
+  let suffix_roots : Array[Int] = []
+  for root_idx = consumed_end + 1
+      root_idx < body_count
+      root_idx = root_idx + 1 {
+    suffix_roots.push(@ir.hot_region_get(func, body_ref, root_idx))
+  }
+  if remove_unused_brs_node_is_reorder_safe(ctx, func, value, reorder_cache) {
+    for root_idx = 0; root_idx <= consumed_end; root_idx = root_idx + 1 {
+      ignore(
+        @ir.hot_region_set(func, body_ref, root_idx, @ir.hot_build_nop(func)),
+      )
+    }
+    let replacement = @ir.hot_build_if(
+      func,
+      @lib.BlockType::val_type(result_type),
+      condition,
+      [value],
+      else_body=Some([block_id]),
+    )
+    ignore(@ir.hot_region_set(func, region_ref, idx, replacement))
+    remove_unused_brs_mark_mutated(
+      ctx, func, "restructure-self-branch-block-prefix-value-if",
+    )
+    return true
+  }
+  if !remove_unused_brs_region_roots_are_pure_select_arm(
+      ctx, func, suffix_roots, reorder_cache,
+    ) {
+    return false
+  }
+  for root_idx = 0; root_idx <= consumed_end; root_idx = root_idx + 1 {
+    ignore(
+      @ir.hot_region_set(func, body_ref, root_idx, @ir.hot_build_nop(func)),
+    )
+  }
+  let replacement = remove_unused_brs_build_select(
+    func, result_type, value, block_id, condition,
+  )
+  ignore(@ir.hot_region_set(func, region_ref, idx, replacement))
+  remove_unused_brs_mark_mutated(
+    ctx, func, "restructure-self-branch-block-prefix-select",
+  )
+  true
+}
+
+///|
 fn remove_unused_brs_try_sink_single_if_exit_block(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -8155,6 +8407,12 @@ fn remove_unused_brs_visit_region(
         }
         if remove_unused_brs_try_rotate_void_block_single_loop(
             ctx, func, region_ref, current_idx,
+          ) {
+          changed = true
+          continue
+        }
+        if remove_unused_brs_try_restructure_self_branch_block_prefix(
+            ctx, func, region_ref, current_idx, label_refs, reorder_cache,
           ) {
           changed = true
           continue

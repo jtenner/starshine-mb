@@ -312,8 +312,12 @@ The active backlog now says the next work should be reduced in this order:
   - single-ref-child `br_on_cast` becomes a direct branch when the operand type already matches the target, and `br_on_cast_fail` is removed when the same proof makes the fail edge definitely not taken
   - payload/prefix children, nullable-cast success-only-if-non-null splitting, descriptor variants, broader fallthrough-type/local.tee cast insertion, and unreachable-input dropped-child rewrites remain explicit fail-closed boundaries rather than hidden no-ops
   - evidence: focused RUB tests passed `145/145`, `moon test src/passes` passed `2570/2570`, full `moon test` passed `5881/5881`, native `src/cmd` build passed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-remove-unused-brs-rub-f-gc-10000` compared `9977/10000` with `0` mismatches, `5702` normalized matches, `4275` cleanup-normalized matches, and `23` Binaryen/tool command failures (`22` rec-group-zero, `1` bad-section-size).
+- `[O4Z-AUDIT-RUB-J]` landed the locally representable Binaryen `FinalOptimizer::restructureIf(...)` family:
+  - named block prefixes whose only self-target use is the leading `br_if` now rebuild to an outer `if`/`select` instead of leaving the self-exit branch in place
+  - void forms use `i32.eqz` and a one-arm `if`, dropped value forms use a result `if` when the value is locally reorder-safe, and side-effectful value forms use `select` only when the remaining fallthrough block is pure/order-safe
+  - extra target uses and effectful fallthrough arms remain preserved; branch-hint metadata and `never-unconditionalize` stay under `[O4Z-AUDIT-RUB-N]`
 - The remaining parity families are not just tail-branch-removal gaps.
-- The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.
+- The real missing area now centers on later final-shape cleanup outside the completed `tablify` and local `restructureIf` slices, especially `selectify`, `optimizeSetIf`, and branch-hint / `never-unconditionalize` behavior.
 - Earlier MoonBit attempts tried to find those shapes by scanning more nested regions during the main walk, which hit real oracle cases but reopened the performance cliff.
 - The latest perf audit already removed the obvious duplicated whole-function scans, and the follow-on Binaryen-shaped raw candidate filters shaved more time off the unchanged-walk and large-void buckets without changing parity evidence.
 - Separate explicit-pass type-order noise from real RUB body diffs in the current artifact compare.
