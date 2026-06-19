@@ -874,6 +874,80 @@ test "optimize-instructions folds i32.wrap_i64 constants" {
 }
 
 ///|
+test "optimize-instructions expands one-byte memory.copy to load8/store8" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $src i32)
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 1
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected memory.copy optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+}
+
+///|
+test "optimize-instructions expands tiny constant memory.fill to store" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    i32.const 7
+        #|    i32.const 1
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected memory.fill optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions keeps zero-size memory.fill without trap mode support" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    i32.const 7
+        #|    i32.const 0
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected zero-size memory.fill boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+}
+
+///|
 test "optimize-instructions removes redundant sign extensions from signed loads" {
   let func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (param i32) (result i32) local.get 0 i32.load8_s i32.extend8_s))",

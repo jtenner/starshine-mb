@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md
   - ../../../raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md
   - ../../../raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md
+  - ../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -48,6 +49,7 @@ Its center of gravity is:
 - constant-`if` folding
 - nested boolean-`if` normalization and `eqz` wrapping
 - constant-condition `select` cleanup when the dropped arm is side-effect-free
+- byte-sized `memory.copy` / `memory.fill` lowering for constant size `1`
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -103,6 +105,8 @@ The fastest read-along path is:
   - `optimize_instructions_negate_boolean_expr_recursive(...)`
   - `optimize_instructions_try_wrap_boolean_if_value_in_eqz(...)`
   - `optimize_instructions_try_fold_const_select(...)`
+  - `optimize_instructions_try_expand_tiny_memory_copy(...)`
+  - `optimize_instructions_try_expand_tiny_memory_fill(...)`
   - `optimize_instructions_try_collapse_duplicate_then_branch(...)`
   - `optimize_instructions_try_collapse_dead_region_suffix(...)`
 - canonicalization helpers
@@ -232,13 +236,19 @@ The local HOT implementation does not currently model the upstream `visitCallRef
 
 That is a major upstream feature gap.
 
-## 3. No broad memory and bulk-memory lowering surface
+## 3. Only the first byte bulk-memory lowering surface
 
-The local pass does not currently cover upstream families like:
+The local pass now covers the smallest no-mode-dependent upstream bulk-memory shapes:
 
-- tiny constant-size `memory.copy` to load/store
-- tiny `memory.fill` to store/store pair or SIMD store
+- constant-size `1` `memory.copy` to `i32.load8u` + `i32.store8`
+- constant-size `1` `memory.fill` to `i32.store8`
+
+The local pass still does not cover broader upstream families like:
+
+- wider tiny constant-size `memory.copy` to load/store or multi-store sequences
+- wider tiny `memory.fill` to store/store pair or SIMD store
 - trap-relaxing zero-size bulk-memory cleanup
+- memory64-focused fixtures beyond accepting a constant `i64` size operand in the helper
 - stored-value and offset canonicalization for the general load/store surface
 
 ## 4. No GC constructor / field / atomics surface
@@ -355,7 +365,7 @@ Treat the current local implementation as:
 - a real implemented HOT pass
 - strongest today on integer / boolean / control canonicalization
 - intentionally carrying extra writeback-safety logic for local artifact history
-- still missing most of the upstream `call_ref`, memory, bulk-memory, GC, tuple, and helper-substrate surface
+- still missing most of the upstream `call_ref`, wider memory/bulk-memory, GC, tuple, and helper-substrate surface
 
 For this pass, "what Starshine does today" and "what Binaryen `version_130` expects for release-gating O4z parity" are not the same thing.
 The wiki should keep that difference explicit and use `[O4Z-AUDIT-OI-*]` slice owners from the 2026-06-19 matrix when expanding coverage.

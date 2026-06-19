@@ -2582,6 +2582,115 @@ fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
 }
 
 ///|
+fn optimize_instructions_const_memory_size(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Int? {
+  match optimize_instructions_i32_const(func, dead, node_id) {
+    Some(@lib.I32(raw)) if raw >= 0 => Some(raw)
+    _ =>
+      match optimize_instructions_i64_const(func, dead, node_id) {
+        Some(@lib.I64(raw)) if raw >= 0L && raw <= 2147483647L =>
+          Some(raw.to_int())
+        _ => None
+      }
+  }
+}
+
+///|
+fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int) -> @lib.MemArg {
+  @lib.MemArg::new(
+    @lib.U32(0),
+    Some(@lib.MemIdx::new(mem_idx.reinterpret_as_uint())),
+    @lib.U64(0),
+  )
+}
+
+///|
+fn optimize_instructions_replace_with_store8(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  mem_idx : Int,
+  address_id : Int,
+  value_id : Int,
+) -> Unit {
+  let memarg = optimize_instructions_memarg_for_mem_idx(mem_idx)
+  let temp = @ir.hot_build_store(func, memarg, address_id, value_id)
+  @ir.hot_node_exact_instr_set(func, temp, @lib.Instruction::i32_store8(memarg))
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_try_expand_tiny_memory_copy(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 3 {
+    return false
+  }
+  let size_id = @ir.hot_child_get(func, node_id, 2)
+  match optimize_instructions_const_memory_size(func, dead, size_id) {
+    Some(1) => ()
+    _ => return false
+  }
+  let dst_id = @ir.hot_child_get(func, node_id, 0)
+  let src_id = @ir.hot_child_get(func, node_id, 1)
+  let src_memarg = optimize_instructions_memarg_for_mem_idx(node.imm1)
+  let load = @ir.hot_build_load(func, @lib.ValType::i32(), src_memarg, src_id)
+  @ir.hot_node_exact_instr_set(
+    func,
+    load,
+    @lib.Instruction::i32_load8u(src_memarg),
+  )
+  optimize_instructions_replace_with_store8(
+    ctx,
+    func,
+    node_id,
+    node.imm0,
+    dst_id,
+    load,
+  )
+  true
+}
+
+///|
+fn optimize_instructions_try_expand_tiny_memory_fill(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 3 {
+    return false
+  }
+  let size_id = @ir.hot_child_get(func, node_id, 2)
+  match optimize_instructions_const_memory_size(func, dead, size_id) {
+    Some(1) => ()
+    _ => return false
+  }
+  let dst_id = @ir.hot_child_get(func, node_id, 0)
+  let value_id = @ir.hot_child_get(func, node_id, 1)
+  optimize_instructions_replace_with_store8(
+    ctx,
+    func,
+    node_id,
+    node.imm0,
+    dst_id,
+    value_id,
+  )
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_const_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3742,6 +3851,14 @@ fn optimize_instructions_visit_node(
       }
     @ir.HotOp::Select =>
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
+    @ir.HotOp::MemoryCopy =>
+      optimize_instructions_try_expand_tiny_memory_copy(
+        ctx, func, dead, node_id,
+      )
+    @ir.HotOp::MemoryFill =>
+      optimize_instructions_try_expand_tiny_memory_fill(
+        ctx, func, dead, node_id,
+      )
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       optimize_instructions_try_collapse_dead_region_suffix(
         ctx,
