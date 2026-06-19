@@ -1393,6 +1393,122 @@ fn remove_unused_brs_build_select(
 }
 
 ///|
+fn remove_unused_brs_selectify_binary_base_cost(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) =>
+      if instr == @lib.Instruction::i32_div_s() ||
+        instr == @lib.Instruction::i32_div_u() ||
+        instr == @lib.Instruction::i32_rem_s() ||
+        instr == @lib.Instruction::i32_rem_u() ||
+        instr == @lib.Instruction::i64_div_s() ||
+        instr == @lib.Instruction::i64_div_u() ||
+        instr == @lib.Instruction::i64_rem_s() ||
+        instr == @lib.Instruction::i64_rem_u() {
+        5
+      } else {
+        1
+      }
+    None => 1
+  }
+}
+
+///|
+fn remove_unused_brs_selectify_convert_base_cost(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) =>
+      if instr == @lib.Instruction::i32_trunc_f32s() ||
+        instr == @lib.Instruction::i32_trunc_f32u() ||
+        instr == @lib.Instruction::i32_trunc_f64s() ||
+        instr == @lib.Instruction::i32_trunc_f64u() ||
+        instr == @lib.Instruction::i64_trunc_f32s() ||
+        instr == @lib.Instruction::i64_trunc_f32u() ||
+        instr == @lib.Instruction::i64_trunc_f64s() ||
+        instr == @lib.Instruction::i64_trunc_f64u() {
+        5
+      } else {
+        1
+      }
+    None => 1
+  }
+}
+
+///|
+fn remove_unused_brs_selectify_cost(func : @ir.HotFunc, node_id : Int) -> Int {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return 0
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let mut cost = match node.op {
+    @ir.HotOp::Const
+    | @ir.HotOp::LocalGet
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefFunc
+    | @ir.HotOp::Nop => 0
+    @ir.HotOp::Binary =>
+      remove_unused_brs_selectify_binary_base_cost(func, node_id)
+    @ir.HotOp::Convert =>
+      remove_unused_brs_selectify_convert_base_cost(func, node_id)
+    @ir.HotOp::RefTest | @ir.HotOp::RefTestDesc => 5
+    @ir.HotOp::RefCast
+    | @ir.HotOp::RefCastDescEq
+    | @ir.HotOp::Heap
+    | @ir.HotOp::Atomic
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef => 8
+    @ir.HotOp::Block => 1
+    _ => 1
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    cost += remove_unused_brs_selectify_cost(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+    )
+  }
+  match node.op {
+    @ir.HotOp::Block => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        cost += remove_unused_brs_selectify_cost(
+          func,
+          @ir.hot_region_get(func, body_ref, idx),
+        )
+      }
+    }
+    _ => ()
+  }
+  cost
+}
+
+///|
+fn remove_unused_brs_selectify_too_costly(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  then_root : Int,
+  else_root : Int,
+) -> Bool {
+  if ctx.shrink_level >= 2 {
+    return false
+  }
+  let then_cost = remove_unused_brs_selectify_cost(func, then_root)
+  let else_cost = remove_unused_brs_selectify_cost(func, else_root)
+  let max_cost = if then_cost > else_cost { then_cost } else { else_cost }
+  if ctx.shrink_level <= 0 {
+    max_cost > 4
+  } else {
+    max_cost >= 8
+  }
+}
+
+///|
 fn remove_unused_brs_build_i32_eqz(func : @ir.HotFunc, operand : Int) -> Int {
   let temp = @ir.hot_build_unary(func, @lib.ValType::i32(), operand)
   @ir.hot_node_exact_instr_set(func, temp, @lib.Instruction::i32_eqz())
@@ -3922,6 +4038,7 @@ fn remove_unused_brs_match_value_if_to_select(
   node_id : Int,
   reorder_cache : Array[Int],
   allow_nonreorder_condition_with_reorder_safe_arms? : Bool = false,
+  apply_selectify_cost_model? : Bool = false,
 ) -> RemoveUnusedBrsValueIfSelectRewrite? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -3959,6 +4076,10 @@ fn remove_unused_brs_match_value_if_to_select(
     ) {
     Some(expr) => expr
     None => return None
+  }
+  if apply_selectify_cost_model &&
+    remove_unused_brs_selectify_too_costly(ctx, func, then_root, else_root) {
+    return None
   }
   if !remove_unused_brs_node_is_reorder_safe(
       ctx, func, condition, reorder_cache,
@@ -4038,7 +4159,11 @@ fn remove_unused_brs_try_rewrite_value_if_to_select(
 ) -> Bool {
   match
     remove_unused_brs_match_value_if_to_select(
-      ctx, func, node_id, reorder_cache,
+      ctx,
+      func,
+      node_id,
+      reorder_cache,
+      apply_selectify_cost_model=true,
     ) {
     Some(rewrite) =>
       remove_unused_brs_replace_unused_if_with_value_expr(

@@ -58,6 +58,7 @@ The helper requires:
 - a one-result `if`
 - both arms to be buildable as value expressions
 - the condition to be reorder-safe, or at least safe over the value-arm local-read surface
+- for direct `selectify` candidates, the Binaryen-shaped unconditionalization cost threshold for the current shrink level
 
 The pass supports more than trivial const arms. Current regressions cover:
 
@@ -67,6 +68,7 @@ The pass supports more than trivial const arms. Current regressions cover:
 - conditions containing `local.tee`
 - conditions involving calls when the ordering is still known to be safe
 - returned condition ladders with side-effect prefixes
+- costly integer `div`/`rem` arms staying as `if` at speed shrink level and becoming `select` under `shrink_level=1` when the cost threshold allows it
 
 The crucial helper pair is:
 

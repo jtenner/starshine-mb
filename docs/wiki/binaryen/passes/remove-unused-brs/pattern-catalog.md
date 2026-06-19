@@ -168,7 +168,7 @@ Detailed page:
 ## HOT Select And Condition Patterns
 
 - `remove_unused_brs_try_rewrite_value_if_to_select(...)`
-  Rewrites one-result `if` nodes into `select` when the condition and value arms satisfy the pass's reorder-safety rules.
+  Rewrites one-result `if` nodes into `select` when the condition and value arms satisfy the pass's reorder-safety rules. Direct `selectify` candidates additionally use a local Binaryen-shaped cost threshold: speed mode rejects arms above `TooCostlyToRunUnconditionally / 2`, balanced shrink mode rejects arms at or above `TooCostlyToRunUnconditionally`, and full shrink mode may unconditionalize for size.
   Covered by:
   - `rewrites pure value if into select`
   - `rewrites pure const ifs into select`
@@ -178,6 +178,8 @@ Detailed page:
   - `rewrites returned condition ladders with pre-calls into select`
   - `rewrites i64 value ifs with local.tee condition ladders into select`
   - `rewrites pure local.get ifs into select`
+  - `keeps costly rem value ifs at speed shrink level`
+  - `selectifies costly rem value ifs when shrinking`
 - `remove_unused_brs_try_rewrite_condition_child_value_if_to_select(...)`
   Selectifies a condition-child value-`if` that sits under a void outer `if`.
   Covered by:

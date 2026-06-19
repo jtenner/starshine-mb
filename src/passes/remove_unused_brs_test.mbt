@@ -1148,6 +1148,42 @@ test "remove-unused-brs rewrites pure local.get ifs into select" {
 }
 
 ///|
+test "remove-unused-brs keeps costly rem value ifs at speed shrink level" {
+  let source = "(module (func (result i32) (if (result i32) (i32.const 1) (then (i32.rem_s (i32.const 11) (i32.const 12))) (else (i32.const 13)))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected remove-unused-brs rem speed success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains("(if I32") || pretty.contains("(if (I32)"),
+    msg=pretty,
+  )
+  assert_false(pretty.contains("select"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs selectifies costly rem value ifs when shrinking" {
+  let source = "(module (func (result i32) (if (result i32) (i32.const 1) (then (i32.rem_s (i32.const 11) (i32.const 12))) (else (i32.const 13)))))"
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs rem shrink success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("rem"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites table.grow size child if into select" {
   let optimized = match
     pass_test_run_pipeline(
