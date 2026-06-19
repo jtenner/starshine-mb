@@ -934,6 +934,37 @@ fn run_hot_pipeline_instr_scan(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_throw(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Throw(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_throw(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_throw(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_throw(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -945,10 +976,13 @@ fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
       | @lib.BrIf(_)
       | @lib.BrTable(_, _)
       | @lib.Return => return true
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         if run_hot_pipeline_instr_has_remove_unused_brs_candidate(body) {
+          return true
+        }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_throw(body) ||
+          run_hot_pipeline_instr_has_remove_unused_brs_candidate(body) {
           return true
         }
       _ => ()

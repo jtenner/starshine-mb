@@ -44,6 +44,14 @@ priv struct RemoveUnusedBrsCycleScan {
 }
 
 ///|
+priv enum RemoveUnusedBrsCaughtThrowMatch {
+  NoCaughtThrowMatch
+  CaughtThrowExact(Int)
+  CaughtThrowAll(Int)
+  CaughtThrowRef
+}
+
+///|
 priv struct RemoveUnusedBrsHotVoidReturnLadderShape {
   mut call_count : Int
   mut local_set_count : Int
@@ -755,6 +763,213 @@ fn remove_unused_brs_delete_unused_nodes(
   node_ids : Array[Int],
 ) -> Unit {
   remove_unused_brs_cleanup_detached_nodes(ctx, func, node_ids)
+}
+
+///|
+fn remove_unused_brs_tag_idx_raw(tag_idx : @lib.TagIdx) -> Int {
+  let @lib.TagIdx(raw) = tag_idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn remove_unused_brs_match_caught_throw(
+  func : @ir.HotFunc,
+  throw_tag : Int,
+  catchers : Array[Int],
+) -> RemoveUnusedBrsCaughtThrowMatch {
+  for i = catchers.length() - 1; i >= 0; i = i - 1 {
+    let catcher_id = catchers[i]
+    if catcher_id < 0 || !@ir.hot_node_is_live(func, catcher_id) {
+      continue
+    }
+    let catcher = @ir.hot_node_get(func, catcher_id)
+    match catcher.op {
+      @ir.HotOp::Try => return CaughtThrowRef
+      @ir.HotOp::TryTable => {
+        let info = @ir.hot_catch_info_get(func, catcher.imm1)
+        for catch_ in info.catches {
+          match catch_ {
+            @ir.HotCatchArm::CatchArm(tag_idx, label_id) =>
+              if remove_unused_brs_tag_idx_raw(tag_idx) == throw_tag {
+                return CaughtThrowExact(label_id)
+              }
+            @ir.HotCatchArm::CatchRefArm(tag_idx, _) =>
+              if remove_unused_brs_tag_idx_raw(tag_idx) == throw_tag {
+                return CaughtThrowRef
+              }
+            @ir.HotCatchArm::CatchAllArm(label_id) =>
+              return CaughtThrowAll(label_id)
+            @ir.HotCatchArm::CatchAllRefArm(_) => return CaughtThrowRef
+          }
+        }
+      }
+      _ => return CaughtThrowRef
+    }
+  }
+  NoCaughtThrowMatch
+}
+
+///|
+fn remove_unused_brs_try_rewrite_caught_throw_root(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  throw_id : Int,
+  catchers : Array[Int],
+) -> Bool {
+  if !@ir.hot_node_is_live(func, throw_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, throw_id)
+  match node.op {
+    @ir.HotOp::Throw => ()
+    _ => return false
+  }
+  match remove_unused_brs_match_caught_throw(func, node.imm0, catchers) {
+    NoCaughtThrowMatch | CaughtThrowRef => false
+    CaughtThrowExact(label_id) => {
+      let payloads : Array[Int] = []
+      for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
+        payloads.push(@ir.hot_child_get(func, throw_id, child_idx))
+      }
+      let br = @ir.hot_build_br(func, label_id, values=payloads)
+      let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [br])
+      remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+      true
+    }
+    CaughtThrowAll(label_id) => {
+      let replacement : Array[Int] = []
+      for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
+        let child = @ir.hot_child_get(func, throw_id, child_idx)
+        if child >= 0 && @ir.hot_node_is_live(func, child) {
+          replacement.push(@ir.hot_build_drop(func, child))
+        }
+      }
+      replacement.push(@ir.hot_build_br(func, label_id))
+      let removed = pass_splice_region(
+        ctx, func, region_ref, idx, 1, replacement,
+      )
+      remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+      true
+    }
+  }
+}
+
+///|
+fn remove_unused_brs_try_rewrite_caught_throws_in_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  catchers : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      remove_unused_brs_try_rewrite_caught_throws_in_region(
+        ctx,
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        catchers,
+      )
+    @ir.HotOp::If => {
+      if remove_unused_brs_try_rewrite_caught_throws_in_region(
+          ctx,
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+          catchers,
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          remove_unused_brs_try_rewrite_caught_throws_in_region(
+            ctx, func, else_ref, catchers,
+          )
+        None => false
+      }
+    }
+    @ir.HotOp::Try => {
+      let nested = catchers.copy()
+      nested.push(node_id)
+      if remove_unused_brs_try_rewrite_caught_throws_in_region(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          nested,
+        ) {
+        return true
+      }
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(catch_ref) =>
+          remove_unused_brs_try_rewrite_caught_throws_in_region(
+            ctx, func, catch_ref, nested,
+          )
+        None => false
+      }
+    }
+    @ir.HotOp::TryTable => {
+      let nested = catchers.copy()
+      nested.push(node_id)
+      remove_unused_brs_try_rewrite_caught_throws_in_region(
+        ctx,
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        nested,
+      )
+    }
+    _ => {
+      for child_idx = 0
+          child_idx < @ir.hot_child_count(func, node_id)
+          child_idx = child_idx + 1 {
+        let child = @ir.hot_child_get(func, node_id, child_idx)
+        if remove_unused_brs_try_rewrite_caught_throws_in_node(
+            ctx, func, child, catchers,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn remove_unused_brs_try_rewrite_caught_throws_in_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  catchers : Array[Int],
+) -> Bool {
+  let roots : Array[Int] = []
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    roots.push(@ir.hot_region_get(func, region_ref, idx))
+  }
+  for idx = 0; idx < roots.length(); idx = idx + 1 {
+    let node_id = roots[idx]
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let current_idx = remove_unused_brs_find_region_root_index(
+      func, region_ref, node_id,
+    )
+    if current_idx < 0 {
+      continue
+    }
+    if remove_unused_brs_try_rewrite_caught_throw_root(
+        ctx, func, region_ref, current_idx, node_id, catchers,
+      ) {
+      return true
+    }
+    if remove_unused_brs_try_rewrite_caught_throws_in_node(
+        ctx, func, node_id, catchers,
+      ) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -6896,6 +7111,14 @@ fn remove_unused_brs_visit_node(
       }
     }
     @ir.HotOp::TryTable => {
+      if remove_unused_brs_try_rewrite_caught_throws_in_node(
+          ctx,
+          func,
+          node_id,
+          [],
+        ) {
+        return true
+      }
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       changed = remove_unused_brs_visit_region(
           ctx, func, body_ref, seen, reorder_cache, label_refs, branch_payload_children,

@@ -92,6 +92,8 @@ For this audit, WebAssembly 3.0 baseline features are assumed enabled by default
   Prevents the decision-ladder raw rewrite from skipping lift when other HOT-only candidates remain.
 - `run_hot_pipeline_raw_remove_unused_brs_has_nested_large_mostly_default_stack_switch(...)`
   Pierces the broad O4z `remove-unused-brs` raw no-op gate only for a strict nested void-block chain whose innermost body is exactly stack selector plus large mostly-default `br_table`, so the existing HOT switch optimizer can lower it without broadly rescanning arbitrary nested regions.
+- `run_hot_pipeline_raw_remove_unused_brs_has_throw(...)`
+  Lets the raw candidate gate lift `try_table` bodies that contain a `throw`, so HOT can perform the Binaryen `visitThrow(...)` caught-exception-to-branch cleanup without widening unrelated O4z no-op skip exceptions.
 - `run_hot_pipeline_instr_has_remove_unused_brs_candidate(...)`
   Final raw "anything interesting left?" gate.
 
@@ -223,6 +225,15 @@ Detailed page:
   - `remove-unused-brs turns simple branches to trap blocks into unreachable`
   - `remove-unused-brs turns br_table-dispatch branches to trap blocks into unreachable`
   - `remove-unused-brs keeps conditional branches to trap blocks`
+- `remove_unused_brs_try_rewrite_caught_throws_in_region(...)` / `remove_unused_brs_try_rewrite_caught_throw_root(...)`
+  Mirror the safe `try_table` subset of Binaryen `visitThrow(...)`: exact caught tags become payload-preserving `br` roots, and `catch_all` without ref drops the thrown payload children before branching to the catch destination. The matcher walks innermost-to-outermost `try_table` catchers, respects catch order, and remains conservative for `catch_ref`, `catch_all_ref`, tag mismatches, and any HOT `Try` mixed-control boundary.
+  Covered by:
+  - `remove-unused-brs rewrites catch_all throws to branches and drops payloads`
+  - `remove-unused-brs rewrites exact caught throws to payload branches`
+  - `remove-unused-brs keeps tag-mismatched caught throws`
+  - `remove-unused-brs keeps catch_ref caught throws as exnref transport`
+  - `remove-unused-brs keeps catch_all_ref caught throws as exnref transport`
+  - `remove-unused-brs keeps earlier catch_ref before later catch_all`
 - `remove_unused_brs_try_rewrite_region_local_set_copy_arm(...)`
   Rewrites `local.set (if cond then value else local.get same_local)` into a one-armed `if` that only performs the `local.set` when needed.
   Covered by:

@@ -65,6 +65,7 @@ related:
   - carried-guard/result-block cleanup
   - repeated-constant `br_if` ladders to `br_table`
   - branch-to-trap rewriting for simple branches to void blocks followed by `unreachable`
+  - caught-`throw` to branch cleanup for safe `try_table` exact-catch and `catch_all`-without-ref forms, including payload/drop-child preservation and exnref-transport negatives
   - Binaryen-style loop cleanup for simple loop backedges, including adjacent `br_if` condition flipping and single-use block-exit suffix movement
   - safe early `br_table`/switch cleanup for trailing defaults and leading-default offsets on no-payload and value-carrying tables, plus no-payload default-only, two-option, and large mostly-default nested stack-style lowerings
 - The 2026-06-09 merge-blocks/RUB result-fallback audit is covered by [`../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md`](../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md):
@@ -109,6 +110,7 @@ related:
   - the traced unchanged artifact cluster `Func 837`, `Func 3021`, `Func 3120`, `Func 3130`, and `Func 3134` is now retired after lift
 - `[O4Z-AUDIT-RUB-M]` branch-to-trap parity is now implemented for the local `version_130` release-oracle family covered by `remove-unused-brs_trap.wast`: simple childless `br` instructions targeting a void block followed by `unreachable` become direct `unreachable`, while conditional `br_if` and `br_table` targets are preserved.
 - `[O4Z-AUDIT-RUB-C]` loop cleanup parity is now implemented for the local `version_130` `optimizeLoop(...)` family: named loop bodies ending in simple childless `br $loop` now handle pre-existing `if` suffix movement, adjacent exit-driving `br_if` flipping, single-use block-exit `br_if` suffix movement into an else/fallthrough arm, and conservative negatives for multi-use block labels, intervening control transfer, and nested value-control hazards.
+- `[O4Z-AUDIT-RUB-E]` EH caught-throw parity is now implemented for the local `version_130` `visitThrow(...)` safe `try_table` subset: exact tag catches rewrite `throw` to payload-carrying `br`, `catch_all` without ref rewrites payload children to `drop`s followed by `br`, and tag mismatch / `catch_ref` / `catch_all_ref` / earlier catch-ref-before-catch-all cases remain explicit fail-closed exnref-transport boundaries. Legacy old-`try` mixed-control stays a local representation blocker because the public WAT path lowers legacy `try` away before HOT.
 - The early ordered generated-artifact slot-14 corruption is now fixed too:
   - the slot-13 predecessor replay no longer emits the invalid `func 1354` raw output
   - the extracted `Func 1354` replay is now locked by an external `wasm-tools validate` cmd wbtest instead of only the in-tree decode path
@@ -165,6 +167,7 @@ related:
   - raw false-prefix guard cancellation inside structured-return ladders
   - `br_table` continuation-wrapper retargeting to the outer exit
   - branch-to-trap rewriting for simple direct branches, including the official br_table-dispatch trap fixture while preserving the table target itself
+  - caught-`throw` cleanup for exact `try_table` catches and non-ref `catch_all`, with explicit exnref-transport negatives
   - raw skipping of large result `br_table` dispatch ladders with no HOT-only surface
 - Older mixed-generator evidence stayed clean on compared cases:
   - `.tmp/pass-fuzz-rub-20260410-final-500` completed `499/499` compared matches
@@ -282,6 +285,11 @@ The active backlog now says the next work should be reduced in this order:
   - simple no-payload `br` nodes targeting a void block whose next sibling is `unreachable` become `unreachable`
   - conditional `br_if` and `br_table` target rewrites stay outside this slice, matching the official trap lit boundary
   - the implementation is local to HOT region traversal and does not widen the raw O4z gates or the broad nested scan surface
+- `[O4Z-AUDIT-RUB-E]` landed the EH caught-throw subset of Binaryen `visitThrow(...)`:
+  - exact `catch` arms that match the thrown tag become branches carrying the original throw payload children
+  - `catch_all` arms without refs become payload drops followed by a branch to the catch destination
+  - `catch_ref`, `catch_all_ref`, earlier exnref-transport catches, and tag mismatches remain untouched
+  - the raw layer only lifts `try_table` bodies that contain `throw` for this HOT-local rewrite; it does not add a broad nested RUB traversal or widen unrelated O4z raw skip exceptions
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.
 - Earlier MoonBit attempts tried to find those shapes by scanning more nested regions during the main walk, which hit real oracle cases but reopened the performance cliff.

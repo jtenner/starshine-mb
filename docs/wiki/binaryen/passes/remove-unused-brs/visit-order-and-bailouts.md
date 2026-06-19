@@ -84,6 +84,8 @@ That design is part of the pass contract.
 
 The raw layer also has to stay aligned with the real HOT legality surface.
 
+For `[O4Z-AUDIT-RUB-E]`, the raw candidate gate was extended narrowly: `try_table` bodies containing a `throw` now lift so the HOT EH-specific caught-throw cleanup can run. This is not a new raw no-op skip exception and not a broad nested RUB traversal; tag/catch/ref legality remains in the HOT matcher where catch order, exact tags, `catch_all`, and exnref-transport boundaries are represented.
+
 The latest example is the prefix-guard detector that cancels `structured-return-ladder-noop`.
 
 - It used to treat any later `br_if 0` inside the first void block of a result block as a carried-guard candidate.
@@ -195,6 +197,8 @@ Instead, it first checks root-local patterns in this rough order:
 - local-set arm cleanup
 
 Only after those direct opportunities are exhausted does the pass call `remove_unused_brs_visit_node(...)` on the surviving root.
+
+`TryTable` visitation has one EH-specific pre-step: before ordinary body cleanup, `remove_unused_brs_try_rewrite_caught_throws_in_node(...)` walks only the current try-table body with an explicit catcher stack and rewrites the first source-backed caught-`throw` it can prove safe. It returns after one mutation so later normal RUB cycles handle the newly exposed branch, preserving the existing mutation-churn and traversal discipline.
 
 That ordering is essential:
 

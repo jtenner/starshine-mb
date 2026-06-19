@@ -120,6 +120,164 @@ test "remove-unused-brs skips large local-heavy json-as dispatch functions" {
 }
 
 ///|
+test "remove-unused-brs rewrites catch_all throws to branches and drops payloads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $tag_payload (func (param i32)))
+        #|  (tag $e (type $tag_payload))
+        #|  (func
+        #|    (block $catch
+        #|      (try_table (catch_all $catch)
+        #|        (i32.const 7)
+        #|        (throw $e))
+        #|      (unreachable))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected catch_all throw cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("throw"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites exact caught throws to payload branches" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $tag_payload (func (param i32)))
+        #|  (tag $e (type $tag_payload))
+        #|  (func (result i32)
+        #|    (block $catch (result i32)
+        #|      (try_table (catch $e $catch)
+        #|        (i32.const 9)
+        #|        (throw $e))
+        #|      (unreachable))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected exact catch throw cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("throw"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps tag-mismatched caught throws" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (tag $f)
+        #|  (func
+        #|    (block $catch
+        #|      (try_table (catch $f $catch)
+        #|        (throw $e)))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected tag mismatch fixture success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("throw"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps catch_ref caught throws as exnref transport" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (func (result exnref)
+        #|    (block $catch (result exnref)
+        #|      (try_table (catch_ref $e $catch)
+        #|        (throw $e)))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected catch_ref fixture success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("throw"), msg=pretty)
+  assert_true(pretty.contains("catch_ref"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps catch_all_ref caught throws as exnref transport" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (func (result exnref)
+        #|    (block $catch (result exnref)
+        #|      (try_table (catch_all_ref $catch)
+        #|        (throw $e)))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected catch_all_ref fixture success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("throw"), msg=pretty)
+  assert_true(pretty.contains("catch_all_ref"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps earlier catch_ref before later catch_all" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e)
+        #|  (func (result exnref)
+        #|    (block $outer (result exnref)
+        #|      (block $catch
+        #|        (try_table (catch_ref $e $outer) (catch_all $catch)
+        #|          (throw $e))
+        #|        (unreachable))
+        #|      (unreachable))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected catch_ref-before-catch_all fixture success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("throw"), msg=pretty)
+  assert_true(pretty.contains("catch_ref"), msg=pretty)
+  assert_true(pretty.contains("catch_all"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs folds constant br-if conditions" {
   let optimized = match
     pass_test_run_pipeline(
