@@ -373,6 +373,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`binaryen/passes/global-refining/parity.md`](binaryen/passes/global-refining/parity.md), [`binaryen/passes/global-refining/starshine-hot-ir-strategy.md`](binaryen/passes/global-refining/starshine-hot-ir-strategy.md), [`binaryen/passes/global-refining/implementation-structure-and-tests.md`](binaryen/passes/global-refining/implementation-structure-and-tests.md), and [`../../agent-todo.md`](../../agent-todo.md) with the reopening criterion: revisit only if Starshine gains feature-disabled direct-pass execution or a compare lane intentionally runs Binaryen without GC enabled.
 - `[GR-002]` through `[GR-006]` remain open for exact function refs, broader initializer typing, public-type validation parity, `global.get` retagging/refinalization, and refreshed oracle evidence.
 
+## [2026-06-18] passes/dead-code-elimination | Cover dead call pop value targets
+
+- Added focused WAST-lowered DCE coverage in [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) for effectful-load and nested-block-result dead call arguments before catch-payload `pop` when the later nonfallthrough terminator targets a value branch or nonvoid return.
+- Existing repair already preserved matching result-target payloads through fresh carriers and dropped only the earlier evaluated value, so this slice locks the behavior without widening the implementation surface. Broader arbitrary call-argument movement, branch-alternative `if` payload use, stack-switching, and `[O4Z-AUDIT-DCE]` remain open.
+- Evidence: `moon test src/passes` passed (`2575/2575`). Red-first failure was not observed because the previous repair already covered the return/value-target logic; this commit adds the missing focused regression fixtures.
+
 ## [2026-06-18] passes/dead-code-elimination | Repair dead call pop arguments
 
 - Extended DCE-only legacy-pop ingress in [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt) so modeled dead call argument payload flows can be admitted even when the final `call` is followed by dead suffix roots, matching the Binaryen `dce-eh-legacy.wast` family where a branch/return argument makes the call unreachable.

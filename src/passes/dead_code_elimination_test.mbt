@@ -1189,6 +1189,86 @@ test "dead-code-elimination repairs nested call arg before catch pop branch text
 }
 
 ///|
+test "dead-code-elimination preserves catch pop value branch after effectful dead call arg text" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (tag $e-i32 (param i32))
+    #|  (func (result i32)
+    #|    (block $label (result i32)
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (i32.load (i32.const 0))
+    #|            (pop i32)
+    #|            (br $label))
+    #|          nop))
+    #|      (i32.const 0)))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful value-branch call-pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves catch pop value branch after nested dead call arg text" {
+  let source =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func (result i32)
+    #|    (block $label (result i32)
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (block (result i32) (i32.const 7))
+    #|            (block (result i32) (pop i32))
+    #|            (br $label))
+    #|          nop))
+    #|      (i32.const 0)))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested value-branch call-pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination repairs call-pop-catch dead call before return text" {
   let source =
     #|(module
@@ -1217,6 +1297,82 @@ test "dead-code-elimination repairs call-pop-catch dead call before return text"
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves catch pop return after effectful dead call arg text" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (tag $e-i32 (param i32))
+    #|  (func (result i32)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (i32.load (i32.const 0))
+    #|          (pop i32)
+    #|          (return))
+    #|        nop))
+    #|    (i32.const 0))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected effectful return call-pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves catch pop return after nested dead call arg text" {
+  let source =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func (result i32)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (block (result i32) (i32.const 7))
+    #|          (block (result i32) (pop i32))
+    #|          (return))
+    #|        nop))
+    #|    (i32.const 0))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested return call-pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("return"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
   assert_true(pretty.contains("local.get"), msg=pretty)
