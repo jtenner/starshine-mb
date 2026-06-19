@@ -2662,6 +2662,21 @@ fn optimize_instructions_repeated_fill_i32(raw : Int, size : Int) -> @lib.I32? {
 }
 
 ///|
+fn optimize_instructions_repeated_fill_i64(raw : Int) -> @lib.I64 {
+  let byte = (raw.reinterpret_as_uint() & 0xff).to_uint64()
+  @lib.I64(
+    (byte |
+    (byte << 8) |
+    (byte << 16) |
+    (byte << 24) |
+    (byte << 32) |
+    (byte << 40) |
+    (byte << 48) |
+    (byte << 56)).reinterpret_as_int64(),
+  )
+}
+
+///|
 fn optimize_instructions_try_expand_tiny_memory_copy(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2750,6 +2765,23 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
         dst_id,
         repeated_id,
         instr_for_memarg,
+      )
+    }
+    8 => {
+      let repeated = match
+        optimize_instructions_i32_const(func, dead, value_id) {
+        Some(@lib.I32(raw)) => optimize_instructions_repeated_fill_i64(raw)
+        _ => return false
+      }
+      let repeated_id = @ir.hot_build_const_i64(func, repeated)
+      optimize_instructions_replace_with_store_exact(
+        ctx,
+        func,
+        node_id,
+        node.imm0,
+        dst_id,
+        repeated_id,
+        @lib.Instruction::i64_store,
       )
     }
     _ => return false

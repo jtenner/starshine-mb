@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md
   - ../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md
   - ../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md
+  - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -51,7 +52,7 @@ Its center of gravity is:
 - nested boolean-`if` normalization and `eqz` wrapping
 - constant-condition `select` cleanup when the dropped arm is side-effect-free
 - byte-sized `memory.copy` lowering for constant size `1`
-- constant-value `memory.fill` lowering for sizes `1`, `2`, and `4`
+- constant-value `memory.fill` lowering for sizes `1`, `2`, `4`, and `8`
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -109,6 +110,7 @@ The fastest read-along path is:
   - `optimize_instructions_try_fold_const_select(...)`
   - `optimize_instructions_replace_with_store_exact(...)`
   - `optimize_instructions_repeated_fill_i32(...)`
+  - `optimize_instructions_repeated_fill_i64(...)`
   - `optimize_instructions_try_expand_tiny_memory_copy(...)`
   - `optimize_instructions_try_expand_tiny_memory_fill(...)`
   - `optimize_instructions_try_collapse_duplicate_then_branch(...)`
@@ -248,12 +250,12 @@ The local pass now covers no-mode-dependent upstream bulk-memory shapes in narro
 - constant-size `1` `memory.fill` to `i32.store8`
 - constant-value size `2` `memory.fill` to repeated-byte `i32.store16`
 - constant-value size `4` `memory.fill` to repeated-byte `i32.store`
+- constant-value size `8` `memory.fill` to repeated-byte `i64.store`
 
 The local pass still does not cover broader upstream families like:
 
 - wider tiny constant-size `memory.copy` to load/store or multi-store sequences
 - nonconstant wider `memory.fill` value materialization with an explicit effect/reorder proof
-- size-8 `memory.fill` lowering, likely through a source-backed `i64.store` constant or another tiny sequence
 - trap-relaxing zero-size bulk-memory cleanup
 - memory64-focused fixtures beyond accepting a constant `i64` size operand in the helper
 - stored-value and offset canonicalization for the general load/store surface

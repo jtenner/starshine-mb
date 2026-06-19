@@ -17,6 +17,7 @@ sources:
   - ../../../raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md
   - ../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md
   - ../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md
+  - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -41,6 +42,7 @@ related:
   - ../../../raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md
   - ../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md
   - ../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md
+  - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -188,3 +190,4 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md`](../../../raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md) completes `[O4Z-AUDIT-OI-F]` with boolean/select/ternary shell classification, constant-condition `select` cleanup, focused effect/trap negatives, branch-hint/no-fold option boundaries, and direct 10000 compare evidence.
 - [`../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md`](../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md) records the first `[O4Z-AUDIT-OI-G]` byte bulk-memory sub-slice for size-1 `memory.copy` and `memory.fill` plus zero-size trap-mode boundary evidence.
 - [`../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md`](../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md) records the second `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-2 and size-4 `memory.fill` lowering and nonconstant wider-fill boundary evidence.
+- [`../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md`](../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md) records the third `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-8 `memory.fill` lowering to repeated-byte `i64.store` while keeping nonconstant wider fills open.
