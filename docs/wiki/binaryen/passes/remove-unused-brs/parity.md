@@ -325,7 +325,12 @@ The active backlog now says the next work should be reduced in this order:
   - Starshine also has no public `--pass-arg` / pass-option equivalent for Binaryen `remove-unused-brs-never-unconditionalize`; existing condition-combining, selectifying, and restructuring rewrites therefore remain ordinary direct-pass behavior until such an option exists
   - reopening requires a code-metadata representation/parser/lowerer/binary or opaque-section policy plus remap tests and per-rewrite pass-option tests
 - `[O4Z-AUDIT-RUB-K]` is now implemented for the direct value-`if` `selectify` family: Starshine keeps the existing one-result, scalar select-emission, reorder/effect, and local-read-safety gates, and direct selectification now mirrors Binaryen's shrink-level cost threshold for costly integer div/rem and trapping int-convert arms. Focused coverage locks the speed-mode preservation and shrink-mode selectification of a one-costly-arm `i32.rem_s` case. Branch-hint metadata and public `never-unconditionalize` remain the `[O4Z-AUDIT-RUB-N]` unsupported boundary.
-- The remaining RUB audit work is final signoff rather than another known behavior slice: replay direct and O4z lanes under `[O4Z-AUDIT-RUB-O]`, then only reopen behavior work for a classified mismatch, a source-backed family not covered by the documented boundaries, or a regression in the completed slices.
+- `[O4Z-AUDIT-RUB-O]` final signoff was probed on 2026-06-19 but is not closed:
+  - direct 1000 compared `998/1000` with `0` mismatches
+  - direct final 100000 compared `99751/100000` with `2` raw mismatches; agent classification: Starshine-win pure dropped-expression removals before unconditional trap/branch (`case-027803-wasm-smith`, `case-048903-wasm-smith`), with smaller canonical output and no side effects removed
+  - command failures were Binaryen/tool failures (`249` at 100000; mostly rec-group-zero)
+  - generated O4z slot14/slot40 full and extracted direct replays validate with `wasm-tools`
+  - closeout remains blocked because source/docs still list late `FinalOptimizer::visitSwitch(...)` one-target switch collapse as unimplemented; that follow-up is now `[O4Z-AUDIT-RUB-P]`.
 - Earlier MoonBit attempts tried to find those shapes by scanning more nested regions during the main walk, which hit real oracle cases but reopened the performance cliff.
 - The latest perf audit already removed the obvious duplicated whole-function scans, and the follow-on Binaryen-shaped raw candidate filters shaved more time off the unchanged-walk and large-void buckets without changing parity evidence.
 - Separate explicit-pass type-order noise from real RUB body diffs in the current artifact compare.

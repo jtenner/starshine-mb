@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/remove-unused-brs | Probe final signoff and reopen late switch collapse
+
+- Ran `[O4Z-AUDIT-RUB-O]` signoff probes after `[O4Z-AUDIT-RUB-K]`: direct 1000 compared `998/1000` with `0` mismatches, and direct final 100000 compared `99751/100000` with `2` raw mismatches plus `249` Binaryen/tool command failures. The two raw mismatches are agent-classified Starshine-win pure dropped-expression removals before unconditional trap/branch (`case-027803-wasm-smith`, `case-048903-wasm-smith`), with smaller canonical output and no removed side effects.
+- Replayed generated O4z slot14/slot40 full predecessors and extracted functions through the native `--remove-unused-brs` command; all emitted modules validated with `wasm-tools`. Final closeout is still not claimed because the source/docs matrix still lists Binaryen late `FinalOptimizer::visitSwitch(...)` one-target switch collapse as an unimplemented behavior family. [`../../agent-todo.md`](../../agent-todo.md) now tracks that follow-up as `[O4Z-AUDIT-RUB-P]` before rerunning `[O4Z-AUDIT-RUB-O]`.
+
 ## [2026-06-19] passes/remove-unused-brs | Complete selectify cost parity
 
 - Completed `[O4Z-AUDIT-RUB-K]` for direct value-`if` `selectify` behavior. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now applies Binaryen-shaped unconditionalization cost thresholds to direct HOT selectify candidates: speed mode preserves costly integer div/rem and trapping int-convert arms, balanced shrink mode permits a one-costly-arm shape, and full shrink mode can selectify for size. Existing scalar select-emission, reorder/effect, and `local.tee` read-safety gates remain in force.
