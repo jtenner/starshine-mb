@@ -7295,6 +7295,29 @@ fn run_hot_pipeline_dce_raw_return_call_has_no_params(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_tail_call_type_has_no_params(
+  env : @validate.Env,
+  type_idx : @lib.TypeIdx,
+) -> Bool {
+  match env.resolve_functype(type_idx) {
+    Some(@lib.FuncType(params, _)) => params.length() == 0
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_is_no_param_operand_tail_call(
+  env : @validate.Env,
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.ReturnCallIndirect(type_idx, _) | @lib.ReturnCallRef(type_idx) =>
+      run_hot_pipeline_dce_raw_tail_call_type_has_no_params(env, type_idx)
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
@@ -7595,6 +7618,62 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
               changed = true
               continue
             }
+            _ if scan + 1 < instrs.length() &&
+              run_hot_pipeline_dce_raw_is_no_param_operand_tail_call(
+                env,
+                instrs[scan + 1],
+              ) =>
+              match instrs[scan + 1] {
+                @lib.ReturnCallIndirect(type_idx, table_idx) if run_hot_pipeline_dce_raw_tail_call_type_has_no_params(
+                    env, type_idx,
+                  ) => {
+                  let carrier_locals : Array[@lib.LocalIdx] = []
+                  for vt in pop_types {
+                    let local_id = @lib.LocalIdx::new(
+                      (param_count + locals.length()).reinterpret_as_uint(),
+                    )
+                    locals.push(vt)
+                    carrier_locals.push(local_id)
+                    rewritten.push(@lib.Instruction::pop(vt))
+                    rewritten.push(@lib.Instruction::local_set(local_id))
+                  }
+                  for local_id in carrier_locals {
+                    rewritten.push(@lib.Instruction::local_get(local_id))
+                    rewritten.push(@lib.Instruction::drop())
+                  }
+                  rewritten.push(instrs[scan])
+                  rewritten.push(
+                    @lib.Instruction::return_call_indirect(type_idx, table_idx),
+                  )
+                  idx = scan + 2
+                  changed = true
+                  continue
+                }
+                @lib.ReturnCallRef(type_idx) if run_hot_pipeline_dce_raw_tail_call_type_has_no_params(
+                    env, type_idx,
+                  ) => {
+                  let carrier_locals : Array[@lib.LocalIdx] = []
+                  for vt in pop_types {
+                    let local_id = @lib.LocalIdx::new(
+                      (param_count + locals.length()).reinterpret_as_uint(),
+                    )
+                    locals.push(vt)
+                    carrier_locals.push(local_id)
+                    rewritten.push(@lib.Instruction::pop(vt))
+                    rewritten.push(@lib.Instruction::local_set(local_id))
+                  }
+                  for local_id in carrier_locals {
+                    rewritten.push(@lib.Instruction::local_get(local_id))
+                    rewritten.push(@lib.Instruction::drop())
+                  }
+                  rewritten.push(instrs[scan])
+                  rewritten.push(@lib.Instruction::return_call_ref(type_idx))
+                  idx = scan + 2
+                  changed = true
+                  continue
+                }
+                _ => ()
+              }
             _ =>
               match
                 run_hot_pipeline_dce_raw_find_root_pop_br_table_selector(

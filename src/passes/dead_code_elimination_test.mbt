@@ -1614,6 +1614,120 @@ test "dead-code-elimination repairs dead call arg before catch pop tail call tex
 }
 
 ///|
+test "dead-code-elimination repairs catch pop before return_call_indirect text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func))
+    #|  (tag $e-i32 (param i32))
+    #|  (table 1 funcref)
+    #|  (func $tail (type $tail-type))
+    #|  (elem (i32.const 0) $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (pop i32)
+    #|        (i32.const 0)
+    #|        (return_call_indirect (type $tail-type))
+    #|        nop)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected return_call_indirect pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs catch pop before return_call_ref text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func))
+    #|  (tag $e-i32 (param i32))
+    #|  (func $tail (type $tail-type))
+    #|  (elem declare func $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (pop i32)
+    #|        (ref.func $tail)
+    #|        (return_call_ref (type $tail-type))
+    #|        nop)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected return_call_ref pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs dead call arg before catch pop return_call_indirect text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func))
+    #|  (tag $e-i32 (param i32))
+    #|  (table 1 funcref)
+    #|  (func $tail (type $tail-type))
+    #|  (elem (i32.const 0) $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (pop i32)
+    #|          (i32.const 0)
+    #|          (return_call_indirect (type $tail-type)))
+    #|        nop)))
+    #|  (func $helper (param i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dead-call return_call_indirect pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination repairs multiple evaluated args before catch pop branch text" {
   let source =
     #|(module

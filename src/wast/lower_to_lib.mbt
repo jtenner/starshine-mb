@@ -3610,6 +3610,25 @@ fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
 }
 
 ///|
+fn wt_legacy_pop_prefix_tail_is_simple_operand_tail_call(
+  env : @validate.Env,
+  instrs : Array[@lib.Instruction],
+  instr_idx : Int,
+) -> Bool {
+  if instr_idx + 1 >= instrs.length() {
+    return false
+  }
+  match instrs[instr_idx + 1] {
+    @lib.ReturnCallIndirect(type_idx, _) | @lib.ReturnCallRef(type_idx) =>
+      match env.resolve_functype(type_idx) {
+        Some(@lib.FuncType(params, _)) => params.length() == 0
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn wt_legacy_pop_br_table_selector_depth_after_instr(
   _env : @validate.Env,
   instr : @lib.Instruction,
@@ -4085,6 +4104,16 @@ fn wt_legacy_pop_call_arg_instr_supported(
         _ => (cursor, depth, false)
       }
     }
+    @lib.ReturnCallIndirect(type_idx, _) | @lib.ReturnCallRef(type_idx) => {
+      if depth < 0 {
+        return (cursor, depth, true)
+      }
+      match env.resolve_functype(type_idx) {
+        Some(@lib.FuncType(params, _)) if params.length() == 0 && depth >= 1 =>
+          (cursor, -1, true)
+        _ => (cursor, depth, false)
+      }
+    }
     @lib.Pop(vt) => {
       if depth < 0 {
         return (cursor, depth, false)
@@ -4430,6 +4459,9 @@ fn wt_direct_legacy_pop_instr_supported(
                         wt_legacy_pop_prefix_tail_is_struct_new_before_void_nonfallthrough(
                           env, catch_instrs, instr_idx, nested_labels, func_results,
                           prefix_types,
+                        ) ||
+                        wt_legacy_pop_prefix_tail_is_simple_operand_tail_call(
+                          env, catch_instrs, instr_idx,
                         )
                       )
                     if !prefix_flows_to_nonfallthrough {
