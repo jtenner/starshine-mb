@@ -391,6 +391,17 @@ fn optimize_instructions_replace_with_existing_node(
 }
 
 ///|
+fn optimize_instructions_replace_with_node_id(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  replacement_id : Int,
+) -> Unit {
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement_id))
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_replace_with_exact_unary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2571,6 +2582,40 @@ fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
 }
 
 ///|
+fn optimize_instructions_try_fold_const_select(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Select if node.child_count == 3 => ()
+    _ => return false
+  }
+  let if_true = @ir.hot_child_get(func, node_id, 0)
+  let if_false = @ir.hot_child_get(func, node_id, 1)
+  let condition = @ir.hot_child_get(func, node_id, 2)
+  let (chosen, dead_arm) = match
+    optimize_instructions_i32_const(func, dead, condition) {
+    Some(@lib.I32(raw)) if raw == 0 => (if_false, if_true)
+    Some(@lib.I32(_)) => (if_true, if_false)
+    _ => return false
+  }
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, dead_arm) {
+    return false
+  }
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, chosen) {
+    let use_def = pass_require_use_def(ctx, func)
+    if @ir.node_use_count(use_def, chosen) != 1 {
+      return false
+    }
+  }
+  optimize_instructions_replace_with_node_id(ctx, func, node_id, chosen)
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3695,6 +3740,8 @@ fn optimize_instructions_visit_node(
           }
         }
       }
+    @ir.HotOp::Select =>
+      optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       optimize_instructions_try_collapse_dead_region_suffix(
         ctx,

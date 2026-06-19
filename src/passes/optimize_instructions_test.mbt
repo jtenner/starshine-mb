@@ -574,6 +574,46 @@ test "optimize-instructions preserves block-wrapped try_table catch depths in re
 }
 
 ///|
+test "optimize-instructions folds select with constant false and pure dead arm" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) (select (i32.add (i32.const 1) (i32.const 2)) (i32.const 7) (i32.const 0))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Const =>
+      @debug.assert_eq(
+        @ir.hot_const_get(func, @ir.hot_node_get(func, root).imm0),
+        @ir.HotConstPayload::i32_const(@lib.I32(7)),
+      )
+    _ => fail("expected constant-false select to become the false arm")
+  }
+}
+
+///|
+test "optimize-instructions folds select with constant true and pure dead arm" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (select (local.get 0) (i32.add (i32.const 1) (i32.const 2)) (i32.const 1))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected constant-true select to become the true arm")
+  }
+}
+
+///|
+test "optimize-instructions preserves select when constant dead arm has call effects" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) (select (call $effect) (i32.const 7) (i32.const 0))) (func $effect (result i32) i32.const 9))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Select => ()
+    _ => fail("expected select with effectful dead arm to be preserved")
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes i32.eq zero into eqz" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 0 i32.eq))",

@@ -8,6 +8,7 @@ sources:
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md
   - ../../../raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md
+  - ../../../raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -46,6 +47,7 @@ Its center of gravity is:
 - first local scanner-style sign-extension facts, redundant sign-extension removal, and shift-pair sign-extension idiom rewrites
 - constant-`if` folding
 - nested boolean-`if` normalization and `eqz` wrapping
+- constant-condition `select` cleanup when the dropped arm is side-effect-free
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -100,6 +102,7 @@ The fastest read-along path is:
   - `optimize_instructions_try_optimize_if_condition(...)`
   - `optimize_instructions_negate_boolean_expr_recursive(...)`
   - `optimize_instructions_try_wrap_boolean_if_value_in_eqz(...)`
+  - `optimize_instructions_try_fold_const_select(...)`
   - `optimize_instructions_try_collapse_duplicate_then_branch(...)`
   - `optimize_instructions_try_collapse_dead_region_suffix(...)`
 - canonicalization helpers
@@ -126,7 +129,7 @@ That exact code map is the main practical improvement in this refresh: readers c
 The local tests are intentionally split across multiple files:
 
 - `src/passes/optimize_instructions_test.mbt`
-  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
+  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, constant-condition `select` cleanup with effect/trap negatives, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
 - `src/passes/registry_test.mbt`
   - registry/descriptors exposure for the public HOT pass surface
 - `src/cmd/cmd_wbtest.mbt`
@@ -184,6 +187,7 @@ It can:
 - recursively negate nested boolean trees
 - wrap certain boolean value-`if`s in `eqz`
 - flip some nested conditions when the tree is unshared
+- fold constant-condition `select`s only when the dropped arm is side-effect-free and any effectful chosen arm is uniquely used
 - collapse duplicate then-branch `if`s into a direct branch
 
 This is one area where the local code is more explicit than the upstream `visitIf()` teaching surface because several helpers exist mainly to preserve local HOT/writeback behavior.
@@ -295,6 +299,10 @@ But it does mean:
 
 - the local pass is not a direct copy of the upstream phase boundary
 - some landed local behavior belongs more naturally to `precompute` in the Binaryen mental model
+
+## Important current boundary: branch hints and no-fold/no-reorder mode
+
+`[O4Z-AUDIT-OI-F]` records that Starshine still has no expression-level branch-hint/code-metadata representation for this pass and no Binaryen-equivalent `optimize-instructions-never-fold-or-reorder` pass argument. Binaryen branch-hint copy/flip/apply/clear behavior and option-gated fold/reorder suppression are therefore unsupported metadata/options boundaries until Starshine grows the representation, parser/lowerer or opaque-section policy, pass-option plumbing, and focused remap tests.
 
 ## Important current divergence: artifact-driven dead-region cleanup
 
