@@ -13,6 +13,59 @@ fn remove_unused_brs_test_first_live_br_table(func : @ir.HotFunc) -> Int {
 }
 
 ///|
+fn remove_unused_brs_test_has_eqz_br_if_to_label(
+  func : @ir.HotFunc,
+  target_label : Int,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::BrIf => {
+        if @ir.hot_branch_target(func, node_id) != Some(target_label) {
+          continue
+        }
+        let condition = @ir.hot_child_get(
+          func,
+          node_id,
+          @ir.hot_child_count(func, node_id) - 1,
+        )
+        match @ir.hot_node_get(func, condition).op {
+          @ir.HotOp::Unary =>
+            if @ir.hot_node_exact_instr(func, condition) ==
+              Some(@lib.Instruction::i32_eqz()) {
+              return true
+            }
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn remove_unused_brs_test_has_childless_br_to_label(
+  func : @ir.HotFunc,
+  target_label : Int,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Br if @ir.hot_branch_target(func, node_id) ==
+        Some(target_label) &&
+        @ir.hot_child_count(func, node_id) == 0 => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn remove_unused_brs_large_jsonas_dispatch_fixture() -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (param i32) (result i32) (local i32")
@@ -1189,6 +1242,119 @@ test "remove-unused-brs verifies loop-body carried self-tail rewrites from Binar
         "expected unreachable loop tail after carried self-tail rewrite, got \{@ir.hot_node_get(func, loop_tail).op}",
       )
   }
+}
+
+///|
+test "remove-unused-brs flips adjacent loop exit br_if before simple backedge" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $exit
+    #|       (loop $loop
+    #|         (br_if $exit (local.get 0))
+    #|         (br $loop)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs adjacent loop br_if flip success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let loop_id = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, loop_id).op {
+    @ir.HotOp::Loop => ()
+    _ => fail("expected root loop after loop br_if cleanup")
+  }
+  let loop_label = @ir.hot_control_node_label(func, loop_id)
+  assert_true(
+    remove_unused_brs_test_has_eqz_br_if_to_label(func, loop_label),
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+  assert_false(
+    remove_unused_brs_test_has_childless_br_to_label(func, loop_label),
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+}
+
+///|
+test "remove-unused-brs moves loop backedge suffix behind single-use block-exit br_if" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (loop $loop
+    #|       (block $out
+    #|         (br_if $out (local.get 0))
+    #|         (drop (i32.const 9))
+    #|         (br $loop)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs loop br_if suffix movement success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("else"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(9)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps loop br_if suffix movement blocked without single-use target" {
+  let source =
+    #| (module
+    #|   (func (param i32 i32)
+    #|     (loop $loop
+    #|       (block $out
+    #|         (br_if $out (local.get 0))
+    #|         (br_if $out (local.get 1))
+    #|         (drop (i32.const 9))
+    #|         (br $loop)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs loop br_if multi-use negative success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps loop br_if cleanup blocked by intervening control transfer" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $exit
+    #|       (loop $loop
+    #|         (br_if $exit (local.get 0))
+    #|         (return)
+    #|         (br $loop)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs loop br_if control-transfer negative success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let loop_id = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, loop_id).op {
+    @ir.HotOp::Loop => ()
+    _ => fail("expected root loop after conservative loop br_if pass")
+  }
+  let loop_label = @ir.hot_control_node_label(func, loop_id)
+  assert_false(
+    remove_unused_brs_test_has_eqz_br_if_to_label(func, loop_label),
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
 }
 
 ///|

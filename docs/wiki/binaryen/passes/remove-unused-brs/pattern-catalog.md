@@ -338,6 +338,20 @@ Detailed page:
   Moves a suffix into the fallthrough arm when exactly one arm is nonfallthrough.
   Covered by:
   - `restructures loop-body one-exit-arm ifs with carried self tails into fallthrough arms`
+- `remove_unused_brs_try_move_loop_backedge_suffix_into_block_exit_br_if(...)`
+  Mirrors Binaryen `optimizeLoop(...)` for a named loop body where a single-use block-exit `br_if` precedes void suffix roots and a simple `br $loop`; the suffix moves into the fallthrough `else` arm so the loop backedge is conditionalized without broad nested traversal.
+  Covered by:
+  - `moves loop backedge suffix behind single-use block-exit br_if`
+  - `keeps loop br_if suffix movement blocked without single-use target`
+- `remove_unused_brs_try_flip_single_loop_adjacent_br_if_backedge(...)`
+  Handles the adjacent `br_if $exit; br $loop` loop-cleanup case by flipping the condition with `i32.eqz`, retargeting the `br_if` to the loop label, and retargeting the simple backedge to the exit label before later block/loop rotation.
+  Covered by:
+  - `flips adjacent loop exit br_if before simple backedge`
+  - `keeps loop br_if cleanup blocked by intervening control transfer`
+- `remove_unused_brs_try_flip_loop_eqz_backedge_if_to_else(...)`
+  Normalizes the one-arm `if (eqz cond) { suffix; br $loop }` shape exposed by earlier cleanup into Binaryen's `if cond then empty-exit else suffix/backedge` form.
+  Covered by:
+  - `moves loop backedge suffix behind single-use block-exit br_if`
 - `remove_unused_brs_try_sink_if_arm_self_branch_block(...)`
   Sinks a self-target branch out of an `if` arm into an arm-local wrapper block so the explicit `br` disappears.
   Covered by:

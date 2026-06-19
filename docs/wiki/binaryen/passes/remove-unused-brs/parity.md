@@ -65,6 +65,7 @@ related:
   - carried-guard/result-block cleanup
   - repeated-constant `br_if` ladders to `br_table`
   - branch-to-trap rewriting for simple branches to void blocks followed by `unreachable`
+  - Binaryen-style loop cleanup for simple loop backedges, including adjacent `br_if` condition flipping and single-use block-exit suffix movement
   - safe early `br_table`/switch cleanup for trailing defaults and leading-default offsets on no-payload and value-carrying tables, plus no-payload default-only, two-option, and large mostly-default nested stack-style lowerings
 - The 2026-06-09 merge-blocks/RUB result-fallback audit is covered by [`../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md`](../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md):
   - `remove_unused_brs_try_fold_constant_br_if(...)` now preserves branch payload children while folding constant `br_if` roots
@@ -107,6 +108,7 @@ related:
   - the later localset-heavy value-if mesh family now reports `skip-hot reason=localset-heavy-value-if-mesh-noop`
   - the traced unchanged artifact cluster `Func 837`, `Func 3021`, `Func 3120`, `Func 3130`, and `Func 3134` is now retired after lift
 - `[O4Z-AUDIT-RUB-M]` branch-to-trap parity is now implemented for the local `version_130` release-oracle family covered by `remove-unused-brs_trap.wast`: simple childless `br` instructions targeting a void block followed by `unreachable` become direct `unreachable`, while conditional `br_if` and `br_table` targets are preserved.
+- `[O4Z-AUDIT-RUB-C]` loop cleanup parity is now implemented for the local `version_130` `optimizeLoop(...)` family: named loop bodies ending in simple childless `br $loop` now handle pre-existing `if` suffix movement, adjacent exit-driving `br_if` flipping, single-use block-exit `br_if` suffix movement into an else/fallthrough arm, and conservative negatives for multi-use block labels, intervening control transfer, and nested value-control hazards.
 - The early ordered generated-artifact slot-14 corruption is now fixed too:
   - the slot-13 predecessor replay no longer emits the invalid `func 1354` raw output
   - the extracted `Func 1354` replay is now locked by an external `wasm-tools validate` cmd wbtest instead of only the in-tree decode path
@@ -271,6 +273,11 @@ The active backlog now says the next work should be reduced in this order:
   - no-payload large mostly-default nested stack-style tables lower to Binaryen-style nested `if` form by narrowly bypassing the O4z raw no-op gate only for strict selector-plus-`br_table` block chains
   - value-carrying default-only and two-option tables deliberately remain `br_table` forms, matching Binaryen's value-sensitive bailout boundary
   - child-less local stack-payload value switch shapes remain conservative because ordinary lifted value switches carry payloads as `br_table` children
+- `[O4Z-AUDIT-RUB-C]` landed Binaryen-style loop cleanup beyond the older block/loop rotation:
+  - adjacent `br_if $exit; br $loop` forms flip the condition with `i32.eqz`, retarget the conditional to the loop label, and retarget the simple backedge to the exit label
+  - single-use block-exit `br_if` forms move the void suffix plus simple loop backedge into the fallthrough/else arm
+  - the one-arm `eqz` backedge-if shape exposed by earlier cleanup is normalized to Binaryen's `if cond then empty-exit else suffix/backedge` form
+  - multi-use block-exit targets, intervening control transfer, value roots in the moved suffix, and nested value-control hazards stay conservative
 - `[O4Z-AUDIT-RUB-M]` landed the branch-to-trap subset of Binaryen JumpThreader:
   - simple no-payload `br` nodes targeting a void block whose next sibling is `unreachable` become `unreachable`
   - conditional `br_if` and `br_table` target rewrites stay outside this slice, matching the official trap lit boundary
