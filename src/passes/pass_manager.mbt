@@ -7359,7 +7359,31 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
   let mut pop_idx = -1
   let mut term_idx = -1
   let mut pop_type : @lib.ValType? = None
-  if idx + 3 < instrs.length() &&
+  if idx + 2 < instrs.length() {
+    match instrs[idx + 1] {
+      @lib.Pop(vt) =>
+        match instrs[idx] {
+          @lib.I32Const(_)
+          | @lib.I64Const(_)
+          | @lib.F32Const(_)
+          | @lib.F64Const(_)
+          | @lib.LocalGet(_)
+          | @lib.GlobalGet(_)
+          | @lib.RefNull(_)
+          | @lib.RefFunc(_) => {
+            pop_idx = idx + 1
+            term_idx = idx + 2
+            pop_type = Some(vt)
+            rewritten.push(instrs[idx])
+            rewritten.push(@lib.Instruction::drop())
+          }
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  if pop_idx < 0 &&
+    idx + 3 < instrs.length() &&
     run_hot_pipeline_optimize_instructions_instr_is_plain_load(instrs[idx + 1]) {
     match instrs[idx + 2] {
       @lib.Pop(vt) => {
