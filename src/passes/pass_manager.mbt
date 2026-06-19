@@ -7295,6 +7295,20 @@ fn run_hot_pipeline_dce_raw_return_call_has_no_params(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_return_call_params_match_payload(
+  env : @validate.Env,
+  fidx : @lib.FuncIdx,
+  payload_types : Array[@lib.ValType],
+) -> Bool {
+  match env.get_functype_by_funcidx(fidx) {
+    Some(@lib.FuncType(params, _)) =>
+      params.length() > 0 &&
+      run_hot_pipeline_dce_raw_valtypes_match(params, payload_types)
+    None => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_tail_call_type_has_no_params(
   env : @validate.Env,
   type_idx : @lib.TypeIdx,
@@ -7371,6 +7385,11 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
     @lib.ReturnCall(fidx) if run_hot_pipeline_dce_raw_return_call_has_no_params(
         env, fidx,
       ) => false
+    @lib.ReturnCall(fidx) if run_hot_pipeline_dce_raw_return_call_params_match_payload(
+        env,
+        fidx,
+        [vt],
+      ) => true
     _ => return None
   }
   match instrs[term_idx] {
@@ -7382,6 +7401,9 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
     @lib.Return if func_results.length() == 0 || preserve_payload => ()
     @lib.ReturnCall(fidx) if !preserve_payload &&
       run_hot_pipeline_dce_raw_return_call_has_no_params(env, fidx) => ()
+    @lib.ReturnCall(fidx) if preserve_payload &&
+      run_hot_pipeline_dce_raw_return_call_params_match_payload(env, fidx, [vt]) =>
+      ()
     _ => return None
   }
   let local_id = @lib.LocalIdx::new(

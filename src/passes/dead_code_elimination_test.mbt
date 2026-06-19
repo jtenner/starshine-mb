@@ -1614,6 +1614,48 @@ test "dead-code-elimination repairs dead call arg before catch pop tail call tex
 }
 
 ///|
+test "dead-code-elimination repairs evaluated arg before catch pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32)))
+    #|  (memory 1)
+    #|  (tag $e-i32 (param i32))
+    #|  (func $tail (type $tail-type) (param i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (i32.load (i32.const 0))
+    #|          (pop i32)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected evaluated-arg parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination preserves catch pop as parameterized return_call operand text" {
   let source =
     #|(module

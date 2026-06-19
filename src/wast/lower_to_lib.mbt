@@ -4277,6 +4277,49 @@ fn wt_legacy_pop_call_payload_supported(
 }
 
 ///|
+fn wt_legacy_pop_dead_call_param_tail_payload_supported(
+  env : @validate.Env,
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  payloads : Array[@lib.ValType],
+) -> Bool {
+  if payloads.length() != 1 || call_idx < payloads.length() + 2 {
+    return false
+  }
+  let tail_idx = call_idx - 1
+  let params = match instrs[tail_idx] {
+    @lib.ReturnCall(fidx) =>
+      match env.get_functype_by_funcidx(fidx) {
+        Some(@lib.FuncType(params, _)) => params
+        None => return false
+      }
+    _ => return false
+  }
+  if params.length() == 0 || !wt_legacy_pop_types_match(params, payloads) {
+    return false
+  }
+  let pop_start = tail_idx - payloads.length()
+  for offset = 0; offset < payloads.length(); offset = offset + 1 {
+    match instrs[pop_start + offset] {
+      @lib.Pop(vt) if vt == payloads[offset] => ()
+      _ => return false
+    }
+  }
+  let mut prefix_depth = 0
+  for idx = 0; idx < pop_start; idx = idx + 1 {
+    match instrs[idx] {
+      @lib.I32Const(_) | @lib.LocalGet(_) => prefix_depth = prefix_depth + 1
+      _ if wt_legacy_pop_call_value_instr_stack_neutral(instrs[idx]) =>
+        if prefix_depth < 1 {
+          return false
+        }
+      _ => return false
+    }
+  }
+  prefix_depth > 0
+}
+
+///|
 fn wt_legacy_pop_dead_call_payload_supported(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
@@ -4304,6 +4347,11 @@ fn wt_legacy_pop_dead_call_payload_supported(
           0,
         )
         if ok && depth < 0 && cursor == payloads.length() {
+          return true
+        }
+        if wt_legacy_pop_dead_call_param_tail_payload_supported(
+            env, instrs, call_idx, payloads,
+          ) {
           return true
         }
       }
