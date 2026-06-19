@@ -15,6 +15,7 @@ sources:
   - ../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md
   - ../../../raw/research/0736-2026-06-19-optimize-instructions-oi-g-local-eight-fill.md
   - ../../../raw/research/0737-2026-06-19-optimize-instructions-oi-g-wider-memory-copy.md
+  - ../../../raw/research/0738-2026-06-19-optimize-instructions-oi-g-memory-copy-boundaries.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -263,9 +264,10 @@ The local pass now covers no-mode-dependent upstream bulk-memory shapes in narro
 
 The local pass still does not cover broader upstream families like:
 
-- non-`1`/`2`/`4`/`8` constant-size `memory.copy` sequences and any future multi-store copy shapes
+- non-`1`/`2`/`4`/`8` constant-size `memory.copy` sequences and any future multi-store copy shapes; size `16` is now an explicit fail-closed boundary until an overlap-safe multi-store proof exists
+- nonconstant-size `memory.copy`, because the size expression is not part of the exact tiny lowering proof
 - arbitrary or effectful nonconstant wider `memory.fill` value materialization
-- trap-relaxing zero-size bulk-memory cleanup
+- trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today
 - memory64-focused fixtures beyond accepting a constant `i64` size operand in the helper
 - stored-value and offset canonicalization for the general load/store surface
 

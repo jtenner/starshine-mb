@@ -933,6 +933,51 @@ test "optimize-instructions expands wider tiny memory.copy to exact load/store" 
 }
 
 ///|
+test "optimize-instructions keeps memory.copy outside exact tiny lowering boundary" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $src i32) (param $size i32)
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 0
+        #|    memory.copy
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 16
+        #|    memory.copy
+        #|    local.get $dst
+        #|    local.get $src
+        #|    local.get $size
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory.copy boundary optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Intentional fail-closed boundary: without trap-relaxed mode support, a
+  // zero-size memory.copy is kept; without multi-store overlap proof and a
+  // side-effect-free constant size, larger/nonconstant copies are kept too.
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "memory.copy"),
+    3,
+    msg=pretty,
+  )
+  assert_false(pretty.contains("i32.load8u"), msg=pretty)
+  assert_false(pretty.contains("i32.store8"), msg=pretty)
+  assert_false(pretty.contains("i32.load16u"), msg=pretty)
+  assert_false(pretty.contains("i32.store16"), msg=pretty)
+  assert_false(pretty.contains("i64.load"), msg=pretty)
+  assert_false(pretty.contains("i64.store"), msg=pretty)
+}
+
+///|
 test "optimize-instructions expands tiny constant memory.fill to store" {
   let optimized = match
     pass_test_run_pipeline(
