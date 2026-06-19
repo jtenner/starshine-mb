@@ -1321,6 +1321,85 @@ test "remove-unused-brs rewrites local.set if break arms into br_if plus set" {
 }
 
 ///|
+test "remove-unused-brs flips then-copy local.set if arms into one-armed ifs" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (local i32) (local.set 1 (i32.const 9)) (local.set 1 (if (result i32) (local.get 0) (then (local.get 1)) (else (i32.const 7))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs flipped local.set copy-arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("i32.eqz"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
+  assert_false(pretty.contains("(else"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites local.tee if copy arms through result blocks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) (local.set 1 (i32.const 3)) (local.tee 1 (if (result i32) (local.get 0) (then (i32.const 5)) (else (local.get 1))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs local.tee copy-arm success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(block I32"), msg=pretty)
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs flips else-break local.set if arms before extracting branches" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (local i32) block $exit (local.set 1 (if (result i32) (local.get 0) (then (i32.const 7)) (else (br $exit)))) end))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs flipped local.set br-arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("i32.eqz"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs recursively optimizes local.set ifs exposed after branch extraction" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (local i32) block $exit (local.set 2 (i32.const 11)) (local.set 2 (if (result i32) (local.get 0) (then (br $exit)) (else (if (result i32) (local.get 1) (then (i32.const 13)) (else (local.get 2)))))) end))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs recursive local.set optimizeSetIf success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
+  assert_false(pretty.contains("(else"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs flattens block-local if chains when the else arm breaks" {
   let optimized = match
     pass_test_run_pipeline(

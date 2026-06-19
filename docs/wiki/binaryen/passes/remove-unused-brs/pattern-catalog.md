@@ -264,13 +264,17 @@ Detailed page:
   - `remove-unused-brs fail-closed keeps nullable cast split candidates`
   - `remove-unused-brs keeps unknown br_on_cast checks`
 - `remove_unused_brs_try_rewrite_region_local_set_copy_arm(...)`
-  Rewrites `local.set (if cond then value else local.get same_local)` into a one-armed `if` that only performs the `local.set` when needed.
+  Rewrites `local.set (if cond then value else local.get same_local)` and its flipped-arm form into a one-armed `if` that only performs the `local.set` when needed. The helper also handles `local.tee` by wrapping the one-armed setter and trailing `local.get` in a result block.
   Covered by:
   - `rewrites local.set if copy arms into one-armed ifs`
+  - `flips then-copy local.set if arms into one-armed ifs`
+  - `rewrites local.tee if copy arms through result blocks`
 - `remove_unused_brs_try_rewrite_region_local_set_br_arm(...)`
-  Rewrites `local.set (if cond then br else value)` into `br_if` plus the surviving `local.set`.
+  Rewrites `local.set (if cond then br else value)` and its flipped-arm form into `br_if` plus the surviving `local.set`; `local.tee` forms keep the surviving tee result. Region re-entry then recursively cleans nested set-if copy arms exposed by branch extraction.
   Covered by:
   - `rewrites local.set if break arms into br_if plus set`
+  - `flips else-break local.set if arms before extracting branches`
+  - `recursively optimizes local.set ifs exposed after branch extraction`
 - `remove_unused_brs_try_rewrite_two_arm_branch_if(...)`
   Rewrites `if { br X } else { br Y }` into `br_if X cond; br Y`, or a single `br` if both arms target the same label.
   Covered by:

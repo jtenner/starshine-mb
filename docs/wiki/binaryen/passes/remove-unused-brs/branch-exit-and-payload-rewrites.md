@@ -64,24 +64,29 @@ It is less glamorous than the large carried-wrapper rewrites, but it is a key ex
 This helper handles the copy-arm case:
 
 - `local.set X (if cond then value else local.get X)`
+- `local.set X (if cond then local.get X else value)` with a flipped `i32.eqz` condition
+- the same shapes under `local.tee`, where the replacement is a result block containing the one-armed setter and a trailing `local.get X`
 
 It becomes:
 
 - one-armed `if`
 - whose then body performs `local.set X value`
+- plus a result-preserving `local.get` wrapper when the original store was a tee
 
 ### `remove_unused_brs_try_rewrite_region_local_set_br_arm(...)`
 
 This helper handles the branch-arm case:
 
 - `local.set X (if cond then br label else value)`
+- `local.set X (if cond then value else br label)` with a flipped `i32.eqz` condition
+- the same shapes under `local.tee`, where the surviving value remains a tee result
 
 It becomes:
 
-- `br_if label cond`
-- followed by `local.set X value`
+- `br_if label cond` (or `br_if label (i32.eqz cond)` for else-arm branches)
+- followed by `local.set X value` or `local.tee X value`
 
-Together these helpers model the "optimizeSetIf" flavor of cleanup already called out in the Binaryen comparison note.
+Together these helpers model the locally representable `optimizeSetIf` flavor of cleanup already called out in the Binaryen comparison note. Re-entering the region walk gives the same observable recursive cleanup for nested local-set copy arms that Binaryen gets by recursing on the rewritten `set->value`.
 
 ## Two-Arm Branch Exit Cleanup
 

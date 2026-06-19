@@ -4184,8 +4184,9 @@ fn remove_unused_brs_try_rewrite_region_local_set_copy_arm(
   }
   let node_id = @ir.hot_region_get(func, region_ref, idx)
   let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalSet => ()
+  let is_tee = match node.op {
+    @ir.HotOp::LocalSet => false
+    @ir.HotOp::LocalTee => true
     _ => return false
   }
   if node.child_count != 1 {
@@ -4214,23 +4215,52 @@ fn remove_unused_brs_try_rewrite_region_local_set_copy_arm(
   }
   let then_root = @ir.hot_region_get(func, then_ref, 0)
   let else_root = @ir.hot_region_get(func, else_ref, 0)
+  let then_node = @ir.hot_node_get(func, then_root)
   let else_node = @ir.hot_node_get(func, else_root)
-  match else_node.op {
-    @ir.HotOp::LocalGet if else_node.imm0 == node.imm0 => ()
-    _ => return false
+  let (set_value, copy_root, condition) = match then_node.op {
+    @ir.HotOp::LocalGet if then_node.imm0 == node.imm0 =>
+      (
+        else_root,
+        then_root,
+        remove_unused_brs_build_i32_eqz(
+          func,
+          @ir.hot_child_get(func, value_id, 0),
+        ),
+      )
+    _ =>
+      match else_node.op {
+        @ir.HotOp::LocalGet if else_node.imm0 == node.imm0 =>
+          (then_root, else_root, @ir.hot_child_get(func, value_id, 0))
+        _ => return false
+      }
   }
-  let replacement_set = @ir.hot_build_local_set(func, node.imm0, then_root)
-  let replacement = @ir.hot_build_if(
+  let replacement_set = @ir.hot_build_local_set(func, node.imm0, set_value)
+  let replacement_if = @ir.hot_build_if(
     func,
     @lib.BlockType::void_(),
-    @ir.hot_child_get(func, value_id, 0),
+    condition,
     [replacement_set],
   )
-  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [replacement])
+  let replacements = if is_tee {
+    let results = @ir.hot_type_results(func, @ir.hot_node_type(func, node_id))
+    if results.length() != 1 {
+      return false
+    }
+    let replacement_get = @ir.hot_build_local_get(func, node.imm0)
+    let block = @ir.hot_build_block(
+      func,
+      @lib.BlockType::val_type(results[0]),
+      [replacement_if, replacement_get],
+    )
+    [block]
+  } else {
+    [replacement_if]
+  }
+  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, replacements)
   removed.push(value_id)
   removed.push(then_ref.holder)
   removed.push(else_ref.holder)
-  removed.push(else_root)
+  removed.push(copy_root)
   remove_unused_brs_delete_unused_nodes(ctx, func, removed)
   true
 }
@@ -4247,8 +4277,9 @@ fn remove_unused_brs_try_rewrite_region_local_set_br_arm(
   }
   let node_id = @ir.hot_region_get(func, region_ref, idx)
   let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalSet => ()
+  let is_tee = match node.op {
+    @ir.HotOp::LocalSet => false
+    @ir.HotOp::LocalTee => true
     _ => return false
   }
   if node.child_count != 1 {
@@ -4275,29 +4306,54 @@ fn remove_unused_brs_try_rewrite_region_local_set_br_arm(
     @ir.hot_region_root_count(func, else_ref) != 1 {
     return false
   }
-  let then_root = match @ir.hot_region_single_plain_br_root(func, then_ref) {
-    Some(then_root) => then_root
-    None => return false
+  let condition_id = @ir.hot_child_get(func, value_id, 0)
+  let (branch_root, branch_target, set_value, condition) = match
+    @ir.hot_region_single_plain_br_root(func, then_ref) {
+    Some(then_root) => {
+      let then_target = match
+        @ir.hot_region_single_plain_br_target(func, then_ref) {
+        Some(then_target) => then_target
+        None => return false
+      }
+      (
+        then_root,
+        then_target,
+        @ir.hot_region_get(func, else_ref, 0),
+        condition_id,
+      )
+    }
+    None => {
+      let else_root = match
+        @ir.hot_region_single_plain_br_root(func, else_ref) {
+        Some(else_root) => else_root
+        None => return false
+      }
+      let else_target = match
+        @ir.hot_region_single_plain_br_target(func, else_ref) {
+        Some(else_target) => else_target
+        None => return false
+      }
+      (
+        else_root,
+        else_target,
+        @ir.hot_region_get(func, then_ref, 0),
+        remove_unused_brs_build_i32_eqz(func, condition_id),
+      )
+    }
   }
-  let then_target = match
-    @ir.hot_region_single_plain_br_target(func, then_ref) {
-    Some(then_target) => then_target
-    None => return false
+  let branch = @ir.hot_build_br_if(func, branch_target, condition)
+  let replacement_store = if is_tee {
+    @ir.hot_build_local_tee(func, node.imm0, set_value)
+  } else {
+    @ir.hot_build_local_set(func, node.imm0, set_value)
   }
-  let condition = @ir.hot_child_get(func, value_id, 0)
-  let branch = @ir.hot_build_br_if(func, then_target, condition)
-  let replacement_set = @ir.hot_build_local_set(
-    func,
-    node.imm0,
-    @ir.hot_region_get(func, else_ref, 0),
-  )
   let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
-    branch, replacement_set,
+    branch, replacement_store,
   ])
   removed.push(value_id)
   removed.push(then_ref.holder)
-  removed.push(then_root)
   removed.push(else_ref.holder)
+  removed.push(branch_root)
   remove_unused_brs_delete_unused_nodes(ctx, func, removed)
   true
 }
@@ -8482,7 +8538,7 @@ fn remove_unused_brs_visit_region(
           continue
         }
       }
-      @ir.HotOp::LocalSet => {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
         if remove_unused_brs_try_rewrite_region_local_set_br_arm(
             ctx, func, region_ref, current_idx,
           ) {

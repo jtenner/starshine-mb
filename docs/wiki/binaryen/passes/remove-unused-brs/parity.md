@@ -316,8 +316,12 @@ The active backlog now says the next work should be reduced in this order:
   - named block prefixes whose only self-target use is the leading `br_if` now rebuild to an outer `if`/`select` instead of leaving the self-exit branch in place
   - void forms use `i32.eqz` and a one-arm `if`, dropped value forms use a result `if` when the value is locally reorder-safe, and side-effectful value forms use `select` only when the remaining fallthrough block is pure/order-safe
   - extra target uses and effectful fallthrough arms remain preserved; branch-hint metadata and `never-unconditionalize` stay under `[O4Z-AUDIT-RUB-N]`
+- `[O4Z-AUDIT-RUB-L]` landed the locally representable Binaryen `FinalOptimizer::optimizeSetIf(...)` family:
+  - copy-arm removal now handles `local.set` and `local.tee` when either arm is `local.get` of the target local; tee forms rebuild as result blocks containing a one-armed setter plus trailing `local.get`
+  - branch-arm extraction now handles then-arm and else-arm simple branches, flips else-arm conditions with `i32.eqz`, preserves surviving `local.tee` results, and relies on region re-entry for recursive nested set-if cleanup
+  - branch-hint metadata transfer and public `never-unconditionalize` behavior remain explicit `[O4Z-AUDIT-RUB-N]` boundaries
 - The remaining parity families are not just tail-branch-removal gaps.
-- The real missing area now centers on later final-shape cleanup outside the completed `tablify` and local `restructureIf` slices, especially `selectify`, `optimizeSetIf`, and branch-hint / `never-unconditionalize` behavior.
+- The real missing area now centers on later final-shape cleanup outside the completed `tablify`, local `restructureIf`, and local `optimizeSetIf` slices, especially full `selectify` and branch-hint / `never-unconditionalize` behavior.
 - Earlier MoonBit attempts tried to find those shapes by scanning more nested regions during the main walk, which hit real oracle cases but reopened the performance cliff.
 - The latest perf audit already removed the obvious duplicated whole-function scans, and the follow-on Binaryen-shaped raw candidate filters shaved more time off the unchanged-walk and large-void buckets without changing parity evidence.
 - Separate explicit-pass type-order noise from real RUB body diffs in the current artifact compare.
