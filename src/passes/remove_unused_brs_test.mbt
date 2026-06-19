@@ -3359,6 +3359,57 @@ test "remove-unused-brs rewrites repeated branch-target equality ladders into br
 }
 
 ///|
+test "remove-unused-brs retargets branches through one-child named block shells" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (br_if $inner (local.get 0))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs one-child JumpThreader success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let branch = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, inner), 0)
+  assert_eq(@ir.hot_branch_target(func, branch), Some(outer_label))
+}
+
+///|
+test "remove-unused-brs retargets child block branches to a following simple jump" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $child
+    #|         (br_if $child (local.get 0))
+    #|         (drop (i32.const 1)))
+    #|       (br $outer))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs child-to-jump threading success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let child = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let branch = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, child), 0)
+  assert_eq(@ir.hot_branch_target(func, branch), Some(outer_label))
+}
+
+///|
 test "remove-unused-brs turns simple branches to trap blocks into unreachable" {
   let source =
     #| (module

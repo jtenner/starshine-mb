@@ -219,6 +219,11 @@ Detailed page:
   - `rewrites one-armed if break into br_if`
 - `remove_unused_brs_try_inline_single_br_if_block(...)`
   Inlines a void block that only contains a single `br` or `br_if` and whose label is otherwise unused.
+- `remove_unused_brs_try_thread_jump_through_block(...)`
+  Mirrors the safe no-payload conditional subset of Binaryen JumpThreader: `br_if` branches to a child named block can be retargeted through a one-child named block shell, and `br_if` branches to a child block can retarget to a following simple jump destination. Direct unconditional `br`, `br_table`, and payload-carrying sent-type cases remain fail-closed here because they interact with existing local branch-exit cleanup and broader `replacePossibleTarget` semantics.
+  Covered by:
+  - `remove-unused-brs retargets branches through one-child named block shells`
+  - `remove-unused-brs retargets child block branches to a following simple jump`
 - `remove_unused_brs_try_rewrite_branches_to_trap_block(...)`
   Mirrors the branch-to-trap subset of Binaryen JumpThreader: if a void block is immediately followed by `unreachable`, childless direct `br` nodes targeting that block are rewritten to `unreachable`. The matcher preserves conditional `br_if` and `br_table` targets, matching the `remove-unused-brs_trap.wast` boundary.
   Covered by:

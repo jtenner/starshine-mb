@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/remove-unused-brs | Add JumpThreader br_if retargeting safe subset
+
+- Continued `[O4Z-AUDIT-RUB-G]` with the conditional no-payload subset of Binaryen `JumpThreader`. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now retargets `br_if` branches through one-child named block shells and from child blocks to a following simple jump destination, while keeping direct unconditional `br`, `br_table`, payload sent-type, and full `replacePossibleTarget` parity as documented reopening criteria.
+- Added focused coverage in [`../../src/passes/remove_unused_brs_test.mbt`](../../src/passes/remove_unused_brs_test.mbt) for one-child named block shell retargeting and child-block-to-following-jump retargeting. Existing `[O4Z-AUDIT-RUB-M]` remains the direct-`br` branch-to-trap subset; this slice deliberately avoids direct-`br` retargeting because existing local branch-exit cleanup owns several direct-branch shapes.
+- Updated [`binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md`](binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md), [`binaryen/passes/remove-unused-brs/pattern-catalog.md`](binaryen/passes/remove-unused-brs/pattern-catalog.md), [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). Focused RUB tests now pass `150/150`; `moon test src/passes` passes `2575/2575`; full `moon test` passes `5886/5886`; direct compare `.tmp/pass-fuzz-remove-unused-brs-rub-g-jumpthreader-10000` compared `9977/10000` with `0` mismatches and `23` Binaryen/tool command failures.
+
 ## [2026-06-19] passes/remove-unused-brs | Add sinkBlocks single-if safe subset
 
 - Continued the RUB audit with `[O4Z-AUDIT-RUB-D]` by adding the missing void single-`if` half of Binaryen `sinkBlocks(...)`. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now moves a named void block whose sole child is an `if` into the one multi-root arm that uses the block label when the condition and opposite arm do not target it; loop-wrapper rotation was already covered by the earlier loop cleanup slice.
