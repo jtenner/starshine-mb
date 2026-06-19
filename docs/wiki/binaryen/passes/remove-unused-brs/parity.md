@@ -320,8 +320,12 @@ The active backlog now says the next work should be reduced in this order:
   - copy-arm removal now handles `local.set` and `local.tee` when either arm is `local.get` of the target local; tee forms rebuild as result blocks containing a one-armed setter plus trailing `local.get`
   - branch-arm extraction now handles then-arm and else-arm simple branches, flips else-arm conditions with `i32.eqz`, preserves surviving `local.tee` results, and relies on region re-entry for recursive nested set-if cleanup
   - branch-hint metadata transfer and public `never-unconditionalize` behavior remain explicit `[O4Z-AUDIT-RUB-N]` boundaries
+- `[O4Z-AUDIT-RUB-N]` is now documented as a local metadata/pass-option boundary rather than an implementable RUB rewrite slice:
+  - Starshine does not currently represent expression-level `metadata.code.branch_hint`, so Binaryen `BranchHints::copyTo`, `copyFlippedTo`, `applyAndTo`, `applyOrTo`, `flip`, and `clear` have no local metadata target to preserve or remap
+  - Starshine also has no public `--pass-arg` / pass-option equivalent for Binaryen `remove-unused-brs-never-unconditionalize`; existing condition-combining, selectifying, and restructuring rewrites therefore remain ordinary direct-pass behavior until such an option exists
+  - reopening requires a code-metadata representation/parser/lowerer/binary or opaque-section policy plus remap tests and per-rewrite pass-option tests
 - The remaining parity families are not just tail-branch-removal gaps.
-- The real missing area now centers on later final-shape cleanup outside the completed `tablify`, local `restructureIf`, and local `optimizeSetIf` slices, especially full `selectify` and branch-hint / `never-unconditionalize` behavior.
+- The real missing area now centers on later final-shape cleanup outside the completed `tablify`, local `restructureIf`, and local `optimizeSetIf` slices, especially full `selectify`; branch-hint / `never-unconditionalize` is recorded as an unsupported metadata/pass-option boundary, not hidden parity.
 - Earlier MoonBit attempts tried to find those shapes by scanning more nested regions during the main walk, which hit real oracle cases but reopened the performance cliff.
 - The latest perf audit already removed the obvious duplicated whole-function scans, and the follow-on Binaryen-shaped raw candidate filters shaved more time off the unchanged-walk and large-void buckets without changing parity evidence.
 - Separate explicit-pass type-order noise from real RUB body diffs in the current artifact compare.

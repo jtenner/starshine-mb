@@ -122,9 +122,9 @@ Those names are implementation details, but they are useful because they tie the
 The local pass does not yet model the upstream visitor families for:
 
 - the full GC `br_on_*` surface beyond the single-ref-child safe subset (`br_on_null`, `br_on_non_null`, successful `br_on_cast`, and not-taken `br_on_cast_fail`)
-- branch-hint propagation as a first-class contract
+- branch-hint propagation remains unsupported until Starshine grows expression-level code-metadata representation, parser/lowerer/binary policy, and pass-remap tests
 - the full `throw`/`try_table` cleanup family beyond the safe exact-catch and non-ref `catch_all` subset
-- final-optimizer behavior outside the completed `tablify` dense-ladder, local `restructureIf` self-branch, and local `optimizeSetIf` slices, especially full `selectify`, late switch collapse, and metadata-aware variants
+- final-optimizer behavior outside the completed `tablify` dense-ladder, local `restructureIf` self-branch, and local `optimizeSetIf` slices, especially full `selectify` and late switch collapse; metadata-aware variants are blocked on the branch-hint representation boundary
 - broader helper-driven motion checks around label scopes and unconditionalization
 - a literal AST-postwalk implementation inside one owner file
 

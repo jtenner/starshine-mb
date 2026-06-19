@@ -170,6 +170,8 @@ The pass's select rules are conservative because the failures are easy to hide:
 
 That is why the select helpers are scattered through the traversal rather than centralized in one "selectify everything" phase.
 
+Binaryen also exposes `remove-unused-brs-never-unconditionalize` to disable rewrites that would execute a condition or hinted branch body unconditionally. Starshine does not currently expose a `--pass-arg`/pass-option equivalent, and it has no expression-level branch-hint metadata representation to protect. Until both surfaces exist, these rewrites are documented as ordinary direct-pass behavior rather than as configurable never-unconditionalize parity.
+
 ## Practical Rule
 
 - If the family is already a direct one-result `if`, start with the direct select helper.
