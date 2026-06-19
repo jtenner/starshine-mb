@@ -2767,6 +2767,65 @@ fn optimize_instructions_repeated_fill_i64_for_local_get(
 }
 
 ///|
+fn optimize_instructions_store_value_bits(instr : @lib.Instruction) -> Int? {
+  match instr {
+    @lib.Instruction::I32Store8(_) => Some(8)
+    @lib.Instruction::I32Store16(_) => Some(16)
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_try_drop_narrow_store_value_mask(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 2 {
+    return false
+  }
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return false
+  }
+  let bits = match optimize_instructions_store_value_bits(instr) {
+    Some(bits) => bits
+    None => return false
+  }
+  let value_id = @ir.hot_child_get(func, node_id, 1)
+  if !optimize_instructions_node_is_live(func, dead, value_id) {
+    return false
+  }
+  let value = @ir.hot_node_get(func, value_id)
+  match value.op {
+    @ir.HotOp::Binary => ()
+    _ => return false
+  }
+  if value.child_count != 2 ||
+    @ir.hot_node_exact_instr(func, value_id) !=
+    Some(@lib.Instruction::i32_and()) {
+    return false
+  }
+  let lhs_id = @ir.hot_child_get(func, value_id, 0)
+  let rhs_id = @ir.hot_child_get(func, value_id, 1)
+  let mask = match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) => raw
+    _ => return false
+  }
+  let required_mask = (1 << bits) - 1
+  if (mask & required_mask) != required_mask {
+    return false
+  }
+  optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [
+    @ir.hot_child_get(func, node_id, 0),
+    lhs_id,
+  ])
+  true
+}
+
+///|
 fn optimize_instructions_try_expand_tiny_memory_copy(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4092,6 +4151,10 @@ fn optimize_instructions_visit_node(
       }
     @ir.HotOp::Select =>
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
+    @ir.HotOp::Store =>
+      optimize_instructions_try_drop_narrow_store_value_mask(
+        ctx, func, dead, node_id,
+      )
     @ir.HotOp::MemoryCopy =>
       optimize_instructions_try_expand_tiny_memory_copy(
         ctx, func, dead, node_id,

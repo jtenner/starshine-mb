@@ -18,6 +18,7 @@ sources:
   - ../../../raw/research/0738-2026-06-19-optimize-instructions-oi-g-memory-copy-boundaries.md
   - ../../../raw/research/0739-2026-06-19-optimize-instructions-oi-g-memory64-copy.md
   - ../../../raw/research/0740-2026-06-19-optimize-instructions-oi-g-memory64-fill.md
+  - ../../../raw/research/0741-2026-06-19-optimize-instructions-oi-g-narrow-store-mask.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -59,6 +60,7 @@ Its center of gravity is:
 - constant-condition `select` cleanup when the dropped arm is side-effect-free
 - tiny `memory.copy` lowering for constant sizes `1`/`2`/`4`/`8`, including direct-core memory64 copy fixtures for `i64` address preservation
 - constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`), including direct-core memory64 fill fixtures after the local typechecker length fix
+- a narrow stored-value cleanup for redundant `i32.and` masks before `i32.store8` and `i32.store16`
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -121,6 +123,7 @@ The fastest read-along path is:
   - `optimize_instructions_repeated_fill_i64_for_local_get(...)`
   - `optimize_instructions_try_expand_tiny_memory_copy(...)`
   - `optimize_instructions_try_expand_tiny_memory_fill(...)`
+  - `optimize_instructions_try_drop_narrow_store_value_mask(...)`
   - `optimize_instructions_try_collapse_duplicate_then_branch(...)`
   - `optimize_instructions_try_collapse_dead_region_suffix(...)`
 - canonicalization helpers
@@ -272,7 +275,7 @@ The local pass still does not cover broader upstream families like:
 - nonconstant-size `memory.copy`, because the size expression is not part of the exact tiny lowering proof
 - arbitrary or effectful nonconstant wider `memory.fill` value materialization
 - trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today
-- stored-value and offset canonicalization for the general load/store surface
+- broader stored-value and offset canonicalization for the general load/store surface; only the current `i32.store8` / `i32.store16` redundant-mask subset is covered
 
 ## 4. No GC constructor / field / atomics surface
 
@@ -388,7 +391,7 @@ Treat the current local implementation as:
 - a real implemented HOT pass
 - strongest today on integer / boolean / control canonicalization
 - intentionally carrying extra writeback-safety logic for local artifact history
-- still missing most of the upstream `call_ref`, load/store canonicalization, GC, tuple, and helper-substrate surface
+- still missing most of the upstream `call_ref`, broader load/store canonicalization, GC, tuple, and helper-substrate surface
 
 For this pass, "what Starshine does today" and "what Binaryen `version_130` expects for release-gating O4z parity" are not the same thing.
 The wiki should keep that difference explicit and use `[O4Z-AUDIT-OI-*]` slice owners from the 2026-06-19 matrix when expanding coverage.

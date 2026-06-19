@@ -1381,6 +1381,70 @@ test "optimize-instructions keeps zero-size memory.fill without trap mode suppor
 }
 
 ///|
+test "optimize-instructions drops masked low bits before narrow stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $value i32)
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i32.const 255
+        #|    i32.and
+        #|    i32.store8
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i32.const 65535
+        #|    i32.and
+        #|    i32.store16))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected narrow store optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "(local.get (Local 1))", "i32.store8", "(local.get (Local 0))",
+    "(local.get (Local 1))", "i32.store16",
+  ])
+}
+
+///|
+test "optimize-instructions keeps value-changing masks before narrow stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $value i32)
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i32.const 127
+        #|    i32.and
+        #|    i32.store8
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i32.const 32767
+        #|    i32.and
+        #|    i32.store16))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected narrow store boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+  assert_true(pretty.contains("i32.store16"), msg=pretty)
+}
+
+///|
 test "optimize-instructions removes redundant sign extensions from signed loads" {
   let func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (param i32) (result i32) local.get 0 i32.load8_s i32.extend8_s))",
