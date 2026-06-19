@@ -1304,6 +1304,168 @@ test "dead-code-elimination repairs binary call arg before catch pop branch text
 }
 
 ///|
+test "dead-code-elimination repairs side-effect call arg before catch pop branch text" {
+  let source =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $side (result i32) (i32.const 11))
+    #|  (func
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (call $side)
+    #|            (pop i32)
+    #|            (br $label))
+    #|          nop))))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected side-effect call-arg pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs multivalue call arg before catch pop branch text" {
+  let source =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $side (result i32 i64)
+    #|    (i32.const 11)
+    #|    (i64.const 12))
+    #|  (func
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (call $side)
+    #|            (pop i32)
+    #|            (br $label))
+    #|          nop))))
+    #|  (func $helper (param i32 i64 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multivalue side call-arg pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs multiple evaluated args before catch pop branch text" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (i32.const 9)
+    #|            (i32.load (i32.const 0))
+    #|            (pop i32)
+    #|            (br $label))
+    #|          nop))))
+    #|  (func $helper (param i32 i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected multi-arg call-pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs compound effectful call arg before catch pop branch text" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (tag $e-i32 (param i32))
+    #|  (func
+    #|    (block $label
+    #|      (try
+    #|        (do nop)
+    #|        (catch $e-i32
+    #|          (call $helper
+    #|            (i32.add (i32.load (i32.const 0)) (i32.const 1))
+    #|            (pop i32)
+    #|            (br $label))
+    #|          nop))))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected compound effectful call-pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination preserves catch pop value branch after effectful dead call arg text" {
   let source =
     #|(module

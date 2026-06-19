@@ -4072,6 +4072,20 @@ fn wt_legacy_pop_call_arg_instr_supported(
       }
       (cursor + 1, depth + 1, true)
     }
+    @lib.Call(fidx) => {
+      if depth < 0 {
+        return (cursor, depth, true)
+      }
+      match env.get_functype_by_funcidx(fidx) {
+        Some(@lib.FuncType(params, results)) =>
+          if depth < params.length() {
+            (cursor, depth, false)
+          } else {
+            (cursor, depth - params.length() + results.length(), true)
+          }
+        None => (cursor, depth, false)
+      }
+    }
     @lib.LocalGet(_)
     | @lib.GlobalGet(_)
     | @lib.RefNull(_)
@@ -7918,6 +7932,63 @@ test "wast_text_binary_roundtrip supports effectful legacy pop call payload" {
   let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("pop"), msg=pretty)
   assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip supports side-effect call before legacy pop call payload" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $side (result i32) (i32.const 11))
+    #|  (func $helper (param i32 i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (call $side)
+    #|          (pop i32))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-call-side-effect-payload.wat",
+    ) {
+    Ok(m) => m
+    Err(e) => fail("expected side-effect call payload to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "wast_text_binary_roundtrip supports multivalue call before legacy pop call payload" {
+  let src =
+    #|(module
+    #|  (tag $e-i32 (param i32))
+    #|  (func $side (result i32 i64)
+    #|    (i32.const 11)
+    #|    (i64.const 12))
+    #|  (func $helper (param i32 i64 i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (call $side)
+    #|          (pop i32))))))
+  let (_, decoded) = match
+    wast_text_binary_roundtrip(
+      src,
+      filename="legacy-pop-call-multivalue-side-effect-payload.wat",
+    ) {
+    Ok(m) => m
+    Err(e) =>
+      fail("expected multivalue side-effect call payload to roundtrip: \{e}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("pop"), msg=pretty)
   assert_true(pretty.contains("call"), msg=pretty)
 }
 
