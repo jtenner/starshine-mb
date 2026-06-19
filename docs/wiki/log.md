@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/remove-unused-brs | Add sinkBlocks single-if safe subset
+
+- Continued the RUB audit with `[O4Z-AUDIT-RUB-D]` by adding the missing void single-`if` half of Binaryen `sinkBlocks(...)`. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now moves a named void block whose sole child is an `if` into the one multi-root arm that uses the block label when the condition and opposite arm do not target it; loop-wrapper rotation was already covered by the earlier loop cleanup slice.
+- Added focused coverage in [`../../src/passes/remove_unused_brs_test.mbt`](../../src/passes/remove_unused_brs_test.mbt) for the positive label-using-arm sink and negatives where the condition uses the label or both arms use the label. Single-root branch-tail arms remain delegated to existing one-arm/self-branch cleanup, and result-typed sinks plus sink-specific unreachable-condition assertions remain documented reopening criteria.
+- Updated [`binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md`](binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md), [`binaryen/passes/remove-unused-brs/pattern-catalog.md`](binaryen/passes/remove-unused-brs/pattern-catalog.md), [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). Focused RUB tests now pass `148/148`; `moon test src/passes` passes `2573/2573`; full `moon test` passes `5884/5884`; direct compare `.tmp/pass-fuzz-remove-unused-brs-rub-d-sinkblocks-10000` compared `9977/10000` with `0` mismatches and `23` Binaryen/tool command failures.
+
 ## [2026-06-19] passes/remove-unused-brs | Add GC BrOn cleanup safe subset
 
 - Completed `[O4Z-AUDIT-RUB-F]` for the locally provable single-ref-child subset of Binaryen `version_130` `optimizeGC(...)`. [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) now admits raw `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` candidates to HOT, [`../../src/ir/hot_lift.mbt`](../../src/ir/hot_lift.mbt) now lifts `br_on_non_null`, and [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) rewrites definitely taken/not-taken BrOn roots when nullability, `ref.null`, or a simple cast-target subtype proof is enough.

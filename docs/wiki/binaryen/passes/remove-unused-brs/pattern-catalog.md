@@ -375,6 +375,12 @@ Detailed page:
   Normalizes the one-arm `if (eqz cond) { suffix; br $loop }` shape exposed by earlier cleanup into Binaryen's `if cond then empty-exit else suffix/backedge` form.
   Covered by:
   - `moves loop backedge suffix behind single-use block-exit br_if`
+- `remove_unused_brs_try_sink_single_if_exit_block(...)`
+  Mirrors the safe void subset of Binaryen `sinkBlocks(...)` for a named block whose sole child is an `if`: if the condition does not target the block label, exactly one multi-root arm uses the label, and the opposite arm does not, the block moves into the label-using arm. It deliberately leaves result-typed sinks, direct unreachable-condition sink assertions, and single-root branch-tail arms to existing cleanup/fail-closed behavior.
+  Covered by:
+  - `sinks single-if exit blocks into the label-using arm`
+  - `keeps single-if exit blocks when the condition uses the label`
+  - `keeps single-if exit blocks when both arms use the label`
 - `remove_unused_brs_try_sink_if_arm_self_branch_block(...)`
   Sinks a self-target branch out of an `if` arm into an arm-local wrapper block so the explicit `br` disappears.
   Covered by:

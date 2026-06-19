@@ -1788,6 +1788,78 @@ test "remove-unused-brs keeps loop br_if cleanup blocked by intervening control 
 }
 
 ///|
+test "remove-unused-brs sinks single-if exit blocks into the label-using arm" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (block $exit (if (local.get 0) (then (br_if $exit (local.get 1)) (drop (i32.const 1))) (else (drop (i32.const 2)))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs single-if block sink success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let root = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected outer block to sink into the if arm")
+  }
+  let then_ref = @ir.hot_region_then_ref(func, root)
+  let then_root = @ir.hot_region_get(func, then_ref, 0)
+  match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected then arm to contain the sunk exit block")
+  }
+}
+
+///|
+test "remove-unused-brs keeps single-if exit blocks when the condition uses the label" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (block $exit (if (block (result i32) (br_if $exit (local.get 0)) (i32.const 1)) (then (drop (i32.const 1)))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs condition-label-use preservation success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let root = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected condition label use to keep the outer block")
+  }
+}
+
+///|
+test "remove-unused-brs keeps single-if exit blocks when both arms use the label" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32 i32) (block $exit (if (local.get 0) (then (br_if $exit (local.get 1)) (drop (i32.const 1))) (else (br_if $exit (local.get 2)) (drop (i32.const 2)))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs both-arm-label-use preservation success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let root = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected both-arm label uses to keep the outer block")
+  }
+}
+
+///|
 test "remove-unused-brs sinks self-target if-arm block branches into arm-local wrappers" {
   let optimized = match
     pass_test_run_pipeline(

@@ -65,6 +65,7 @@ related:
   - carried-guard/result-block cleanup
   - repeated-constant `br_if` ladders to `br_table`
   - branch-to-trap rewriting for simple branches to void blocks followed by `unreachable`
+  - Binaryen-style `sinkBlocks(...)` safe subset for void block/loop rotation and void block/single-if sinking into the unique multi-root label-using arm, with condition-label-use and both-arm-use negatives
   - caught-`throw` to branch cleanup for safe `try_table` exact-catch and `catch_all`-without-ref forms, including payload/drop-child preservation and exnref-transport negatives
   - GC `br_on_*` cleanup for the safe single-ref-child subset: definitely taken/not-taken `br_on_null` and `br_on_non_null`, definitely successful `br_on_cast`, and definitely not-taken `br_on_cast_fail`, with explicit fail-closed boundaries for payload children, nullable-cast splitting, descriptor variants, broader fallthrough/cast insertion, and unreachable-input dropped-child construction
   - Binaryen-style loop cleanup for simple loop backedges, including adjacent `br_if` condition flipping and single-use block-exit suffix movement
@@ -286,6 +287,12 @@ The active backlog now says the next work should be reduced in this order:
   - simple no-payload `br` nodes targeting a void block whose next sibling is `unreachable` become `unreachable`
   - conditional `br_if` and `br_table` target rewrites stay outside this slice, matching the official trap lit boundary
   - the implementation is local to HOT region traversal and does not widen the raw O4z gates or the broad nested scan surface
+- `[O4Z-AUDIT-RUB-D]` landed the `sinkBlocks(...)` safe subset:
+  - existing loop-wrapper rotation covers named void blocks whose sole child is a loop when the loop body stays in the void-control subset
+  - new single-if sinking moves a named void block into the one multi-root arm that uses the block label when the condition and opposite arm do not target it
+  - condition-label-use and both-arm-label-use cases remain preserved, while single-root branch-tail arms stay owned by existing one-arm/self-branch cleanup
+  - remaining boundaries: result-typed block/if sinks, direct unreachable-condition sink assertions when ordinary DCE erases the shape first, and exact Binaryen branch-hint/refinalization metadata behavior
+  - evidence: focused RUB tests passed `148/148`, `moon test src/passes` passed `2573/2573`, full `moon test` passed `5884/5884`, native `src/cmd` build passed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-remove-unused-brs-rub-d-sinkblocks-10000` compared `9977/10000` with `0` mismatches, `5702` normalized matches, `4275` cleanup-normalized matches, and `23` Binaryen/tool command failures (`22` rec-group-zero, `1` bad-section-size).
 - `[O4Z-AUDIT-RUB-E]` landed the EH caught-throw subset of Binaryen `visitThrow(...)`:
   - exact `catch` arms that match the thrown tag become branches carrying the original throw payload children
   - `catch_all` arms without refs become payload drops followed by a branch to the catch destination
