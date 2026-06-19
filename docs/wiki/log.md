@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/optimize-instructions | Complete OI-E sign-extension facts
+
+- Completed `[O4Z-AUDIT-OI-E]` by filing [`raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md`](raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md). The slice added a conservative HOT-local sign-extension fact scan with param-pessimistic and non-param-default facts, straight-line `local.set` / `local.tee` fallthrough updates, signed-load and explicit sign-extension recognition, redundant sign-extension removal, and shift-pair sign-extension idiom synthesis.
+- Evidence: focused sign filters passed `12/12`, the focused `optimize-instructions` filter passed `98/98`, `moon fmt` passed, `moon test src/passes` passed `2610/2610`, native `src/cmd` release build passed with existing unused-function warnings, and direct `--pass optimize-instructions --count 10000 --seed 0x5eed --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` wrote `.tmp/pass-fuzz-optimize-instructions-oi-e-sign-ext-safe-10000`, compared `53/10000`, with `26` normalized matches, `27` raw mismatches, `0` validation/property/generator failures, and `1` Binaryen/tool command failure (`binaryen-rec-group-zero`). Agent classification: the remaining raw mismatches are Starshine-win constant-if and redundant-sign-extension-removal output-shape differences. Updated [`binaryen/passes/optimize-instructions/index.md`](binaryen/passes/optimize-instructions/index.md), [`binaryen/passes/optimize-instructions/starshine-hot-ir-strategy.md`](binaryen/passes/optimize-instructions/starshine-hot-ir-strategy.md), [`index.md`](index.md), and [`../../agent-todo.md`](../../agent-todo.md); `[O4Z-AUDIT-OI-F]` is next.
+
 ## [2026-06-19] passes/optimize-instructions | Complete OI-D default scalar audit
 
 - Completed `[O4Z-AUDIT-OI-D]` by filing [`raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md`](raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md). The slice added exact `i32` / `i64` constant-subtraction folding, float sub-to-add-negative and divide-by-two spelling rewrites, `i32.wrap_i64` constant folding, and re-enabled guarded relational operand canonicalization.

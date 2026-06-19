@@ -834,6 +834,95 @@ test "optimize-instructions folds i32.wrap_i64 constants" {
 }
 
 ///|
+test "optimize-instructions removes redundant sign extensions from signed loads" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (param i32) (result i32) local.get 0 i32.load8_s i32.extend8_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Load => ()
+    _ =>
+      fail("expected redundant sign extension after signed load to fold away")
+  }
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::I32Load8S(_)) => ()
+    other =>
+      fail(
+        "expected i32.load8_s after redundant extension removal, got \{other}",
+      )
+  }
+}
+
+///|
+test "optimize-instructions uses local sign facts after fallthrough sets" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (param i32) (result i32) (local i32) local.get 0 i32.load8_s local.set 1 local.get 1 i32.extend8_s))",
+  )
+  let root = @ir.hot_root_get(func, 1)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail(
+        "expected local.get with signed-load fact to make extend8_s redundant",
+      )
+  }
+  @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 1)
+}
+
+///|
+test "optimize-instructions preserves sign extensions for constants outside signed lane range" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 255 i32.extend8_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_extend8s()),
+  )
+}
+
+///|
+test "optimize-instructions does not assume param sign facts" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.extend8_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_extend8s()),
+  )
+}
+
+///|
+test "optimize-instructions preserves loop-carried local sign extensions" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (local i32) loop local.get 0 local.set 1 end local.get 1 i32.extend8_s))",
+  )
+  let root = @ir.hot_root_get(func, 1)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_extend8s()),
+  )
+}
+
+///|
+test "optimize-instructions rewrites shift sign-extension idioms" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 24 i32.shl i32.const 24 i32.shr_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_extend8s()),
+  )
+  let operand = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, operand).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected sign-extension rewrite to preserve the shifted operand")
+  }
+}
+
+///|
 test "optimize-instructions keeps trapping integer divisions unfurled" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (result i32) i32.const 84 i32.const 0 i32.div_s))",

@@ -7,6 +7,7 @@ sources:
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md
+  - ../../../raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -42,6 +43,7 @@ Its center of gravity is:
 - non-constant `eqz` / compare-to-zero rewrites plus relational constant and guarded operand canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, scalar float spelling rewrites, and `i32.wrap_i64` constant folding
+- first local scanner-style sign-extension facts, redundant sign-extension removal, and shift-pair sign-extension idiom rewrites
 - constant-`if` folding
 - nested boolean-`if` normalization and `eqz` wrapping
 - duplicate-branch collapse in then-regions
@@ -91,6 +93,7 @@ The fastest read-along path is:
 - HOT-specific traversal scaffolding
   - `OptimizeInstructionsScratch::new(...)`
   - `optimize_instructions_mark_loop_input_nodes(...)`
+  - `optimize_instructions_scan_sign_ext_facts(...)`
   - `optimize_instructions_can_cross_local_get(...)`
 - constant and control cleanup helpers
   - `optimize_instructions_try_fold_constant_if_condition(...)`
@@ -109,6 +112,8 @@ The fastest read-along path is:
   - `optimize_instructions_try_rewrite_float_binary(...)`
   - `optimize_instructions_try_rewrite_mul_shift(...)`
   - `optimize_instructions_try_rewrite_shift(...)`
+  - `optimize_instructions_try_remove_redundant_sign_ext(...)`
+  - `optimize_instructions_try_rewrite_sign_ext_idiom(...)`
   - `optimize_instructions_try_rewrite_compare_eqz(...)`
 - walker and driver
   - `optimize_instructions_visit_node(...)`
@@ -121,7 +126,7 @@ That exact code map is the main practical improvement in this refresh: readers c
 The local tests are intentionally split across multiple files:
 
 - `src/passes/optimize_instructions_test.mbt`
-  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, nested boolean-`if` cleanup, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
+  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
 - `src/passes/registry_test.mbt`
   - registry/descriptors exposure for the public HOT pass surface
 - `src/cmd/cmd_wbtest.mbt`
@@ -139,6 +144,7 @@ The local file has dedicated helpers for:
 - exact constant folding of integer add/sub binary ops
 - float spelling rewrites for sub-to-add-negative and divide-by-two to multiply-by-half
 - `i32.wrap_i64` constant folding
+- first sign-extension facts and idiom rewrites from `[O4Z-AUDIT-OI-E]`: signed-load/default-local/fallthrough-local facts, redundant sign-extension removal, and `shl` + `shr_s` sign-extension synthesis
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
 - guarded relational operand canonicalization
@@ -257,14 +263,16 @@ The local file does not model upstream `visitTupleExtract(...)`:
 
 - `tuple.extract(tuple.make(...))` simplification with the surrounding tee/drop reconstruction
 
-## 6. No whole-function local prescan equivalent
+## 6. First local sign-extension facts, but not full Binaryen `LocalScanner`
 
 Upstream Binaryen runs a whole-function `LocalScanner` to infer:
 
 - `maxBits`
 - `signExtBits`
 
-Current Starshine has direct HOT pattern matching and some local ordering logic, but it does not currently appear to have the same function-wide local prescan that powers many upstream width/sign rules.
+As of `[O4Z-AUDIT-OI-E]`, Starshine has a first conservative HOT-local sign-extension fact scan. It initializes params pessimistically, treats non-param scalar locals as default-zero until writes update or invalidate them, records straight-line `local.set` fallthrough facts, recognizes signed loads and explicit sign-extension ops, removes redundant sign extensions, and rewrites the first shift-pair sign-extension idioms.
+
+This is still narrower than Binaryen's full scanner. Starshine does not yet model `maxBits`, CFG joins, loop-carried fact merging, mask proofs, or compare proofs through this substrate.
 
 ## 7. No deferred `ReFinalize` / EH-pop-fixup equivalent inside this pass
 
