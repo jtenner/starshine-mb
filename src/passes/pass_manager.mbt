@@ -7284,6 +7284,22 @@ fn run_hot_pipeline_dce_raw_block_single_pop_type(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_block_single_result_type(
+  env : @validate.Env,
+  instr : @lib.Instruction,
+) -> @lib.ValType? {
+  match instr {
+    @lib.Block(block_type, _) =>
+      match env.expand_blocktype(block_type) {
+        Ok((params, results)) if params.length() == 0 && results.length() == 1 =>
+          Some(results[0])
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_return_call_has_no_params(
   env : @validate.Env,
   fidx : @lib.FuncIdx,
@@ -7389,7 +7405,21 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
               }
               _ => ()
             }
-          _ => ()
+          _ =>
+            match
+              run_hot_pipeline_dce_raw_block_single_result_type(
+                env,
+                instrs[idx],
+              ) {
+              Some(_) => {
+                pop_idx = idx + 1
+                term_idx = idx + 2
+                pop_type = Some(vt)
+                rewritten.push(instrs[idx])
+                rewritten.push(@lib.Instruction::drop())
+              }
+              None => ()
+            }
         }
       _ => ()
     }

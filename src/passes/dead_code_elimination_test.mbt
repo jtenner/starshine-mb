@@ -1697,6 +1697,49 @@ test "dead-code-elimination repairs direct call arg before catch pop parameteriz
 }
 
 ///|
+test "dead-code-elimination repairs block-result arg before catch pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func $tail (type $tail-type) (param i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (block (result i32) (i32.const 11))
+    #|          (pop i32)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-result-arg parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("block I32"), msg=pretty)
+  assert_true(pretty.contains("I32(11)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination repairs evaluated arg before catch pop parameterized tail call text" {
   let source =
     #|(module
@@ -1777,6 +1820,52 @@ test "dead-code-elimination repairs const arg before catch pop parameterized ret
   assert_true(pretty.contains("return_call_indirect"), msg=pretty)
   assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs block-result arg before catch pop parameterized return_call_indirect text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (table 1 funcref)
+    #|  (func $tail (type $tail-type) (param i32))
+    #|  (elem (i32.const 0) $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (block (result i32) (i32.const 11))
+    #|          (pop i32)
+    #|          (i32.const 0)
+    #|          (return_call_indirect (type $tail-type)))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-result-arg parameterized return_call_indirect pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("block I32"), msg=pretty)
+  assert_true(pretty.contains("I32(11)"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
   assert_true(pretty.contains("local.get"), msg=pretty)
@@ -1912,6 +2001,51 @@ test "dead-code-elimination repairs const arg before catch pop parameterized ret
   assert_true(pretty.contains("return_call_ref"), msg=pretty)
   assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs block-result arg before catch pop parameterized return_call_ref text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func $tail (type $tail-type) (param i32))
+    #|  (elem declare func $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (block (result i32) (i32.const 11))
+    #|          (pop i32)
+    #|          (ref.func $tail)
+    #|          (return_call_ref (type $tail-type)))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-result-arg parameterized return_call_ref pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("block I32"), msg=pretty)
+  assert_true(pretty.contains("I32(11)"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
   assert_true(pretty.contains("local.get"), msg=pretty)
