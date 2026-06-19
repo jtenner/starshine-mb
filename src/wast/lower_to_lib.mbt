@@ -3602,7 +3602,9 @@ fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
       )
     @lib.ReturnCall(fidx) =>
       match env.get_functype_by_funcidx(fidx) {
-        Some(@lib.FuncType(params, _)) => params.length() == 0
+        Some(@lib.FuncType(params, _)) =>
+          params.length() == 0 ||
+          wt_legacy_pop_types_match(params, payload_types)
         None => false
       }
     _ => false
