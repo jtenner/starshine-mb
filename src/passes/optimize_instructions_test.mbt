@@ -1060,6 +1060,36 @@ test "optimize-instructions expands local four-byte memory.fill to store" {
 }
 
 ///|
+test "optimize-instructions expands local eight-byte memory.fill to store" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $value i32)
+        #|    local.get $dst
+        #|    local.get $value
+        #|    i32.const 8
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected local eight-byte memory.fill optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("i64.store"), msg=pretty)
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("I32(255)"), msg=pretty)
+  assert_true(pretty.contains("i64.extend_i32u"), msg=pretty)
+  assert_true(pretty.contains("i64.mul"), msg=pretty)
+  assert_true(pretty.contains("I64(72340172838076673)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps wider effectful memory.fill values" {
   let optimized = match
     pass_test_run_pipeline(

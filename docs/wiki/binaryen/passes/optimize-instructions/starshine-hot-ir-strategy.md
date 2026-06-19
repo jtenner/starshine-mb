@@ -13,6 +13,7 @@ sources:
   - ../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md
   - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
   - ../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md
+  - ../../../raw/research/0736-2026-06-19-optimize-instructions-oi-g-local-eight-fill.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -53,7 +54,7 @@ Its center of gravity is:
 - nested boolean-`if` normalization and `eqz` wrapping
 - constant-condition `select` cleanup when the dropped arm is side-effect-free
 - byte-sized `memory.copy` lowering for constant size `1`
-- constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`)
+- constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`)
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -113,6 +114,7 @@ The fastest read-along path is:
   - `optimize_instructions_repeated_fill_i32(...)`
   - `optimize_instructions_repeated_fill_i64(...)`
   - `optimize_instructions_repeated_fill_i32_for_local_get(...)`
+  - `optimize_instructions_repeated_fill_i64_for_local_get(...)`
   - `optimize_instructions_try_expand_tiny_memory_copy(...)`
   - `optimize_instructions_try_expand_tiny_memory_fill(...)`
   - `optimize_instructions_try_collapse_duplicate_then_branch(...)`
@@ -255,12 +257,12 @@ The local pass now covers no-mode-dependent upstream bulk-memory shapes in narro
 - constant-value size `8` `memory.fill` to repeated-byte `i64.store`
 - local.get value size `2` `memory.fill` to `(value & 255) * 257` plus `i32.store16`
 - local.get value size `4` `memory.fill` to `(value & 255) * 16843009` plus `i32.store`
+- local.get value size `8` `memory.fill` to `i64.extend_i32_u(value & 255) * 72340172838076673` plus `i64.store`
 
 The local pass still does not cover broader upstream families like:
 
 - wider tiny constant-size `memory.copy` to load/store or multi-store sequences
 - arbitrary or effectful nonconstant wider `memory.fill` value materialization
-- size-8 nonconstant `memory.fill` value materialization with an explicit i64 expression proof
 - trap-relaxing zero-size bulk-memory cleanup
 - memory64-focused fixtures beyond accepting a constant `i64` size operand in the helper
 - stored-value and offset canonicalization for the general load/store surface

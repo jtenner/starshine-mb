@@ -2689,6 +2689,30 @@ fn optimize_instructions_build_i32_binary(
 }
 
 ///|
+fn optimize_instructions_build_i64_binary(
+  func : @ir.HotFunc,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Int {
+  let node_id = @ir.hot_build_binary(func, @lib.ValType::i64(), lhs_id, rhs_id)
+  @ir.hot_node_exact_instr_set(func, node_id, instr)
+  node_id
+}
+
+///|
+fn optimize_instructions_build_exact_unary(
+  func : @ir.HotFunc,
+  result_ty : @lib.ValType,
+  instr : @lib.Instruction,
+  operand_id : Int,
+) -> Int {
+  let node_id = @ir.hot_build_unary(func, result_ty, operand_id)
+  @ir.hot_node_exact_instr_set(func, node_id, instr)
+  node_id
+}
+
+///|
 fn optimize_instructions_repeated_fill_i32_for_local_get(
   func : @ir.HotFunc,
   local_id : Int,
@@ -2713,6 +2737,32 @@ fn optimize_instructions_repeated_fill_i32_for_local_get(
       masked,
       @ir.hot_build_const_i32(func, multiplier),
     ),
+  )
+}
+
+///|
+fn optimize_instructions_repeated_fill_i64_for_local_get(
+  func : @ir.HotFunc,
+  local_id : Int,
+) -> Int {
+  let value = @ir.hot_build_local_get(func, local_id)
+  let masked = optimize_instructions_build_i32_binary(
+    func,
+    @lib.Instruction::i32_and(),
+    value,
+    @ir.hot_build_const_i32(func, @lib.I32(255)),
+  )
+  let extended = optimize_instructions_build_exact_unary(
+    func,
+    @lib.ValType::i64(),
+    @lib.Instruction::i64_extend_i32u(),
+    masked,
+  )
+  optimize_instructions_build_i64_binary(
+    func,
+    @lib.Instruction::i64_mul(),
+    extended,
+    @ir.hot_build_const_i64(func, @lib.I64(72340172838076673L)),
   )
 }
 
@@ -2822,12 +2872,25 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
       )
     }
     8 => {
-      let repeated = match
+      let repeated_id = match
         optimize_instructions_i32_const(func, dead, value_id) {
-        Some(@lib.I32(raw)) => optimize_instructions_repeated_fill_i64(raw)
-        _ => return false
+        Some(@lib.I32(raw)) =>
+          @ir.hot_build_const_i64(
+            func,
+            optimize_instructions_repeated_fill_i64(raw),
+          )
+        _ => {
+          let value = @ir.hot_node_get(func, value_id)
+          match value.op {
+            @ir.HotOp::LocalGet =>
+              optimize_instructions_repeated_fill_i64_for_local_get(
+                func,
+                value.imm0,
+              )
+            _ => return false
+          }
+        }
       }
-      let repeated_id = @ir.hot_build_const_i64(func, repeated)
       optimize_instructions_replace_with_store_exact(
         ctx,
         func,
