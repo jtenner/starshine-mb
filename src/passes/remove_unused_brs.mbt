@@ -3499,6 +3499,165 @@ fn remove_unused_brs_try_drop_self_targeting_br_table_block(
 }
 
 ///|
+fn remove_unused_brs_condition_is_safe_to_speculate(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const
+    | @ir.HotOp::LocalGet
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::MemorySize
+    | @ir.HotOp::TableSize
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefIsNull
+    | @ir.HotOp::RefFunc => true
+    @ir.HotOp::Unary | @ir.HotOp::Compare => {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if !remove_unused_brs_condition_is_safe_to_speculate(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    @ir.HotOp::Binary => {
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(
+          @lib.Instruction::I32Add
+          | @lib.Instruction::I32Sub
+          | @lib.Instruction::I32Mul
+          | @lib.Instruction::I32And
+          | @lib.Instruction::I32Or
+          | @lib.Instruction::I32Xor
+          | @lib.Instruction::I32Shl
+          | @lib.Instruction::I32ShrS
+          | @lib.Instruction::I32ShrU
+          | @lib.Instruction::I32Rotl
+          | @lib.Instruction::I32Rotr
+          | @lib.Instruction::I64Add
+          | @lib.Instruction::I64Sub
+          | @lib.Instruction::I64Mul
+          | @lib.Instruction::I64And
+          | @lib.Instruction::I64Or
+          | @lib.Instruction::I64Xor
+          | @lib.Instruction::I64Shl
+          | @lib.Instruction::I64ShrS
+          | @lib.Instruction::I64ShrU
+          | @lib.Instruction::I64Rotl
+          | @lib.Instruction::I64Rotr
+        ) => ()
+        _ => return false
+      }
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if !remove_unused_brs_condition_is_safe_to_speculate(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn remove_unused_brs_try_merge_adjacent_br_ifs(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  if ctx.shrink_level <= 0 ||
+    idx < 0 ||
+    idx + 1 >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let br1 = @ir.hot_region_get(func, region_ref, idx)
+  let br2 = @ir.hot_region_get(func, region_ref, idx + 1)
+  if br1 < 0 ||
+    br2 < 0 ||
+    !@ir.hot_node_is_live(func, br1) ||
+    !@ir.hot_node_is_live(func, br2) {
+    return false
+  }
+  let br1_node = @ir.hot_node_get(func, br1)
+  match br1_node.op {
+    @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+
+  if br1_node.child_count == 0 &&
+    idx > 0 &&
+    idx + 2 < @ir.hot_region_root_count(func, region_ref) {
+    let cond1 = @ir.hot_region_get(func, region_ref, idx - 1)
+    let cond2 = @ir.hot_region_get(func, region_ref, idx + 1)
+    let br2 = @ir.hot_region_get(func, region_ref, idx + 2)
+    if cond1 < 0 ||
+      cond2 < 0 ||
+      br2 < 0 ||
+      !@ir.hot_node_is_live(func, cond1) ||
+      !@ir.hot_node_is_live(func, cond2) ||
+      !@ir.hot_node_is_live(func, br2) {
+      return false
+    }
+    let br2_node = @ir.hot_node_get(func, br2)
+    match br2_node.op {
+      @ir.HotOp::BrIf => ()
+      _ => return false
+    }
+    if br2_node.child_count != 0 ||
+      @ir.hot_branch_target(func, br1) != @ir.hot_branch_target(func, br2) ||
+      !remove_unused_brs_condition_is_safe_to_speculate(func, cond2) {
+      return false
+    }
+    let target = match @ir.hot_branch_target(func, br1) {
+      Some(label) => label
+      None => return false
+    }
+    let merged = @ir.hot_build_binary(func, @lib.ValType::i32(), cond1, cond2)
+    @ir.hot_node_exact_instr_set(func, merged, @lib.Instruction::i32_or())
+    let branch = @ir.hot_build_br_if(func, target, merged)
+    let removed = pass_splice_region(ctx, func, region_ref, idx - 1, 4, [branch])
+    remove_unused_brs_mark_mutated(ctx, func, "merge-adjacent-stack-br-if-or")
+    remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+    return true
+  }
+
+  let br2_node = @ir.hot_node_get(func, br2)
+  match br2_node.op {
+    @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+  if br1_node.child_count != 1 ||
+    br2_node.child_count != 1 ||
+    @ir.hot_branch_target(func, br1) != @ir.hot_branch_target(func, br2) {
+    return false
+  }
+  let cond1 = @ir.hot_child_get(func, br1, 0)
+  let cond2 = @ir.hot_child_get(func, br2, 0)
+  if !remove_unused_brs_condition_is_safe_to_speculate(func, cond2) {
+    return false
+  }
+
+  let merged = @ir.hot_build_binary(func, @lib.ValType::i32(), cond1, cond2)
+  @ir.hot_node_exact_instr_set(func, merged, @lib.Instruction::i32_or())
+  @ir.hot_child_set(func, br1, 0, merged)
+  let removed = pass_splice_region(ctx, func, region_ref, idx + 1, 1, [])
+  remove_unused_brs_mark_mutated(ctx, func, "merge-adjacent-br-if-or")
+  remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+  true
+}
+
+///|
 fn remove_unused_brs_try_rewrite_br_table_continuation_wrappers(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7836,6 +7995,12 @@ fn remove_unused_brs_visit_region(
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::BrIf => {
         if remove_unused_brs_try_fold_constant_br_if(
+            ctx, func, region_ref, current_idx,
+          ) {
+          changed = true
+          continue
+        }
+        if remove_unused_brs_try_merge_adjacent_br_ifs(
             ctx, func, region_ref, current_idx,
           ) {
           changed = true

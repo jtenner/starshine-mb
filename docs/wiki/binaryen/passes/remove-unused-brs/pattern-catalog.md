@@ -380,6 +380,13 @@ Detailed page:
   Normalizes the one-arm `if (eqz cond) { suffix; br $loop }` shape exposed by earlier cleanup into Binaryen's `if cond then empty-exit else suffix/backedge` form.
   Covered by:
   - `moves loop backedge suffix behind single-use block-exit br_if`
+- `remove_unused_brs_try_merge_adjacent_br_ifs(...)`
+  Mirrors Binaryen's shrink-only adjacent same-target `br_if` merge for the no-payload safe subset. It handles both child-form and lifted stack-form branch conditions, builds an `i32.or` condition, and refuses target mismatches or later conditions that are not locally safe to speculate. The O4z raw gate admits only simple stack-condition candidates for this HOT rewrite; branch-hint `applyOrTo`, branch payloads, broad cost/effect modeling, and `never-unconditionalize` remain separate boundaries.
+  Covered by:
+  - `shrink merges adjacent br_if conditions to same target`
+  - `keeps adjacent br_if separate without shrink`
+  - `keeps adjacent br_if separate for target mismatch`
+  - `keeps adjacent br_if separate when second condition has effects`
 - `remove_unused_brs_try_sink_single_if_exit_block(...)`
   Mirrors the safe void subset of Binaryen `sinkBlocks(...)` for a named block whose sole child is an `if`: if the condition does not target the block label, exactly one multi-root arm uses the label, and the opposite arm does not, the block moves into the label-using arm. It deliberately leaves result-typed sinks, direct unreachable-condition sink assertions, and single-root branch-tail arms to existing cleanup/fail-closed behavior.
   Covered by:

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/remove-unused-brs | Add adjacent br_if merge safe subset
+
+- Completed `[O4Z-AUDIT-RUB-H]` for the shrink-mode no-payload adjacent `br_if` merge family in Binaryen `FinalOptimizer::visitBlock`. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now merges adjacent same-target `br_if` roots by building an `i32.or` condition when the later condition is locally safe to speculate, for both child-form and lifted stack-form branch conditions.
+- [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) now carries optimize/shrink levels into `HotPassContext` and lets the O4z raw no-op gate lift simple stack-form adjacent `br_if` candidates instead of hiding the HOT rewrite. The raw layer only detects simple candidates; HOT still owns target equality, payload rejection, and effect safety.
+- Added focused coverage in [`../../src/passes/remove_unused_brs_test.mbt`](../../src/passes/remove_unused_brs_test.mbt) for O4z/shrink positive merging, no-shrink preservation, target-mismatch preservation, and effectful-later-condition preservation. Updated [`binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md`](binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md), [`binaryen/passes/remove-unused-brs/pattern-catalog.md`](binaryen/passes/remove-unused-brs/pattern-catalog.md), [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md), [`binaryen/passes/remove-unused-brs/visit-order-and-bailouts.md`](binaryen/passes/remove-unused-brs/visit-order-and-bailouts.md), and [`../../agent-todo.md`](../../agent-todo.md). Branch-hint `applyOrTo`, adjacent `br_if` + unconditional `br`, broad cost/effect modeling, and `never-unconditionalize` remain under `[O4Z-AUDIT-RUB-N]` / later final-optimizer slices.
+
 ## [2026-06-19] passes/remove-unused-brs | Add JumpThreader br_if retargeting safe subset
 
 - Continued `[O4Z-AUDIT-RUB-G]` with the conditional no-payload subset of Binaryen `JumpThreader`. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now retargets `br_if` branches through one-child named block shells and from child blocks to a following simple jump destination, while keeping direct unconditional `br`, `br_table`, payload sent-type, and full `replacePossibleTarget` parity as documented reopening criteria.

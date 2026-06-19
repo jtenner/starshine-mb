@@ -66,6 +66,31 @@ fn remove_unused_brs_test_has_childless_br_to_label(
 }
 
 ///|
+fn remove_unused_brs_test_has_or_br_if(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::BrIf => {
+        let child_count = @ir.hot_child_count(func, node_id)
+        if child_count != 1 {
+          continue
+        }
+        let condition = @ir.hot_child_get(func, node_id, child_count - 1)
+        match @ir.hot_node_get(func, condition).op {
+          @ir.HotOp::Binary if @ir.hot_node_exact_instr(func, condition) ==
+            Some(@lib.Instruction::i32_or()) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn remove_unused_brs_large_jsonas_dispatch_fixture() -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (param i32) (result i32) (local i32")
@@ -3407,6 +3432,101 @@ test "remove-unused-brs retargets child block branches to a following simple jum
   let child = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
   let branch = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, child), 0)
   assert_eq(@ir.hot_branch_target(func, branch), Some(outer_label))
+}
+
+///|
+test "remove-unused-brs shrink merges adjacent br_if conditions to same target" {
+  let source =
+    #| (module
+    #|   (func (param i32 i32)
+    #|     (block $exit
+    #|       (br_if $exit (local.get 0))
+    #|       (br_if $exit (local.get 1))
+    #|       (drop (i32.const 9)))))
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected adjacent br_if merge success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.or"), msg=pretty)
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  assert_true(remove_unused_brs_test_has_or_br_if(func), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps adjacent br_if separate without shrink" {
+  let source =
+    #| (module
+    #|   (func (param i32 i32)
+    #|     (block $exit
+    #|       (br_if $exit (local.get 0))
+    #|       (br_if $exit (local.get 1))
+    #|       (drop (i32.const 9)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected adjacent br_if no-shrink success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.or"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps adjacent br_if separate for target mismatch" {
+  let source =
+    #| (module
+    #|   (func (param i32 i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (br_if $outer (local.get 0))
+    #|         (br_if $inner (local.get 1))
+    #|         (drop (i32.const 9)))
+    #|       (drop (i32.const 10)))))
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected adjacent br_if target negative success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.or"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps adjacent br_if separate when second condition has effects" {
+  let source =
+    #| (module
+    #|   (func $side (result i32) (i32.const 1))
+    #|   (func (param i32)
+    #|     (block $exit
+    #|       (br_if $exit (local.get 0))
+    #|       (br_if $exit (call $side))
+    #|       (drop (i32.const 9)))))
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected adjacent br_if effect negative success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("i32.or"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
 }
 
 ///|

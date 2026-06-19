@@ -88,6 +88,8 @@ For `[O4Z-AUDIT-RUB-E]`, the raw candidate gate was extended narrowly: `try_tabl
 
 For `[O4Z-AUDIT-RUB-F]`, the final raw candidate gate now treats `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as HOT candidates. This is also not a raw rewrite: the HOT matcher owns the nullability/cast proof and still fails closed for payload-bearing BrOn nodes and descriptor variants not represented by local `Instruction` / `HotOp`.
 
+For `[O4Z-AUDIT-RUB-H]`, the O4z raw no-op gate now admits only simple stack-form adjacent same-target `br_if` candidates whose two conditions are single decoded instructions such as `local.get` or `i32.const`. The raw layer does not merge them; it only avoids hiding the shrink-mode HOT `i32.or` rewrite. Broader condition safety, target equality after lift, payload rejection, and effect hazards remain in HOT.
+
 The latest example is the prefix-guard detector that cancels `structured-return-ladder-noop`.
 
 - It used to treat any later `br_if 0` inside the first void block of a result block as a carried-guard candidate.

@@ -71,6 +71,8 @@ pub struct HotPassContext {
   cache : @ir.HotAnalysisCache
   verify_policy : HotPipelineVerifyPolicy
   closed_world : Bool
+  optimize_level : Int
+  shrink_level : Int
   trace : (String) -> Unit
   perf : HotPerfSession?
   module_ctx : @ir.HotModuleContext?
@@ -85,8 +87,20 @@ pub fn HotPassContext::new(
   trace : (String) -> Unit,
   perf? : HotPerfSession? = None,
   module_ctx? : @ir.HotModuleContext? = None,
+  optimize_level? : Int = 0,
+  shrink_level? : Int = 0,
 ) -> HotPassContext {
-  { descriptor, cache, verify_policy, closed_world, trace, perf, module_ctx }
+  {
+    descriptor,
+    cache,
+    verify_policy,
+    closed_world,
+    optimize_level,
+    shrink_level,
+    trace,
+    perf,
+    module_ctx,
+  }
 }
 
 ///|
@@ -1812,6 +1826,72 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candid
         match else_body {
           Some(else_body) =>
             if run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_instr_is_simple_br_if_condition(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.MemorySize(_)
+    | @lib.TableSize(_)
+    | @lib.RefNull(_)
+    | @lib.RefIsNull => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_adjacent_br_if_merge_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut idx = 0
+  while idx + 3 < instrs.length() {
+    match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+      (cond1, @lib.BrIf(label1), cond2, @lib.BrIf(label2)) if label1 == label2 &&
+        run_hot_pipeline_raw_remove_unused_brs_instr_is_simple_br_if_condition(
+          cond1,
+        ) &&
+        run_hot_pipeline_raw_remove_unused_brs_instr_is_simple_br_if_condition(
+          cond2,
+        ) => return true
+      _ => ()
+    }
+    idx += 1
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_adjacent_br_if_merge_candidate(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_adjacent_br_if_merge_candidate(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_adjacent_br_if_merge_candidate(
                 else_body,
               ) {
               return true
@@ -23831,6 +23911,9 @@ fn run_hot_pipeline_raw_remove_unused_brs(
     options.shrink_level >= 1 &&
     !run_hot_pipeline_raw_remove_unused_brs_has_nested_large_mostly_default_stack_switch(
       instrs, 0,
+    ) &&
+    !run_hot_pipeline_raw_remove_unused_brs_has_adjacent_br_if_merge_candidate(
+      instrs,
     ) {
     return Some({
       reason: "o4z-remove-unused-brs-noop",
@@ -24903,6 +24986,8 @@ fn run_hot_pipeline_func(
     options.trace,
     perf=options.perf,
     module_ctx=Some(module_ctx),
+    optimize_level=options.optimize_level,
+    shrink_level=options.shrink_level,
   )
   match hot_pass_run(ctx, func) {
     Ok(result) =>
@@ -25876,6 +25961,8 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             options.trace,
             perf=options.perf,
             module_ctx=Some(module_ctx),
+            optimize_level=options.optimize_level,
+            shrink_level=options.shrink_level,
           )
           match hot_pass_run(ctx, func) {
             Ok(_) => ()
