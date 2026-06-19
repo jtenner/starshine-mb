@@ -7289,7 +7289,7 @@ fn run_hot_pipeline_dce_raw_block_single_result_type(
   instr : @lib.Instruction,
 ) -> @lib.ValType? {
   match instr {
-    @lib.Block(block_type, _) =>
+    @lib.Block(block_type, _) | @lib.Loop(block_type, _) =>
       match env.expand_blocktype(block_type) {
         Ok((params, results)) if params.length() == 0 && results.length() == 1 =>
           Some(results[0])

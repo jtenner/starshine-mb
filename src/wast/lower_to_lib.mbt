@@ -4346,7 +4346,7 @@ fn wt_legacy_pop_dead_call_param_tail_payload_supported(
             results.length() == 1 => prefix_depth = prefix_depth + 1
           _ => return false
         }
-      @lib.Block(block_type, _) =>
+      @lib.Block(block_type, _) | @lib.Loop(block_type, _) =>
         match env.expand_blocktype(block_type) {
           Ok((params, results)) if params.length() == 0 && results.length() == 1 =>
             prefix_depth = prefix_depth + 1
