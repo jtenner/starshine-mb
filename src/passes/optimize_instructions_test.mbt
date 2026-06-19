@@ -11,25 +11,167 @@ fn optimize_instructions_large_local_fixture() -> String {
 }
 
 ///|
-test "optimize-instructions skips very large local-heavy functions" {
+fn optimize_instructions_large_lowered_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (local")
+  for i = 0; i < 65; i = i + 1 {
+    let _ = i
+    out.write_string(" i32")
+  }
+  out.write_string(")")
+  for i = 0; i < 260; i = i + 1 {
+    let _ = i
+    out.write_string(" i32.const 0 drop")
+  }
+  out.write_string("))")
+  out.to_string()
+}
+
+///|
+fn optimize_instructions_structured_gate_fixture(
+  repeats : Int,
+  extra_calls : Int,
+  extra_writes : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module (import \"m\" \"touch\" (func $touch)) (func (local i32)",
+  )
+  for i = 0; i < repeats; i = i + 1 {
+    out.write_string(" (block $b")
+    out.write_string(i.to_string())
+    out.write_string(
+      " i32.const 0 if call $touch i32.const 0 local.set 0 br $b",
+    )
+    out.write_string(i.to_string())
+    out.write_string(" else i32.const 1 local.set 0 return end)")
+  }
+  for i = 0; i < extra_calls; i = i + 1 {
+    let _ = i
+    out.write_string(" call $touch")
+  }
+  for i = 0; i < extra_writes; i = i + 1 {
+    let _ = i
+    out.write_string(" i32.const 0 local.set 0")
+  }
+  out.write_string("))")
+  out.to_string()
+}
+
+///|
+fn optimize_instructions_loop_gate_fixture() -> String {
+  (
+    #|(module
+    #|  (import "m" "touch" (func $touch))
+    #|  (func (local i32)
+    #|    (loop $l
+    #|      i32.const 0
+    #|      if
+    #|        call $touch
+    #|        i32.const 0
+    #|        local.set 0
+    #|        i32.const 1
+    #|        local.set 0
+    #|        i32.const 2
+    #|        local.set 0
+    #|        i32.const 3
+    #|        local.set 0
+    #|        br $l
+    #|      end)))
+    #|,
+  )
+}
+
+///|
+fn optimize_instructions_assert_skip_reason(
+  text : String,
+  reason : String,
+) -> Unit raise {
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
-      optimize_instructions_large_local_fixture(),
+      text,
       ["optimize-instructions"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
     Ok(_) => ()
-    Err(err) =>
-      fail("expected large optimize-instructions skip success, got \{err}")
+    Err(err) => fail("expected optimize-instructions skip success, got \{err}")
   }
   assert_true(
     trace.any(fn(line) {
-      line.contains(
-        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
-      )
+      line.contains("pass[optimize-instructions]:skip-raw reason=\{reason}")
     }),
+    msg="expected skip reason \{reason} in \{trace}",
   )
+}
+
+///|
+test "optimize-instructions skips very large local-heavy functions" {
+  optimize_instructions_assert_skip_reason(
+    optimize_instructions_large_local_fixture(),
+    "large-local-optimize-instructions",
+  )
+}
+
+///|
+test "optimize-instructions skips large lowered functions" {
+  optimize_instructions_assert_skip_reason(
+    optimize_instructions_large_lowered_fixture(),
+    "large-lowered-optimize-instructions-noop",
+  )
+}
+
+///|
+test "optimize-instructions skips structured call and branch meshes with precise reason" {
+  optimize_instructions_assert_skip_reason(
+    optimize_instructions_structured_gate_fixture(10, 6, 0),
+    "structured-call-branch-optimize-instructions-noop",
+  )
+}
+
+///|
+test "optimize-instructions skips block return call branch meshes below structured threshold" {
+  optimize_instructions_assert_skip_reason(
+    optimize_instructions_structured_gate_fixture(5, 7, 10),
+    "block-return-call-branch-optimize-instructions-noop",
+  )
+}
+
+///|
+test "optimize-instructions skips loop branch local writes below block threshold" {
+  optimize_instructions_assert_skip_reason(
+    optimize_instructions_loop_gate_fixture(),
+    "loop-branch-local-write-optimize-instructions-noop",
+  )
+}
+
+///|
+test "optimize-instructions public pipeline still cleans neutral add outside raw gates" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32)
+        #|    local.get 0
+        #|    i32.const 0
+        #|    i32.add))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions cleanup success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[optimize-instructions]:skip-raw") }),
+    msg="unexpected raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
 }
 
 ///|

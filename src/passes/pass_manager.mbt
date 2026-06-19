@@ -22538,22 +22538,6 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if stats.loads > 0 && stats.calls > 0 {
-    return Some({
-      reason: "load-call-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
-  if stats.calls > 0 && stats.local_writes > 0 {
-    return Some({
-      reason: "call-local-write-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
   if locals.length() <= 64 &&
     stats.blocks >= 3 &&
     stats.ifs >= 7 &&
@@ -22590,6 +22574,22 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     stats.local_writes >= 4 {
     return Some({
       reason: "loop-branch-local-write-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if stats.loads > 0 && stats.calls > 0 {
+    return Some({
+      reason: "load-call-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if stats.calls > 0 && stats.local_writes > 0 {
+    return Some({
+      reason: "call-local-write-optimize-instructions-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
