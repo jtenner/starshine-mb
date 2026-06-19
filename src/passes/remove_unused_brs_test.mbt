@@ -3311,26 +3311,52 @@ test "remove-unused-brs offsets leading default value br_table targets" {
 }
 
 ///|
-test "remove-unused-brs keeps default-only value br_table instead of branch lowering" {
+test "remove-unused-brs collapses one-target value br_table with local selector" {
   let source =
     #|(module
     #|  (func (param i32)
     #|    (block $default (result i32)
     #|      (i32.const 42)
     #|      (local.get 0)
-    #|      (br_table $default))
+    #|      (br_table $default $default $default))
     #|    drop))
   let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected remove-unused-brs default-only value br_table success, got \{err}",
+        "expected remove-unused-brs one-target value br_table success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(42)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps one-target value br_table when selector cannot move before value" {
+  let source =
+    #|(module
+    #|  (import "env" "value" (func $value (result i32)))
+    #|  (import "env" "selector" (func $selector (result i32)))
+    #|  (func
+    #|    (block $default (result i32)
+    #|      (call $value)
+    #|      (call $selector)
+    #|      (br_table $default $default))
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs unsafe one-target value br_table success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(pretty.contains("br_table"), msg=pretty)
-  assert_false(pretty.contains("(if"), msg=pretty)
 }
 
 ///|

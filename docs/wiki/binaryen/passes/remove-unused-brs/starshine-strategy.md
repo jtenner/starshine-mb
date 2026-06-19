@@ -49,6 +49,7 @@ The implemented center of gravity is:
 - one-arm and two-arm `if` cleanup
 - `br_if` / `select` canonicalization
 - `br_if` equality ladders to `br_table`
+- one-target value `br_table` collapse when selector/value order is locally safe
 - block-local payload and result-block cleanup
 - `br_table` continuation-wrapper repair
 - loop rotation and block sinking
@@ -91,7 +92,7 @@ The current HOT engine rewrites:
 
 ### 3. Equality ladders and wrapper repair
 
-The local pass can turn dense `br_if eq const` ladders into `br_table`, and it can retarget `br_table` continuation wrappers to the outer exit when the wrapper is redundant.
+The local pass can turn dense `br_if eq const` ladders into `br_table`, collapse lifted one-target value `br_table`s to a dropped selector plus payload branch when the selector/value order is locally safe, and retarget `br_table` continuation wrappers to the outer exit when the wrapper is redundant.
 
 ### 4. Loop and block shaping
 
@@ -124,7 +125,7 @@ The local pass does not yet model the upstream visitor families for:
 - the full GC `br_on_*` surface beyond the single-ref-child safe subset (`br_on_null`, `br_on_non_null`, successful `br_on_cast`, and not-taken `br_on_cast_fail`)
 - branch-hint propagation remains unsupported until Starshine grows expression-level code-metadata representation, parser/lowerer/binary policy, and pass-remap tests
 - the full `throw`/`try_table` cleanup family beyond the safe exact-catch and non-ref `catch_all` subset
-- final-optimizer behavior outside the completed `tablify` dense-ladder, direct `selectify`, local `restructureIf` self-branch, and local `optimizeSetIf` slices, especially late switch collapse; metadata-aware variants are blocked on the branch-hint representation boundary
+- final-optimizer behavior outside the completed `tablify` dense-ladder, late one-target value-switch collapse, direct `selectify`, local `restructureIf` self-branch, and local `optimizeSetIf` slices; metadata-aware variants are blocked on the branch-hint representation boundary
 - broader helper-driven motion checks around label scopes and unconditionalization
 - a literal AST-postwalk implementation inside one owner file
 

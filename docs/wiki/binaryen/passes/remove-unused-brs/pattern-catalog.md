@@ -331,13 +331,14 @@ Detailed page:
   - `rewrites stack-style branch-payload result wrappers around br_if prefixes`
   - `rewrites sibling-carried branch payload wrappers around br_if prefixes`
 - `remove_unused_brs_try_optimize_switch(...)`
-  Mirrors the safe early subset of Binaryen's `optimizeSwitch(...)`: trims trailing explicit default targets, offsets leading explicit defaults by subtracting from the selector, preserves value-carrying payload children while applying those target-list cleanups, lowers no-payload default-only tables to a dropped selector plus branch, lowers no-payload one-explicit-target/two-option tables to branch-if structure, and lowers no-payload large mostly-default nested stack-style tables to nested `if` form once the narrow O4z raw-gate exception exposes the exact innermost stack-selector region. Value-carrying tables deliberately stop after target-list cleanup because Binaryen bails before condition-reordering switch-to-branch lowerings when a switch carries a value; child-less local stack-payload switch shapes stay conservative.
+  Mirrors the safe early subset of Binaryen's `optimizeSwitch(...)`: trims trailing explicit default targets, offsets leading explicit defaults by subtracting from the selector, preserves value-carrying payload children while applying those target-list cleanups, lowers no-payload default-only tables to a dropped selector plus branch, lowers no-payload one-explicit-target/two-option tables to branch-if structure, and lowers no-payload large mostly-default nested stack-style tables to nested `if` form once the narrow O4z raw-gate exception exposes the exact innermost stack-selector region. The RUB-P extension also covers Binaryen's late `FinalOptimizer::visitSwitch(...)` one-target value-switch collapse for lifted HOT value switches when the selector is a const/local.get and every payload value is locally reorder-safe, rewriting the table to `drop(selector); br payload`. Effectful selector/value pairs remain conservative, and child-less local stack-payload switch shapes stay conservative.
   Covered by:
   - `remove-unused-brs trims trailing default br_table targets`
   - `remove-unused-brs offsets leading default br_table targets`
   - `remove-unused-brs trims trailing default value br_table targets`
   - `remove-unused-brs offsets leading default value br_table targets`
-  - `remove-unused-brs keeps default-only value br_table instead of branch lowering`
+  - `remove-unused-brs collapses one-target value br_table with local selector`
+  - `remove-unused-brs keeps one-target value br_table when selector cannot move before value`
   - `remove-unused-brs keeps two-option value br_table instead of branch-if lowering`
   - `remove-unused-brs lowers default-only br_table to dropped selector branch`
   - `remove-unused-brs lowers two-option br_table to branch if structure`

@@ -3403,11 +3403,35 @@ fn remove_unused_brs_try_rewrite_branches_to_trap_block(
 }
 
 ///|
+fn remove_unused_brs_switch_selector_can_move_before_values(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  selector : Int,
+  values : Array[Int],
+  reorder_cache : Array[Int],
+) -> Bool {
+  if !remove_unused_brs_node_is_reorder_safe(ctx, func, selector, reorder_cache) {
+    return false
+  }
+  match @ir.hot_node_get(func, selector).op {
+    @ir.HotOp::Const | @ir.HotOp::LocalGet => ()
+    _ => return false
+  }
+  for value in values {
+    if !remove_unused_brs_node_is_reorder_safe(ctx, func, value, reorder_cache) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn remove_unused_brs_try_optimize_switch(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   idx : Int,
+  reorder_cache : Array[Int],
 ) -> Bool {
   if idx < 0 || idx >= @ir.hot_region_root_count(func, region_ref) {
     return false
@@ -3485,6 +3509,23 @@ fn remove_unused_brs_try_optimize_switch(
   }
 
   if value_carrying {
+    if targets.length() == 0 &&
+      remove_unused_brs_switch_selector_can_move_before_values(
+        ctx, func, condition, values, reorder_cache,
+      ) {
+      let drop_selector = @ir.hot_build_drop(func, condition)
+      let br = @ir.hot_build_br(func, default_target, values~)
+      let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+        drop_selector, br,
+      ])
+      let detached : Array[Int] = [block]
+      @ir.hot_replace_node(func, br_table_id, @ir.hot_node_get(func, block))
+      remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+      remove_unused_brs_mark_mutated(
+        ctx, func, "optimize-switch-one-target-value",
+      )
+      return true
+    }
     if targets.length() != original_targets_len || leading_defaults > 0 {
       let replacement = @ir.hot_build_br_table(
         func,
@@ -8509,7 +8550,7 @@ fn remove_unused_brs_visit_region(
       }
       @ir.HotOp::BrTable =>
         if remove_unused_brs_try_optimize_switch(
-            ctx, func, region_ref, current_idx,
+            ctx, func, region_ref, current_idx, reorder_cache,
           ) {
           changed = true
           continue
