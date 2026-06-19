@@ -924,6 +924,82 @@ test "optimize-instructions expands tiny constant memory.fill to store" {
 }
 
 ///|
+test "optimize-instructions expands constant two-byte memory.fill to store16" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    i32.const 171
+        #|    i32.const 2
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected two-byte memory.fill optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("i32.store16"), msg=pretty)
+  assert_true(pretty.contains("I32(43947)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions expands constant four-byte memory.fill to store" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    i32.const 127
+        #|    i32.const 4
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected four-byte memory.fill optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("I32(2139062143)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions keeps wider nonconstant memory.fill values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $value i32)
+        #|    local.get $dst
+        #|    local.get $value
+        #|    i32.const 2
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nonconstant memory.fill boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps zero-size memory.fill without trap mode support" {
   let optimized = match
     pass_test_run_pipeline(

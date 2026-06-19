@@ -2608,6 +2608,25 @@ fn optimize_instructions_memarg_for_mem_idx(mem_idx : Int) -> @lib.MemArg {
 }
 
 ///|
+fn optimize_instructions_replace_with_store_exact(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  mem_idx : Int,
+  address_id : Int,
+  value_id : Int,
+  instr_for_memarg : (@lib.MemArg) -> @lib.Instruction,
+) -> Unit {
+  let memarg = optimize_instructions_memarg_for_mem_idx(mem_idx)
+  let temp = @ir.hot_build_store(func, memarg, address_id, value_id)
+  @ir.hot_node_exact_instr_set(func, temp, instr_for_memarg(memarg))
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_replace_with_store8(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2616,13 +2635,30 @@ fn optimize_instructions_replace_with_store8(
   address_id : Int,
   value_id : Int,
 ) -> Unit {
-  let memarg = optimize_instructions_memarg_for_mem_idx(mem_idx)
-  let temp = @ir.hot_build_store(func, memarg, address_id, value_id)
-  @ir.hot_node_exact_instr_set(func, temp, @lib.Instruction::i32_store8(memarg))
-  let replacement = @ir.hot_node_get(func, temp)
-  @ir.hot_delete_node(func, temp)
-  @ir.hot_replace_node(func, node_id, replacement)
-  pass_mark_mutated(ctx, func)
+  optimize_instructions_replace_with_store_exact(
+    ctx,
+    func,
+    node_id,
+    mem_idx,
+    address_id,
+    value_id,
+    @lib.Instruction::i32_store8,
+  )
+}
+
+///|
+fn optimize_instructions_repeated_fill_i32(raw : Int, size : Int) -> @lib.I32? {
+  let byte = raw.reinterpret_as_uint() & 0xff
+  match size {
+    2 => Some(@lib.I32((byte | (byte << 8)).reinterpret_as_int()))
+    4 =>
+      Some(
+        @lib.I32(
+          (byte | (byte << 8) | (byte << 16) | (byte << 24)).reinterpret_as_int(),
+        ),
+      )
+    _ => None
+  }
 }
 
 ///|
@@ -2673,20 +2709,51 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
     return false
   }
   let size_id = @ir.hot_child_get(func, node_id, 2)
-  match optimize_instructions_const_memory_size(func, dead, size_id) {
-    Some(1) => ()
+  let size = match
+    optimize_instructions_const_memory_size(func, dead, size_id) {
+    Some(size) => size
     _ => return false
   }
   let dst_id = @ir.hot_child_get(func, node_id, 0)
   let value_id = @ir.hot_child_get(func, node_id, 1)
-  optimize_instructions_replace_with_store8(
-    ctx,
-    func,
-    node_id,
-    node.imm0,
-    dst_id,
-    value_id,
-  )
+  match size {
+    1 =>
+      optimize_instructions_replace_with_store8(
+        ctx,
+        func,
+        node_id,
+        node.imm0,
+        dst_id,
+        value_id,
+      )
+    2 | 4 => {
+      let repeated = match
+        optimize_instructions_i32_const(func, dead, value_id) {
+        Some(@lib.I32(raw)) =>
+          match optimize_instructions_repeated_fill_i32(raw, size) {
+            Some(value) => value
+            None => return false
+          }
+        _ => return false
+      }
+      let repeated_id = @ir.hot_build_const_i32(func, repeated)
+      let instr_for_memarg = match size {
+        2 => @lib.Instruction::i32_store16
+        4 => @lib.Instruction::i32_store
+        _ => return false
+      }
+      optimize_instructions_replace_with_store_exact(
+        ctx,
+        func,
+        node_id,
+        node.imm0,
+        dst_id,
+        repeated_id,
+        instr_for_memarg,
+      )
+    }
+    _ => return false
+  }
   true
 }
 
