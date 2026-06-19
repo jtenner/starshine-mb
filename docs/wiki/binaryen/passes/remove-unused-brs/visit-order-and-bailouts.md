@@ -188,7 +188,7 @@ The relevant perf tests prove that these families still pay lift cost but skip t
 Instead, it first checks root-local patterns in this rough order:
 
 - `br_if` equality ladder to `br_table`
-- block-root cleanup (`sink_if_arm_self_branch_block`, `inline_single_br_if_block`, `br_table` continuation wrappers, `block_prefix_payload_branch_root`, `rotate_void_block_single_loop`)
+- block-root cleanup (`sink_if_arm_self_branch_block`, `inline_single_br_if_block`, branch-to-trap for simple branches to a following `unreachable`, `br_table` continuation wrappers, `block_prefix_payload_branch_root`, `rotate_void_block_single_loop`)
 - dropped result-block cleanup
 - outer `br` payload cleanup
 - region-level `if` cleanup

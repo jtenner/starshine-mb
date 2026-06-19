@@ -2691,6 +2691,86 @@ test "remove-unused-brs rewrites repeated branch-target equality ladders into br
 }
 
 ///|
+test "remove-unused-brs turns simple branches to trap blocks into unreachable" {
+  let source =
+    #| (module
+    #|   (import "a" "b" (func $import))
+    #|   (func (param i32) (result i32)
+    #|     (block $trap
+    #|       (call $import)
+    #|       (br_if $trap (local.get 0))
+    #|       (call $import)
+    #|       (if (local.get 0)
+    #|         (then
+    #|           (call $import)
+    #|           (return (i32.const 0)))
+    #|         (else
+    #|           (call $import)
+    #|           (call $import)
+    #|           (br $trap)))
+    #|       (return (i32.const 1)))
+    #|     (unreachable)))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs branch-to-trap success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(br "), msg=pretty)
+}
+
+///|
+test "remove-unused-brs turns br_table-dispatch branches to trap blocks into unreachable" {
+  let source =
+    #| (module
+    #|   (import "a" "b" (func $import))
+    #|   (func (param i32)
+    #|     (block $trap
+    #|       (block $mid
+    #|         (block $top
+    #|           (br_table $top $mid $trap (local.get 0)))
+    #|         (call $import)
+    #|         (br $trap))
+    #|       (call $import))
+    #|     (unreachable)))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs br_table branch-to-trap success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(br "), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps conditional branches to trap blocks" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $trap
+    #|       (br_if $trap (local.get 0)))
+    #|     (unreachable)))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs branch-to-trap negative success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs retargets br_table continuation wrappers to the outer exit" {
   let source =
     #| (module

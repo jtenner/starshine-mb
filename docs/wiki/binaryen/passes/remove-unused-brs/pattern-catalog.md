@@ -217,6 +217,12 @@ Detailed page:
   - `rewrites one-armed if break into br_if`
 - `remove_unused_brs_try_inline_single_br_if_block(...)`
   Inlines a void block that only contains a single `br` or `br_if` and whose label is otherwise unused.
+- `remove_unused_brs_try_rewrite_branches_to_trap_block(...)`
+  Mirrors the branch-to-trap subset of Binaryen JumpThreader: if a void block is immediately followed by `unreachable`, childless direct `br` nodes targeting that block are rewritten to `unreachable`. The matcher preserves conditional `br_if` and `br_table` targets, matching the `remove-unused-brs_trap.wast` boundary.
+  Covered by:
+  - `remove-unused-brs turns simple branches to trap blocks into unreachable`
+  - `remove-unused-brs turns br_table-dispatch branches to trap blocks into unreachable`
+  - `remove-unused-brs keeps conditional branches to trap blocks`
 - `remove_unused_brs_try_rewrite_region_local_set_copy_arm(...)`
   Rewrites `local.set (if cond then value else local.get same_local)` into a one-armed `if` that only performs the `local.set` when needed.
   Covered by:

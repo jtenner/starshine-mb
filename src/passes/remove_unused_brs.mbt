@@ -2527,6 +2527,132 @@ fn remove_unused_brs_try_inline_single_br_if_block(
 }
 
 ///|
+fn remove_unused_brs_collect_simple_branches_to_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target_label : Int,
+  seen : Array[Bool],
+  out : Array[Int],
+) -> Unit {
+  if node_id < 0 || node_id >= seen.length() || seen[node_id] {
+    return
+  }
+  if !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  seen[node_id] = true
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br => {
+      if node.imm0 == target_label && node.child_count == 0 {
+        out.push(node_id)
+      }
+      return
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if remove_unused_brs_is_region_child_slot(node.op, slot) {
+      continue
+    }
+    remove_unused_brs_collect_simple_branches_to_label(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      target_label,
+      seen,
+      out,
+    )
+  }
+  let scan_region = fn(region_ref : @ir.HotRegionRef) -> Unit {
+    for idx = 0
+        idx < @ir.hot_region_root_count(func, region_ref)
+        idx = idx + 1 {
+      remove_unused_brs_collect_simple_branches_to_label(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        target_label,
+        seen,
+        out,
+      )
+    }
+  }
+  for info in @ir.hot_control_region_slot_info(node.op) {
+    match info.role {
+      @ir.HotControlRegionRole::BodyRegion =>
+        scan_region(@ir.hot_region_body_ref(func, node_id))
+      @ir.HotControlRegionRole::ThenRegion =>
+        scan_region(@ir.hot_region_then_ref(func, node_id))
+      @ir.HotControlRegionRole::ElseRegion =>
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) => scan_region(else_ref)
+          None => ()
+        }
+      @ir.HotControlRegionRole::CatchRegion =>
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) => scan_region(catch_ref)
+          None => ()
+        }
+      @ir.HotControlRegionRole::CatchListRegion =>
+        scan_region(@ir.hot_region_catch_list_ref(func, node_id))
+    }
+  }
+}
+
+///|
+fn remove_unused_brs_try_rewrite_branches_to_trap_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  if idx < 0 || idx + 1 >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let block_id = @ir.hot_region_get(func, region_ref, idx)
+  let trap_id = @ir.hot_region_get(func, region_ref, idx + 1)
+  if block_id < 0 ||
+    trap_id < 0 ||
+    !@ir.hot_node_is_live(func, block_id) ||
+    !@ir.hot_node_is_live(func, trap_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block =>
+      if @ir.hot_node_result_arity(func, block_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  match @ir.hot_node_get(func, trap_id).op {
+    @ir.HotOp::Unreachable => ()
+    _ => return false
+  }
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  if block_label < 0 || @ir.hot_label_branch_arity(func, block_label) != 0 {
+    return false
+  }
+  let targets : Array[Int] = []
+  let seen = Array::make(@ir.hot_node_count(func), false)
+  remove_unused_brs_collect_simple_branches_to_label(
+    func, block_id, block_label, seen, targets,
+  )
+  if targets.is_empty() {
+    return false
+  }
+  let detached : Array[Int] = []
+  for target in targets {
+    if target >= 0 && @ir.hot_node_is_live(func, target) {
+      let unreachable_id = @ir.hot_build_unreachable(func)
+      detached.push(unreachable_id)
+      @ir.hot_replace_node(func, target, @ir.hot_node_get(func, unreachable_id))
+    }
+  }
+  remove_unused_brs_mark_mutated(ctx, func, "rewrite-branch-to-trap")
+  remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+  true
+}
+
+///|
 fn remove_unused_brs_try_optimize_switch(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6670,6 +6796,12 @@ fn remove_unused_brs_visit_region(
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::Block => {
         if remove_unused_brs_try_drop_void_self_branch_block(ctx, func, node_id) {
+          changed = true
+          continue
+        }
+        if remove_unused_brs_try_rewrite_branches_to_trap_block(
+            ctx, func, region_ref, current_idx,
+          ) {
           changed = true
           continue
         }

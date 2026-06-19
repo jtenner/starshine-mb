@@ -64,6 +64,7 @@ related:
   - branch-payload `if` cleanup
   - carried-guard/result-block cleanup
   - repeated-constant `br_if` ladders to `br_table`
+  - branch-to-trap rewriting for simple branches to void blocks followed by `unreachable`
   - safe early `br_table`/switch cleanup for trailing defaults and leading-default offsets on no-payload and value-carrying tables, plus no-payload default-only, two-option, and large mostly-default nested stack-style lowerings
 - The 2026-06-09 merge-blocks/RUB result-fallback audit is covered by [`../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md`](../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md):
   - `remove_unused_brs_try_fold_constant_br_if(...)` now preserves branch payload children while folding constant `br_if` roots
@@ -105,7 +106,7 @@ related:
 - The next hot layer follow-up now has one more lifted no-op retirement too:
   - the later localset-heavy value-if mesh family now reports `skip-hot reason=localset-heavy-value-if-mesh-noop`
   - the traced unchanged artifact cluster `Func 837`, `Func 3021`, `Func 3120`, `Func 3130`, and `Func 3134` is now retired after lift
-- The 2026-06-18 source refresh re-baselines the local oracle to Binaryen `version_130`. The branch-to-trap rewrite is now part of the local release oracle and is covered by `remove-unused-brs_trap.wast`; it should be implemented or explicitly tracked as `[O4Z-AUDIT-RUB-M]`, not dismissed as trunk-only drift.
+- `[O4Z-AUDIT-RUB-M]` branch-to-trap parity is now implemented for the local `version_130` release-oracle family covered by `remove-unused-brs_trap.wast`: simple childless `br` instructions targeting a void block followed by `unreachable` become direct `unreachable`, while conditional `br_if` and `br_table` targets are preserved.
 - The early ordered generated-artifact slot-14 corruption is now fixed too:
   - the slot-13 predecessor replay no longer emits the invalid `func 1354` raw output
   - the extracted `Func 1354` replay is now locked by an external `wasm-tools validate` cmd wbtest instead of only the in-tree decode path
@@ -161,6 +162,7 @@ related:
   - raw structured-return-ladder false-positive skipping
   - raw false-prefix guard cancellation inside structured-return ladders
   - `br_table` continuation-wrapper retargeting to the outer exit
+  - branch-to-trap rewriting for simple direct branches, including the official br_table-dispatch trap fixture while preserving the table target itself
   - raw skipping of large result `br_table` dispatch ladders with no HOT-only surface
 - Older mixed-generator evidence stayed clean on compared cases:
   - `.tmp/pass-fuzz-rub-20260410-final-500` completed `499/499` compared matches
@@ -269,6 +271,10 @@ The active backlog now says the next work should be reduced in this order:
   - no-payload large mostly-default nested stack-style tables lower to Binaryen-style nested `if` form by narrowly bypassing the O4z raw no-op gate only for strict selector-plus-`br_table` block chains
   - value-carrying default-only and two-option tables deliberately remain `br_table` forms, matching Binaryen's value-sensitive bailout boundary
   - child-less local stack-payload value switch shapes remain conservative because ordinary lifted value switches carry payloads as `br_table` children
+- `[O4Z-AUDIT-RUB-M]` landed the branch-to-trap subset of Binaryen JumpThreader:
+  - simple no-payload `br` nodes targeting a void block whose next sibling is `unreachable` become `unreachable`
+  - conditional `br_if` and `br_table` target rewrites stay outside this slice, matching the official trap lit boundary
+  - the implementation is local to HOT region traversal and does not widen the raw O4z gates or the broad nested scan surface
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.
 - Earlier MoonBit attempts tried to find those shapes by scanning more nested regions during the main walk, which hit real oracle cases but reopened the performance cliff.
