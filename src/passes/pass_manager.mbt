@@ -7264,6 +7264,110 @@ fn run_hot_pipeline_dce_raw_find_root_pop_br_table_selector(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_block_single_pop_type(
+  env : @validate.Env,
+  instr : @lib.Instruction,
+) -> @lib.ValType? {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) if body.length() == 1 =>
+      match body[0] {
+        @lib.Pop(vt) =>
+          match env.expand_blocktype(block_type) {
+            Ok((_, results)) if results.length() == 1 && results[0] == vt =>
+              Some(vt)
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
+  env : @validate.Env,
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  locals : @lib.Locals,
+  param_count : Int,
+  func_results : Array[@lib.ValType],
+  label_results : Array[Array[@lib.ValType]],
+) -> (Array[@lib.Instruction], Int)? {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut pop_idx = -1
+  let mut term_idx = -1
+  let mut pop_type : @lib.ValType? = None
+  if idx + 3 < instrs.length() &&
+    run_hot_pipeline_optimize_instructions_instr_is_plain_load(instrs[idx + 1]) {
+    match instrs[idx + 2] {
+      @lib.Pop(vt) => {
+        pop_idx = idx + 2
+        term_idx = idx + 3
+        pop_type = Some(vt)
+        rewritten.push(instrs[idx])
+        rewritten.push(instrs[idx + 1])
+        rewritten.push(@lib.Instruction::drop())
+      }
+      _ => ()
+    }
+  }
+  if pop_idx < 0 && idx + 2 < instrs.length() {
+    match run_hot_pipeline_dce_raw_block_single_pop_type(env, instrs[idx + 1]) {
+      Some(vt) => {
+        pop_idx = idx + 1
+        term_idx = idx + 2
+        pop_type = Some(vt)
+        rewritten.push(instrs[idx])
+        rewritten.push(@lib.Instruction::drop())
+      }
+      None => ()
+    }
+  }
+  let vt = match pop_type {
+    Some(vt) => vt
+    None => return None
+  }
+  let preserve_payload = match instrs[term_idx] {
+    @lib.Br(label) =>
+      match run_hot_pipeline_dce_raw_label_results(label_results, label) {
+        Some(results) => run_hot_pipeline_dce_raw_valtypes_match(results, [vt])
+        None => false
+      }
+    @lib.Return => run_hot_pipeline_dce_raw_valtypes_match(func_results, [vt])
+    _ => return None
+  }
+  match instrs[term_idx] {
+    @lib.Br(label) =>
+      match run_hot_pipeline_dce_raw_label_results(label_results, label) {
+        Some(results) if results.length() == 0 || preserve_payload => ()
+        _ => return None
+      }
+    @lib.Return if func_results.length() == 0 || preserve_payload => ()
+    _ => return None
+  }
+  let local_id = @lib.LocalIdx::new(
+    (param_count + locals.length()).reinterpret_as_uint(),
+  )
+  locals.push(vt)
+  if pop_idx == idx + 1 {
+    rewritten.push(@lib.Instruction::pop(vt))
+  } else {
+    rewritten.push(instrs[pop_idx])
+  }
+  rewritten.push(@lib.Instruction::local_set(local_id))
+  rewritten.push(@lib.Instruction::local_get(local_id))
+  if !preserve_payload {
+    rewritten.push(@lib.Instruction::drop())
+  }
+  match instrs[term_idx] {
+    @lib.Br(label) => rewritten.push(@lib.Instruction::br(label))
+    @lib.Return => rewritten.push(@lib.Instruction::return_())
+    _ => return None
+  }
+  Some((rewritten, term_idx + 1))
+}
+
+///|
 fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
@@ -7285,6 +7389,20 @@ fn run_hot_pipeline_dce_raw_repair_root_pop_before_branch_body(
       label_results,
     )
     changed = changed || instr_changed
+    match
+      run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
+        env, instrs, idx, locals, param_count, func_results, label_results,
+      ) {
+      Some((call_arg_repair, next_idx)) => {
+        for repaired in call_arg_repair {
+          rewritten.push(repaired)
+        }
+        idx = next_idx
+        changed = true
+        continue
+      }
+      None => ()
+    }
     match instr {
       @lib.Pop(first_vt) => {
         let pop_types : Array[@lib.ValType] = [first_vt]

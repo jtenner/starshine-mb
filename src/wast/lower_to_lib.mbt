@@ -4160,6 +4160,43 @@ fn wt_legacy_pop_call_payload_supported(
 }
 
 ///|
+fn wt_legacy_pop_dead_call_payload_supported(
+  env : @validate.Env,
+  instrs : Array[@lib.Instruction],
+  payloads : Array[@lib.ValType],
+) -> Bool {
+  if instrs.length() < 3 || payloads.length() == 0 {
+    return false
+  }
+  for call_idx = 1; call_idx < instrs.length() - 1; call_idx = call_idx + 1 {
+    match instrs[call_idx] {
+      @lib.Call(fidx) => {
+        match env.get_functype_by_funcidx(fidx) {
+          Some(_) => ()
+          None => continue
+        }
+        let arg_instrs : Array[@lib.Instruction] = []
+        for i = 0; i < call_idx; i = i + 1 {
+          arg_instrs.push(instrs[i])
+        }
+        let (cursor, depth, ok) = wt_legacy_pop_call_arg_expr_supported(
+          env,
+          @lib.Expr::new(arg_instrs),
+          payloads,
+          0,
+          0,
+        )
+        if ok && depth < 0 && cursor == payloads.length() {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn wt_direct_legacy_pop_expr_supported(
   env : @validate.Env,
   expr : @lib.Expr,
@@ -4333,6 +4370,9 @@ fn wt_direct_legacy_pop_instr_supported(
                       catch_instrs, payloads,
                     ) ||
                     wt_legacy_pop_call_payload_supported(
+                      env, catch_instrs, payloads,
+                    ) ||
+                    wt_legacy_pop_dead_call_payload_supported(
                       env, catch_instrs, payloads,
                     ) {
                     instr_idx = catch_instrs.length()
