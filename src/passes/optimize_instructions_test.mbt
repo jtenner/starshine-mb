@@ -1445,6 +1445,82 @@ test "optimize-instructions keeps value-changing masks before narrow stores" {
 }
 
 ///|
+test "optimize-instructions drops masked low bits before i64 narrow stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $value i64)
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i64.const 255
+        #|    i64.and
+        #|    i64.store8
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i64.const 65535
+        #|    i64.and
+        #|    i64.store16
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i64.const 4294967295
+        #|    i64.and
+        #|    i64.store32))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected i64 narrow store optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i64.and"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "(local.get (Local 1))", "i64.store8", "(local.get (Local 0))",
+    "(local.get (Local 1))", "i64.store16", "(local.get (Local 0))", "(local.get (Local 1))",
+    "i64.store32",
+  ])
+}
+
+///|
+test "optimize-instructions keeps value-changing masks before i64 narrow stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $value i64)
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i64.const 127
+        #|    i64.and
+        #|    i64.store8
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i64.const 32767
+        #|    i64.and
+        #|    i64.store16
+        #|    local.get $ptr
+        #|    local.get $value
+        #|    i64.const 2147483647
+        #|    i64.and
+        #|    i64.store32))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected i64 narrow store boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.and"), msg=pretty)
+  assert_true(pretty.contains("i64.store8"), msg=pretty)
+  assert_true(pretty.contains("i64.store16"), msg=pretty)
+  assert_true(pretty.contains("i64.store32"), msg=pretty)
+}
+
+///|
 test "optimize-instructions removes redundant sign extensions from signed loads" {
   let func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (param i32) (result i32) local.get 0 i32.load8_s i32.extend8_s))",
