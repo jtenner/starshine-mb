@@ -772,6 +772,164 @@ fn remove_unused_brs_tag_idx_raw(tag_idx : @lib.TagIdx) -> Int {
 }
 
 ///|
+fn remove_unused_brs_single_ref_type(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.RefType? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.RefTypeValType(rt)] => Some(rt)
+    _ => None
+  }
+}
+
+///|
+fn remove_unused_brs_node_is_ref_null(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefNull => true
+    _ => false
+  }
+}
+
+///|
+fn remove_unused_brs_ref_matches(
+  actual : @lib.RefType,
+  expected : @lib.RefType,
+) -> Bool {
+  @validate.Match::matches(
+    @lib.ValType::ref_type(actual),
+    @lib.ValType::ref_type(expected),
+    @validate.Env::new(),
+  )
+}
+
+///|
+fn remove_unused_brs_try_rewrite_gc_br_on_root(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  let root_id = @ir.hot_region_get(func, region_ref, idx)
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return false
+  }
+  let mut br_id = root_id
+  let mut dropped_context = false
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop => {
+      if @ir.hot_child_count(func, root_id) != 1 {
+        return false
+      }
+      br_id = @ir.hot_child_get(func, root_id, 0)
+      dropped_context = true
+    }
+    _ => ()
+  }
+  if br_id < 0 || !@ir.hot_node_is_live(func, br_id) {
+    return false
+  }
+  let br_node = @ir.hot_node_get(func, br_id)
+  match br_node.op {
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, br_id) != 1 {
+    return false
+  }
+  let ref_id = @ir.hot_child_get(func, br_id, 0)
+  let ref_type = match remove_unused_brs_single_ref_type(func, ref_id) {
+    Some(rt) => rt
+    None => return false
+  }
+  let target = br_node.imm0
+  let replacement : Array[Int] = []
+  let mut changed = false
+  match br_node.op {
+    @ir.HotOp::BrOnNull =>
+      if remove_unused_brs_node_is_ref_null(func, ref_id) {
+        replacement.push(@ir.hot_build_drop(func, ref_id))
+        replacement.push(@ir.hot_build_br(func, target))
+        changed = true
+      } else if ref_type.is_non_nullable() && dropped_context {
+        replacement.push(@ir.hot_build_drop(func, ref_id))
+        changed = true
+      } else if ref_type.is_non_nullable() && !dropped_context {
+        replacement.push(ref_id)
+        changed = true
+      }
+    @ir.HotOp::BrOnNonNull =>
+      if ref_type.is_non_nullable() {
+        replacement.push(@ir.hot_build_br(func, target, values=[ref_id]))
+        changed = true
+      } else if remove_unused_brs_node_is_ref_null(func, ref_id) {
+        replacement.push(@ir.hot_build_drop(func, ref_id))
+        changed = true
+      }
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail => {
+      let target_ref = match @ir.hot_node_exact_instr(func, br_id) {
+        Some(@lib.BrOnCast(_, @lib.CastOp(_, target_nullable), _, target_heap))
+        | Some(
+          @lib.BrOnCastFail(_, @lib.CastOp(_, target_nullable), _, target_heap)
+        ) => @lib.RefType::new(target_nullable, target_heap)
+        _ => return false
+      }
+      if remove_unused_brs_ref_matches(ref_type, target_ref) {
+        match br_node.op {
+          @ir.HotOp::BrOnCast => {
+            replacement.push(@ir.hot_build_br(func, target, values=[ref_id]))
+            changed = true
+          }
+          @ir.HotOp::BrOnCastFail if dropped_context => {
+            replacement.push(@ir.hot_build_drop(func, ref_id))
+            changed = true
+          }
+          @ir.HotOp::BrOnCastFail => {
+            replacement.push(ref_id)
+            changed = true
+          }
+          _ => ()
+        }
+      } else {
+        match br_node.op {
+          @ir.HotOp::BrOnCast =>
+            if remove_unused_brs_node_is_ref_null(func, ref_id) &&
+              target_ref.is_non_nullable() {
+              if dropped_context {
+                replacement.push(@ir.hot_build_drop(func, ref_id))
+              } else {
+                replacement.push(ref_id)
+              }
+              changed = true
+            }
+          _ => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  if !changed {
+    return false
+  }
+  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, replacement)
+  removed.push(br_id)
+  remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+  remove_unused_brs_mark_mutated(ctx, func, "gc-br-on-cleanup")
+  true
+}
+
+///|
 fn remove_unused_brs_match_caught_throw(
   func : @ir.HotFunc,
   throw_tag : Int,
@@ -7291,6 +7449,12 @@ fn remove_unused_brs_visit_region(
       func, region_ref, node_id,
     )
     if current_idx < 0 {
+      continue
+    }
+    if remove_unused_brs_try_rewrite_gc_br_on_root(
+        ctx, func, region_ref, current_idx,
+      ) {
+      changed = true
       continue
     }
     match @ir.hot_node_get(func, node_id).op {

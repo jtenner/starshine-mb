@@ -2369,6 +2369,63 @@ fn hot_lift_impl_lift_instruction(
       )
       return Ok(after_state)
     }
+    Instruction::BrOnNonNull(label_idx) => {
+      let before_types = tc_state.stack
+      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
+      let target = match
+        hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
+        Ok(label_id) => label_id
+        Err(err) => return Err(err)
+      }
+      let payload_count = match
+        hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
+        Ok(count) => if count <= 0 { 0 } else { count - 1 }
+        Err(err) => return Err(err)
+      }
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          instr,
+          tc_state,
+          concrete_values,
+          payload_count + 1,
+        ) {
+        return Ok(after_state)
+      }
+      let guard_id = match
+        hot_lift_impl_pop_value_for_instr(
+          instr, values, concrete_values, "br_on_non_null guard",
+        ) {
+        Ok(guard_id) => guard_id
+        Err(err) => return Err(err)
+      }
+      let children = hot_lift_impl_peek_values_with_extra(
+        values, payload_count, guard_id,
+      )
+      let pushed_types = if before_types.length() >= payload_count + 1 &&
+        before_types.length() - (payload_count + 1) <=
+        after_state.stack.length() {
+        hot_lift_impl_pushed_types(
+          before_types,
+          after_state.stack,
+          payload_count + 1,
+        )
+      } else {
+        []
+      }
+      let node_id = hot_build_node(
+        func,
+        HotOp::BrOnNonNull,
+        hot_lift_impl_result_type(func, pushed_types),
+        imm0=target,
+        children~,
+      )
+      hot_lift_impl_push_node(
+        roots, values, concrete_values, node_id, pushed_types,
+      )
+      return Ok(after_state)
+    }
     Instruction::BrOnCast(label_idx, _, _, _)
     | Instruction::BrOnCastFail(label_idx, _, _, _) => {
       let before_types = tc_state.stack

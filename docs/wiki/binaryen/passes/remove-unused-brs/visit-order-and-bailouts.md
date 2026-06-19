@@ -86,6 +86,8 @@ The raw layer also has to stay aligned with the real HOT legality surface.
 
 For `[O4Z-AUDIT-RUB-E]`, the raw candidate gate was extended narrowly: `try_table` bodies containing a `throw` now lift so the HOT EH-specific caught-throw cleanup can run. This is not a new raw no-op skip exception and not a broad nested RUB traversal; tag/catch/ref legality remains in the HOT matcher where catch order, exact tags, `catch_all`, and exnref-transport boundaries are represented.
 
+For `[O4Z-AUDIT-RUB-F]`, the final raw candidate gate now treats `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as HOT candidates. This is also not a raw rewrite: the HOT matcher owns the nullability/cast proof and still fails closed for payload-bearing BrOn nodes and descriptor variants not represented by local `Instruction` / `HotOp`.
+
 The latest example is the prefix-guard detector that cancels `structured-return-ladder-noop`.
 
 - It used to treat any later `br_if 0` inside the first void block of a result block as a carried-guard candidate.

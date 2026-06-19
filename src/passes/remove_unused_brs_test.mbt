@@ -120,6 +120,278 @@ test "remove-unused-brs skips large local-heavy json-as dispatch functions" {
 }
 
 ///|
+fn remove_unused_brs_test_gc_ref(
+  nullable : Bool,
+  abs : @lib.AbsHeapType,
+) -> @lib.ValType {
+  @lib.ValType::ref_type(@lib.RefType::new(nullable, @lib.HeapType::abs(abs)))
+}
+
+///|
+fn remove_unused_brs_test_gc_module(
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
+fn remove_unused_brs_test_run_module_pretty(mod_ : @lib.Module) -> String {
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) => abort("unexpected invalid RUB GC fixture: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected RUB GC pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => abort("expected RUB GC output to validate, got \{err}")
+  }
+}
+
+///|
+test "remove-unused-brs removes definitely not taken br_on_null" {
+  let i31_ref = remove_unused_brs_test_gc_ref(false, @lib.AbsHeapType::i31())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([i31_ref], [], [
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_null"), msg=pretty)
+  assert_false(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites definitely taken br_on_null to branch" {
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [], [
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::none()),
+          ),
+          @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_null"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites definitely taken br_on_non_null to branch" {
+  let i31_ref = remove_unused_brs_test_gc_ref(false, @lib.AbsHeapType::i31())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [i31_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(i31_ref),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::ref_i31(),
+          @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_non_null"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("ref.i31"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs removes definitely not taken br_on_non_null" {
+  let i31_ref = remove_unused_brs_test_gc_ref(false, @lib.AbsHeapType::i31())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [i31_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(i31_ref),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::none()),
+          ),
+          @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::ref_i31(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_non_null"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites definitely successful br_on_cast to branch" {
+  let i31_ref = remove_unused_brs_test_gc_ref(false, @lib.AbsHeapType::i31())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [i31_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(i31_ref),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::ref_i31(),
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::any()),
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_cast"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("ref.i31"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs removes definitely not taken br_on_cast_fail" {
+  let any_ref = remove_unused_brs_test_gc_ref(true, @lib.AbsHeapType::any())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [any_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(any_ref),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::ref_i31(),
+          @lib.Instruction::br_on_cast_fail(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::any()),
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::ref_i31(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_cast_fail"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("ref.i31"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs fail-closed keeps br_on payload children" {
+  let i32_type = @lib.ValType::i32()
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [i32_type], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(i32_type),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::none()),
+          ),
+          @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_true(pretty.contains("br_on_null"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs fail-closed keeps nullable cast split candidates" {
+  let nullable_i31 = remove_unused_brs_test_gc_ref(
+    true,
+    @lib.AbsHeapType::i31(),
+  )
+  let any_ref = remove_unused_brs_test_gc_ref(true, @lib.AbsHeapType::any())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([nullable_i31], [any_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(any_ref),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::any()),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  assert_true(pretty.contains("br_on_cast"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps unknown br_on_cast checks" {
+  let any_ref = remove_unused_brs_test_gc_ref(true, @lib.AbsHeapType::any())
+  let i31_ref = remove_unused_brs_test_gc_ref(false, @lib.AbsHeapType::i31())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([any_ref], [i31_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(i31_ref),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::any()),
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::ref_i31(),
+        ]),
+      ),
+    ]),
+  )
+  assert_true(pretty.contains("br_on_cast"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites catch_all throws to branches and drops payloads" {
   let optimized = match
     pass_test_run_pipeline(

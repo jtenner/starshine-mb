@@ -95,7 +95,7 @@ For this audit, WebAssembly 3.0 baseline features are assumed enabled by default
 - `run_hot_pipeline_raw_remove_unused_brs_has_throw(...)`
   Lets the raw candidate gate lift `try_table` bodies that contain a `throw`, so HOT can perform the Binaryen `visitThrow(...)` caught-exception-to-branch cleanup without widening unrelated O4z no-op skip exceptions.
 - `run_hot_pipeline_instr_has_remove_unused_brs_candidate(...)`
-  Final raw "anything interesting left?" gate.
+  Final raw "anything interesting left?" gate. It now treats `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as candidates so the HOT GC cleanup subset can see them; this is a candidate admission, not a raw rewrite.
 
 Detailed page:
 - [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md)
@@ -234,6 +234,18 @@ Detailed page:
   - `remove-unused-brs keeps catch_ref caught throws as exnref transport`
   - `remove-unused-brs keeps catch_all_ref caught throws as exnref transport`
   - `remove-unused-brs keeps earlier catch_ref before later catch_all`
+- `remove_unused_brs_try_rewrite_gc_br_on_root(...)`
+  Mirrors the safe single-ref-child subset of Binaryen `optimizeGC(...)` for locally proven BrOn outcomes. It rewrites definitely-not-taken `br_on_null` to the fallthrough/drop value, definitely-taken `br_on_null` on `ref.null` to `drop` plus `br`, definitely-taken `br_on_non_null` to direct `br`, definitely-not-taken `br_on_non_null` on `ref.null` to `drop`, definitely-successful `br_on_cast` to direct `br`, and definitely-not-taken `br_on_cast_fail` to fallthrough/drop. It deliberately fails closed for payload/prefix children, nullable-cast splitting to `br_on_non_null` plus appended `ref.null`, descriptor BrOn variants not represented locally, broader fallthrough-type/cast insertion, and unreachable-input dropped-child construction.
+  Covered by:
+  - `remove-unused-brs removes definitely not taken br_on_null`
+  - `remove-unused-brs rewrites definitely taken br_on_null to branch`
+  - `remove-unused-brs rewrites definitely taken br_on_non_null to branch`
+  - `remove-unused-brs removes definitely not taken br_on_non_null`
+  - `remove-unused-brs rewrites definitely successful br_on_cast to branch`
+  - `remove-unused-brs removes definitely not taken br_on_cast_fail`
+  - `remove-unused-brs fail-closed keeps br_on payload children`
+  - `remove-unused-brs fail-closed keeps nullable cast split candidates`
+  - `remove-unused-brs keeps unknown br_on_cast checks`
 - `remove_unused_brs_try_rewrite_region_local_set_copy_arm(...)`
   Rewrites `local.set (if cond then value else local.get same_local)` into a one-armed `if` that only performs the `local.set` when needed.
   Covered by:

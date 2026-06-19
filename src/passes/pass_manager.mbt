@@ -975,6 +975,10 @@ fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
       | @lib.Br(_)
       | @lib.BrIf(_)
       | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
       | @lib.Return => return true
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         if run_hot_pipeline_instr_has_remove_unused_brs_candidate(body) {

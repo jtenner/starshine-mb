@@ -66,6 +66,7 @@ related:
   - repeated-constant `br_if` ladders to `br_table`
   - branch-to-trap rewriting for simple branches to void blocks followed by `unreachable`
   - caught-`throw` to branch cleanup for safe `try_table` exact-catch and `catch_all`-without-ref forms, including payload/drop-child preservation and exnref-transport negatives
+  - GC `br_on_*` cleanup for the safe single-ref-child subset: definitely taken/not-taken `br_on_null` and `br_on_non_null`, definitely successful `br_on_cast`, and definitely not-taken `br_on_cast_fail`, with explicit fail-closed boundaries for payload children, nullable-cast splitting, descriptor variants, broader fallthrough/cast insertion, and unreachable-input dropped-child construction
   - Binaryen-style loop cleanup for simple loop backedges, including adjacent `br_if` condition flipping and single-use block-exit suffix movement
   - safe early `br_table`/switch cleanup for trailing defaults and leading-default offsets on no-payload and value-carrying tables, plus no-payload default-only, two-option, and large mostly-default nested stack-style lowerings
 - The 2026-06-09 merge-blocks/RUB result-fallback audit is covered by [`../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md`](../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md):
@@ -290,6 +291,12 @@ The active backlog now says the next work should be reduced in this order:
   - `catch_all` arms without refs become payload drops followed by a branch to the catch destination
   - `catch_ref`, `catch_all_ref`, earlier exnref-transport catches, and tag mismatches remain untouched
   - the raw layer only lifts `try_table` bodies that contain `throw` for this HOT-local rewrite; it does not add a broad nested RUB traversal or widen unrelated O4z raw skip exceptions
+- `[O4Z-AUDIT-RUB-F]` landed the GC BrOn safe subset of Binaryen `optimizeGC(...)`:
+  - the raw candidate gate now lifts `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`, and HOT lifting now represents `br_on_non_null`
+  - single-ref-child `br_on_null` and `br_on_non_null` roots are removed or rewritten when nullability or `ref.null` proves the edge definitely taken or not taken
+  - single-ref-child `br_on_cast` becomes a direct branch when the operand type already matches the target, and `br_on_cast_fail` is removed when the same proof makes the fail edge definitely not taken
+  - payload/prefix children, nullable-cast success-only-if-non-null splitting, descriptor variants, broader fallthrough-type/local.tee cast insertion, and unreachable-input dropped-child rewrites remain explicit fail-closed boundaries rather than hidden no-ops
+  - evidence: focused RUB tests passed `145/145`, `moon test src/passes` passed `2570/2570`, full `moon test` passed `5881/5881`, native `src/cmd` build passed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-remove-unused-brs-rub-f-gc-10000` compared `9977/10000` with `0` mismatches, `5702` normalized matches, `4275` cleanup-normalized matches, and `23` Binaryen/tool command failures (`22` rec-group-zero, `1` bad-section-size).
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.
 - Earlier MoonBit attempts tried to find those shapes by scanning more nested regions during the main walk, which hit real oracle cases but reopened the performance cliff.
