@@ -7320,6 +7320,20 @@ fn run_hot_pipeline_dce_raw_tail_call_type_has_no_params(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_tail_call_type_params_match_payload(
+  env : @validate.Env,
+  type_idx : @lib.TypeIdx,
+  payload_types : Array[@lib.ValType],
+) -> Bool {
+  match env.resolve_functype(type_idx) {
+    Some(@lib.FuncType(params, _)) =>
+      params.length() > 0 &&
+      run_hot_pipeline_dce_raw_valtypes_match(params, payload_types)
+    None => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_is_no_param_operand_tail_call(
   env : @validate.Env,
   instr : @lib.Instruction,
@@ -7375,6 +7389,7 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
     Some(vt) => vt
     None => return None
   }
+  let mut operand_tail_idx = -1
   let preserve_payload = match instrs[term_idx] {
     @lib.Br(label) =>
       match run_hot_pipeline_dce_raw_label_results(label_results, label) {
@@ -7390,6 +7405,38 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
         fidx,
         [vt],
       ) => true
+    @lib.I32Const(_) | @lib.LocalGet(_) if term_idx + 1 < instrs.length() =>
+      match instrs[term_idx + 1] {
+        @lib.ReturnCallIndirect(type_idx, _) if run_hot_pipeline_dce_raw_tail_call_type_params_match_payload(
+            env,
+            type_idx,
+            [vt],
+          ) => {
+          operand_tail_idx = term_idx + 1
+          true
+        }
+        @lib.ReturnCallRef(type_idx) if run_hot_pipeline_dce_raw_tail_call_type_params_match_payload(
+            env,
+            type_idx,
+            [vt],
+          ) => {
+          operand_tail_idx = term_idx + 1
+          true
+        }
+        _ => return None
+      }
+    @lib.RefFunc(_) if term_idx + 1 < instrs.length() =>
+      match instrs[term_idx + 1] {
+        @lib.ReturnCallRef(type_idx) if run_hot_pipeline_dce_raw_tail_call_type_params_match_payload(
+            env,
+            type_idx,
+            [vt],
+          ) => {
+          operand_tail_idx = term_idx + 1
+          true
+        }
+        _ => return None
+      }
     _ => return None
   }
   match instrs[term_idx] {
@@ -7404,6 +7451,9 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
     @lib.ReturnCall(fidx) if preserve_payload &&
       run_hot_pipeline_dce_raw_return_call_params_match_payload(env, fidx, [vt]) =>
       ()
+    @lib.I32Const(_) | @lib.LocalGet(_) if operand_tail_idx == term_idx + 1 =>
+      ()
+    @lib.RefFunc(_) if operand_tail_idx == term_idx + 1 => ()
     _ => return None
   }
   let local_id = @lib.LocalIdx::new(
@@ -7424,9 +7474,34 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
     @lib.Br(label) => rewritten.push(@lib.Instruction::br(label))
     @lib.Return => rewritten.push(@lib.Instruction::return_())
     @lib.ReturnCall(fidx) => rewritten.push(@lib.Instruction::return_call(fidx))
+    @lib.I32Const(_) | @lib.LocalGet(_) if operand_tail_idx == term_idx + 1 => {
+      rewritten.push(instrs[term_idx])
+      match instrs[operand_tail_idx] {
+        @lib.ReturnCallIndirect(type_idx, table_idx) =>
+          rewritten.push(
+            @lib.Instruction::return_call_indirect(type_idx, table_idx),
+          )
+        @lib.ReturnCallRef(type_idx) =>
+          rewritten.push(@lib.Instruction::return_call_ref(type_idx))
+        _ => return None
+      }
+    }
+    @lib.RefFunc(_) if operand_tail_idx == term_idx + 1 => {
+      rewritten.push(instrs[term_idx])
+      match instrs[operand_tail_idx] {
+        @lib.ReturnCallRef(type_idx) =>
+          rewritten.push(@lib.Instruction::return_call_ref(type_idx))
+        _ => return None
+      }
+    }
     _ => return None
   }
-  Some((rewritten, term_idx + 1))
+  let next_idx = if operand_tail_idx == term_idx + 1 {
+    operand_tail_idx + 1
+  } else {
+    term_idx + 1
+  }
+  Some((rewritten, next_idx))
 }
 
 ///|

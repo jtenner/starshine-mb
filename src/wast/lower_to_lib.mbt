@@ -4287,18 +4287,49 @@ fn wt_legacy_pop_dead_call_param_tail_payload_supported(
     return false
   }
   let tail_idx = call_idx - 1
-  let params = match instrs[tail_idx] {
-    @lib.ReturnCall(fidx) =>
-      match env.get_functype_by_funcidx(fidx) {
+  let (params, pop_start) = match instrs[tail_idx] {
+    @lib.ReturnCall(fidx) => {
+      let params = match env.get_functype_by_funcidx(fidx) {
         Some(@lib.FuncType(params, _)) => params
         None => return false
       }
+      (params, tail_idx - payloads.length())
+    }
+    @lib.ReturnCallIndirect(type_idx, _) => {
+      let params = match env.resolve_functype(type_idx) {
+        Some(@lib.FuncType(params, _)) => params
+        None => return false
+      }
+      let pop_start = tail_idx - payloads.length() - 1
+      if pop_start < 0 {
+        return false
+      }
+      match instrs[tail_idx - 1] {
+        @lib.I32Const(_) | @lib.LocalGet(_) => ()
+        _ => return false
+      }
+      (params, pop_start)
+    }
+    @lib.ReturnCallRef(type_idx) => {
+      let params = match env.resolve_functype(type_idx) {
+        Some(@lib.FuncType(params, _)) => params
+        None => return false
+      }
+      let pop_start = tail_idx - payloads.length() - 1
+      if pop_start < 0 {
+        return false
+      }
+      match instrs[tail_idx - 1] {
+        @lib.RefFunc(_) | @lib.LocalGet(_) => ()
+        _ => return false
+      }
+      (params, pop_start)
+    }
     _ => return false
   }
   if params.length() == 0 || !wt_legacy_pop_types_match(params, payloads) {
     return false
   }
-  let pop_start = tail_idx - payloads.length()
   for offset = 0; offset < payloads.length(); offset = offset + 1 {
     match instrs[pop_start + offset] {
       @lib.Pop(vt) if vt == payloads[offset] => ()
