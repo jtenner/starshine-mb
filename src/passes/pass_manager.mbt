@@ -7300,6 +7300,37 @@ fn run_hot_pipeline_dce_raw_block_single_result_type(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_unary_result_instr_supported(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Eqz
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Eqz
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt => true
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_return_call_has_no_params(
   env : @validate.Env,
   fidx : @lib.FuncIdx,
@@ -7427,6 +7458,21 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
   if pop_idx < 0 &&
     idx + 3 < instrs.length() &&
     run_hot_pipeline_optimize_instructions_instr_is_plain_load(instrs[idx + 1]) {
+    match instrs[idx + 2] {
+      @lib.Pop(vt) => {
+        pop_idx = idx + 2
+        term_idx = idx + 3
+        pop_type = Some(vt)
+        rewritten.push(instrs[idx])
+        rewritten.push(instrs[idx + 1])
+        rewritten.push(@lib.Instruction::drop())
+      }
+      _ => ()
+    }
+  }
+  if pop_idx < 0 &&
+    idx + 3 < instrs.length() &&
+    run_hot_pipeline_dce_raw_unary_result_instr_supported(instrs[idx + 1]) {
     match instrs[idx + 2] {
       @lib.Pop(vt) => {
         pop_idx = idx + 2
