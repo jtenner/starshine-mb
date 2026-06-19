@@ -20,6 +20,7 @@ sources:
   - ../../../raw/research/0740-2026-06-19-optimize-instructions-oi-g-memory64-fill.md
   - ../../../raw/research/0741-2026-06-19-optimize-instructions-oi-g-narrow-store-mask.md
   - ../../../raw/research/0742-2026-06-19-optimize-instructions-oi-g-i64-narrow-store-mask.md
+  - ../../../raw/research/0743-2026-06-19-optimize-instructions-oi-g-const-memory-offset.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -62,6 +63,7 @@ Its center of gravity is:
 - tiny `memory.copy` lowering for constant sizes `1`/`2`/`4`/`8`, including direct-core memory64 copy fixtures for `i64` address preservation
 - constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`), including direct-core memory64 fill fixtures after the local typechecker length fix
 - narrow stored-value cleanup for redundant masks before `i32.store8` / `i32.store16` and, as a documented Starshine-win generalization, `i64.store8` / `i64.store16` / `i64.store32`
+- memory32 constant-pointer static-offset folding for scalar loads/stores when the address, offset, and sum stay in Binaryen's nonnegative `i32` range
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -124,6 +126,8 @@ The fastest read-along path is:
   - `optimize_instructions_repeated_fill_i64_for_local_get(...)`
   - `optimize_instructions_try_expand_tiny_memory_copy(...)`
   - `optimize_instructions_try_expand_tiny_memory_fill(...)`
+  - `optimize_instructions_memory_access_with_memarg(...)`
+  - `optimize_instructions_try_fold_const_memory_access_offset(...)`
   - `optimize_instructions_store_value_is_i64(...)`
   - `optimize_instructions_try_drop_narrow_store_value_mask(...)`
   - `optimize_instructions_try_collapse_duplicate_then_branch(...)`
@@ -277,7 +281,7 @@ The local pass still does not cover broader upstream families like:
 - nonconstant-size `memory.copy`, because the size expression is not part of the exact tiny lowering proof
 - arbitrary or effectful nonconstant wider `memory.fill` value materialization
 - trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today
-- broader stored-value and offset canonicalization for the general load/store surface; only the current redundant-mask subset is covered (`i32.store8` / `i32.store16` plus a local Starshine-win `i64.store8` / `i64.store16` / `i64.store32` generalization that Binaryen `version_130` does not perform)
+- broader stored-value and offset canonicalization for the general load/store surface; only the current redundant-mask subset is covered (`i32.store8` / `i32.store16` plus a local Starshine-win `i64.store8` / `i64.store16` / `i64.store32` generalization that Binaryen `version_130` does not perform) plus the narrow Binaryen-style memory32 constant-pointer static-offset fold
 
 ## 4. No GC constructor / field / atomics surface
 

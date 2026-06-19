@@ -1521,6 +1521,69 @@ test "optimize-instructions keeps value-changing masks before i64 narrow stores"
 }
 
 ///|
+test "optimize-instructions folds constant memory access offset into i32 address" {
+  let load_func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (result i32) i32.const 8 i32.load offset=4))",
+  )
+  let load = @ir.hot_root_get(load_func, 0)
+  let load_addr = @ir.hot_child_get(load_func, load, 0)
+  @debug.assert_eq(
+    @ir.hot_const_get(load_func, @ir.hot_node_get(load_func, load_addr).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(12)),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(load_func, load),
+    Some(
+      @lib.Instruction::i32_load(
+        @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0)),
+      ),
+    ),
+  )
+
+  let store_func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func i32.const 16 i32.const 99 i32.store offset=12))",
+  )
+  let store = @ir.hot_root_get(store_func, 0)
+  let store_addr = @ir.hot_child_get(store_func, store, 0)
+  @debug.assert_eq(
+    @ir.hot_const_get(store_func, @ir.hot_node_get(store_func, store_addr).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(28)),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(store_func, store),
+    Some(
+      @lib.Instruction::i32_store(
+        @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0)),
+      ),
+    ),
+  )
+}
+
+///|
+test "optimize-instructions keeps memory access offsets that would escape i32 positive range" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (result i32) i32.const 2147483640 i32.load offset=16))",
+  )
+  let load = @ir.hot_root_get(func, 0)
+  let load_addr = @ir.hot_child_get(func, load, 0)
+  // Intentional fail-closed boundary matching Binaryen's memory32 guard: the
+  // fold only fires when the constant address, offset, and sum all fit in the
+  // nonnegative i32 range, so wrapping/overflow-adjacent forms keep the offset.
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, load_addr).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(2147483640)),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, load),
+    Some(
+      @lib.Instruction::i32_load(
+        @lib.MemArg::new(@lib.U32(2), None, @lib.U64(16)),
+      ),
+    ),
+  )
+}
+
+///|
 test "optimize-instructions removes redundant sign extensions from signed loads" {
   let func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (param i32) (result i32) local.get 0 i32.load8_s i32.extend8_s))",

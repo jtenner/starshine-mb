@@ -2767,6 +2767,155 @@ fn optimize_instructions_repeated_fill_i64_for_local_get(
 }
 
 ///|
+fn optimize_instructions_memory_access_with_memarg(
+  instr : @lib.Instruction,
+  memarg : @lib.MemArg,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Instruction::I32Load(_) => Some(@lib.Instruction::i32_load(memarg))
+    @lib.Instruction::I64Load(_) => Some(@lib.Instruction::i64_load(memarg))
+    @lib.Instruction::F32Load(_) => Some(@lib.Instruction::f32_load(memarg))
+    @lib.Instruction::F64Load(_) => Some(@lib.Instruction::f64_load(memarg))
+    @lib.Instruction::I32Load8S(_) => Some(@lib.Instruction::i32_load8s(memarg))
+    @lib.Instruction::I32Load8U(_) => Some(@lib.Instruction::i32_load8u(memarg))
+    @lib.Instruction::I32Load16S(_) =>
+      Some(@lib.Instruction::i32_load16s(memarg))
+    @lib.Instruction::I32Load16U(_) =>
+      Some(@lib.Instruction::i32_load16u(memarg))
+    @lib.Instruction::I64Load8S(_) => Some(@lib.Instruction::i64_load8s(memarg))
+    @lib.Instruction::I64Load8U(_) => Some(@lib.Instruction::i64_load8u(memarg))
+    @lib.Instruction::I64Load16S(_) =>
+      Some(@lib.Instruction::i64_load16s(memarg))
+    @lib.Instruction::I64Load16U(_) =>
+      Some(@lib.Instruction::i64_load16u(memarg))
+    @lib.Instruction::I64Load32S(_) =>
+      Some(@lib.Instruction::i64_load32s(memarg))
+    @lib.Instruction::I64Load32U(_) =>
+      Some(@lib.Instruction::i64_load32u(memarg))
+    @lib.Instruction::I32Store(_) => Some(@lib.Instruction::i32_store(memarg))
+    @lib.Instruction::I64Store(_) => Some(@lib.Instruction::i64_store(memarg))
+    @lib.Instruction::F32Store(_) => Some(@lib.Instruction::f32_store(memarg))
+    @lib.Instruction::F64Store(_) => Some(@lib.Instruction::f64_store(memarg))
+    @lib.Instruction::I32Store8(_) => Some(@lib.Instruction::i32_store8(memarg))
+    @lib.Instruction::I32Store16(_) =>
+      Some(@lib.Instruction::i32_store16(memarg))
+    @lib.Instruction::I64Store8(_) => Some(@lib.Instruction::i64_store8(memarg))
+    @lib.Instruction::I64Store16(_) =>
+      Some(@lib.Instruction::i64_store16(memarg))
+    @lib.Instruction::I64Store32(_) =>
+      Some(@lib.Instruction::i64_store32(memarg))
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_load_result_type(
+  instr : @lib.Instruction,
+) -> @lib.ValType? {
+  match instr {
+    @lib.Instruction::I32Load(_)
+    | @lib.Instruction::I32Load8S(_)
+    | @lib.Instruction::I32Load8U(_)
+    | @lib.Instruction::I32Load16S(_)
+    | @lib.Instruction::I32Load16U(_) => Some(@lib.ValType::i32())
+    @lib.Instruction::I64Load(_)
+    | @lib.Instruction::I64Load8S(_)
+    | @lib.Instruction::I64Load8U(_)
+    | @lib.Instruction::I64Load16S(_)
+    | @lib.Instruction::I64Load16U(_)
+    | @lib.Instruction::I64Load32S(_)
+    | @lib.Instruction::I64Load32U(_) => Some(@lib.ValType::i64())
+    @lib.Instruction::F32Load(_) => Some(@lib.ValType::f32())
+    @lib.Instruction::F64Load(_) => Some(@lib.ValType::f64())
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_const_memory_access_offset(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  ignore(dead)
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count == 0 {
+    return false
+  }
+  match node.op {
+    @ir.HotOp::Load | @ir.HotOp::Store => ()
+    _ => return false
+  }
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return false
+  }
+  let @lib.MemArg(align, mem, @lib.U64(offset)) = @ir.hot_memarg_get(
+      func,
+      node.imm0,
+    ).memarg
+  if offset == 0UL || offset > 2147483647UL {
+    return false
+  }
+  let address_id = @ir.hot_child_get(func, node_id, 0)
+  let address = @ir.hot_node_get(func, address_id)
+  match address.op {
+    @ir.HotOp::Const => ()
+    _ => return false
+  }
+  let new_address_id = match @ir.hot_const_get(func, address.imm0) {
+    @ir.HotConstPayload::I32Const(@lib.I32(raw)) => {
+      if raw < 0 {
+        return false
+      }
+      let raw_u = raw.reinterpret_as_uint()
+      if raw_u > 2147483647U {
+        return false
+      }
+      let sum = raw_u.to_uint64() + offset
+      if sum > 2147483647UL {
+        return false
+      }
+      @ir.hot_build_const_i32(
+        func,
+        @lib.I32(sum.to_uint().reinterpret_as_int()),
+      )
+    }
+    _ => return false
+  }
+  let new_memarg = @lib.MemArg::new(align, mem, @lib.U64(0UL))
+  let new_instr = match
+    optimize_instructions_memory_access_with_memarg(instr, new_memarg) {
+    Some(instr) => instr
+    None => return false
+  }
+  let temp = match node.op {
+    @ir.HotOp::Load => {
+      let result_type = match optimize_instructions_load_result_type(instr) {
+        Some(result_type) => result_type
+        None => return false
+      }
+      @ir.hot_build_load(func, result_type, new_memarg, new_address_id)
+    }
+    @ir.HotOp::Store =>
+      @ir.hot_build_store(
+        func,
+        new_memarg,
+        new_address_id,
+        @ir.hot_child_get(func, node_id, 1),
+      )
+    _ => return false
+  }
+  @ir.hot_node_exact_instr_set(func, temp, new_instr)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_store_value_bits(instr : @lib.Instruction) -> Int? {
   match instr {
     @lib.Instruction::I32Store8(_) | @lib.Instruction::I64Store8(_) => Some(8)
@@ -4180,7 +4329,14 @@ fn optimize_instructions_visit_node(
       }
     @ir.HotOp::Select =>
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
+    @ir.HotOp::Load =>
+      optimize_instructions_try_fold_const_memory_access_offset(
+        ctx, func, dead, node_id,
+      )
     @ir.HotOp::Store =>
+      optimize_instructions_try_fold_const_memory_access_offset(
+        ctx, func, dead, node_id,
+      ) ||
       optimize_instructions_try_drop_narrow_store_value_mask(
         ctx, func, dead, node_id,
       )
