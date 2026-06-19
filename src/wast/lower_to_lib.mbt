@@ -3616,14 +3616,38 @@ fn wt_legacy_pop_prefix_tail_is_simple_operand_tail_call(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
   instr_idx : Int,
+  payload_types : Array[@lib.ValType],
 ) -> Bool {
   if instr_idx + 1 >= instrs.length() {
     return false
   }
   match instrs[instr_idx + 1] {
-    @lib.ReturnCallIndirect(type_idx, _) | @lib.ReturnCallRef(type_idx) =>
+    @lib.ReturnCallIndirect(type_idx, _) =>
       match env.resolve_functype(type_idx) {
-        Some(@lib.FuncType(params, _)) => params.length() == 0
+        Some(@lib.FuncType(params, _)) =>
+          if params.length() == 0 {
+            true
+          } else {
+            match instrs[instr_idx] {
+              @lib.I32Const(_) | @lib.LocalGet(_) =>
+                wt_legacy_pop_types_match(params, payload_types)
+              _ => false
+            }
+          }
+        None => false
+      }
+    @lib.ReturnCallRef(type_idx) =>
+      match env.resolve_functype(type_idx) {
+        Some(@lib.FuncType(params, _)) =>
+          if params.length() == 0 {
+            true
+          } else {
+            match instrs[instr_idx] {
+              @lib.RefFunc(_) | @lib.LocalGet(_) =>
+                wt_legacy_pop_types_match(params, payload_types)
+              _ => false
+            }
+          }
         None => false
       }
     _ => false
@@ -4463,7 +4487,7 @@ fn wt_direct_legacy_pop_instr_supported(
                           prefix_types,
                         ) ||
                         wt_legacy_pop_prefix_tail_is_simple_operand_tail_call(
-                          env, catch_instrs, instr_idx,
+                          env, catch_instrs, instr_idx, prefix_types,
                         )
                       )
                     if !prefix_flows_to_nonfallthrough {

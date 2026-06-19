@@ -1647,6 +1647,79 @@ test "dead-code-elimination preserves catch pop as parameterized return_call ope
 }
 
 ///|
+test "dead-code-elimination preserves catch pop as parameterized return_call_indirect operand text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (table 1 funcref)
+    #|  (func $tail (type $tail-type) (param i32))
+    #|  (elem (i32.const 0) $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (pop i32)
+    #|        (i32.const 0)
+    #|        (return_call_indirect (type $tail-type))
+    #|        nop)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected parameterized return_call_indirect pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves catch pop as parameterized return_call_ref operand text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func $tail (type $tail-type) (param i32))
+    #|  (elem declare func $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (pop i32)
+    #|        (ref.func $tail)
+    #|        (return_call_ref (type $tail-type))
+    #|        nop)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected parameterized return_call_ref pop DCE success: \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination repairs catch pop before return_call_indirect text" {
   let source =
     #|(module
