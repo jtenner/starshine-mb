@@ -734,6 +734,123 @@ test "optimize-instructions keeps leading zero-sub add ordering" {
 }
 
 ///|
+test "optimize-instructions folds exact integer constant subtraction" {
+  let i32_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 84 i32.const 3 i32.sub))",
+  )
+  let i32_root = @ir.hot_root_get(i32_func, 0)
+  match @ir.hot_node_get(i32_func, i32_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32.const subtraction to fold to one const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i32_func, @ir.hot_node_get(i32_func, i32_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(81)),
+  )
+
+  let i32_wrap_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 3 i32.const 84 i32.sub))",
+  )
+  let i32_wrap_root = @ir.hot_root_get(i32_wrap_func, 0)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_wrap_func,
+      @ir.hot_node_get(i32_wrap_func, i32_wrap_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(-81)),
+  )
+
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (result i64) i64.const 99 i64.const 5 i64.sub))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  match @ir.hot_node_get(i64_func, i64_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i64.const subtraction to fold to one const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i64_func, @ir.hot_node_get(i64_func, i64_root).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(94L)),
+  )
+
+  let i64_wrap_func = optimize_instructions_test_run_hot(
+    "(module (func (result i64) i64.const 5 i64.const 99 i64.sub))",
+  )
+  let i64_wrap_root = @ir.hot_root_get(i64_wrap_func, 0)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_wrap_func,
+      @ir.hot_node_get(i64_wrap_func, i64_wrap_root).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(-94L)),
+  )
+}
+
+///|
+test "optimize-instructions canonicalizes default scalar float spellings" {
+  let f32_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32) (result f32) local.get 0 f32.const 2.5 f32.sub))",
+  )
+  let f32_root = @ir.hot_root_get(f32_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f32_func, f32_root),
+    Some(@lib.Instruction::f32_add()),
+  )
+  let f32_rhs = @ir.hot_child_get(f32_func, f32_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(f32_func, @ir.hot_node_get(f32_func, f32_rhs).imm0),
+    @ir.HotConstPayload::f32_const(@lib.F32(-2.5)),
+  )
+
+  let f64_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64) (result f64) local.get 0 f64.const 2 f64.div))",
+  )
+  let f64_root = @ir.hot_root_get(f64_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f64_func, f64_root),
+    Some(@lib.Instruction::f64_mul()),
+  )
+  let f64_rhs = @ir.hot_child_get(f64_func, f64_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(f64_func, @ir.hot_node_get(f64_func, f64_rhs).imm0),
+    @ir.HotConstPayload::f64_const(@lib.F64(0.5)),
+  )
+}
+
+///|
+test "optimize-instructions folds i32.wrap_i64 constants" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 4294967295 i32.wrap_i64))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32.wrap_i64 of a const to fold")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(-1)),
+  )
+}
+
+///|
+test "optimize-instructions keeps trapping integer divisions unfurled" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 84 i32.const 0 i32.div_s))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Binary => ()
+    _ => fail("expected trapping division by zero to remain a binary op")
+  }
+  let rhs = @ir.hot_child_get(func, root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions removes neutral add and sub zero" {
   let add_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.add i32.const 0 i32.add))",
@@ -1985,26 +2102,26 @@ test "optimize-instructions keeps commutative local get pair order" {
 }
 
 ///|
-test "optimize-instructions keeps relational local gets against calls when relational operand rewrites are disabled" {
+test "optimize-instructions canonicalizes relational local gets after calls when crossing is safe" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32 i32) (result i32) local.get 2 local.get 0 local.get 1 local.get 2 call 0 i32.lt_s))",
   )
   let root = @ir.hot_root_get(func, 0)
   @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i32_lt_s()),
+    Some(@lib.Instruction::i32_gt_s()),
   )
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
   match @ir.hot_node_get(func, lhs).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected lhs local.get to remain in place")
+    @ir.HotOp::Call => ()
+    _ => fail("expected call subtree to move to relational lhs")
   }
   match @ir.hot_node_get(func, rhs).op {
-    @ir.HotOp::Call => ()
-    _ => fail("expected rhs call to remain in place")
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected local.get to move to relational rhs")
   }
-  @debug.assert_eq(@ir.hot_node_get(func, lhs).imm0, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, rhs).imm0, 2)
 }
 
 ///|

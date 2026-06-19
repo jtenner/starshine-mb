@@ -6,6 +6,7 @@ sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
+  - ../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -37,10 +38,10 @@ Current Starshine `src/passes/optimize_instructions.mbt` is **much narrower** th
 The in-tree implementation is still a real, useful hot pass.
 Its center of gravity is:
 
-- exact binary constant folding
-- non-constant `eqz` / compare-to-zero rewrites and relational constant canonicalization
+- exact integer binary constant folding, including add and sub
+- non-constant `eqz` / compare-to-zero rewrites plus relational constant and guarded operand canonicalization
 - commutative operand ordering with HOT use-def safety guards
-- add/sub/mul/shift rewrites
+- add/sub/mul/shift rewrites, scalar float spelling rewrites, and `i32.wrap_i64` constant folding
 - constant-`if` folding
 - nested boolean-`if` normalization and `eqz` wrapping
 - duplicate-branch collapse in then-regions
@@ -72,11 +73,12 @@ The main pipeline handoff lives in `src/passes/pass_manager.mbt`:
 
 - `run_hot_pipeline_run_descriptor(...)` dispatches the descriptor name `optimize-instructions` into `optimize_instructions_run(...)`
 
-Unlike several neighboring passes, the current local `optimize-instructions` integration does **not** add a large raw pre-lift classifier family in `pass_manager.mbt`.
-That is itself a useful local distinction:
+The O4z/raw pipeline also has explicit pre-lift skip gates for currently expensive or representation-sensitive shapes. The 2026-06-19 OI-C audit made those gates trace-accountable for large local-heavy functions, lowered instruction-count blowups, stack-carried effect barriers, load/call mixes, call/local-write mixes, and structured call/branch meshes.
 
-- the current implementation expects the work to happen after HOT lift
-- the artifact-driven safeguards live mostly inside the pass file itself, not in a large raw skip layer
+That means there are two local execution layers to keep distinct:
+
+- ordinary direct pass behavior happens after HOT lift in `src/passes/optimize_instructions.mbt`
+- O4z/raw safeguards in `src/passes/pass_manager.mbt` remain release performance/representation boundaries until later behavior slices narrow them
 
 ### Core algorithm owner file
 
@@ -104,6 +106,7 @@ The fastest read-along path is:
   - `optimize_instructions_try_canonicalize_compare_const(...)`
 - arithmetic and compare rewrites
   - `optimize_instructions_try_rewrite_add_sub(...)`
+  - `optimize_instructions_try_rewrite_float_binary(...)`
   - `optimize_instructions_try_rewrite_mul_shift(...)`
   - `optimize_instructions_try_rewrite_shift(...)`
   - `optimize_instructions_try_rewrite_compare_eqz(...)`
@@ -118,7 +121,7 @@ That exact code map is the main practical improvement in this refresh: readers c
 The local tests are intentionally split across multiple files:
 
 - `src/passes/optimize_instructions_test.mbt`
-  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, nested boolean-`if` cleanup, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant normalization, and guard-heavy no-reorder cases
+  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, nested boolean-`if` cleanup, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
 - `src/passes/registry_test.mbt`
   - registry/descriptors exposure for the public HOT pass surface
 - `src/cmd/cmd_wbtest.mbt`
@@ -133,10 +136,12 @@ The strongest evidence surface is the focused reduced pass file plus the CLI rep
 
 The local file has dedicated helpers for:
 
-- exact constant folding of binary ops
+- exact constant folding of integer add/sub binary ops
+- float spelling rewrites for sub-to-add-negative and divide-by-two to multiply-by-half
+- `i32.wrap_i64` constant folding
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
-- relational operand canonicalization
+- guarded relational operand canonicalization
 - relational-constant normalization
 
 This is the part of the implementation that most closely matches the popular mental model of the upstream pass.

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/optimize-instructions | Complete OI-D default scalar audit
+
+- Completed `[O4Z-AUDIT-OI-D]` by filing [`raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md`](raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md). The slice added exact `i32` / `i64` constant-subtraction folding, float sub-to-add-negative and divide-by-two spelling rewrites, `i32.wrap_i64` constant folding, and re-enabled guarded relational operand canonicalization.
+- Evidence: red-first integer-subtraction test failed before implementation; focused scalar/trap/relational/wrap tests passed, full focused `optimize-instructions` filter passed `92/92`, `moon fmt` passed, `moon test src/passes` passed `2604/2604`, native `src/cmd` build passed with existing unused-function warnings, and direct `--pass optimize-instructions --count 10000 --seed 0x5eed --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` wrote `.tmp/pass-fuzz-optimize-instructions-oi-d-default-scalar-10000`, compared `56/10000`, with `28` normalized matches, `28` raw mismatches, `0` validation/property/generator failures, and `1` Binaryen/tool command failure (`binaryen-rec-group-zero`). Agent classification: the remaining raw mismatches are Starshine-win constant-if folding differences, not the previous scalar/default arithmetic spelling gaps. Updated [`binaryen/passes/optimize-instructions/index.md`](binaryen/passes/optimize-instructions/index.md), [`index.md`](index.md), and [`../../agent-todo.md`](../../agent-todo.md); `[O4Z-AUDIT-OI-E]` is next.
+
 ## [2026-06-19] passes/optimize-instructions | Complete OI-C raw gate audit
 
 - Completed `[O4Z-AUDIT-OI-C]` by filing [`raw/research/0728-2026-06-19-optimize-instructions-oi-c-raw-gates.md`](raw/research/0728-2026-06-19-optimize-instructions-oi-c-raw-gates.md). The audit added public-pipeline trace assertions for every OI raw no-op gate family and a positive fixture proving neutral-add cleanup still runs when no raw gate applies.
