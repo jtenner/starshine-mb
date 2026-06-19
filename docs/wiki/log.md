@@ -373,6 +373,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated [`binaryen/passes/global-refining/parity.md`](binaryen/passes/global-refining/parity.md), [`binaryen/passes/global-refining/starshine-hot-ir-strategy.md`](binaryen/passes/global-refining/starshine-hot-ir-strategy.md), [`binaryen/passes/global-refining/implementation-structure-and-tests.md`](binaryen/passes/global-refining/implementation-structure-and-tests.md), and [`../../agent-todo.md`](../../agent-todo.md) with the reopening criterion: revisit only if Starshine gains feature-disabled direct-pass execution or a compare lane intentionally runs Binaryen without GC enabled.
 - `[GR-002]` through `[GR-006]` remain open for exact function refs, broader initializer typing, public-type validation parity, `global.get` retagging/refinalization, and refreshed oracle evidence.
 
+## [2026-06-18] passes/dead-code-elimination | Cover dead call pop producers
+
+- Added focused WAST-lowered DCE coverage in [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) for `global.get`, simple unary, and simple binary values evaluated before a catch-payload `pop` in dead helper-call arguments. The existing repair already removes the dead call, drops the earlier value, and routes the payload through a carrier before the branch.
+- Evidence: focused tests for the new producer fixtures passed immediately, then `moon fmt`, `moon test src/passes` (`2578/2578`), and `git diff --check` passed. Red-first failure was not observed because the previous repair/general rewrite already covered these modeled producers.
+
 ## [2026-06-18] passes/dead-code-elimination | Cover dead call pop value targets
 
 - Added focused WAST-lowered DCE coverage in [`../../src/passes/dead_code_elimination_test.mbt`](../../src/passes/dead_code_elimination_test.mbt) for effectful-load and nested-block-result dead call arguments before catch-payload `pop` when the later nonfallthrough terminator targets a value branch or nonvoid return.
