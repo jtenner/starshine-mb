@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/remove-unused-brs | Close RUB final signoff after switch collapse
+
+- Closed `[O4Z-AUDIT-RUB-O]` after the RUB-P commit. The post-RUB-P final direct lane `.tmp/pass-fuzz-remove-unused-brs-rub-o-post-rub-p-final-100000` compared `99751/100000`, with `57148` normalized matches, `42601` cleanup-normalized matches, `2` raw mismatches, and `249` Binaryen/tool command failures (`219` rec-group-zero, `12` bad-section-size, `11` command-failed, `6` table-index-out-of-range, `1` invalid-tag-index).
+- The remaining raw mismatches are agent-classified Starshine wins, not semantic gaps: `case-027803-wasm-smith` removes a pure SIMD dropped expression before unconditional `unreachable` (Binaryen 69 bytes, Starshine 61 bytes), and `case-048903-wasm-smith` removes pure `memory.size` plus `f64.abs` drops before unconditional `br` (Binaryen 68 bytes, Starshine 54 bytes). Post-RUB-P O4z slot14/slot40 full and extracted direct replays in `.tmp/rub-o-post-rub-p-slots` all validate with `wasm-tools`. Updated [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md) and [`../../agent-todo.md`](../../agent-todo.md); `[O4Z-AUDIT-RUB-N]` remains the only documented unsupported branch-hint/pass-option boundary.
+
 ## [2026-06-19] passes/remove-unused-brs | Complete late switch one-target collapse
 
 - Completed `[O4Z-AUDIT-RUB-P]` for the local HOT subset of Binaryen `FinalOptimizer::visitSwitch(...)`. [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) now collapses lifted value-carrying one-target `br_table`s to `drop(selector); br payload` when the selector is const/local.get and payload values are locally reorder-safe, matching the Binaryen requirement that the selector can be moved before the value. Effectful selector/value pairs and child-less stack-payload switches stay conservative.
