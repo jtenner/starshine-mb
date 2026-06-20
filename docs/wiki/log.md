@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Implement OI-I nullable-source nullable-target success cast/test
+
+- Filed [`raw/research/0785-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-success-test-cast.md`](raw/research/0785-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-success-test-cast.md) for the twenty-ninth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.test (ref null eq)` on a declared nullable `(ref null struct)` local to `i32.const 1` and removes matching nullable-target `ref.cast` to the original local, while keeping non-null-target success, arbitrary subtype-lattice or indexed/defined heap proofs, descriptor/exactness/TNH/IIT behavior, and effectful operand cleanup out of scope.
+- Evidence: Binaryen oracle folded the same nullable-source/nullable-target aggregate-supertype shapes. Red-first focused `*nullable-source nullable-target ref.test*` failed before implementation and passed after `1/1`; final `*ref*` passed `36/36`, and `*optimize-instructions*` passed `166/166`. Broader validation and direct compare are recorded in the research note.
+
 ## [2026-06-20] passes/optimize-instructions | Implement OI-I nullable-source non-null target miss cast/test
 
 - Filed [`raw/research/0784-2026-06-20-optimize-instructions-oi-i-nullable-source-non-null-target-miss-test-cast.md`](raw/research/0784-2026-06-20-optimize-instructions-oi-i-nullable-source-non-null-target-miss-test-cast.md) for the twenty-eighth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.test (ref array)` on a declared nullable `(ref null struct)` local to `i32.const 0` and rewrites matching non-null-target `ref.cast` to `unreachable`, while keeping nullable-target nullable-source forms, subtype-lattice generalization, descriptor/exactness/TNH/IIT behavior, and effectful operand cleanup out of scope.

@@ -4677,6 +4677,36 @@ fn optimize_instructions_ref_is_known_match_for_target(
 }
 
 ///|
+fn optimize_instructions_ref_is_known_match_for_nullable_target(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) =>
+          ref_type.is_nullable() &&
+          (
+            ref_type.get_heap_type() == target ||
+            (
+              ref_type.get_heap_type() ==
+              @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+              optimize_instructions_ref_i31_matches_target(target)
+            ) ||
+            optimize_instructions_abs_struct_array_matches_target(
+              ref_type.get_heap_type(),
+              target,
+            )
+          )
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_ref_is_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4739,6 +4769,12 @@ fn optimize_instructions_try_fold_ref_test_null(
     }
     _ if optimize_instructions_ref_is_known_match_for_target(
         func, operand_id, target,
+      ) ||
+      (
+        nullable &&
+        optimize_instructions_ref_is_known_match_for_nullable_target(
+          func, operand_id, target,
+        )
       ) => {
       optimize_instructions_replace_with_const_i32(
         ctx,
@@ -4796,6 +4832,12 @@ fn optimize_instructions_try_fold_ref_cast_null(
     }
     _ if optimize_instructions_ref_is_known_match_for_target(
         func, operand_id, target,
+      ) ||
+      (
+        nullable &&
+        optimize_instructions_ref_is_known_match_for_nullable_target(
+          func, operand_id, target,
+        )
       ) => {
       optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
       true
