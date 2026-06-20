@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0842-2026-06-20-heap-store-optimization-branch-wrapper-passive-boundaries.md
   - ../../../raw/research/0841-2026-06-20-heap-store-optimization-branch-wrapper-copy-boundaries.md
   - ../../../raw/research/0840-2026-06-20-heap-store-optimization-branch-wrapper-bulk-fill-boundaries.md
   - ../../../raw/research/0839-2026-06-20-heap-store-optimization-branch-wrapper-constructor-pingpong.md

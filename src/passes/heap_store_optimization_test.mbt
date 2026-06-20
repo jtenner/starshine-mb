@@ -103,6 +103,29 @@ fn hso_test_loop_wrap(
 }
 
 ///|
+fn hso_test_branch_containing_wraps(
+  body : Array[@lib.Instruction],
+) -> Array[Array[@lib.Instruction]] {
+  [
+    hso_test_block_wrap([..body, @lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+    hso_test_block_wrap([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [..body, @lib.Instruction::br(@lib.LabelIdx::new(1U))],
+        None,
+      ),
+    ]),
+    hso_test_block_wrap([
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([..body, @lib.Instruction::br(@lib.LabelIdx::new(1U))]),
+      ),
+    ]),
+  ]
+}
+
+///|
 fn hso_test_memory_init_body() -> Array[@lib.Instruction] {
   [
     @lib.Instruction::i32_const(@lib.I32(0)),
@@ -4696,39 +4719,23 @@ test "heap-store-optimization keeps memory.size constructors before branch-conta
 
 ///|
 test "heap-store-optimization keeps memory.size constructors before branch-containing memory.copy wrappers" {
-  let branch_roots = [
-    hso_test_block_wrap(
-      [
-        ..hso_test_memory_copy_body(),
-        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
-      ],
-    ),
-    hso_test_block_wrap([
-      @lib.Instruction::i32_const(@lib.I32(1)),
-      @lib.Instruction::if_(
-        @lib.BlockType::void_(),
-        [
-          ..hso_test_memory_copy_body(),
-          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-        ],
-        None,
-      ),
-    ]),
-    hso_test_block_wrap([
-      @lib.Instruction::loop_(
-        @lib.BlockType::void_(),
-        @lib.Expr::new(
-          [
-            ..hso_test_memory_copy_body(),
-            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-          ],
-        ),
-      ),
-    ]),
-  ]
-  for roots in branch_roots {
+  for roots in hso_test_branch_containing_wraps(hso_test_memory_copy_body()) {
     hso_assert_memory_size_wrapped_passive_boundary(
       roots, "memory.copy", "memory-size/branch-wrapper-memory-copy",
+    )
+  }
+}
+
+///|
+test "heap-store-optimization keeps memory.size constructors before branch-containing passive data wrappers" {
+  for roots in hso_test_branch_containing_wraps(hso_test_memory_init_body()) {
+    hso_assert_memory_size_wrapped_passive_boundary(
+      roots, "memory.init", "memory-size/branch-wrapper-memory-init",
+    )
+  }
+  for roots in hso_test_branch_containing_wraps(hso_test_data_drop_body()) {
+    hso_assert_memory_size_wrapped_passive_boundary(
+      roots, "data.drop", "memory-size/branch-wrapper-data-drop",
     )
   }
 }
@@ -5928,39 +5935,23 @@ test "heap-store-optimization keeps table.size constructors before branch-contai
 
 ///|
 test "heap-store-optimization keeps table.size constructors before branch-containing table.copy wrappers" {
-  let branch_roots = [
-    hso_test_block_wrap(
-      [
-        ..hso_test_table_copy_body(),
-        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
-      ],
-    ),
-    hso_test_block_wrap([
-      @lib.Instruction::i32_const(@lib.I32(1)),
-      @lib.Instruction::if_(
-        @lib.BlockType::void_(),
-        [
-          ..hso_test_table_copy_body(),
-          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-        ],
-        None,
-      ),
-    ]),
-    hso_test_block_wrap([
-      @lib.Instruction::loop_(
-        @lib.BlockType::void_(),
-        @lib.Expr::new(
-          [
-            ..hso_test_table_copy_body(),
-            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-          ],
-        ),
-      ),
-    ]),
-  ]
-  for roots in branch_roots {
+  for roots in hso_test_branch_containing_wraps(hso_test_table_copy_body()) {
     hso_assert_table_size_wrapped_passive_boundary(
       roots, "table.copy", "table-size/branch-wrapper-table-copy",
+    )
+  }
+}
+
+///|
+test "heap-store-optimization keeps table.size constructors before branch-containing passive element wrappers" {
+  for roots in hso_test_branch_containing_wraps(hso_test_table_init_body()) {
+    hso_assert_table_size_wrapped_passive_boundary(
+      roots, "table.init", "table-size/branch-wrapper-table-init",
+    )
+  }
+  for roots in hso_test_branch_containing_wraps(hso_test_elem_drop_body()) {
+    hso_assert_table_size_wrapped_passive_boundary(
+      roots, "elem.drop", "table-size/branch-wrapper-elem-drop",
     )
   }
 }
