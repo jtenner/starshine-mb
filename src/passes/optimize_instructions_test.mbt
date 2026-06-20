@@ -1350,6 +1350,35 @@ test "optimize-instructions preserves effectful prefix while folding self ref.eq
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix while folding same-local ref.i31 equality" {
+  let source =
+    #|(module
+    #|  (import "m" "effect" (func $effect (result i32)))
+    #|  (func (export "same-local-i31") (param i32) (result i32)
+    #|    call $effect
+    #|    drop
+    #|    local.get 0
+    #|    ref.i31
+    #|    local.get 0
+    #|    ref.i31
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected effectful same-local ref.i31 equality optimize success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds impossible equality between i31 and struct locals" {
   let source =
     #|(module
