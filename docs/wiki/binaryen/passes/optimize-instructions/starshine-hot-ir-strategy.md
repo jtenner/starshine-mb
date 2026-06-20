@@ -43,6 +43,7 @@ sources:
   - ../../../raw/research/0763-2026-06-20-optimize-instructions-oi-i-i31-supertype-test-cast.md
   - ../../../raw/research/0764-2026-06-20-optimize-instructions-oi-i-ref-func-test-cast.md
   - ../../../raw/research/0765-2026-06-20-optimize-instructions-oi-i-i31-ref-eq.md
+  - ../../../raw/research/0766-2026-06-20-optimize-instructions-oi-i-non-null-local-refs.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -90,8 +91,8 @@ Its center of gravity is:
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
 - direct `ref.func` target directization for `call_ref` / `return_call_ref`, `table.get` target lowering to `call_indirect` / `return_call_indirect`, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, argument-bearing select-of-direct-`ref.func` lowering that localizes single-result call arguments before the direct-call `if`, zero-argument fallthrough-known block target directization with the target expression dropped for effects, and fail-closed boundary tests for mixed select arms plus argument-bearing fallthrough targets
 - first null-reference basics from OI-I: `ref.is_null(ref.null)` folds to `i32.const 1`, `ref.eq(x, null)` and `ref.eq(null, x)` rewrite through `ref.is_null(x)`, and `ref.eq(null, null)` folds to `i32.const 1`
-- known-non-null and literal-i31 equality basics from OI-I: `ref.is_null(ref.i31)` and `ref.is_null(ref.func)` fold to `i32.const 0`, `ref.eq(ref.i31, null)` / `ref.eq(null, ref.i31)` fold to `i32.const 0`, and `ref.eq` between immediate `ref.i31(i32.const)` operands folds to `i32.const 1` for equal payloads or `i32.const 0` for unequal payloads; the validator now accepts non-null `ref.is_null` operands so those fixtures can be authored through WAT
-- first `ref.as_non_null` basics from OI-I: `ref.as_non_null(ref.null)` rewrites to `unreachable`, `ref.as_non_null(ref.i31(x))` rewrites to `ref.i31(x)`, `ref.as_non_null(ref.func f)` rewrites to `ref.func f`, and exact `ref.cast(unreachable)` collapses to `unreachable` so stacked cast shapes lower validly
+- known-non-null and literal-i31 equality basics from OI-I: `ref.is_null(ref.i31)`, `ref.is_null(ref.func)`, and `ref.is_null(local.get)` for declared non-null reference locals fold to `i32.const 0`; `ref.eq(ref.i31, null)` / `ref.eq(null, ref.i31)` and null equality against declared non-null local refs fold to `i32.const 0`; and `ref.eq` between immediate `ref.i31(i32.const)` operands folds to `i32.const 1` for equal payloads or `i32.const 0` for unequal payloads; the validator now accepts non-null `ref.is_null` operands so those fixtures can be authored through WAT
+- first `ref.as_non_null` basics from OI-I: `ref.as_non_null(ref.null)` rewrites to `unreachable`, `ref.as_non_null(ref.i31(x))` rewrites to `ref.i31(x)`, `ref.as_non_null(ref.func f)` rewrites to `ref.func f`, `ref.as_non_null(local.get)` rewrites to the original `local.get` for declared non-null reference locals, and exact `ref.cast(unreachable)` collapses to `unreachable` so stacked cast shapes lower validly
 - first nullable null-operand `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref null T)` fed by `ref.null` folds to `i32.const 1`, and nullable `ref.cast` fed by `ref.null` rewrites to the null child; non-null null-operand cast/test public fixtures remain open behind current validation/type-surface matching
 - successful local-i31 `ref.test` / `ref.cast` basics from OI-I: `ref.test` fed by a local `ref.i31` constructor folds to `i32.const 1` for absolute targets `i31`, `eq`, and `any`, and matching `ref.cast` targets rewrite to the constructor child
 - successful local-`ref.func` `ref.test` / `ref.cast` basics from OI-I: exact `ref.test (ref func)` fed by local `ref.func` folds to `i32.const 1`, and exact `ref.cast (ref func)` fed by local `ref.func` rewrites to the constructor child; target-supertypes and arbitrary function-subtype facts remain open
@@ -276,13 +277,12 @@ This is still the bigger story.
 
 ## 1. No broad AST reference / GC optimization surface yet
 
-The local file now implements the first eight OI-I reference basics: `ref.is_null(ref.null)` / `ref.eq` with null operands, known-non-null constructor folds for `ref.i31` / `ref.func` null tests and `ref.i31` null equality, `ref.as_non_null(ref.null)`, `ref.as_non_null(ref.i31(x))`, `ref.as_non_null(ref.func f)`, exact `ref.cast(unreachable)` validity repair, nullable null-operand `ref.test` / `ref.cast` cleanup, successful local-`ref.i31` `ref.test` / `ref.cast` folds for absolute `i31` / `eq` / `any` targets, and successful local-`ref.func` `ref.test` / `ref.cast` folds for exact `func` targets. It still does not implement the broader upstream visitor families for things like:
+The local file now implements the first ten OI-I reference basics: `ref.is_null(ref.null)` / `ref.eq` with null operands, known-non-null constructor folds for `ref.i31` / `ref.func` null tests and `ref.i31` null equality, declared non-null `local.get` folds for `ref.is_null`, null equality, and `ref.as_non_null`, `ref.as_non_null(ref.null)`, `ref.as_non_null(ref.i31(x))`, `ref.as_non_null(ref.func f)`, exact `ref.cast(unreachable)` validity repair, nullable null-operand `ref.test` / `ref.cast` cleanup, successful local-`ref.i31` `ref.test` / `ref.cast` folds for absolute `i31` / `eq` / `any` targets, successful local-`ref.func` `ref.test` / `ref.cast` folds for exact `func` targets, and immediate literal-`i31` `ref.eq` folding. It still does not implement the broader upstream visitor families for things like:
 
-- impossible `ref.eq` / known-non-null equality proofs beyond the local `null` vs `ref.i31` subset
-- broader `ref.is_null` known-non-null proofs beyond exact local constructors
+- impossible `ref.eq` / known-non-null equality proofs beyond the covered null-vs-known-non-null and literal-i31 subsets
 - public non-null null-operand `ref.test` / `ref.cast` fixtures, currently blocked by local validation/type-surface matching
 - definitely successful `ref.cast` / `ref.test` cases and broader failed cast/test cases
-- broader `ref.as_non_null` cleanup
+- broader flow-sensitive `ref.as_non_null` cleanup
 - descriptor-aware casts
 - exactness-aware cast tightening
 

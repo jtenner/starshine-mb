@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I non-null local ref proofs
+
+- Filed [`raw/research/0766-2026-06-20-optimize-instructions-oi-i-non-null-local-refs.md`](raw/research/0766-2026-06-20-optimize-instructions-oi-i-non-null-local-refs.md) for the tenth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now uses declared non-null local reference types to fold `ref.is_null(local.get)` to `i32.const 0`, remove `ref.as_non_null(local.get)`, and fold null equality against that local to `i32.const 0`. The proof is limited to local metadata and does not claim flow-sensitive nullable-local facts.
+- Evidence: local Binaryen `version_130` oracle probe with `wasm-opt --enable-reference-types --enable-gc -S -O --optimize-instructions -o -` folded the three non-null-local shapes. Red-first focused `*non-null local ref*` failed before implementation because the new `is-null` function still contained the reference check; final `*non-null local ref*` passed `1/1`, focused `*ref*` passed `20/20`, focused `*optimize-instructions*` passed `148/148`, `moon fmt` passed, `moon test src/passes` passed `2660/2660`, native `src/cmd` release build passed with existing unused-function warnings, `moon info` passed with existing warnings, and `git diff --check` passed. The first direct compare timed out before `result.json`; the rerun in `.tmp/pass-fuzz-optimize-instructions-oi-i-nonnull-local-10000` compared `52/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no reference operation occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I i31 ref.eq constant proof
 
 - Filed [`raw/research/0765-2026-06-20-optimize-instructions-oi-i-i31-ref-eq.md`](raw/research/0765-2026-06-20-optimize-instructions-oi-i-i31-ref-eq.md) for the ninth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.eq` between immediate `ref.i31(i32.const)` operands to `i32.const 1` for equal payloads and `i32.const 0` for unequal payloads. The proof remains limited to local literal i31 constructors.

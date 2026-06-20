@@ -4411,7 +4411,14 @@ fn optimize_instructions_ref_is_known_non_null(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) =>
+          ref_type.is_non_nullable()
+        _ => false
+      }
     @ir.HotOp::RefFunc => true
     @ir.HotOp::Heap =>
       match @ir.hot_node_exact_instr(func, node_id) {

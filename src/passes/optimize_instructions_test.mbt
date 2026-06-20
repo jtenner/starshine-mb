@@ -976,6 +976,40 @@ test "optimize-instructions folds ref.is_null on locally known non-null refs" {
 }
 
 ///|
+test "optimize-instructions folds reference checks on non-null local refs" {
+  let source =
+    #|(module
+    #|  (func (export "is-null") (param (ref eq)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "as-non-null") (param (ref eq)) (result (ref eq))
+    #|    local.get 0
+    #|    ref.as_non_null)
+    #|  (func (export "eq-null") (param (ref eq)) (result i32)
+    #|    local.get 0
+    #|    ref.null eq
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected non-null local ref optimize success, got \{err}")
+  }
+  let is_null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let as_non_null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let eq_null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(is_null_pretty.contains("ref.is_null"), msg=is_null_pretty)
+  assert_true(is_null_pretty.contains("I32(0)"), msg=is_null_pretty)
+  assert_false(
+    as_non_null_pretty.contains("ref.as_non_null"),
+    msg=as_non_null_pretty,
+  )
+  assert_true(as_non_null_pretty.contains("local.get"), msg=as_non_null_pretty)
+  assert_false(eq_null_pretty.contains("ref.eq"), msg=eq_null_pretty)
+  assert_true(eq_null_pretty.contains("I32(0)"), msg=eq_null_pretty)
+}
+
+///|
 test "optimize-instructions folds null equality against locally known non-null refs" {
   let source =
     #|(module
