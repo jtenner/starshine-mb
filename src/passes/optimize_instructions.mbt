@@ -4584,6 +4584,27 @@ fn optimize_instructions_ref_local_heaps_are_impossible_equal(
 }
 
 ///|
+fn optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) =>
+          optimize_instructions_abs_struct_array_disjoint(
+            ref_type.get_heap_type(),
+            target,
+          )
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_is_known_miss_for_target(
   func : @ir.HotFunc,
   node_id : Int,
@@ -4729,6 +4750,12 @@ fn optimize_instructions_try_fold_ref_test_null(
     }
     _ if optimize_instructions_ref_is_known_miss_for_target(
         func, operand_id, target,
+      ) ||
+      (
+        not(nullable) &&
+        optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
+          func, operand_id, target,
+        )
       ) => {
       optimize_instructions_replace_with_const_i32(
         ctx,
@@ -4775,6 +4802,12 @@ fn optimize_instructions_try_fold_ref_cast_null(
     }
     _ if optimize_instructions_ref_is_known_miss_for_target(
         func, operand_id, target,
+      ) ||
+      (
+        not(nullable) &&
+        optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
+          func, operand_id, target,
+        )
       ) => {
       optimize_instructions_replace_with_unreachable(ctx, func, node_id)
       true
