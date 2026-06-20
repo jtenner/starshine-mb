@@ -450,6 +450,11 @@ pub enum Instruction {
   StringEncodeWtf8Array
   StructNew(Index)
   StructNewDefault(Index)
+  ArrayNew(Index)
+  ArrayNewDefault(Index)
+  ArrayNewFixed(Index, UInt)
+  ArrayNewData(Index, Index)
+  ArrayNewElem(Index, Index)
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
@@ -2031,6 +2036,23 @@ fn WastParser::parse_opcode_instruction(
     TryTable => self.parse_try_table_instruction(false)
     StructNew => StructNew(self.parse_index())
     StructNewDefault => StructNewDefault(self.parse_index())
+    ArrayNew => ArrayNew(self.parse_index())
+    ArrayNewDefault => ArrayNewDefault(self.parse_index())
+    ArrayNewFixed => {
+      let type_idx = self.parse_index()
+      let length = self.parse_nat("expected array.new_fixed length")
+      ArrayNewFixed(type_idx, length)
+    }
+    ArrayNewData => {
+      let type_idx = self.parse_index()
+      let data_idx = self.parse_index()
+      ArrayNewData(type_idx, data_idx)
+    }
+    ArrayNewElem => {
+      let type_idx = self.parse_index()
+      let elem_idx = self.parse_index()
+      ArrayNewElem(type_idx, elem_idx)
+    }
     StructGet => {
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")

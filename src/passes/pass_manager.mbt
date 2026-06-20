@@ -7311,7 +7311,8 @@ fn run_hot_pipeline_dce_raw_simple_value_instr_supported(
     | @lib.LocalGet(_)
     | @lib.GlobalGet(_)
     | @lib.RefNull(_)
-    | @lib.RefFunc(_) => true
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_) => true
     _ => false
   }
 }
@@ -7321,7 +7322,83 @@ fn run_hot_pipeline_dce_raw_binary_result_instr_supported(
   instr : @lib.Instruction,
 ) -> Bool {
   match instr {
-    @lib.I32Add => true
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64DivS
+    | @lib.I64DivU
+    | @lib.I64RemS
+    | @lib.I64RemU
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign
+    | @lib.RefEq => true
     _ => false
   }
 }
@@ -7352,7 +7429,54 @@ fn run_hot_pipeline_dce_raw_unary_result_instr_supported(
     | @lib.F64Floor
     | @lib.F64Trunc
     | @lib.F64Nearest
-    | @lib.F64Sqrt => true
+    | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I32TruncF32S
+    | @lib.I32TruncF32U
+    | @lib.I32TruncF64S
+    | @lib.I32TruncF64U
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.I64TruncF32S
+    | @lib.I64TruncF32U
+    | @lib.I64TruncF64S
+    | @lib.I64TruncF64U
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.RefIsNull
+    | @lib.AnyConvertExtern
+    | @lib.ExternConvertAny
+    | @lib.RefI31
+    | @lib.I31GetS
+    | @lib.I31GetU
+    | @lib.RefAsNonNull
+    | @lib.RefTest(_, _)
+    | @lib.RefCast(_, _)
+    | @lib.RefGetDesc(_)
+    | @lib.RefTestDesc(_, _)
+    | @lib.RefCastDescEq(_, _)
+    | @lib.LocalTee(_)
+    | @lib.TableGet(_)
+    | @lib.StructGet(_, _)
+    | @lib.StructGetS(_, _)
+    | @lib.StructGetU(_, _) => true
     _ => false
   }
 }
@@ -7420,6 +7544,180 @@ fn run_hot_pipeline_dce_raw_is_no_param_operand_tail_call(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_dead_call_arg_prefix_before_pops(
+  env : @validate.Env,
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> (Array[@lib.Instruction], Int, Int)? {
+  let prefix : Array[@lib.Instruction] = []
+  let mut depth = 0
+  let mut scan = idx
+  while scan < instrs.length() {
+    match instrs[scan] {
+      @lib.Pop(_) => break
+      _ => ()
+    }
+    match instrs[scan] {
+      @lib.Nop => ()
+      @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.LocalGet(_)
+      | @lib.GlobalGet(_)
+      | @lib.RefNull(_)
+      | @lib.RefFunc(_)
+      | @lib.StringConst(_) => depth = depth + 1
+      @lib.LocalTee(_) => if depth < 1 { return None }
+      @lib.Select(types) => {
+        let result_count = match types {
+          Some(vts) if vts.length() > 0 => vts.length()
+          Some(_) => return None
+          None => 1
+        }
+        let consumed = result_count * 2 + 1
+        if depth < consumed {
+          return None
+        }
+        depth = depth - consumed + result_count
+      }
+      @lib.Call(fidx) =>
+        match env.get_functype_by_funcidx(fidx) {
+          Some(@lib.FuncType(params, results)) if results.length() > 0 &&
+            depth >= params.length() =>
+            depth = depth - params.length() + results.length()
+          _ => return None
+        }
+      @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+        match env.resolve_functype(type_idx) {
+          Some(@lib.FuncType(params, results)) if results.length() > 0 &&
+            depth >= params.length() + 1 =>
+            depth = depth - params.length() - 1 + results.length()
+          _ => return None
+        }
+      @lib.Block(block_type, _) | @lib.Loop(block_type, _) =>
+        match env.expand_blocktype(block_type) {
+          Ok((params, results)) if params.length() == 0 && results.length() == 1 =>
+            depth = depth + 1
+          _ => return None
+        }
+      @lib.StructNew(type_idx) =>
+        match env.resolve_struct_fields(type_idx) {
+          Ok(fields) if depth >= fields.length() =>
+            depth = depth - fields.length() + 1
+          _ => return None
+        }
+      @lib.StructNewDefault(_) => depth = depth + 1
+      @lib.StructNewDesc(type_idx) =>
+        match env.resolve_struct_fields(type_idx) {
+          Ok(fields) if depth >= fields.length() + 1 =>
+            depth = depth - fields.length()
+          _ => return None
+        }
+      @lib.StructNewDefaultDesc(_) => if depth < 1 { return None }
+      @lib.MemorySize(_) | @lib.TableSize(_) => depth = depth + 1
+      @lib.MemoryGrow(_) => if depth < 1 { return None }
+      @lib.GlobalSet(_) =>
+        if depth < 1 {
+          return None
+        } else {
+          depth = depth - 1
+        }
+      @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) =>
+        if depth < 2 {
+          return None
+        } else {
+          depth = depth - 2
+        }
+      @lib.TableSet(_) =>
+        if depth < 2 {
+          return None
+        } else {
+          depth = depth - 2
+        }
+      @lib.TableGrow(_) =>
+        if depth < 2 {
+          return None
+        } else {
+          depth = depth - 1
+        }
+      @lib.TableFill(_)
+      | @lib.TableCopy(_, _)
+      | @lib.TableInit(_, _)
+      | @lib.MemoryFill(_)
+      | @lib.MemoryCopy(_, _)
+      | @lib.MemoryInit(_, _) =>
+        if depth < 3 {
+          return None
+        } else {
+          depth = depth - 3
+        }
+      @lib.ArrayNew(_) =>
+        if depth < 2 {
+          return None
+        } else {
+          depth = depth - 1
+        }
+      @lib.ArrayNewDefault(_) => if depth < 1 { return None }
+      @lib.ArrayNewFixed(_, @lib.U32(length)) =>
+        if depth < length.to_int() {
+          return None
+        } else {
+          depth = depth - length.to_int() + 1
+        }
+      @lib.ArrayNewData(_, _) | @lib.ArrayNewElem(_, _) =>
+        if depth < 2 {
+          return None
+        } else {
+          depth = depth - 1
+        }
+      @lib.StringNewUtf8Array
+      | @lib.StringNewWtf16Array
+      | @lib.StringNewLossyUtf8Array
+      | @lib.StringNewWtf8Array
+      | @lib.StringEncodeUtf8Array
+      | @lib.StringEncodeWtf16Array
+      | @lib.StringEncodeLossyUtf8Array
+      | @lib.StringEncodeWtf8Array =>
+        if depth < 3 {
+          return None
+        } else {
+          depth = depth - 2
+        }
+      _ if run_hot_pipeline_optimize_instructions_instr_is_plain_load(
+          instrs[scan],
+        ) => if depth < 1 { return None }
+      _ if run_hot_pipeline_dce_raw_unary_result_instr_supported(instrs[scan]) =>
+        if depth < 1 {
+          return None
+        }
+      _ if run_hot_pipeline_dce_raw_binary_result_instr_supported(instrs[scan]) =>
+        if depth < 2 {
+          return None
+        } else {
+          depth = depth - 1
+        }
+      _ => return None
+    }
+    prefix.push(instrs[scan])
+    scan = scan + 1
+  }
+  if scan < instrs.length() && depth > 0 && prefix.length() > 0 {
+    Some((prefix, scan, depth))
+  } else {
+    None
+  }
+}
+
+///|
 fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
@@ -7430,6 +7728,111 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
   label_results : Array[Array[@lib.ValType]],
 ) -> (Array[@lib.Instruction], Int)? {
   let rewritten : Array[@lib.Instruction] = []
+  match
+    run_hot_pipeline_dce_raw_dead_call_arg_prefix_before_pops(env, instrs, idx) {
+    Some((prefix_instrs, pop_start, prefix_result_count)) => {
+      let pop_types : Array[@lib.ValType] = []
+      let mut scan = pop_start
+      while scan < instrs.length() {
+        match instrs[scan] {
+          @lib.Pop(vt) => {
+            pop_types.push(vt)
+            scan = scan + 1
+          }
+          _ => break
+        }
+      }
+      if pop_types.length() > 1 && scan < instrs.length() {
+        let mut direct_tail : @lib.FuncIdx? = None
+        let mut indirect_tail : (@lib.TypeIdx, @lib.TableIdx)? = None
+        let mut ref_tail : @lib.TypeIdx? = None
+        let mut operand_idx = -1
+        let mut tail_end = scan + 1
+        match instrs[scan] {
+          @lib.ReturnCall(fidx) if run_hot_pipeline_dce_raw_return_call_params_match_payload(
+              env, fidx, pop_types,
+            ) => direct_tail = Some(fidx)
+          @lib.I32Const(_) | @lib.LocalGet(_) if scan + 1 < instrs.length() =>
+            match instrs[scan + 1] {
+              @lib.ReturnCallIndirect(type_idx, table_idx) if run_hot_pipeline_dce_raw_tail_call_type_params_match_payload(
+                  env, type_idx, pop_types,
+                ) => {
+                operand_idx = scan
+                indirect_tail = Some((type_idx, table_idx))
+                tail_end = scan + 2
+              }
+              @lib.ReturnCallRef(type_idx) if run_hot_pipeline_dce_raw_tail_call_type_params_match_payload(
+                  env, type_idx, pop_types,
+                ) => {
+                operand_idx = scan
+                ref_tail = Some(type_idx)
+                tail_end = scan + 2
+              }
+              _ => ()
+            }
+          @lib.RefFunc(_) if scan + 1 < instrs.length() =>
+            match instrs[scan + 1] {
+              @lib.ReturnCallRef(type_idx) if run_hot_pipeline_dce_raw_tail_call_type_params_match_payload(
+                  env, type_idx, pop_types,
+                ) => {
+                operand_idx = scan
+                ref_tail = Some(type_idx)
+                tail_end = scan + 2
+              }
+              _ => ()
+            }
+          _ => ()
+        }
+        if direct_tail != None || indirect_tail != None || ref_tail != None {
+          for prefix_instr in prefix_instrs {
+            rewritten.push(prefix_instr)
+          }
+          for drop_idx = 0
+              drop_idx < prefix_result_count
+              drop_idx = drop_idx + 1 {
+            rewritten.push(@lib.Instruction::drop())
+          }
+          let carrier_locals : Array[@lib.LocalIdx] = []
+          for vt in pop_types {
+            let local_id = @lib.LocalIdx::new(
+              (param_count + locals.length()).reinterpret_as_uint(),
+            )
+            locals.push(vt)
+            carrier_locals.push(local_id)
+            rewritten.push(@lib.Instruction::pop(vt))
+            rewritten.push(@lib.Instruction::local_set(local_id))
+          }
+          for local_id in carrier_locals {
+            rewritten.push(@lib.Instruction::local_get(local_id))
+          }
+          match direct_tail {
+            Some(fidx) => rewritten.push(@lib.Instruction::return_call(fidx))
+            None => {
+              if operand_idx >= 0 {
+                rewritten.push(instrs[operand_idx])
+              }
+              match indirect_tail {
+                Some((type_idx, table_idx)) =>
+                  rewritten.push(
+                    @lib.Instruction::return_call_indirect(type_idx, table_idx),
+                  )
+                None =>
+                  match ref_tail {
+                    Some(type_idx) =>
+                      rewritten.push(
+                        @lib.Instruction::return_call_ref(type_idx),
+                      )
+                    None => return None
+                  }
+              }
+            }
+          }
+          return Some((rewritten, tail_end))
+        }
+      }
+    }
+    None => ()
+  }
   let mut pop_idx = -1
   let mut term_idx = -1
   let mut pop_type : @lib.ValType? = None
@@ -7444,7 +7847,8 @@ fn run_hot_pipeline_dce_raw_repair_dead_call_arg_pop_before_nonfallthrough(
           | @lib.LocalGet(_)
           | @lib.GlobalGet(_)
           | @lib.RefNull(_)
-          | @lib.RefFunc(_) => {
+          | @lib.RefFunc(_)
+          | @lib.StringConst(_) => {
             pop_idx = idx + 1
             term_idx = idx + 2
             pop_type = Some(vt)

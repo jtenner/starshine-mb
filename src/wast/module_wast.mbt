@@ -464,6 +464,13 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     StringEncodeWtf8Array => "string.encode_wtf8_array"
     StructNew(idx) => "struct.new \{index_text(idx)}"
     StructNewDefault(idx) => "struct.new_default \{index_text(idx)}"
+    ArrayNew(idx) => "array.new \{index_text(idx)}"
+    ArrayNewDefault(idx) => "array.new_default \{index_text(idx)}"
+    ArrayNewFixed(idx, length) => "array.new_fixed \{index_text(idx)} \{length}"
+    ArrayNewData(type_idx, data_idx) =>
+      "array.new_data \{index_text(type_idx)} \{index_text(data_idx)}"
+    ArrayNewElem(type_idx, elem_idx) =>
+      "array.new_elem \{index_text(type_idx)} \{index_text(elem_idx)}"
     StructGet(idx, field_idx) => "struct.get \{index_text(idx)} \{field_idx}"
     StructGetS(idx, field_idx) => "struct.get_s \{index_text(idx)} \{field_idx}"
     StructGetU(idx, field_idx) => "struct.get_u \{index_text(idx)} \{field_idx}"

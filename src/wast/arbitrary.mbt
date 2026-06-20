@@ -166,6 +166,11 @@ fn wast_arbitrary_count_instructions(
       | StringEncodeWtf8Array
       | StructNew(_)
       | StructNewDefault(_)
+      | ArrayNew(_)
+      | ArrayNewDefault(_)
+      | ArrayNewFixed(_, _)
+      | ArrayNewData(_, _)
+      | ArrayNewElem(_, _)
       | StructGet(_, _)
       | StructGetS(_, _)
       | StructGetU(_, _)

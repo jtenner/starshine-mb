@@ -2258,8 +2258,79 @@ fn wt_instr_to_lib(
     StringEncodeLossyUtf8Array =>
       Ok(@lib.Instruction::string_encode_lossy_utf8_array())
     StringEncodeWtf8Array => Ok(@lib.Instruction::string_encode_wtf8_array())
+    ArrayNewFixed(idx, length) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      Ok(
+        @lib.Instruction::array_new_fixed(
+          @lib.TypeIdx::new(ti),
+          @lib.U32(length),
+        ),
+      )
+    }
+    ArrayNewData(type_idx, data_idx) | ArrayNewElem(type_idx, data_idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          type_idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let segment_ids = match instr {
+        ArrayNewData(_, _) => ctx.data_ids
+        ArrayNewElem(_, _) => ctx.elem_ids
+        _ => {}
+      }
+      let next_segment_idx = match instr {
+        ArrayNewData(_, _) => ctx.next_data_idx
+        ArrayNewElem(_, _) => ctx.next_elem_idx
+        _ => 0U
+      }
+      let segment_kind = match instr {
+        ArrayNewData(_, _) => "data"
+        ArrayNewElem(_, _) => "elem"
+        _ => "segment"
+      }
+      let si = match
+        wt_resolve_named_or_num_index(
+          data_idx, segment_ids, next_segment_idx, segment_kind,
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      match instr {
+        ArrayNewData(_, _) =>
+          Ok(
+            @lib.Instruction::array_new_data(
+              @lib.TypeIdx::new(ti),
+              @lib.DataIdx::new(si),
+            ),
+          )
+        ArrayNewElem(_, _) =>
+          Ok(
+            @lib.Instruction::array_new_elem(
+              @lib.TypeIdx::new(ti),
+              @lib.ElemIdx::new(si),
+            ),
+          )
+        _ => Err("internal error: unexpected segment array instruction")
+      }
+    }
     StructNew(idx)
     | StructNewDefault(idx)
+    | ArrayNew(idx)
+    | ArrayNewDefault(idx)
     | StructNewDesc(idx)
     | StructNewDefaultDesc(idx) => {
       let ti = match
@@ -2277,10 +2348,12 @@ fn wt_instr_to_lib(
         StructNew(_) => Ok(@lib.Instruction::struct_new(type_idx))
         StructNewDefault(_) =>
           Ok(@lib.Instruction::struct_new_default(type_idx))
+        ArrayNew(_) => Ok(@lib.Instruction::array_new(type_idx))
+        ArrayNewDefault(_) => Ok(@lib.Instruction::array_new_default(type_idx))
         StructNewDesc(_) => Ok(@lib.Instruction::struct_new_desc(type_idx))
         StructNewDefaultDesc(_) =>
           Ok(@lib.Instruction::struct_new_default_desc(type_idx))
-        _ => Err("internal error: unexpected struct allocation instruction")
+        _ => Err("internal error: unexpected allocation instruction")
       }
     }
     StructGet(idx, field_idx)
@@ -3977,6 +4050,53 @@ fn wt_legacy_pop_call_value_instr_stack_neutral(
     | @lib.F64Trunc
     | @lib.F64Nearest
     | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I32TruncF32S
+    | @lib.I32TruncF32U
+    | @lib.I32TruncF64S
+    | @lib.I32TruncF64U
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.I64TruncF32S
+    | @lib.I64TruncF32U
+    | @lib.I64TruncF64S
+    | @lib.I64TruncF64U
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.RefIsNull
+    | @lib.AnyConvertExtern
+    | @lib.ExternConvertAny
+    | @lib.RefI31
+    | @lib.I31GetS
+    | @lib.I31GetU
+    | @lib.RefAsNonNull
+    | @lib.RefTest(_, _)
+    | @lib.RefCast(_, _)
+    | @lib.RefGetDesc(_)
+    | @lib.RefTestDesc(_, _)
+    | @lib.RefCastDescEq(_, _)
+    | @lib.LocalTee(_)
+    | @lib.TableGet(_)
+    | @lib.StructGet(_, _)
+    | @lib.StructGetS(_, _)
+    | @lib.StructGetU(_, _)
     | @lib.I32Load(_)
     | @lib.I64Load(_)
     | @lib.F32Load(_)
@@ -4080,7 +4200,8 @@ fn wt_legacy_pop_call_value_instr_binary(instr : @lib.Instruction) -> Bool {
     | @lib.F64Div
     | @lib.F64Min
     | @lib.F64Max
-    | @lib.F64Copysign => true
+    | @lib.F64Copysign
+    | @lib.RefEq => true
     _ => false
   }
 }
@@ -4184,6 +4305,7 @@ fn wt_legacy_pop_call_arg_instr_supported(
     | @lib.GlobalGet(_)
     | @lib.RefNull(_)
     | @lib.RefFunc(_)
+    | @lib.StringConst(_)
     | @lib.I32Const(_)
     | @lib.I64Const(_)
     | @lib.F32Const(_)
@@ -4283,7 +4405,7 @@ fn wt_legacy_pop_dead_call_param_tail_payload_supported(
   call_idx : Int,
   payloads : Array[@lib.ValType],
 ) -> Bool {
-  if payloads.length() != 1 || call_idx < payloads.length() + 2 {
+  if payloads.length() == 0 || call_idx < payloads.length() + 2 {
     return false
   }
   let tail_idx = call_idx - 1
@@ -4327,23 +4449,55 @@ fn wt_legacy_pop_dead_call_param_tail_payload_supported(
     }
     _ => return false
   }
-  if params.length() == 0 || !wt_legacy_pop_types_match(params, payloads) {
-    return false
-  }
+  let pop_types : Array[@lib.ValType] = []
   for offset = 0; offset < payloads.length(); offset = offset + 1 {
+    let payload_idx = payloads.length() - 1 - offset
     match instrs[pop_start + offset] {
-      @lib.Pop(vt) if vt == payloads[offset] => ()
+      @lib.Pop(vt) if vt == payloads[payload_idx] => pop_types.push(vt)
       _ => return false
     }
+  }
+  if params.length() == 0 || !wt_legacy_pop_types_match(params, pop_types) {
+    return false
   }
   let mut prefix_depth = 0
   for idx = 0; idx < pop_start; idx = idx + 1 {
     match instrs[idx] {
-      @lib.I32Const(_) | @lib.LocalGet(_) => prefix_depth = prefix_depth + 1
+      @lib.Nop => ()
+      @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.LocalGet(_)
+      | @lib.GlobalGet(_)
+      | @lib.RefNull(_)
+      | @lib.RefFunc(_)
+      | @lib.StringConst(_) => prefix_depth = prefix_depth + 1
+      @lib.LocalTee(_) => if prefix_depth < 1 { return false }
+      @lib.Select(types) => {
+        let result_count = match types {
+          Some(vts) if vts.length() > 0 => vts.length()
+          Some(_) => return false
+          None => 1
+        }
+        let consumed = result_count * 2 + 1
+        if prefix_depth < consumed {
+          return false
+        }
+        prefix_depth = prefix_depth - consumed + result_count
+      }
       @lib.Call(fidx) =>
         match env.get_functype_by_funcidx(fidx) {
-          Some(@lib.FuncType(params, results)) if params.length() == 0 &&
-            results.length() == 1 => prefix_depth = prefix_depth + 1
+          Some(@lib.FuncType(params, results)) if results.length() > 0 &&
+            prefix_depth >= params.length() =>
+            prefix_depth = prefix_depth - params.length() + results.length()
+          _ => return false
+        }
+      @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+        match env.resolve_functype(type_idx) {
+          Some(@lib.FuncType(params, results)) if results.length() > 0 &&
+            prefix_depth >= params.length() + 1 =>
+            prefix_depth = prefix_depth - params.length() - 1 + results.length()
           _ => return false
         }
       @lib.Block(block_type, _) | @lib.Loop(block_type, _) =>
@@ -4352,11 +4506,102 @@ fn wt_legacy_pop_dead_call_param_tail_payload_supported(
             prefix_depth = prefix_depth + 1
           _ => return false
         }
+      @lib.StructNew(type_idx) =>
+        match env.resolve_struct_fields(type_idx) {
+          Ok(fields) if prefix_depth >= fields.length() =>
+            prefix_depth = prefix_depth - fields.length() + 1
+          _ => return false
+        }
+      @lib.StructNewDefault(_) => prefix_depth = prefix_depth + 1
+      @lib.StructNewDesc(type_idx) =>
+        match env.resolve_struct_fields(type_idx) {
+          Ok(fields) if prefix_depth >= fields.length() + 1 =>
+            prefix_depth = prefix_depth - fields.length()
+          _ => return false
+        }
+      @lib.StructNewDefaultDesc(_) => if prefix_depth < 1 { return false }
+      @lib.MemorySize(_) | @lib.TableSize(_) => prefix_depth = prefix_depth + 1
+      @lib.MemoryGrow(_) => if prefix_depth < 1 { return false }
+      @lib.GlobalSet(_) =>
+        if prefix_depth < 1 {
+          return false
+        } else {
+          prefix_depth = prefix_depth - 1
+        }
+      @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) =>
+        if prefix_depth < 2 {
+          return false
+        } else {
+          prefix_depth = prefix_depth - 2
+        }
+      @lib.TableSet(_) =>
+        if prefix_depth < 2 {
+          return false
+        } else {
+          prefix_depth = prefix_depth - 2
+        }
+      @lib.TableGrow(_) =>
+        if prefix_depth < 2 {
+          return false
+        } else {
+          prefix_depth = prefix_depth - 1
+        }
+      @lib.TableFill(_)
+      | @lib.TableCopy(_, _)
+      | @lib.TableInit(_, _)
+      | @lib.MemoryFill(_)
+      | @lib.MemoryCopy(_, _)
+      | @lib.MemoryInit(_, _) =>
+        if prefix_depth < 3 {
+          return false
+        } else {
+          prefix_depth = prefix_depth - 3
+        }
+      @lib.ArrayNew(_) =>
+        if prefix_depth < 2 {
+          return false
+        } else {
+          prefix_depth = prefix_depth - 1
+        }
+      @lib.ArrayNewDefault(_) => if prefix_depth < 1 { return false }
+      @lib.ArrayNewFixed(_, @lib.U32(length)) =>
+        if prefix_depth < length.to_int() {
+          return false
+        } else {
+          prefix_depth = prefix_depth - length.to_int() + 1
+        }
+      @lib.ArrayNewData(_, _) | @lib.ArrayNewElem(_, _) =>
+        if prefix_depth < 2 {
+          return false
+        } else {
+          prefix_depth = prefix_depth - 1
+        }
+      @lib.StringNewUtf8Array
+      | @lib.StringNewWtf16Array
+      | @lib.StringNewLossyUtf8Array
+      | @lib.StringNewWtf8Array
+      | @lib.StringEncodeUtf8Array
+      | @lib.StringEncodeWtf16Array
+      | @lib.StringEncodeLossyUtf8Array
+      | @lib.StringEncodeWtf8Array =>
+        if prefix_depth < 3 {
+          return false
+        } else {
+          prefix_depth = prefix_depth - 2
+        }
       _ if wt_legacy_pop_call_value_instr_stack_neutral(instrs[idx]) =>
         if prefix_depth < 1 {
           return false
         }
-      @lib.I32Add =>
+      _ if wt_legacy_pop_call_value_instr_binary(instrs[idx]) =>
         if prefix_depth < 2 {
           return false
         } else {

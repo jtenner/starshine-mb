@@ -248,6 +248,11 @@ pub enum Opcode {
   I31GetU
   StructNew
   StructNewDefault
+  ArrayNew
+  ArrayNewDefault
+  ArrayNewFixed
+  ArrayNewData
+  ArrayNewElem
   StructGet
   StructGetS
   StructGetU
@@ -784,6 +789,11 @@ pub impl Show for Opcode with fn output(self, logger) {
     I31GetU => logger.write_string("I31GetU")
     StructNew => logger.write_string("StructNew")
     StructNewDefault => logger.write_string("StructNewDefault")
+    ArrayNew => logger.write_string("ArrayNew")
+    ArrayNewDefault => logger.write_string("ArrayNewDefault")
+    ArrayNewFixed => logger.write_string("ArrayNewFixed")
+    ArrayNewData => logger.write_string("ArrayNewData")
+    ArrayNewElem => logger.write_string("ArrayNewElem")
     StructGet => logger.write_string("StructGet")
     StructGetS => logger.write_string("StructGetS")
     StructGetU => logger.write_string("StructGetU")

@@ -301,6 +301,11 @@ pub enum Instruction {
   StringEncodeWtf8Array
   StructNew(Index)
   StructNewDefault(Index)
+  ArrayNew(Index)
+  ArrayNewDefault(Index)
+  ArrayNewFixed(Index, UInt)
+  ArrayNewData(Index, Index)
+  ArrayNewElem(Index, Index)
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
@@ -523,6 +528,11 @@ pub enum Opcode {
   I31GetU
   StructNew
   StructNewDefault
+  ArrayNew
+  ArrayNewDefault
+  ArrayNewFixed
+  ArrayNewData
+  ArrayNewElem
   StructGet
   StructGetS
   StructGetU

@@ -1654,6 +1654,3428 @@ test "dead-code-elimination repairs const arg before catch pop parameterized tai
 }
 
 ///|
+test "dead-code-elimination repairs const arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 7)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected const-arg multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs unary arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (i32.eqz)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unary-arg multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("i32.eqz"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs conversion arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 11
+    #|        i64.extend_i32_s
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i64 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected conversion-arg multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("i64.extend_i32"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs local tee arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (local i32)
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 17
+    #|        local.tee 0
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected local-tee-arg multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs call_indirect arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $producer-type (func (result i32)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (table 1 funcref)
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 0
+    #|        call_indirect (type $producer-type)
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call_indirect-arg multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs call_ref arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $producer-type (func (result i32)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $producer (type $producer-type) (i32.const 31))
+    #|  (elem declare func $producer)
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        ref.func $producer
+    #|        call_ref (type $producer-type)
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(2U),
+  )
+  assert_true(before.contains("call (Func 3)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call_ref-arg multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs multi-param call_indirect arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $producer-type (func (param i32 i64) (result i32)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (table 1 funcref)
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 17
+    #|        i64.const 19
+    #|        i32.const 0
+    #|        call_indirect (type $producer-type)
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multi-param call_indirect-arg multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs multi-param call_ref arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $producer-type (func (param i32 i64) (result i32)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $producer (type $producer-type) (i32.const 31))
+    #|  (elem declare func $producer)
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 17
+    #|        i64.const 19
+    #|        ref.func $producer
+    #|        call_ref (type $producer-type)
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(2U),
+  )
+  assert_true(before.contains("call (Func 3)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multi-param call_ref-arg multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs multi-param direct call arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $producer-type (func (param i32 i64) (result i32)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 17
+    #|        i64.const 19
+    #|        call $producer
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $producer (type $producer-type) (param i32 i64) (result i32)
+    #|    (local.get 0))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multi-param direct-call-arg multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs multi-result direct call before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $producer-type (func (result i32 i64)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        call $producer
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $producer (type $producer-type) (result i32 i64)
+    #|    (i32.const 17)
+    #|    (i64.const 19))
+    #|  (func $helper (param i32 i64 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multi-result direct-call multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs multi-result call_indirect before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $producer-type (func (result i32 i64)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (table 1 funcref)
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 0
+    #|        call_indirect (type $producer-type)
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i64 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multi-result call_indirect multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs multi-result call_ref before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $producer-type (func (result i32 i64)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $producer (type $producer-type) (result i32 i64)
+    #|    (i32.const 17)
+    #|    (i64.const 19))
+    #|  (elem declare func $producer)
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        ref.func $producer
+    #|        call_ref (type $producer-type)
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i64 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(2U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multi-result call_ref multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs select prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 17
+    #|        i32.const 19
+    #|        i32.const 1
+    #|        select
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("select"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected select-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs ref.is_null prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        ref.null extern
+    #|        ref.is_null
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref.is_null-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs ref.eq prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        ref.null eq
+    #|        ref.null eq
+    #|        ref.eq
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("ref.eq"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref.eq-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("ref.eq"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs ref.as_non_null prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param externref i64)))
+    #|  (tag $e-i64-extern (param i64 externref))
+    #|  (func $tail (type $tail-type) (param externref i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-extern
+    #|        ref.null extern
+    #|        ref.as_non_null
+    #|        pop externref
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 externref i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("ref.as_non_null"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref.as_non_null-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs table.get prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param funcref i64)))
+    #|  (tag $e-i64-func (param i64 funcref))
+    #|  (table 1 funcref)
+    #|  (func $tail (type $tail-type) (param funcref i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-func
+    #|        i32.const 0
+    #|        table.get 0
+    #|        pop funcref
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 funcref i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("table.get"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.get-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("table.get"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs string.const prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param stringref i64)))
+    #|  (tag $e-i64-string (param i64 stringref))
+    #|  (func $tail (type $tail-type) (param stringref i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-string
+    #|        string.const "dead-prefix"
+    #|        pop stringref
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param stringref stringref i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("string.const"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected string.const-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("string.const"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs string.new_utf8_array prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $bytes (array i8))
+    #|  (type $tail-type (func (param stringref i64)))
+    #|  (tag $e-i64-string (param i64 stringref))
+    #|  (func $tail (type $tail-type) (param stringref i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-string
+    #|        ref.null $bytes
+    #|        i32.const 0
+    #|        i32.const 0
+    #|        string.new_utf8_array
+    #|        pop stringref
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 stringref i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("string.new_utf8_array"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected string.new_utf8_array-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("string.new_utf8_array"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs string.encode_utf8_array prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $bytes (array (mut i8)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        string.const "abc"
+    #|        i32.const 8
+    #|        array.new_default $bytes
+    #|        i32.const 0
+    #|        string.encode_utf8_array
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("string.encode_utf8_array"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected string.encode_utf8_array-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("string.encode_utf8_array"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs string.encode_wtf16_array prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $words (array (mut i16)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        string.const "abc"
+    #|        i32.const 8
+    #|        array.new_default $words
+    #|        i32.const 0
+    #|        string.encode_wtf16_array
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("string.encode_wtf16_array"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected string.encode_wtf16_array-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("string.encode_wtf16_array"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs string.encode_lossy_utf8_array prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $bytes (array (mut i8)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        string.const "abc"
+    #|        i32.const 8
+    #|        array.new_default $bytes
+    #|        i32.const 0
+    #|        string.encode_lossy_utf8_array
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("string.encode_lossy_utf8_array"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected string.encode_lossy_utf8_array-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("string.encode_lossy_utf8_array"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs string.encode_wtf8_array prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $bytes (array (mut i8)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        string.const "abc"
+    #|        i32.const 8
+    #|        array.new_default $bytes
+    #|        i32.const 0
+    #|        string.encode_wtf8_array
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("string.encode_wtf8_array"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected string.encode_wtf8_array-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("string.encode_wtf8_array"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs table.size prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (table 1 funcref)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (table.size)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("table.size"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.size prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("table.size"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs table.grow prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (table 1 funcref)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (ref.null func)
+    #|          (i32.const 1)
+    #|          (table.grow)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("table.grow"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.grow prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("table.grow"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs table.set prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (table 1 funcref)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (ref.null func)
+    #|          (table.set)
+    #|          (i32.const 13)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("table.set"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.set prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs global.set prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 11)
+    #|          (global.set $g)
+    #|          (i32.const 13)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("global.set"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected global.set prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs table.fill prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (table 2 funcref)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (ref.null func)
+    #|          (i32.const 1)
+    #|          (table.fill)
+    #|          (i32.const 17)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("table.fill"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.fill prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("table.fill"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs table.copy prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (table 4 funcref)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (i32.const 1)
+    #|          (i32.const 1)
+    #|          (table.copy)
+    #|          (i32.const 19)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("table.copy"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.copy prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("table.copy"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs table.init prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (table 4 funcref)
+    #|  (elem $e func $tail)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (i32.const 0)
+    #|          (i32.const 1)
+    #|          (table.init $e)
+    #|          (i32.const 23)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("table.init"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.init prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("table.init"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs memory.size prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (memory 1)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (memory.size)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("memory.size"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.size prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs memory.grow prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (memory 1)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 1)
+    #|          (memory.grow)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("memory.grow"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.grow prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("memory.grow"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs i32.store prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (memory 1)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (i32.const 11)
+    #|          (i32.store)
+    #|          (i32.const 41)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("i32.store"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected i32.store prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs f64.store prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (memory 1)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 8)
+    #|          (f64.const 1.5)
+    #|          (f64.store)
+    #|          (i32.const 43)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("f64.store"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected f64.store prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("f64.store"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs memory.fill prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (memory 1)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (i32.const 7)
+    #|          (i32.const 1)
+    #|          (memory.fill)
+    #|          (i32.const 29)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("memory.fill"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.fill prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs memory.copy prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (memory 1)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (i32.const 1)
+    #|          (i32.const 1)
+    #|          (memory.copy)
+    #|          (i32.const 31)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("memory.copy"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.copy prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs memory.init prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (memory 1)
+    #|  (data $d "x")
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (i32.const 0)
+    #|          (i32.const 1)
+    #|          (memory.init $d)
+    #|          (i32.const 37)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("memory.init"), msg=before)
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.init prefix parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("memory.init"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs array.new_default prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $items (array i32))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 1
+    #|        array.new_default $items
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("array.new_default"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected array.new_default-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("array.new_default"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs array.new prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $items (array i32))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 7
+    #|        i32.const 1
+    #|        array.new $items
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("array.new"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected array.new-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("array.new"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs array.new_fixed prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $items (array i32))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 7
+    #|        i32.const 8
+    #|        array.new_fixed $items 2
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("array.new_fixed"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected array.new_fixed-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("array.new_fixed"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs array.new_data prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $items (array (mut i8)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (data $payload "abcd")
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 1
+    #|        i32.const 2
+    #|        array.new_data $items $payload
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("array.new_data"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected array.new_data-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("array.new_data"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs array.new_elem prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $items (array funcref))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $elem_target)
+    #|  (elem $payload func $elem_target)
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 0
+    #|        i32.const 1
+    #|        array.new_elem $items $payload
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(2U),
+  )
+  assert_true(before.contains("array.new_elem"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected array.new_elem-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("array.new_elem"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs struct.new_default prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        struct.new_default $box
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("struct.new_default"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected struct.new_default-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("struct.new_default"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs struct.new prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32) (field i64)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 7
+    #|        i64.const 8
+    #|        struct.new $box
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("struct.new"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected struct.new-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs struct.new_desc prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (rec
+    #|    (type $box
+    #|      (descriptor $box_desc)
+    #|      (struct))
+    #|    (type $box_desc
+    #|      (describes $box)
+    #|      (struct)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (struct.new_desc $box
+    #|          (ref.null (exact $box_desc)))
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("struct.new_desc"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected struct.new_desc-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs struct.new_default_desc prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (rec
+    #|    (type $box
+    #|      (descriptor $box_desc)
+    #|      (struct))
+    #|    (type $box_desc
+    #|      (describes $box)
+    #|      (struct)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (struct.new_default_desc $box
+    #|          (ref.null (exact $box_desc)))
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("struct.new_default_desc"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected struct.new_default_desc-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("struct.new_default_desc"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs any.convert_extern prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        ref.null extern
+    #|        any.convert_extern
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("any.convert_extern"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected any.convert_extern-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("any.convert_extern"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs extern.convert_any prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        ref.null any
+    #|        extern.convert_any
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("extern.convert_any"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected extern.convert_any-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("extern.convert_any"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs ref.i31 prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 7
+    #|        ref.i31
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("ref.i31"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref.i31-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("ref.i31"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs i31.get_s prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 7
+    #|        ref.i31
+    #|        i31.get_s
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("i31.get_s"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected i31.get_s-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("i31.get_s"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs i31.get_u prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64)
+    #|    (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 7
+    #|        ref.i31
+    #|        i31.get_u
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper))
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("i31.get_u"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected i31.get_u-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("i31.get_u"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs struct.get prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $struct (struct (field i32)))
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        ref.null $struct
+    #|        struct.get $struct 0
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("struct.get"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected struct.get-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs ref.get_desc prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (rec
+    #|    (type $node (descriptor $node_desc) (struct))
+    #|    (type $node_desc (describes $node) (struct))
+    #|  )
+    #|  (type $tail-type (func (param anyref i64)))
+    #|  (tag $e-i64-desc (param i64 anyref))
+    #|  (func $tail (type $tail-type) (param anyref i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-desc
+    #|        ref.null $node
+    #|        ref.get_desc $node
+    #|        pop anyref
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 anyref i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("ref.get_desc"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref.get_desc-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("ref.get_desc"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs ref.test_desc prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        ref.null func
+    #|        ref.test_desc 0
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("ref.test_desc"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref.test_desc-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("ref.test_desc"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs ref.cast_desc_eq prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param funcref i64)))
+    #|  (tag $e-i64-func (param i64 funcref))
+    #|  (func $tail (type $tail-type) (param funcref i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-func
+    #|        ref.null func
+    #|        ref.cast_desc_eq_null 0
+    #|        pop funcref
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 funcref i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("ref.cast_desc_eq"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref.cast_desc_eq-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs typed select prefix before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (param i32 i64))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        i32.const 17
+    #|        i32.const 19
+    #|        i32.const 1
+    #|        select (result i32)
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("select"), msg=before)
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected typed-select-prefix multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs nop-prefixed const arg before catch multi-pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        nop
+    #|        i32.const 23
+    #|        pop i32
+    #|        pop i64
+    #|        return_call $tail
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nop-prefixed const multi-pop parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("I32(23)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs nop-prefixed const arg before catch multi-pop parameterized return_call_ref text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (elem declare func $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        nop
+    #|        i32.const 29
+    #|        pop i32
+    #|        pop i64
+    #|        ref.func $tail
+    #|        return_call_ref (type $tail-type)
+    #|        call $helper
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64 funcref)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nop-prefixed const multi-pop parameterized return_call_ref pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("I32(29)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "dead-code-elimination repairs direct call arg before catch pop parameterized tail call text" {
   let source =
     #|(module
@@ -1775,6 +5197,48 @@ test "dead-code-elimination repairs binary arg before catch pop parameterized ta
   assert_true(pretty.contains("return_call"), msg=pretty)
   assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
   assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs non-add binary arg before catch pop parameterized tail call text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func $tail (type $tail-type) (param i32))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (i32.sub (i32.const 9) (i32.const 4))
+    #|          (pop i32)
+    #|          (return_call $tail))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected non-add-binary parameterized tail-call pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("i32.sub"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
   assert_true(pretty.contains("local.get"), msg=pretty)
@@ -1952,6 +5416,124 @@ test "dead-code-elimination repairs const arg before catch pop parameterized ret
 }
 
 ///|
+test "dead-code-elimination repairs const arg before catch multi-pop parameterized return_call_indirect text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) $tail)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 7)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (i32.const 0)
+    #|          (return_call_indirect (type $tail-type)))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected const-arg multi-pop parameterized return_call_indirect pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "dead-code-elimination repairs load arg before catch multi-pop parameterized return_call_indirect text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (memory 1)
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) $tail)
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 0)
+    #|          (i32.load)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (i32.const 0)
+    #|          (return_call_indirect (type $tail-type)))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected load-arg multi-pop parameterized return_call_indirect pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "dead-code-elimination repairs block-result arg before catch pop parameterized return_call_indirect text" {
   let source =
     #|(module
@@ -2036,6 +5618,51 @@ test "dead-code-elimination repairs binary arg before catch pop parameterized re
   assert_true(pretty.contains("return_call_indirect"), msg=pretty)
   assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
   assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs non-i32 binary arg before catch pop parameterized return_call_indirect text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (table 1 funcref)
+    #|  (func $tail (type $tail-type) (param i32))
+    #|  (elem (i32.const 0) $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (i64.add (i64.const 1) (i64.const 2))
+    #|          (pop i32)
+    #|          (i32.const 0)
+    #|          (return_call_indirect (type $tail-type)))
+    #|        nop)))
+    #|  (func $helper (param i64 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected non-i32-binary parameterized return_call_indirect pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("i64.add"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
   assert_true(pretty.contains("local.get"), msg=pretty)
@@ -2269,6 +5896,63 @@ test "dead-code-elimination repairs const arg before catch pop parameterized ret
 }
 
 ///|
+test "dead-code-elimination repairs const arg before catch multi-pop parameterized return_call_ref text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (elem declare func $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 7)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (ref.func $tail)
+    #|          (return_call_ref (type $tail-type)))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64 funcref)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected const-arg multi-pop parameterized return_call_ref pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "dead-code-elimination repairs block-result arg before catch pop parameterized return_call_ref text" {
   let source =
     #|(module
@@ -2351,6 +6035,50 @@ test "dead-code-elimination repairs binary arg before catch pop parameterized re
   assert_true(pretty.contains("return_call_ref"), msg=pretty)
   assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
   assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs float binary arg before catch pop parameterized return_call_ref text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32)))
+    #|  (tag $e-i32 (param i32))
+    #|  (func $tail (type $tail-type) (param i32))
+    #|  (elem declare func $tail)
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i32
+    #|        (call $helper
+    #|          (f64.max (f64.const 1.0) (f64.const 2.0))
+    #|          (pop i32)
+    #|          (ref.func $tail)
+    #|          (return_call_ref (type $tail-type)))
+    #|        nop)))
+    #|  (func $helper (param f64 i32 i32)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("pop"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected float-binary parameterized return_call_ref pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(2)"), msg=pretty)
+  assert_true(pretty.contains("f64.max"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
   assert_true(pretty.contains("local.get"), msg=pretty)
@@ -2488,6 +6216,64 @@ test "dead-code-elimination repairs evaluated arg before catch pop parameterized
   assert_true(pretty.contains("local.set"), msg=pretty)
   assert_true(pretty.contains("local.get"), msg=pretty)
   assert_true(pretty.contains("pop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination repairs binary arg before catch multi-pop parameterized return_call_ref text" {
+  let source =
+    #|(module
+    #|  (type $tail-type (func (param i32 i64)))
+    #|  (tag $e-i64-i32 (param i64 i32))
+    #|  (func $tail (type $tail-type) (unreachable))
+    #|  (func
+    #|    (try
+    #|      (do nop)
+    #|      (catch $e-i64-i32
+    #|        (call $helper
+    #|          (i32.const 9)
+    #|          (i32.const 2)
+    #|          (i32.sub)
+    #|          (pop i32)
+    #|          (pop i64)
+    #|          (ref.func $tail)
+    #|          (return_call_ref (type $tail-type)))
+    #|        nop)))
+    #|  (func $helper (param i32 i32 i64 funcref)))
+    #|)
+    #|
+  let before = pass_test_module_from_wat(source).pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_true(before.contains("call (Func 2)"), msg=before)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected binary-arg multi-pop parameterized return_call_ref pop DCE success: \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_false(pretty.contains("FuncIdx(3)"), msg=pretty)
+  assert_true(pretty.contains("i32.sub"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "pop"),
+    2,
+    msg=pretty,
+  )
 }
 
 ///|
