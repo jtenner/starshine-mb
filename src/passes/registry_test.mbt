@@ -239,6 +239,20 @@ test "batch 1 descriptors expose the active first hot ports" {
 }
 
 ///|
+test "precompute descriptor split keeps direct pass SSA-free and prefix SSA-backed" {
+  let direct = precompute_descriptor()
+  let prefix = precompute_propagate_prefix_descriptor()
+
+  @debug.assert_eq(direct.name, "precompute")
+  @debug.assert_eq(prefix.name, "precompute-propagate-prefix")
+  @debug.assert_eq(@ir.hot_pass_requires(direct), [])
+  @debug.assert_eq(@ir.hot_pass_requires(prefix), [@ir.HotAnalysis::ssa()])
+  assert_true(@ir.hot_pass_invalidates(direct).contains(@ir.HotAnalysis::ssa()))
+  assert_true(@ir.hot_pass_invalidates(prefix).contains(@ir.HotAnalysis::ssa()))
+  @debug.assert_eq(pass_registry_category("precompute-propagate-prefix"), None)
+}
+
+///|
 test "preset expansion stays on implemented active pass names" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())

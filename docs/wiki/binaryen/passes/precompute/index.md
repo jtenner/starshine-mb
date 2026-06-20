@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md
   - ../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
@@ -175,13 +176,14 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 
 ## Release-gating status as of 2026-06-20
 
-`precompute` remains open for the v0.1.0 `-O4z` per-pass audit. The older branch-heavy 10000-case direct compare evidence is still useful, and no new reduced direct-pass semantic bug was found in the 2026-06-20 refresh, but the pass is not closed under the current standard for three reasons:
+`precompute` remains open for the v0.1.0 `-O4z` per-pass audit. The older branch-heavy 10000-case direct compare evidence is still useful, and no new reduced direct-pass semantic bug was found in the 2026-06-20 refresh, but the pass is not closed under the current standard for two remaining reasons:
 
 1. `docs/wiki/binaryen/passes/precompute/fuzzing.md` still has no dedicated pass-specific GenValid profile, so the modern four-lane final closeout matrix cannot be completed.
 2. `src/passes/pass_manager.mbt` currently returns `o4z-precompute-noop` for `precompute` when `optimize_level >= 4 && shrink_level >= 1`; current O4z slot evidence must therefore either recover safe work under that gate or explicitly document an approved release boundary with reopening criteria.
-3. The descriptor split between direct `precompute` and private `precompute-propagate-prefix` still needs focused audit tests under `[AUDIT001-E]` / `[AUDIT001-F]`, even though source review suggests only the private prefix helper reaches SSA.
 
-The durable status refresh is [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md). Treat the pass as active/open until the dedicated profile, O4z slot decision/evidence, descriptor audit, and final closeout lanes are recorded.
+The descriptor split between direct `precompute` and private `precompute-propagate-prefix` is now covered by focused registry coverage: direct `precompute` requires no analyses, the private prefix helper requires `ssa`, both invalidate `ssa`, and the private helper remains outside the public pass registry. The detailed audit is [`../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md`](../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md); `[AUDIT001-F]` is not needed unless future source changes make direct `precompute` request SSA.
+
+The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md). Treat the pass as active/open until the dedicated profile, O4z slot decision/evidence, and final closeout lanes are recorded.
 
 ## Current maintenance rule
 
