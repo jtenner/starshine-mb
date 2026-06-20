@@ -4830,6 +4830,22 @@ fn optimize_instructions_try_fold_ref_as_non_null(
 }
 
 ///|
+fn optimize_instructions_ref_eq_operands_are_same_local(
+  func : @ir.HotFunc,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match (@ir.hot_node_get(func, lhs_id).op, @ir.hot_node_get(func, rhs_id).op) {
+    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => {
+      let lhs = @ir.hot_node_get(func, lhs_id)
+      let rhs = @ir.hot_node_get(func, rhs_id)
+      lhs.imm0 == rhs.imm0
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_i31_const_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -4865,6 +4881,15 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   }
   let lhs_id = @ir.hot_child_get(func, node_id, 0)
   let rhs_id = @ir.hot_child_get(func, node_id, 1)
+  if optimize_instructions_ref_eq_operands_are_same_local(func, lhs_id, rhs_id) {
+    optimize_instructions_replace_with_const_i32(
+      ctx,
+      func,
+      node_id,
+      @lib.I32(1),
+    )
+    return true
+  }
   match
     (
       optimize_instructions_ref_i31_const_operand(func, dead, lhs_id),

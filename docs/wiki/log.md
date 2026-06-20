@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I same-local ref.eq proof
+
+- Filed [`raw/research/0775-2026-06-20-optimize-instructions-oi-i-self-local-ref-eq.md`](raw/research/0775-2026-06-20-optimize-instructions-oi-i-self-local-ref-eq.md) for the nineteenth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds direct `ref.eq(local.get N, local.get N)` to `i32.const 1` for nullable and non-null local refs while keeping arbitrary SSA identity, constructor identity, allocation-dropping, descriptor/exactness/TNH/IIT, and broader flow-sensitive equality proofs open.
+- Evidence: Binaryen oracle folded nullable and non-null self-local equality to `i32.const 1`. Red-first `*self equality*` failed before implementation because `ref.eq` remained; final focused `*self equality*` passed `1/1`, `*ref.eq*` passed `1/1`, `*ref*` passed `27/27`, `*optimize-instructions*` passed `157/157`, `moon fmt` passed, `moon test src/passes` passed `2669/2669`, native `src/cmd` release build passed, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare `.tmp/pass-fuzz-optimize-instructions-oi-i-self-local-ref-eq-10000-rerun` requested `10000`, compared `55`, had `27` normalized matches, `28` raw mismatches classified as known Starshine-win constant-if/redundant-sign-extension families, and one known Binaryen/tool command failure; final failure artifacts contained no reference operations.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I impossible struct/array ref.test/ref.cast proof
 
 - Filed [`raw/research/0774-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-test-cast.md`](raw/research/0774-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-test-cast.md) for the eighteenth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.test` to `i32.const 0` and rewrites matching `ref.cast` to `unreachable` when a declared non-null absolute `struct` local targets absolute `array`, or a declared non-null absolute `array` local targets absolute `struct`.
