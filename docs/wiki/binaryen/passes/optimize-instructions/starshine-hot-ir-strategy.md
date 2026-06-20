@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-19
+last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
@@ -33,6 +33,7 @@ sources:
   - ../../../raw/research/0753-2026-06-19-optimize-instructions-oi-h-argument-select-call-ref-boundary.md
   - ../../../raw/research/0754-2026-06-19-optimize-instructions-oi-h-fallthrough-call-ref.md
   - ../../../raw/research/0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md
+  - ../../../raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -78,7 +79,7 @@ Its center of gravity is:
 - constant-pointer static-offset folding for scalar loads/stores: memory32 uses Binaryen's nonnegative `i32` range guard and memory64 uses Binaryen's unsigned `u64` no-wrap guard
 - an explicit nonconstant pointer-add offset boundary: Binaryen `version_130` `optimize-instructions` keeps tested `local.get + const` memory addresses as arithmetic plus the original static offset, so Starshine does not claim that shape as OI-owned load/store canonicalization
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
-- direct `ref.func` target directization for `call_ref` / `return_call_ref`, `table.get` target lowering to `call_indirect` / `return_call_indirect`, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, argument-bearing select-of-direct-`ref.func` lowering that localizes single-result call arguments before the direct-call `if`, and zero-argument fallthrough-known block target directization with the target expression dropped for effects
+- direct `ref.func` target directization for `call_ref` / `return_call_ref`, `table.get` target lowering to `call_indirect` / `return_call_indirect`, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, argument-bearing select-of-direct-`ref.func` lowering that localizes single-result call arguments before the direct-call `if`, zero-argument fallthrough-known block target directization with the target expression dropped for effects, and fail-closed boundary tests for mixed select arms plus argument-bearing fallthrough targets
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -173,7 +174,7 @@ That exact code map is the main practical improvement in this refresh: readers c
 The local tests are intentionally split across multiple files:
 
 - `src/passes/optimize_instructions_test.mbt`
-  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, constant-condition `select` cleanup with effect/trap negatives, direct-core `ref.func` `call_ref` / `return_call_ref` directization, `table.get` `call_ref` / `return_call_ref` indirect-call lowering, zero-argument select-of-`ref.func` `call_ref` / `return_call_ref` if-lowering, argument-bearing select-of-`ref.func` call_ref localization boundary coverage, fallthrough-known block target `call_ref` / `return_call_ref` directization, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
+  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, constant-condition `select` cleanup with effect/trap negatives, direct-core `ref.func` `call_ref` / `return_call_ref` directization, `table.get` `call_ref` / `return_call_ref` indirect-call lowering, zero-argument select-of-`ref.func` `call_ref` / `return_call_ref` if-lowering, argument-bearing select-of-`ref.func` call_ref localization coverage, fail-closed non-direct select-arm and argument-bearing fallthrough boundaries, fallthrough-known block target `call_ref` / `return_call_ref` directization, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
 - `src/passes/registry_test.mbt`
   - registry/descriptors exposure for the public HOT pass surface
 - `src/cmd/cmd_wbtest.mbt`
@@ -267,7 +268,7 @@ So the upstream cast/null-trap/descriptor story is still largely missing locally
 
 ## 2. Partial `call_ref` directization surface
 
-The local HOT implementation now models five upstream `visitCallRef(...)` known-target slices plus one superseded boundary note:
+The local HOT implementation now models five upstream `visitCallRef(...)` known-target slices plus one superseded boundary note and one current boundary-negative slice:
 
 - `ref.func` targets lower to direct `call` / `return_call`
 - `table.get` targets lower to `call_indirect` / `return_call_indirect`
@@ -275,10 +276,9 @@ The local HOT implementation now models five upstream `visitCallRef(...)` known-
 - argument-bearing typed `select` targets whose arms are direct `ref.func`s lower to an argument-localizing block followed by an `if` with direct `call` / `return_call` arms for the covered single-result argument subset
 - zero-argument fallthrough-known block targets lower to a dropped target expression followed by direct `call` / `return_call`, preserving target-side effects
 - the older argument-bearing select fail-closed note remains as superseded boundary history for why localization was required
+- current fail-closed boundary coverage keeps select targets unchanged when an arm is not a direct `ref.func`, and keeps argument-bearing fallthrough-known targets unchanged to avoid evaluation-order bugs without localization
 
-The remaining upstream `visitCallRef(...)` surface is still open for `[O4Z-AUDIT-OI-H]`:
-
-- broader type/effect negatives around select-known-target and fallthrough-known shapes
+The remaining upstream `visitCallRef(...)` surface is still open for `[O4Z-AUDIT-OI-H]` when future source/oracle work identifies more locally representable known-target shapes.
 
 So `call_ref` is no longer entirely missing, but full upstream directization parity is still incomplete.
 
@@ -420,7 +420,7 @@ Treat the current local implementation as:
 - a real implemented HOT pass
 - strongest today on integer / boolean / control canonicalization
 - intentionally carrying extra writeback-safety logic for local artifact history
-- still missing broader `call_ref` type/effect negatives, broader load/store canonicalization, GC, tuple, and helper-substrate surface
+- still missing any further source-backed `call_ref` known-target shapes beyond the covered/boundary-tested subset, broader load/store canonicalization, GC, tuple, and helper-substrate surface
 
 For this pass, "what Starshine does today" and "what Binaryen `version_130` expects for release-gating O4z parity" are not the same thing.
 The wiki should keep that difference explicit and use `[O4Z-AUDIT-OI-*]` slice owners from the 2026-06-19 matrix when expanding coverage.

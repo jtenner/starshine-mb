@@ -3,6 +3,11 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-20] passes/optimize-instructions | Add OI-H call_ref boundary negatives
+
+- Filed [`raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md`](raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md) for the seventh `[O4Z-AUDIT-OI-H]` sub-slice. This is a fail-closed boundary slice: Starshine keeps select callees unchanged when an arm is not a direct `ref.func`, and keeps argument-bearing fallthrough-known block targets unchanged so a naive dropped-target/direct-call rewrite cannot reorder already-evaluated arguments after the target expression.
+- Evidence: focused boundary `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*intentionally keeps*call_ref*'` passed `2/2`, focused `*call_ref*` passed `7/7`, focused `*optimize-instructions*` passed `137/137`, `moon fmt` passed, `moon test src/passes` passed `2649/2649`, native `src/cmd` release build passed with no work to do, and `moon info` passed with existing warnings. Direct compare in `.tmp/pass-fuzz-optimize-instructions-oi-h-call-ref-boundaries-10000` compared `56/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure WAT/text artifacts contained no `call_ref`, `return_call_ref`, `ref.func`, `select`, `table.get`, `call_indirect`, or `return_call_indirect` occurrences.
+
 ## [2026-06-19] passes/optimize-instructions | Add OI-H argument select call_ref boundary
 
 - Filed [`raw/research/0753-2026-06-19-optimize-instructions-oi-h-argument-select-call-ref-boundary.md`](raw/research/0753-2026-06-19-optimize-instructions-oi-h-argument-select-call-ref-boundary.md) for the fourth `[O4Z-AUDIT-OI-H]` sub-slice. This is an explicit fail-closed boundary: Starshine keeps argument-bearing typed `select` targets whose arms are direct `ref.func`s under `call_ref` / `return_call_ref` unchanged until a Binaryen-style localizing lowering can store already-evaluated arguments before introducing the direct-call `if`.

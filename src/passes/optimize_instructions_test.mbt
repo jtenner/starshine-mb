@@ -1161,6 +1161,189 @@ test "optimize-instructions localizes argument select call_ref targets before di
 }
 
 ///|
+test "optimize-instructions intentionally keeps select call_ref when an arm is not direct ref.func" {
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+        @lib.ValType::i32(),
+      ]),
+    ),
+  )
+  let nullable_func_ref = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(target_type_idx),
+  )
+  let typed_func_ref = @lib.ValType::ref_type(nullable_func_ref)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, caller_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([target_type_idx, target_type_idx, caller_type_idx]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(nullable_func_ref, @lib.Limits::i32(1U, Some(1U))),
+          None,
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          @lib.ElemKind::typed_exprs(nullable_func_ref, [
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+          ]),
+        ),
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_add(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::select(types=Some([typed_func_ref])),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(caller.contains("call_ref"), msg=caller)
+  assert_true(caller.contains("select"), msg=caller)
+  assert_true(caller.contains("table.get"), msg=caller)
+  assert_true(caller.contains("ref.func"), msg=caller)
+}
+
+///|
+test "optimize-instructions intentionally keeps argument fallthrough call_ref targets" {
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let arg_effect_type_idx = @lib.TypeIdx::new(1U)
+  let target_effect_type_idx = @lib.TypeIdx::new(2U)
+  let caller_type_idx = @lib.TypeIdx::new(3U)
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let arg_effect_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let target_effect_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(target_type_idx)),
+  )
+  let effectful_target = fn() {
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(typed_func_ref),
+      @lib.Expr::new([
+        @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+        @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+      ]),
+    )
+  }
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        target_type, arg_effect_type, target_effect_type, caller_type,
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        target_type_idx, arg_effect_type_idx, target_effect_type_idx, caller_type_idx,
+        caller_type_idx,
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            effectful_target(),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            effectful_target(),
+            @lib.Instruction::return_call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let tail = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(caller.contains("call_ref"), msg=caller)
+  assert_true(caller.contains("call (Func 1)"), msg=caller)
+  assert_true(caller.contains("call (Func 2)"), msg=caller)
+  assert_true(caller.contains("ref.func"), msg=caller)
+  assert_true(tail.contains("return_call_ref"), msg=tail)
+  assert_true(tail.contains("call (Func 1)"), msg=tail)
+  assert_true(tail.contains("call (Func 2)"), msg=tail)
+  assert_true(tail.contains("ref.func"), msg=tail)
+}
+
+///|
 test "optimize-instructions directizes fallthrough ref.func call_ref targets and preserves target effects" {
   let target_type_idx = @lib.TypeIdx::new(0U)
   let side_type_idx = @lib.TypeIdx::new(1U)
