@@ -1769,6 +1769,45 @@ test "optimize-instructions folds constant memory64 access offset into i64 addre
 }
 
 ///|
+test "optimize-instructions intentionally keeps nonconstant pointer-add memory offsets outside OI ownership" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $p i32) (result i32)
+        #|    local.get $p
+        #|    i32.const 4
+        #|    i32.add
+        #|    i32.load offset=8)
+        #|  (func (param $p i32) (param $v i32)
+        #|    local.get $p
+        #|    i32.const 4
+        #|    i32.add
+        #|    local.get $v
+        #|    i32.store offset=8))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected pointer-add offset boundary success, got \{err}")
+  }
+  let load_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let store_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  // Intentional fail-closed OI-G boundary: Binaryen `version_130`
+  // `optimize-instructions` folds only constant address children with static
+  // offsets. Pointer-add address arithmetic is left to other passes rather than
+  // claimed as OI-owned load/store canonicalization.
+  assert_true(load_pretty.contains("i32.add"), msg=load_pretty)
+  assert_true(load_pretty.contains("offset=U64(8)"), msg=load_pretty)
+  assert_false(load_pretty.contains("offset=U64(12)"), msg=load_pretty)
+  assert_true(store_pretty.contains("i32.add"), msg=store_pretty)
+  assert_true(store_pretty.contains("offset=U64(8)"), msg=store_pretty)
+  assert_false(store_pretty.contains("offset=U64(12)"), msg=store_pretty)
+}
+
+///|
 test "optimize-instructions folds constant memory64 store offset into i64 address" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),

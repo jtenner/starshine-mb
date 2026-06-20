@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/optimize-instructions | Add OI-G pointer-add offset boundary
+
+- Filed [`raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md`](raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md) for the eighteenth `[O4Z-AUDIT-OI-G]` sub-slice. This is a source-backed boundary decision: Binaryen `version_130` `optimize-instructions` keeps tested nonconstant pointer-add memory address forms as `i32.add` plus the original static offset, so Starshine does not claim `local.get + const` load/store offset canonicalization as OI-owned behavior.
+- Evidence: local Binaryen oracle probe `.tmp/oi-g-add-offset.wat` with `wasm-opt --optimize-instructions -S --print` kept `i32.add` under `i32.load offset=8` / `i32.store offset=8`; focused Starshine boundary test `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*nonconstant pointer-add memory offsets*'` passed `1/1`, `*memory*` passed `23/23`, focused `*optimize-instructions*` passed `130/130`, `moon fmt` passed, `moon test src/passes` passed `2642/2642`, native `src/cmd` release build passed, and `moon info` passed with existing warnings. Direct compare in `.tmp/pass-fuzz-optimize-instructions-oi-g-pointer-add-boundary-10000` compared `54/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; final failure WATs contained no memory offset, `memory.fill`, or `memory.copy` occurrences.
+
 ## [2026-06-19] passes/optimize-instructions | Add OI-G byte fill constant truncation slice
 
 - Filed [`raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md`](raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md) for the seventeenth `[O4Z-AUDIT-OI-G]` sub-slice. The slice tightens size-1 constant `memory.fill` lowering so oversized fill constants are canonicalized to the low byte before materializing `i32.store8`, matching Binaryen-observable `optimizeMemoryFill` spelling for the covered constants.

@@ -26,6 +26,7 @@ sources:
   - ../../../raw/research/0746-2026-06-19-optimize-instructions-oi-g-commuted-store-mask.md
   - ../../../raw/research/0747-2026-06-19-optimize-instructions-oi-g-const-store-value.md
   - ../../../raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md
+  - ../../../raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -69,6 +70,7 @@ Its center of gravity is:
 - constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`), including size-1 constant low-byte canonicalization and direct-core memory64 fill fixtures after the local typechecker length fix
 - narrow stored-value cleanup for redundant masks in either `and` operand order plus constant stored-value truncation before `i32.store8` / `i32.store16` and, as documented, `i64.store8` / `i64.store16` / `i64.store32`
 - constant-pointer static-offset folding for scalar loads/stores: memory32 uses Binaryen's nonnegative `i32` range guard and memory64 uses Binaryen's unsigned `u64` no-wrap guard
+- an explicit nonconstant pointer-add offset boundary: Binaryen `version_130` `optimize-instructions` keeps tested `local.get + const` memory addresses as arithmetic plus the original static offset, so Starshine does not claim that shape as OI-owned load/store canonicalization
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
@@ -288,7 +290,7 @@ The local pass still does not cover broader upstream families like:
 - nonconstant-size `memory.copy`, because the size expression is not part of the exact tiny lowering proof
 - arbitrary or effectful nonconstant wider `memory.fill` value materialization
 - trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today
-- broader stored-value and offset canonicalization for the general load/store surface; only the current redundant-mask subset is covered (either `and` operand order for `i32.store8` / `i32.store16` plus a local Starshine-win `i64.store8` / `i64.store16` / `i64.store32` generalization that Binaryen `version_130` does not perform), Binaryen-style constant stored-value truncation before narrow stores, and the narrow Binaryen-style memory32 and memory64 constant-pointer static-offset folds; public-pipeline mixed load/call functions remain behind `load-call-optimize-instructions-noop`, so those static-offset folds apply only when the raw gate lets the pass run
+- broader stored-value canonicalization for the general load/store surface; only the current redundant-mask subset is covered (either `and` operand order for `i32.store8` / `i32.store16` plus a local Starshine-win `i64.store8` / `i64.store16` / `i64.store32` generalization that Binaryen `version_130` does not perform) plus Binaryen-style constant stored-value truncation before narrow stores. For offset canonicalization, Starshine covers the narrow Binaryen-style memory32 and memory64 constant-pointer static-offset folds; tested nonconstant pointer-add address forms are now a Binaryen `version_130` OI no-change boundary, and public-pipeline mixed load/call functions remain behind `load-call-optimize-instructions-noop`, so static-offset folds apply only when the raw gate lets the pass run
 
 ## 4. No GC constructor / field / atomics surface
 
