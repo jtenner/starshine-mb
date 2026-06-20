@@ -4503,6 +4503,65 @@ fn optimize_instructions_ref_cannot_be_i31(
 }
 
 ///|
+fn optimize_instructions_abs_struct_array_disjoint(
+  lhs : @lib.HeapType,
+  rhs : @lib.HeapType,
+) -> Bool {
+  match (lhs, rhs) {
+    (
+      @lib.HeapType::AbsHeapTypeHeapType(lhs_abs),
+      @lib.HeapType::AbsHeapTypeHeapType(rhs_abs),
+    ) =>
+      (
+        lhs_abs == @lib.AbsHeapType::struct_() &&
+        rhs_abs == @lib.AbsHeapType::array()
+      ) ||
+      (
+        lhs_abs == @lib.AbsHeapType::array() &&
+        rhs_abs == @lib.AbsHeapType::struct_()
+      )
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_ref_local_heap_type(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.RefType? {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) => Some(ref_type)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_ref_local_heaps_are_impossible_equal(
+  func : @ir.HotFunc,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match
+    (
+      optimize_instructions_ref_local_heap_type(func, lhs_id),
+      optimize_instructions_ref_local_heap_type(func, rhs_id),
+    ) {
+    (Some(lhs), Some(rhs)) =>
+      (lhs.is_non_nullable() || rhs.is_non_nullable()) &&
+      optimize_instructions_abs_struct_array_disjoint(
+        lhs.get_heap_type(),
+        rhs.get_heap_type(),
+      )
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_is_known_miss_for_target(
   func : @ir.HotFunc,
   node_id : Int,
@@ -4799,6 +4858,9 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     (
       optimize_instructions_ref_is_known_non_null_i31(func, rhs_id) &&
       optimize_instructions_ref_cannot_be_i31(func, lhs_id)
+    ) ||
+    optimize_instructions_ref_local_heaps_are_impossible_equal(
+      func, lhs_id, rhs_id,
     ) {
     optimize_instructions_replace_with_const_i32(
       ctx,

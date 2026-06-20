@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I impossible struct/array ref.eq proof
+
+- Filed [`raw/research/0772-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-eq.md`](raw/research/0772-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-eq.md) for the sixteenth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.eq` to `i32.const 0` when both operands are locals, one side is declared non-null, and the local declared heap types are the absolute GC aggregate siblings `struct` and `array` in either operand order. Nullable-both equality remains unchanged because both operands can be null; indexed/defined heap subtype reasoning remains open.
+- Evidence: Binaryen oracle probes kept nullable-both struct/array equality but folded non-null struct versus nullable array to `i32.const 0`. Red-first `*non-null struct and array*` failed before implementation because `ref.eq` remained; final focused `*impossible equality*` passed `2/2`, `*ref*` passed `24/24`, `*optimize-instructions*` passed `154/154`, `moon fmt` passed, `moon test src/passes` passed `2666/2666`, native `src/cmd` release build passed, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare in `.tmp/pass-fuzz-optimize-instructions-oi-i-impossible-struct-array-eq-10000` compared `52/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no reference operation occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I impossible i31 ref.test/ref.cast proof
 
 - Filed [`raw/research/0770-2026-06-20-optimize-instructions-oi-i-impossible-i31-test-cast.md`](raw/research/0770-2026-06-20-optimize-instructions-oi-i-impossible-i31-test-cast.md) for the fourteenth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now accepts ordinary `ref.test` / `ref.cast` across disjoint `eq`-hierarchy sibling heap types, folds local `ref.i31` values tested against `struct` / `array` / indexed heap targets to `i32.const 0`, and rewrites matching casts to `unreachable`.
