@@ -1343,6 +1343,33 @@ test "optimize-instructions folds impossible equality between i31 and struct loc
 }
 
 ///|
+test "optimize-instructions preserves effectful ref.i31 operand for impossible equality" {
+  let source =
+    #|(module
+    #|  (type $s (struct))
+    #|  (import "m" "effect" (func $effect (result i32)))
+    #|  (func (export "right") (param (ref null $s)) (result i32)
+    #|    call $effect
+    #|    ref.i31
+    #|    local.get 0
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected effectful impossible i31/struct ref.eq optimize success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds impossible equality between non-null struct and array locals" {
   let source =
     #|(module

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Preserve OI-I effectful impossible ref.eq
+
+- Filed [`raw/research/0791-2026-06-20-optimize-instructions-oi-i-effectful-impossible-ref-eq.md`](raw/research/0791-2026-06-20-optimize-instructions-oi-i-effectful-impossible-ref-eq.md) for the thirty-fifth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now preserves represented effectful impossible `ref.eq` operands as `drop(operand)` before folding to `i32.const 0`, while retaining direct folds for pure impossible equality.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` for imported-call `ref.i31` impossible equality against a struct local. Focused `*impossible equality*` passed `3/3`, final focused `*ref*` passed `42/42`, final `*optimize-instructions*` passed `172/172`, `moon fmt`, `moon test src/passes` (`2696/2696`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Preserve OI-I effectful i31 successful ref.test
 
 - Filed [`raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md`](raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md) for the thirty-fourth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now preserves an effectful immediate `ref.i31` operand as `drop(operand)` before folding a definitely-successful `ref.test` to `i32.const 1`, while retaining direct folds for pure known-match operands and preserving successful `ref.cast` by keeping the effectful operand.

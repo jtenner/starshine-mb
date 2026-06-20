@@ -5138,6 +5138,63 @@ fn optimize_instructions_node_effects_are_pure(
 }
 
 ///|
+fn optimize_instructions_replace_ref_eq_impossible_with_const_i32(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Unit {
+  let lhs_pure = optimize_instructions_node_effects_are_pure(ctx, func, lhs_id)
+  let rhs_pure = optimize_instructions_node_effects_are_pure(ctx, func, rhs_id)
+  match (lhs_pure, rhs_pure) {
+    (true, true) =>
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(0),
+      )
+    (false, true) =>
+      optimize_instructions_replace_with_drop_then_const_i32(
+        ctx,
+        func,
+        node_id,
+        lhs_id,
+        @lib.I32(0),
+      )
+    (true, false) =>
+      optimize_instructions_replace_with_drop_then_const_i32(
+        ctx,
+        func,
+        node_id,
+        rhs_id,
+        @lib.I32(0),
+      )
+    (false, false) => {
+      let temp = @ir.hot_build_block(
+        func,
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        [
+          @ir.hot_build_drop(func, lhs_id),
+          @ir.hot_build_drop(func, rhs_id),
+          @ir.hot_build_const_i32(func, @lib.I32(0)),
+        ],
+      )
+      let replacement = @ir.hot_node_get(func, temp)
+      @ir.hot_replace_node(func, node_id, replacement)
+      @ir.hot_label_owner_set(
+        func,
+        @ir.hot_control_node_label(func, node_id),
+        node_id,
+      )
+      @ir.hot_delete_node(func, temp)
+      pass_mark_mutated(ctx, func)
+    }
+  }
+}
+
+///|
 fn optimize_instructions_ref_i31_local_operand(
   func : @ir.HotFunc,
   node_id : Int,
@@ -5268,11 +5325,8 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     optimize_instructions_ref_local_heaps_are_impossible_equal(
       func, lhs_id, rhs_id,
     ) {
-    optimize_instructions_replace_with_const_i32(
-      ctx,
-      func,
-      node_id,
-      @lib.I32(0),
+    optimize_instructions_replace_ref_eq_impossible_with_const_i32(
+      ctx, func, node_id, lhs_id, rhs_id,
     )
     return true
   }

@@ -74,6 +74,7 @@ sources:
   - ../../../raw/research/0788-2026-06-20-optimize-instructions-oi-i-effectful-ref-eq-null.md
   - ../../../raw/research/0789-2026-06-20-optimize-instructions-oi-i-effectful-ref-is-null.md
   - ../../../raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md
+  - ../../../raw/research/0791-2026-06-20-optimize-instructions-oi-i-effectful-impossible-ref-eq.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -155,6 +156,7 @@ related:
   - ../../../raw/research/0788-2026-06-20-optimize-instructions-oi-i-effectful-ref-eq-null.md
   - ../../../raw/research/0789-2026-06-20-optimize-instructions-oi-i-effectful-ref-is-null.md
   - ../../../raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md
+  - ../../../raw/research/0791-2026-06-20-optimize-instructions-oi-i-effectful-impossible-ref-eq.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
