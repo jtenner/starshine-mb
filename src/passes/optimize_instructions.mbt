@@ -4793,12 +4793,22 @@ fn optimize_instructions_try_fold_ref_test_null(
           func, operand_id, target,
         )
       ) => {
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        @lib.I32(0),
-      )
+      if optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
+        optimize_instructions_replace_with_const_i32(
+          ctx,
+          func,
+          node_id,
+          @lib.I32(0),
+        )
+      } else {
+        optimize_instructions_replace_with_drop_then_const_i32(
+          ctx,
+          func,
+          node_id,
+          operand_id,
+          @lib.I32(0),
+        )
+      }
       true
     }
     _ => false
@@ -4850,10 +4860,15 @@ fn optimize_instructions_try_fold_ref_cast_null(
         optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
           func, operand_id, target,
         )
-      ) => {
-      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-      true
-    }
+      ) =>
+      if optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
+        optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+        true
+      } else {
+        optimize_instructions_replace_with_drop_then_unreachable(
+          ctx, func, node_id, operand_id,
+        )
+      }
     _ => false
   }
 }
@@ -5046,6 +5061,45 @@ fn optimize_instructions_replace_with_drop_then_const_i32(
   )
   @ir.hot_delete_node(func, temp)
   pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_replace_with_drop_then_unreachable(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  drop_id : Int,
+) -> Bool {
+  let block_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [] => @lib.BlockType::void_()
+    [val_type] => @lib.BlockType::val_type(val_type)
+    _ => return false
+  }
+  let temp = @ir.hot_build_block(func, block_type, [
+    @ir.hot_build_drop(func, drop_id),
+    @ir.hot_build_unreachable(func),
+  ])
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_node_effects_are_pure(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let effects = pass_require_effects(ctx, func)
+  @ir.effects_is_pure(effects.node_masks[node_id])
 }
 
 ///|

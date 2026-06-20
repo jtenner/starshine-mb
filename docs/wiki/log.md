@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Preserve OI-I effectful i31 miss operands
+
+- Filed [`raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md`](raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md) for the thirty-first `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now preserves effectful immediate `ref.i31` operands as `drop(operand)` before folding known-miss `ref.test` to `i32.const 0` or known-miss `ref.cast` to `unreachable`, while retaining direct folds for pure operands.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` for imported-call `ref.i31` miss probes. Red-first focused `*effectful ref.i31*` failed because the imported call was dropped and passed after implementation (`1/1`); final `*ref*` passed `38/38`, and `*optimize-instructions*` passed `168/168`. Broader validation and direct compare are recorded in the research note.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I nullable-source nullable-target i31 cast/test coverage
 
 - Filed [`raw/research/0786-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-i31-success-test-cast.md`](raw/research/0786-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-i31-success-test-cast.md) for the thirtieth `[O4Z-AUDIT-OI-I]` sub-slice. This is coverage for existing `0785` behavior: Starshine folds `ref.test (ref null eq)` on a declared nullable `(ref null i31)` local to `i32.const 1` and removes matching nullable-target `ref.cast` to the original local, while keeping non-null-target success, arbitrary subtype-lattice or indexed/defined heap proofs, descriptor/exactness/TNH/IIT behavior, and effectful operand cleanup out of scope.

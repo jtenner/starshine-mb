@@ -1616,6 +1616,75 @@ test "optimize-instructions folds successful ref.test and ref.cast on local i31 
 }
 
 ///|
+test "optimize-instructions preserves effectful ref.i31 operand for failed ref.test and ref.cast" {
+  let effect_type = @lib.TypeIdx::new(0U)
+  let test_type = @lib.TypeIdx::new(1U)
+  let cast_type = @lib.TypeIdx::new(2U)
+  let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
+  let struct_ref = @lib.ValType::ref_type(@lib.RefType::new(false, struct_heap))
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [struct_ref])),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type, cast_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_test(false, struct_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_cast(false, struct_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let cast_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(test_pretty.contains("ref.test"), msg=test_pretty)
+  assert_true(test_pretty.contains("call (Func 0)"), msg=test_pretty)
+  assert_true(test_pretty.contains("drop"), msg=test_pretty)
+  assert_true(test_pretty.contains("I32(0)"), msg=test_pretty)
+  assert_false(cast_pretty.contains("ref.cast"), msg=cast_pretty)
+  assert_true(cast_pretty.contains("call (Func 0)"), msg=cast_pretty)
+  assert_true(cast_pretty.contains("drop"), msg=cast_pretty)
+  assert_true(cast_pretty.contains("unreachable"), msg=cast_pretty)
+}
+
+///|
 test "optimize-instructions folds impossible ref.test and ref.cast on local i31 refs" {
   let i32_type = @lib.TypeIdx::new(0U)
   let struct_result_type = @lib.TypeIdx::new(1U)

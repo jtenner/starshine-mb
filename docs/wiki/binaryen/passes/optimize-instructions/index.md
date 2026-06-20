@@ -70,6 +70,7 @@ sources:
   - ../../../raw/research/0784-2026-06-20-optimize-instructions-oi-i-nullable-source-non-null-target-miss-test-cast.md
   - ../../../raw/research/0785-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-success-test-cast.md
   - ../../../raw/research/0786-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-i31-success-test-cast.md
+  - ../../../raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -147,6 +148,7 @@ related:
   - ../../../raw/research/0784-2026-06-20-optimize-instructions-oi-i-nullable-source-non-null-target-miss-test-cast.md
   - ../../../raw/research/0785-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-success-test-cast.md
   - ../../../raw/research/0786-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-i31-success-test-cast.md
+  - ../../../raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -325,6 +327,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0779-2026-06-20-optimize-instructions-oi-i-double-noop-cast-ref-eq.md`](../../../raw/research/0779-2026-06-20-optimize-instructions-oi-i-double-noop-cast-ref-eq.md) records the twenty-third `[O4Z-AUDIT-OI-I]` coverage sub-slice: both-operands nullable no-op `ref.cast(local.get)` equality is locked by direct-core coverage.
 - [`../../../raw/research/0780-2026-06-20-optimize-instructions-oi-i-upcast-ref-eq.md`](../../../raw/research/0780-2026-06-20-optimize-instructions-oi-i-upcast-ref-eq.md) records the twenty-fourth `[O4Z-AUDIT-OI-I]` reference sub-slice: same-local equality now folds through immediate nullable absolute-heap upcast `ref.cast(local.get)` operands, currently using the existing absolute `struct` / `array` supertype helper.
 - [`../../../raw/research/0786-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-i31-success-test-cast.md`](../../../raw/research/0786-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-i31-success-test-cast.md) records the thirtieth `[O4Z-AUDIT-OI-I]` coverage sub-slice: nullable-source, nullable-target `ref.test` / `ref.cast` success on declared nullable absolute `i31` locals is now locked by direct-core coverage.
+- [`../../../raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md`](../../../raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md) records the thirty-first `[O4Z-AUDIT-OI-I]` reference sub-slice: immediate `ref.i31` known-miss `ref.test` / `ref.cast` rewrites now preserve effectful operands as `drop(operand)` before `i32.const 0` or `unreachable`.
 - [`../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md`](../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md) records the second `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-2 and size-4 `memory.fill` lowering and nonconstant wider-fill boundary evidence.
 - [`../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md`](../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md) records the third `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-8 `memory.fill` lowering to repeated-byte `i64.store` while keeping nonconstant wider fills open.
 - [`../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md`](../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md) records the fourth `[O4Z-AUDIT-OI-G]` sub-slice for local.get value size-2 and size-4 `memory.fill` lowering through low-byte mask and repeat multiply expressions while keeping effectful values and nonconstant size-8 fills open.
