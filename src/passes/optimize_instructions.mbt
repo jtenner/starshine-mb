@@ -2945,6 +2945,56 @@ fn optimize_instructions_store_value_is_i64(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn optimize_instructions_try_truncate_narrow_store_const_value(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 2 {
+    return false
+  }
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return false
+  }
+  let bits = match optimize_instructions_store_value_bits(instr) {
+    Some(bits) => bits
+    None => return false
+  }
+  let value_id = @ir.hot_child_get(func, node_id, 1)
+  let new_value_id = if optimize_instructions_store_value_is_i64(instr) {
+    let raw = match optimize_instructions_i64_const(func, dead, value_id) {
+      Some(@lib.I64(raw)) => raw
+      _ => return false
+    }
+    let mask = (1L << bits) - 1L
+    let truncated = raw & mask
+    if truncated == raw {
+      return false
+    }
+    @ir.hot_build_const_i64(func, @lib.I64(truncated))
+  } else {
+    let raw = match optimize_instructions_i32_const(func, dead, value_id) {
+      Some(@lib.I32(raw)) => raw
+      _ => return false
+    }
+    let mask = (1 << bits) - 1
+    let truncated = raw & mask
+    if truncated == raw {
+      return false
+    }
+    @ir.hot_build_const_i32(func, @lib.I32(truncated))
+  }
+  optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [
+    @ir.hot_child_get(func, node_id, 0),
+    new_value_id,
+  ])
+  true
+}
+
+///|
 fn optimize_instructions_try_drop_narrow_store_value_mask(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4355,6 +4405,9 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::Store =>
       optimize_instructions_try_fold_const_memory_access_offset(
+        ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_truncate_narrow_store_const_value(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_drop_narrow_store_value_mask(

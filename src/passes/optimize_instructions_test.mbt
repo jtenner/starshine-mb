@@ -1577,6 +1577,49 @@ test "optimize-instructions drops commuted masks before narrow stores" {
 }
 
 ///|
+test "optimize-instructions truncates constant narrow store values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32)
+        #|    local.get $ptr
+        #|    i32.const -1
+        #|    i32.store8
+        #|    local.get $ptr
+        #|    i32.const 65537
+        #|    i32.store16
+        #|    local.get $ptr
+        #|    i64.const 511
+        #|    i64.store8
+        #|    local.get $ptr
+        #|    i64.const 65537
+        #|    i64.store16
+        #|    local.get $ptr
+        #|    i64.const 4294967296
+        #|    i64.store32))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected constant narrow store optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("I32(-1)"), msg=pretty)
+  assert_false(pretty.contains("I32(65537)"), msg=pretty)
+  assert_false(pretty.contains("I64(511)"), msg=pretty)
+  assert_false(pretty.contains("I64(65537)"), msg=pretty)
+  assert_false(pretty.contains("I64(4294967296)"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "I32(255)", "i32.store8", "I32(1)", "i32.store16", "I64(255)", "i64.store8",
+    "I64(1)", "i64.store16", "I64(0)", "i64.store32",
+  ])
+}
+
+///|
 test "optimize-instructions keeps value-changing masks before i64 narrow stores" {
   let optimized = match
     pass_test_run_pipeline(
