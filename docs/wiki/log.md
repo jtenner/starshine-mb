@@ -3,6 +3,11 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I ref null basics
+
+- Filed [`raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md`](raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md) for the first `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.is_null(ref.null)` to `i32.const 1`, rewrites both null-operand `ref.eq` orders to `ref.is_null(x)`, and folds `ref.eq(null, null)` to `i32.const 1` without entering descriptor/exactness/TNH/IIT-sensitive cast work.
+- Evidence: red-first focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*ref*'` failed the two new tests before implementation. Final focused `*ref*` passed `11/11`, focused `*optimize-instructions*` passed `139/139`, `moon fmt` passed, `moon test src/passes` passed `2651/2651`, native `src/cmd` release build passed with existing unused-function warnings, and `moon info` passed with existing warnings. Direct compare rerun in `.tmp/pass-fuzz-optimize-instructions-oi-i-ref-null-10000-rerun` compared `56/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no `ref.eq`, `ref.is_null`, `ref.test`, `ref.cast`, or `ref.as_non_null` occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-H call_ref boundary negatives
 
 - Filed [`raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md`](raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md) for the seventh `[O4Z-AUDIT-OI-H]` sub-slice. This is a fail-closed boundary slice: Starshine keeps select callees unchanged when an arm is not a direct `ref.func`, and keeps argument-bearing fallthrough-known block targets unchanged so a naive dropped-target/direct-call rewrite cannot reorder already-evaluated arguments after the target expression.

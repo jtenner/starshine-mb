@@ -4378,6 +4378,83 @@ fn optimize_instructions_should_keep_i64_eq_zero_if_condition(
 }
 
 ///|
+fn optimize_instructions_replace_with_ref_is_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operand_id : Int,
+) -> Unit {
+  optimize_instructions_replace_with_exact_unary(
+    ctx,
+    func,
+    node_id,
+    @lib.Instruction::ref_is_null(),
+    operand_id,
+  )
+}
+
+///|
+fn optimize_instructions_try_fold_ref_is_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::RefNull => {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(1),
+      )
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_rewrite_ref_eq_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefEq) => ()
+    _ => return false
+  }
+  let lhs_id = @ir.hot_child_get(func, node_id, 0)
+  let rhs_id = @ir.hot_child_get(func, node_id, 1)
+  match (@ir.hot_node_get(func, lhs_id).op, @ir.hot_node_get(func, rhs_id).op) {
+    (@ir.HotOp::RefNull, @ir.HotOp::RefNull) => {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(1),
+      )
+      true
+    }
+    (@ir.HotOp::RefNull, _) => {
+      optimize_instructions_replace_with_ref_is_null(ctx, func, node_id, rhs_id)
+      true
+    }
+    (_, @ir.HotOp::RefNull) => {
+      optimize_instructions_replace_with_ref_is_null(ctx, func, node_id, lhs_id)
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_compare_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4692,6 +4769,10 @@ fn optimize_instructions_visit_node(
       }
     @ir.HotOp::Select =>
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
+    @ir.HotOp::RefIsNull =>
+      optimize_instructions_try_fold_ref_is_null(ctx, func, node_id)
+    @ir.HotOp::Heap =>
+      optimize_instructions_try_rewrite_ref_eq_null(ctx, func, node_id)
     @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef =>
       optimize_instructions_try_directize_ref_func_call_ref(
         ctx, func, dead, node_id,

@@ -34,6 +34,7 @@ sources:
   - ../../../raw/research/0754-2026-06-19-optimize-instructions-oi-h-fallthrough-call-ref.md
   - ../../../raw/research/0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md
   - ../../../raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md
+  - ../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -80,6 +81,7 @@ Its center of gravity is:
 - an explicit nonconstant pointer-add offset boundary: Binaryen `version_130` `optimize-instructions` keeps tested `local.get + const` memory addresses as arithmetic plus the original static offset, so Starshine does not claim that shape as OI-owned load/store canonicalization
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
 - direct `ref.func` target directization for `call_ref` / `return_call_ref`, `table.get` target lowering to `call_indirect` / `return_call_indirect`, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, argument-bearing select-of-direct-`ref.func` lowering that localizes single-result call arguments before the direct-call `if`, zero-argument fallthrough-known block target directization with the target expression dropped for effects, and fail-closed boundary tests for mixed select arms plus argument-bearing fallthrough targets
+- first null-reference basics from OI-I: `ref.is_null(ref.null)` folds to `i32.const 1`, `ref.eq(x, null)` and `ref.eq(null, x)` rewrite through `ref.is_null(x)`, and `ref.eq(null, null)` folds to `i32.const 1`
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -136,6 +138,8 @@ The fastest read-along path is:
   - `optimize_instructions_try_wrap_boolean_if_value_in_eqz(...)`
   - `optimize_instructions_try_fold_const_select(...)`
   - `optimize_instructions_try_directize_ref_func_call_ref(...)`
+  - `optimize_instructions_try_fold_ref_is_null(...)`
+  - `optimize_instructions_try_rewrite_ref_eq_null(...)`
   - `optimize_instructions_replace_with_store_exact(...)`
   - `optimize_instructions_repeated_fill_i32(...)`
   - `optimize_instructions_repeated_fill_i64(...)`
@@ -174,7 +178,7 @@ That exact code map is the main practical improvement in this refresh: readers c
 The local tests are intentionally split across multiple files:
 
 - `src/passes/optimize_instructions_test.mbt`
-  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, constant-condition `select` cleanup with effect/trap negatives, direct-core `ref.func` `call_ref` / `return_call_ref` directization, `table.get` `call_ref` / `return_call_ref` indirect-call lowering, zero-argument select-of-`ref.func` `call_ref` / `return_call_ref` if-lowering, argument-bearing select-of-`ref.func` call_ref localization coverage, fail-closed non-direct select-arm and argument-bearing fallthrough boundaries, fallthrough-known block target `call_ref` / `return_call_ref` directization, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
+  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, constant-condition `select` cleanup with effect/trap negatives, direct-core `ref.func` `call_ref` / `return_call_ref` directization, `table.get` `call_ref` / `return_call_ref` indirect-call lowering, zero-argument select-of-`ref.func` `call_ref` / `return_call_ref` if-lowering, argument-bearing select-of-`ref.func` call_ref localization coverage, fail-closed non-direct select-arm and argument-bearing fallthrough boundaries, fallthrough-known block target `call_ref` / `return_call_ref` directization, first `ref.is_null` / `ref.eq` null-reference rewrites, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
 - `src/passes/registry_test.mbt`
   - registry/descriptors exposure for the public HOT pass surface
 - `src/cmd/cmd_wbtest.mbt`
@@ -254,12 +258,12 @@ This is still the bigger story.
 
 ## 1. No broad AST reference / GC optimization surface yet
 
-The local file does not implement the upstream visitor families for things like:
+The local file now implements only the first OI-I null-reference basics: `ref.is_null(ref.null)` and `ref.eq` with null operands. It still does not implement the broader upstream visitor families for things like:
 
-- `ref.eq`
+- impossible `ref.eq` / known-non-null equality proofs
+- broader `ref.is_null` known-non-null proofs
 - `ref.cast`
 - `ref.test`
-- `ref.is_null`
 - `ref.as_non_null` cleanup
 - descriptor-aware casts
 - exactness-aware cast tightening

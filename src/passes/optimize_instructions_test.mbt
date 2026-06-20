@@ -930,6 +930,63 @@ test "optimize-instructions folds i32.wrap_i64 constants" {
 }
 
 ///|
+test "optimize-instructions folds ref.is_null on known null refs" {
+  let source =
+    #|(module
+    #|  (func (export "null") (result i32)
+    #|    ref.null func
+    #|    ref.is_null)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref.is_null optimize success, got \{err}")
+  }
+  let null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(null_pretty.contains("ref.is_null"), msg=null_pretty)
+  assert_true(null_pretty.contains("I32(1)"), msg=null_pretty)
+}
+
+///|
+test "optimize-instructions rewrites ref.eq null comparisons through ref.is_null" {
+  let source =
+    #|(module
+    #|  (func (export "right") (param eqref) (result i32)
+    #|    local.get 0
+    #|    ref.null eq
+    #|    ref.eq)
+    #|  (func (export "left") (param eqref) (result i32)
+    #|    ref.null eq
+    #|    local.get 0
+    #|    ref.eq)
+    #|  (func (export "null-null") (result i32)
+    #|    ref.null eq
+    #|    ref.null eq
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref.eq optimize success, got \{err}")
+  }
+  let right_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let left_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let null_null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(right_pretty.contains("ref.eq"), msg=right_pretty)
+  // pretty_print currently spells the lowered RefIsNull instruction as
+  // `ref.null`; lock the OI rewrite by proving `ref.eq` is gone while the
+  // operand-preserving unary reference check remains.
+  assert_true(right_pretty.contains("local.get"), msg=right_pretty)
+  assert_true(right_pretty.contains("ref.null"), msg=right_pretty)
+  assert_false(left_pretty.contains("ref.eq"), msg=left_pretty)
+  assert_true(left_pretty.contains("local.get"), msg=left_pretty)
+  assert_true(left_pretty.contains("ref.null"), msg=left_pretty)
+  assert_false(null_null_pretty.contains("ref.eq"), msg=null_null_pretty)
+  assert_false(null_null_pretty.contains("ref.is_null"), msg=null_null_pretty)
+  assert_true(null_null_pretty.contains("I32(1)"), msg=null_null_pretty)
+}
+
+///|
 test "optimize-instructions directizes ref.func call_ref targets" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let callee_type = @lib.RecType::new(
