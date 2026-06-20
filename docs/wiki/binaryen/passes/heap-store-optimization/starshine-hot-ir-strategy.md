@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0819-2026-06-20-heap-store-optimization-memory-size-memory-bulk-boundaries.md
   - ../../../raw/research/0818-2026-06-20-heap-store-optimization-table-size-table-set-swap.md
   - ../../../raw/research/0817-2026-06-20-heap-store-optimization-global-set-value-read-swap.md
   - ../../../raw/research/0816-2026-06-20-heap-store-optimization-unrelated-global-swap.md
