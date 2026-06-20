@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
+  - ../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md
   - ../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -234,7 +235,7 @@ Important focused tests include:
 - `precompute runs narrow raw scalar folds under O4z gate`
 - `precompute keeps O4z hot-only cleanup no-op until ownership hazards are safe`
 
-Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, full-module-validation, branch-carrier safety, and narrow O4z raw-scalar recovery stories.
+Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, full-module-validation, branch-carrier safety, and narrow O4z raw-scalar recovery stories. The current compare-proof surface is mixed: `precompute-all` is green at `1000/1000` with PC normalizers and explicit `_build/native/release/build/cmd/cmd.exe`, but regular GenValid has an open mismatch family from `.tmp/pass-fuzz-precompute-native-path-policy-direct-100/failures/` and must not be treated as closed.
 
 ## 2. Preset-slot proof
 
