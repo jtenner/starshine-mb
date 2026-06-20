@@ -4818,6 +4818,60 @@ test "heap-store-optimization keeps memory-growing constructors before loop-wrap
 }
 
 ///|
+test "heap-store-optimization keeps memory-growing constructors before block-if-wrapped memory.init" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_if_wrap(hso_test_memory_init_body())),
+    "memory.init",
+    "memory-grow/block-if-memory-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before if-block-wrapped memory.init" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_block_wrap(hso_test_memory_init_body())),
+    "memory.init",
+    "memory-grow/if-block-memory-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before loop-block-wrapped memory.init" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_block_wrap(hso_test_memory_init_body())),
+    "memory.init",
+    "memory-grow/loop-block-memory-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before block-if-wrapped data.drop" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_if_wrap(hso_test_data_drop_body())),
+    "data.drop",
+    "memory-grow/block-if-data-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before if-block-wrapped data.drop" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_block_wrap(hso_test_data_drop_body())),
+    "data.drop",
+    "memory-grow/if-block-data-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before loop-block-wrapped data.drop" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_block_wrap(hso_test_data_drop_body())),
+    "data.drop",
+    "memory-grow/loop-block-data-drop",
+  )
+}
+
+///|
 test "heap-store-optimization keeps table.size constructors before table.init" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
@@ -5070,6 +5124,60 @@ test "heap-store-optimization keeps table-growing constructors before loop-wrapp
     hso_test_loop_wrap(hso_test_elem_drop_body()),
     "elem.drop",
     "table-grow/loop-elem-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before block-if-wrapped table.init" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_if_wrap(hso_test_table_init_body())),
+    "table.init",
+    "table-grow/block-if-table-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before if-block-wrapped table.init" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_block_wrap(hso_test_table_init_body())),
+    "table.init",
+    "table-grow/if-block-table-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before loop-block-wrapped table.init" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_block_wrap(hso_test_table_init_body())),
+    "table.init",
+    "table-grow/loop-block-table-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before block-if-wrapped elem.drop" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_if_wrap(hso_test_elem_drop_body())),
+    "elem.drop",
+    "table-grow/block-if-elem-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before if-block-wrapped elem.drop" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_block_wrap(hso_test_elem_drop_body())),
+    "elem.drop",
+    "table-grow/if-block-elem-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before loop-block-wrapped elem.drop" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_block_wrap(hso_test_elem_drop_body())),
+    "elem.drop",
+    "table-grow/loop-block-elem-drop",
   )
 }
 
