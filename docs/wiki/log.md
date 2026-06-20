@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I double no-op cast ref.eq coverage
+
+- Filed [`raw/research/0779-2026-06-20-optimize-instructions-oi-i-double-noop-cast-ref-eq.md`](raw/research/0779-2026-06-20-optimize-instructions-oi-i-double-noop-cast-ref-eq.md) for the twenty-third `[O4Z-AUDIT-OI-I]` sub-slice. This is a coverage/source-backed audit slice for existing behavior from `0777`: Starshine now has a direct-core fixture proving same-local `ref.eq` folds to `i32.const 1` when both operands are immediate nullable no-op `ref.cast(local.get N)` nodes whose target heap exactly matches the local declaration.
+- Evidence: Binaryen oracle folded the same both-cast shape to `i32.const 1`. Red-first did not apply because the implementation was already present; focused `*nullable no-op ref.cast*` passed `1/1`. Broader validation and direct compare are recorded in the research note.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I nullable ref.as_non_null ref.eq proof
 
 - Filed [`raw/research/0778-2026-06-20-optimize-instructions-oi-i-as-non-null-ref-eq.md`](raw/research/0778-2026-06-20-optimize-instructions-oi-i-as-non-null-ref-eq.md) for the twenty-second `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds same-local nullable `ref.as_non_null(local.get)` equality by preserving one original null-trapping check as a `drop` before returning `i32.const 1`, while arbitrary `ref.as_non_null` skipping, non-local SSA identity, local.set-derived facts, descriptor/exactness/TNH/IIT behavior, and broader trap removal remain open.

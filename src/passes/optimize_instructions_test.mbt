@@ -1142,7 +1142,7 @@ test "optimize-instructions folds same-local equality through nullable no-op ref
         ),
       ]),
     )
-    .with_func_sec(@lib.FuncSec::new([i32_type, i32_type]))
+    .with_func_sec(@lib.FuncSec::new([i32_type, i32_type, i32_type]))
     .with_code_sec(
       @lib.CodeSec::new([
         @lib.Func::new(
@@ -1163,15 +1163,28 @@ test "optimize-instructions folds same-local equality through nullable no-op ref
             @lib.Instruction::ref_eq(),
           ]),
         ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
       ]),
     ),
   )
   let left_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   let right_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let both_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_false(left_pretty.contains("ref.eq"), msg=left_pretty)
   assert_false(right_pretty.contains("ref.eq"), msg=right_pretty)
+  assert_false(both_pretty.contains("ref.eq"), msg=both_pretty)
   assert_true(left_pretty.contains("I32(1)"), msg=left_pretty)
   assert_true(right_pretty.contains("I32(1)"), msg=right_pretty)
+  assert_true(both_pretty.contains("I32(1)"), msg=both_pretty)
 }
 
 ///|
