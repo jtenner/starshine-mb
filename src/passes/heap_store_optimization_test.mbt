@@ -3611,6 +3611,72 @@ test "heap-store-optimization does not fold through an intervening constructor l
 }
 
 ///|
+test "heap-store-optimization folds across wrapped constructor local.set roots" {
+  let pair = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let wrapped_roots = [
+    [
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local1),
+        ]),
+      ),
+    ],
+    [
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local1),
+        ],
+        None,
+      ),
+    ],
+    [
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local1),
+        ]),
+      ),
+    ],
+  ]
+  for roots in wrapped_roots {
+    let optimized = match
+      hso_test_run_with_locals(
+        [
+          @lib.Instruction::struct_new_default(pair),
+          @lib.Instruction::local_set(local0),
+          ..roots,
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        ],
+        1,
+        [ref_type, ref_type],
+      ) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected wrapped constructor-local-set heap-store-optimization success, got \{err}",
+        )
+    }
+
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    assert_true(pretty.contains("local.set"), msg=pretty)
+    assert_false(pretty.contains("struct.set"), msg=pretty)
+  }
+}
+
+///|
 test "heap-store-optimization keeps global.set before constructor global.get" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
