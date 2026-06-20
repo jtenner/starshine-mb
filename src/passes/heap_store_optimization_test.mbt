@@ -3541,6 +3541,90 @@ test "heap-store-optimization folds table.grow constructor operands across if-wr
 }
 
 ///|
+test "heap-store-optimization folds memory.grow constructor operands across nested wrapped global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let nested_roots = [
+    [
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [
+              @lib.Instruction::i32_const(@lib.I32(9)),
+              @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            ],
+            None,
+          ),
+        ]),
+      ),
+    ],
+    [
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(9)),
+              @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            ]),
+          ),
+        ],
+        None,
+      ),
+    ],
+    [
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(9)),
+              @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            ]),
+          ),
+        ]),
+      ),
+    ],
+  ]
+  for roots in nested_roots {
+    let optimized = match
+      hso_memory_global_test_run(
+        [
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::memory_grow(@lib.MemIdx::new(0U)),
+          @lib.Instruction::i32_const(@lib.I32(2)),
+          @lib.Instruction::struct_new(pair),
+          @lib.Instruction::local_set(local0),
+          ..roots,
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+          @lib.Instruction::local_get(local0),
+          @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+        ],
+        2,
+      ) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected memory-grow/nested-wrapper-global-set heap-store-optimization success, got \{err}",
+        )
+    }
+
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    assert_true(pretty.contains("memory.grow"), msg=pretty)
+    assert_true(pretty.contains("global.set"), msg=pretty)
+    assert_false(pretty.contains("struct.set"), msg=pretty)
+  }
+}
+
+///|
 test "heap-store-optimization keeps trapping memory loads before unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
