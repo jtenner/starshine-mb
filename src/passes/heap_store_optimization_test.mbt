@@ -118,6 +118,26 @@ fn hso_test_data_drop_body() -> Array[@lib.Instruction] {
 }
 
 ///|
+fn hso_test_memory_fill_body() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+  ]
+}
+
+///|
+fn hso_test_memory_copy_body() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::memory_copy(@lib.MemIdx::new(0U), @lib.MemIdx::new(0U)),
+  ]
+}
+
+///|
 fn hso_test_table_init_body() -> Array[@lib.Instruction] {
   [
     @lib.Instruction::i32_const(@lib.I32(0)),
@@ -130,6 +150,26 @@ fn hso_test_table_init_body() -> Array[@lib.Instruction] {
 ///|
 fn hso_test_elem_drop_body() -> Array[@lib.Instruction] {
   [@lib.Instruction::elem_drop(@lib.ElemIdx::new(0U))]
+}
+
+///|
+fn hso_test_table_fill_body() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::table_fill(@lib.TableIdx::new(0U)),
+  ]
+}
+
+///|
+fn hso_test_table_copy_body() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::table_copy(@lib.TableIdx::new(0U), @lib.TableIdx::new(0U)),
+  ]
 }
 
 ///|
@@ -4074,6 +4114,62 @@ test "heap-store-optimization keeps memory-growing constructors before memory.co
   assert_true(pretty.contains("memory.grow"), msg=pretty)
   assert_true(pretty.contains("memory.copy"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before nested wrapped memory.fill" {
+  let nested_roots = [
+    hso_test_block_wrap(hso_test_if_wrap(hso_test_memory_fill_body())),
+    hso_test_if_wrap(hso_test_block_wrap(hso_test_memory_fill_body())),
+    hso_test_loop_wrap(hso_test_block_wrap(hso_test_memory_fill_body())),
+  ]
+  for roots in nested_roots {
+    hso_assert_memory_grow_wrapped_passive_boundary(
+      roots, "memory.fill", "memory-grow/nested-memory-fill",
+    )
+  }
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before nested wrapped memory.copy" {
+  let nested_roots = [
+    hso_test_block_wrap(hso_test_if_wrap(hso_test_memory_copy_body())),
+    hso_test_if_wrap(hso_test_block_wrap(hso_test_memory_copy_body())),
+    hso_test_loop_wrap(hso_test_block_wrap(hso_test_memory_copy_body())),
+  ]
+  for roots in nested_roots {
+    hso_assert_memory_grow_wrapped_passive_boundary(
+      roots, "memory.copy", "memory-grow/nested-memory-copy",
+    )
+  }
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before nested wrapped table.fill" {
+  let nested_roots = [
+    hso_test_block_wrap(hso_test_if_wrap(hso_test_table_fill_body())),
+    hso_test_if_wrap(hso_test_block_wrap(hso_test_table_fill_body())),
+    hso_test_loop_wrap(hso_test_block_wrap(hso_test_table_fill_body())),
+  ]
+  for roots in nested_roots {
+    hso_assert_table_grow_wrapped_passive_boundary(
+      roots, "table.fill", "table-grow/nested-table-fill",
+    )
+  }
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before nested wrapped table.copy" {
+  let nested_roots = [
+    hso_test_block_wrap(hso_test_if_wrap(hso_test_table_copy_body())),
+    hso_test_if_wrap(hso_test_block_wrap(hso_test_table_copy_body())),
+    hso_test_loop_wrap(hso_test_block_wrap(hso_test_table_copy_body())),
+  ]
+  for roots in nested_roots {
+    hso_assert_table_grow_wrapped_passive_boundary(
+      roots, "table.copy", "table-grow/nested-table-copy",
+    )
+  }
 }
 
 ///|
