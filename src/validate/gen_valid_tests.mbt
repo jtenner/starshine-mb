@@ -8064,6 +8064,247 @@ test "ssa-nomerge stress generated modules record dense unsupported-boundary SSA
 }
 
 ///|
+fn gen_valid_test_first_func_instrs(mod : Module) -> Array[Instruction] raise {
+  let Func(_, Expr(instrs)) = gen_valid_test_first_func(mod)
+  instrs
+}
+
+///|
+fn gen_valid_test_instrs_contain_global_get(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      GlobalGet(_) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_contain_global_get(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_contain_global_get(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_contain_global_get(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_boundary_ops(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut saw_div = false
+  let mut saw_global_set = false
+  let mut saw_load = false
+  let mut saw_call = false
+  for instr in instrs {
+    match instr {
+      I32DivS | I32DivU | I64RemU | I64RemS => saw_div = true
+      GlobalSet(_) => saw_global_set = true
+      I32Load(_) => saw_load = true
+      Call(_) => saw_call = true
+      _ => ()
+    }
+  }
+  saw_div && saw_global_set && saw_load && saw_call
+}
+
+///|
+fn gen_valid_test_module_contains_boundary_ops(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_instrs_contain_boundary_ops(instrs) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_struct_atomic_get(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      StructAtomicGet(_, _, _)
+      | StructAtomicGetS(_, _, _)
+      | StructAtomicGetU(_, _, _) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_array_get(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      ArrayGet(_) | ArrayGetS(_) | ArrayGetU(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+test "precompute gen-valid profiles resolve and expose replayable aggregate" {
+  @debug.assert_eq(
+    gen_valid_profile_name(PrecomputeScalarProfile),
+    "precompute-scalar",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(PrecomputeAllProfile),
+    "precompute-all",
+  )
+  assert_true(gen_valid_profile_names().contains("precompute-all"))
+  match gen_valid_profile_by_name("precompute") {
+    Ok(profile) => @debug.assert_eq(profile, PrecomputeAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("precompute-closeout") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, PrecomputeAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(members.length() >= 7)
+      @debug.assert_eq(members[0].profile, PrecomputeScalarProfile)
+    }
+    Err(msg) => fail(msg)
+  }
+  let leaf = gen_valid_profile_leaf_for_case(PrecomputeAllProfile, 0x5eedUL, 1)
+  assert_true(!gen_valid_profile_is_composite(leaf))
+}
+
+///|
+test "precompute aggregate profile samples every current precompute family" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 160 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      PrecomputeAllProfile,
+      0x5eedUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(PrecomputeScalarProfile))
+  assert_true(seen.contains(PrecomputeControlProfile))
+  assert_true(seen.contains(PrecomputeGlobalProfile))
+  assert_true(seen.contains(PrecomputeDropCleanupProfile))
+  assert_true(seen.contains(PrecomputeEffectBoundaryProfile))
+  assert_true(seen.contains(PrecomputeGcAtomicBoundaryProfile))
+  assert_true(seen.contains(PrecomputeDirectPrefixWatchProfile))
+}
+
+///|
+test "precompute scalar control global and cleanup gen-valid profiles emit pass-owned shapes" {
+  let scalar = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PrecomputeScalarProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(scalar.config_label, "precompute-scalar")
+  let scalar_counts = scalar.facts.exact_opcode_counts
+  assert_true(scalar_counts.i32_add > 0, msg="expected scalar i32.add")
+  assert_true(scalar_counts.i64_mul > 0, msg="expected scalar i64.mul")
+  assert_true(scalar_counts.i32_eqz > 0, msg="expected scalar i32.eqz")
+
+  let control = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PrecomputeControlProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(control.config_label, "precompute-control")
+  assert_true(control.facts.has_branch_heavy_control)
+
+  let globals = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PrecomputeGlobalProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(globals.config_label, "precompute-global")
+  assert_true(gen_valid_test_defined_global_count(globals.wasm_module) >= 3)
+  assert_true(
+    gen_valid_test_instrs_contain_global_get(
+      gen_valid_test_first_func_instrs(globals.wasm_module),
+    ),
+  )
+
+  let cleanup = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PrecomputeDropCleanupProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(cleanup.config_label, "precompute-drop-cleanup")
+  assert_true(cleanup.facts.has_typed_select)
+}
+
+///|
+test "precompute boundary gen-valid profiles emit trap effect gc atomic and direct-prefix watchpoints" {
+  let boundary = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PrecomputeEffectBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_true(boundary.facts.has_call)
+  assert_true(boundary.facts.has_mems)
+  assert_true(gen_valid_test_module_contains_boundary_ops(boundary.wasm_module))
+
+  let gc_atomic = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PrecomputeGcAtomicBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_true(gc_atomic.facts.uses_ref_types)
+  let gc_instrs = gen_valid_test_first_func_instrs(gc_atomic.wasm_module)
+  assert_true(gen_valid_test_instrs_contain_struct_atomic_get(gc_instrs))
+  assert_true(gen_valid_test_instrs_contain_array_get(gc_instrs))
+
+  let watch = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PrecomputeDirectPrefixWatchProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_true(watch.facts.has_local_tee)
+  assert_true(watch.facts.exact_opcode_counts.local_tee > 0)
+}
+
+///|
 test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
   for
     label in [

@@ -658,6 +658,14 @@ pub enum GenValidProfile {
   GsiDescCastStrictSubtypeProfile
   GsiDescCastUnreachableBoundaryProfile
   GsiDescCastAllProfile
+  PrecomputeScalarProfile
+  PrecomputeControlProfile
+  PrecomputeGlobalProfile
+  PrecomputeDropCleanupProfile
+  PrecomputeEffectBoundaryProfile
+  PrecomputeGcAtomicBoundaryProfile
+  PrecomputeDirectPrefixWatchProfile
+  PrecomputeAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
@@ -715,6 +723,14 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     GsiDescCastUnreachableBoundaryProfile =>
       "gsi-desc-cast-unreachable-boundary"
     GsiDescCastAllProfile => "gsi-desc-cast"
+    PrecomputeScalarProfile => "precompute-scalar"
+    PrecomputeControlProfile => "precompute-control"
+    PrecomputeGlobalProfile => "precompute-global"
+    PrecomputeDropCleanupProfile => "precompute-drop-cleanup"
+    PrecomputeEffectBoundaryProfile => "precompute-effect-boundary"
+    PrecomputeGcAtomicBoundaryProfile => "precompute-gc-atomic-boundary"
+    PrecomputeDirectPrefixWatchProfile => "precompute-direct-prefix-watch"
+    PrecomputeAllProfile => "precompute-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
@@ -726,7 +742,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
 ///|
 pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
   match profile {
-    GsiDescCastAllProfile | SsaNomergeAllProfile => true
+    GsiDescCastAllProfile | PrecomputeAllProfile | SsaNomergeAllProfile => true
     _ => false
   }
 }
@@ -743,6 +759,16 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(GsiDescCastZeroBoundaryProfile, 1),
         GenValidProfileMember::new(GsiDescCastMultiBoundaryProfile, 1),
         GenValidProfileMember::new(GsiDescCastUnreachableBoundaryProfile, 1),
+      ]
+    PrecomputeAllProfile =>
+      [
+        GenValidProfileMember::new(PrecomputeScalarProfile, 3),
+        GenValidProfileMember::new(PrecomputeControlProfile, 2),
+        GenValidProfileMember::new(PrecomputeGlobalProfile, 2),
+        GenValidProfileMember::new(PrecomputeDropCleanupProfile, 2),
+        GenValidProfileMember::new(PrecomputeEffectBoundaryProfile, 2),
+        GenValidProfileMember::new(PrecomputeGcAtomicBoundaryProfile, 1),
+        GenValidProfileMember::new(PrecomputeDirectPrefixWatchProfile, 1),
       ]
     SsaNomergeAllProfile =>
       [
@@ -830,6 +856,14 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     GsiDescCastStrictSubtypeProfile,
     GsiDescCastUnreachableBoundaryProfile,
     GsiDescCastAllProfile,
+    PrecomputeScalarProfile,
+    PrecomputeControlProfile,
+    PrecomputeGlobalProfile,
+    PrecomputeDropCleanupProfile,
+    PrecomputeEffectBoundaryProfile,
+    PrecomputeGcAtomicBoundaryProfile,
+    PrecomputeDirectPrefixWatchProfile,
+    PrecomputeAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
@@ -887,6 +921,9 @@ pub fn gen_valid_profile_by_name(
     "binaryen-oracle-coverage-forced" => Ok(BinaryenOraclePortableProfile)
     "global-struct-inference-desc-cast" => Ok(GsiDescCastAllProfile)
     "gsi-desc-cast-all" => Ok(GsiDescCastAllProfile)
+    "precompute" => Ok(PrecomputeAllProfile)
+    "precompute-closeout" => Ok(PrecomputeAllProfile)
+    "precompute-all-profiles" => Ok(PrecomputeAllProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
     _ =>
@@ -1223,6 +1260,16 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_gsi_desc_cast_profile_config(profile)
     GsiDescCastAllProfile =>
       gen_valid_gsi_desc_cast_profile_config(GsiDescCastPositiveProfile)
+    PrecomputeScalarProfile
+    | PrecomputeControlProfile
+    | PrecomputeGlobalProfile
+    | PrecomputeDropCleanupProfile
+    | PrecomputeEffectBoundaryProfile
+    | PrecomputeGcAtomicBoundaryProfile
+    | PrecomputeDirectPrefixWatchProfile =>
+      gen_valid_precompute_profile_config(profile)
+    PrecomputeAllProfile =>
+      gen_valid_precompute_profile_config(PrecomputeScalarProfile)
     SsaNomergeCoverageProfile
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
@@ -1280,6 +1327,101 @@ fn gen_valid_is_gsi_desc_cast_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(GsiDescCastMultiBoundaryProfile) ||
   config == GenValidConfig::for_profile(GsiDescCastStrictSubtypeProfile) ||
   config == GenValidConfig::for_profile(GsiDescCastUnreachableBoundaryProfile)
+}
+
+///|
+fn gen_valid_precompute_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let body_statements = match profile {
+    PrecomputeScalarProfile => 11
+    PrecomputeControlProfile => 12
+    PrecomputeGlobalProfile => 13
+    PrecomputeDropCleanupProfile => 14
+    PrecomputeEffectBoundaryProfile => 15
+    PrecomputeGcAtomicBoundaryProfile => 16
+    PrecomputeDirectPrefixWatchProfile => 17
+    _ => 11
+  }
+  let max_globals = match profile {
+    PrecomputeGlobalProfile => 3
+    PrecomputeEffectBoundaryProfile => 1
+    _ => 0
+  }
+  let max_mems = match profile {
+    PrecomputeEffectBoundaryProfile => 1
+    _ => 0
+  }
+  let max_type_defs = match profile {
+    PrecomputeGcAtomicBoundaryProfile => 3
+    _ => 2
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs,
+    max_imports: 0,
+    max_defined_funcs: if profile == PrecomputeEffectBoundaryProfile {
+      2
+    } else {
+      1
+    },
+    max_tables: 0,
+    max_mems,
+    max_globals,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: if profile == PrecomputeGcAtomicBoundaryProfile {
+      1
+    } else {
+      0
+    },
+    max_results: if profile == PrecomputeDirectPrefixWatchProfile {
+      1
+    } else {
+      0
+    },
+    max_locals: if profile == PrecomputeDirectPrefixWatchProfile {
+      1
+    } else {
+      0
+    },
+    max_body_statements: body_statements,
+    max_body_depth: 3,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: max_mems > 0,
+      allow_globals: max_globals > 0,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_calls: profile == PrecomputeEffectBoundaryProfile,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_memory64: false,
+      allow_atomics: profile == PrecomputeGcAtomicBoundaryProfile,
+      allow_shared_memories: false,
+      allow_ref_types: profile == PrecomputeGcAtomicBoundaryProfile,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_typed_body_generator: false,
+      allow_name_custom_sections: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_precompute_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(PrecomputeScalarProfile) ||
+  config == GenValidConfig::for_profile(PrecomputeControlProfile) ||
+  config == GenValidConfig::for_profile(PrecomputeGlobalProfile) ||
+  config == GenValidConfig::for_profile(PrecomputeDropCleanupProfile) ||
+  config == GenValidConfig::for_profile(PrecomputeEffectBoundaryProfile) ||
+  config == GenValidConfig::for_profile(PrecomputeGcAtomicBoundaryProfile) ||
+  config == GenValidConfig::for_profile(PrecomputeDirectPrefixWatchProfile)
 }
 
 ///|
@@ -11400,10 +11542,288 @@ fn gen_valid_gsi_desc_cast_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_precompute_void_func_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [])))
+}
+
+///|
+fn gen_valid_precompute_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(PrecomputeControlProfile) {
+    PrecomputeControlProfile
+  } else if config == GenValidConfig::for_profile(PrecomputeGlobalProfile) {
+    PrecomputeGlobalProfile
+  } else if config == GenValidConfig::for_profile(PrecomputeDropCleanupProfile) {
+    PrecomputeDropCleanupProfile
+  } else if config ==
+    GenValidConfig::for_profile(PrecomputeEffectBoundaryProfile) {
+    PrecomputeEffectBoundaryProfile
+  } else if config ==
+    GenValidConfig::for_profile(PrecomputeGcAtomicBoundaryProfile) {
+    PrecomputeGcAtomicBoundaryProfile
+  } else if config ==
+    GenValidConfig::for_profile(PrecomputeDirectPrefixWatchProfile) {
+    PrecomputeDirectPrefixWatchProfile
+  } else {
+    PrecomputeScalarProfile
+  }
+}
+
+///|
+fn gen_valid_precompute_scalar_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(4)),
+    Instruction::i32_const(I32(5)),
+    Instruction::i32_add(),
+    Instruction::drop(),
+    Instruction::i64_const(I64(6L)),
+    Instruction::i64_const(I64(7L)),
+    Instruction::i64_mul(),
+    Instruction::drop(),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_eqz(),
+    Instruction::drop(),
+    Instruction::i64_const(I64(9L)),
+    Instruction::i64_const(I64(3L)),
+    Instruction::i64_gt_u(),
+    Instruction::drop(),
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_const(I32(4)),
+    Instruction::i32_shl(),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_precompute_control_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(9)), Instruction::drop()],
+      Some([Instruction::i32_const(I32(10)), Instruction::drop()]),
+    ),
+    Instruction::i32_const(I32(0)),
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [Instruction::i32_const(I32(2))],
+      Some([Instruction::i32_const(I32(3))]),
+    ),
+    Instruction::drop(),
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([Instruction::i32_const(I32(11))]),
+    ),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_precompute_global_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(8)),
+    Instruction::global_get(GlobalIdx::new(0U)),
+    Instruction::i32_add(),
+    Instruction::drop(),
+    Instruction::global_get(GlobalIdx::new(1U)),
+    Instruction::i64_eqz(),
+    Instruction::drop(),
+    Instruction::global_get(GlobalIdx::new(2U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_precompute_drop_cleanup_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(1)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(2)),
+    Instruction::i32_const(I32(3)),
+    Instruction::i32_const(I32(1)),
+    Instruction::select(types=Some([ValType::i32()])),
+    Instruction::drop(),
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([Instruction::i32_const(I32(6))]),
+    ),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_precompute_effect_boundary_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(8)),
+    Instruction::i32_const(I32(2)),
+    Instruction::i32_div_s(),
+    Instruction::drop(),
+    Instruction::i32_const(I32(11)),
+    Instruction::global_set(GlobalIdx::new(0U)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load(MemArg::new(0U, None, 0UL)),
+    Instruction::drop(),
+    Instruction::call(FuncIdx::new(0U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_precompute_direct_prefix_watch_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(5)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(7)),
+    Instruction::local_tee(LocalIdx::new(0U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+  ]
+}
+
+///|
+fn gen_valid_precompute_gc_atomic_types() -> Array[RecType] {
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::pack_type(PackType::i8()), Mut::var_()),
+      ]),
+    ),
+  )
+  let array_type = RecType::new(
+    SubType::comp_type(
+      CompType::array(
+        FieldType::new(StorageType::val_type(ValType::i32()), Mut::var_()),
+      ),
+    ),
+  )
+  let ref_ty = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U))),
+  )
+  let func_type = RecType::new(SubType::comp_type(CompType::func([ref_ty], [])))
+  [struct_type, array_type, func_type]
+}
+
+///|
+fn gen_valid_precompute_gc_atomic_body() -> Array[Instruction] {
+  [
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::struct_atomic_get_s(
+      AtomicOrder::seq_cst(),
+      TypeIdx::new(0U),
+      U32(0U),
+    ),
+    Instruction::drop(),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_const(I32(1)),
+    Instruction::array_new(TypeIdx::new(1U)),
+    Instruction::i32_const(I32(0)),
+    Instruction::array_get(TypeIdx::new(1U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
+  let kind = gen_valid_precompute_profile_kind(config)
+  if kind == PrecomputeGcAtomicBoundaryProfile {
+    return Module::new()
+      .with_type_sec(TypeSec::new(gen_valid_precompute_gc_atomic_types()))
+      .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new(gen_valid_precompute_gc_atomic_body()),
+          ),
+        ]),
+      )
+  }
+  if kind == PrecomputeEffectBoundaryProfile {
+    return Module::new()
+      .with_type_sec(
+        TypeSec::new([
+          RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+          gen_valid_precompute_void_func_type(),
+        ]),
+      )
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+      .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+      .with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), true),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
+        ]),
+      )
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new([Instruction::i32_const(I32(42))]),
+          ),
+          Func::new(
+            Locals::empty(),
+            Expr::new(gen_valid_precompute_effect_boundary_body()),
+          ),
+        ]),
+      )
+  }
+  let body = match kind {
+    PrecomputeControlProfile => gen_valid_precompute_control_body()
+    PrecomputeGlobalProfile => gen_valid_precompute_global_body()
+    PrecomputeDropCleanupProfile => gen_valid_precompute_drop_cleanup_body()
+    PrecomputeDirectPrefixWatchProfile =>
+      gen_valid_precompute_direct_prefix_watch_body()
+    _ => gen_valid_precompute_scalar_body()
+  }
+  let locals = if kind == PrecomputeDirectPrefixWatchProfile {
+    Locals::from_types([ValType::i32()])
+  } else {
+    Locals::empty()
+  }
+  let func_type = if kind == PrecomputeDirectPrefixWatchProfile {
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
+  } else {
+    gen_valid_precompute_void_func_type()
+  }
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(CodeSec::new([Func::new(locals, Expr::new(body))]))
+  if kind == PrecomputeGlobalProfile {
+    mod.with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), false),
+          Expr::new([Instruction::i32_const(I32(34))]),
+        ),
+        Global::new(
+          GlobalType::new(ValType::i64(), false),
+          Expr::new([Instruction::i64_const(I64(0L))]),
+        ),
+        Global::new(
+          GlobalType::new(ValType::externref(), false),
+          Expr::new([
+            Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+          ]),
+        ),
+      ]),
+    )
+  } else {
+    mod
+  }
+}
+
+///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
   if gen_valid_is_gsi_desc_cast_profile_config(config) {
     return gen_valid_gsi_desc_cast_profile_module(config)
+  }
+  if gen_valid_is_precompute_profile_config(config) {
+    return gen_valid_precompute_profile_module(config)
   }
   let import_budget = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,
