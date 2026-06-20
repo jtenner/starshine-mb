@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful non-null-source nullable-target cast/test
+
+- Filed [`raw/research/0802-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-nullable-target.md`](raw/research/0802-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-nullable-target.md) for the forty-sixth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source nullable-target aggregate success and sibling-miss `ref.test` / `ref.cast` suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source nullable-target ref.test*` passed `1/1`, final `*ref.test and ref.cast*` passed `20/20`, final `*ref*` passed `53/53`, final `*optimize-instructions*` passed `183/183`, `moon fmt`, `moon test src/passes` (`2713/2713`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful nullable-source non-null-target miss
 
 - Filed [`raw/research/0801-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-non-null-target.md`](raw/research/0801-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-non-null-target.md) for the forty-fifth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding nullable-source, non-null-target aggregate sibling-miss `ref.test` to `i32.const 0` and rewriting the matching impossible `ref.cast` to `unreachable`.
