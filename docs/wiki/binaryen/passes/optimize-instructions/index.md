@@ -59,6 +59,7 @@ sources:
   - ../../../raw/research/0773-2026-06-20-optimize-instructions-oi-i-struct-array-supertype-test-cast.md
   - ../../../raw/research/0774-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-test-cast.md
   - ../../../raw/research/0775-2026-06-20-optimize-instructions-oi-i-self-local-ref-eq.md
+  - ../../../raw/research/0776-2026-06-20-optimize-instructions-oi-i-same-local-i31-ref-eq.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -125,6 +126,7 @@ related:
   - ../../../raw/research/0773-2026-06-20-optimize-instructions-oi-i-struct-array-supertype-test-cast.md
   - ../../../raw/research/0774-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-test-cast.md
   - ../../../raw/research/0775-2026-06-20-optimize-instructions-oi-i-self-local-ref-eq.md
+  - ../../../raw/research/0776-2026-06-20-optimize-instructions-oi-i-same-local-i31-ref-eq.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -297,6 +299,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0773-2026-06-20-optimize-instructions-oi-i-struct-array-supertype-test-cast.md`](../../../raw/research/0773-2026-06-20-optimize-instructions-oi-i-struct-array-supertype-test-cast.md) records the seventeenth `[O4Z-AUDIT-OI-I]` reference sub-slice: declared non-null absolute `struct` / `array` locals now prove successful `ref.test` / `ref.cast` for absolute target supertypes `eq` and `any`, while broader subtype, nullable-local, descriptor, exactness, TNH, and IIT facts remain open.
 - [`../../../raw/research/0774-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-test-cast.md`](../../../raw/research/0774-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-test-cast.md) records the eighteenth `[O4Z-AUDIT-OI-I]` reference sub-slice: declared non-null absolute `struct` / `array` locals now prove failed `ref.test` / `ref.cast` against the other absolute aggregate sibling, while nullable-local, indexed/defined heap, arbitrary subtype-lattice, descriptor, exactness, TNH, and IIT facts remain open.
 - [`../../../raw/research/0775-2026-06-20-optimize-instructions-oi-i-self-local-ref-eq.md`](../../../raw/research/0775-2026-06-20-optimize-instructions-oi-i-self-local-ref-eq.md) records the nineteenth `[O4Z-AUDIT-OI-I]` reference sub-slice: direct `ref.eq(local.get N, local.get N)` now folds to `i32.const 1` for nullable and non-null local refs, while broader SSA identity and flow-sensitive equality proofs remain open.
+- [`../../../raw/research/0776-2026-06-20-optimize-instructions-oi-i-same-local-i31-ref-eq.md`](../../../raw/research/0776-2026-06-20-optimize-instructions-oi-i-same-local-i31-ref-eq.md) records the twentieth `[O4Z-AUDIT-OI-I]` reference sub-slice: direct `ref.eq(ref.i31(local.get N), ref.i31(local.get N))` now folds to `i32.const 1`, while broader SSA identity, flow-sensitive i31 value analysis, and non-local equality proofs remain open.
 - [`../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md`](../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md) records the second `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-2 and size-4 `memory.fill` lowering and nonconstant wider-fill boundary evidence.
 - [`../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md`](../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md) records the third `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-8 `memory.fill` lowering to repeated-byte `i64.store` while keeping nonconstant wider fills open.
 - [`../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md`](../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md) records the fourth `[O4Z-AUDIT-OI-G]` sub-slice for local.get value size-2 and size-4 `memory.fill` lowering through low-byte mask and repeat multiply expressions while keeping effectful values and nonconstant size-8 fills open.

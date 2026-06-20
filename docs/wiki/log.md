@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I same-local ref.i31 equality proof
+
+- Filed [`raw/research/0776-2026-06-20-optimize-instructions-oi-i-same-local-i31-ref-eq.md`](raw/research/0776-2026-06-20-optimize-instructions-oi-i-same-local-i31-ref-eq.md) for the twentieth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds direct `ref.eq(ref.i31(local.get N), ref.i31(local.get N))` to `i32.const 1` while keeping arbitrary SSA identity, local.set-derived flow facts, non-local i31 value analysis, descriptor/exactness/TNH/IIT behavior, and broader subtype-lattice equality proofs open.
+- Evidence: Binaryen oracle folded same-local i31 equality to `i32.const 1`. Red-first `*same-local ref.i31*` failed before implementation because `ref.eq` remained; final focused `*same-local ref.i31*` passed `1/1`, `*ref.eq*` passed `1/1`, `*ref*` passed `28/28`, `*optimize-instructions*` passed `158/158`, `moon fmt` passed, `moon test src/passes` passed `2670/2670`, native `src/cmd` release build passed, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare `.tmp/pass-fuzz-optimize-instructions-oi-i-same-local-i31-eq-10000` requested `10000`, compared `54`, had `27` normalized matches, `27` raw mismatches classified as known Starshine-win constant-if/redundant-sign-extension families, and one known Binaryen/tool command failure; final failure artifacts contained no reference operations.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I same-local ref.eq proof
 
 - Filed [`raw/research/0775-2026-06-20-optimize-instructions-oi-i-self-local-ref-eq.md`](raw/research/0775-2026-06-20-optimize-instructions-oi-i-self-local-ref-eq.md) for the nineteenth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds direct `ref.eq(local.get N, local.get N)` to `i32.const 1` for nullable and non-null local refs while keeping arbitrary SSA identity, constructor identity, allocation-dropping, descriptor/exactness/TNH/IIT, and broader flow-sensitive equality proofs open.

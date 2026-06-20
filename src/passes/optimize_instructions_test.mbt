@@ -1069,6 +1069,28 @@ test "optimize-instructions folds equality on local ref.i31 constants" {
 }
 
 ///|
+test "optimize-instructions folds same-local ref.i31 equality" {
+  let source =
+    #|(module
+    #|  (func (export "same-local-i31") (param i32) (result i32)
+    #|    local.get 0
+    #|    ref.i31
+    #|    local.get 0
+    #|    ref.i31
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected same-local ref.i31 ref.eq optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds self equality on local refs" {
   let source =
     #|(module

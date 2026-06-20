@@ -4846,6 +4846,42 @@ fn optimize_instructions_ref_eq_operands_are_same_local(
 }
 
 ///|
+fn optimize_instructions_ref_i31_local_operand(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int? {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefI31) => {
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      match @ir.hot_node_get(func, child_id).op {
+        @ir.HotOp::LocalGet => Some(@ir.hot_node_get(func, child_id).imm0)
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_ref_eq_operands_are_same_i31_local(
+  func : @ir.HotFunc,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match
+    (
+      optimize_instructions_ref_i31_local_operand(func, lhs_id),
+      optimize_instructions_ref_i31_local_operand(func, rhs_id),
+    ) {
+    (Some(lhs), Some(rhs)) => lhs == rhs
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_i31_const_operand(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -4881,7 +4917,10 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   }
   let lhs_id = @ir.hot_child_get(func, node_id, 0)
   let rhs_id = @ir.hot_child_get(func, node_id, 1)
-  if optimize_instructions_ref_eq_operands_are_same_local(func, lhs_id, rhs_id) {
+  if optimize_instructions_ref_eq_operands_are_same_local(func, lhs_id, rhs_id) ||
+    optimize_instructions_ref_eq_operands_are_same_i31_local(
+      func, lhs_id, rhs_id,
+    ) {
     optimize_instructions_replace_with_const_i32(
       ctx,
       func,
