@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
@@ -20,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass.
+Use Binaryen `version_130` as the current release source oracle for this pass. The older `version_129` dossier remains useful historical context, but the 2026-06-20 refresh found a small behavior-relevant source drift: four movement checks now use directional `orderedBefore(...)` instead of broad symmetric `invalidates(...)`.
 
 Primary files:
 
@@ -38,6 +39,15 @@ The shipped dedicated lit test is also part of the contract here:
 - `test/lit/passes/heap-store-optimization.wast`
 
 For owner-file and proof-surface details, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+
+## `version_130` drift note
+
+The dedicated `heap-store-optimization.wast` lit file is byte-identical between `version_129` and `version_130`, and registration/scheduler placement remains stable. The owner source changed only in movement legality checks:
+
+- `trySwap(...)` now rejects swaps with `firstEffects.orderedBefore(secondEffects)`.
+- later field operands, descriptor operands, and shallow constructor effects now use `orderedBefore(setValueEffects)` before moving the stored value earlier.
+
+This matters for Starshine because older local summaries that mention `invalidates(...)` may overstate Binaryen's current barriers and can also miss real directional blockers. Follow-ups have already found and fixed concrete gaps: plain constructor wrapper effects, the later-field trap/local-state direction where Binaryen can move local-only side effects before a trapping later operand, the descriptor-global/call direction where Binaryen can move a call before an immutable descriptor `global.get` but not before a mutable descriptor global, block-wrapped immutable descriptor globals and descriptor `local.get` operands, pure descriptor-`if` operands with immutable descriptor-global branches, descriptor `block` operands with self-targeting branches, branchless descriptor-loop operands with self-branching loop negatives, one `trySwap(...)` direction where a constructor operand `global.get` must remain before a later mutable `global.set`, and the complementary `trySwap(...)` direction where an immutable descriptor `global.get` constructor operand may cross an unrelated mutable `global.set`. A coverage follow-up also locked Binaryen's `memory.size` constructor-operand swap positive, trapping `i32.load` swap negative, and constructor-local-set ping-pong no-fold boundary. Audit follow-up must continue adding broader arbitrary descriptor, later-field, table/final-element, and swap directional movement tests before final closeout.
 
 ## High-level intent
 
@@ -251,7 +261,7 @@ Why shallow?
 - children were already checked separately
 - now the pass needs to know whether the constructor wrapper itself has effects whose order relative to the moved value matters
 
-This is the source-level reason the pass is careful about allocation trap timing.
+This is the source-level reason the pass is careful about constructor-wrapper ordering. 2026-06-20 Starshine parity fixes confirmed important `version_130` nuances: plain `struct.new` / `struct.new_default` do not by themselves block the old-field-call-preservation case where the moved value is another call, and descriptor constructor wrapper effects must not add an extra barrier beyond the descriptor operand check. Descriptor operands themselves still matter: an immutable descriptor `global.get`, block-wrapped immutable descriptor global, descriptor `local.get`, pure descriptor `if`, descriptor block self-branch, or branchless descriptor loop can be crossed by a moved call, while the same shape with a mutable descriptor global or self-branching descriptor loop stays blocked.
 
 ### 6. Reject dangerous control flow with `canSkipLocalSet(...)`
 

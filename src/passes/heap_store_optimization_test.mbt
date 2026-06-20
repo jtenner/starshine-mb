@@ -116,6 +116,21 @@ fn hso_memory_test_module(
 }
 
 ///|
+fn hso_memory_global_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  hso_memory_test_module(field_count, body).with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn hso_memory_ref_result_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -171,6 +186,67 @@ fn hso_immutable_global_test_module(
       ),
     ]),
   )
+}
+
+///|
+fn hso_call_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let struct_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(field_count)),
+    ),
+  )
+  let helper_type_idx = @lib.TypeIdx::new(1U)
+  let helper_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, helper_type, func_type]))
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("helper"),
+        @lib.ExternType::func(helper_type_idx),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([struct_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_call_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_call_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid call heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
 }
 
 ///|
@@ -304,6 +380,22 @@ fn hso_memory_test_run_with_locals(
 }
 
 ///|
+fn hso_memory_global_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_memory_global_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid memory+global heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_test_run_module(mod_ : @lib.Module) -> Result[@lib.Module, String] {
   match @validate.validate_module(mod_) {
     Ok(_) => ()
@@ -387,6 +479,238 @@ fn hso_desc_test_run(
     Err(err) =>
       abort(
         "unexpected invalid descriptor heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_desc_i32_global_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let descriptor_group = @lib.RecType::group([
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(1)),
+      metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(1U))),
+    ),
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
+    ),
+  ])
+  let pair_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([descriptor_group, func_type]))
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("desc"),
+        @lib.ExternType::global(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                false,
+                @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+                exact=true,
+              ),
+            ),
+            false,
+          ),
+        ),
+      ),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([pair_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_desc_i32_global_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_desc_i32_global_test_module(body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid descriptor+i32-global heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_exact_desc_ref_type(nullable : Bool) -> @lib.ValType {
+  @lib.ValType::ref_type(
+    @lib.RefType::new(
+      nullable,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+}
+
+///|
+fn hso_desc_call_test_module(
+  body : Array[@lib.Instruction],
+  mutable_desc : Bool,
+) -> @lib.Module {
+  let descriptor_group = @lib.RecType::group([
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(2)),
+      metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(1U))),
+    ),
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
+    ),
+  ])
+  let helper_type_idx = @lib.TypeIdx::new(2U)
+  let helper_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let func_type_idx = @lib.TypeIdx::new(3U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let pair_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([descriptor_group, helper_type, func_type]))
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("desc"),
+        @lib.ExternType::global(
+          @lib.GlobalType::new(hso_exact_desc_ref_type(false), mutable_desc),
+        ),
+      ),
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("helper"),
+        @lib.ExternType::func(helper_type_idx),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([pair_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_desc_call_test_run(
+  body : Array[@lib.Instruction],
+  mutable_desc : Bool,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_desc_call_test_module(body, mutable_desc)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid descriptor-call heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_desc_local_call_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let descriptor_group = @lib.RecType::group([
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(2)),
+      metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(1U))),
+    ),
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
+    ),
+  ])
+  let helper_type_idx = @lib.TypeIdx::new(2U)
+  let helper_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let func_type_idx = @lib.TypeIdx::new(3U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let pair_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([descriptor_group, helper_type, func_type]))
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("desc"),
+        @lib.ExternType::global(
+          @lib.GlobalType::new(hso_exact_desc_ref_type(true), false),
+        ),
+      ),
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("helper"),
+        @lib.ExternType::func(helper_type_idx),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([pair_ref_type, hso_exact_desc_ref_type(true)]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_desc_local_call_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_desc_local_call_test_module(body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid descriptor-local-call heap-store-optimization test fixture: \{err}",
       )
   }
   run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
@@ -564,6 +888,465 @@ test "heap-store-optimization folds struct.new_default_desc stores into explicit
   assert_true(pretty.contains("struct.new_desc"), msg=pretty)
   assert_true(pretty.contains("I32(9)"), msg=pretty)
   assert_false(pretty.contains("struct.new_default_desc"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization moves call value before immutable descriptor global" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected immutable-descriptor-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps struct.set before mutable descriptor global and moved call" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      true,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected mutable-descriptor-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization moves call value before block-wrapped immutable descriptor global" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(hso_exact_desc_ref_type(false)),
+          @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+        ),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-descriptor-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization moves call value before block-branch immutable descriptor global" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(hso_exact_desc_ref_type(false)),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+          ]),
+        ),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-branch-descriptor-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization moves call value before loop-wrapped immutable descriptor global" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::loop_(
+          @lib.BlockType::val_type(hso_exact_desc_ref_type(false)),
+          @lib.Expr::new([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+        ),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected loop-descriptor-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps struct.set when descriptor loop branches to itself" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::loop_(
+          @lib.BlockType::val_type(hso_exact_desc_ref_type(false)),
+          @lib.Expr::new([
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+          ]),
+        ),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected self-branching loop descriptor-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization moves call value before descriptor local.get" {
+  let pair = @lib.TypeIdx::new(0U)
+  let ref_local = @lib.LocalIdx::new(0U)
+  let desc_local = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_desc_local_call_test_run([
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::local_set(desc_local),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_const(@lib.I32(10)),
+      @lib.Instruction::local_get(desc_local),
+      @lib.Instruction::struct_new_desc(pair),
+      @lib.Instruction::local_set(ref_local),
+      @lib.Instruction::local_get(ref_local),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected local descriptor-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization moves call value before if-wrapped immutable descriptor globals" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::if_(
+          @lib.BlockType::val_type(hso_exact_desc_ref_type(false)),
+          [@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))],
+          Some([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+        ),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected if-descriptor-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps struct.set when descriptor if condition calls" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::i32_const(@lib.I32(99)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::val_type(hso_exact_desc_ref_type(false)),
+          [@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))],
+          Some([@lib.Instruction::global_get(@lib.GlobalIdx::new(0U))]),
+        ),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected if-condition-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization preserves old field call effects when folding tee stores" {
+  let pair = @lib.TypeIdx::new(0U)
+  let optimized = match
+    hso_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(20)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected old-field-effect heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(20)"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps struct.set when later field call orders before moved call" {
+  let pair = @lib.TypeIdx::new(0U)
+  let optimized = match
+    hso_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected later-field-call barrier heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds moved call when only the replaced old field has effects" {
+  let pair = @lib.TypeIdx::new(0U)
+  let optimized = match
+    hso_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected old-field-only effect heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization moves local-only set value before later trapping load" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local_ref = @lib.LocalIdx::new(0U)
+  let local_tmp = @lib.LocalIdx::new(1U)
+  let pair_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let optimized = match
+    hso_memory_test_run_with_locals(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_load(
+          @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL)),
+        ),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local_ref),
+        @lib.Instruction::local_get(local_ref),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::local_set(local_tmp),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+          ]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local_ref),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local_tmp),
+        @lib.Instruction::i32_add(),
+      ],
+      2,
+      [pair_ref_type, @lib.ValType::i32()],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected trap-local directional heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
@@ -1296,6 +2079,174 @@ test "heap-store-optimization swaps across unrelated global.set roots" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.set"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds immutable descriptor global across unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_i32_global_test_run([
+      @lib.Instruction::i32_const(@lib.I32(2)),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::struct_new_desc(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::i32_const(@lib.I32(9)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected immutable descriptor/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds memory.size constructor operands across unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_global_test_run(
+      [
+        @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-size/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps trapping memory loads before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_global_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 0UL)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-load/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization does not fold through an intervening constructor local.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_test_run_with_locals(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local1),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+      [
+        @lib.ValType::ref_null(@lib.HeapType::new(pair)),
+        @lib.ValType::ref_null(@lib.HeapType::new(pair)),
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected constructor-local-set barrier heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps global.set before constructor global.get" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_global_test_run(
+      [
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected global-set barrier heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|

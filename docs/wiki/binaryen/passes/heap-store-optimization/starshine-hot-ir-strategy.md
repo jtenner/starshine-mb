@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
   - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
@@ -29,11 +30,11 @@ related:
 # Current Starshine `heap-store-optimization` strategy
 
 This page is the local “what is actually implemented today?” companion to the upstream Binaryen strategy page.
-For the compact validation and replay surface, including the 2026-05-06 refreshed direct `pass-fuzz-compare` lane, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+For the compact validation and replay surface, including the 2026-05-06 refreshed direct `pass-fuzz-compare` lane, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The 2026-06-20 `version_130` refresh supersedes the older `version_129` oracle wording and flags directional `orderedBefore(...)` movement checks as active audit work.
 
 ## Short version
 
-Current Starshine `src/passes/heap_store_optimization.mbt` follows the same **core idea** as Binaryen `version_129`:
+Current Starshine `src/passes/heap_store_optimization.mbt` follows the same **core idea** as Binaryen `version_130`:
 
 - fold a `struct.set` back into a nearby fresh constructor when local visibility and effect ordering stay safe.
 
@@ -79,8 +80,8 @@ The fastest read-along path through the current MoonBit implementation is:
 - local proof helpers in `src/passes/heap_store_optimization.mbt`
   - [`src/passes/heap_store_optimization.mbt:312-354`](../../../../../src/passes/heap_store_optimization.mbt) covers skip-local-set / control-flow predicates
   - [`src/passes/heap_store_optimization.mbt:560-631`](../../../../../src/passes/heap_store_optimization.mbt) covers trapless readonly and reorderable subtree predicates
-  - [`src/passes/heap_store_optimization.mbt:761-792`](../../../../../src/passes/heap_store_optimization.mbt) covers root-swap legality
-  - [`src/passes/heap_store_optimization.mbt:914-970`](../../../../../src/passes/heap_store_optimization.mbt) covers the supported `struct.new*` / descriptor / default constructor family
+  - [`src/passes/heap_store_optimization.mbt:772-944`](../../../../../src/passes/heap_store_optimization.mbt) covers descriptor operand effects, descriptor-aware block/if wrapper recursion, constructor operand effects, and root-swap legality
+  - [`src/passes/heap_store_optimization.mbt:1011-1110`](../../../../../src/passes/heap_store_optimization.mbt) covers the supported `struct.new*` / descriptor / default constructor family and shallow constructor wrapper effects
 - local rewrite helpers in `src/passes/heap_store_optimization.mbt`
   - [`src/passes/heap_store_optimization.mbt:1296-1468`](../../../../../src/passes/heap_store_optimization.mbt) handles HOT wrapper flattening and unreachable-tail repair
   - [`src/passes/heap_store_optimization.mbt:1653-1775`](../../../../../src/passes/heap_store_optimization.mbt) owns the shared fold-into-constructor proof and rewrite
@@ -88,7 +89,7 @@ The fastest read-along path through the current MoonBit implementation is:
   - [`src/passes/heap_store_optimization.mbt:2028-2218`](../../../../../src/passes/heap_store_optimization.mbt) recursively processes HOT regions, later-set chains, swaps, and root replacement
   - [`src/passes/heap_store_optimization.mbt:2220-2241`](../../../../../src/passes/heap_store_optimization.mbt) requires effect summaries, marks mutation, and returns pass results
 - focused local evidence surfaces
-  - [`src/passes/heap_store_optimization_test.mbt:396-1967`](../../../../../src/passes/heap_store_optimization_test.mbt) covers reduced constructor/store, readonly-prefix, swap, branch, descriptor, raw-prefix, and wrapper-cleanup regressions
+  - [`src/passes/heap_store_optimization_test.mbt:476-2700`](../../../../../src/passes/heap_store_optimization_test.mbt) covers reduced constructor/store, old-field side-effect preservation, later-field call barriers, descriptor immutable/mutable global barriers, descriptor `local.get`, block-wrapped immutable global operands, descriptor `if` operands, descriptor block self-branch operands, branchless descriptor loops plus self-branching loop negatives, readonly-prefix, swap including memory/trap and constructor-ping-pong boundaries, branch, raw-prefix, and wrapper-cleanup regressions
   - [`src/passes/perf_test.mbt:6241-6320`](../../../../../src/passes/perf_test.mbt) covers raw fast-skip trace/perf behavior
   - [`src/cmd/cmd_wbtest.mbt:2514-3490`](../../../../../src/cmd/cmd_wbtest.mbt) and [`src/cmd/cmd_wbtest.mbt:6600-6634`](../../../../../src/cmd/cmd_wbtest.mbt) cover focused `--heap-store-optimization` CLI replay and debug-artifact lanes
 
@@ -143,7 +144,7 @@ Examples include helpers for:
 - trimming unreachable tails in moved values
 - flattening block wrappers after peeling prefixes
 - retargeting labels when flattening nested block wrappers
-- preserving old field side effects with rewritten block/value shells
+- preserving old field side effects with rewritten block/value shells, including the Binaryen lit family where a moved call folds into a plain `struct.new` while the old field call is retained under a dropped sequence
 
 This is why the local test suite contains many shapes that sound more structural than the upstream dedicated test names, such as:
 
@@ -164,6 +165,10 @@ The current repo test suite covers many source-local families beyond the upstrea
 
 That does **not** automatically mean Starshine is fully upstream-parity complete.
 But it does mean the local pass has already accumulated a lot of HOT-specific survival work.
+
+## Current audit warning
+
+The 2026-06-20 release-oracle refresh found that Binaryen `version_130` changed swap, later-field, descriptor, and shallow-constructor movement barriers from broad symmetric `invalidates(...)` checks to directional `orderedBefore(...)` checks. Follow-ups have fixed concrete gaps: plain `struct.new` / `struct.new_default` no longer carry extra wrapper effects that overblock moved-call folds, later-field trapping operands no longer overblock moved local-only values, immutable descriptor `global.get` operands no longer overblock moved calls while mutable descriptor globals still block, descriptor `local.get`, block-wrapped immutable descriptor globals, pure descriptor-`if` operands, descriptor block self-branch operands, and branchless descriptor-loop operands no longer overblock moved calls, constructor operand effects now stop `trySwap(...)` from moving a `global.get`-initialized constructor past a later mutable `global.set`, and swap-side constructor operand effects now treat immutable descriptor globals as pure enough to cross unrelated mutable global writes. A later coverage slice added explicit tests for `trySwap(...)` with non-trapping `memory.size` constructor operands crossing unrelated `global.set`, trapping `i32.load` constructor operands not crossing unrelated `global.set`, and an intervening constructor local-set that does not let the first constructor fold through the ping-pong shape. Broader arbitrary descriptor operand expressions, remaining later-field barrier shapes, table/final-element swap coverage, and broader `trySwap(...)` directionality must still be tested before the pass can be closed; they are not documented Starshine wins or accepted non-goals.
 
 ## Important structural differences from Binaryen
 

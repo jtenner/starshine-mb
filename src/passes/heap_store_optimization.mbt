@@ -108,12 +108,23 @@ fn hso_mask_has_control_transfer(mask : UInt) -> Bool {
 }
 
 ///|
-fn hso_mask_invalidates(barrier_mask : UInt, moved_mask : UInt) -> Bool {
+fn hso_mask_ordered_before(barrier_mask : UInt, moved_mask : UInt) -> Bool {
   if hso_mask_is_pure(barrier_mask) || hso_mask_is_pure(moved_mask) {
     return false
   }
   if hso_mask_has_control_transfer(barrier_mask) ||
-    (barrier_mask & @ir.EFFECT_MASK_TRAP) != 0U {
+    hso_mask_has_control_transfer(moved_mask) {
+    return true
+  }
+  let nonlocal_write_mask = @ir.EFFECT_MASK_GLOBAL_STATE |
+    @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_TABLE_WRITE
+  let barrier_writes_nonlocal_state = (barrier_mask & nonlocal_write_mask) != 0U
+  let moved_writes_nonlocal_state = (moved_mask & nonlocal_write_mask) != 0U
+  if (
+      (barrier_mask & @ir.EFFECT_MASK_TRAP) != 0U && moved_writes_nonlocal_state
+    ) ||
+    ((moved_mask & @ir.EFFECT_MASK_TRAP) != 0U && barrier_writes_nonlocal_state) {
     return true
   }
   if (barrier_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
@@ -750,7 +761,7 @@ fn hso_nodes_can_reorder(
   moved_id : Int,
   moved_mask : UInt,
 ) -> Bool {
-  if !hso_mask_invalidates(barrier_mask, moved_mask) {
+  if !hso_mask_ordered_before(barrier_mask, moved_mask) {
     return true
   }
   hso_subtree_is_trapless_readonly(cache, func, node_masks, barrier_id) &&
@@ -758,17 +769,233 @@ fn hso_nodes_can_reorder(
 }
 
 ///|
-fn hso_root_can_swap_before_local_struct_new(
-  cache : HsoPredicateCache,
+fn hso_desc_region_has_loop_control_barrier(
   func : @ir.HotFunc,
-  node_masks : Array[UInt],
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hso_desc_node_has_loop_control_barrier(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hso_desc_node_has_loop_control_barrier(
+  func : @ir.HotFunc,
   node_id : Int,
-  target_local_id : Int,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  let mask = hso_reorder_effect_mask(cache, func, node_masks, node_id)
+  if @ir.hot_is_branch(func, node_id) ||
+    @ir.hot_is_terminator_node(func, node_id) {
+    return true
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
+    if hso_desc_node_has_loop_control_barrier(
+        func,
+        @ir.hot_child_get(func, node_id, idx),
+      ) {
+      return true
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_desc_region_has_loop_control_barrier(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If =>
+      if hso_desc_region_has_loop_control_barrier(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        true
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_desc_region_has_loop_control_barrier(func, region_ref)
+          None => false
+        }
+      }
+    @ir.HotOp::Try =>
+      if hso_desc_region_has_loop_control_barrier(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        true
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_desc_region_has_loop_control_barrier(func, region_ref)
+          None => false
+        }
+      }
+    @ir.HotOp::TryTable =>
+      hso_desc_region_has_loop_control_barrier(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      ) ||
+      hso_desc_region_has_loop_control_barrier(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+      )
+    _ => false
+  }
+}
+
+///|
+fn hso_desc_operand_effects_for_region(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  node_masks : Array[UInt],
+  region_ref : @ir.HotRegionRef,
+) -> UInt {
+  let mut mask = 0U
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    mask = mask |
+      hso_desc_operand_effects_for_node(
+        func,
+        module_ctx,
+        node_masks,
+        @ir.hot_region_get(func, region_ref, idx),
+      )
+  }
+  mask
+}
+
+///|
+fn hso_desc_operand_effects_for_node(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  node_masks : Array[UInt],
+  node_id : Int,
+) -> UInt {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return 0U
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if @ir.hot_is_branch(func, node_id) {
+    return 0U
+  }
+  match node.op {
+    @ir.HotOp::LocalGet => return 0U
+    @ir.HotOp::GlobalGet =>
+      match module_ctx {
+        Some(ctx) =>
+          match
+            @ir.hot_module_resolve_global_type(
+              ctx,
+              @lib.GlobalIdx::new(node.imm0.reinterpret_as_uint()),
+            ) {
+            Some(@lib.GlobalType(_, false)) => return 0U
+            _ => ()
+          }
+        None => ()
+      }
+    @ir.HotOp::Block => {
+      let region_ref = @ir.hot_region_body_ref(func, node_id)
+      let mut mask = hso_desc_operand_effects_for_region(
+        func, module_ctx, node_masks, region_ref,
+      )
+      mask = mask ^ (mask & @ir.EFFECT_MASK_CONTROL)
+      return mask
+    }
+    @ir.HotOp::Loop => {
+      let region_ref = @ir.hot_region_body_ref(func, node_id)
+      if hso_desc_region_has_loop_control_barrier(func, region_ref) {
+        return hso_effects_for_node(func, node_masks, node_id)
+      }
+      let mut mask = hso_desc_operand_effects_for_region(
+        func, module_ctx, node_masks, region_ref,
+      )
+      mask = mask ^ (mask & @ir.EFFECT_MASK_CONTROL)
+      return mask
+    }
+    @ir.HotOp::If => {
+      let mut mask = 0U
+      for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
+        mask = mask |
+          hso_desc_operand_effects_for_node(
+            func,
+            module_ctx,
+            node_masks,
+            @ir.hot_child_get(func, node_id, idx),
+          )
+      }
+      mask = mask |
+        hso_desc_operand_effects_for_region(
+          func,
+          module_ctx,
+          node_masks,
+          @ir.hot_region_then_ref(func, node_id),
+        )
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          mask = mask |
+            hso_desc_operand_effects_for_region(
+              func, module_ctx, node_masks, region_ref,
+            )
+        None => ()
+      }
+      return mask
+    }
+    _ => ()
+  }
+  hso_effects_for_node(func, node_masks, node_id)
+}
+
+///|
+fn hso_struct_new_operand_effect_mask(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  node_masks : Array[UInt],
+  struct_new_id : Int,
+) -> UInt {
+  let mut mask = 0U
+  if struct_new_id < 0 || !@ir.hot_node_is_live(func, struct_new_id) {
+    return mask
+  }
+  for idx = 0; idx < @ir.hot_child_count(func, struct_new_id); idx = idx + 1 {
+    mask = mask |
+      hso_desc_operand_effects_for_node(
+        func,
+        module_ctx,
+        node_masks,
+        @ir.hot_child_get(func, struct_new_id, idx),
+      )
+  }
+  mask
+}
+
+///|
+fn hso_root_can_swap_before_local_struct_new(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  node_masks : Array[UInt],
+  moved_struct_new_id : Int,
+  blocker_id : Int,
+  target_local_id : Int,
+) -> Bool {
+  if blocker_id < 0 || !@ir.hot_node_is_live(func, blocker_id) {
+    return false
+  }
+  let blocker_mask = hso_reorder_effect_mask(
+    cache, func, node_masks, blocker_id,
+  )
+  let moved_mask = hso_struct_new_operand_effect_mask(
+    func, module_ctx, node_masks, moved_struct_new_id,
+  )
+  if hso_mask_ordered_before(moved_mask, blocker_mask) {
+    return false
+  }
   let disallowed_effects = @ir.EFFECT_MASK_CONTROL |
     @ir.EFFECT_MASK_CALL |
     @ir.EFFECT_MASK_THROW |
@@ -777,14 +1004,14 @@ fn hso_root_can_swap_before_local_struct_new(
     @ir.EFFECT_MASK_MEMORY_WRITE |
     @ir.EFFECT_MASK_TABLE_READ |
     @ir.EFFECT_MASK_TABLE_WRITE
-  if (mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
-    hso_subtree_touches_local(func, node_id, target_local_id) {
+  if (blocker_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
+    hso_subtree_touches_local(func, blocker_id, target_local_id) {
     return false
   }
-  if (mask & disallowed_effects) == 0U {
+  if (blocker_mask & disallowed_effects) == 0U {
     return true
   }
-  hso_subtree_is_trapless_reorderable(cache, func, node_masks, node_id, [])
+  hso_subtree_is_trapless_reorderable(cache, func, node_masks, blocker_id, [])
 }
 
 ///|
@@ -977,10 +1204,7 @@ fn hso_struct_new_shallow_effects(func : @ir.HotFunc, node_id : Int) -> UInt {
     Some(@lib.Instruction::StructNew(_))
     | Some(@lib.Instruction::StructNewDefault(_))
     | Some(@lib.Instruction::StructNewDesc(_))
-    | Some(@lib.Instruction::StructNewDefaultDesc(_)) =>
-      @ir.EFFECT_MASK_MEMORY_READ |
-      @ir.EFFECT_MASK_MEMORY_WRITE |
-      @ir.EFFECT_MASK_TRAP
+    | Some(@lib.Instruction::StructNewDefaultDesc(_)) => 0U
     _ => 0U
   }
 }
@@ -1570,7 +1794,9 @@ fn hso_array_insert_prefix_roots(
 fn hso_liftable_swapped_block_roots(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
   node_masks : Array[UInt],
+  moved_struct_new_id : Int,
   node_id : Int,
   local_id : Int,
 ) -> Array[Int]? {
@@ -1592,7 +1818,7 @@ fn hso_liftable_swapped_block_roots(
   }
   for root_id in roots {
     if !hso_root_can_swap_before_local_struct_new(
-        cache, func, node_masks, root_id, local_id,
+        cache, func, module_ctx, node_masks, moved_struct_new_id, root_id, local_id,
       ) {
       return None
     }
@@ -1604,6 +1830,7 @@ fn hso_liftable_swapped_block_roots(
 fn hso_peel_reorderable_value_prefix_roots(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
   node_masks : Array[UInt],
   value_id : Int,
   local_id : Int,
@@ -1633,7 +1860,7 @@ fn hso_peel_reorderable_value_prefix_roots(
   for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
     let root_id = roots[idx]
     if !hso_root_can_swap_before_local_struct_new(
-        cache, func, node_masks, root_id, local_id,
+        cache, func, module_ctx, node_masks, final_root_id, root_id, local_id,
       ) {
       return Some([])
     }
@@ -1673,7 +1900,7 @@ fn hso_try_fold_into_struct_new(
   ignore(hso_trim_unreachable_subtree(func, value_id))
   let lifted_prefix_roots = match
     hso_peel_reorderable_value_prefix_roots(
-      cache, func, node_masks, value_id, local_id,
+      cache, func, module_ctx, node_masks, value_id, local_id,
     ) {
     Some(roots) => roots
     None => return None
@@ -1690,7 +1917,7 @@ fn hso_try_fold_into_struct_new(
   if hso_subtree_may_skip_local_set(cache, func, value_id) {
     return None
   }
-  if hso_mask_invalidates(
+  if hso_mask_ordered_before(
       hso_struct_new_shallow_effects(func, struct_new_id),
       value_reorder_mask,
     ) &&
@@ -1727,7 +1954,9 @@ fn hso_try_fold_into_struct_new(
           func,
           node_masks,
           desc_id,
-          hso_effects_for_node(func, node_masks, desc_id),
+          hso_desc_operand_effects_for_node(
+            func, module_ctx, node_masks, desc_id,
+          ),
           value_id,
           value_reorder_mask,
         ) {
@@ -2145,7 +2374,9 @@ fn hso_process_region(
                   hso_liftable_swapped_block_roots(
                     cache,
                     func,
+                    module_ctx,
                     node_masks,
+                    struct_new_id,
                     roots[next_idx],
                     local_id,
                   ) {
@@ -2170,7 +2401,9 @@ fn hso_process_region(
                     if hso_root_can_swap_before_local_struct_new(
                         cache,
                         func,
+                        module_ctx,
                         node_masks,
+                        struct_new_id,
                         roots[next_idx],
                         local_id,
                       ) {

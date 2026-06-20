@@ -120,10 +120,10 @@ Exact current entry points:
   - skip-local-set / control-flow predicates.
 - [`src/passes/heap_store_optimization.mbt:560-631`](../../../../../src/passes/heap_store_optimization.mbt)
   - trapless readonly / reorderable subtree predicates.
-- [`src/passes/heap_store_optimization.mbt:761-792`](../../../../../src/passes/heap_store_optimization.mbt)
-  - root-swap legality guard.
-- [`src/passes/heap_store_optimization.mbt:914-970`](../../../../../src/passes/heap_store_optimization.mbt)
-  - supported constructor family: `struct.new`, `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc`.
+- [`src/passes/heap_store_optimization.mbt:761-823`](../../../../../src/passes/heap_store_optimization.mbt)
+  - constructor operand effect summary and root-swap legality guard.
+- [`src/passes/heap_store_optimization.mbt:914-986`](../../../../../src/passes/heap_store_optimization.mbt)
+  - supported constructor family: `struct.new`, `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc`, plus shallow constructor wrapper effect classification.
 - [`src/passes/heap_store_optimization.mbt:1296-1468`](../../../../../src/passes/heap_store_optimization.mbt)
   - HOT wrapper flattening and unreachable-tail repair helpers.
 - [`src/passes/heap_store_optimization.mbt:1653-1775`](../../../../../src/passes/heap_store_optimization.mbt)
@@ -156,8 +156,8 @@ The active pass is wired through:
 
 Current local proof surfaces include:
 
-- [`src/passes/heap_store_optimization_test.mbt:396-1967`](../../../../../src/passes/heap_store_optimization_test.mbt)
-  - focused positive and negative unit coverage for tee folds, chains, defaults, descriptor constructors, readonly prefixes, branches, wrapper flattening, raw-prefix guards, local-read hazards, and writeback repair.
+- [`src/passes/heap_store_optimization_test.mbt:476-2700`](../../../../../src/passes/heap_store_optimization_test.mbt)
+  - focused positive and negative unit coverage for tee folds, chains, defaults, descriptor constructors, immutable/mutable descriptor-global call movement, descriptor `local.get`, block-wrapped immutable descriptor-global movement, pure descriptor-`if` movement plus a call-condition negative, descriptor block self-branch movement, branchless descriptor-loop movement plus self-branching loop negatives, descriptor-global swap movement, old-field side-effect preservation, later-field call barriers, a directional later-field trap/local-state fold, trySwap constructor-operand/global-set ordering, `memory.size` swap positives, trapping `i32.load` swap negatives, constructor-local-set ping-pong no-fold behavior, readonly prefixes, branches, wrapper flattening, raw-prefix guards, local-read hazards, and writeback repair.
 - [`src/passes/perf_test.mbt:6241-6320`](../../../../../src/passes/perf_test.mbt)
   - raw fast-skip and trace aggregation coverage for functions with no HSO candidates.
 - [`src/cmd/cmd_wbtest.mbt:2514-3490`](../../../../../src/cmd/cmd_wbtest.mbt)

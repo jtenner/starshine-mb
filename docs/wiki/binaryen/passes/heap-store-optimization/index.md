@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
   - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
@@ -18,6 +19,9 @@ sources:
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/HeapStoreOptimization.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/heap-store-optimization.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/HeapStoreOptimization.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/heap-store-optimization.wast
@@ -148,10 +152,12 @@ The earlier landing page mostly existed to track naming evidence, so the richer 
 
 Current durable answer:
 
-- Binaryen `pass.cpp` still registers `heap-store-optimization` in `version_129`.
+- The current local release oracle is `wasm-opt version 130 (version_130)`.
+- Binaryen `pass.cpp` still registers `heap-store-optimization` in `version_130`.
 - The official Binaryen GitHub `version_129` release page re-checked on 2026-04-22 showed publish date **2026-04-01**.
 - The current upstream changelog still records `Add a new --heap-store-optimization pass. (#6882)` under `v119`.
 - A 2026-05-05 focused current-main source bridge preserved the no-teaching-drift result for `main` `HeapStoreOptimization.cpp`, the dedicated lit file, and helper surfaces, while refreshing the exact local code map.
+- A 2026-06-20 `version_130` source refresh found byte-identical dedicated lit but a small source drift from `invalidates(...)` to directional `orderedBefore(...)` in swap, later-field, descriptor, and shallow-constructor movement checks. Follow-ups fixed plain-constructor shallow-effect overblocking for old-field call preservation plus moved-call folding, later-field trap/local-state overblocking where Binaryen moves a local-only value before a trapping field operand, descriptor global/call movement where an immutable descriptor `global.get` can be crossed but a mutable descriptor global cannot, one `trySwap(...)` underblocking gap where a constructor operand `global.get` cannot cross a later mutable `global.set`, and one `trySwap(...)` overblocking gap where an immutable descriptor `global.get` can cross an unrelated mutable `global.set`. A later coverage slice added source-backed `trySwap(...)` tests for `memory.size` constructor operands crossing unrelated `global.set`, trapping `i32.load` constructor operands not crossing `global.set`, and the constructor-local-set ping-pong no-fold boundary. Follow-up `0784` fixed descriptor-expression overblocking for block-wrapped immutable descriptor globals and descriptor `local.get`; follow-up `0785` fixed pure descriptor-`if` operands while preserving a call-condition negative; follow-up `0786` fixed descriptor block self-branch overblocking; follow-up `0787` fixed branchless descriptor-loop overblocking while locking a self-branching descriptor-loop negative. Broader arbitrary descriptor expressions, remaining later-field shapes, table/final-element swap coverage, and broader swap directionality remain active audit work until focused tests and compare evidence classify them.
 - A 2026-05-06 direct revalidation ran `pass-fuzz-compare` at `--count 10000 --seed 0x5eed`, producing 6759 compared normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures.
 - The Debian experimental `wasm-opt` manpage still lists `--heap-store-optimization`.
 - The published docs.rs `wasm_opt::Pass` enum still omits `HeapStoreOptimization`, so that surface is still wrapper lag, not rename pressure.
@@ -159,11 +165,11 @@ Current durable answer:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `heap-store-optimization` parity and scheduler research.
-- Use Binaryen `version_129` as the current source oracle.
+- Use Binaryen `version_130` as the current release source oracle.
 - Keep the narrow-scope correction explicit:
   - this pass is mainly about folding `struct.set` into nearby `struct.new` families
   - it is not yet generic GC heap dead-store elimination or load forwarding
-- Keep the current no-drift note explicit unless a future source sweep finds a real post-`version_129` change.
+- Keep the older current-main no-drift note explicit as historical stability evidence, but do not use it to hide the `version_130` directional `orderedBefore(...)` movement-check drift.
 - Keep [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) in sync with local owner/test line ranges when the active HOT implementation moves.
 
 ## Validation quick links
@@ -186,13 +192,17 @@ Current durable answer:
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
-- Binaryen `version_129` sources:
+- Binaryen `version_130` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/HeapStoreOptimization.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/cfg/cfg-traversal.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/local-graph.h>
+- Binaryen `version_130` dedicated lit test:
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/heap-store-optimization.wast>
+- Historical Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/HeapStoreOptimization.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/cfg/cfg-traversal.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
-- Binaryen `version_129` dedicated lit test:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/heap-store-optimization.wast>
 - Narrow freshness and naming sources:
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/HeapStoreOptimization.cpp>
