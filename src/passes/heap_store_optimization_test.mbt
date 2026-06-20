@@ -65,6 +65,22 @@ fn hso_bytes_from_ints(values : Array[Int]) -> Bytes {
 }
 
 ///|
+fn hso_test_index_of(text : String, needle : String) -> Int? {
+  if needle.length() == 0 || needle.length() > text.length() {
+    return None
+  }
+  let limit = text.length() - needle.length()
+  let mut idx = 0
+  while idx <= limit {
+    if text.sub(start=idx, end=idx + needle.length()).to_owned() == needle {
+      return Some(idx)
+    }
+    idx = idx + 1
+  }
+  None
+}
+
+///|
 fn hso_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -2804,6 +2820,38 @@ test "heap-store-optimization folds table.size values into struct.new" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("table.size"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization does not swap the fresh local.set with the final root" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected final-root no-swap heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let local_set_idx = match hso_test_index_of(pretty, "local.set") {
+    Some(idx) => idx
+    None => fail("expected local.set in final-root no-swap output: \{pretty}")
+  }
+  let final_value_idx = match hso_test_index_of(pretty, "I32(42)") {
+    Some(idx) => idx
+    None => fail("expected final i32.const in no-swap output: \{pretty}")
+  }
+  assert_true(local_set_idx < final_value_idx, msg=pretty)
 }
 
 ///|
