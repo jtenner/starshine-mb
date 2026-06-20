@@ -79,6 +79,7 @@ sources:
   - ../../../raw/research/0793-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-as-non-null.md
   - ../../../raw/research/0794-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-test-cast.md
   - ../../../raw/research/0795-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-eq.md
+  - ../../../raw/research/0796-2026-06-20-optimize-instructions-oi-i-effectful-self-ref-eq.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt

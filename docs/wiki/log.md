@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful self ref.eq
+
+- Filed [`raw/research/0796-2026-06-20-optimize-instructions-oi-i-effectful-self-ref-eq.md`](raw/research/0796-2026-06-20-optimize-instructions-oi-i-effectful-self-ref-eq.md) for the fortieth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds direct same-local `ref.eq` while preserving an already-evaluated effectful prefix such as `drop(call $effect)`.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` before `i32.const 1` for nullable and non-null local self equality. Red-first did not apply because this was coverage for existing behavior. Focused `*self ref.eq*` passed `1/1`, focused `*ref.eq*` passed `4/4`, final `*ref*` passed `47/47`, final `*optimize-instructions*` passed `177/177`, `moon fmt`, `moon test src/passes` (`2701/2701`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful known-null ref.eq
 
 - Filed [`raw/research/0795-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-eq.md`](raw/research/0795-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-eq.md) for the thirty-ninth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds known-null `ref.eq` while preserving an already-evaluated effectful prefix such as `drop(call $effect)`.

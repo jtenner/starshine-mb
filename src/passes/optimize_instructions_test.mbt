@@ -1314,6 +1314,42 @@ test "optimize-instructions folds self equality on local refs" {
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix while folding self ref.eq" {
+  let source =
+    #|(module
+    #|  (import "m" "effect" (func $effect (result i32)))
+    #|  (func (export "nullable") (param eqref) (result i32)
+    #|    call $effect
+    #|    drop
+    #|    local.get 0
+    #|    local.get 0
+    #|    ref.eq)
+    #|  (func (export "non-null") (param (ref eq)) (result i32)
+    #|    call $effect
+    #|    drop
+    #|    local.get 0
+    #|    local.get 0
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful self ref.eq optimize success, got \{err}")
+  }
+  let nullable_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let non_null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(nullable_pretty.contains("ref.eq"), msg=nullable_pretty)
+  assert_false(non_null_pretty.contains("ref.eq"), msg=non_null_pretty)
+  assert_true(nullable_pretty.contains("call (Func 0)"), msg=nullable_pretty)
+  assert_true(non_null_pretty.contains("call (Func 0)"), msg=non_null_pretty)
+  assert_true(nullable_pretty.contains("drop"), msg=nullable_pretty)
+  assert_true(non_null_pretty.contains("drop"), msg=non_null_pretty)
+  assert_true(nullable_pretty.contains("I32(1)"), msg=nullable_pretty)
+  assert_true(non_null_pretty.contains("I32(1)"), msg=non_null_pretty)
+}
+
+///|
 test "optimize-instructions folds impossible equality between i31 and struct locals" {
   let source =
     #|(module
