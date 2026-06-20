@@ -23,10 +23,10 @@ Added two focused boundary tests for source-backed pass scope limits:
   - Expects `array.new_default`, `array.set`, and `array.get` to remain.
   - This locks the current Binaryen owner-file surface, which records `StructSet` and `Block` action sites rather than array-store DSE/load-forwarding.
 - `heap-store-optimization keeps struct.set behind ordinary memory stores`
-  - Builds `local.set(struct.new_default)` followed by an ordinary `i32.store` blocker and then a later `struct.set`.
-  - Expects both the memory store and the `struct.set` to remain, locking that ordinary memory stores are not folded through by this pass.
+  - Built `local.set(struct.new_default)` followed by an ordinary `i32.store` blocker and then a later `struct.set`.
+  - This expectation was superseded by `0791`: a direct Binaryen `version_130` probe shows `trySwap(...)` crosses the ordinary memory store when the constructor has no ordered operand effects, then folds the later `struct.set` into the constructor while preserving the `i32.store`.
 
-These are intentional fail-closed / boundary tests for `[O4Z-AUDIT-HSO-H]`. They do not assert that Starshine is better than Binaryen; they preserve the current source-backed scope while the HSO audit continues.
+The array-store test remains an intentional fail-closed / boundary test for `[O4Z-AUDIT-HSO-H]`. The memory-store claim was a conservative misclassification and is superseded by `0791`; ordinary memory/table blockers are not generic DSE/load-forwarding targets, but they can be crossed to reach a later fresh-struct `struct.set` fold.
 
 ## Validation
 
@@ -42,7 +42,6 @@ No implementation behavior changed and no direct compare was required for this c
 
 `[O4Z-AUDIT-HSO-H]` remains open. Still needed before closeout:
 
-- explicit table-store / table-effect boundary coverage if representable in the local test surface;
 - generic heap DSE/load-forwarding non-goal wording with reopening criteria if Binaryen expands the pass in a future release;
-- unreachable constructor/set no-fold boundary coverage;
-- local WAT/HOT exact-cast surface limits, including the descriptor exact `ref.cast` blocker recorded in `0789`.
+- final wording for unreachable constructor/set no-fold boundaries now that `0792` added focused coverage;
+- local WAT/HOT surface limits, including the descriptor exact `ref.cast` blocker recorded in `0789` and the direct-root unreachable set-value fixture limitation recorded in `0792`.

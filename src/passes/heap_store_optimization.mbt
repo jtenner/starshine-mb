@@ -1016,6 +1016,21 @@ fn hso_root_can_swap_before_local_struct_new(
   if blocker_id < 0 || !@ir.hot_node_is_live(func, blocker_id) {
     return false
   }
+  let blocker_node = @ir.hot_node_get(func, blocker_id)
+  match blocker_node.op {
+    @ir.HotOp::LocalSet =>
+      if @ir.hot_child_count(func, blocker_id) == 1 {
+        match
+          @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, blocker_id, 0)) {
+          Some(@lib.Instruction::StructNew(_))
+          | Some(@lib.Instruction::StructNewDefault(_))
+          | Some(@lib.Instruction::StructNewDesc(_))
+          | Some(@lib.Instruction::StructNewDefaultDesc(_)) => return false
+          _ => ()
+        }
+      }
+    _ => ()
+  }
   let blocker_mask = hso_reorder_effect_mask(
     cache, func, node_masks, blocker_id,
   )
@@ -1027,17 +1042,13 @@ fn hso_root_can_swap_before_local_struct_new(
   }
   let disallowed_effects = @ir.EFFECT_MASK_CONTROL |
     @ir.EFFECT_MASK_CALL |
-    @ir.EFFECT_MASK_THROW |
-    @ir.EFFECT_MASK_TRAP |
-    @ir.EFFECT_MASK_MEMORY_READ |
-    @ir.EFFECT_MASK_MEMORY_WRITE |
-    @ir.EFFECT_MASK_TABLE_READ |
-    @ir.EFFECT_MASK_TABLE_WRITE
+    @ir.EFFECT_MASK_THROW
   if (blocker_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
     hso_subtree_touches_local(func, blocker_id, target_local_id) {
     return false
   }
-  if (blocker_mask & disallowed_effects) == 0U {
+  if (blocker_mask & disallowed_effects) == 0U &&
+    !@ir.hot_is_terminator_node(func, blocker_id) {
     return true
   }
   hso_subtree_is_trapless_reorderable(cache, func, node_masks, blocker_id, [])
