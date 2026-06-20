@@ -1199,6 +1199,66 @@ test "optimize-instructions folds successful ref.test and ref.cast on local i31 
 }
 
 ///|
+test "optimize-instructions folds successful ref.test and ref.cast on local ref.func refs" {
+  let func_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
+  let i32_type = @lib.TypeIdx::new(0U)
+  let empty_type = @lib.TypeIdx::new(1U)
+  let func_ref_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::funcref()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([empty_type, i32_type, func_ref_type]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_test(false, func_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, func_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_func = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let cast_func = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(test_func.contains("ref.test"), msg=test_func)
+  assert_true(test_func.contains("I32(1)"), msg=test_func)
+  assert_true(cast_func.contains("ref.func"), msg=cast_func)
+  assert_false(cast_func.contains("ref.cast"), msg=cast_func)
+}
+
+///|
 test "optimize-instructions collapses casts fed by unreachable ref.as_non_null" {
   let func_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
   let func_ref = @lib.ValType::ref_type(@lib.RefType::new(false, func_heap))

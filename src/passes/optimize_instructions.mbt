@@ -4434,12 +4434,21 @@ fn optimize_instructions_ref_i31_matches_target(ht : @lib.HeapType) -> Bool {
 }
 
 ///|
+fn optimize_instructions_ref_func_matches_target(ht : @lib.HeapType) -> Bool {
+  match ht {
+    @lib.HeapType::AbsHeapTypeHeapType(abs) => abs == @lib.AbsHeapType::func()
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_is_known_match_for_target(
   func : @ir.HotFunc,
   node_id : Int,
   target : @lib.HeapType,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefFunc => optimize_instructions_ref_func_matches_target(target)
     @ir.HotOp::Heap =>
       match @ir.hot_node_exact_instr(func, node_id) {
         Some(@lib.Instruction::RefI31) =>
