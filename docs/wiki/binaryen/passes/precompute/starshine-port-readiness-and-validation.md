@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
@@ -36,6 +37,8 @@ This page is the implementation-readiness bridge for Starshine's active `precomp
 A 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) kept the upstream-teaching map stable.
 A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`](../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md) reopened the direct fuzz parity gate on a narrower local family: Starshine trimmed dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. The same-day `[PC]001` recovery now preserves that dead-root `nop` during `precompute` lowering and normalizes empty unchanged direct-pass bodies to one `nop`; saved repro replay and the mixed direct lane have `0` semantic mismatches. Follow-up raw stack-level shortcuts now skip HOT lift/lower for no-candidate functions, nested nop-only control, safe adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result blocks with no branch to the rewritten label, and preserved effectful/trapping dropped tails before HOT. A 2026-05-08 compare-tooling fix stopped WAT data string bytes such as `\\00(` from corrupting canonical-function splitting; the direct debug-artifact compare at `.tmp/pc-artifact-drift-classified` no longer reports canonical-function equality. The first real function drift is defined function `4` / absolute function `21`, and the remaining representation gap is Binaryen expression-stack / temporary-local shaping plus type-index ordering, not a small raw shortcut candidate. A final `[PC]001` recheck at `.tmp/pc001-final-recheck` and `.tmp/pass-fuzz-precompute-pc001-final` kept the direct semantic gate green (`6759 / 6759` normalized matches, `0` mismatches, only the known `20` Binaryen/tool command failures) and confirmed pass-local Starshine is faster than Binaryen (`118ms` vs `164ms`); the unresolved whole-command gap is attributed to `[WALL]001`, so the active `[PC]001` backlog slice is closed.
 
+A 2026-06-20 release-gating refresh in [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md) reopened the status bar under the modern pass-audit standard. Direct `precompute` remains implemented and supported by the compare harness, but final closeout now needs a dedicated GenValid profile plus the four-lane matrix. The O4z preset slot story also needs explicit treatment: `src/passes/pass_manager.mbt` currently returns `o4z-precompute-noop` for `precompute` when `optimize_level >= 4 && shrink_level >= 1`, covered by the focused test `precompute skips O4z raw pass until self-opt ownership hazards are safe`. Do not claim O4z PC slot closure until that no-op gate is either safely narrowed with tests/evidence or explicitly accepted as a release boundary with reopening criteria.
+
 ## Current local contract
 
 Starshine `precompute` is an active HOT pass with a narrow, practical contract:
@@ -47,9 +50,10 @@ Starshine `precompute` is an active HOT pass with a narrow, practical contract:
 - choose constant `if` arms and rebuild the chosen root shape;
 - remove pure dropped values and clean up `nop` residue that would otherwise make HOT writeback harder;
 - preserve Binaryen-visible dead-root `nop` sentinels before trailing `unreachable` and normalize empty void bodies to one `nop` at the direct pass boundary;
-- validate suspicious lowered output before committing it back to the module.
+- validate suspicious lowered output before committing it back to the module;
+- intentionally no-op current O4z `precompute` slots via the pass-manager raw gate until self-opt ownership hazards are narrowed or explicitly accepted as a release boundary.
 
-That contract is source-backed by [`src/passes/precompute.mbt:1-1158`](../../../../../src/passes/precompute.mbt), [`src/passes/pass_manager.mbt:8185-8484`](../../../../../src/passes/pass_manager.mbt), and the proof lanes in [`src/passes/precompute_test.mbt:1-342`](../../../../../src/passes/precompute_test.mbt).
+That contract is source-backed by [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt), [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), and the proof lanes in [`src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt) plus raw/perf skip coverage in [`src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt).
 
 ## What Binaryen does that Starshine does not yet do
 
@@ -153,12 +157,15 @@ Do not treat the older `.tmp/pc-artifact-branch-blockdrop-raw` `Canonical functi
 
 ## Open decisions
 
+- Whether `[O4Z-AUDIT-PC]` should recover safe `precompute` behavior under the current O4z gate or keep `o4z-precompute-noop` as an explicitly approved v0.1.0 release boundary with reopening criteria.
+- Which dedicated GenValid profile name and family split should be used for final closeout; `docs/wiki/binaryen/passes/precompute/fuzzing.md` currently proposes a composite such as `precompute-all`.
 - Whether Starshine should grow a shared interpreter/constant-flow abstraction or keep `precompute` as a pragmatic HOT peephole-plus-cleanup pass. Reopen this as a new focused slice if the project chooses to chase Binaryen's temporary-local / expression-stack shaping rather than treating it as representation drift.
 - Whether future `precompute-propagate` work should be a separate pass from the start, matching the current local removed registry entry, or should first share helper analysis with plain `precompute`.
 - When the wiki should update its baseline from Binaryen `version_129` to a newer upstream release. Until that happens, current-main drift should stay labeled rather than silently changing the taught contract.
 
 ## Sources
 
+- [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md)
 - [`../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md)
 - [`../../../raw/research/0400-2026-04-26-precompute-port-readiness.md`](../../../raw/research/0400-2026-04-26-precompute-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md)
