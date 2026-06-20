@@ -1091,6 +1091,54 @@ test "optimize-instructions folds same-local ref.i31 equality" {
 }
 
 ///|
+test "optimize-instructions folds same-local equality through nullable no-op ref.cast" {
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let eq_ref = @lib.ValType::ref_null(eq_heap)
+  let i32_type = @lib.TypeIdx::new(0U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([eq_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([i32_type, i32_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let left_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let right_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(left_pretty.contains("ref.eq"), msg=left_pretty)
+  assert_false(right_pretty.contains("ref.eq"), msg=right_pretty)
+  assert_true(left_pretty.contains("I32(1)"), msg=left_pretty)
+  assert_true(right_pretty.contains("I32(1)"), msg=right_pretty)
+}
+
+///|
 test "optimize-instructions folds self equality on local refs" {
   let source =
     #|(module

@@ -4830,17 +4830,54 @@ fn optimize_instructions_try_fold_ref_as_non_null(
 }
 
 ///|
+fn optimize_instructions_ref_eq_same_local_operand(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int? {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet => Some(@ir.hot_node_get(func, node_id).imm0)
+    @ir.HotOp::RefCast => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return None
+      }
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefCast(true, target)) => {
+          let child_id = @ir.hot_child_get(func, node_id, 0)
+          match @ir.hot_node_get(func, child_id).op {
+            @ir.HotOp::LocalGet => {
+              let local_idx = @ir.hot_node_get(func, child_id).imm0
+              match @ir.hot_local_type(func, local_idx) {
+                Some(@lib.ValType::RefTypeValType(ref_type)) =>
+                  if ref_type.get_heap_type() == target {
+                    Some(local_idx)
+                  } else {
+                    None
+                  }
+                _ => None
+              }
+            }
+            _ => None
+          }
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_ref_eq_operands_are_same_local(
   func : @ir.HotFunc,
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  match (@ir.hot_node_get(func, lhs_id).op, @ir.hot_node_get(func, rhs_id).op) {
-    (@ir.HotOp::LocalGet, @ir.HotOp::LocalGet) => {
-      let lhs = @ir.hot_node_get(func, lhs_id)
-      let rhs = @ir.hot_node_get(func, rhs_id)
-      lhs.imm0 == rhs.imm0
-    }
+  match
+    (
+      optimize_instructions_ref_eq_same_local_operand(func, lhs_id),
+      optimize_instructions_ref_eq_same_local_operand(func, rhs_id),
+    ) {
+    (Some(lhs), Some(rhs)) => lhs == rhs
     _ => false
   }
 }

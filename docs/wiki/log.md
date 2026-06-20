@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I nullable no-op cast ref.eq proof
+
+- Filed [`raw/research/0777-2026-06-20-optimize-instructions-oi-i-noop-cast-ref-eq.md`](raw/research/0777-2026-06-20-optimize-instructions-oi-i-noop-cast-ref-eq.md) for the twenty-first `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds same-local `ref.eq` through an immediate nullable no-op `ref.cast` whose target heap exactly matches the local declaration, while arbitrary cast skipping, non-null cast trap removal, flow-sensitive equality, descriptor/exactness/TNH/IIT, and broader subtype-lattice proofs remain open.
+- Evidence: Binaryen oracle folded the nullable no-op cast equality shape to `i32.const 1`. Direct-core red-first `*nullable no-op ref.cast*` failed before implementation because `ref.eq` remained, after an initial WAT fixture attempt confirmed the known ordinary `ref.cast` text-surface gap. Final focused `*nullable no-op ref.cast*` passed `1/1`, `*ref.eq*` passed `1/1`, `*ref*` passed `29/29`, `*optimize-instructions*` passed `159/159`, `moon fmt` passed, `moon test src/passes` passed `2671/2671`, native `src/cmd` release build passed, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare `.tmp/pass-fuzz-optimize-instructions-oi-i-noop-cast-ref-eq-10000` requested `10000`, compared `54`, had `27` normalized matches, `27` raw mismatches classified as known Starshine-win constant-if/redundant-sign-extension families, and one known Binaryen/tool command failure; final failure artifacts contained no reference operations.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I same-local ref.i31 equality proof
 
 - Filed [`raw/research/0776-2026-06-20-optimize-instructions-oi-i-same-local-i31-ref-eq.md`](raw/research/0776-2026-06-20-optimize-instructions-oi-i-same-local-i31-ref-eq.md) for the twentieth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds direct `ref.eq(ref.i31(local.get N), ref.i31(local.get N))` to `i32.const 1` while keeping arbitrary SSA identity, local.set-derived flow facts, non-local i31 value analysis, descriptor/exactness/TNH/IIT behavior, and broader subtype-lattice equality proofs open.
