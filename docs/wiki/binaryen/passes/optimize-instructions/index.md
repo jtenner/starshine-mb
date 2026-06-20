@@ -88,6 +88,7 @@ sources:
   - ../../../raw/research/0802-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-nullable-target.md
   - ../../../raw/research/0803-2026-06-20-optimize-instructions-oi-i-effectful-ref-func-basics.md
   - ../../../raw/research/0804-2026-06-20-optimize-instructions-oi-i-effectful-nullable-i31-supertype.md
+  - ../../../raw/research/0805-2026-06-20-optimize-instructions-oi-i-effectful-struct-array-ref-eq.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -183,6 +184,7 @@ related:
   - ../../../raw/research/0802-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-nullable-target.md
   - ../../../raw/research/0803-2026-06-20-optimize-instructions-oi-i-effectful-ref-func-basics.md
   - ../../../raw/research/0804-2026-06-20-optimize-instructions-oi-i-effectful-nullable-i31-supertype.md
+  - ../../../raw/research/0805-2026-06-20-optimize-instructions-oi-i-effectful-struct-array-ref-eq.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -374,6 +376,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0797-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-i31.md`](../../../raw/research/0797-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-i31.md) records the forty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice: same-local `ref.i31(local.get)` equality cleanup preserves an already-evaluated `drop(call $effect)` prefix before `i32.const 1` folds.
 - [`../../../raw/research/0803-2026-06-20-optimize-instructions-oi-i-effectful-ref-func-basics.md`](../../../raw/research/0803-2026-06-20-optimize-instructions-oi-i-effectful-ref-func-basics.md) records the forty-seventh `[O4Z-AUDIT-OI-I]` coverage sub-slice: exact `ref.func` reference basics preserve an already-evaluated `drop(call $effect)` prefix while folding/removing `ref.test`, `ref.cast`, `ref.is_null`, and `ref.as_non_null` suffixes.
 - [`../../../raw/research/0804-2026-06-20-optimize-instructions-oi-i-effectful-nullable-i31-supertype.md`](../../../raw/research/0804-2026-06-20-optimize-instructions-oi-i-effectful-nullable-i31-supertype.md) records the forty-eighth `[O4Z-AUDIT-OI-I]` coverage sub-slice: nullable-source nullable-target `i31`→`eq` supertype `ref.test` / `ref.cast` cleanup preserves an already-evaluated `drop(call $effect)` prefix.
+- [`../../../raw/research/0805-2026-06-20-optimize-instructions-oi-i-effectful-struct-array-ref-eq.md`](../../../raw/research/0805-2026-06-20-optimize-instructions-oi-i-effectful-struct-array-ref-eq.md) records the forty-ninth `[O4Z-AUDIT-OI-I]` coverage sub-slice: impossible `ref.eq` between absolute aggregate sibling locals with at least one non-null operand preserves an already-evaluated `drop(call $effect)` prefix before folding to `i32.const 0`.
 - [`../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md`](../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md) records the second `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-2 and size-4 `memory.fill` lowering and nonconstant wider-fill boundary evidence.
 - [`../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md`](../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md) records the third `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-8 `memory.fill` lowering to repeated-byte `i64.store` while keeping nonconstant wider fills open.
 - [`../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md`](../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md) records the fourth `[O4Z-AUDIT-OI-G]` sub-slice for local.get value size-2 and size-4 `memory.fill` lowering through low-byte mask and repeat multiply expressions while keeping effectful values and nonconstant size-8 fills open.

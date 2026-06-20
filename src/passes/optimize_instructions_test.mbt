@@ -1455,6 +1455,44 @@ test "optimize-instructions preserves effectful prefix while folding self ref.eq
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix while folding struct array ref.eq miss" {
+  let source =
+    #|(module
+    #|  (import "m" "effect" (func $effect (result i32)))
+    #|  (func (export "left-non-null") (param (ref struct)) (param (ref null array)) (result i32)
+    #|    call $effect
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    ref.eq)
+    #|  (func (export "right-non-null") (param (ref null struct)) (param (ref array)) (result i32)
+    #|    call $effect
+    #|    drop
+    #|    local.get 0
+    #|    local.get 1
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected effectful struct/array ref.eq miss optimize success, got \{err}",
+      )
+  }
+  let left_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let right_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(left_pretty.contains("ref.eq"), msg=left_pretty)
+  assert_false(right_pretty.contains("ref.eq"), msg=right_pretty)
+  assert_true(left_pretty.contains("call (Func 0)"), msg=left_pretty)
+  assert_true(right_pretty.contains("call (Func 0)"), msg=right_pretty)
+  assert_true(left_pretty.contains("drop"), msg=left_pretty)
+  assert_true(right_pretty.contains("drop"), msg=right_pretty)
+  assert_true(left_pretty.contains("I32(0)"), msg=left_pretty)
+  assert_true(right_pretty.contains("I32(0)"), msg=right_pretty)
+}
+
+///|
 test "optimize-instructions preserves effectful prefix while folding same-local ref.i31 equality" {
   let source =
     #|(module
