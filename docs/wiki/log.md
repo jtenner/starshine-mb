@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I impossible struct/array ref.test/ref.cast proof
+
+- Filed [`raw/research/0774-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-test-cast.md`](raw/research/0774-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-test-cast.md) for the eighteenth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.test` to `i32.const 0` and rewrites matching `ref.cast` to `unreachable` when a declared non-null absolute `struct` local targets absolute `array`, or a declared non-null absolute `array` local targets absolute `struct`.
+- Evidence: Binaryen oracle folded both sibling test directions to `i32.const 0` and both sibling cast directions to `unreachable`. Red-first `*struct array locals*` failed before implementation because `ref.test` remained; final focused `*struct array locals*` passed `1/1`, `*ref.test and ref.cast*` passed `9/9`, `*ref*` passed `26/26`, `*optimize-instructions*` passed `156/156`, `moon fmt` passed, `moon test src/passes` passed `2668/2668`, native `src/cmd` release build passed, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare in `.tmp/pass-fuzz-optimize-instructions-oi-i-struct-array-miss-test-cast-10000` compared `55/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no reference operation occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I impossible struct/array ref.eq proof
 
 - Filed [`raw/research/0772-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-eq.md`](raw/research/0772-2026-06-20-optimize-instructions-oi-i-impossible-struct-array-eq.md) for the sixteenth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.eq` to `i32.const 0` when both operands are locals, one side is declared non-null, and the local declared heap types are the absolute GC aggregate siblings `struct` and `array` in either operand order. Nullable-both equality remains unchanged because both operands can be null; indexed/defined heap subtype reasoning remains open.
