@@ -25,6 +25,7 @@ sources:
   - ../../../raw/research/0745-2026-06-19-optimize-instructions-oi-g-load-call-offset-boundary.md
   - ../../../raw/research/0746-2026-06-19-optimize-instructions-oi-g-commuted-store-mask.md
   - ../../../raw/research/0747-2026-06-19-optimize-instructions-oi-g-const-store-value.md
+  - ../../../raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -65,7 +66,7 @@ Its center of gravity is:
 - nested boolean-`if` normalization and `eqz` wrapping
 - constant-condition `select` cleanup when the dropped arm is side-effect-free
 - tiny `memory.copy` lowering for constant sizes `1`/`2`/`4`/`8`, including direct-core memory64 copy fixtures for `i64` address preservation
-- constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`), including direct-core memory64 fill fixtures after the local typechecker length fix
+- constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`), including size-1 constant low-byte canonicalization and direct-core memory64 fill fixtures after the local typechecker length fix
 - narrow stored-value cleanup for redundant masks in either `and` operand order plus constant stored-value truncation before `i32.store8` / `i32.store16` and, as documented, `i64.store8` / `i64.store16` / `i64.store32`
 - constant-pointer static-offset folding for scalar loads/stores: memory32 uses Binaryen's nonnegative `i32` range guard and memory64 uses Binaryen's unsigned `u64` no-wrap guard
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
@@ -273,7 +274,7 @@ The local pass now covers no-mode-dependent upstream bulk-memory shapes in narro
 - constant-size `2`/`4`/`8` `memory.copy` to exact `i32.load16u`/`i32.load`/`i64.load` plus matching stores
 - direct-core memory64 `memory.copy` fixtures proving the same size-`1` and size-`8` lowering preserves `i64` destination/source address operands
 - direct-core memory64 `memory.fill` fixtures proving size-`1` and size-`8` lowering preserves `i64` destination operands after the validator/typechecker accepts `i64` lengths
-- constant-size `1` `memory.fill` to `i32.store8`
+- constant-size `1` `memory.fill` to `i32.store8`, with constant fill values canonicalized to the low byte
 - constant-value size `2` `memory.fill` to repeated-byte `i32.store16`
 - constant-value size `4` `memory.fill` to repeated-byte `i32.store`
 - constant-value size `8` `memory.fill` to repeated-byte `i64.store`

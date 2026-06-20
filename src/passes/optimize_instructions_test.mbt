@@ -1207,6 +1207,38 @@ test "optimize-instructions expands tiny constant memory.fill to store" {
 }
 
 ///|
+test "optimize-instructions truncates constant byte memory.fill values before store8" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    i32.const -1
+        #|    i32.const 1
+        #|    memory.fill
+        #|    local.get $dst
+        #|    i32.const 511
+        #|    i32.const 1
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected byte memory.fill truncation success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_false(pretty.contains("I32(-1)"), msg=pretty)
+  assert_false(pretty.contains("I32(511)"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "I32(255)", "i32.store8", "I32(255)", "i32.store8",
+  ])
+}
+
+///|
 test "optimize-instructions expands constant two-byte memory.fill to store16" {
   let optimized = match
     pass_test_run_pipeline(

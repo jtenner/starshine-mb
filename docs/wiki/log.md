@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/optimize-instructions | Add OI-G byte fill constant truncation slice
+
+- Filed [`raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md`](raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md) for the seventeenth `[O4Z-AUDIT-OI-G]` sub-slice. The slice tightens size-1 constant `memory.fill` lowering so oversized fill constants are canonicalized to the low byte before materializing `i32.store8`, matching Binaryen-observable `optimizeMemoryFill` spelling for the covered constants.
+- Evidence: local Binaryen oracle probe with `--enable-bulk-memory` lowered `i32.const -1; i32.const 1; memory.fill` to `i32.const 255; i32.store8`. Red-first focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*constant byte memory.fill values*'` failed before implementation with `I32(-1)` and `I32(511)` still feeding `i32.store8`; after implementation the same filter passed `1/1`, `*memory.fill*` passed `11/11`, `*memory*` passed `22/22`, focused `*optimize-instructions*` passed `129/129`, `moon fmt` passed, `moon test src/passes` passed `2641/2641`, native `src/cmd` release build passed, and `moon info` passed. Direct compare rerun in `.tmp/pass-fuzz-optimize-instructions-oi-g-byte-fill-const-truncation-10000` compared `55/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; grep found no memory-fill/store8 artifacts.
+
 ## [2026-06-19] passes/optimize-instructions | Add OI-G constant store value slice
 
 - Filed [`raw/research/0747-2026-06-19-optimize-instructions-oi-g-const-store-value.md`](raw/research/0747-2026-06-19-optimize-instructions-oi-g-const-store-value.md) for the sixteenth `[O4Z-AUDIT-OI-G]` sub-slice. The slice adds Binaryen-style `optimizeStoredValue` constant truncation before narrow stores: `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, and `i64.store32` now replace oversized constants with the low bits observed by the store.

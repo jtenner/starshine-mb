@@ -31,6 +31,7 @@ sources:
   - ../../../raw/research/0745-2026-06-19-optimize-instructions-oi-g-load-call-offset-boundary.md
   - ../../../raw/research/0746-2026-06-19-optimize-instructions-oi-g-commuted-store-mask.md
   - ../../../raw/research/0747-2026-06-19-optimize-instructions-oi-g-const-store-value.md
+  - ../../../raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -69,6 +70,7 @@ related:
   - ../../../raw/research/0745-2026-06-19-optimize-instructions-oi-g-load-call-offset-boundary.md
   - ../../../raw/research/0746-2026-06-19-optimize-instructions-oi-g-commuted-store-mask.md
   - ../../../raw/research/0747-2026-06-19-optimize-instructions-oi-g-const-store-value.md
+  - ../../../raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -230,3 +232,4 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0745-2026-06-19-optimize-instructions-oi-g-load-call-offset-boundary.md`](../../../raw/research/0745-2026-06-19-optimize-instructions-oi-g-load-call-offset-boundary.md) records the fourteenth `[O4Z-AUDIT-OI-G]` sub-slice: an explicit fail-closed `load-call-optimize-instructions-noop` decision for scalar load constant-offset folding. Binaryen folds the mixed load/call fixture, but Starshine keeps the public pipeline raw gate until a broader safe escape proof exists.
 - [`../../../raw/research/0746-2026-06-19-optimize-instructions-oi-g-commuted-store-mask.md`](../../../raw/research/0746-2026-06-19-optimize-instructions-oi-g-commuted-store-mask.md) records the fifteenth `[O4Z-AUDIT-OI-G]` sub-slice: redundant narrow-store mask cleanup now accepts the constant mask on either side of the `and`, matching Binaryen for the `i32.store8` / `i32.store16` cases and preserving the documented Starshine-win `i64` generalization.
 - [`../../../raw/research/0747-2026-06-19-optimize-instructions-oi-g-const-store-value.md`](../../../raw/research/0747-2026-06-19-optimize-instructions-oi-g-const-store-value.md) records the sixteenth `[O4Z-AUDIT-OI-G]` sub-slice: constant stored values are truncated before `i32.store8` / `i32.store16` and `i64.store8` / `i64.store16` / `i64.store32`, matching Binaryen-observable `optimizeStoredValue` behavior for the covered constants.
+- [`../../../raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md`](../../../raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md) records the seventeenth `[O4Z-AUDIT-OI-G]` sub-slice: size-1 constant `memory.fill` lowering now canonicalizes oversized values to their low byte before materializing `i32.store8`, matching Binaryen-observable `optimizeMemoryFill` spelling for the covered constants.

@@ -2650,6 +2650,7 @@ fn optimize_instructions_replace_with_store8(
 fn optimize_instructions_repeated_fill_i32(raw : Int, size : Int) -> @lib.I32? {
   let byte = raw.reinterpret_as_uint() & 0xff
   match size {
+    1 => Some(@lib.I32(byte.reinterpret_as_int()))
     2 => Some(@lib.I32((byte | (byte << 8)).reinterpret_as_int()))
     4 =>
       Some(
@@ -3154,15 +3155,25 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
   let dst_id = @ir.hot_child_get(func, node_id, 0)
   let value_id = @ir.hot_child_get(func, node_id, 1)
   match size {
-    1 =>
+    1 => {
+      let stored_id = match
+        optimize_instructions_i32_const(func, dead, value_id) {
+        Some(@lib.I32(raw)) =>
+          match optimize_instructions_repeated_fill_i32(raw, 1) {
+            Some(value) => @ir.hot_build_const_i32(func, value)
+            None => return false
+          }
+        _ => value_id
+      }
       optimize_instructions_replace_with_store8(
         ctx,
         func,
         node_id,
         node.imm0,
         dst_id,
-        value_id,
+        stored_id,
       )
+    }
     2 | 4 => {
       let repeated_id = match
         optimize_instructions_i32_const(func, dead, value_id) {
