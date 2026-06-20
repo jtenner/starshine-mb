@@ -3,6 +3,11 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I successful i31 ref.test/ref.cast basics
+
+- Filed [`raw/research/0762-2026-06-20-optimize-instructions-oi-i-successful-i31-test-cast.md`](raw/research/0762-2026-06-20-optimize-instructions-oi-i-successful-i31-test-cast.md) for the sixth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds exact `ref.test (ref i31)` fed by a local `ref.i31` constructor to `i32.const 1` and rewrites exact `ref.cast (ref i31)` fed by local `ref.i31` to the constructor child, while keeping broader target-supertypes, descriptor, exactness, TNH/IIT, and non-local cast/test proofs open.
+- Evidence: local Binaryen `version_130` oracle probe with `wasm-opt --enable-reference-types --enable-gc -S -O --optimize-instructions` folded both local-i31 shapes. Red-first focused `*successful ref.test*` failed before implementation because the new direct-core i31 forms still contained `ref.test` / `ref.cast`; final `*successful ref.test*` passed `1/1`, focused `*ref*` passed `17/17`, focused `*optimize-instructions*` passed `145/145`, `moon fmt` passed, `moon test src/passes` passed `2657/2657`, native `src/cmd` release build passed with existing unused-function warnings, and `moon info` passed with existing warnings. The first direct compare timed out before final results; the rerun in `.tmp/pass-fuzz-optimize-instructions-oi-i-successful-i31-test-cast-10000-rerun` compared `55/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no reference operation occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I nullable ref.test/ref.cast null basics
 
 - Filed [`raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md`](raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md) for the fifth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds nullable `ref.test` fed by a known null to `i32.const 1` and rewrites nullable `ref.cast` fed by a known null to the null child. The implementation also handles the local non-null target branch internally, while public non-null null-operand fixtures remain open behind current validation/type-surface matching.

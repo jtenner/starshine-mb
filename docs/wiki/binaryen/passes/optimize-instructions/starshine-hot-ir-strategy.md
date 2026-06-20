@@ -39,6 +39,7 @@ sources:
   - ../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md
   - ../../../raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md
   - ../../../raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md
+  - ../../../raw/research/0762-2026-06-20-optimize-instructions-oi-i-successful-i31-test-cast.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -89,6 +90,7 @@ Its center of gravity is:
 - known-non-null constructor basics from OI-I: `ref.is_null(ref.i31)` and `ref.is_null(ref.func)` fold to `i32.const 0`, and `ref.eq(ref.i31, null)` / `ref.eq(null, ref.i31)` fold to `i32.const 0`; the validator now accepts non-null `ref.is_null` operands so these fixtures can be authored through WAT
 - first `ref.as_non_null` basics from OI-I: `ref.as_non_null(ref.null)` rewrites to `unreachable`, `ref.as_non_null(ref.i31(x))` rewrites to `ref.i31(x)`, `ref.as_non_null(ref.func f)` rewrites to `ref.func f`, and exact `ref.cast(unreachable)` collapses to `unreachable` so stacked cast shapes lower validly
 - first nullable null-operand `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref null T)` fed by `ref.null` folds to `i32.const 1`, and nullable `ref.cast` fed by `ref.null` rewrites to the null child; non-null null-operand cast/test public fixtures remain open behind current validation/type-surface matching
+- exact successful local-i31 `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref i31)` fed by a local `ref.i31` constructor folds to `i32.const 1`, and exact `ref.cast (ref i31)` fed by local `ref.i31` rewrites to the constructor child
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -148,6 +150,8 @@ The fastest read-along path is:
   - `optimize_instructions_ref_is_known_non_null(...)`
   - `optimize_instructions_try_fold_ref_is_null(...)`
   - `optimize_instructions_try_fold_ref_as_non_null(...)`
+  - `optimize_instructions_try_fold_ref_test_null(...)`
+  - `optimize_instructions_try_fold_ref_cast_null(...)`
   - `optimize_instructions_try_replace_ref_cast_unreachable_operand(...)`
   - `optimize_instructions_try_rewrite_ref_eq_null(...)`
   - `optimize_instructions_replace_with_store_exact(...)`

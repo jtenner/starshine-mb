@@ -4423,6 +4423,31 @@ fn optimize_instructions_ref_is_known_non_null(
 }
 
 ///|
+fn optimize_instructions_ref_i31_matches_target(ht : @lib.HeapType) -> Bool {
+  match ht {
+    @lib.HeapType::AbsHeapTypeHeapType(abs) => abs == @lib.AbsHeapType::i31()
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_ref_is_known_match_for_target(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefI31) =>
+          optimize_instructions_ref_i31_matches_target(target)
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_ref_is_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4464,8 +4489,8 @@ fn optimize_instructions_try_fold_ref_test_null(
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
   }
-  let nullable = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefTest(nullable, _)) => nullable
+  let (nullable, target) = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefTest(nullable, target)) => (nullable, target)
     _ => return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
@@ -4483,6 +4508,17 @@ fn optimize_instructions_try_fold_ref_test_null(
       )
       true
     }
+    _ if optimize_instructions_ref_is_known_match_for_target(
+        func, operand_id, target,
+      ) => {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(1),
+      )
+      true
+    }
     _ => false
   }
 }
@@ -4496,8 +4532,8 @@ fn optimize_instructions_try_fold_ref_cast_null(
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
   }
-  let nullable = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefCast(nullable, _)) => nullable
+  let (nullable, target) = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCast(nullable, target)) => (nullable, target)
     _ => return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
@@ -4510,6 +4546,12 @@ fn optimize_instructions_try_fold_ref_cast_null(
       } else {
         optimize_instructions_replace_with_unreachable(ctx, func, node_id)
       }
+      true
+    }
+    _ if optimize_instructions_ref_is_known_match_for_target(
+        func, operand_id, target,
+      ) => {
+      optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
       true
     }
     _ => false

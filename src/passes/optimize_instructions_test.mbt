@@ -1086,6 +1086,57 @@ test "optimize-instructions folds nullable ref.test and ref.cast on known null r
 }
 
 ///|
+test "optimize-instructions folds successful ref.test and ref.cast on local i31 refs" {
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let i32_type = @lib.TypeIdx::new(0U)
+  let i31_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i31ref()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([i32_type, i31_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_test(false, i31_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_cast(false, i31_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_i31 = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let cast_i31 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(test_i31.contains("ref.test"), msg=test_i31)
+  assert_true(test_i31.contains("I32(1)"), msg=test_i31)
+  assert_true(cast_i31.contains("ref.i31"), msg=cast_i31)
+  assert_false(cast_i31.contains("ref.cast"), msg=cast_i31)
+}
+
+///|
 test "optimize-instructions collapses casts fed by unreachable ref.as_non_null" {
   let func_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
   let func_ref = @lib.ValType::ref_type(@lib.RefType::new(false, func_heap))
