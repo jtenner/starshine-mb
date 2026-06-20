@@ -55,9 +55,13 @@ if (args[0] === "run" && args.includes("src/fuzz")) {
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "gen-valid-1");
   fs.writeFileSync(path.join(outDir, "gen-valid-000002.wasm"), "gen-valid-2");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000003.wasm"), "gen-valid-3");
+  fs.writeFileSync(path.join(outDir, "gen-valid-000004.wasm"), "gen-valid-4");
   fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify({ records: [
-    { file_name: "gen-valid-000001.wasm", transform_id: "add-non-name-custom-section" },
-    { file_name: "gen-valid-000002.wasm", transform_id: "add-non-name-custom-section" },
+    { file_name: "gen-valid-000001.wasm", transform_id: "add-non-name-custom-section", feature_facts: { mode: "coverage-forced" } },
+    { file_name: "gen-valid-000002.wasm", transform_id: "add-non-name-custom-section", feature_facts: { mode: "coverage-forced" } },
+    { file_name: "gen-valid-000003.wasm", transform_id: "add-non-name-custom-section", feature_facts: { mode: "coverage-forced" } },
+    { file_name: "gen-valid-000004.wasm", transform_id: "add-non-name-custom-section", feature_facts: { mode: "coverage-forced" } },
   ] }));
 }
 process.exit(0);
@@ -217,15 +221,15 @@ process.exit(0);
   assert(summary.normalizedMatchCount === 4, `unexpected normalized match count ${summary.normalizedMatchCount}`);
   assert(summary.validationFailureCount === 0, `unexpected validation failure count ${summary.validationFailureCount}`);
   assert(summary.jobs === 2, `expected 2 parallel jobs, got ${summary.jobs}`);
-  assert(summary.generatorCounts.wasmSmith === 2, `unexpected wasm-smith count ${summary.generatorCounts.wasmSmith}`);
-  assert(summary.generatorCounts.genValid === 2, `unexpected gen-valid count ${summary.generatorCounts.genValid}`);
+  assert(summary.generatorCounts.wasmSmith === 0, `unexpected wasm-smith count ${summary.generatorCounts.wasmSmith}`);
+  assert(summary.generatorCounts.genValid === 4, `unexpected gen-valid count ${summary.generatorCounts.genValid}`);
   assert(summary.genValidProfile === "relaxed-simd", `unexpected gen-valid profile ${summary.genValidProfile}`);
   assert(JSON.stringify(summary.genValidRequiredFeatures) === JSON.stringify(["v128"]), `unexpected required features ${JSON.stringify(summary.genValidRequiredFeatures)}`);
   assert(JSON.stringify(summary.genValidExcludedFeatures) === JSON.stringify(["imports"]), `unexpected excluded features ${JSON.stringify(summary.genValidExcludedFeatures)}`);
   assert(JSON.stringify(summary.genValidMetamorphicTransforms) === JSON.stringify(["add-non-name-custom-section"]), `unexpected metamorphic transforms ${JSON.stringify(summary.genValidMetamorphicTransforms)}`);
   assert(summary.genValidManifestPath === path.join("inputs", "gen-valid", "manifest.json"), `unexpected manifest path ${summary.genValidManifestPath}`);
   assert(
-    summary.genValidTransformCounts["add-non-name-custom-section"] === 2,
+    summary.genValidTransformCounts["add-non-name-custom-section"] === 4,
     `expected per-transform gen-valid count, got ${JSON.stringify(summary.genValidTransformCounts)}`,
   );
   assert(
@@ -252,7 +256,7 @@ process.exit(0);
   );
   const genValidCases = cases.filter((record) => record.generator === "gen-valid");
   assert(
-    genValidCases.length === 2 && genValidCases.every((record) => record.transformId === "add-non-name-custom-section"),
+    genValidCases.length === 4 && genValidCases.every((record) => record.transformId === "add-non-name-custom-section"),
     `expected gen-valid case metadata to preserve transform ids, got ${JSON.stringify(cases, null, 2)}`,
   );
   assert(
@@ -274,7 +278,7 @@ process.exit(0);
   const wasmToolsLogs = fs.readFileSync(wasmToolsLog, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as string[]);
   const smithCalls = wasmToolsLogs.filter((args) => args[0] === "smith");
   const validateCalls = wasmToolsLogs.filter((args) => args[0] === "validate");
-  assert(smithCalls.length === 2, `expected 2 wasm-smith generations, got ${smithCalls.length}`);
+  assert(smithCalls.length === 0, `expected no implicit wasm-smith generations, got ${smithCalls.length}`);
   assert(validateCalls.length === 8, `expected baseline and Starshine validation for 4 cases, got ${validateCalls.length}`);
   assert(
     validateCalls.every((args) => JSON.stringify(args.slice(0, 3)) === JSON.stringify(["validate", "--features", "all"])),
@@ -668,6 +672,10 @@ export function runPassFuzzCompareHelpMentionsExternalValidatorsTest(): void {
   assert(
     result.stdout.includes("--runtime-execution <mode>") && result.stdout.includes("off | node"),
     `expected runtime execution help, got:\n${result.stdout}`,
+  );
+  assert(
+    result.stdout.includes("--wasm-smith") && result.stdout.includes("Default: gen-valid"),
+    `expected split generator help, got:\n${result.stdout}`,
   );
 }
 
@@ -1129,8 +1137,7 @@ process.exit(0);
       path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
       "--count",
       "2",
-      "--generator",
-      "wasm-smith",
+      "--wasm-smith",
       "--out-dir",
       outDir,
       "--moon",

@@ -18,7 +18,7 @@ import { type EffectTrapFacts, scanEffectTrapFactsFromWasmBytes } from "./effect
 import { formatReductionReportLog, reduceBinaryByByteSlicesWithReport, type ReductionStep } from "./fuzz-reducers";
 import { normalizeSsaLocalAllocationDebris } from "./pass-fuzz-ssa-local-allocation-debris";
 
-type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
+type GeneratorMode = "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
 type CompareNormalizer = "drop-consts" | "unreachable-control-debris" | "local-cleanup-debris" | "ssa-local-allocation-debris";
 type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure" | "property-failure";
@@ -218,6 +218,7 @@ const RESERVED_OPTIONS = new Set([
   "--runtime-execution",
   "--property",
   "--generator",
+  "--wasm-smith",
   "--gen-valid-profile",
   "--require-feature",
   "--exclude-feature",
@@ -303,7 +304,8 @@ const HELP_TEXT = [
   "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
   "  --wabt-validate-bin <path>",
   "                       WABT validator command for --external-validator wabt. Default: wasm-validate",
-  "  --generator <mode>    both | wasm-smith | gen-valid. Default: both",
+  "  --wasm-smith         Use the separate wasm-smith external-generator lane. Default: gen-valid",
+  "  --generator <mode>    Legacy alias: wasm-smith | gen-valid. Default: gen-valid",
   "  --gen-valid-profile <name>",
   "                       Forward a named GenValid profile to batch generation",
   "  --require-feature <feature>",
@@ -1828,24 +1830,12 @@ function makeSmithSeedBytes(seed: bigint, length = 64): Buffer {
   return out;
 }
 
-function generatorForIndex(mode: GeneratorMode, index: number): GeneratorKind {
-  if (mode === "wasm-smith") {
-    return "wasm-smith";
-  }
-  if (mode === "gen-valid") {
-    return "gen-valid";
-  }
-  return index % 2 === 0 ? "wasm-smith" : "gen-valid";
+function generatorForIndex(mode: GeneratorMode, _index: number): GeneratorKind {
+  return mode;
 }
 
 function requiredGenValidCount(mode: GeneratorMode, totalCount: number): number {
-  if (mode === "wasm-smith") {
-    return 0;
-  }
-  if (mode === "gen-valid") {
-    return totalCount;
-  }
-  return Math.floor(totalCount / 2);
+  return mode === "gen-valid" ? totalCount : 0;
 }
 
 function listGeneratedGenValidInputs(dir: string): string[] {
@@ -2363,7 +2353,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   const externalValidators: ExternalValidatorKind[] = [];
   let runtimeExecution: RuntimeExecutionMode = "off";
   let propertyMode: PropertyMode = "none";
-  let generator: GeneratorMode = "both";
+  let generator: GeneratorMode = "gen-valid";
   let genValidProfile: string | null = null;
   const genValidRequiredFeatures: string[] = [];
   const genValidExcludedFeatures: string[] = [];
@@ -2455,9 +2445,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         propertyMode = normalizePropertyMode(argv[i + 1] ?? fail("missing value for --property"));
         i += 2;
         break;
+      case "--wasm-smith":
+        generator = "wasm-smith";
+        i += 1;
+        break;
       case "--generator": {
         const value = argv[i + 1] ?? fail("missing value for --generator");
-        if (value !== "both" && value !== "wasm-smith" && value !== "gen-valid") {
+        if (value !== "wasm-smith" && value !== "gen-valid") {
           fail(`invalid generator: ${value}`);
         }
         generator = value;

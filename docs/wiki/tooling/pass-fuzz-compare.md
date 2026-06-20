@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-13
+last_reviewed: 2026-06-20
 sources:
   - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
@@ -58,7 +58,7 @@ bun fuzz compare-pass \
   --pass <canonical-pass>|--<pass-flag> [--pass ...] \
   --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
   --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe \
-  [--generator both|wasm-smith|gen-valid] \
+  [--wasm-smith] [--generator wasm-smith|gen-valid] \
   [--gen-valid-profile <profile>] \
   [--require-feature <feature>] [--exclude-feature <feature>] \
   [--gen-valid-metamorphic-transform <id>] \
@@ -86,11 +86,12 @@ bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-statu
 
 ## Input Generators
 
-| Generator mode | What it does | Best use | Caveats |
-| --- | --- | --- | --- |
-| `both` | Alternates `wasm-smith` and Starshine `gen-valid` inputs. | Default broad signoff, especially for mature implemented passes. | Some cases may be tool/oracle failures rather than pass mismatches; classify them instead of hiding them. |
-| `wasm-smith` | Calls `wasm-tools smith -o <input>` with deterministic seed bytes. | External generator diversity and Binaryen parser/tool gap discovery. | Still validate every generated input; generator/tool failures are not Starshine semantic mismatches. |
-| `gen-valid` | Calls `moon run --target native --release src/fuzz -- --emit-gen-valid-batch ... --manifest <out>/inputs/gen-valid/manifest.json`. | Starshine coverage-forced portable modules and focused regression lanes after FZG widening. | Uses the batch emitter's Binaryen-oracle-friendly config by default, not the ordinary natural `validate-valid` fuzz profile. |
+Compare-pass lanes are intentionally split by generator. The default is a GenValid-only lane; run wasm-smith only by passing `--wasm-smith` for a separate external-generator lane. The legacy `--generator wasm-smith|gen-valid` spelling remains accepted, but the harness no longer has a mixed alternating generator mode.
+
+| Generator mode | How to select it | What it does | Best use | Caveats |
+| --- | --- | --- | --- | --- |
+| `gen-valid` | Default, or `--generator gen-valid` | Calls `moon run --target native --release src/fuzz -- --emit-gen-valid-batch ... --manifest <out>/inputs/gen-valid/manifest.json`. | Starshine coverage-forced portable modules and focused regression lanes after FZG widening. | Uses the batch emitter's Binaryen-oracle-friendly config by default, not the ordinary natural `validate-valid` fuzz profile. |
+| `wasm-smith` | `--wasm-smith`, or legacy `--generator wasm-smith` | Calls `wasm-tools smith -o <input>` with deterministic seed bytes. | External generator diversity and Binaryen parser/tool gap discovery. | Still validate every generated input; generator/tool failures are not Starshine semantic mismatches. |
 
 `--gen-valid-profile <profile>` forwards a named GenValid profile to that batch command and records the requested profile in `result.json` as `genValidProfile`. Profiles may be singleton leaves or deterministic composites. For composite profiles, each selected manifest record keeps `config_label` as the requested composite label and adds `selected_profile` for the sampled singleton leaf; sampling is deterministic from the root seed and selected case index so the manifest row can be replayed exactly. `--require-feature <feature>` and `--exclude-feature <feature>` may repeat; compare-pass forwards them to the batch emitter and records them as `genValidRequiredFeatures` / `genValidExcludedFeatures`. `--gen-valid-metamorphic-transform <id>` may repeat; compare-pass forwards requested transformed-variant ids to the batch emitter and records them in `result.json` as `genValidMetamorphicTransforms`, while the GenValid manifest preserves the per-input `transform_id` for replay triage. Compare-pass also copies that manifest `transform_id` into each GenValid `cases.jsonl` record as `transformId`, counts compared GenValid cases by transform id in `result.json` as `genValidTransformCounts`, copies manifest `selected_profile` into GenValid case records as `genValidSelectedProfile`, counts sampled leaves in `genValidSelectedProfileCounts`, copies manifest `feature_facts` into GenValid case records as `genValidFeatureFacts`, preserves input effect/trap facts on case records where the input was scanned before the outcome, copies the transform id into persisted failure metadata, and includes it in transformed GenValid failure directory names as `case-<index>-gen-valid-transform-<id>` so replay triage can identify the active metamorphic family without reopening the manifest. Omit the profile for the default Binaryen-oracle portable batch config; use named profiles and feature filters when a fuzzer slice needs a specific surface such as `binaryen-oracle-portable`, `binaryen-oracle-relaxed-simd`, `simd-heavy`, `relaxed-simd`, or a pass-targeted recipe. The first pass-targeted recipes are `pass-cleanup` for portable local/control cleanup passes, `pass-dae` for direct-call and parameter-pruning surfaces, `pass-inlining` for dense direct-call and tail-call call graphs, `pass-memory` for memory/SIMD/atomics surfaces, `pass-gc-ref` for GC/reference/subtyping surfaces, and `pass-control` for typed branch-heavy control. Use `binaryen-oracle-relaxed-simd` for relaxed-SIMD input generation that should avoid imports, tables, memories, globals, tags, elems, datas, ref-types, atomics, memory64, and other currently nonportable oracle surfaces while still enabling `v128` and relaxed SIMD. Non-portable profiles may still be blocked by external tool support even when Starshine's own batch validator accepts them.
 
@@ -100,7 +101,7 @@ The `gen-valid` path is why compare-pass depends on [`src/fuzz/main.mbt`](../../
 
 Compare-pass uses a persistent cache by default at `.tmp/pass-fuzz-cache`; override it with `--cache-dir <dir>` or disable it with `--no-cache`. The cache never stores Starshine outputs because those are the system under test. It only caches deterministic inputs and Binaryen oracle work:
 
-- `wasm-smith` inputs are stored under `wasm-smith/wasm-tools-<tool-hash>/seed-<seed>/wasmsmith-<seed>-<index>.wasm`, so rerunning the same seed and case index skips `wasm-tools smith`.
+- `wasm-smith` inputs are stored under `wasm-smith/wasm-tools-<tool-hash>/seed-<seed>/wasmsmith-<seed>-<index>.wasm` only for explicit `--wasm-smith` lanes, so rerunning the same seed and case index skips `wasm-tools smith`.
 - Binaryen oracle results are stored under `binaryen/schema-v1/wasm-opt-<tool-hash>/passes-<pass-hash>/input-<input-sha>/` with `binaryen.raw.wasm`, canonical `binaryen.wasm`, printed `binaryen.wat`, and a completion marker. The key includes the input bytes, Binaryen tool identity, and normalized Binaryen pass flags.
 - Deterministic Binaryen/canonicalization command failures are cached as `failure.json` for the same input/tool/pass tuple, so repeated lanes do not spend time reproducing the same oracle failure before counting it as a command failure.
 
@@ -208,7 +209,7 @@ Reason: without a prebuilt Starshine binary, the harness invokes Starshine throu
 For a direct pass signoff:
 
 1. Run focused MoonBit tests for the pass and dispatcher/registry surface.
-2. Run a small `--generator gen-valid --count <small>` smoke lane while iterating.
+2. Run a small default GenValid `--count <small>` smoke lane while iterating.
 3. Build `src/cmd` once with `moon build --target native --release src/cmd`.
 4. Run the repo-standard direct lane, usually `--count 10000 --seed 0x5eed`, with a stable `--out-dir`, explicit `--jobs auto`, and explicit `--starshine-bin target/native/release/build/cmd/cmd.exe`.
 5. If command failures dominate, rerun with `--keep-going-after-command-failures` and use `--min-compared` so the run still proves enough comparable cases.

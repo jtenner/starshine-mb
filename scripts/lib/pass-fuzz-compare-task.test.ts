@@ -28,6 +28,30 @@ describe("pass-fuzz persistent cache options", () => {
     }
   });
 
+  test("defaults compare-pass generation to a GenValid-only lane", () => {
+    const parsed = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs"]);
+
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.generator).toBe("gen-valid");
+    }
+  });
+
+  test("uses an explicit wasm-smith flag for the separate external-generator lane", () => {
+    const parsed = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs", "--wasm-smith"]);
+
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.generator).toBe("wasm-smith");
+    }
+  });
+
+  test("rejects the retired mixed generator mode", () => {
+    expect(() => parsePassFuzzCompareArgs(["--pass", "remove-unused-brs", "--generator", "both"])).toThrow(
+      "invalid generator: both",
+    );
+  });
+
   test("accepts explicit cache dirs and no-cache", () => {
     const withCache = parsePassFuzzCompareArgs([
       "--pass",
@@ -733,7 +757,7 @@ describe("pass fuzz summary coverage report", () => {
       maxFailuresHit: true,
       jobs: 2,
       seed: "0x1048c",
-      generator: "both",
+      generator: "gen-valid",
       genValidProfile: "smoke",
       genValidRequiredFeatures: ["gc"],
       genValidExcludedFeatures: ["simd"],
@@ -782,7 +806,7 @@ describe("pass fuzz summary coverage report", () => {
 
     expect(report.schema).toBe("starshine.fuzz-summary-report.v1");
     expect(report.suite).toBe("compare-pass");
-    expect(report.profile).toBe("dae-optimizing+both");
+    expect(report.profile).toBe("dae-optimizing+gen-valid");
     expect(report.seed).toBe("0x1048c");
     expect(report.summary.features).toMatchObject({
       optional_input_has_call: 2,

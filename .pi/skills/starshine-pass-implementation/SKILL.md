@@ -122,7 +122,7 @@ Equivalent direct entrypoint:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name> --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
 ```
 
-Compare-pass uses the persistent `.tmp/pass-fuzz-cache` by default for deterministic `wasm-smith` inputs and Binaryen oracle raw/canonical/WAT outputs plus repeatable Binaryen command failures. Do not disable this for ordinary signoff; use `--cache-dir <dir>` when an isolated/shared cache is needed, and `--no-cache` only when debugging cache behavior. Starshine outputs are never cached and are regenerated every run.
+Compare-pass generates GenValid inputs by default. Add `--wasm-smith` only for the separate external-generator lane. The persistent `.tmp/pass-fuzz-cache` remains on by default for deterministic `wasm-smith` inputs when that lane is selected and for Binaryen oracle raw/canonical/WAT outputs plus repeatable Binaryen command failures. Do not disable this for ordinary signoff; use `--cache-dir <dir>` when an isolated/shared cache is needed, and `--no-cache` only when debugging cache behavior. Starshine outputs are never cached and are regenerated every run.
 
 ### Final pass closeout signoff
 
@@ -154,7 +154,7 @@ Current dedicated pass-profile examples:
 
 Report dedicated-profile lanes separately from the general compare lane: requested profile, selected subprofile counts when the manifest has `selected_profile`, requested count, compared count, normalized matches, cleanup-normalized matches, raw mismatches, command failures, and any profile-specific feature-floor or generation failures.
 
-For DAE / `dae-optimizing` mixed-generator lanes, add the documented compare normalizer so generated dropped-constant debris does not consume the mismatch budget:
+For DAE / `dae-optimizing` generated cleanup-debris lanes, add the documented compare normalizer so generated dropped-constant debris does not consume the mismatch budget:
 
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-dae-optimizing --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
@@ -219,7 +219,7 @@ When reporting pass signoff, include:
 - tests added or updated
 - focused Moon command results
 - standard Moon signoff results: `moon info`, `moon fmt`, `moon test`
-- general compare-pass command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, cache mode or cache dir when non-default, requested count (`10000` for ordinary slices or `100000` for final closeout), compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, command-failure classification, and `result.json.cache` hit/miss counters
+- general GenValid compare-pass command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, cache mode or cache dir when non-default, requested count (`10000` for ordinary slices or `100000` for final closeout), compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, command-failure classification, and `result.json.cache` hit/miss counters; report any separate `--wasm-smith` lane independently
 - pass-specific GenValid compare-pass lanes, if applicable: `--gen-valid-profile`, seed, out dir, requested count (`10000` for ordinary slices, wider e.g. `50000` for final/audit-close lanes), compared count, normalized match count, cleanup-normalized match count, raw mismatch count, command failures, feature-generation/floor failures, and cache hit/miss counters
 - agent-classified mismatch breakdown, with explicit rationale for any semantic-safe/size-winning mismatch family; never imply the harness proved semantic safety
 - replayed failure dirs and their outcomes, if any
