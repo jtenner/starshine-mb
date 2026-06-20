@@ -2855,7 +2855,7 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
       func,
       node.imm0,
     ).memarg
-  if offset == 0UL || offset > 2147483647UL {
+  if offset == 0UL {
     return false
   }
   let address_id = @ir.hot_child_get(func, node_id, 0)
@@ -2881,6 +2881,14 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
         func,
         @lib.I32(sum.to_uint().reinterpret_as_int()),
       )
+    }
+    @ir.HotConstPayload::I64Const(@lib.I64(raw)) => {
+      let raw_u = raw.reinterpret_as_uint64()
+      if raw_u > 18446744073709551615UL - offset {
+        return false
+      }
+      let sum = raw_u + offset
+      @ir.hot_build_const_i64(func, @lib.I64(sum.reinterpret_as_int64()))
     }
     _ => return false
   }

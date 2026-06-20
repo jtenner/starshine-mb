@@ -27,6 +27,7 @@ sources:
   - ../../../raw/research/0741-2026-06-19-optimize-instructions-oi-g-narrow-store-mask.md
   - ../../../raw/research/0742-2026-06-19-optimize-instructions-oi-g-i64-narrow-store-mask.md
   - ../../../raw/research/0743-2026-06-19-optimize-instructions-oi-g-const-memory-offset.md
+  - ../../../raw/research/0744-2026-06-19-optimize-instructions-oi-g-memory64-const-offset.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -61,6 +62,7 @@ related:
   - ../../../raw/research/0741-2026-06-19-optimize-instructions-oi-g-narrow-store-mask.md
   - ../../../raw/research/0742-2026-06-19-optimize-instructions-oi-g-i64-narrow-store-mask.md
   - ../../../raw/research/0743-2026-06-19-optimize-instructions-oi-g-const-memory-offset.md
+  - ../../../raw/research/0744-2026-06-19-optimize-instructions-oi-g-memory64-const-offset.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -218,3 +220,4 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0741-2026-06-19-optimize-instructions-oi-g-narrow-store-mask.md`](../../../raw/research/0741-2026-06-19-optimize-instructions-oi-g-narrow-store-mask.md) records the tenth `[O4Z-AUDIT-OI-G]` sub-slice: a narrow `optimizeStoredValue` subset that drops redundant `i32.and` masks before `i32.store8` / `i32.store16` when all written low bits are preserved, plus focused value-changing-mask boundaries.
 - [`../../../raw/research/0742-2026-06-19-optimize-instructions-oi-g-i64-narrow-store-mask.md`](../../../raw/research/0742-2026-06-19-optimize-instructions-oi-g-i64-narrow-store-mask.md) records the eleventh `[O4Z-AUDIT-OI-G]` sub-slice: a Starshine-win generalization that drops redundant `i64.and` masks before `i64.store8` / `i64.store16` / `i64.store32` when all written low bits are preserved, while explicitly documenting that Binaryen `version_130` keeps those exact i64 masks.
 - [`../../../raw/research/0743-2026-06-19-optimize-instructions-oi-g-const-memory-offset.md`](../../../raw/research/0743-2026-06-19-optimize-instructions-oi-g-const-memory-offset.md) records the twelfth `[O4Z-AUDIT-OI-G]` sub-slice: the source-backed `optimizeMemoryAccess` constant-pointer static-offset fold for memory32 loads/stores, plus the Binaryen-style positive-`i32` range boundary.
+- [`../../../raw/research/0744-2026-06-19-optimize-instructions-oi-g-memory64-const-offset.md`](../../../raw/research/0744-2026-06-19-optimize-instructions-oi-g-memory64-const-offset.md) records the thirteenth `[O4Z-AUDIT-OI-G]` sub-slice: the memory64 extension of constant-pointer static-offset folding for scalar loads/stores, using direct-core fixtures and Binaryen's unsigned `u64` no-wrap boundary.

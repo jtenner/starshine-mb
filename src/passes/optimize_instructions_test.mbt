@@ -1560,6 +1560,131 @@ test "optimize-instructions folds constant memory access offset into i32 address
 }
 
 ///|
+test "optimize-instructions folds constant memory64 access offset into i64 address" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i64(1UL, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i64_const(@lib.I64(8L)),
+            @lib.Instruction::i32_load(
+              @lib.MemArg::new(@lib.U32(2), None, @lib.U64(4)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected valid memory64 constant-offset input, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory64 constant-offset optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.const I64(12)"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_false(pretty.contains("offset=U64(4)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions folds constant memory64 store offset into i64 address" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i64(1UL, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i64_const(@lib.I64(16L)),
+            @lib.Instruction::i32_const(@lib.I32(99)),
+            @lib.Instruction::i32_store(
+              @lib.MemArg::new(@lib.U32(2), None, @lib.U64(12)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid memory64 store-offset input, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory64 store-offset optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.const I64(28)"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_false(pretty.contains("offset=U64(12)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions keeps memory64 access offsets that would wrap u64 address" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i64(1UL, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i64_const(@lib.I64(-8L)),
+            @lib.Instruction::i32_load(
+              @lib.MemArg::new(@lib.U32(2), None, @lib.U64(16)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected valid memory64 offset-overflow input, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory64 offset-overflow optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Intentional fail-closed memory64 boundary matching Binaryen's unsigned
+  // effective-address guard: the fold is skipped when address + offset would
+  // wrap the u64 memory64 address space.
+  assert_true(pretty.contains("i64.const I64(-8)"), msg=pretty)
+  assert_true(pretty.contains("offset=U64(16)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps memory access offsets that would escape i32 positive range" {
   let func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (result i32) i32.const 2147483640 i32.load offset=16))",
