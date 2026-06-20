@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Preserve OI-I effectful i31 successful ref.test
+
+- Filed [`raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md`](raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md) for the thirty-fourth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now preserves an effectful immediate `ref.i31` operand as `drop(operand)` before folding a definitely-successful `ref.test` to `i32.const 1`, while retaining direct folds for pure known-match operands and preserving successful `ref.cast` by keeping the effectful operand.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` for successful imported-call `ref.i31` `ref.test (ref eq)` and kept `ref.i31(call $effect)` for matching `ref.cast`. Red-first focused `*successful ref.test and ref.cast*` failed because the imported call was dropped from the `ref.test` fold and passed after implementation (`5/5`); final focused `*ref*` passed `41/41`, `*optimize-instructions*` passed `171/171`, and broader validation passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Preserve OI-I effectful i31 ref.is_null
 
 - Filed [`raw/research/0789-2026-06-20-optimize-instructions-oi-i-effectful-ref-is-null.md`](raw/research/0789-2026-06-20-optimize-instructions-oi-i-effectful-ref-is-null.md) for the thirty-third `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now preserves an effectful immediate `ref.i31` operand as `drop(operand)` before folding a known-non-null `ref.is_null` miss to `i32.const 0`, while retaining direct folds for pure known-non-null operands.

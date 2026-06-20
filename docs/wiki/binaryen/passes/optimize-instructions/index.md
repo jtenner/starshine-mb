@@ -73,6 +73,7 @@ sources:
   - ../../../raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md
   - ../../../raw/research/0788-2026-06-20-optimize-instructions-oi-i-effectful-ref-eq-null.md
   - ../../../raw/research/0789-2026-06-20-optimize-instructions-oi-i-effectful-ref-is-null.md
+  - ../../../raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -153,6 +154,7 @@ related:
   - ../../../raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md
   - ../../../raw/research/0788-2026-06-20-optimize-instructions-oi-i-effectful-ref-eq-null.md
   - ../../../raw/research/0789-2026-06-20-optimize-instructions-oi-i-effectful-ref-is-null.md
+  - ../../../raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -334,6 +336,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md`](../../../raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md) records the thirty-first `[O4Z-AUDIT-OI-I]` reference sub-slice: immediate `ref.i31` known-miss `ref.test` / `ref.cast` rewrites now preserve effectful operands as `drop(operand)` before `i32.const 0` or `unreachable`.
 - [`../../../raw/research/0788-2026-06-20-optimize-instructions-oi-i-effectful-ref-eq-null.md`](../../../raw/research/0788-2026-06-20-optimize-instructions-oi-i-effectful-ref-eq-null.md) records the thirty-second `[O4Z-AUDIT-OI-I]` reference sub-slice: immediate `ref.i31` null-equality miss rewrites now preserve effectful operands as `drop(operand)` before `i32.const 0`.
 - [`../../../raw/research/0789-2026-06-20-optimize-instructions-oi-i-effectful-ref-is-null.md`](../../../raw/research/0789-2026-06-20-optimize-instructions-oi-i-effectful-ref-is-null.md) records the thirty-third `[O4Z-AUDIT-OI-I]` reference sub-slice: known-non-null `ref.is_null` folds now preserve effectful immediate `ref.i31` operands as `drop(operand)` before `i32.const 0`.
+- [`../../../raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md`](../../../raw/research/0790-2026-06-20-optimize-instructions-oi-i-effectful-ref-test-success.md) records the thirty-fourth `[O4Z-AUDIT-OI-I]` reference sub-slice: definitely-successful `ref.test` folds now preserve effectful immediate `ref.i31` operands as `drop(operand)` before `i32.const 1`, while successful `ref.cast` keeps the effectful operand.
 - [`../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md`](../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md) records the second `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-2 and size-4 `memory.fill` lowering and nonconstant wider-fill boundary evidence.
 - [`../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md`](../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md) records the third `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-8 `memory.fill` lowering to repeated-byte `i64.store` while keeping nonconstant wider fills open.
 - [`../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md`](../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md) records the fourth `[O4Z-AUDIT-OI-G]` sub-slice for local.get value size-2 and size-4 `memory.fill` lowering through low-byte mask and repeat multiply expressions while keeping effectful values and nonconstant size-8 fills open.
