@@ -3015,6 +3015,55 @@ test "heap-store-optimization folds memory.size constructor operands across unre
 }
 
 ///|
+test "heap-store-optimization keeps call constructor operands before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let mod_ = hso_call_test_module(2, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    @lib.Instruction::drop(),
+  ]).with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+  let optimized = match hso_test_run_module(mod_) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  let global_set_idx = match hso_test_index_of(pretty, "global.set") {
+    Some(idx) => idx
+    None => fail("expected global.set in call/global-set output: \{pretty}")
+  }
+  let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
+    Some(idx) => idx
+    None => fail("expected struct.set in call/global-set output: \{pretty}")
+  }
+  assert_true(global_set_idx < struct_set_idx, msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds memory.grow constructor operands across unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
