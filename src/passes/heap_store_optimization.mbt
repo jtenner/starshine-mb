@@ -772,11 +772,13 @@ fn hso_nodes_can_reorder(
 fn hso_desc_region_has_loop_control_barrier(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  active_loop_id : Int,
 ) -> Bool {
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
     if hso_desc_node_has_loop_control_barrier(
         func,
         @ir.hot_region_get(func, region_ref, idx),
+        active_loop_id,
       ) {
       return true
     }
@@ -788,39 +790,61 @@ fn hso_desc_region_has_loop_control_barrier(
 fn hso_desc_node_has_loop_control_barrier(
   func : @ir.HotFunc,
   node_id : Int,
+  active_loop_id : Int,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  if @ir.hot_is_branch(func, node_id) ||
-    @ir.hot_is_terminator_node(func, node_id) {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail =>
+      return active_loop_id >= 0 && node.imm0 == active_loop_id
+    @ir.HotOp::BrTable => return active_loop_id >= 0
+    _ => ()
+  }
+  if @ir.hot_is_terminator_node(func, node_id) {
     return true
   }
-  let node = @ir.hot_node_get(func, node_id)
   for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
     if hso_desc_node_has_loop_control_barrier(
         func,
         @ir.hot_child_get(func, node_id, idx),
+        active_loop_id,
       ) {
       return true
     }
   }
   match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop =>
+    @ir.HotOp::Block =>
       hso_desc_region_has_loop_control_barrier(
         func,
         @ir.hot_region_body_ref(func, node_id),
+        active_loop_id,
+      )
+    @ir.HotOp::Loop =>
+      hso_desc_region_has_loop_control_barrier(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        node.imm0,
       )
     @ir.HotOp::If =>
       if hso_desc_region_has_loop_control_barrier(
           func,
           @ir.hot_region_then_ref(func, node_id),
+          active_loop_id,
         ) {
         true
       } else {
         match @ir.hot_region_else_ref(func, node_id) {
           Some(region_ref) =>
-            hso_desc_region_has_loop_control_barrier(func, region_ref)
+            hso_desc_region_has_loop_control_barrier(
+              func, region_ref, active_loop_id,
+            )
           None => false
         }
       }
@@ -828,12 +852,15 @@ fn hso_desc_node_has_loop_control_barrier(
       if hso_desc_region_has_loop_control_barrier(
           func,
           @ir.hot_region_body_ref(func, node_id),
+          active_loop_id,
         ) {
         true
       } else {
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(region_ref) =>
-            hso_desc_region_has_loop_control_barrier(func, region_ref)
+            hso_desc_region_has_loop_control_barrier(
+              func, region_ref, active_loop_id,
+            )
           None => false
         }
       }
@@ -841,10 +868,12 @@ fn hso_desc_node_has_loop_control_barrier(
       hso_desc_region_has_loop_control_barrier(
         func,
         @ir.hot_region_body_ref(func, node_id),
+        active_loop_id,
       ) ||
       hso_desc_region_has_loop_control_barrier(
         func,
         @ir.hot_region_catch_list_ref(func, node_id),
+        active_loop_id,
       )
     _ => false
   }
@@ -909,7 +938,7 @@ fn hso_desc_operand_effects_for_node(
     }
     @ir.HotOp::Loop => {
       let region_ref = @ir.hot_region_body_ref(func, node_id)
-      if hso_desc_region_has_loop_control_barrier(func, region_ref) {
+      if hso_desc_region_has_loop_control_barrier(func, region_ref, node.imm0) {
         return hso_effects_for_node(func, node_masks, node_id)
       }
       let mut mask = hso_desc_operand_effects_for_region(
