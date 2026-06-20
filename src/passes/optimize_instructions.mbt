@@ -4883,6 +4883,88 @@ fn optimize_instructions_ref_eq_operands_are_same_local(
 }
 
 ///|
+fn optimize_instructions_ref_eq_same_local_as_non_null_operand(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> (Int, Int)? {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet => Some((@ir.hot_node_get(func, node_id).imm0, -1))
+    _ =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefAsNonNull) => {
+          if @ir.hot_child_count(func, node_id) != 1 {
+            return None
+          }
+          let child_id = @ir.hot_child_get(func, node_id, 0)
+          match @ir.hot_node_get(func, child_id).op {
+            @ir.HotOp::LocalGet => {
+              let local_idx = @ir.hot_node_get(func, child_id).imm0
+              match @ir.hot_local_type(func, local_idx) {
+                Some(@lib.ValType::RefTypeValType(ref_type)) =>
+                  if ref_type.is_non_nullable() {
+                    Some((local_idx, -1))
+                  } else {
+                    Some((local_idx, node_id))
+                  }
+                _ => None
+              }
+            }
+            _ => None
+          }
+        }
+        _ => None
+      }
+  }
+}
+
+///|
+fn optimize_instructions_ref_eq_same_local_as_non_null_trap(
+  func : @ir.HotFunc,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Int? {
+  match
+    (
+      optimize_instructions_ref_eq_same_local_as_non_null_operand(func, lhs_id),
+      optimize_instructions_ref_eq_same_local_as_non_null_operand(func, rhs_id),
+    ) {
+    (Some((lhs, lhs_trap)), Some((rhs, rhs_trap))) if lhs == rhs =>
+      if lhs_trap >= 0 {
+        Some(lhs_trap)
+      } else if rhs_trap >= 0 {
+        Some(rhs_trap)
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_replace_with_drop_then_const_i32(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  drop_id : Int,
+  value : @lib.I32,
+) -> Unit {
+  let temp = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [@ir.hot_build_drop(func, drop_id), @ir.hot_build_const_i32(func, value)],
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_ref_i31_local_operand(
   func : @ir.HotFunc,
   node_id : Int,
@@ -4965,6 +5047,22 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
       @lib.I32(1),
     )
     return true
+  }
+  match
+    optimize_instructions_ref_eq_same_local_as_non_null_trap(
+      func, lhs_id, rhs_id,
+    ) {
+    Some(trap_id) => {
+      optimize_instructions_replace_with_drop_then_const_i32(
+        ctx,
+        func,
+        node_id,
+        trap_id,
+        @lib.I32(1),
+      )
+      return true
+    }
+    _ => ()
   }
   match
     (

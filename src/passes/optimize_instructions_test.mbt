@@ -1091,6 +1091,42 @@ test "optimize-instructions folds same-local ref.i31 equality" {
 }
 
 ///|
+test "optimize-instructions preserves trap while folding same-local nullable ref.as_non_null equality" {
+  let source =
+    #|(module
+    #|  (func (export "left") (param eqref) (result i32)
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    local.get 0
+    #|    ref.eq)
+    #|  (func (export "both") (param eqref) (result i32)
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nullable ref.as_non_null same-local ref.eq optimize success, got \{err}",
+      )
+  }
+  let left_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let both_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(left_pretty.contains("ref.eq"), msg=left_pretty)
+  assert_false(both_pretty.contains("ref.eq"), msg=both_pretty)
+  assert_true(left_pretty.contains("ref.as_non_null"), msg=left_pretty)
+  assert_true(both_pretty.contains("ref.as_non_null"), msg=both_pretty)
+  assert_true(left_pretty.contains("drop"), msg=left_pretty)
+  assert_true(both_pretty.contains("drop"), msg=both_pretty)
+  assert_true(left_pretty.contains("I32(1)"), msg=left_pretty)
+  assert_true(both_pretty.contains("I32(1)"), msg=both_pretty)
+}
+
+///|
 test "optimize-instructions folds same-local equality through nullable no-op ref.cast" {
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let eq_ref = @lib.ValType::ref_null(eq_heap)

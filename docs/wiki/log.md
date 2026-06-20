@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I nullable ref.as_non_null ref.eq proof
+
+- Filed [`raw/research/0778-2026-06-20-optimize-instructions-oi-i-as-non-null-ref-eq.md`](raw/research/0778-2026-06-20-optimize-instructions-oi-i-as-non-null-ref-eq.md) for the twenty-second `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds same-local nullable `ref.as_non_null(local.get)` equality by preserving one original null-trapping check as a `drop` before returning `i32.const 1`, while arbitrary `ref.as_non_null` skipping, non-local SSA identity, local.set-derived facts, descriptor/exactness/TNH/IIT behavior, and broader trap removal remain open.
+- Evidence: Binaryen oracle rewrote nullable same-local `ref.as_non_null` equality to one trapped non-null check plus `i32.const 1`. Red-first `*nullable ref.as_non_null*` failed before implementation because `ref.eq` remained; final focused `*nullable ref.as_non_null*` passed `1/1`, `*ref*` passed `30/30`, `*optimize-instructions*` passed `160/160`, `moon fmt` passed, `moon test src/passes` passed `2672/2672`, native `src/cmd` release build passed, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare `.tmp/pass-fuzz-optimize-instructions-oi-i-as-non-null-ref-eq-10000-rerun` requested `10000`, compared `56`, had `28` normalized matches, `28` raw mismatches classified as known Starshine-win constant-if/redundant-sign-extension families, and one known Binaryen/tool command failure; final failure artifacts contained no reference operations.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I nullable no-op cast ref.eq proof
 
 - Filed [`raw/research/0777-2026-06-20-optimize-instructions-oi-i-noop-cast-ref-eq.md`](raw/research/0777-2026-06-20-optimize-instructions-oi-i-noop-cast-ref-eq.md) for the twenty-first `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds same-local `ref.eq` through an immediate nullable no-op `ref.cast` whose target heap exactly matches the local declaration, while arbitrary cast skipping, non-null cast trap removal, flow-sensitive equality, descriptor/exactness/TNH/IIT, and broader subtype-lattice proofs remain open.
