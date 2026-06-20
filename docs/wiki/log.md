@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I i31 upcast ref.eq proof
+
+- Filed [`raw/research/0781-2026-06-20-optimize-instructions-oi-i-i31-upcast-ref-eq.md`](raw/research/0781-2026-06-20-optimize-instructions-oi-i-i31-upcast-ref-eq.md) for the twenty-fifth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds same-local equality through immediate nullable `ref.cast(local.get)` operands when the local declared heap is absolute `i31` and the cast target is an already-modeled `i31` supertype, while keeping arbitrary cast skipping, descriptor/exactness/TNH/IIT behavior, broader nullable-local flow facts, and `any`-typed `ref.eq` validation out of scope.
+- Evidence: Binaryen oracle folded the i31 upcast equality probes to `i32.const 1`. Red-first `*i31 equality through nullable upcast ref.cast*` failed before implementation because `ref.eq` remained; final focused `*i31 equality through nullable upcast ref.cast*` passed `1/1`, `*ref*` passed `32/32`, and `*optimize-instructions*` passed `162/162`. Broader validation and direct compare are recorded in the research note.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I upcast ref.eq proof
 
 - Filed [`raw/research/0780-2026-06-20-optimize-instructions-oi-i-upcast-ref-eq.md`](raw/research/0780-2026-06-20-optimize-instructions-oi-i-upcast-ref-eq.md) for the twenty-fourth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds same-local equality through immediate nullable absolute-heap upcast `ref.cast(local.get)` operands using the existing absolute `struct` / `array` supertype helper, while keeping indexed/defined heap subtype reasoning, arbitrary cast skipping, descriptor/exactness/TNH/IIT behavior, and broader SSA identity open.
