@@ -201,6 +201,77 @@ fn hso_assert_table_size_wrapped_passive_boundary(
 }
 
 ///|
+fn hso_assert_memory_grow_wrapped_passive_boundary(
+  roots : Array[@lib.Instruction],
+  marker : String,
+  label : String,
+) -> Unit raise {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let body : Array[@lib.Instruction] = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::memory_grow(@lib.MemIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+  ]
+  for root in roots {
+    body.push(root)
+  }
+  body.push(@lib.Instruction::local_get(local0))
+  body.push(@lib.Instruction::i32_const(@lib.I32(7)))
+  body.push(@lib.Instruction::struct_set(pair, @lib.U32(1U)))
+  body.push(@lib.Instruction::local_get(local0))
+  body.push(@lib.Instruction::struct_get(pair, @lib.U32(1U)))
+  let optimized = match hso_memory_data_test_run(body, 2) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected \{label} heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.grow"), msg=pretty)
+  assert_true(pretty.contains(marker), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+fn hso_assert_table_grow_wrapped_passive_boundary(
+  roots : Array[@lib.Instruction],
+  marker : String,
+  label : String,
+) -> Unit raise {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let body : Array[@lib.Instruction] = [
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::table_grow(@lib.TableIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+  ]
+  for root in roots {
+    body.push(root)
+  }
+  body.push(@lib.Instruction::local_get(local0))
+  body.push(@lib.Instruction::i32_const(@lib.I32(7)))
+  body.push(@lib.Instruction::struct_set(pair, @lib.U32(1U)))
+  body.push(@lib.Instruction::local_get(local0))
+  body.push(@lib.Instruction::struct_get(pair, @lib.U32(1U)))
+  let optimized = match hso_table_elem_test_run(body, 2) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected \{label} heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.grow"), msg=pretty)
+  assert_true(pretty.contains(marker), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 fn hso_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -4693,6 +4764,60 @@ test "heap-store-optimization keeps memory-growing constructors before data.drop
 }
 
 ///|
+test "heap-store-optimization keeps memory-growing constructors before block-wrapped memory.init" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_memory_init_body()),
+    "memory.init",
+    "memory-grow/block-memory-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before if-wrapped memory.init" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_memory_init_body()),
+    "memory.init",
+    "memory-grow/if-memory-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before loop-wrapped memory.init" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_memory_init_body()),
+    "memory.init",
+    "memory-grow/loop-memory-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before block-wrapped data.drop" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_data_drop_body()),
+    "data.drop",
+    "memory-grow/block-data-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before if-wrapped data.drop" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_data_drop_body()),
+    "data.drop",
+    "memory-grow/if-data-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before loop-wrapped data.drop" {
+  hso_assert_memory_grow_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_data_drop_body()),
+    "data.drop",
+    "memory-grow/loop-data-drop",
+  )
+}
+
+///|
 test "heap-store-optimization keeps table.size constructors before table.init" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
@@ -4892,6 +5017,60 @@ test "heap-store-optimization keeps table-growing constructors before elem.drop"
   assert_true(pretty.contains("table.grow"), msg=pretty)
   assert_true(pretty.contains("elem.drop"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before block-wrapped table.init" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_table_init_body()),
+    "table.init",
+    "table-grow/block-table-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before if-wrapped table.init" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_table_init_body()),
+    "table.init",
+    "table-grow/if-table-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before loop-wrapped table.init" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_table_init_body()),
+    "table.init",
+    "table-grow/loop-table-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before block-wrapped elem.drop" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_elem_drop_body()),
+    "elem.drop",
+    "table-grow/block-elem-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before if-wrapped elem.drop" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_elem_drop_body()),
+    "elem.drop",
+    "table-grow/if-elem-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before loop-wrapped elem.drop" {
+  hso_assert_table_grow_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_elem_drop_body()),
+    "elem.drop",
+    "table-grow/loop-elem-drop",
+  )
 }
 
 ///|
