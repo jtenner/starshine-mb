@@ -286,6 +286,74 @@ fn hso_call_test_run(
 }
 
 ///|
+fn hso_call_catch_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let struct_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(field_count)),
+    ),
+  )
+  let helper_type_idx = @lib.TypeIdx::new(1U)
+  let helper_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let tag_type_idx = @lib.TypeIdx::new(2U)
+  let tag_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let func_type_idx = @lib.TypeIdx::new(3U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([struct_type, helper_type, tag_type, func_type]),
+  )
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("helper"),
+        @lib.ExternType::func(helper_type_idx),
+      ),
+    ]),
+  )
+  .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(tag_type_idx)]))
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([struct_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_call_catch_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_call_catch_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid call/catch heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_desc_test_module(body : Array[@lib.Instruction]) -> @lib.Module {
   let descriptor_group = @lib.RecType::group([
     @lib.SubType::comp_type(
@@ -1877,6 +1945,45 @@ test "heap-store-optimization folds function-return set values into struct.new" 
   assert_true(pretty.contains("return"), msg=pretty)
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps struct.set for calls caught inside the function" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_call_catch_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::void_(),
+              [@lib.Catch::new(@lib.TagIdx::new(0U), @lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::struct_new_default(pair),
+                @lib.Instruction::local_tee(local0),
+                @lib.Instruction::i32_const(@lib.I32(42)),
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected call/catch heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
