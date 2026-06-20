@@ -30,6 +30,73 @@ fn dead_code_elimination_test_count_occurrences(
 }
 
 ///|
+fn dead_code_elimination_test_index_of(text : String, needle : String) -> Int? {
+  if needle == "" {
+    return Some(0)
+  }
+  if needle.length() > text.length() {
+    return None
+  }
+  let mut i = 0
+  while i <= text.length() - needle.length() {
+    if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn dead_code_elimination_test_gc_ref(
+  nullable : Bool,
+  abs : @lib.AbsHeapType,
+) -> @lib.ValType {
+  @lib.ValType::ref_type(@lib.RefType::new(nullable, @lib.HeapType::abs(abs)))
+}
+
+///|
+fn dead_code_elimination_test_gc_branch_module(
+  block_results : Array[@lib.ValType],
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], block_results)),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
+fn dead_code_elimination_test_run_gc_branch_pretty(
+  mod_ : @lib.Module,
+) -> String {
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) => abort("unexpected invalid DCE GC branch fixture: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected DCE GC branch pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => abort("expected DCE GC branch output to validate, got \{err}")
+  }
+}
+
+///|
 test "dead-code-elimination runs DCE-positive O4z raw pass" {
   let trace : Array[String] = []
   let optimized = match
@@ -413,6 +480,1781 @@ test "dead-code-elimination trims non-control operands after unreachable child" 
   assert_true(pretty.contains("nop"), msg=pretty)
   assert_false(pretty.contains("i32.add"), msg=pretty)
   assert_false(pretty.contains("br"), msg="\{trace}\n\{pretty}")
+}
+
+///|
+test "dead-code-elimination preserves binary operands before unreachable child" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (drop (i32.add (call $side) (block (result i32) nop unreachable)))) (func $side (result i32) i32.const 99))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected binary unreachable-second-child DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves store address before unreachable value" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $side (result i32) i32.const 16) (func (i32.store (call $side) (block (result i32) nop unreachable))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected store unreachable-value DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i32.store"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves memory.fill destination before unreachable value" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $dest (result i32) i32.const 8) (func $size (result i32) i32.const 4) (func (memory.fill (call $dest) (block (result i32) nop unreachable) (call $size))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory.fill unreachable-value DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves evaluated direct-call operand before unreachable argument" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $rhs (result i32) i32.const 2) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (call $rhs))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected direct-call unreachable-argument DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+  assert_false(pretty.contains("Func 2"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims call_indirect consumer after unreachable argument" {
+  let source =
+    #|(module
+    #|  (type $sink-type (func (param i32 i32 i32)))
+    #|  (table 1 funcref)
+    #|  (func $lhs (result i32) i32.const 1)
+    #|  (func $rhs (result i32) i32.const 2)
+    #|  (func $sink (type $sink-type))
+    #|  (elem (i32.const 0) $sink)
+    #|  (func
+    #|    (call_indirect (type $sink-type)
+    #|      (call $lhs)
+    #|      (block (result i32) nop unreachable)
+    #|      (call $rhs)
+    #|      (i32.const 0))))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call_indirect unreachable-argument DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+  assert_false(pretty.contains("call_indirect"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims call_ref consumer after unreachable argument" {
+  let source =
+    #|(module
+    #|  (type $sink-type (func (param i32 i32 i32)))
+    #|  (func $lhs (result i32) i32.const 1)
+    #|  (func $rhs (result i32) i32.const 2)
+    #|  (func $sink (type $sink-type))
+    #|  (elem declare func $sink)
+    #|  (func
+    #|    (call_ref (type $sink-type)
+    #|      (call $lhs)
+    #|      (block (result i32) nop unreachable)
+    #|      (call $rhs)
+    #|      (ref.func $sink))))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected call_ref unreachable-argument DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+  assert_false(pretty.contains("call_ref"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and multi-instruction later operand" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $rhs1 (result i32) i32.const 2) (func $rhs2 (result i32) i32.const 3) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (i32.add (call $rhs1) (call $rhs2)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument multi-instruction suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+  assert_false(pretty.contains("Func 2"), msg=pretty)
+  assert_false(pretty.contains("Func 3"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves multi-instruction evaluated argument before unreachable argument" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $mid1 (result i32) i32.const 2) (func $mid2 (result i32) i32.const 3) (func $rhs (result i32) i32.const 4) (func $sink (param i32 i32 i32 i32)) (func (call $sink (call $lhs) (i32.add (call $mid1) (call $mid2)) (block (result i32) nop unreachable) (call $rhs))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument multi-instruction prefix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 3"), msg=pretty)
+  assert_false(pretty.contains("Func 4"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims br consumer after unreachable block payload" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (block (result i32) (i32.const 7) (block (result i32) nop unreachable) br 0) drop))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected br consumer DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims br_table consumer after unreachable block payload" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (block (result i32) (i32.const 7) (block (result i32) nop unreachable) i32.const 0 br_table 0 0) drop))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected br_table consumer DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims br_if consumer after unreachable block payload" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (block (result i32) (i32.const 7) (block (result i32) nop unreachable) i32.const 0 br_if 0) drop))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected br_if consumer DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims ref branch consumers after unreachable payload" {
+  let i31_ref = dead_code_elimination_test_gc_ref(
+    false,
+    @lib.AbsHeapType::i31(),
+  )
+  let any_ref = dead_code_elimination_test_gc_ref(true, @lib.AbsHeapType::any())
+  let block_sig = [@lib.ValType::i32(), i31_ref]
+  let label = @lib.LabelIdx::new(0U)
+  let dead_i32 = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([@lib.Instruction::nop(), @lib.Instruction::unreachable_()]),
+  )
+  let suffix_result = [
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::ref_i31(),
+  ]
+  let cases : Array[(String, @lib.Module)] = [
+    (
+      "br_on_null",
+      dead_code_elimination_test_gc_branch_module([@lib.ValType::i32()], [
+        @lib.Instruction::block(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(7)),
+            dead_i32,
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+            ),
+            @lib.Instruction::br_on_null(label),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+    (
+      "br_on_non_null",
+      dead_code_elimination_test_gc_branch_module(block_sig, [
+        @lib.Instruction::block(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+          @lib.Expr::new(
+            [
+              @lib.Instruction::i32_const(@lib.I32::new(7)),
+              dead_i32,
+              @lib.Instruction::i32_const(@lib.I32::new(0)),
+              @lib.Instruction::ref_i31(),
+              @lib.Instruction::br_on_non_null(label),
+              ..suffix_result,
+            ],
+          ),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+    (
+      "br_on_cast",
+      dead_code_elimination_test_gc_branch_module(block_sig, [
+        @lib.Instruction::block(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+          @lib.Expr::new(
+            [
+              @lib.Instruction::i32_const(@lib.I32::new(7)),
+              dead_i32,
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::any()),
+              ),
+              @lib.Instruction::br_on_cast(
+                label,
+                true,
+                @lib.HeapType::abs(@lib.AbsHeapType::any()),
+                false,
+                @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+              ),
+              ..suffix_result,
+            ],
+          ),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+    (
+      "br_on_cast_fail",
+      dead_code_elimination_test_gc_branch_module(
+        [@lib.ValType::i32(), any_ref],
+        [
+          @lib.Instruction::block(
+            @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32::new(7)),
+              dead_i32,
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::any()),
+              ),
+              @lib.Instruction::br_on_cast_fail(
+                label,
+                true,
+                @lib.HeapType::abs(@lib.AbsHeapType::any()),
+                false,
+                @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+              ),
+              @lib.Instruction::drop(),
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::any()),
+              ),
+            ]),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::drop(),
+        ],
+      ),
+    ),
+  ]
+  for case in cases {
+    let (name, mod_) = case
+    let pretty = dead_code_elimination_test_run_gc_branch_pretty(mod_)
+    assert_false(pretty.contains(name), msg=pretty)
+    assert_true(pretty.contains("I32(7)"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+    assert_true(pretty.contains("unreachable"), msg=pretty)
+  }
+}
+
+///|
+test "dead-code-elimination trims return consumer after unreachable result and dead later result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32 i32) (i32.const 1) (block (result i32) nop unreachable) (i32.const 2) return))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected return unreachable-result DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("I32(2)"), msg=pretty)
+  assert_false(pretty.contains("return"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims throw consumer after unreachable payload and dead later payload" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $tag_payloads (func (param i32 i32 i32)))
+        #|  (tag $e (type $tag_payloads))
+        #|  (func $lhs (result i32) i32.const 1)
+        #|  (func
+        #|    (call $lhs)
+        #|    (block (result i32) nop unreachable)
+        #|    (i32.const 2)
+        #|    (throw $e)))
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected throw unreachable-payload dead suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(2)"), msg=pretty)
+  assert_false(pretty.contains("throw"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later block result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (block (result i32) i32.const 9))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-block-result suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i32.const I32(9)"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later loop result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (loop (result i32) i32.const 9))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-loop-result suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i32.const I32(9)"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination drops evaluated prefix before voidified if nonfallthrough argument" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $cond (result i32) i32.const 0) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (if (result i32) (call $cond) (then unreachable) (else unreachable)) (i32.const 9))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call dead-if-nonfallthrough-argument DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("Func 2"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later if result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (if (result i32) (i32.const 1) (then i32.const 9) (else i32.const 10)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-if-result suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i32.const I32(9)"), msg=pretty)
+  assert_false(pretty.contains("i32.const I32(10)"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after nonfallthrough try_table argument" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (try_table (result i32) unreachable) (i32.const 9))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call nonfallthrough-try_table-argument DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later try_table result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (try_table (result i32) (i32.const 9)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-try_table-result suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i32.const I32(9)"), msg=pretty)
+  assert_false(pretty.contains("try_table"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves nonfallthrough try_table before explicit cut" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type $ft (func)) (type $array (array i8)) (tag $tag (type $ft)) (func (result f64) (block (try_table (result (ref null $array)) unreachable) unreachable) unreachable))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DCE to preserve nonfallthrough try_table before explicit cut, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (unreachable))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-later-unreachable DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination drops stale prefix before explicit unreachable suffix cut" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (block (result f64) i32.const 7 unreachable unreachable) unreachable))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected explicit-unreachable suffix DCE stack cleanup success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.const I32(7)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination voidifies branchless value control before explicit unreachable suffix cut" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result v128) (block (result f64) (v128.const i32x4 1 2 3 4) i32x4.trunc_sat_f64x2_s_zero unreachable unreachable) unreachable))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected explicit-unreachable suffix DCE to voidify branchless value control, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32x4.trunc_sat_f64x2s_zero"), msg=pretty)
+  assert_true(pretty.contains("v128.const"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("block (Void)"), msg=pretty)
+  assert_false(pretty.contains("block F64"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination voidifies nested nonfallthrough control before explicit cut" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) nop call 0 if (result i32) loop (result i32) i32.const 7 return_call 0 return_call 0 unreachable unreachable end else unreachable end))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DCE to voidify nested nonfallthrough control before explicit cut, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("if (Void)"), msg=pretty)
+  assert_true(pretty.contains("loop (Void)"), msg=pretty)
+  assert_true(pretty.contains("return_call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("if I32"), msg=pretty)
+  assert_false(pretty.contains("loop I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination drops stale stack before atomic fence boundary" {
+  let mod_ = dead_code_elimination_test_gc_branch_module([], [
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::no_func())),
+    @lib.Instruction::atomic_fence(),
+    @lib.Instruction::unreachable_(),
+    @lib.Instruction::unreachable_(),
+  ])
+  let pretty = dead_code_elimination_test_run_gc_branch_pretty(mod_)
+  let drop_idx = match dead_code_elimination_test_index_of(pretty, "drop") {
+    Some(idx) => idx
+    None => fail("expected stale ref.null drop before atomic.fence: \{pretty}")
+  }
+  let fence_idx = match
+    dead_code_elimination_test_index_of(pretty, "atomic.fence") {
+    Some(idx) => idx
+    None => fail("expected atomic.fence to be preserved: \{pretty}")
+  }
+  assert_true(drop_idx < fence_idx, msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination drops stale stack before data drop boundary" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (data \"\") (func (result i32) i32.const 7 i64.const 8 i32.const 9 data.drop 0 i32.eqz unreachable unreachable))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DCE to drop stale stack before data.drop boundary, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let drop_idx = match dead_code_elimination_test_index_of(pretty, "drop") {
+    Some(idx) => idx
+    None => fail("expected stale prefix drops before data.drop: \{pretty}")
+  }
+  let data_drop_idx = match
+    dead_code_elimination_test_index_of(pretty, "data.drop") {
+    Some(idx) => idx
+    None => fail("expected data.drop to be preserved: \{pretty}")
+  }
+  assert_true(drop_idx < data_drop_idx, msg=pretty)
+  assert_true(pretty.contains("i32.eqz"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination removes nested drops around explicit unreachable cut" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (rec
+        #|    (type $array (sub (array i32)))
+        #|    (type $pair (func (result (ref null $array) i32))))
+        #|  (func
+        #|    (block (type $pair)
+        #|      (block
+        #|        nop)
+        #|      unreachable)
+        #|    unreachable))
+        #|
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected DCE to remove nested drops around explicit unreachable cut, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("legacy-synthetic-try-reachable-arm-dce-noop")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) { line.contains("dce-explicit-dead-suffix") }),
+    msg=trace.to_string(),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves multi-instruction if condition while dropping unrelated prefix before branchless if nonfallthrough operand" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 7) (func $sink (param i32 i32)) (func (call $sink (call $lhs) (if (result i32) (i32.add (i32.const 1) (i32.const 0)) (then unreachable) (else unreachable)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected branchless-if nonfallthrough DCE stack cleanup success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later nop" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (nop) (i32.add (i32.const 2) (i32.const 3)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-nop suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later load" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (i32.load (i32.const 0)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-load suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i32.load"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later struct.get" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type $struct (struct (field i32))) (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (struct.get $struct 0 (ref.null $struct)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-struct-get suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later i31.get" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (i31.get_s (ref.i31 (i32.const 31))))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-i31-get suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i31.get"), msg=pretty)
+  assert_false(pretty.contains("ref.i31"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later string.new" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $bytes (array i8))
+        #|  (func $lhs (result i32) i32.const 1)
+        #|  (func $sink (param i32 i32 stringref))
+        #|  (func
+        #|    (call $sink
+        #|      (call $lhs)
+        #|      (block (result i32) nop unreachable)
+        #|      (string.new_utf8_array (ref.null $bytes) (i32.const 0) (i32.const 0)))))
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-string-new suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("string.new_utf8_array"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later string.encode" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $bytes (array (mut i8)))
+        #|  (func $lhs (result i32) i32.const 1)
+        #|  (func $sink (param i32 i32 i32))
+        #|  (func
+        #|    (call $sink
+        #|      (call $lhs)
+        #|      (block (result i32) nop unreachable)
+        #|      (string.encode_utf8_array
+        #|        (string.const "abc")
+        #|        (array.new_default $bytes (i32.const 3))
+        #|        (i32.const 0)))))
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-string-encode suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("string.encode_utf8_array"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later saturating conversion" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (i32.trunc_sat_f32_s (f32.const 1)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-saturating-conversion suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("trunc_sat"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later gc mutator" {
+  let array_type_idx = @lib.TypeIdx::new(0U)
+  let lhs_type_idx = @lib.TypeIdx::new(1U)
+  let sink_type_idx = @lib.TypeIdx::new(2U)
+  let main_type_idx = @lib.TypeIdx::new(3U)
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        array_type,
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [],
+            ),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([lhs_type_idx, sink_type_idx, main_type_idx]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(1)]),
+        ),
+        @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::nop(),
+                @lib.Instruction::unreachable_(),
+              ]),
+            ),
+            @lib.Instruction::i32_const(2),
+            @lib.Instruction::array_new_default(array_type_idx),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(7),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::array_fill(array_type_idx),
+            @lib.Instruction::i32_const(2),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-gc-mutator suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("array.fill"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later struct.new" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $box (struct (field i32) (field i64)))
+        #|  (func $lhs (result i32) i32.const 1)
+        #|  (func $sink (param i32 i32 eqref))
+        #|  (func
+        #|    (call $sink
+        #|      (call $lhs)
+        #|      (block (result i32) nop unreachable)
+        #|      (struct.new $box (i32.const 7) (i64.const 8)))))
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-struct-new suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later array.new_fixed" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $items (array (mut i32)))
+        #|  (func $lhs (result i32) i32.const 1)
+        #|  (func $sink (param i32 i32 eqref))
+        #|  (func
+        #|    (call $sink
+        #|      (call $lhs)
+        #|      (block (result i32) nop unreachable)
+        #|      (array.new_fixed $items 2 (i32.const 7) (i32.const 8)))))
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-array-new-fixed suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("array.new_fixed"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later struct.new_default" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $box (struct (field i32)))
+        #|  (func $lhs (result i32) i32.const 1)
+        #|  (func $sink (param i32 i32 eqref))
+        #|  (func
+        #|    (call $sink
+        #|      (call $lhs)
+        #|      (block (result i32) nop unreachable)
+        #|      (struct.new_default $box))))
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-struct-new-default suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("struct.new_default"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later array.new_data" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $items (array (mut i8)))
+        #|  (data $payload "abc")
+        #|  (func $lhs (result i32) i32.const 1)
+        #|  (func $sink (param i32 i32 eqref))
+        #|  (func
+        #|    (call $sink
+        #|      (call $lhs)
+        #|      (block (result i32) nop unreachable)
+        #|      (array.new_data $items $payload (i32.const 0) (i32.const 2)))))
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-array-new-data suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("array.new_data"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later struct.new_default_desc" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (rec
+        #|    (type $box (descriptor $box_desc) (struct))
+        #|    (type $box_desc (describes $box) (struct)))
+        #|  (func $lhs (result i32) i32.const 1)
+        #|  (func $sink (param i32 i32 eqref))
+        #|  (func
+        #|    (call $sink
+        #|      (call $lhs)
+        #|      (block (result i32) nop unreachable)
+        #|      (struct.new_default_desc $box (ref.null (exact $box_desc))))))
+      ),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-struct-new-default-desc suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("struct.new_default_desc"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later array.get" {
+  let array_type_idx = @lib.TypeIdx::new(0U)
+  let lhs_type_idx = @lib.TypeIdx::new(1U)
+  let sink_type_idx = @lib.TypeIdx::new(2U)
+  let main_type_idx = @lib.TypeIdx::new(3U)
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        array_type,
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [],
+            ),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([lhs_type_idx, sink_type_idx, main_type_idx]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(1)]),
+        ),
+        @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::nop(),
+                @lib.Instruction::unreachable_(),
+              ]),
+            ),
+            @lib.Instruction::ref_null(@lib.HeapType::new(array_type_idx)),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::array_get(array_type_idx),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-array-get suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("array.get"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later array.len" {
+  let array_type_idx = @lib.TypeIdx::new(0U)
+  let lhs_type_idx = @lib.TypeIdx::new(1U)
+  let sink_type_idx = @lib.TypeIdx::new(2U)
+  let main_type_idx = @lib.TypeIdx::new(3U)
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        array_type,
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [],
+            ),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([lhs_type_idx, sink_type_idx, main_type_idx]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(1)]),
+        ),
+        @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::nop(),
+                @lib.Instruction::unreachable_(),
+              ]),
+            ),
+            @lib.Instruction::ref_null(@lib.HeapType::new(array_type_idx)),
+            @lib.Instruction::array_len(),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-array-len suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("array.len"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later simd splat" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 v128)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (i8x16.splat (i32.const 7)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-simd-splat suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i8x16.splat"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later simd binary" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 v128)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (i8x16.add (i8x16.splat (i32.const 1)) (i8x16.splat (i32.const 2))))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-simd-binary suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("i8x16.add"), msg=pretty)
+  assert_false(pretty.contains("i8x16.splat"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+fn dce_test_atomic_suffix_module(
+  suffix : Array[@lib.Instruction],
+) -> @lib.Module {
+  let body = [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::nop(), @lib.Instruction::unreachable_()]),
+    ),
+  ]
+  suffix.each(fn(instr) { body.push(instr) })
+  body.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+            [],
+          ),
+        ),
+      ),
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(1U),
+      @lib.TypeIdx::new(2U),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([
+      @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([]),
+        @lib.Expr::new([@lib.Instruction::i32_const(1)]),
+      ),
+      @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
+      @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later atomic load" {
+  let input = dce_test_atomic_suffix_module([
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::i32_atomic_load(@lib.MemArg::new(2U, None, 0UL)),
+  ])
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-atomic-load suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("atomic.load"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later atomic rmw" {
+  let input = dce_test_atomic_suffix_module([
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::atomic_rmw(
+      @lib.AtomicRmwOp::i32_add(),
+      @lib.MemArg::new(2U, None, 0UL),
+    ),
+  ])
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-atomic-rmw suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("AtomicRmw"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later atomic cmpxchg" {
+  let input = dce_test_atomic_suffix_module([
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::i32_const(2),
+    @lib.Instruction::atomic_cmpxchg(
+      @lib.AtomicCmpxchgOp::i32(),
+      @lib.MemArg::new(2U, None, 0UL),
+    ),
+  ])
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-atomic-cmpxchg suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("AtomicCmpxchg"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later table.get" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (table 1 externref) (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 externref)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (table.get (i32.const 0)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-table-get suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("table.get"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later memory.size" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (memory.size))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-memory-size suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("memory.size"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later memory.grow" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (memory.grow (i32.const 1)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-memory-grow suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("memory.grow"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later table.size" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (table 1 externref) (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (table.size))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-table-size suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("table.size"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later table.grow" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (table 1 externref) (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (table.grow (ref.null extern) (i32.const 1)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-table-grow suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("table.grow"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims dead table.fill suffix after unreachable call argument" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (table 1 externref) (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable)) (table.fill (i32.const 0) (ref.null extern) (i32.const 1))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-table-fill suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("table.fill"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later local.get" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (local i32) (local.set 0 (i32.const 7)) (call $sink (call $lhs) (block (result i32) nop unreachable) (local.get 0))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-local-get suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later global.get" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (global $g i32 (i32.const 7)) (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (global.get $g))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-global-get suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims direct-call consumer after unreachable argument and dead later ref.eq" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $lhs (result i32) i32.const 1) (func $sink (param i32 i32 i32)) (func (call $sink (call $lhs) (block (result i32) nop unreachable) (ref.eq (ref.null eq) (ref.null eq)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct-call unreachable-argument dead-ref-eq suffix DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves evaluated return-call operand before unreachable argument" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type $sink-type (func (param i32 i32 i32))) (func $lhs (result i32) i32.const 1) (func $rhs (result i32) i32.const 2) (func $sink (type $sink-type)) (func (return_call $sink (call $lhs) (block (result i32) nop unreachable) (call $rhs))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected return-call unreachable-argument DCE success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+  assert_false(pretty.contains("return_call"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims return_call_indirect after unreachable argument" {
+  let source =
+    #|(module
+    #|  (type $sink-type (func (param i32 i32 i32)))
+    #|  (table 1 funcref)
+    #|  (func $lhs (result i32) i32.const 1)
+    #|  (func $rhs (result i32) i32.const 2)
+    #|  (func $sink (type $sink-type))
+    #|  (elem (i32.const 0) $sink)
+    #|  (func
+    #|    (return_call_indirect (type $sink-type)
+    #|      (call $lhs)
+    #|      (block (result i32) nop unreachable)
+    #|      (call $rhs)
+    #|      (i32.const 0))))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected return_call_indirect unreachable-argument DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+  assert_false(pretty.contains("return_call_indirect"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims return_call_ref after unreachable argument" {
+  let source =
+    #|(module
+    #|  (type $sink-type (func (param i32 i32 i32)))
+    #|  (func $lhs (result i32) i32.const 1)
+    #|  (func $rhs (result i32) i32.const 2)
+    #|  (func $sink (type $sink-type))
+    #|  (elem declare func $sink)
+    #|  (func
+    #|    (return_call_ref (type $sink-type)
+    #|      (call $lhs)
+    #|      (block (result i32) nop unreachable)
+    #|      (call $rhs)
+    #|      (ref.func $sink))))
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["dead-code-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected return_call_ref unreachable-argument DCE success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("Func 1"), msg=pretty)
+  assert_false(pretty.contains("return_call_ref"), msg=pretty)
 }
 
 ///|

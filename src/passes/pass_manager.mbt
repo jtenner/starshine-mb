@@ -6403,12 +6403,12 @@ fn run_hot_pipeline_dce_raw_legacy_synthetic_try_has_reachable_arm(
     @lib.Unreachable => ()
     _ => return false
   }
-  let mut saw_arm = false
+  let mut arm_count = 0
   let mut arm_may_fallthrough = false
   for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
     match body[idx] {
       @lib.Block(_, @lib.Expr(_)) | @lib.Loop(_, @lib.Expr(_)) => {
-        saw_arm = true
+        arm_count = arm_count + 1
         if run_hot_pipeline_dce_raw_instr_may_fallthrough(body[idx]) {
           arm_may_fallthrough = true
         }
@@ -6416,7 +6416,7 @@ fn run_hot_pipeline_dce_raw_legacy_synthetic_try_has_reachable_arm(
       _ => ()
     }
   }
-  saw_arm && arm_may_fallthrough
+  arm_count >= 2 && arm_may_fallthrough
 }
 
 ///|
@@ -6725,6 +6725,14 @@ fn run_hot_pipeline_dce_raw_instrs_have_label_branch(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  !run_hot_pipeline_dce_raw_instrs_have_label_branch(instrs) &&
+  !run_hot_pipeline_dce_raw_body_may_fallthrough(instrs)
+}
+
+///|
 fn run_hot_pipeline_dce_raw_body_is_literal_unreachable(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -6738,18 +6746,43 @@ fn run_hot_pipeline_dce_raw_body_is_literal_unreachable(
 }
 
 ///|
-fn run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
+fn run_hot_pipeline_dce_raw_instr_is_explicit_cut_safe_branchless_nonfallthrough_control(
   instr : @lib.Instruction,
 ) -> Bool {
   match instr {
-    @lib.Block(block_type, @lib.Expr(body)) =>
+    @lib.Block(block_type, @lib.Expr(body))
+    | @lib.Loop(block_type, @lib.Expr(body)) =>
       block_type != @lib.BlockType::void_() &&
-      !run_hot_pipeline_dce_raw_instrs_have_label_branch(body) &&
-      !run_hot_pipeline_dce_raw_body_may_fallthrough(body)
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(body)
+    @lib.TryTable(block_type, _, @lib.Expr(body)) =>
+      block_type != @lib.BlockType::void_() &&
+      !run_hot_pipeline_raw_try_table_body_has_exceptional_edge(body) &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(body)
     @lib.If(block_type, then_body, Some(else_body)) =>
       block_type != @lib.BlockType::void_() &&
       run_hot_pipeline_dce_raw_body_is_literal_unreachable(then_body) &&
       run_hot_pipeline_dce_raw_body_is_literal_unreachable(else_body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body))
+    | @lib.Loop(block_type, @lib.Expr(body)) =>
+      block_type != @lib.BlockType::void_() &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(body)
+    @lib.TryTable(block_type, _, @lib.Expr(body)) =>
+      block_type != @lib.BlockType::void_() &&
+      !run_hot_pipeline_raw_try_table_body_has_exceptional_edge(body) &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(body)
+    @lib.If(block_type, then_body, Some(else_body)) =>
+      block_type != @lib.BlockType::void_() &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(then_body) &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(else_body)
     _ => false
   }
 }
@@ -6781,11 +6814,1403 @@ fn run_hot_pipeline_dce_raw_instr_is_drop(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn run_hot_pipeline_dce_raw_select_instr(instr : @lib.Instruction) -> Bool {
+fn run_hot_pipeline_dce_raw_instr_contains_legacy_pop(
+  instr : @lib.Instruction,
+) -> Bool {
   match instr {
-    @lib.Select(_) => true
+    @lib.Pop(_) => true
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(body)
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(body) {
+        return true
+      }
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+            if run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(catch_body) {
+              return true
+            }
+        }
+      }
+      false
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(body)
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(then_body) {
+        return true
+      }
+      match else_body {
+        Some(else_body) =>
+          run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(else_body)
+        None => false
+      }
+    }
     _ => false
   }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_dce_raw_instr_contains_legacy_pop(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+priv struct DceRawInstructionEffect {
+  params : Int
+  results : Int
+  can_scan_dead_suffix : Bool
+  can_consume_dead_nonfallthrough_operand : Bool
+  can_discard_results_after_dead_nonfallthrough_operand : Bool
+}
+
+///|
+fn DceRawInstructionEffect::new(
+  params : Int,
+  results : Int,
+) -> DceRawInstructionEffect {
+  {
+    params,
+    results,
+    can_scan_dead_suffix: true,
+    can_consume_dead_nonfallthrough_operand: true,
+    can_discard_results_after_dead_nonfallthrough_operand: false,
+  }
+}
+
+///|
+fn DceRawInstructionEffect::conditional_branch(
+  params : Int,
+  results : Int,
+) -> DceRawInstructionEffect {
+  {
+    params,
+    results,
+    can_scan_dead_suffix: true,
+    can_consume_dead_nonfallthrough_operand: true,
+    can_discard_results_after_dead_nonfallthrough_operand: true,
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_simd_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      Some(DceRawInstructionEffect::new(0, 1))
+    @lib.V128Load(_)
+    | @lib.V128Load8x8S(_)
+    | @lib.V128Load8x8U(_)
+    | @lib.V128Load16x4S(_)
+    | @lib.V128Load16x4U(_)
+    | @lib.V128Load32x2S(_)
+    | @lib.V128Load32x2U(_)
+    | @lib.V128Load8Splat(_)
+    | @lib.V128Load16Splat(_)
+    | @lib.V128Load32Splat(_)
+    | @lib.V128Load64Splat(_)
+    | @lib.V128Load32Zero(_)
+    | @lib.V128Load64Zero(_)
+    | @lib.I8x16Splat
+    | @lib.I16x8Splat
+    | @lib.I32x4Splat
+    | @lib.I64x2Splat
+    | @lib.F32x4Splat
+    | @lib.F64x2Splat
+    | @lib.I8x16ExtractLaneS(_)
+    | @lib.I8x16ExtractLaneU(_)
+    | @lib.I16x8ExtractLaneS(_)
+    | @lib.I16x8ExtractLaneU(_)
+    | @lib.I32x4ExtractLane(_)
+    | @lib.I64x2ExtractLane(_)
+    | @lib.F32x4ExtractLane(_)
+    | @lib.F64x2ExtractLane(_)
+    | @lib.V128Not
+    | @lib.V128AnyTrue
+    | @lib.F32x4DemoteF64x2Zero
+    | @lib.F64x2PromoteLowF32x4
+    | @lib.I8x16Abs
+    | @lib.I8x16Neg
+    | @lib.I8x16Popcnt
+    | @lib.I8x16AllTrue
+    | @lib.I8x16Bitmask
+    | @lib.F32x4Ceil
+    | @lib.F32x4Floor
+    | @lib.F32x4Trunc
+    | @lib.F32x4Nearest
+    | @lib.F64x2Ceil
+    | @lib.F64x2Floor
+    | @lib.F64x2Trunc
+    | @lib.F64x2Nearest
+    | @lib.I16x8Abs
+    | @lib.I16x8Neg
+    | @lib.I16x8AllTrue
+    | @lib.I16x8Bitmask
+    | @lib.I16x8ExtaddPairwiseI8x16S
+    | @lib.I16x8ExtaddPairwiseI8x16U
+    | @lib.I32x4ExtaddPairwiseI16x8S
+    | @lib.I32x4ExtaddPairwiseI16x8U
+    | @lib.I32x4Abs
+    | @lib.I32x4Neg
+    | @lib.I32x4AllTrue
+    | @lib.I32x4Bitmask
+    | @lib.I64x2Abs
+    | @lib.I64x2Neg
+    | @lib.I64x2AllTrue
+    | @lib.I64x2Bitmask
+    | @lib.F32x4Abs
+    | @lib.F32x4Neg
+    | @lib.F32x4Sqrt
+    | @lib.F64x2Abs
+    | @lib.F64x2Neg
+    | @lib.F64x2Sqrt
+    | @lib.I32x4TruncSatF32x4S
+    | @lib.I32x4TruncSatF32x4U
+    | @lib.F32x4ConvertI32x4S
+    | @lib.F32x4ConvertI32x4U
+    | @lib.I32x4TruncSatF64x2SZero
+    | @lib.I32x4TruncSatF64x2UZero
+    | @lib.F64x2ConvertLowI32x4S
+    | @lib.F64x2ConvertLowI32x4U
+    | @lib.I32x4RelaxedTruncF32x4S
+    | @lib.I32x4RelaxedTruncF32x4U
+    | @lib.I32x4RelaxedTruncZeroF64x2S
+    | @lib.I32x4RelaxedTruncZeroF64x2U =>
+      Some(DceRawInstructionEffect::new(1, 1))
+    @lib.V128Store(_)
+    | @lib.V128Store8Lane(_, _)
+    | @lib.V128Store16Lane(_, _)
+    | @lib.V128Store32Lane(_, _)
+    | @lib.V128Store64Lane(_, _) => Some(DceRawInstructionEffect::new(2, 0))
+    @lib.I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | @lib.I8x16Swizzle
+    | @lib.I8x16ReplaceLane(_)
+    | @lib.I16x8ReplaceLane(_)
+    | @lib.I32x4ReplaceLane(_)
+    | @lib.I64x2ReplaceLane(_)
+    | @lib.F32x4ReplaceLane(_)
+    | @lib.F64x2ReplaceLane(_)
+    | @lib.I8x16Eq
+    | @lib.I8x16Ne
+    | @lib.I8x16LtS
+    | @lib.I8x16LtU
+    | @lib.I8x16GtS
+    | @lib.I8x16GtU
+    | @lib.I8x16LeS
+    | @lib.I8x16LeU
+    | @lib.I8x16GeS
+    | @lib.I8x16GeU
+    | @lib.I16x8Eq
+    | @lib.I16x8Ne
+    | @lib.I16x8LtS
+    | @lib.I16x8LtU
+    | @lib.I16x8GtS
+    | @lib.I16x8GtU
+    | @lib.I16x8LeS
+    | @lib.I16x8LeU
+    | @lib.I16x8GeS
+    | @lib.I16x8GeU
+    | @lib.I32x4Eq
+    | @lib.I32x4Ne
+    | @lib.I32x4LtS
+    | @lib.I32x4LtU
+    | @lib.I32x4GtS
+    | @lib.I32x4GtU
+    | @lib.I32x4LeS
+    | @lib.I32x4LeU
+    | @lib.I32x4GeS
+    | @lib.I32x4GeU
+    | @lib.F32x4Eq
+    | @lib.F32x4Ne
+    | @lib.F32x4Lt
+    | @lib.F32x4Gt
+    | @lib.F32x4Le
+    | @lib.F32x4Ge
+    | @lib.F64x2Eq
+    | @lib.F64x2Ne
+    | @lib.F64x2Lt
+    | @lib.F64x2Gt
+    | @lib.F64x2Le
+    | @lib.F64x2Ge
+    | @lib.V128And
+    | @lib.V128Andnot
+    | @lib.V128Or
+    | @lib.V128Xor
+    | @lib.V128Load8Lane(_, _)
+    | @lib.V128Load16Lane(_, _)
+    | @lib.V128Load32Lane(_, _)
+    | @lib.V128Load64Lane(_, _)
+    | @lib.I8x16NarrowI16x8S
+    | @lib.I8x16NarrowI16x8U
+    | @lib.I8x16Shl
+    | @lib.I8x16ShrS
+    | @lib.I8x16ShrU
+    | @lib.I8x16Add
+    | @lib.I8x16AddSatS
+    | @lib.I8x16AddSatU
+    | @lib.I8x16Sub
+    | @lib.I8x16SubSatS
+    | @lib.I8x16SubSatU
+    | @lib.I8x16MinS
+    | @lib.I8x16MinU
+    | @lib.I8x16MaxS
+    | @lib.I8x16MaxU
+    | @lib.I8x16AvgrU
+    | @lib.I16x8Q15mulrSatS
+    | @lib.I16x8NarrowI32x4S
+    | @lib.I16x8NarrowI32x4U
+    | @lib.I16x8ExtendLowI8x16S
+    | @lib.I16x8ExtendHighI8x16S
+    | @lib.I16x8ExtendLowI8x16U
+    | @lib.I16x8ExtendHighI8x16U
+    | @lib.I16x8Shl
+    | @lib.I16x8ShrS
+    | @lib.I16x8ShrU
+    | @lib.I16x8Add
+    | @lib.I16x8AddSatS
+    | @lib.I16x8AddSatU
+    | @lib.I16x8Sub
+    | @lib.I16x8SubSatS
+    | @lib.I16x8SubSatU
+    | @lib.I16x8Mul
+    | @lib.I16x8MinS
+    | @lib.I16x8MinU
+    | @lib.I16x8MaxS
+    | @lib.I16x8MaxU
+    | @lib.I16x8AvgrU
+    | @lib.I16x8ExtmulLowI8x16S
+    | @lib.I16x8ExtmulHighI8x16S
+    | @lib.I16x8ExtmulLowI8x16U
+    | @lib.I16x8ExtmulHighI8x16U
+    | @lib.I32x4ExtendLowI16x8S
+    | @lib.I32x4ExtendHighI16x8S
+    | @lib.I32x4ExtendLowI16x8U
+    | @lib.I32x4ExtendHighI16x8U
+    | @lib.I32x4Shl
+    | @lib.I32x4ShrS
+    | @lib.I32x4ShrU
+    | @lib.I32x4Add
+    | @lib.I32x4Sub
+    | @lib.I32x4Mul
+    | @lib.I32x4MinS
+    | @lib.I32x4MinU
+    | @lib.I32x4MaxS
+    | @lib.I32x4MaxU
+    | @lib.I32x4DotI16x8S
+    | @lib.I32x4ExtmulLowI16x8S
+    | @lib.I32x4ExtmulHighI16x8S
+    | @lib.I32x4ExtmulLowI16x8U
+    | @lib.I32x4ExtmulHighI16x8U
+    | @lib.I64x2ExtendLowI32x4S
+    | @lib.I64x2ExtendHighI32x4S
+    | @lib.I64x2ExtendLowI32x4U
+    | @lib.I64x2ExtendHighI32x4U
+    | @lib.I64x2Shl
+    | @lib.I64x2ShrS
+    | @lib.I64x2ShrU
+    | @lib.I64x2Add
+    | @lib.I64x2Sub
+    | @lib.I64x2Mul
+    | @lib.I64x2Eq
+    | @lib.I64x2Ne
+    | @lib.I64x2LtS
+    | @lib.I64x2GtS
+    | @lib.I64x2LeS
+    | @lib.I64x2GeS
+    | @lib.I64x2ExtmulLowI32x4S
+    | @lib.I64x2ExtmulHighI32x4S
+    | @lib.I64x2ExtmulLowI32x4U
+    | @lib.I64x2ExtmulHighI32x4U
+    | @lib.F32x4Add
+    | @lib.F32x4Sub
+    | @lib.F32x4Mul
+    | @lib.F32x4Div
+    | @lib.F32x4Min
+    | @lib.F32x4Max
+    | @lib.F32x4Pmin
+    | @lib.F32x4Pmax
+    | @lib.F64x2Add
+    | @lib.F64x2Sub
+    | @lib.F64x2Mul
+    | @lib.F64x2Div
+    | @lib.F64x2Min
+    | @lib.F64x2Max
+    | @lib.F64x2Pmin
+    | @lib.F64x2Pmax
+    | @lib.I8x16RelaxedSwizzle
+    | @lib.F32x4RelaxedMin
+    | @lib.F32x4RelaxedMax
+    | @lib.F64x2RelaxedMin
+    | @lib.F64x2RelaxedMax
+    | @lib.I16x8RelaxedQ15mulrS
+    | @lib.I16x8RelaxedDotI8x16I7x16S =>
+      Some(DceRawInstructionEffect::new(2, 1))
+    @lib.V128Bitselect
+    | @lib.F32x4RelaxedMadd
+    | @lib.F32x4RelaxedNmadd
+    | @lib.F64x2RelaxedMadd
+    | @lib.F64x2RelaxedNmadd
+    | @lib.I8x16RelaxedLaneselect
+    | @lib.I16x8RelaxedLaneselect
+    | @lib.I32x4RelaxedLaneselect
+    | @lib.I64x2RelaxedLaneselect
+    | @lib.I32x4RelaxedDotI8x16I7x16AddS =>
+      Some(DceRawInstructionEffect::new(3, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_atomic_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.AtomicFence => Some(DceRawInstructionEffect::new(0, 0))
+    @lib.I32AtomicLoad(_)
+    | @lib.I64AtomicLoad(_)
+    | @lib.I32AtomicLoad8U(_)
+    | @lib.I32AtomicLoad16U(_)
+    | @lib.I64AtomicLoad8U(_)
+    | @lib.I64AtomicLoad16U(_)
+    | @lib.I64AtomicLoad32U(_)
+    | @lib.StructAtomicGet(_, _, _)
+    | @lib.StructAtomicGetS(_, _, _)
+    | @lib.StructAtomicGetU(_, _, _) => Some(DceRawInstructionEffect::new(1, 1))
+    @lib.I32AtomicStore(_)
+    | @lib.I64AtomicStore(_)
+    | @lib.I32AtomicStore8(_)
+    | @lib.I32AtomicStore16(_)
+    | @lib.I64AtomicStore8(_)
+    | @lib.I64AtomicStore16(_)
+    | @lib.I64AtomicStore32(_) => Some(DceRawInstructionEffect::new(2, 0))
+    @lib.MemoryAtomicNotify(_) | @lib.AtomicRmw(_, _) =>
+      Some(DceRawInstructionEffect::new(2, 1))
+    @lib.MemoryAtomicWait32(_)
+    | @lib.MemoryAtomicWait64(_)
+    | @lib.AtomicCmpxchg(_, _) => Some(DceRawInstructionEffect::new(3, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_gc_mutator_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.StructSet(_, _) => Some(DceRawInstructionEffect::new(2, 0))
+    @lib.ArraySet(_) => Some(DceRawInstructionEffect::new(3, 0))
+    @lib.ArrayFill(_) | @lib.ArrayInitData(_, _) | @lib.ArrayInitElem(_, _) =>
+      Some(DceRawInstructionEffect::new(4, 0))
+    @lib.ArrayCopy(_, _) => Some(DceRawInstructionEffect::new(5, 0))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_dynamic_size_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.MemorySize(_) | @lib.TableSize(_) =>
+      Some(DceRawInstructionEffect::new(0, 1))
+    @lib.MemoryGrow(_) => Some(DceRawInstructionEffect::new(1, 1))
+    @lib.TableGrow(_) => Some(DceRawInstructionEffect::new(2, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_call_instruction_effect(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          Some(DceRawInstructionEffect::new(params.length(), results.length()))
+        None => None
+      }
+    @lib.ReturnCall(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(params, _)) =>
+          Some(DceRawInstructionEffect::new(params.length(), 0))
+        None => None
+      }
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          Some(
+            DceRawInstructionEffect::new(params.length() + 1, results.length()),
+          )
+        None => None
+      }
+    @lib.ReturnCallIndirect(type_idx, _) | @lib.ReturnCallRef(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(params, _)) =>
+          Some(DceRawInstructionEffect::new(params.length() + 1, 0))
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_throw_instruction_effect(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.Throw(tag_idx) =>
+      match @ir.hot_module_resolve_tag_type(module_ctx, tag_idx) {
+        Some(@lib.TagType(type_idx)) =>
+          match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+            Some(@lib.FuncType(params, _)) =>
+              Some(DceRawInstructionEffect::new(params.length(), 0))
+            None => None
+          }
+        None => None
+      }
+    @lib.ThrowRef => Some(DceRawInstructionEffect::new(1, 0))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_block_type_instruction_effect(
+  block_type : @lib.BlockType,
+  extra_params : Int,
+  module_ctx : @ir.HotModuleContext,
+) -> DceRawInstructionEffect? {
+  match block_type {
+    @lib.VoidBlockType => Some(DceRawInstructionEffect::new(extra_params, 0))
+    @lib.ValTypeBlockType(_) =>
+      Some(DceRawInstructionEffect::new(extra_params, 1))
+    @lib.TypeIdxBlockType(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          Some(
+            DceRawInstructionEffect::new(
+              params.length() + extra_params,
+              results.length(),
+            ),
+          )
+        None => None
+      }
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_control_instruction_effect(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.Block(block_type, _)
+    | @lib.Loop(block_type, _)
+    | @lib.TryTable(block_type, _, _) =>
+      run_hot_pipeline_dce_raw_block_type_instruction_effect(
+        block_type, 0, module_ctx,
+      )
+    @lib.If(block_type, _, _) =>
+      run_hot_pipeline_dce_raw_block_type_instruction_effect(
+        block_type, 1, module_ctx,
+      )
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_branch_instruction_effect(
+  instr : @lib.Instruction,
+  label_results : Array[Array[@lib.ValType]],
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.Br(label_idx) =>
+      match run_hot_pipeline_dce_raw_label_results(label_results, label_idx) {
+        Some(results) => Some(DceRawInstructionEffect::new(results.length(), 0))
+        None => None
+      }
+    @lib.BrIf(label_idx) =>
+      match run_hot_pipeline_dce_raw_label_results(label_results, label_idx) {
+        Some(results) =>
+          Some(
+            DceRawInstructionEffect::conditional_branch(
+              results.length() + 1,
+              results.length(),
+            ),
+          )
+        None => None
+      }
+    @lib.BrTable(labels, fallback) =>
+      match
+        run_hot_pipeline_dce_raw_br_table_target_results(
+          label_results, labels, fallback,
+        ) {
+        Some(results) =>
+          Some(DceRawInstructionEffect::new(results.length() + 1, 0))
+        None => None
+      }
+    @lib.BrOnNull(label_idx) =>
+      match run_hot_pipeline_dce_raw_label_results(label_results, label_idx) {
+        Some(results) =>
+          Some(
+            DceRawInstructionEffect::conditional_branch(
+              results.length() + 1,
+              results.length() + 1,
+            ),
+          )
+        None => None
+      }
+    @lib.BrOnNonNull(label_idx) =>
+      match
+        run_hot_pipeline_dce_raw_label_ref_branch_results(
+          label_results, label_idx,
+        ) {
+        Some(results) =>
+          Some(
+            DceRawInstructionEffect::conditional_branch(
+              results.length(),
+              results.length() - 1,
+            ),
+          )
+        None => None
+      }
+    @lib.BrOnCast(label_idx, _, _, _) | @lib.BrOnCastFail(label_idx, _, _, _) =>
+      match
+        run_hot_pipeline_dce_raw_label_ref_branch_results(
+          label_results, label_idx,
+        ) {
+        Some(results) =>
+          Some(
+            DceRawInstructionEffect::conditional_branch(
+              results.length(),
+              results.length(),
+            ),
+          )
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_polymorphic_nonfallthrough_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    // `unreachable` is stack-polymorphic. For the dead-suffix scanner, one
+    // abstract result is enough to let a later dead consumer account for an
+    // unreachable operand without preserving any skipped operand code.
+    @lib.Unreachable => Some(DceRawInstructionEffect::new(0, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_simple_instruction_effect(
+  instr : @lib.Instruction,
+  func_result_count : Int,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.Nop => Some(DceRawInstructionEffect::new(0, 0))
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_) => Some(DceRawInstructionEffect::new(0, 1))
+    @lib.Drop => Some(DceRawInstructionEffect::new(1, 0))
+    @lib.Return => Some(DceRawInstructionEffect::new(func_result_count, 0))
+    @lib.Select(_) => Some(DceRawInstructionEffect::new(3, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_variable_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.LocalGet(_) | @lib.GlobalGet(_) =>
+      Some(DceRawInstructionEffect::new(0, 1))
+    @lib.LocalSet(_) | @lib.GlobalSet(_) =>
+      Some(DceRawInstructionEffect::new(1, 0))
+    @lib.LocalTee(_) => Some(DceRawInstructionEffect::new(1, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_string_array_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.StringNewUtf8Array
+    | @lib.StringNewWtf16Array
+    | @lib.StringNewLossyUtf8Array
+    | @lib.StringNewWtf8Array
+    | @lib.StringEncodeUtf8Array
+    | @lib.StringEncodeWtf16Array
+    | @lib.StringEncodeLossyUtf8Array
+    | @lib.StringEncodeWtf8Array => Some(DceRawInstructionEffect::new(3, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_ref_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.AnyConvertExtern
+    | @lib.ExternConvertAny
+    | @lib.RefI31
+    | @lib.I31GetS
+    | @lib.I31GetU
+    | @lib.RefAsNonNull
+    | @lib.RefTest(_, _)
+    | @lib.RefCast(_, _)
+    | @lib.RefGetDesc(_)
+    | @lib.RefTestDesc(_, _) => Some(DceRawInstructionEffect::new(1, 1))
+    @lib.RefCastDescEq(_, _) => Some(DceRawInstructionEffect::new(2, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_gc_access_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.StructGet(_, _)
+    | @lib.StructGetS(_, _)
+    | @lib.StructGetU(_, _)
+    | @lib.ArrayLen => Some(DceRawInstructionEffect::new(1, 1))
+    @lib.ArrayGet(_) | @lib.ArrayGetS(_) | @lib.ArrayGetU(_) =>
+      Some(DceRawInstructionEffect::new(2, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_gc_constructor_instruction_effect(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.StructNew(type_idx) =>
+      match @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+        Some(fields) => Some(DceRawInstructionEffect::new(fields.length(), 1))
+        None => None
+      }
+    @lib.StructNewDefault(_) => Some(DceRawInstructionEffect::new(0, 1))
+    @lib.StructNewDesc(type_idx) =>
+      match @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+        Some(fields) =>
+          Some(DceRawInstructionEffect::new(fields.length() + 1, 1))
+        None => None
+      }
+    @lib.StructNewDefaultDesc(_) => Some(DceRawInstructionEffect::new(1, 1))
+    @lib.ArrayNew(_) => Some(DceRawInstructionEffect::new(2, 1))
+    @lib.ArrayNewDefault(_) => Some(DceRawInstructionEffect::new(1, 1))
+    @lib.ArrayNewFixed(_, @lib.U32(length)) =>
+      Some(DceRawInstructionEffect::new(length.to_int(), 1))
+    @lib.ArrayNewData(_, _) | @lib.ArrayNewElem(_, _) =>
+      Some(DceRawInstructionEffect::new(2, 1))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_memory_table_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match instr {
+    @lib.TableGet(_) => Some(DceRawInstructionEffect::new(1, 1))
+    @lib.I32Store(_)
+    | @lib.I64Store(_)
+    | @lib.F32Store(_)
+    | @lib.F64Store(_)
+    | @lib.I32Store8(_)
+    | @lib.I32Store16(_)
+    | @lib.I64Store8(_)
+    | @lib.I64Store16(_)
+    | @lib.I64Store32(_)
+    | @lib.TableSet(_) => Some(DceRawInstructionEffect::new(2, 0))
+    @lib.MemoryFill(_)
+    | @lib.MemoryCopy(_, _)
+    | @lib.MemoryInit(_, _)
+    | @lib.TableFill(_)
+    | @lib.TableCopy(_, _)
+    | @lib.TableInit(_, _) => Some(DceRawInstructionEffect::new(3, 0))
+    @lib.DataDrop(_) | @lib.ElemDrop(_) =>
+      Some(DceRawInstructionEffect::new(0, 0))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_unary_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  if run_hot_pipeline_dce_raw_unary_combiner(instr) {
+    Some(DceRawInstructionEffect::new(1, 1))
+  } else {
+    None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_binary_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  if run_hot_pipeline_dce_raw_binary_result_instr_supported(instr) {
+    Some(DceRawInstructionEffect::new(2, 1))
+  } else {
+    None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_plain_load_instruction_effect(
+  instr : @lib.Instruction,
+) -> DceRawInstructionEffect? {
+  match run_hot_pipeline_raw_plain_load_result_type(instr) {
+    Some(_) => Some(DceRawInstructionEffect::new(1, 1))
+    None => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_instruction_effect(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> DceRawInstructionEffect? {
+  match run_hot_pipeline_dce_raw_unary_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_binary_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_plain_load_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match
+    run_hot_pipeline_dce_raw_polymorphic_nonfallthrough_instruction_effect(
+      instr,
+    ) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match
+    run_hot_pipeline_dce_raw_simple_instruction_effect(instr, func_result_count) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_variable_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_simd_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_atomic_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_gc_mutator_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_dynamic_size_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_call_instruction_effect(instr, module_ctx) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_throw_instruction_effect(instr, module_ctx) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_control_instruction_effect(instr, module_ctx) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match
+    run_hot_pipeline_dce_raw_branch_instruction_effect(instr, label_results) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_string_array_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_ref_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_gc_access_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match
+    run_hot_pipeline_dce_raw_gc_constructor_instruction_effect(
+      instr, module_ctx,
+    ) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  match run_hot_pipeline_dce_raw_memory_table_instruction_effect(instr) {
+    Some(effect) => return Some(effect)
+    None => ()
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_dce_raw_push_preserved_operands_before_nonfallthrough(
+  rewritten : Array[@lib.Instruction],
+  operand_count : Int,
+) -> Bool {
+  if operand_count == 0 {
+    return true
+  }
+  if rewritten.length() < operand_count {
+    return false
+  }
+  let preserved : Array[@lib.Instruction] = []
+  let mut preserve_count = 0
+  while preserve_count < operand_count {
+    preserved.push(rewritten.pop().unwrap())
+    preserve_count = preserve_count + 1
+  }
+  let mut preserved_idx = preserved.length() - 1
+  while preserved_idx >= 0 {
+    rewritten.push(preserved[preserved_idx])
+    rewritten.push(@lib.Instruction::drop())
+    preserved_idx = preserved_idx - 1
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_dce_raw_stack_height(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Int? {
+  let mut height = 0
+  for instr in instrs {
+    match
+      run_hot_pipeline_dce_raw_instruction_effect(
+        instr, module_ctx, func_result_count, label_results,
+      ) {
+      Some(effect) => {
+        if !effect.can_scan_dead_suffix || effect.params > height {
+          return None
+        }
+        height = height - effect.params + effect.results
+      }
+      None => return None
+    }
+  }
+  Some(height)
+}
+
+///|
+fn run_hot_pipeline_dce_raw_current_region_result_count(
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Int {
+  if label_results.length() == 0 {
+    func_result_count
+  } else {
+    label_results[0].length()
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_drop_current_stack_before_void_nonfallthrough(
+  rewritten : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Bool {
+  match
+    run_hot_pipeline_dce_raw_stack_height(
+      rewritten, module_ctx, func_result_count, label_results,
+    ) {
+    Some(height) => {
+      let mut remaining = height
+      while remaining > 0 {
+        rewritten.push(@lib.Instruction::drop())
+        remaining = remaining - 1
+      }
+      true
+    }
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_suffix_height(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Int? {
+  let suffix : Array[@lib.Instruction] = []
+  for idx = start; idx < instrs.length(); idx = idx + 1 {
+    suffix.push(instrs[idx])
+  }
+  run_hot_pipeline_dce_raw_stack_height(
+    suffix, module_ctx, func_result_count, label_results,
+  )
+}
+
+///|
+fn run_hot_pipeline_dce_raw_suffix_min_initial_stack_height(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Int? {
+  let mut required = 0
+  let mut height = 0
+  for idx = start; idx < instrs.length(); idx = idx + 1 {
+    match
+      run_hot_pipeline_dce_raw_instruction_effect(
+        instrs[idx],
+        module_ctx,
+        func_result_count,
+        label_results,
+      ) {
+      Some(effect) => {
+        if !effect.can_scan_dead_suffix {
+          return None
+        }
+        if effect.params > height {
+          let missing = effect.params - height
+          required = required + missing
+          height = height + missing
+        }
+        height = height - effect.params + effect.results
+      }
+      None => return None
+    }
+  }
+  Some(required)
+}
+
+///|
+fn run_hot_pipeline_dce_raw_suffix_has_nonfallthrough_cut(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> Bool {
+  for idx = start; idx < instrs.length(); idx = idx + 1 {
+    if run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(
+        instrs[idx],
+      ) ||
+      run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
+        instrs[idx],
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dce_raw_control_operand_count_before_nonfallthrough_cut(
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.Block(_, _) | @lib.TryTable(_, _, _) => Some(0)
+    @lib.If(_, _, _) => Some(1)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_drop_stack_before_nonfallthrough_cut(
+  rewritten : Array[@lib.Instruction],
+  control_operand_count : Int,
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Bool {
+  if control_operand_count == 0 {
+    return run_hot_pipeline_dce_raw_drop_current_stack_before_void_nonfallthrough(
+      rewritten, module_ctx, func_result_count, label_results,
+    )
+  }
+  let mut split = rewritten.length()
+  while split >= 0 {
+    match
+      run_hot_pipeline_dce_raw_suffix_height(
+        rewritten, split, module_ctx, func_result_count, label_results,
+      ) {
+      Some(height) if height == control_operand_count => {
+        let prefix : Array[@lib.Instruction] = []
+        for idx = 0; idx < split; idx = idx + 1 {
+          prefix.push(rewritten[idx])
+        }
+        let prefix_height = match
+          run_hot_pipeline_dce_raw_stack_height(
+            prefix, module_ctx, func_result_count, label_results,
+          ) {
+          Some(height) => height
+          None => return false
+        }
+        let suffix : Array[@lib.Instruction] = []
+        for idx = split; idx < rewritten.length(); idx = idx + 1 {
+          suffix.push(rewritten[idx])
+        }
+        while rewritten.length() > 0 {
+          ignore(rewritten.pop())
+        }
+        for instr in prefix {
+          rewritten.push(instr)
+        }
+        let mut remaining = prefix_height
+        while remaining > 0 {
+          rewritten.push(@lib.Instruction::drop())
+          remaining = remaining - 1
+        }
+        for instr in suffix {
+          rewritten.push(instr)
+        }
+        return true
+      }
+      _ => ()
+    }
+    split = split - 1
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dce_raw_push_prefix_with_value_drops(
+  out : Array[@lib.Instruction],
+  prefix : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Bool {
+  let mut segment_height = 0
+  let segment : Array[@lib.Instruction] = []
+  for idx = 0; idx < prefix.length(); idx = idx + 1 {
+    let effect = match
+      run_hot_pipeline_dce_raw_instruction_effect(
+        prefix[idx],
+        module_ctx,
+        func_result_count,
+        label_results,
+      ) {
+      Some(effect) if effect.can_scan_dead_suffix => effect
+      _ => return false
+    }
+    if effect.params > segment_height {
+      return false
+    }
+    segment.push(prefix[idx])
+    segment_height = segment_height - effect.params + effect.results
+    let next_starts_independent_value = if idx + 1 < prefix.length() {
+      match
+        run_hot_pipeline_dce_raw_instruction_effect(
+          prefix[idx + 1],
+          module_ctx,
+          func_result_count,
+          label_results,
+        ) {
+        Some(next_effect) => next_effect.params == 0
+        None => false
+      }
+    } else {
+      true
+    }
+    if segment_height == 1 && next_starts_independent_value {
+      for segment_instr in segment {
+        out.push(segment_instr)
+      }
+      out.push(@lib.Instruction::drop())
+      while segment.length() > 0 {
+        ignore(segment.pop())
+      }
+      segment_height = 0
+    }
+  }
+  segment_height == 0 && segment.length() == 0
+}
+
+///|
+fn run_hot_pipeline_dce_raw_drop_prefix_values_before_boundary(
+  rewritten : Array[@lib.Instruction],
+  preserve_count : Int,
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Bool {
+  if preserve_count == 0 {
+    return run_hot_pipeline_dce_raw_drop_current_stack_before_void_nonfallthrough(
+      rewritten, module_ctx, func_result_count, label_results,
+    )
+  }
+  let mut split = rewritten.length()
+  while split >= 0 {
+    match
+      run_hot_pipeline_dce_raw_suffix_height(
+        rewritten, split, module_ctx, func_result_count, label_results,
+      ) {
+      Some(height) if height == preserve_count => {
+        let prefix : Array[@lib.Instruction] = []
+        for idx = 0; idx < split; idx = idx + 1 {
+          prefix.push(rewritten[idx])
+        }
+        let suffix : Array[@lib.Instruction] = []
+        for idx = split; idx < rewritten.length(); idx = idx + 1 {
+          suffix.push(rewritten[idx])
+        }
+        let rebuilt : Array[@lib.Instruction] = []
+        if !run_hot_pipeline_dce_raw_push_prefix_with_value_drops(
+            rebuilt, prefix, module_ctx, func_result_count, label_results,
+          ) {
+          return false
+        }
+        while rewritten.length() > 0 {
+          ignore(rewritten.pop())
+        }
+        for instr in rebuilt {
+          rewritten.push(instr)
+        }
+        for instr in suffix {
+          rewritten.push(instr)
+        }
+        return true
+      }
+      _ => ()
+    }
+    split = split - 1
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dce_raw_push_nonfallthrough_cut(
+  rewritten : Array[@lib.Instruction],
+  instr : @lib.Instruction,
+  branchless_nonfallthrough_control : Bool,
+) -> Unit {
+  if branchless_nonfallthrough_control {
+    let (voidified, _) = run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
+      instr,
+    )
+    rewritten.push(voidified)
+  } else {
+    rewritten.push(instr)
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_push_branchless_nonfallthrough_replacement(
+  rewritten : Array[@lib.Instruction],
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) if block_type !=
+      @lib.BlockType::void_() &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(body) &&
+      !run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(body) => {
+      let (rewritten_body, _) = run_hot_pipeline_dce_raw_voidify_final_branchless_nonfallthrough_control(
+        body,
+      )
+      for body_instr in rewritten_body {
+        rewritten.push(body_instr)
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_instr_is_stack_cleanup_boundary(
+  instr : @lib.Instruction,
+  _module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instr {
+    @lib.DataDrop(_) | @lib.ElemDrop(_) | @lib.AtomicFence => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_drop_dead_stack_before_boundary(
+  rewritten : Array[@lib.Instruction],
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  effect : DceRawInstructionEffect,
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Bool {
+  if run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(rewritten) ||
+    !run_hot_pipeline_dce_raw_suffix_has_nonfallthrough_cut(instrs, idx + 1) {
+    return false
+  }
+  match
+    run_hot_pipeline_dce_raw_suffix_min_initial_stack_height(
+      instrs,
+      idx + 1,
+      module_ctx,
+      func_result_count,
+      label_results,
+    ) {
+    Some(future_stack_values) => {
+      let preserve_count = future_stack_values + effect.params
+      run_hot_pipeline_dce_raw_drop_prefix_values_before_boundary(
+        rewritten, preserve_count, module_ctx, func_result_count, label_results,
+      )
+    }
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_instr_effect_requires_nonlegacy_context(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Call(_)
+    | @lib.ReturnCall(_)
+    | @lib.CallIndirect(_, _)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.CallRef(_)
+    | @lib.ReturnCallRef(_)
+    | @lib.Throw(_)
+    | @lib.Block(_, _)
+    | @lib.Loop(_, _)
+    | @lib.If(_, _, _)
+    | @lib.TryTable(_, _, _)
+    | @lib.Return
+    | @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_try_trim_dead_consumer_after_nonfallthrough_operand(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  instr : @lib.Instruction,
+  rewritten : Array[@lib.Instruction],
+  branchless_nonfallthrough_control : Bool,
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
+) -> Bool {
+  if run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(rewritten) {
+    return false
+  }
+  let contains_legacy_pop = run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(
+    instrs,
+  )
+  let mut live_suffix_stack_values = 1
+  let mut consumer_offset = 1
+  while idx + consumer_offset < instrs.length() {
+    let consumer_instr = instrs[idx + consumer_offset]
+    if run_hot_pipeline_dce_raw_instr_effect_requires_nonlegacy_context(
+        consumer_instr,
+      ) &&
+      contains_legacy_pop {
+      return false
+    }
+    match
+      run_hot_pipeline_dce_raw_instruction_effect(
+        consumer_instr, module_ctx, func_result_count, label_results,
+      ) {
+      Some(effect) => {
+        if !effect.can_scan_dead_suffix {
+          return false
+        }
+        if effect.params >= live_suffix_stack_values {
+          if !effect.can_consume_dead_nonfallthrough_operand {
+            return false
+          }
+          let preserve_before = effect.params - live_suffix_stack_values
+          let has_dead_result_drop = effect.results == 1 &&
+            idx + consumer_offset + 1 < instrs.length() &&
+            run_hot_pipeline_dce_raw_instr_is_drop(
+              instrs[idx + consumer_offset + 1],
+            )
+          if (
+              effect.results == 0 ||
+              has_dead_result_drop ||
+              effect.can_discard_results_after_dead_nonfallthrough_operand
+            ) &&
+            run_hot_pipeline_dce_raw_push_preserved_operands_before_nonfallthrough(
+              rewritten, preserve_before,
+            ) {
+            if branchless_nonfallthrough_control {
+              match
+                run_hot_pipeline_dce_raw_control_operand_count_before_nonfallthrough_cut(
+                  instr,
+                ) {
+                Some(control_operand_count) =>
+                  if !run_hot_pipeline_dce_raw_drop_stack_before_nonfallthrough_cut(
+                      rewritten, control_operand_count, module_ctx, func_result_count,
+                      label_results,
+                    ) {
+                    return false
+                  }
+                None => ()
+              }
+            }
+            run_hot_pipeline_dce_raw_push_nonfallthrough_cut(
+              rewritten, instr, branchless_nonfallthrough_control,
+            )
+            return true
+          }
+          return false
+        }
+        live_suffix_stack_values = live_suffix_stack_values -
+          effect.params +
+          effect.results
+      }
+      None => return false
+    }
+    consumer_offset = consumer_offset + 1
+  }
+  false
 }
 
 ///|
@@ -6843,6 +8268,14 @@ fn run_hot_pipeline_dce_raw_unary_combiner(instr : @lib.Instruction) -> Bool {
     | @lib.I64Extend8S
     | @lib.I64Extend16S
     | @lib.I64Extend32S
+    | @lib.I32TruncSatF32S
+    | @lib.I32TruncSatF32U
+    | @lib.I32TruncSatF64S
+    | @lib.I32TruncSatF64U
+    | @lib.I64TruncSatF32S
+    | @lib.I64TruncSatF32U
+    | @lib.I64TruncSatF64S
+    | @lib.I64TruncSatF64U
     | @lib.RefIsNull
     | @lib.RefAsNonNull => true
     _ => false
@@ -6862,30 +8295,98 @@ fn run_hot_pipeline_dce_raw_nonfallthrough_value_block(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_voidify_final_branchless_nonfallthrough_control(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  if instrs.length() == 0 {
+    return (instrs, false)
+  }
+  let final_idx = instrs.length() - 1
+  let final_instr = instrs[final_idx]
+  if !run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
+      final_instr,
+    ) {
+    return (instrs, false)
+  }
+  let (voidified, changed) = run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
+    final_instr,
+  )
+  if !changed {
+    return (instrs, false)
+  }
+  let rewritten = instrs.copy()
+  rewritten[final_idx] = voidified
+  (rewritten, true)
+}
+
+///|
 fn run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
   instr : @lib.Instruction,
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) if block_type !=
       @lib.BlockType::void_() &&
-      !run_hot_pipeline_dce_raw_instrs_have_label_branch(body) &&
-      !run_hot_pipeline_dce_raw_body_may_fallthrough(body) =>
-      (
-        @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(body)),
-        true,
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(body) => {
+      let (rewritten_body, _) = run_hot_pipeline_dce_raw_voidify_final_branchless_nonfallthrough_control(
+        body,
       )
-    @lib.If(block_type, then_body, Some(else_body)) if block_type !=
-      @lib.BlockType::void_() &&
-      run_hot_pipeline_dce_raw_body_is_literal_unreachable(then_body) &&
-      run_hot_pipeline_dce_raw_body_is_literal_unreachable(else_body) =>
       (
-        @lib.Instruction::if_(
+        @lib.Instruction::block(
           @lib.BlockType::void_(),
-          then_body,
-          Some(else_body),
+          @lib.Expr::new(rewritten_body),
         ),
         true,
       )
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) if block_type !=
+      @lib.BlockType::void_() &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(body) => {
+      let (rewritten_body, _) = run_hot_pipeline_dce_raw_voidify_final_branchless_nonfallthrough_control(
+        body,
+      )
+      (
+        @lib.Instruction::loop_(
+          @lib.BlockType::void_(),
+          @lib.Expr::new(rewritten_body),
+        ),
+        true,
+      )
+    }
+    @lib.If(block_type, then_body, Some(else_body)) if block_type !=
+      @lib.BlockType::void_() &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(then_body) &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(else_body) => {
+      let (rewritten_then, _) = run_hot_pipeline_dce_raw_voidify_final_branchless_nonfallthrough_control(
+        then_body,
+      )
+      let (rewritten_else, _) = run_hot_pipeline_dce_raw_voidify_final_branchless_nonfallthrough_control(
+        else_body,
+      )
+      (
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          rewritten_then,
+          Some(rewritten_else),
+        ),
+        true,
+      )
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) if block_type !=
+      @lib.BlockType::void_() &&
+      !run_hot_pipeline_raw_try_table_body_has_exceptional_edge(body) &&
+      run_hot_pipeline_dce_raw_body_is_branchless_nonfallthrough(body) => {
+      let (rewritten_body, _) = run_hot_pipeline_dce_raw_voidify_final_branchless_nonfallthrough_control(
+        body,
+      )
+      (
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          catches,
+          @lib.Expr::new(rewritten_body),
+        ),
+        true,
+      )
+    }
     _ => (instr, false)
   }
 }
@@ -6893,11 +8394,22 @@ fn run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
 ///|
 fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
   instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
+      let nested_label_results = match
+        run_hot_pipeline_dce_raw_module_block_label_results(
+          module_ctx, block_type,
+        ) {
+        Some(results) =>
+          run_hot_pipeline_dce_raw_label_stack_push(label_results, results)
+        None => label_results
+      }
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
-        body,
+        body, module_ctx, func_result_count, nested_label_results,
       )
       let body_after = if changed { rewritten_body } else { body }
       if body_after.length() == 1 {
@@ -6914,8 +8426,16 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
       }
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
+      let nested_label_results = match
+        run_hot_pipeline_dce_raw_module_loop_label_results(
+          module_ctx, block_type,
+        ) {
+        Some(results) =>
+          run_hot_pipeline_dce_raw_label_stack_push(label_results, results)
+        None => label_results
+      }
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
-        body,
+        body, module_ctx, func_result_count, nested_label_results,
       )
       let body_after = if changed { rewritten_body } else { body }
       if body_after.length() == 1 {
@@ -6932,8 +8452,16 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
       }
     }
     @lib.Try(block_type, @lib.Expr(body), catches, delegate_label) => {
+      let nested_label_results = match
+        run_hot_pipeline_dce_raw_module_block_label_results(
+          module_ctx, block_type,
+        ) {
+        Some(results) =>
+          run_hot_pipeline_dce_raw_label_stack_push(label_results, results)
+        None => label_results
+      }
       let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
-        body,
+        body, module_ctx, func_result_count, nested_label_results,
       )
       let rewritten_catches : Array[@lib.LegacyCatch] = []
       let mut changed = body_changed
@@ -6941,7 +8469,7 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
         match catch_ {
           @lib.LegacyCatch(tag, @lib.Expr(catch_body)) => {
             let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
-              catch_body,
+              catch_body, module_ctx, func_result_count, nested_label_results,
             )
             changed = changed || catch_changed
             rewritten_catches.push(
@@ -6950,7 +8478,7 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
           }
           @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
             let (rewritten_catch_body, catch_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
-              catch_body,
+              catch_body, module_ctx, func_result_count, nested_label_results,
             )
             changed = changed || catch_changed
             rewritten_catches.push(
@@ -6972,8 +8500,16 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
       }
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let nested_label_results = match
+        run_hot_pipeline_dce_raw_module_block_label_results(
+          module_ctx, block_type,
+        ) {
+        Some(results) =>
+          run_hot_pipeline_dce_raw_label_stack_push(label_results, results)
+        None => label_results
+      }
       let (rewritten_body, changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
-        body,
+        body, module_ctx, func_result_count, nested_label_results,
       )
       if changed {
         return (
@@ -6987,14 +8523,22 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
       }
     }
     @lib.If(block_type, then_body, else_body) => {
+      let nested_label_results = match
+        run_hot_pipeline_dce_raw_module_block_label_results(
+          module_ctx, block_type,
+        ) {
+        Some(results) =>
+          run_hot_pipeline_dce_raw_label_stack_push(label_results, results)
+        None => label_results
+      }
       let (rewritten_then, then_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
-        then_body,
+        then_body, module_ctx, func_result_count, nested_label_results,
       )
       let mut changed = then_changed
       let rewritten_else = match else_body {
         Some(else_body) => {
           let (rewritten_else, else_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
-            else_body,
+            else_body, module_ctx, func_result_count, nested_label_results,
           )
           changed = changed || else_changed
           Some(rewritten_else)
@@ -7016,14 +8560,34 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
 ///|
 fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
   instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  func_result_count : Int,
+  label_results : Array[Array[@lib.ValType]],
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let (instr, instr_changed) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes_instr(
       instrs[idx],
+      module_ctx,
+      func_result_count,
+      label_results,
     )
     changed = changed || instr_changed
+    let branchless_nonfallthrough_control = run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
+      instr,
+    )
+    let instr_is_nonfallthrough_cut = run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(
+        instr,
+      ) ||
+      branchless_nonfallthrough_control
+    if instr_is_nonfallthrough_cut &&
+      run_hot_pipeline_dce_raw_try_trim_dead_consumer_after_nonfallthrough_operand(
+        instrs, idx, instr, rewritten, branchless_nonfallthrough_control, module_ctx,
+        func_result_count, label_results,
+      ) {
+      return (rewritten, true)
+    }
     if idx + 2 < instrs.length() &&
       run_hot_pipeline_dce_raw_nonfallthrough_value_block(instr) &&
       run_hot_pipeline_dce_raw_unary_combiner(instrs[idx + 1]) &&
@@ -7032,46 +8596,76 @@ fn run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
       rewritten.push(@lib.Instruction::drop())
       return (rewritten, true)
     }
-    if idx + 2 < instrs.length() &&
-      run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) &&
-      run_hot_pipeline_dce_raw_select_instr(instrs[idx + 1]) &&
-      run_hot_pipeline_dce_raw_instr_is_drop(instrs[idx + 2]) &&
-      rewritten.length() >= 2 {
-      let previous_value = rewritten.pop().unwrap()
-      let first_value = rewritten.pop().unwrap()
-      rewritten.push(first_value)
-      rewritten.push(@lib.Instruction::drop())
-      rewritten.push(previous_value)
-      rewritten.push(@lib.Instruction::drop())
-      rewritten.push(instr)
-      return (rewritten, true)
+    if idx + 1 < instrs.length() &&
+      run_hot_pipeline_dce_raw_instr_is_stack_cleanup_boundary(
+        instr, module_ctx,
+      ) {
+      match
+        run_hot_pipeline_dce_raw_instruction_effect(
+          instr, module_ctx, func_result_count, label_results,
+        ) {
+        Some(effect) =>
+          if run_hot_pipeline_dce_raw_drop_dead_stack_before_boundary(
+              rewritten, instrs, idx, effect, module_ctx, func_result_count, label_results,
+            ) {
+            changed = true
+          }
+        None => ()
+      }
     }
-    if idx + 3 < instrs.length() &&
-      run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) &&
-      run_hot_pipeline_dce_raw_select_instr(instrs[idx + 2]) &&
-      run_hot_pipeline_dce_raw_instr_is_drop(instrs[idx + 3]) &&
-      rewritten.length() >= 1 {
-      let previous_value = rewritten.pop().unwrap()
-      rewritten.push(previous_value)
-      rewritten.push(@lib.Instruction::drop())
-      rewritten.push(instr)
-      return (rewritten, true)
-    }
-    let branchless_nonfallthrough_control = run_hot_pipeline_dce_raw_instr_is_branchless_nonfallthrough_control(
-      instr,
-    )
-    if idx + 1 < instrs.length() && branchless_nonfallthrough_control {
-      let (voidified, _) = run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
+    if branchless_nonfallthrough_control {
+      let (voidified, voidified_changed) = run_hot_pipeline_dce_raw_voidify_nonfallthrough_value_control(
         instr,
       )
-      rewritten.push(voidified)
+      if idx + 1 < instrs.length() {
+        if run_hot_pipeline_dce_raw_current_region_result_count(
+            func_result_count, label_results,
+          ) ==
+          0 {
+          if !run_hot_pipeline_dce_raw_push_branchless_nonfallthrough_replacement(
+              rewritten, instr,
+            ) {
+            rewritten.push(voidified)
+          }
+          return (rewritten, true)
+        } else if voidified_changed &&
+          run_hot_pipeline_dce_raw_instr_is_explicit_cut_safe_branchless_nonfallthrough_control(
+            instr,
+          ) {
+          rewritten.push(voidified)
+          changed = true
+          continue
+        }
+      } else if voidified_changed &&
+        run_hot_pipeline_dce_raw_current_region_result_count(
+          func_result_count, label_results,
+        ) >
+        0 {
+        rewritten.push(voidified)
+        rewritten.push(@lib.Instruction::unreachable_())
+        return (rewritten, true)
+      }
+    }
+    if idx + 1 < instrs.length() &&
+      run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) {
+      match
+        run_hot_pipeline_dce_raw_instruction_effect(
+          instr, module_ctx, func_result_count, label_results,
+        ) {
+        Some(effect) if effect.params == 0 &&
+          !run_hot_pipeline_dce_raw_instrs_contain_legacy_pop(rewritten) =>
+          if !run_hot_pipeline_dce_raw_drop_current_stack_before_void_nonfallthrough(
+              rewritten, module_ctx, func_result_count, label_results,
+            ) {
+            rewritten.push(instr)
+            return (rewritten, true)
+          }
+        _ => ()
+      }
+      rewritten.push(instr)
       return (rewritten, true)
     }
     rewritten.push(instr)
-    if idx + 1 < instrs.length() &&
-      run_hot_pipeline_dce_raw_root_instr_is_explicit_nonfallthrough(instr) {
-      return (rewritten, true)
-    }
   }
   if changed {
     (rewritten, true)
@@ -7099,6 +8693,29 @@ fn run_hot_pipeline_dce_raw_loop_label_results(
   match env.expand_blocktype(block_type) {
     Ok((params, _)) => params
     Err(_) => []
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_module_block_label_results(
+  module_ctx : @ir.HotModuleContext,
+  block_type : @lib.BlockType,
+) -> Array[@lib.ValType]? {
+  @ir.hot_module_resolve_block_results(module_ctx, block_type)
+}
+
+///|
+fn run_hot_pipeline_dce_raw_module_loop_label_results(
+  module_ctx : @ir.HotModuleContext,
+  block_type : @lib.BlockType,
+) -> Array[@lib.ValType]? {
+  match block_type {
+    @lib.VoidBlockType | @lib.ValTypeBlockType(_) => Some([])
+    @lib.TypeIdxBlockType(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(params, _)) => Some(params)
+        None => None
+      }
   }
 }
 
@@ -7137,6 +8754,25 @@ fn run_hot_pipeline_dce_raw_label_results(
 ) -> Array[@lib.ValType]? {
   let @lib.LabelIdx(raw) = label
   label_results.get(raw.reinterpret_as_int())
+}
+
+///|
+fn run_hot_pipeline_dce_raw_label_ref_branch_results(
+  label_results : Array[Array[@lib.ValType]],
+  label : @lib.LabelIdx,
+) -> Array[@lib.ValType]? {
+  let results = match
+    run_hot_pipeline_dce_raw_label_results(label_results, label) {
+    Some(results) => results
+    None => return None
+  }
+  if results.length() == 0 {
+    return None
+  }
+  match results[results.length() - 1] {
+    @lib.RefTypeValType(_) => Some(results)
+    _ => None
+  }
 }
 
 ///|
@@ -23202,20 +24838,23 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       })
     }
     if run_hot_pipeline_dce_raw_has_load_call_set_hazard(instrs) {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let func_results = run_hot_pipeline_required_func_results(
+        module_ctx, func_idx,
+      )
       let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
         instrs,
+        module_ctx,
+        func_results.length(),
+        [],
       )
       if trimmed_dead_suffix {
         let @lib.Func(locals, _) = original
-        let module_ctx = run_hot_pipeline_require_module_ctx(
-          mod_, module_state, options,
-        )
         let param_count = run_hot_pipeline_required_func_params(
           module_ctx, func_idx,
         ).length()
-        let func_results = run_hot_pipeline_required_func_results(
-          module_ctx, func_idx,
-        )
         return Some({
           reason: "load-call-set-dce-explicit-dead-suffix",
           func: run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
@@ -23237,20 +24876,23 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       })
     }
     if run_hot_pipeline_dce_raw_has_loop_outer_branch(instrs) {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let func_results = run_hot_pipeline_required_func_results(
+        module_ctx, func_idx,
+      )
       let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
         instrs,
+        module_ctx,
+        func_results.length(),
+        [],
       )
       if trimmed_dead_suffix {
         let @lib.Func(locals, _) = original
-        let module_ctx = run_hot_pipeline_require_module_ctx(
-          mod_, module_state, options,
-        )
         let param_count = run_hot_pipeline_required_func_params(
           module_ctx, func_idx,
         ).length()
-        let func_results = run_hot_pipeline_required_func_results(
-          module_ctx, func_idx,
-        )
         return Some({
           reason: "loop-outer-branch-dce-explicit-dead-suffix",
           func: run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
@@ -23274,19 +24916,22 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   }
   if descriptor.name == "dead-code-elimination" {
     let @lib.Func(locals, @lib.Expr(instrs)) = original
+    let module_ctx = run_hot_pipeline_require_module_ctx(
+      mod_, module_state, options,
+    )
+    let func_results = run_hot_pipeline_required_func_results(
+      module_ctx, func_idx,
+    )
     let (rewritten_instrs, trimmed_dead_suffix) = run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(
       instrs,
+      module_ctx,
+      func_results.length(),
+      [],
     )
     if trimmed_dead_suffix {
-      let module_ctx = run_hot_pipeline_require_module_ctx(
-        mod_, module_state, options,
-      )
       let param_count = run_hot_pipeline_required_func_params(
         module_ctx, func_idx,
       ).length()
-      let func_results = run_hot_pipeline_required_func_results(
-        module_ctx, func_idx,
-      )
       return Some({
         reason: "dce-explicit-dead-suffix",
         func: run_hot_pipeline_dce_raw_func_with_legacy_pop_repair(
