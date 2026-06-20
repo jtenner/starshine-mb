@@ -44,6 +44,7 @@ sources:
   - ../../../raw/research/0764-2026-06-20-optimize-instructions-oi-i-ref-func-test-cast.md
   - ../../../raw/research/0765-2026-06-20-optimize-instructions-oi-i-i31-ref-eq.md
   - ../../../raw/research/0766-2026-06-20-optimize-instructions-oi-i-non-null-local-refs.md
+  - ../../../raw/research/0767-2026-06-20-optimize-instructions-oi-i-non-null-local-test-cast.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -96,6 +97,7 @@ Its center of gravity is:
 - first nullable null-operand `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref null T)` fed by `ref.null` folds to `i32.const 1`, and nullable `ref.cast` fed by `ref.null` rewrites to the null child; non-null null-operand cast/test public fixtures remain open behind current validation/type-surface matching
 - successful local-i31 `ref.test` / `ref.cast` basics from OI-I: `ref.test` fed by a local `ref.i31` constructor folds to `i32.const 1` for absolute targets `i31`, `eq`, and `any`, and matching `ref.cast` targets rewrite to the constructor child
 - successful local-`ref.func` `ref.test` / `ref.cast` basics from OI-I: exact `ref.test (ref func)` fed by local `ref.func` folds to `i32.const 1`, and exact `ref.cast (ref func)` fed by local `ref.func` rewrites to the constructor child; target-supertypes and arbitrary function-subtype facts remain open
+- exact declared non-null local `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref T)` fed by a `local.get` whose declared type is non-null `(ref T)` folds to `i32.const 1`, and exact `ref.cast (ref T)` fed by that local rewrites to the local child; broader subtype, indexed-type, nullable-local, flow-sensitive, descriptor, exactness, TNH, and IIT facts remain open
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
