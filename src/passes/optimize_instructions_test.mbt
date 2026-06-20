@@ -1150,6 +1150,56 @@ test "optimize-instructions folds nullable ref.test and ref.cast on known null r
 }
 
 ///|
+test "optimize-instructions folds non-null ref.test and ref.cast on known null refs" {
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let non_null_eq_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, eq_heap),
+  )
+  let i32_type = @lib.TypeIdx::new(0U)
+  let eq_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [non_null_eq_ref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([i32_type, eq_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(eq_heap),
+            @lib.Instruction::ref_test(false, eq_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(eq_heap),
+            @lib.Instruction::ref_cast(false, eq_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_nonnull = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let cast_nonnull = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(test_nonnull.contains("ref.test"), msg=test_nonnull)
+  assert_true(test_nonnull.contains("I32(0)"), msg=test_nonnull)
+  assert_true(cast_nonnull.contains("unreachable"), msg=cast_nonnull)
+  assert_false(cast_nonnull.contains("ref.cast"), msg=cast_nonnull)
+}
+
+///|
 test "optimize-instructions folds successful ref.test and ref.cast on local i31 refs" {
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
