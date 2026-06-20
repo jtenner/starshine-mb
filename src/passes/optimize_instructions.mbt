@@ -4449,6 +4449,44 @@ fn optimize_instructions_ref_func_matches_target(ht : @lib.HeapType) -> Bool {
 }
 
 ///|
+fn optimize_instructions_ref_i31_cannot_match_target(
+  ht : @lib.HeapType,
+) -> Bool {
+  match ht {
+    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
+      abs == @lib.AbsHeapType::struct_() || abs == @lib.AbsHeapType::array()
+    @lib.HeapType::HeapType(_) | @lib.HeapType::DefTypeHeapType(_) => true
+  }
+}
+
+///|
+fn optimize_instructions_ref_is_known_miss_for_target(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) =>
+          ref_type.is_non_nullable() &&
+          ref_type.get_heap_type() ==
+          @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+          optimize_instructions_ref_i31_cannot_match_target(target)
+        _ => false
+      }
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefI31) =>
+          optimize_instructions_ref_i31_cannot_match_target(target)
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_is_known_match_for_target(
   func : @ir.HotFunc,
   node_id : Int,
@@ -4553,6 +4591,17 @@ fn optimize_instructions_try_fold_ref_test_null(
       )
       true
     }
+    _ if optimize_instructions_ref_is_known_miss_for_target(
+        func, operand_id, target,
+      ) => {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(0),
+      )
+      true
+    }
     _ => false
   }
 }
@@ -4586,6 +4635,12 @@ fn optimize_instructions_try_fold_ref_cast_null(
         func, operand_id, target,
       ) => {
       optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
+      true
+    }
+    _ if optimize_instructions_ref_is_known_miss_for_target(
+        func, operand_id, target,
+      ) => {
+      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
       true
     }
     _ => false

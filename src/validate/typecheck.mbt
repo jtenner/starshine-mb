@@ -1953,6 +1953,28 @@ fn typecheck_ref_get_desc(st : TcState, type_idx : TypeIdx) -> TcResult {
 }
 
 ///|
+fn typecheck_ref_test_or_cast_types_compatible(
+  target : RefType,
+  operand : RefType,
+  env : Env,
+) -> Bool {
+  Match::matches(target, operand, env) ||
+  Match::matches(operand, target, env) ||
+  (
+    Match::matches(
+      target.get_heap_type(),
+      HeapType::abs(AbsHeapType::eq()),
+      env,
+    ) &&
+    Match::matches(
+      operand.get_heap_type(),
+      HeapType::abs(AbsHeapType::eq()),
+      env,
+    )
+  )
+}
+
+///|
 fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult {
   let rt = RefType::new(nullable, ht)
   if Validate::validate(rt, st.env) is Err(t) {
@@ -1967,8 +1989,7 @@ fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
     _ => return Err("ref.test expects a reference operand")
   }
 
-  // Spec: rt <: rt_in OR rt_in <: rt (types must be in same hierarchy)
-  if !(Match::matches(rt, rt_in, st.env) || Match::matches(rt_in, rt, st.env)) {
+  if !typecheck_ref_test_or_cast_types_compatible(rt, rt_in, st.env) {
     return Err("ref.test target does not match operand type")
   }
   Ok(st1.push1(ValType::i32()))
@@ -1987,8 +2008,7 @@ fn typecheck_ref_cast(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
   match rt_in_opt {
     None => ()
     Some(rt_in) =>
-      if !(Match::matches(rt, rt_in, st.env) ||
-        Match::matches(rt_in, rt, st.env)) {
+      if !typecheck_ref_test_or_cast_types_compatible(rt, rt_in, st.env) {
         return Err("ref.cast target does not match operand type")
       }
   }

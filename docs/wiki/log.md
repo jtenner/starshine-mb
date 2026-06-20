@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I impossible i31 ref.test/ref.cast proof
+
+- Filed [`raw/research/0770-2026-06-20-optimize-instructions-oi-i-impossible-i31-test-cast.md`](raw/research/0770-2026-06-20-optimize-instructions-oi-i-impossible-i31-test-cast.md) for the fourteenth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now accepts ordinary `ref.test` / `ref.cast` across disjoint `eq`-hierarchy sibling heap types, folds local `ref.i31` values tested against `struct` / `array` / indexed heap targets to `i32.const 0`, and rewrites matching casts to `unreachable`.
+- Evidence: local Binaryen `version_130` oracle probe with `wasm-opt --enable-reference-types --enable-gc -S -O --optimize-instructions -o -` folded `ref.i31` to `ref.test (ref struct)` / `ref.cast (ref struct)` the same way. Red-first first exposed the validator boundary, then the optimizer gap; final focused `*impossible ref.test*` passed `1/1`, `*ref*` passed `24/24`, `*optimize-instructions*` passed `152/152`, `moon test src/validate` passed `1612/1612`, `moon fmt` passed, `moon test src/passes` passed `2664/2664`, native `src/cmd` release build passed, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare in `.tmp/pass-fuzz-optimize-instructions-oi-i-impossible-i31-cast-10000` compared `55/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I non-null null-operand ref.test/ref.cast coverage
 
 - Filed [`raw/research/0769-2026-06-20-optimize-instructions-oi-i-null-nonnull-test-cast-surface.md`](raw/research/0769-2026-06-20-optimize-instructions-oi-i-null-nonnull-test-cast-surface.md) for the thirteenth `[O4Z-AUDIT-OI-I]` sub-slice. This was a coverage/type-surface audit slice rather than a new optimizer rewrite: Starshine now has validating direct-core coverage for non-null `ref.test (ref eq)` fed by `ref.null eq` folding to `i32.const 0`, and non-null `ref.cast (ref eq)` fed by `ref.null eq` rewriting to `unreachable` through the existing optimizer implementation.
