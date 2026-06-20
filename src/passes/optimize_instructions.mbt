@@ -4456,6 +4456,67 @@ fn optimize_instructions_try_fold_ref_is_null(
 }
 
 ///|
+fn optimize_instructions_try_fold_ref_test_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let nullable = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefTest(nullable, _)) => nullable
+    _ => return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::RefNull => {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if nullable {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_ref_cast_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let nullable = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCast(nullable, _)) => nullable
+    _ => return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::RefNull => {
+      if nullable {
+        optimize_instructions_replace_with_node_id(
+          ctx, func, node_id, operand_id,
+        )
+      } else {
+        optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_replace_ref_cast_unreachable_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4877,7 +4938,10 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
     @ir.HotOp::RefIsNull =>
       optimize_instructions_try_fold_ref_is_null(ctx, func, node_id)
+    @ir.HotOp::RefTest =>
+      optimize_instructions_try_fold_ref_test_null(ctx, func, node_id)
     @ir.HotOp::RefCast =>
+      optimize_instructions_try_fold_ref_cast_null(ctx, func, node_id) ||
       optimize_instructions_try_replace_ref_cast_unreachable_operand(
         ctx, func, node_id,
       )

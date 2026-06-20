@@ -3,6 +3,11 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I nullable ref.test/ref.cast null basics
+
+- Filed [`raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md`](raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md) for the fifth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds nullable `ref.test` fed by a known null to `i32.const 1` and rewrites nullable `ref.cast` fed by a known null to the null child. The implementation also handles the local non-null target branch internally, while public non-null null-operand fixtures remain open behind current validation/type-surface matching.
+- Evidence: local Binaryen `version_130` oracle probe with `wasm-opt --enable-reference-types --enable-gc -S -O --optimize-instructions` folded nullable and non-null null-operand `ref.test` / `ref.cast` forms. Red-first focused `*nullable ref.test*` failed before implementation because the new direct-core nullable forms still contained `ref.test` / `ref.cast`; final `*nullable ref.test*` passed `1/1`, focused `*ref*` passed `16/16`, focused `*optimize-instructions*` passed `144/144`, `moon fmt` passed, `moon test src/passes` passed `2656/2656`, native `src/cmd` release build passed with existing unused-function warnings, `moon info` passed with existing warnings, and `git diff --check` passed. The first direct compare timed out before `result.json`; the rerun in `.tmp/pass-fuzz-optimize-instructions-oi-i-null-ref-test-cast-10000-rerun` compared `53/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no reference operation occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I ref.as_non_null ref.func proof
 
 - Filed [`raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md`](raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md) for the fourth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now rewrites `ref.as_non_null(ref.func f)` to `ref.func f` by reusing the existing local known-non-null constructor proof, while keeping broader `ref.cast`, `ref.test`, descriptor, exactness, TNH, and IIT-sensitive proofs open.

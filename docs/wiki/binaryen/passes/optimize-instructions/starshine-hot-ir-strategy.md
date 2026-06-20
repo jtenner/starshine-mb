@@ -38,6 +38,7 @@ sources:
   - ../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md
   - ../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md
   - ../../../raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md
+  - ../../../raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -87,6 +88,7 @@ Its center of gravity is:
 - first null-reference basics from OI-I: `ref.is_null(ref.null)` folds to `i32.const 1`, `ref.eq(x, null)` and `ref.eq(null, x)` rewrite through `ref.is_null(x)`, and `ref.eq(null, null)` folds to `i32.const 1`
 - known-non-null constructor basics from OI-I: `ref.is_null(ref.i31)` and `ref.is_null(ref.func)` fold to `i32.const 0`, and `ref.eq(ref.i31, null)` / `ref.eq(null, ref.i31)` fold to `i32.const 0`; the validator now accepts non-null `ref.is_null` operands so these fixtures can be authored through WAT
 - first `ref.as_non_null` basics from OI-I: `ref.as_non_null(ref.null)` rewrites to `unreachable`, `ref.as_non_null(ref.i31(x))` rewrites to `ref.i31(x)`, `ref.as_non_null(ref.func f)` rewrites to `ref.func f`, and exact `ref.cast(unreachable)` collapses to `unreachable` so stacked cast shapes lower validly
+- first nullable null-operand `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref null T)` fed by `ref.null` folds to `i32.const 1`, and nullable `ref.cast` fed by `ref.null` rewrites to the null child; non-null null-operand cast/test public fixtures remain open behind current validation/type-surface matching
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -266,12 +268,12 @@ This is still the bigger story.
 
 ## 1. No broad AST reference / GC optimization surface yet
 
-The local file now implements the first three OI-I reference basics: `ref.is_null(ref.null)` / `ref.eq` with null operands, known-non-null constructor folds for `ref.i31` / `ref.func` null tests and `ref.i31` null equality, plus `ref.as_non_null(ref.null)`, `ref.as_non_null(ref.i31(x))`, and exact `ref.cast(unreachable)` validity repair. It still does not implement the broader upstream visitor families for things like:
+The local file now implements the first five OI-I reference basics: `ref.is_null(ref.null)` / `ref.eq` with null operands, known-non-null constructor folds for `ref.i31` / `ref.func` null tests and `ref.i31` null equality, `ref.as_non_null(ref.null)`, `ref.as_non_null(ref.i31(x))`, `ref.as_non_null(ref.func f)`, exact `ref.cast(unreachable)` validity repair, and nullable null-operand `ref.test` / `ref.cast` cleanup. It still does not implement the broader upstream visitor families for things like:
 
 - impossible `ref.eq` / known-non-null equality proofs beyond the local `null` vs `ref.i31` subset
 - broader `ref.is_null` known-non-null proofs beyond exact local constructors
-- broader `ref.cast`
-- `ref.test`
+- public non-null null-operand `ref.test` / `ref.cast` fixtures, currently blocked by local validation/type-surface matching
+- definitely successful `ref.cast` / `ref.test` cases and broader failed cast/test cases
 - broader `ref.as_non_null` cleanup
 - descriptor-aware casts
 - exactness-aware cast tightening

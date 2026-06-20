@@ -44,6 +44,7 @@ sources:
   - ../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md
   - ../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md
   - ../../../raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md
+  - ../../../raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -95,6 +96,7 @@ related:
   - ../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md
   - ../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md
   - ../../../raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md
+  - ../../../raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -251,6 +253,8 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md`](../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md) records the first `[O4Z-AUDIT-OI-I]` reference-null sub-slice: `ref.is_null(ref.null)` and null-operand `ref.eq` rewrites now cover the local null equality/test basics while broader casts and exactness-sensitive behavior remain open.
 - [`../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md`](../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md) records the second `[O4Z-AUDIT-OI-I]` reference sub-slice: first `ref.as_non_null` null/known-`i31` cleanup and exact `ref.cast(unreachable)` validity repair are covered while broader casts, tests, and descriptor/exactness-sensitive behavior remain open.
 - [`../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md`](../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md) records the third `[O4Z-AUDIT-OI-I]` reference sub-slice: known-non-null `ref.i31` / `ref.func` null tests and `ref.i31` null equality now fold to `i32.const 0`, with the supporting `ref.is_null` typechecker correction.
+- [`../../../raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md`](../../../raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md) records the fourth `[O4Z-AUDIT-OI-I]` reference sub-slice: `ref.as_non_null(ref.func f)` now reuses the local known-non-null constructor proof and rewrites to `ref.func f` while arbitrary cast/test/type proofs remain open.
+- [`../../../raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md`](../../../raw/research/0761-2026-06-20-optimize-instructions-oi-i-null-ref-test-cast.md) records the fifth `[O4Z-AUDIT-OI-I]` reference sub-slice: nullable null-operand `ref.test` folds to `i32.const 1` and nullable null-operand `ref.cast` rewrites to the null child, while public non-null cast/test fixtures remain a validation/type-surface follow-up.
 - [`../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md`](../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md) records the second `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-2 and size-4 `memory.fill` lowering and nonconstant wider-fill boundary evidence.
 - [`../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md`](../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md) records the third `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-8 `memory.fill` lowering to repeated-byte `i64.store` while keeping nonconstant wider fills open.
 - [`../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md`](../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md) records the fourth `[O4Z-AUDIT-OI-G]` sub-slice for local.get value size-2 and size-4 `memory.fill` lowering through low-byte mask and repeat multiply expressions while keeping effectful values and nonconstant size-8 fills open.

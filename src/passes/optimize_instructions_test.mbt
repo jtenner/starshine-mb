@@ -1038,6 +1038,54 @@ test "optimize-instructions folds ref.as_non_null on known null and non-null ref
 }
 
 ///|
+test "optimize-instructions folds nullable ref.test and ref.cast on known null refs" {
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let eq_ref = @lib.ValType::ref_null(eq_heap)
+  let i32_type = @lib.TypeIdx::new(0U)
+  let eq_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [eq_ref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([i32_type, eq_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(eq_heap),
+            @lib.Instruction::ref_test(true, eq_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(eq_heap),
+            @lib.Instruction::ref_cast(true, eq_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_nullable = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let cast_nullable = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(test_nullable.contains("ref.test"), msg=test_nullable)
+  assert_true(test_nullable.contains("I32(1)"), msg=test_nullable)
+  assert_true(cast_nullable.contains("ref.null"), msg=cast_nullable)
+  assert_false(cast_nullable.contains("ref.cast"), msg=cast_nullable)
+}
+
+///|
 test "optimize-instructions collapses casts fed by unreachable ref.as_non_null" {
   let func_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
   let func_ref = @lib.ValType::ref_type(@lib.RefType::new(false, func_heap))
