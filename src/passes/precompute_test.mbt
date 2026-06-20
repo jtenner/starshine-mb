@@ -202,6 +202,45 @@ test "precompute folds constant br-if and self-branch debris" {
 }
 
 ///|
+test "precompute intentionally preserves reachable atomic fence before branch-to-end" {
+  // Boundary guard: Binaryen currently removes this fence under `--precompute`,
+  // but Starshine keeps `atomic.fence` as an ordering barrier. Do not widen the
+  // precompute branch cleanup to erase reachable atomics just to clear raw
+  // output drift.
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::atomic_fence(),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::atomic_fence(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected precompute atomic-fence branch preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("atomic.fence"), msg=pretty)
+  assert_true(pretty.contains("br ("), msg=pretty)
+}
+
+///|
 test "precompute folds constant false void ifs away" {
   let optimized = match
     pass_test_run_pipeline(
