@@ -2375,6 +2375,128 @@ test "optimize-instructions folds successful ref.test and ref.cast on local ref.
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix for ref.func reference basics" {
+  let func_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
+  let non_null_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, func_heap),
+  )
+  let effect_type = @lib.TypeIdx::new(0U)
+  let empty_type = @lib.TypeIdx::new(1U)
+  let i32_type = @lib.TypeIdx::new(2U)
+  let func_ref_type = @lib.TypeIdx::new(3U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [non_null_func_ref])),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        empty_type, i32_type, func_ref_type, i32_type, func_ref_type,
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_test(false, func_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_cast(false, func_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::ref_as_non_null(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let cast_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let is_null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let as_non_null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_false(test_pretty.contains("ref.test"), msg=test_pretty)
+  assert_true(test_pretty.contains("call (Func 0)"), msg=test_pretty)
+  assert_true(test_pretty.contains("drop"), msg=test_pretty)
+  assert_true(test_pretty.contains("I32(1)"), msg=test_pretty)
+  assert_false(cast_pretty.contains("ref.cast"), msg=cast_pretty)
+  assert_true(cast_pretty.contains("call (Func 0)"), msg=cast_pretty)
+  assert_true(cast_pretty.contains("drop"), msg=cast_pretty)
+  assert_true(cast_pretty.contains("ref.func"), msg=cast_pretty)
+  assert_false(is_null_pretty.contains("ref.is_null"), msg=is_null_pretty)
+  assert_true(is_null_pretty.contains("call (Func 0)"), msg=is_null_pretty)
+  assert_true(is_null_pretty.contains("drop"), msg=is_null_pretty)
+  assert_true(is_null_pretty.contains("I32(0)"), msg=is_null_pretty)
+  assert_false(
+    as_non_null_pretty.contains("ref.as_non_null"),
+    msg=as_non_null_pretty,
+  )
+  assert_true(
+    as_non_null_pretty.contains("call (Func 0)"),
+    msg=as_non_null_pretty,
+  )
+  assert_true(as_non_null_pretty.contains("drop"), msg=as_non_null_pretty)
+  assert_true(as_non_null_pretty.contains("ref.func"), msg=as_non_null_pretty)
+}
+
+///|
 test "optimize-instructions folds declared non-null i31 local ref.test and ref.cast to supertypes" {
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
