@@ -81,6 +81,126 @@ fn hso_test_index_of(text : String, needle : String) -> Int? {
 }
 
 ///|
+fn hso_test_block_wrap(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  [@lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(body))]
+}
+
+///|
+fn hso_test_if_wrap(body : Array[@lib.Instruction]) -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::if_(@lib.BlockType::void_(), body, None),
+  ]
+}
+
+///|
+fn hso_test_loop_wrap(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  [@lib.Instruction::loop_(@lib.BlockType::void_(), @lib.Expr::new(body))]
+}
+
+///|
+fn hso_test_memory_init_body() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::memory_init(@lib.DataIdx::new(0U), @lib.MemIdx::new(0U)),
+  ]
+}
+
+///|
+fn hso_test_data_drop_body() -> Array[@lib.Instruction] {
+  [@lib.Instruction::data_drop(@lib.DataIdx::new(0U))]
+}
+
+///|
+fn hso_test_table_init_body() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::table_init(@lib.ElemIdx::new(0U), @lib.TableIdx::new(0U)),
+  ]
+}
+
+///|
+fn hso_test_elem_drop_body() -> Array[@lib.Instruction] {
+  [@lib.Instruction::elem_drop(@lib.ElemIdx::new(0U))]
+}
+
+///|
+fn hso_assert_memory_size_wrapped_passive_boundary(
+  roots : Array[@lib.Instruction],
+  marker : String,
+  label : String,
+) -> Unit raise {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let body : Array[@lib.Instruction] = [
+    @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+  ]
+  for root in roots {
+    body.push(root)
+  }
+  body.push(@lib.Instruction::local_get(local0))
+  body.push(@lib.Instruction::i32_const(@lib.I32(7)))
+  body.push(@lib.Instruction::struct_set(pair, @lib.U32(1U)))
+  body.push(@lib.Instruction::local_get(local0))
+  body.push(@lib.Instruction::struct_get(pair, @lib.U32(1U)))
+  let optimized = match hso_memory_data_test_run(body, 2) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected \{label} heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains(marker), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+fn hso_assert_table_size_wrapped_passive_boundary(
+  roots : Array[@lib.Instruction],
+  marker : String,
+  label : String,
+) -> Unit raise {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let body : Array[@lib.Instruction] = [
+    @lib.Instruction::table_size(@lib.TableIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+  ]
+  for root in roots {
+    body.push(root)
+  }
+  body.push(@lib.Instruction::local_get(local0))
+  body.push(@lib.Instruction::i32_const(@lib.I32(7)))
+  body.push(@lib.Instruction::struct_set(pair, @lib.U32(1U)))
+  body.push(@lib.Instruction::local_get(local0))
+  body.push(@lib.Instruction::struct_get(pair, @lib.U32(1U)))
+  let optimized = match hso_table_elem_test_run(body, 2) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected \{label} heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.size"), msg=pretty)
+  assert_true(pretty.contains(marker), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 fn hso_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -4445,6 +4565,60 @@ test "heap-store-optimization keeps memory.size constructors before data.drop" {
 }
 
 ///|
+test "heap-store-optimization keeps memory.size constructors before block-wrapped memory.init" {
+  hso_assert_memory_size_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_memory_init_body()),
+    "memory.init",
+    "memory-size/block-memory-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory.size constructors before if-wrapped memory.init" {
+  hso_assert_memory_size_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_memory_init_body()),
+    "memory.init",
+    "memory-size/if-memory-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory.size constructors before loop-wrapped memory.init" {
+  hso_assert_memory_size_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_memory_init_body()),
+    "memory.init",
+    "memory-size/loop-memory-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory.size constructors before block-wrapped data.drop" {
+  hso_assert_memory_size_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_data_drop_body()),
+    "data.drop",
+    "memory-size/block-data-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory.size constructors before if-wrapped data.drop" {
+  hso_assert_memory_size_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_data_drop_body()),
+    "data.drop",
+    "memory-size/if-data-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps memory.size constructors before loop-wrapped data.drop" {
+  hso_assert_memory_size_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_data_drop_body()),
+    "data.drop",
+    "memory-size/loop-data-drop",
+  )
+}
+
+///|
 test "heap-store-optimization keeps memory-growing constructors before memory.init" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
@@ -4588,6 +4762,60 @@ test "heap-store-optimization keeps table.size constructors before elem.drop" {
   assert_true(pretty.contains("table.size"), msg=pretty)
   assert_true(pretty.contains("elem.drop"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps table.size constructors before block-wrapped table.init" {
+  hso_assert_table_size_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_table_init_body()),
+    "table.init",
+    "table-size/block-table-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table.size constructors before if-wrapped table.init" {
+  hso_assert_table_size_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_table_init_body()),
+    "table.init",
+    "table-size/if-table-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table.size constructors before loop-wrapped table.init" {
+  hso_assert_table_size_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_table_init_body()),
+    "table.init",
+    "table-size/loop-table-init",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table.size constructors before block-wrapped elem.drop" {
+  hso_assert_table_size_wrapped_passive_boundary(
+    hso_test_block_wrap(hso_test_elem_drop_body()),
+    "elem.drop",
+    "table-size/block-elem-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table.size constructors before if-wrapped elem.drop" {
+  hso_assert_table_size_wrapped_passive_boundary(
+    hso_test_if_wrap(hso_test_elem_drop_body()),
+    "elem.drop",
+    "table-size/if-elem-drop",
+  )
+}
+
+///|
+test "heap-store-optimization keeps table.size constructors before loop-wrapped elem.drop" {
+  hso_assert_table_size_wrapped_passive_boundary(
+    hso_test_loop_wrap(hso_test_elem_drop_body()),
+    "elem.drop",
+    "table-size/loop-elem-drop",
+  )
 }
 
 ///|
