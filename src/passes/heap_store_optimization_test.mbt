@@ -1846,6 +1846,40 @@ test "heap-store-optimization folds memory.size branches into struct.new" {
 }
 
 ///|
+test "heap-store-optimization folds function-return set values into struct.new" {
+  let pair = @lib.TypeIdx::new(0U)
+  let optimized = match
+    hso_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::if_(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          [
+            @lib.Instruction::i32_const(@lib.I32(42)),
+            @lib.Instruction::return_(),
+          ],
+          Some([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected return-value heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds tee memory.size branches into struct.new" {
   let pair = @lib.TypeIdx::new(0U)
   let optimized = match

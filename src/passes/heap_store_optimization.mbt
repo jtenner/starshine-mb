@@ -357,8 +357,8 @@ fn hso_subtree_may_skip_local_set_from_root(
     return true
   }
   match node.op {
-    @ir.HotOp::Return
-    | @ir.HotOp::ReturnCall
+    @ir.HotOp::Return => return false
+    @ir.HotOp::ReturnCall
     | @ir.HotOp::ReturnCallIndirect
     | @ir.HotOp::ReturnCallRef
     | @ir.HotOp::Throw
