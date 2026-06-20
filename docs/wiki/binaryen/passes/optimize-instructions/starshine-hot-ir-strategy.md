@@ -78,6 +78,7 @@ sources:
   - ../../../raw/research/0798-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-as-non-null.md
   - ../../../raw/research/0799-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-cast.md
   - ../../../raw/research/0800-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-nullable-target.md
+  - ../../../raw/research/0801-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-non-null-target.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful nullable-source non-null-target miss
+
+- Filed [`raw/research/0801-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-non-null-target.md`](raw/research/0801-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-non-null-target.md) for the forty-fifth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding nullable-source, non-null-target aggregate sibling-miss `ref.test` to `i32.const 0` and rewriting the matching impossible `ref.cast` to `unreachable`.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded test miss and cast trap. Red-first did not apply because this was coverage for existing behavior. Focused `*nullable-source non-null-target ref.test*` passed `1/1`, final `*ref.test and ref.cast*` passed `19/19`, final `*ref*` passed `52/52`, final `*optimize-instructions*` passed `182/182`, `moon fmt`, `moon test src/passes` (`2712/2712`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful nullable-source nullable-target cast/test
 
 - Filed [`raw/research/0800-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-nullable-target.md`](raw/research/0800-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-nullable-target.md) for the forty-fourth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding nullable-source, nullable-target local-supertype `ref.test` to `i32.const 1` and removing the matching no-op `ref.cast` to the original local.

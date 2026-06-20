@@ -2729,6 +2729,81 @@ test "optimize-instructions folds non-null target ref.test and ref.cast on nulla
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix for nullable-source non-null-target ref.test and ref.cast miss" {
+  let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
+  let array_heap = @lib.HeapType::abs(@lib.AbsHeapType::array())
+  let nullable_struct_ref = @lib.ValType::ref_null(struct_heap)
+  let array_ref = @lib.ValType::ref_type(@lib.RefType::new(false, array_heap))
+  let effect_type = @lib.TypeIdx::new(0U)
+  let test_type = @lib.TypeIdx::new(1U)
+  let cast_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_struct_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_struct_ref], [array_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type, cast_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(false, array_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, array_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_array = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let cast_array = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(test_array.contains("ref.test"), msg=test_array)
+  assert_true(test_array.contains("call (Func 0)"), msg=test_array)
+  assert_true(test_array.contains("drop"), msg=test_array)
+  assert_true(test_array.contains("I32(0)"), msg=test_array)
+  assert_false(cast_array.contains("ref.cast"), msg=cast_array)
+  assert_true(cast_array.contains("call (Func 0)"), msg=cast_array)
+  assert_true(cast_array.contains("drop"), msg=cast_array)
+  assert_true(cast_array.contains("unreachable"), msg=cast_array)
+}
+
+///|
 test "optimize-instructions covers successful nullable-target ref.test and ref.cast on non-null local supertypes" {
   let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
