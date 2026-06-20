@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
+  - ../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -193,6 +194,7 @@ The other critical owner is [`src/passes/pass_manager.mbt`](../../../../../src/p
 ### Dispatch
 
 - the raw dispatcher first asks `precompute_run_raw_func(...)` whether scalar-only work, branch-free constant-`if` arm picking, module-proven immutable `global.get` constants, mutable/global no-candidate reads, dropped flat trap-free scalar/global/select expressions, dropped single-result blocks, preserved effectful/trapping dropped tails, nested nop-only control, or no-candidate functions can skip HOT lift/lower
+- under `optimize_level >= 4 && shrink_level >= 1`, the dispatcher accepts only changed raw results reported as `raw-scalar-folds`; every HOT-only, hazardous, no-candidate, or non-scalar raw reason still returns `o4z-precompute-noop`
 - the hot-pass dispatcher maps `"precompute" => precompute_run(ctx, func)`
 
 ### Invalid-lower / writeback guard rails
@@ -229,8 +231,10 @@ Important focused tests include:
 - `precompute folds immutable global.get uses into constants`
 - `precompute validates rewritten functions against full module call targets`
 - `precompute keeps the structured branch-exit body valid after folding dead exact prefixes`
+- `precompute runs narrow raw scalar folds under O4z gate`
+- `precompute keeps O4z hot-only cleanup no-op until ownership hazards are safe`
 
-Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, full-module-validation, and branch-carrier safety stories.
+Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, full-module-validation, branch-carrier safety, and narrow O4z raw-scalar recovery stories.
 
 ## 2. Preset-slot proof
 

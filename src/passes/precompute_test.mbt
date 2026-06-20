@@ -36,9 +36,9 @@ test "precompute skips load-call-set ownership hazards" {
 }
 
 ///|
-test "precompute skips O4z raw pass until self-opt ownership hazards are safe" {
+test "precompute runs narrow raw scalar folds under O4z gate" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) i32.const 1 i32.const 2 i32.add))",
       ["precompute"],
@@ -48,13 +48,44 @@ test "precompute skips O4z raw pass until self-opt ownership hazards are safe" {
         trace=Some(fn(line) { trace.push(line) }),
       ),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z scalar precompute success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(3)"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[precompute]:skip-raw reason=raw-scalar-folds")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "precompute keeps O4z hot-only cleanup no-op until ownership hazards are safe" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func block $exit i32.const 1 br_table $exit $exit end unreachable))",
+      ["precompute"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=1,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
     Err(err) => fail("expected O4z precompute skip success, got \{err}")
   }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("(block"), msg=pretty)
   assert_true(
     trace.any(fn(line) {
       line.contains("pass[precompute]:skip-raw reason=o4z-precompute-noop")
     }),
+    msg=trace.to_string(),
   )
 }
 

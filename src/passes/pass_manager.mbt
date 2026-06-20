@@ -22691,20 +22691,18 @@ fn run_hot_pipeline_raw_precompute(
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  if options.optimize_level >= 4 && options.shrink_level >= 1 {
-    return Some({
-      reason: "o4z-precompute-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
+  let o4z_precompute_gate = options.optimize_level >= 4 &&
+    options.shrink_level >= 1
   let @lib.Func(locals, @lib.Expr(body)) = original
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
   if run_hot_pipeline_dce_raw_has_load_call_set_hazard(body) {
     return Some({
-      reason: "load-call-set-precompute-noop",
+      reason: if o4z_precompute_gate {
+        "o4z-precompute-noop"
+      } else {
+        "load-call-set-precompute-noop"
+      },
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -22712,7 +22710,11 @@ fn run_hot_pipeline_raw_precompute(
   }
   if locals.length() > 64 && stats.instrs > 500 {
     return Some({
-      reason: "large-lowered-precompute-noop",
+      reason: if o4z_precompute_gate {
+        "o4z-precompute-noop"
+      } else {
+        "large-lowered-precompute-noop"
+      },
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -22722,7 +22724,11 @@ fn run_hot_pipeline_raw_precompute(
       locals, body,
     ) {
     return Some({
-      reason: "simd-parser-br-table-stack-hazard-precompute-noop",
+      reason: if o4z_precompute_gate {
+        "o4z-precompute-noop"
+      } else {
+        "simd-parser-br-table-stack-hazard-precompute-noop"
+      },
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -22735,13 +22741,41 @@ fn run_hot_pipeline_raw_precompute(
   }
   match precompute_run_raw_func(original, module_ctx) {
     Some((rewritten, changed, reason)) =>
-      Some({
-        reason,
-        func: rewritten,
-        unchanged_original: !changed,
-        trace_skip_raw: true,
-      })
-    None => None
+      if o4z_precompute_gate {
+        if changed && reason == "raw-scalar-folds" {
+          Some({
+            reason,
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        } else {
+          Some({
+            reason: "o4z-precompute-noop",
+            func: original,
+            unchanged_original: true,
+            trace_skip_raw: true,
+          })
+        }
+      } else {
+        Some({
+          reason,
+          func: rewritten,
+          unchanged_original: !changed,
+          trace_skip_raw: true,
+        })
+      }
+    None =>
+      if o4z_precompute_gate {
+        Some({
+          reason: "o4z-precompute-noop",
+          func: original,
+          unchanged_original: true,
+          trace_skip_raw: true,
+        })
+      } else {
+        None
+      }
   }
 }
 
