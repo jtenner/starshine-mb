@@ -1685,6 +1685,56 @@ test "optimize-instructions preserves effectful ref.i31 operand for failed ref.t
 }
 
 ///|
+test "optimize-instructions preserves effectful ref.i31 operand for ref.is_null miss" {
+  let effect_type = @lib.TypeIdx::new(0U)
+  let i32_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([i32_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("ref.is_null"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions preserves effectful ref.i31 operand for ref.eq null miss" {
   let effect_type = @lib.TypeIdx::new(0U)
   let i32_type = @lib.TypeIdx::new(1U)

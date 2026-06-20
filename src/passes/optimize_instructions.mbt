@@ -4742,12 +4742,22 @@ fn optimize_instructions_try_fold_ref_is_null(
       true
     }
     _ if optimize_instructions_ref_is_known_non_null(func, operand_id) => {
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        @lib.I32(0),
-      )
+      if optimize_instructions_node_effects_are_pure(ctx, func, operand_id) {
+        optimize_instructions_replace_with_const_i32(
+          ctx,
+          func,
+          node_id,
+          @lib.I32(0),
+        )
+      } else {
+        optimize_instructions_replace_with_drop_then_const_i32(
+          ctx,
+          func,
+          node_id,
+          operand_id,
+          @lib.I32(0),
+        )
+      }
       true
     }
     _ => false
