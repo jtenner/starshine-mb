@@ -530,6 +530,26 @@ fn hso_memory_test_run(
 }
 
 ///|
+fn hso_memory_data_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_memory_test_module(field_count, body)
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
+    .with_data_sec(
+      @lib.DataSec::new([@lib.Data::new(@lib.DataMode::passive(), b"abcd")]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid memory+data heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_memory_test_run_with_locals(
   body : Array[@lib.Instruction],
   field_count : Int,
@@ -3767,6 +3787,78 @@ test "heap-store-optimization keeps memory.size constructors before memory.copy"
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("memory.size"), msg=pretty)
   assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps memory.size constructors before memory.init" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_data_test_run(
+      [
+        @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::memory_init(
+          @lib.DataIdx::new(0U),
+          @lib.MemIdx::new(0U),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-size/memory-init heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("memory.init"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps memory.size constructors before data.drop" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_data_test_run(
+      [
+        @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::data_drop(@lib.DataIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-size/data-drop heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("data.drop"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
