@@ -485,25 +485,52 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
     return false
   }
   let callee_ref = @ir.hot_node_get(func, callee_ref_id)
-  match callee_ref.op {
-    @ir.HotOp::RefFunc => ()
-    _ => return false
-  }
   let args : Array[Int] = []
   for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
     args.push(@ir.hot_child_get(func, node_id, slot))
   }
-  let temp = match node.op {
-    @ir.HotOp::CallRef =>
-      @ir.hot_build_call(
-        func,
-        callee_ref.imm0,
-        @ir.hot_type_results(func, node.ty),
-        args,
-      )
-    @ir.HotOp::ReturnCallRef =>
-      @ir.hot_build_return_call(func, callee_ref.imm0, args)
-    _ => abort("unreachable call_ref directization op")
+  let temp = match callee_ref.op {
+    @ir.HotOp::RefFunc =>
+      match node.op {
+        @ir.HotOp::CallRef =>
+          @ir.hot_build_call(
+            func,
+            callee_ref.imm0,
+            @ir.hot_type_results(func, node.ty),
+            args,
+          )
+        @ir.HotOp::ReturnCallRef =>
+          @ir.hot_build_return_call(func, callee_ref.imm0, args)
+        _ => abort("unreachable call_ref directization op")
+      }
+    @ir.HotOp::TableGet if callee_ref.child_count == 1 => {
+      let table_index_id = @ir.hot_child_get(func, callee_ref_id, 0)
+      if !optimize_instructions_node_is_live(func, dead, table_index_id) {
+        return false
+      }
+      let sig = @ir.hot_call_sig_get(func, node.imm0)
+      match node.op {
+        @ir.HotOp::CallRef =>
+          @ir.hot_build_call_indirect(
+            func,
+            sig.type_idx,
+            @lib.TableIdx::new(callee_ref.imm0.reinterpret_as_uint()),
+            @ir.hot_type_results(func, node.ty),
+            args,
+            table_index_id,
+          )
+        @ir.HotOp::ReturnCallRef =>
+          @ir.hot_build_return_call_indirect(
+            func,
+            sig.type_idx,
+            @lib.TableIdx::new(callee_ref.imm0.reinterpret_as_uint()),
+            args,
+            table_index_id,
+          )
+        _ => abort("unreachable call_ref directization op")
+      }
+    }
+    _ => return false
   }
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_delete_node(func, temp)
