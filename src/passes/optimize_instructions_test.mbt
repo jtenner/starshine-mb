@@ -1069,6 +1069,35 @@ test "optimize-instructions folds equality on local ref.i31 constants" {
 }
 
 ///|
+test "optimize-instructions folds impossible equality between i31 and struct locals" {
+  let source =
+    #|(module
+    #|  (type $s (struct))
+    #|  (func (export "right") (param (ref null $s)) (result i32)
+    #|    i32.const 7
+    #|    ref.i31
+    #|    local.get 0
+    #|    ref.eq)
+    #|  (func (export "left") (param (ref i31)) (param (ref null $s)) (result i32)
+    #|    local.get 1
+    #|    local.get 0
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected impossible i31/struct ref.eq optimize success, got \{err}")
+  }
+  let right_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let left_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(right_pretty.contains("ref.eq"), msg=right_pretty)
+  assert_false(left_pretty.contains("ref.eq"), msg=left_pretty)
+  assert_true(right_pretty.contains("I32(0)"), msg=right_pretty)
+  assert_true(left_pretty.contains("I32(0)"), msg=left_pretty)
+}
+
+///|
 test "optimize-instructions folds ref.as_non_null on known null and non-null refs" {
   let source =
     #|(module

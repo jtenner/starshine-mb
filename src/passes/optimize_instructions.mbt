@@ -4460,6 +4460,49 @@ fn optimize_instructions_ref_i31_cannot_match_target(
 }
 
 ///|
+fn optimize_instructions_ref_is_known_non_null_i31(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) =>
+          ref_type.is_non_nullable() &&
+          ref_type.get_heap_type() ==
+          @lib.HeapType::abs(@lib.AbsHeapType::i31())
+        _ => false
+      }
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefI31) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_ref_cannot_be_i31(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      match @ir.hot_local_type(func, node.imm0) {
+        Some(@lib.ValType::RefTypeValType(ref_type)) =>
+          optimize_instructions_ref_i31_cannot_match_target(
+            ref_type.get_heap_type(),
+          )
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_is_known_miss_for_target(
   func : @ir.HotFunc,
   node_id : Int,
@@ -4748,6 +4791,22 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
       return true
     }
     _ => ()
+  }
+  if (
+      optimize_instructions_ref_is_known_non_null_i31(func, lhs_id) &&
+      optimize_instructions_ref_cannot_be_i31(func, rhs_id)
+    ) ||
+    (
+      optimize_instructions_ref_is_known_non_null_i31(func, rhs_id) &&
+      optimize_instructions_ref_cannot_be_i31(func, lhs_id)
+    ) {
+    optimize_instructions_replace_with_const_i32(
+      ctx,
+      func,
+      node_id,
+      @lib.I32(0),
+    )
+    return true
   }
   match (@ir.hot_node_get(func, lhs_id).op, @ir.hot_node_get(func, rhs_id).op) {
     (@ir.HotOp::RefNull, @ir.HotOp::RefNull) => {

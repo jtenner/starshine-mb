@@ -54,6 +54,7 @@ sources:
   - ../../../raw/research/0768-2026-06-20-optimize-instructions-oi-i-non-null-local-i31-supertype-test-cast.md
   - ../../../raw/research/0769-2026-06-20-optimize-instructions-oi-i-null-nonnull-test-cast-surface.md
   - ../../../raw/research/0770-2026-06-20-optimize-instructions-oi-i-impossible-i31-test-cast.md
+  - ../../../raw/research/0771-2026-06-20-optimize-instructions-oi-i-impossible-i31-struct-eq.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -115,6 +116,7 @@ related:
   - ../../../raw/research/0768-2026-06-20-optimize-instructions-oi-i-non-null-local-i31-supertype-test-cast.md
   - ../../../raw/research/0769-2026-06-20-optimize-instructions-oi-i-null-nonnull-test-cast-surface.md
   - ../../../raw/research/0770-2026-06-20-optimize-instructions-oi-i-impossible-i31-test-cast.md
+  - ../../../raw/research/0771-2026-06-20-optimize-instructions-oi-i-impossible-i31-struct-eq.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -282,6 +284,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0768-2026-06-20-optimize-instructions-oi-i-non-null-local-i31-supertype-test-cast.md`](../../../raw/research/0768-2026-06-20-optimize-instructions-oi-i-non-null-local-i31-supertype-test-cast.md) records the twelfth `[O4Z-AUDIT-OI-I]` reference sub-slice: declared non-null `(ref i31)` locals now prove successful `ref.test` / `ref.cast` for absolute `eq` / `any` target supertypes.
 - [`../../../raw/research/0769-2026-06-20-optimize-instructions-oi-i-null-nonnull-test-cast-surface.md`](../../../raw/research/0769-2026-06-20-optimize-instructions-oi-i-null-nonnull-test-cast-surface.md) records the thirteenth `[O4Z-AUDIT-OI-I]` coverage/type-surface sub-slice: non-null null-operand `ref.test` now has validating direct-core coverage for folding to `i32.const 0`, and non-null null-operand `ref.cast` has validating direct-core coverage for rewriting to `unreachable`.
 - [`../../../raw/research/0770-2026-06-20-optimize-instructions-oi-i-impossible-i31-test-cast.md`](../../../raw/research/0770-2026-06-20-optimize-instructions-oi-i-impossible-i31-test-cast.md) records the fourteenth `[O4Z-AUDIT-OI-I]` reference sub-slice: ordinary `ref.test` / `ref.cast` validation now accepts disjoint `eq`-hierarchy sibling heap types, and local `ref.i31` values tested or cast against `struct` / `array` / indexed heap targets fold to `i32.const 0` or `unreachable`.
+- [`../../../raw/research/0771-2026-06-20-optimize-instructions-oi-i-impossible-i31-struct-eq.md`](../../../raw/research/0771-2026-06-20-optimize-instructions-oi-i-impossible-i31-struct-eq.md) records the fifteenth `[O4Z-AUDIT-OI-I]` reference sub-slice: `ref.eq` now folds to `i32.const 0` when a definitely non-null local `i31` value is compared with a local whose declared heap cannot be `i31`, such as a nullable struct local.
 - [`../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md`](../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md) records the second `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-2 and size-4 `memory.fill` lowering and nonconstant wider-fill boundary evidence.
 - [`../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md`](../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md) records the third `[O4Z-AUDIT-OI-G]` sub-slice for constant-value size-8 `memory.fill` lowering to repeated-byte `i64.store` while keeping nonconstant wider fills open.
 - [`../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md`](../../../raw/research/0735-2026-06-19-optimize-instructions-oi-g-local-fill.md) records the fourth `[O4Z-AUDIT-OI-G]` sub-slice for local.get value size-2 and size-4 `memory.fill` lowering through low-byte mask and repeat multiply expressions while keeping effectful values and nonconstant size-8 fills open.

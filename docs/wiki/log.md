@@ -16200,3 +16200,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded `docs/wiki/raw/research/0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md` for the sixth `[O4Z-AUDIT-OI-H]` sub-slice.
 - Starshine now localizes single-result call arguments into fresh temp locals before lowering select-of-direct-`ref.func` `call_ref` / `return_call_ref` targets to direct-call `if` arms.
 - Updated the prior `0753` boundary as superseded history and refreshed the optimize-instructions dossier, Starshine HOT strategy, wiki index, and active backlog so remaining OI-H work is scoped to broader type/effect negatives and any future uncovered `return_call_ref` surface.
+
+## 2026-06-20 optimize-instructions OI-I impossible i31 struct equality
+
+- Recorded `docs/wiki/raw/research/0771-2026-06-20-optimize-instructions-oi-i-impossible-i31-struct-eq.md` for the fifteenth `[O4Z-AUDIT-OI-I]` reference sub-slice.
+- Starshine now folds a narrow impossible `ref.eq` family to `i32.const 0` when one operand is a definitely non-null `i31` value and the other is a local whose declared heap cannot be `i31`, such as `(ref null $struct)`.
+- Updated the optimize-instructions dossier, Starshine HOT strategy, wiki index, and active backlog to keep remaining OI-I work scoped to broader equality/cast/test/drop-child and trap/effect-sensitive families.
