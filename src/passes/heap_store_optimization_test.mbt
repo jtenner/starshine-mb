@@ -168,6 +168,19 @@ fn hso_memory_test_module(
 }
 
 ///|
+fn hso_two_memory_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  hso_test_module(field_count, body).with_mem_sec(
+    @lib.MemSec::new([
+      @lib.MemType::new(@lib.Limits::i32(1U, None)),
+      @lib.MemType::new(@lib.Limits::i32(1U, None)),
+    ]),
+  )
+}
+
+///|
 fn hso_memory_global_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -199,6 +212,31 @@ fn hso_table_test_module(
 ) -> @lib.Module {
   hso_test_module(field_count, body).with_table_sec(
     @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_two_table_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  hso_test_module(field_count, body).with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
       @lib.Table::new(
         @lib.TableType::new(
           @lib.RefType::abs(@lib.AbsHeapType::func()),
@@ -530,6 +568,22 @@ fn hso_memory_test_run(
 }
 
 ///|
+fn hso_two_memory_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_two_memory_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid two-memory heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_memory_data_test_run(
   body : Array[@lib.Instruction],
   field_count : Int,
@@ -621,6 +675,22 @@ fn hso_table_test_run(
     Err(err) =>
       abort(
         "unexpected invalid table heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_two_table_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_two_table_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid two-table heap-store-optimization test fixture: \{err}",
       )
   }
   run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
@@ -3891,6 +3961,42 @@ test "heap-store-optimization keeps memory.size constructors before memory.copy"
 }
 
 ///|
+test "heap-store-optimization keeps memory.size constructors before different-memory fill" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_two_memory_test_run(
+      [
+        @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::memory_fill(@lib.MemIdx::new(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-size/different-memory-fill heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps memory.size constructors before memory.init" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
@@ -4260,6 +4366,42 @@ test "heap-store-optimization keeps table-growing constructors before table.copy
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("table.grow"), msg=pretty)
   assert_true(pretty.contains("table.copy"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps table.size constructors before different-table fill" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_two_table_test_run(
+      [
+        @lib.Instruction::table_size(@lib.TableIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::table_fill(@lib.TableIdx::new(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table-size/different-table-fill heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.size"), msg=pretty)
+  assert_true(pretty.contains("table.fill"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
