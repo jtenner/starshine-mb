@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I nullable-target failed cast/test coverage
+
+- Filed [`raw/research/0782-2026-06-20-optimize-instructions-oi-i-nullable-target-miss-test-cast.md`](raw/research/0782-2026-06-20-optimize-instructions-oi-i-nullable-target-miss-test-cast.md) for the twenty-sixth `[O4Z-AUDIT-OI-I]` sub-slice. This is coverage for existing behavior: Starshine folds `ref.test (ref null array)` on a declared non-null `(ref struct)` local to `i32.const 0` and rewrites matching nullable-target `ref.cast` to `unreachable`, while keeping nullable-source failed cast/test, indexed/defined heap disjointness, and descriptor/exactness/TNH/IIT behavior out of scope.
+- Evidence: Binaryen oracle folded the same nullable-target disjoint local shapes. Red-first did not apply because this was a coverage/type-surface audit slice; focused `*nullable-target ref.test*` passed `1/1`, final `*ref*` passed `33/33`, and `*optimize-instructions*` passed `163/163`. Broader validation and direct compare are recorded in the research note.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I i31 upcast ref.eq proof
 
 - Filed [`raw/research/0781-2026-06-20-optimize-instructions-oi-i-i31-upcast-ref-eq.md`](raw/research/0781-2026-06-20-optimize-instructions-oi-i-i31-upcast-ref-eq.md) for the twenty-fifth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds same-local equality through immediate nullable `ref.cast(local.get)` operands when the local declared heap is absolute `i31` and the cast target is an already-modeled `i31` supertype, while keeping arbitrary cast skipping, descriptor/exactness/TNH/IIT behavior, broader nullable-local flow facts, and `any`-typed `ref.eq` validation out of scope.
