@@ -891,6 +891,29 @@ fn precompute_simplify_region_roots(
       match @ir.hot_node_get(func, node_id).op {
         @ir.HotOp::Block | @ir.HotOp::Loop => {
           if region_ref == @ir.HotRegionRef::root() &&
+            precompute_loop_is_const_true_self_br_if_with_result_tail(
+              ctx, func, node_id, idx,
+            ) {
+            let label = @ir.hot_control_node_label(func, node_id)
+            @ir.hot_region_replace_body(
+              func,
+              @ir.hot_region_body_ref(func, node_id),
+              [@ir.hot_build_br(func, label)],
+            )
+            let root_count = @ir.hot_region_root_count(func, region_ref)
+            let removed = pass_splice_region(
+              ctx,
+              func,
+              region_ref,
+              idx + 1,
+              root_count - idx - 1,
+              [@ir.hot_build_unreachable(func)],
+            )
+            pass_delete_detached_nodes(ctx, func, removed)
+            changed = true
+            continue
+          }
+          if region_ref == @ir.HotRegionRef::root() &&
             precompute_control_is_const_self_br_if_noop(ctx, func, node_id) {
             let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
               @ir.hot_build_nop(func),
@@ -1057,6 +1080,66 @@ fn precompute_control_is_const_self_br_if_noop(
         _ => false
       }
     None => false
+  }
+}
+
+///|
+fn precompute_root_suffix_has_result(
+  func : @ir.HotFunc,
+  start_idx : Int,
+) -> Bool {
+  let region_ref = @ir.HotRegionRef::root()
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let mut idx = start_idx
+  while idx < root_count {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if @ir.hot_node_is_live(func, root_id) &&
+      @ir.hot_node_result_arity(func, root_id) > 0 {
+      return true
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
+fn precompute_loop_is_const_true_self_br_if_with_result_tail(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  loop_id : Int,
+  root_idx : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, loop_id).op {
+    @ir.HotOp::Loop => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, loop_id) != 0 {
+    return false
+  }
+  if !precompute_root_suffix_has_result(func, root_idx + 1) {
+    return false
+  }
+  let label = @ir.hot_control_node_label(func, loop_id)
+  if label < 0 || @ir.hot_label_branch_arity(func, label) != 0 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let branch_id = @ir.hot_region_get(func, body_ref, 0)
+  let branch_node = @ir.hot_node_get(func, branch_id)
+  match branch_node.op {
+    @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+  if branch_node.child_count != 1 || branch_node.imm0 != label {
+    return false
+  }
+  let cond_id = @ir.hot_child_get(func, branch_id, 0)
+  match precompute_i32_exact_const(ctx, func, cond_id) {
+    Some(@lib.I32(0)) | None => false
+    Some(@lib.I32(_)) => true
   }
 }
 
@@ -2014,8 +2097,57 @@ fn precompute_raw_try_void_dropped_result_block(
 }
 
 ///|
+fn precompute_raw_loop_is_unconditional_self_branch(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Loop(block_type, @lib.Expr([@lib.Br(@lib.LabelIdx(0U))])) =>
+      block_type == @lib.BlockType::void_()
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_try_mark_value_tail_after_infinite_loop(
+  out : Array[@lib.Instruction],
+) -> Bool {
+  if out.length() < 2 {
+    return false
+  }
+  let mut loop_idx = 0
+  while loop_idx + 1 < out.length() {
+    if precompute_raw_loop_is_unconditional_self_branch(out[loop_idx]) {
+      let mut suffix_idx = loop_idx + 1
+      let mut has_value_tail = false
+      let mut suffix_supported = true
+      while suffix_idx < out.length() {
+        match out[suffix_idx] {
+          @lib.Nop => ()
+          instr if precompute_raw_instr_is_flat_discardable_value(instr) =>
+            has_value_tail = true
+          _ => suffix_supported = false
+        }
+        suffix_idx = suffix_idx + 1
+      }
+      if suffix_supported && has_value_tail {
+        while out.length() > loop_idx + 1 {
+          ignore(out.pop())
+        }
+        out.push(@lib.Instruction::unreachable_())
+        return true
+      }
+    }
+    loop_idx = loop_idx + 1
+  }
+  false
+}
+
+///|
 fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
   if precompute_raw_try_fold_const_if_tail(out) {
+    return true
+  }
+  if precompute_raw_try_mark_value_tail_after_infinite_loop(out) {
     return true
   }
   if out.length() >= 2 {

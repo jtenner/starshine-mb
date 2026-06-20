@@ -556,6 +556,59 @@ test "precompute removes pure root nop prefixes before a final const result" {
 }
 
 ///|
+test "precompute marks constant-true self-branch loop tails unreachable after block debris" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32)
+        #|    i32.const 0
+        #|    drop
+        #|    (loop i32.const 1 br_if 0)
+        #|    (block br 0)
+        #|    i32.const 310))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected precompute block-debris loop tail cleanup success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(loop"), msg=pretty)
+  assert_true(pretty.contains("br (Label 0)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("I32(310)"), msg=pretty)
+}
+
+///|
+test "precompute marks constant-true self-branch loop tails unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (loop i32.const 1 br_if 0) i32.const 310))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected precompute self-branch loop tail cleanup success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(loop"), msg=pretty)
+  assert_true(pretty.contains("br (Label 0)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("I32(310)"), msg=pretty)
+}
+
+///|
 test "precompute removes constant self-exiting blocks before a final const result" {
   let optimized = match
     pass_test_run_pipeline(
