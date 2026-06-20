@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful same-local ref.cast equality
+
+- Filed [`raw/research/0799-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-cast.md`](raw/research/0799-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-cast.md) for the forty-third `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds same-local nullable `ref.cast(local.get)` equality for exact no-op and absolute `struct`→`eq` upcast forms while preserving an already-evaluated effectful prefix such as `drop(call $effect)`.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` before `i32.const 1` for one-sided and both-operands same-local nullable `ref.cast(local.get)` equality. Red-first did not apply because this was coverage for existing behavior. Focused `*ref.cast equality*` passed `1/1`, final `*ref.cast*` passed `21/21`, final `*ref*` passed `50/50`, final `*optimize-instructions*` passed `180/180`, `moon fmt`, `moon test src/passes` (`2704/2704`), native `src/cmd` build, and `moon info` passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful same-local ref.as_non_null equality
 
 - Filed [`raw/research/0798-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-as-non-null.md`](raw/research/0798-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-as-non-null.md) for the forty-second `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds same-local nullable `ref.as_non_null(local.get)` equality while preserving an already-evaluated effectful prefix such as `drop(call $effect)` plus one required non-null trap check.

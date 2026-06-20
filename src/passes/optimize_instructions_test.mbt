@@ -1288,6 +1288,111 @@ test "optimize-instructions folds same-local i31 equality through nullable upcas
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix while folding same-local ref.cast equality" {
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
+  let eq_ref = @lib.ValType::ref_null(eq_heap)
+  let struct_ref = @lib.ValType::ref_null(struct_heap)
+  let effect_type = @lib.TypeIdx::new(0U)
+  let eq_func_type = @lib.TypeIdx::new(1U)
+  let struct_func_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([eq_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([struct_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        eq_func_type, eq_func_type, struct_func_type, struct_func_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  for func_idx in 1U..<5U {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+    assert_false(pretty.contains("ref.eq"), msg=pretty)
+    assert_false(pretty.contains("ref.cast"), msg=pretty)
+    assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+    assert_true(pretty.contains("I32(1)"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions folds self equality on local refs" {
   let source =
     #|(module
