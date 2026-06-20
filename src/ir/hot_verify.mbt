@@ -292,8 +292,7 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
           _ => false
         }
         if !skip_side_table {
-          let side_table_id = if node.op == HotOp::Try ||
-            node.op == HotOp::TryTable {
+          let side_table_id = if node.op == HotOp::TryTable {
             node.imm1
           } else {
             node.imm0
@@ -408,35 +407,6 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
             )
           }
         }
-        if node.imm1 >= 0 && node.imm1 < func.catches.length() {
-          let catch_info = hot_catch_info_get(func, node.imm1)
-          let mut root_total = 0
-          for catch_arm in catch_info.catches {
-            match catch_arm {
-              HotCatchArm::LegacyCatchArm(_, count)
-              | HotCatchArm::LegacyCatchAllArm(count) => root_total += count
-              _ =>
-                return Err(
-                  HotVerifyError::InvalidSideTableRef(
-                    node_id,
-                    HotSideTableKind::CatchInfoTable,
-                    node.imm1,
-                  ),
-                )
-            }
-          }
-          let catch_region = hot_child_get(func, node_id, 1)
-          if catch_region != HOT_NONE_NODE &&
-            root_total !=
-            hot_region_root_count(
-              func,
-              hot_region_catch_ref(func, node_id).unwrap(),
-            ) {
-            return Err(
-              HotVerifyError::InvalidControlChild(node_id, 1, catch_region),
-            )
-          }
-        }
       }
       HotOp::TryTable => {
         if node.child_count != 2 {
@@ -463,15 +433,6 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
             | HotCatchArm::CatchRefArm(_, label_id)
             | HotCatchArm::CatchAllArm(label_id)
             | HotCatchArm::CatchAllRefArm(label_id) => label_id
-            HotCatchArm::LegacyCatchArm(_, _)
-            | HotCatchArm::LegacyCatchAllArm(_) =>
-              return Err(
-                HotVerifyError::InvalidSideTableRef(
-                  node_id,
-                  HotSideTableKind::CatchInfoTable,
-                  node.imm1,
-                ),
-              )
           }
           if target != HOT_IMPLICIT_FUNCTION_LABEL &&
             !hot_verify_label_id_is_valid(func, target) {

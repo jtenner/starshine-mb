@@ -104,8 +104,8 @@ fn wast_arbitrary_count_instructions(
       | BrTable(_, _)
       | Return
       | Call(_)
-      | CallIndirect(_, _)
-      | CallRef(_) => { ..wast_arbitrary_empty_feature_stats(), control_ops: 1 }
+      | CallIndirect(_, _) =>
+        { ..wast_arbitrary_empty_feature_stats(), control_ops: 1 }
       ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
         {
           ..wast_arbitrary_empty_feature_stats(),
@@ -116,9 +116,7 @@ fn wast_arbitrary_count_instructions(
       | ThrowRef
       | Rethrow(_)
       | TryTable(_, _, _)
-      | TryLegacy(_, _, _, _)
-      | Resume(_, _, _)
-      | ResumeThrow(_, _, _, _) =>
+      | TryLegacy(_, _, _, _) =>
         {
           ..wast_arbitrary_empty_feature_stats(),
           control_ops: 1,
@@ -126,12 +124,6 @@ fn wast_arbitrary_count_instructions(
         }
       Drop | Select(_) =>
         { ..wast_arbitrary_empty_feature_stats(), parametric_ops: 1 }
-      Pop(_) =>
-        {
-          ..wast_arbitrary_empty_feature_stats(),
-          parametric_ops: 1,
-          exception_ops: 1,
-        }
       LocalGet(_) | LocalSet(_) | LocalTee(_) | GlobalGet(_) | GlobalSet(_) =>
         { ..wast_arbitrary_empty_feature_stats(), variable_ops: 1 }
       TableGet(_) | TableSet(_) | TableSize(_) | TableGrow(_) =>
@@ -166,11 +158,6 @@ fn wast_arbitrary_count_instructions(
       | StringEncodeWtf8Array
       | StructNew(_)
       | StructNewDefault(_)
-      | ArrayNew(_)
-      | ArrayNewDefault(_)
-      | ArrayNewFixed(_, _)
-      | ArrayNewData(_, _)
-      | ArrayNewElem(_, _)
       | StructGet(_, _)
       | StructGetS(_, _)
       | StructGetU(_, _)
@@ -255,8 +242,7 @@ fn wast_arbitrary_count_instructions(
           wast_arbitrary_count_instructions(then_body),
           wast_arbitrary_count_instructions(else_body),
         )
-      TryTable(_, _, body) | Resume(_, _, body) | ResumeThrow(_, _, _, body) =>
-        wast_arbitrary_count_instructions(body)
+      TryTable(_, _, body) => wast_arbitrary_count_instructions(body)
       _ => wast_arbitrary_empty_feature_stats()
     }
     stats = wast_arbitrary_add_feature_stats(stats, nested)
@@ -658,11 +644,6 @@ fn append_wide_wast_surface(fields : Array[ModuleField]) -> Unit {
         ElemDrop(Num(0)),
         V128Const({ shape: I32x4, values: ["0", "1", "2", "3"] }),
         Drop,
-        CallRef({
-          type_index: Some(Num(0)),
-          func_type: { params: [], results: [] },
-          param_ids: [],
-        }),
         ReturnCall(Num(0)),
         ReturnCallIndirect(Num(0), {
           type_index: Some(Num(0)),
@@ -828,7 +809,7 @@ test "wast arbitrary widened prelude reports exact FZG mirror counters" {
   @debug.assert_eq(stats.tail_call_ops, 3)
   @debug.assert_eq(stats.exception_ops, 2)
   @debug.assert_eq(stats.simd_const_ops, 1)
-  @debug.assert_eq(stats.control_ops, 7)
+  @debug.assert_eq(stats.control_ops, 6)
   @debug.assert_eq(stats.parametric_ops, 3)
   @debug.assert_eq(stats.variable_ops, 0)
   @debug.assert_eq(stats.table_ops, 4)

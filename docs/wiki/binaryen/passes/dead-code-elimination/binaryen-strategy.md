@@ -1,21 +1,20 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-16
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_all-features.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_vacuum_remove-unused-names.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh-legacy.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-stack-switching.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_vacuum_remove-unused-names.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-stack-switching.wast
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -30,7 +29,7 @@ related:
 
 ## Major correction
 
-A direct `version_130` source reread shows that Binaryen `dce` is much narrower than the older local dossier claimed.
+A direct `version_129` source reread shows that Binaryen `dce` is much narrower than the older local dossier claimed.
 
 It is **not** a broad effect-driven dead-result optimizer with helper block-target walkers, dedicated `visitDrop(...)` logic, flattening, and refinalization.
 
@@ -43,7 +42,7 @@ It is a small function-parallel postwalk that:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the source oracle for this pass.
+Use Binaryen `version_129` as the source oracle for this pass.
 
 Primary files:
 
@@ -58,8 +57,8 @@ Primary dedicated tests:
 - `test/lit/passes/dce-eh-legacy.wast`
 - `test/lit/passes/dce-stack-switching.wast`
 
-A 2026-06-16 `version_130` recheck found `src/passes/DeadCodeElimination.cpp` and the representative dedicated `dce` lit files byte-identical to the previously reviewed `version_129` snapshots. `src/passes/pass.cpp` changed between those tags, but the inspected diff does not change the `dce` registration or pass contract.
-A 2026-05-05 current-main recheck found no teaching-relevant drift between the then-current tagged DCE source and current `main` in `src/passes/DeadCodeElimination.cpp`.
+The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
+A 2026-05-05 current-main recheck found no teaching-relevant drift between `version_129` and current `main` in `src/passes/DeadCodeElimination.cpp`.
 
 ## Public pass identity and placement
 
@@ -207,7 +206,7 @@ The legacy EH lit file shows why this matters: adding blocks can move `pop` into
 
 ## What the real source does **not** support
 
-These older local claims are not part of the actual `version_130` pass:
+These older local claims are not part of the actual `version_129` pass:
 
 - no `BranchSeeker`
 - no `UnneededBlockSeeker`
@@ -219,7 +218,7 @@ These older local claims are not part of the actual `version_130` pass:
 - no `ReFinalize`
 - no `handleNonDefaultableLocals(...)`
 
-Those ideas may be relevant to neighboring passes, but they are not Binaryen `dce` as shipped in `version_130`.
+Those ideas may be relevant to neighboring passes, but they are not Binaryen `dce` as shipped in `version_129`.
 
 ## Beginner-safe summary
 

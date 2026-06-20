@@ -3351,22 +3351,6 @@ fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
       "shared_memory_atomics"
     @validate.ValidateValidFeatureKey::ImportsStartExports =>
       "imports_start_exports"
-    @validate.ValidateValidFeatureKey::DceNonControlUnreachableChild =>
-      "dce-non-control-unreachable-child"
-    @validate.ValidateValidFeatureKey::DceBlockDeadSuffix =>
-      "dce-block-dead-suffix"
-    @validate.ValidateValidFeatureKey::DceBlockHasBreakGuard =>
-      "dce-block-has-break-guard"
-    @validate.ValidateValidFeatureKey::DceIfUnreachableCondition =>
-      "dce-if-unreachable-condition"
-    @validate.ValidateValidFeatureKey::DceIfBothArmsUnreachable =>
-      "dce-if-both-arms-unreachable"
-    @validate.ValidateValidFeatureKey::DceLoopLiteralUnreachableBody =>
-      "dce-loop-literal-unreachable-body"
-    @validate.ValidateValidFeatureKey::DceTryTableUnreachable =>
-      "dce-try-table-unreachable"
-    @validate.ValidateValidFeatureKey::DceDropUnreachable =>
-      "dce-drop-unreachable"
     @validate.ValidateValidFeatureKey::InvalidAstStrategies =>
       "invalid_ast_strategies"
     @validate.ValidateValidFeatureKey::InvalidBinaryStrategies =>

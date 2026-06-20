@@ -6,8 +6,6 @@ fn tcneg_make_state(env : Env, stack : Array[ValType]) -> TcState {
     reachable: true,
     escape: NoTcEscape,
     reachable_escape_depths: [],
-    legacy_pop_payloads: [],
-    legacy_catch_depth: 0U,
   }
 }
 
@@ -160,8 +158,6 @@ test "Typecheck RefCastDescEq accepts polymorphic stack in unreachable state" {
     reachable: false,
     escape: TerminalTcEscape,
     reachable_escape_depths: [],
-    legacy_pop_payloads: [],
-    legacy_catch_depth: 0U,
   }
   let result = Typecheck::typecheck(
     Instruction::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::eq())),
@@ -854,8 +850,6 @@ test "Typecheck unreachable pop1 returns bot (polymorphic stack)" {
     reachable: false,
     escape: TerminalTcEscape,
     reachable_escape_depths: [],
-    legacy_pop_payloads: [],
-    legacy_catch_depth: 0U,
   }
   // In unreachable code, pop1 should succeed and return BotValType
   let result = state.pop1()
@@ -874,8 +868,6 @@ test "Typecheck unreachable pop_expect succeeds for any type" {
     reachable: false,
     escape: TerminalTcEscape,
     reachable_escape_depths: [],
-    legacy_pop_payloads: [],
-    legacy_catch_depth: 0U,
   }
   // In unreachable code, pop_expect should accept any type
   let result = state.pop_expect(ValType::i64())
@@ -894,8 +886,6 @@ test "Typecheck unreachable pop_types succeeds for any types" {
     reachable: false,
     escape: TerminalTcEscape,
     reachable_escape_depths: [],
-    legacy_pop_payloads: [],
-    legacy_catch_depth: 0U,
   }
   // In unreachable code, pop_types should accept any type list
   let result = state.pop_types([ValType::i32(), ValType::i64(), ValType::f32()])

@@ -5,7 +5,6 @@ using @lib {
   type Elem,
   type Expr,
   type Instruction,
-  type LegacyCatch,
   type LocalIdx,
   type FuncIdx,
   type MemArg,
@@ -55,6 +54,4 @@ using @validate {
   tc_state_validate_end_stack,
   tc_state_with_stack,
   tc_state_with_owned_stack,
-  tc_state_with_legacy_pop_payloads,
-  tc_state_with_legacy_catch_depth,
 }

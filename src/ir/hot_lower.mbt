@@ -156,8 +156,6 @@ fn hot_lower_impl_label_is_used(func : HotFunc, label_id : LabelId) -> Bool {
             | HotCatchArm::CatchRefArm(_, target)
             | HotCatchArm::CatchAllArm(target)
             | HotCatchArm::CatchAllRefArm(target) => target
-            HotCatchArm::LegacyCatchArm(_, _)
-            | HotCatchArm::LegacyCatchAllArm(_) => HOT_IMPLICIT_FUNCTION_LABEL
           }
           if target == label_id {
             return true
@@ -419,8 +417,6 @@ fn hot_lower_impl_try_catches(
             hot_lower_impl_label_depth(label_frames, label_stack_head, label_id),
           ),
         )
-      HotCatchArm::LegacyCatchArm(_, _) | HotCatchArm::LegacyCatchAllArm(_) =>
-        abort("try_table lowering requires try_table catch arms")
     }
   }
   catches
@@ -553,63 +549,6 @@ fn hot_lower_impl_region_body(
   hot_lower_impl_emit_root(
     func, id, use_def, label_frames, label_stack_head, value_stack, out, extra_locals,
     options,
-  )
-  out
-}
-
-///|
-fn hot_lower_impl_region_root_span_body(
-  func : HotFunc,
-  region_id : NodeId,
-  start_root : Int,
-  root_count : Int,
-  result_arity : Int,
-  use_def : HotUseDef,
-  label_frames : HotLowerLabelFrames,
-  label_stack_head : Int,
-  extra_locals : Array[ValType],
-  options : HotLowerOptions,
-) -> Array[Instruction] {
-  let out : Array[Instruction] = []
-  if region_id == HOT_NONE_NODE || root_count <= 0 {
-    return out
-  }
-  let node = hot_node_get(func, region_id)
-  let value_stack : Array[HotLowerStackValue] = []
-  let root_ids : Array[NodeId] = []
-  let end_root = start_root + root_count
-  for idx = start_root; idx < end_root; idx = idx + 1 {
-    if idx >= 0 && idx < node.child_count {
-      let child = func.children[node.child_base + idx]
-      if child != HOT_NONE_NODE {
-        root_ids.push(child)
-      }
-    }
-  }
-  let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
-    func, use_def, root_ids, result_arity,
-  )
-  for idx = 0; idx < root_ids.length(); idx = idx + 1 {
-    let child = root_ids[idx]
-    if hot_query_op(func, child) == HotOp::Unreachable {
-      hot_lower_impl_drop_dead_stack_before_unreachable(child, value_stack, out)
-    }
-    hot_lower_impl_emit_root(
-      func, child, use_def, label_frames, label_stack_head, value_stack, out, extra_locals,
-      options,
-    )
-    hot_lower_impl_drop_dead_nonfinal_root_results(
-      func,
-      child,
-      use_def,
-      preserve_region_results[idx],
-      idx + 1 == root_ids.length(),
-      value_stack,
-      out,
-    )
-  }
-  hot_lower_impl_finalize_region_stack(
-    func, result_arity, value_stack, out, extra_locals,
   )
   out
 }
@@ -1142,8 +1081,6 @@ fn hot_lower_impl_emit_instruction(
     HotOp::Load
     | HotOp::Store
     | HotOp::Select
-    | HotOp::Pop
-    | HotOp::Rethrow
     | HotOp::RefTest
     | HotOp::RefCast
     | HotOp::RefTestDesc
@@ -1251,90 +1188,6 @@ fn hot_lower_impl_emit_instruction(
               ),
             )
           },
-        ),
-      )
-      if next_stack != label_stack_head {
-        hot_lower_impl_pop_label(label_frames, next_stack)
-      }
-    }
-    HotOp::Try => {
-      let label_id = hot_control_node_label(func, id)
-      let next_stack = if label_id >= 0 {
-        hot_lower_impl_push_label(label_frames, label_stack_head, label_id)
-      } else {
-        label_stack_head
-      }
-      let catch_id = func.children[node.child_base + 1]
-      let catches : Array[LegacyCatch] = []
-      if catch_id != HOT_NONE_NODE {
-        if node.imm1 >= 0 && node.imm1 < func.catches.length() {
-          let mut offset = 0
-          let catch_info = hot_catch_info_get(func, node.imm1)
-          for arm in catch_info.catches {
-            match arm {
-              LegacyCatchArm(tag, root_count) => {
-                let arm_body = hot_lower_impl_region_root_span_body(
-                  func,
-                  catch_id,
-                  offset,
-                  root_count,
-                  hot_node_result_arity(func, id),
-                  use_def,
-                  label_frames,
-                  next_stack,
-                  extra_locals,
-                  options,
-                )
-                offset += root_count
-                catches.push(LegacyCatch::new(tag, Expr::new(arm_body)))
-              }
-              LegacyCatchAllArm(root_count) => {
-                let arm_body = hot_lower_impl_region_root_span_body(
-                  func,
-                  catch_id,
-                  offset,
-                  root_count,
-                  hot_node_result_arity(func, id),
-                  use_def,
-                  label_frames,
-                  next_stack,
-                  extra_locals,
-                  options,
-                )
-                offset += root_count
-                catches.push(LegacyCatch::all(Expr::new(arm_body)))
-              }
-              _ => ()
-            }
-          }
-        } else {
-          catches.push(
-            LegacyCatch::all(
-              Expr::new(
-                hot_lower_impl_region_body(
-                  func, catch_id, use_def, label_frames, next_stack, extra_locals,
-                  options,
-                ),
-              ),
-            ),
-          )
-        }
-      }
-      out.push(
-        Instruction::try_(
-          hot_lower_impl_control_block_type(func, id),
-          Expr::new(
-            hot_lower_impl_region_body(
-              func,
-              func.children[node.child_base],
-              use_def,
-              label_frames,
-              next_stack,
-              extra_locals,
-              options,
-            ),
-          ),
-          catches,
         ),
       )
       if next_stack != label_stack_head {

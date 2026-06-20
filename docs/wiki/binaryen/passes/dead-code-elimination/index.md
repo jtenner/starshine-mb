@@ -1,9 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-16
+last_reviewed: 2026-05-06
 sources:
-  - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
@@ -21,13 +20,13 @@ sources:
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DeadCodeElimination.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_all-features.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce_vacuum_remove-unused-names.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-eh-legacy.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/dce-stack-switching.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_vacuum_remove-unused-names.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-stack-switching.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DeadCodeElimination.cpp
 related:
   - ./binaryen-strategy.md
@@ -48,7 +47,7 @@ related:
 ## Role
 
 - `dead-code-elimination` is an active implemented **hot pass** in Starshine.
-- In upstream Binaryen `version_130`, the public pass name is `dce`.
+- In upstream Binaryen `version_129`, the public pass name is `dce`.
 - `pass.cpp` describes it tersely as:
   - `removes unreachable code`
 
@@ -59,7 +58,7 @@ After a direct source-confirmation follow-up, that short description turns out t
 The older local pages overstated this pass.
 They described a much broader engine with helper walkers, effect-driven dead-result analysis, general typed-control voidification, flattening, and refinalization.
 
-A direct reread of `src/passes/DeadCodeElimination.cpp` in Binaryen `version_130` shows the real pass is smaller:
+A direct reread of `src/passes/DeadCodeElimination.cpp` in Binaryen `version_129` shows the real pass is smaller:
 
 - one function-parallel postwalk,
 - centered on `TypeUpdater`,
@@ -82,7 +81,7 @@ So the safe beginner summary is now:
 
 ## What the pass really does
 
-The source-confirmed `version_130` contract is:
+The source-confirmed `version_129` contract is:
 
 - if a **non-control** expression becomes unreachable because one child is unreachable,
   - keep the first unreachable child,
@@ -122,13 +121,13 @@ Those older claims were the main documentation gap this follow-up closes.
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Source-confirmed algorithm overview for the real `version_130` pass, centered on `TypeUpdater`, control-vs-non-control handling, and narrow EH repair.
+  - Source-confirmed algorithm overview for the real `version_129` pass, centered on `TypeUpdater`, control-vs-non-control handling, and narrow EH repair.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Exact owner-file and lit-test map for the pass, including the direct correction of the older over-broad local description.
 - [`./typed-control-voidification-and-eh.md`](./typed-control-voidification-and-eh.md)
   - Focused guide to the actual control-type and EH rules the source does implement: type-to-`unreachable` changes, not a generic voidification engine.
 - [`./wat-shapes.md`](./wat-shapes.md)
-  - Beginner-friendly shape catalog for the real `version_130` rewrite surface.
+  - Beginner-friendly shape catalog for the real `version_129` rewrite surface.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current Starshine strategy overview and the exact code-map entry point for the HOT rewrite family.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
@@ -136,8 +135,8 @@ Those older claims were the main documentation gap this follow-up closes.
 
 ## Freshness note
 
-A 2026-06-16 `version_130` recheck found `src/passes/DeadCodeElimination.cpp` and representative dedicated `dce` lit files byte-identical to the previously reviewed `version_129` snapshots. `src/passes/pass.cpp` changed between the snapshots, but the inspected diff does not change the `dce` registration or pass contract.
-The earlier 2026-05-05 current-main recheck on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative `dce` lit files did not surface a new teaching-relevant contract drift.
+The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
+A 2026-05-05 current-main recheck on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative `dce` lit files did not surface a new teaching-relevant contract drift.
 A 2026-05-08 refreshed-harness direct revalidation reported `9975 / 10000` compared cases, `0` semantic mismatches, and `25` known Binaryen/tool command failures at seed `0x5eed` in `.tmp/pass-fuzz-dce-refresh-10k`. The ordered prefix through `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> global-struct-inference -> ssa-nomerge -> dead-code-elimination` also stayed green with `9972 / 10000` compared cases, `0` semantic mismatches, and `28` command failures in `.tmp/pass-fuzz-dce-prefix-10k`.
 
 The same date's direct debug-artifact compare first exposed type-index-only canonical-function drift at `defined=201 abs=218`; the compare-tool canonical-function fallback now ignores pretty-printer `type_idx` and local declaration lines regardless of indentation, moving the first real body-shape drift to `defined=208 abs=225` in `.tmp/dce-artifact-direct-typeidx-canon`. That remaining drift is representation-level typed-control printing (`if I32` versus `if (Void)`) on the debug artifact, not a semantic fuzz mismatch. Direct pass-local timing on that run was Starshine `111.752ms` versus Binaryen `114.480ms`; aggregate whole-command timing remains owned by `[WALL]001`.

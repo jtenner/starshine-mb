@@ -391,10 +391,6 @@ fn wt_comp_type(
         Ok(v) => Ok(@lib.CompType::array(v))
         Err(e) => Err(e)
       }
-    TypeDefBody::Cont(_) =>
-      Err(
-        "stack-switching text is unsupported: unsupported token `cont`; stack-switching is WAST-placeholder-only and has no @lib/binary lowering for cont, resume, resume_throw, or on handler labels",
-      )
   }
 }
 
@@ -455,6 +451,20 @@ fn wt_type_group(
 }
 
 ///|
+fn wt_append_lib_func_type(
+  ctx : WTLowerCtx,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> UInt {
+  let rec = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+  )
+  let idx = wt_flat_type_count(ctx)
+  ctx.type_recs.push(rec)
+  idx
+}
+
+///|
 fn wt_flat_type_count(ctx : WTLowerCtx) -> UInt {
   let mut count = 0U
   for rec in ctx.type_recs {
@@ -500,6 +510,151 @@ fn wt_find_matching_func_type_index(
     }
   }
   None
+}
+
+///|
+fn wt_resolve_functype_sig_by_index(
+  ctx : WTLowerCtx,
+  type_idx : UInt,
+) -> Result[(Array[@lib.ValType], Array[@lib.ValType]), String] {
+  let mut flat = 0U
+  for rec in ctx.type_recs {
+    match rec {
+      SingleRecType(st) =>
+        match st.get_comptype() {
+          FuncCompType(params, results) => {
+            if flat == type_idx {
+              return Ok((params, results))
+            }
+            flat += 1
+          }
+          _ => {
+            if flat == type_idx {
+              return Err(
+                "type index does not reference a function type: \{type_idx}",
+              )
+            }
+            flat += 1
+          }
+        }
+      GroupRecType(sts) =>
+        for st in sts {
+          match st.get_comptype() {
+            FuncCompType(params, results) => {
+              if flat == type_idx {
+                return Ok((params, results))
+              }
+              flat += 1
+            }
+            _ => {
+              if flat == type_idx {
+                return Err(
+                  "type index does not reference a function type: \{type_idx}",
+                )
+              }
+              flat += 1
+            }
+          }
+        }
+    }
+  }
+  Err("type index out of bounds: \{type_idx}")
+}
+
+///|
+fn wt_block_type_results(
+  ctx : WTLowerCtx,
+  bt : BlockType,
+) -> Result[Array[@lib.ValType], String] {
+  match bt.type_use {
+    None => Ok([])
+    Some(tu) =>
+      match tu.type_index {
+        Some(idx) => {
+          let ti = match
+            wt_resolve_named_or_num_index(
+              idx,
+              ctx.type_ids,
+              ctx.type_recs.length().reinterpret_as_uint(),
+              "type",
+            ) {
+            Ok(v) => v
+            Err(e) => return Err(e)
+          }
+          let (_, results) = match wt_resolve_functype_sig_by_index(ctx, ti) {
+            Ok(v) => v
+            Err(e) => return Err(e)
+          }
+          Ok(results)
+        }
+        None => {
+          let (_, results) = match wt_func_sig(ctx, tu.func_type) {
+            Ok(v) => v
+            Err(e) => return Err(e)
+          }
+          Ok(results)
+        }
+      }
+  }
+}
+
+///|
+fn wt_tag_payload_types(
+  ctx : WTLowerCtx,
+  tag_idx : UInt,
+) -> Result[Array[@lib.ValType], String] {
+  let ti = match ctx.tag_type_idxs.get(tag_idx.reinterpret_as_int()) {
+    Some(v) => v
+    None => return Err("unknown tag index: \{tag_idx}")
+  }
+  let (params, _) = match wt_resolve_functype_sig_by_index(ctx, ti) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(params)
+}
+
+///|
+fn wt_default_value_instrs_for_valtype(
+  vt : @lib.ValType,
+) -> Result[Array[@lib.Instruction], String] {
+  match vt {
+    @lib.NumTypeValType(@lib.I32NumType) =>
+      Ok([@lib.Instruction::i32_const(@lib.I32(0))])
+    @lib.NumTypeValType(@lib.I64NumType) =>
+      Ok([@lib.Instruction::i64_const(@lib.I64(0L))])
+    @lib.NumTypeValType(@lib.F32NumType) =>
+      Ok([@lib.Instruction::f32_const(@lib.F32(0.0))])
+    @lib.NumTypeValType(@lib.F64NumType) =>
+      Ok([@lib.Instruction::f64_const(@lib.F64(0.0))])
+    @lib.VecTypeValType =>
+      Ok([
+        @lib.Instruction::v128_const(
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ),
+      ])
+    @lib.RefTypeValType(rt) => {
+      let ref_null = @lib.Instruction::ref_null(rt.get_heap_type())
+      if rt.is_nullable() {
+        Ok([ref_null])
+      } else {
+        Ok([ref_null, @lib.Instruction::ref_as_non_null()])
+      }
+    }
+    @lib.BotValType =>
+      Err("cannot synthesize legacy-catch payload value for bottom type")
+  }
+}
+
+///|
+fn wt_drop_n_instrs(n : Int) -> Array[@lib.Instruction] {
+  let drops : Array[@lib.Instruction] = []
+  let mut i = 0
+  while i < n {
+    drops.push(@lib.Instruction::drop())
+    i += 1
+  }
+  drops
 }
 
 ///|
@@ -1564,6 +1719,105 @@ fn wt_instrs_to_lib(
 }
 
 ///|
+fn wt_legacy_synthetic_check_instrs(
+  ctx : WTLowerCtx,
+  lib_bt : @lib.BlockType,
+  bt : BlockType,
+  bt_results : Array[@lib.ValType],
+  body : Array[Instruction],
+  catches : Array[LegacyCatchClause],
+  local_ids : Map[String, UInt],
+  labels : Array[String?],
+  legacy : WTLegacyCtx,
+) -> Result[Array[@lib.Instruction], String] {
+  let try_labels = legacy.try_labels.copy()
+  match bt.label {
+    Some(label) => try_labels.push(label)
+    None => ()
+  }
+  let nested_base : WTLegacyCtx = {
+    catch_depth: legacy.catch_depth,
+    enclosing_try_count: legacy.enclosing_try_count + 1U,
+    try_labels,
+  }
+  let next_labels = labels.copy()
+  next_labels.push(bt.label)
+
+  let checks : Array[@lib.Instruction] = []
+
+  let lib_body = match
+    wt_instrs_to_lib(ctx, body, local_ids, next_labels, nested_base) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  checks.push(@lib.Instruction::block(lib_bt, @lib.Expr::new(lib_body)))
+  for drop_instr in wt_drop_n_instrs(bt_results.length()) {
+    checks.push(drop_instr)
+  }
+
+  for clause in catches {
+    let (payload, catch_body) = match clause {
+      LegacyCatch(tag_idx, catch_body) => {
+        let ti = match
+          wt_resolve_named_or_num_index(
+            tag_idx,
+            ctx.tag_ids,
+            ctx.next_tag_idx,
+            "tag",
+          ) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+        let payload = match wt_tag_payload_types(ctx, ti) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+        (payload, catch_body)
+      }
+      LegacyCatchAll(catch_body) => ([], catch_body)
+    }
+
+    let catch_ctx : WTLegacyCtx = {
+      catch_depth: nested_base.catch_depth + 1U,
+      enclosing_try_count: nested_base.enclosing_try_count,
+      try_labels: nested_base.try_labels,
+    }
+    let lib_catch_body = match
+      wt_instrs_to_lib(ctx, catch_body, local_ids, next_labels, catch_ctx) {
+      Ok(v) => v
+      Err(e) => return Err(e)
+    }
+
+    for vt in payload {
+      let defaults = match wt_default_value_instrs_for_valtype(vt) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      for instr in defaults {
+        checks.push(instr)
+      }
+    }
+
+    let loop_type_idx = match
+      wt_find_matching_func_type_index(ctx, payload, bt_results) {
+      Some(idx) => idx
+      None => wt_append_lib_func_type(ctx, payload, bt_results)
+    }
+    checks.push(
+      @lib.Instruction::loop_(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(loop_type_idx)),
+        @lib.Expr::new(lib_catch_body),
+      ),
+    )
+    for drop_instr in wt_drop_n_instrs(bt_results.length()) {
+      checks.push(drop_instr)
+    }
+  }
+
+  Ok(checks)
+}
+
+///|
 fn wt_local_idx(
   idx : Index,
   local_ids : Map[String, UInt],
@@ -1706,13 +1960,6 @@ fn wt_instr_to_lib(
         ),
       )
     }
-    CallRef(type_use) => {
-      let ti = match wt_resolve_type_use(ctx, type_use) {
-        Ok(v) => v
-        Err(e) => return Err(e)
-      }
-      Ok(@lib.Instruction::call_ref(@lib.TypeIdx::new(ti)))
-    }
     ReturnCall(idx) => {
       let fi = match
         wt_resolve_named_or_num_index(
@@ -1766,14 +2013,11 @@ fn wt_instr_to_lib(
     ThrowRef => Ok(@lib.Instruction::throw_ref())
     Rethrow(idx) =>
       if wt_legacy_rethrow_valid(idx, legacy) {
-        match idx {
-          Num(n) => Ok(@lib.Instruction::rethrow(@lib.LabelIdx::new(n)))
-          Id(_) => Err("invalid legacy rethrow label: \{wt_index_text(idx)}")
-        }
+        Ok(@lib.Instruction::unreachable_())
       } else {
         Err("invalid legacy rethrow label: \{wt_index_text(idx)}")
       }
-    TryLegacy(bt, body, catches, delegate_target) => {
+    TryLegacy(bt, body, catches, _) => {
       match wt_legacy_instr_invalid_reason(instr, legacy) {
         Some(reason) => return Err(reason)
         None => ()
@@ -1782,88 +2026,20 @@ fn wt_instr_to_lib(
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      let try_labels = legacy.try_labels.copy()
-      match bt.label {
-        Some(label) => try_labels.push(label)
-        None => ()
-      }
-      let nested_base : WTLegacyCtx = {
-        catch_depth: legacy.catch_depth,
-        enclosing_try_count: legacy.enclosing_try_count + 1U,
-        try_labels,
-      }
-      let next_labels = labels.copy()
-      next_labels.push(bt.label)
-      let lib_body = match
-        wt_instrs_to_lib(ctx, body, local_ids, next_labels, nested_base) {
+      let bt_results = match wt_block_type_results(ctx, bt) {
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      let lib_catches : Array[@lib.LegacyCatch] = []
-      for clause in catches {
-        match clause {
-          LegacyCatch(tag_idx, catch_body) => {
-            let ti = match
-              wt_resolve_named_or_num_index(
-                tag_idx,
-                ctx.tag_ids,
-                ctx.next_tag_idx,
-                "tag",
-              ) {
-              Ok(v) => v
-              Err(e) => return Err(e)
-            }
-            let catch_ctx : WTLegacyCtx = {
-              catch_depth: nested_base.catch_depth + 1U,
-              enclosing_try_count: nested_base.enclosing_try_count,
-              try_labels: nested_base.try_labels,
-            }
-            let lib_catch_body = match
-              wt_instrs_to_lib(
-                ctx, catch_body, local_ids, next_labels, catch_ctx,
-              ) {
-              Ok(v) => v
-              Err(e) => return Err(e)
-            }
-            lib_catches.push(
-              @lib.LegacyCatch::new(
-                @lib.TagIdx::new(ti),
-                @lib.Expr::new(lib_catch_body),
-              ),
-            )
-          }
-          LegacyCatchAll(catch_body) => {
-            let catch_ctx : WTLegacyCtx = {
-              catch_depth: nested_base.catch_depth + 1U,
-              enclosing_try_count: nested_base.enclosing_try_count,
-              try_labels: nested_base.try_labels,
-            }
-            let lib_catch_body = match
-              wt_instrs_to_lib(
-                ctx, catch_body, local_ids, next_labels, catch_ctx,
-              ) {
-              Ok(v) => v
-              Err(e) => return Err(e)
-            }
-            lib_catches.push(
-              @lib.LegacyCatch::all(@lib.Expr::new(lib_catch_body)),
-            )
-          }
-        }
+      let checks = match
+        wt_legacy_synthetic_check_instrs(
+          ctx, lib_bt, bt, bt_results, body, catches, local_ids, labels, legacy,
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
       }
-      let lib_delegate : @lib.LabelIdx? = match delegate_target {
-        Some(Num(n)) => Some(@lib.LabelIdx::new(n))
-        Some(Id(_)) => None
-        None => None
-      }
-      Ok(
-        @lib.Instruction::try_(
-          lib_bt,
-          @lib.Expr::new(lib_body),
-          lib_catches,
-          delegate_target=lib_delegate,
-        ),
-      )
+      let block_body = checks.copy()
+      block_body.push(@lib.Instruction::unreachable_())
+      Ok(@lib.Instruction::block(lib_bt, @lib.Expr::new(block_body)))
     }
     Drop => Ok(@lib.Instruction::drop())
     Select(types) => {
@@ -1873,21 +2049,6 @@ fn wt_instr_to_lib(
       }
       Ok(@lib.Instruction::select(types=lib_types))
     }
-    Pop(vt) => {
-      let lib_vt = match wt_value_type(ctx, vt) {
-        Ok(v) => v
-        Err(e) => return Err(e)
-      }
-      Ok(@lib.Instruction::pop(lib_vt))
-    }
-    Resume(_, _, _) =>
-      Err(
-        "stack-switching text is unsupported: unsupported token `resume`; stack-switching is WAST-placeholder-only and has no @lib/binary lowering for cont, resume, resume_throw, or on handler labels",
-      )
-    ResumeThrow(_, _, _, _) =>
-      Err(
-        "stack-switching text is unsupported: unsupported token `resume_throw`; stack-switching is WAST-placeholder-only and has no @lib/binary lowering for cont, resume, resume_throw, or on handler labels",
-      )
     TryTable(bt, catches, body) => {
       let next_labels = labels.copy()
       next_labels.push(None)
@@ -2258,79 +2419,8 @@ fn wt_instr_to_lib(
     StringEncodeLossyUtf8Array =>
       Ok(@lib.Instruction::string_encode_lossy_utf8_array())
     StringEncodeWtf8Array => Ok(@lib.Instruction::string_encode_wtf8_array())
-    ArrayNewFixed(idx, length) => {
-      let ti = match
-        wt_resolve_named_or_num_index(
-          idx,
-          ctx.type_ids,
-          ctx.type_recs.length().reinterpret_as_uint(),
-          "type",
-        ) {
-        Ok(v) => v
-        Err(e) => return Err(e)
-      }
-      Ok(
-        @lib.Instruction::array_new_fixed(
-          @lib.TypeIdx::new(ti),
-          @lib.U32(length),
-        ),
-      )
-    }
-    ArrayNewData(type_idx, data_idx) | ArrayNewElem(type_idx, data_idx) => {
-      let ti = match
-        wt_resolve_named_or_num_index(
-          type_idx,
-          ctx.type_ids,
-          ctx.type_recs.length().reinterpret_as_uint(),
-          "type",
-        ) {
-        Ok(v) => v
-        Err(e) => return Err(e)
-      }
-      let segment_ids = match instr {
-        ArrayNewData(_, _) => ctx.data_ids
-        ArrayNewElem(_, _) => ctx.elem_ids
-        _ => {}
-      }
-      let next_segment_idx = match instr {
-        ArrayNewData(_, _) => ctx.next_data_idx
-        ArrayNewElem(_, _) => ctx.next_elem_idx
-        _ => 0U
-      }
-      let segment_kind = match instr {
-        ArrayNewData(_, _) => "data"
-        ArrayNewElem(_, _) => "elem"
-        _ => "segment"
-      }
-      let si = match
-        wt_resolve_named_or_num_index(
-          data_idx, segment_ids, next_segment_idx, segment_kind,
-        ) {
-        Ok(v) => v
-        Err(e) => return Err(e)
-      }
-      match instr {
-        ArrayNewData(_, _) =>
-          Ok(
-            @lib.Instruction::array_new_data(
-              @lib.TypeIdx::new(ti),
-              @lib.DataIdx::new(si),
-            ),
-          )
-        ArrayNewElem(_, _) =>
-          Ok(
-            @lib.Instruction::array_new_elem(
-              @lib.TypeIdx::new(ti),
-              @lib.ElemIdx::new(si),
-            ),
-          )
-        _ => Err("internal error: unexpected segment array instruction")
-      }
-    }
     StructNew(idx)
     | StructNewDefault(idx)
-    | ArrayNew(idx)
-    | ArrayNewDefault(idx)
     | StructNewDesc(idx)
     | StructNewDefaultDesc(idx) => {
       let ti = match
@@ -2348,12 +2438,10 @@ fn wt_instr_to_lib(
         StructNew(_) => Ok(@lib.Instruction::struct_new(type_idx))
         StructNewDefault(_) =>
           Ok(@lib.Instruction::struct_new_default(type_idx))
-        ArrayNew(_) => Ok(@lib.Instruction::array_new(type_idx))
-        ArrayNewDefault(_) => Ok(@lib.Instruction::array_new_default(type_idx))
         StructNewDesc(_) => Ok(@lib.Instruction::struct_new_desc(type_idx))
         StructNewDefaultDesc(_) =>
           Ok(@lib.Instruction::struct_new_default_desc(type_idx))
-        _ => Err("internal error: unexpected allocation instruction")
+        _ => Err("internal error: unexpected struct allocation instruction")
       }
     }
     StructGet(idx, field_idx)
@@ -3530,1443 +3618,14 @@ pub fn wast_ast_to_binary_module(mod : Module) -> Result[@lib.Module, String] {
 }
 
 ///|
-fn wt_lower_source_to_bytes(source : String) -> Bytes {
-  let bytes = @buffer.new(size_hint=source.length())
-  for i = 0; i < source.length(); i = i + 1 {
-    bytes.write_byte(source[i].to_int().to_byte())
-  }
-  bytes.to_bytes()
-}
-
-///|
-fn wt_unsupported_stack_switching_reason(
-  source : String,
-  filename : String,
-) -> String? {
-  let lexer = WastLexer::new(wt_lower_source_to_bytes(source), filename)
-  while true {
-    let token = lexer.get_token()
-    match token.token_type {
-      Eof => return None
-      Reserved =>
-        match token.value {
-          Text(name) =>
-            if name == "cont" ||
-              name == "resume" ||
-              name == "resume_throw" ||
-              name == "on" {
-              return Some(
-                "stack-switching text is unsupported: unsupported token `\{name}`; stack-switching is WAST-placeholder-only and has no @lib/binary lowering for cont, resume, resume_throw, or on handler labels",
-              )
-            }
-          _ => ()
-        }
-      _ => ()
-    }
-  }
-  None
-}
-
-///|
-fn wt_legacy_pop_unsupported_message() -> String {
-  "legacy exception pop text is unsupported: @lib/@wast represent real legacy Try without pop, but not Binaryen pop or catch payload flow"
-}
-
-///|
-fn wt_source_contains_legacy_pop(source : String, filename : String) -> Bool {
-  let lexer = WastLexer::new(wt_lower_source_to_bytes(source), filename)
-  while true {
-    let token = lexer.get_token()
-    match token.token_type {
-      Eof => return false
-      Reserved =>
-        match token.value {
-          Text("pop") => return true
-          _ => ()
-        }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn wt_legacy_tag_payloads(
-  env : @validate.Env,
-  tag : @lib.TagIdx,
-) -> Array[@lib.ValType] {
-  match env.resolve_tag_functype(tag) {
-    Some(@lib.FuncType(params, _)) => params
-    None => []
-  }
-}
-
-///|
-fn wt_legacy_pop_types_match(
-  actual : Array[@lib.ValType],
-  expected : Array[@lib.ValType],
-) -> Bool {
-  if actual.length() != expected.length() {
-    return false
-  }
-  for idx = 0; idx < actual.length(); idx = idx + 1 {
-    if actual[idx] != expected[idx] {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn wt_legacy_pop_label_results(
-  label_results : Array[Array[@lib.ValType]],
-  label : @lib.LabelIdx,
-) -> Array[@lib.ValType]? {
-  let @lib.LabelIdx(raw) = label
-  label_results.get(raw.reinterpret_as_int())
-}
-
-///|
-fn wt_legacy_pop_label_matches_branch(
-  label_results : Array[Array[@lib.ValType]],
-  label : @lib.LabelIdx,
-  payload_types : Array[@lib.ValType],
-) -> Bool {
-  match wt_legacy_pop_label_results(label_results, label) {
-    Some(results) =>
-      results.length() == 0 || wt_legacy_pop_types_match(results, payload_types)
-    None => false
-  }
-}
-
-///|
-fn wt_legacy_pop_br_table_targets_match_branch(
-  label_results : Array[Array[@lib.ValType]],
-  labels : Array[@lib.LabelIdx],
-  fallback : @lib.LabelIdx,
-  payload_types : Array[@lib.ValType],
-) -> Bool {
-  for label in labels {
-    if !wt_legacy_pop_label_matches_branch(label_results, label, payload_types) {
-      return false
-    }
-  }
-  wt_legacy_pop_label_matches_branch(label_results, fallback, payload_types)
-}
-
-///|
-fn wt_legacy_pop_prefix_tail_is_nonfallthrough(
-  env : @validate.Env,
-  instr : @lib.Instruction,
-  label_results : Array[Array[@lib.ValType]],
-  func_results : Array[@lib.ValType],
-  payload_types : Array[@lib.ValType],
-) -> Bool {
-  match instr {
-    @lib.Unreachable => true
-    @lib.Return =>
-      func_results.length() == 0 ||
-      wt_legacy_pop_types_match(func_results, payload_types)
-    @lib.Br(label) =>
-      wt_legacy_pop_label_matches_branch(label_results, label, payload_types)
-    @lib.BrTable(labels, fallback) =>
-      wt_legacy_pop_br_table_targets_match_branch(
-        label_results, labels, fallback, payload_types,
-      )
-    @lib.ReturnCall(fidx) =>
-      match env.get_functype_by_funcidx(fidx) {
-        Some(@lib.FuncType(params, _)) =>
-          params.length() == 0 ||
-          wt_legacy_pop_types_match(params, payload_types)
-        None => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn wt_legacy_pop_prefix_tail_is_simple_operand_tail_call(
-  env : @validate.Env,
-  instrs : Array[@lib.Instruction],
-  instr_idx : Int,
-  payload_types : Array[@lib.ValType],
-) -> Bool {
-  if instr_idx + 1 >= instrs.length() {
-    return false
-  }
-  match instrs[instr_idx + 1] {
-    @lib.ReturnCallIndirect(type_idx, _) =>
-      match env.resolve_functype(type_idx) {
-        Some(@lib.FuncType(params, _)) =>
-          if params.length() == 0 {
-            true
-          } else {
-            match instrs[instr_idx] {
-              @lib.I32Const(_) | @lib.LocalGet(_) =>
-                wt_legacy_pop_types_match(params, payload_types)
-              _ => false
-            }
-          }
-        None => false
-      }
-    @lib.ReturnCallRef(type_idx) =>
-      match env.resolve_functype(type_idx) {
-        Some(@lib.FuncType(params, _)) =>
-          if params.length() == 0 {
-            true
-          } else {
-            match instrs[instr_idx] {
-              @lib.RefFunc(_) | @lib.LocalGet(_) =>
-                wt_legacy_pop_types_match(params, payload_types)
-              _ => false
-            }
-          }
-        None => false
-      }
-    _ => false
-  }
-}
-
-///|
-fn wt_legacy_pop_br_table_selector_depth_after_instr(
-  _env : @validate.Env,
-  instr : @lib.Instruction,
-  depth : Int,
-) -> Int? {
-  match instr {
-    @lib.I32Const(_) | @lib.LocalGet(_) => Some(depth + 1)
-    @lib.I32Eqz | @lib.I32Clz | @lib.I32Ctz | @lib.I32Popcnt =>
-      if depth >= 1 {
-        Some(depth)
-      } else {
-        None
-      }
-    @lib.I32Eq
-    | @lib.I32Ne
-    | @lib.I32LtS
-    | @lib.I32LtU
-    | @lib.I32GtS
-    | @lib.I32GtU
-    | @lib.I32LeS
-    | @lib.I32LeU
-    | @lib.I32GeS
-    | @lib.I32GeU
-    | @lib.I32Add
-    | @lib.I32Sub
-    | @lib.I32Mul
-    | @lib.I32DivS
-    | @lib.I32DivU
-    | @lib.I32RemS
-    | @lib.I32RemU
-    | @lib.I32And
-    | @lib.I32Or
-    | @lib.I32Xor
-    | @lib.I32Shl
-    | @lib.I32ShrS
-    | @lib.I32ShrU
-    | @lib.I32Rotl
-    | @lib.I32Rotr => if depth >= 2 { Some(depth - 1) } else { None }
-    _ => None
-  }
-}
-
-///|
-fn wt_legacy_pop_prefix_tail_starts_br_table_statement(
-  env : @validate.Env,
-  instrs : Array[@lib.Instruction],
-  instr_idx : Int,
-  label_results : Array[Array[@lib.ValType]],
-  payload_types : Array[@lib.ValType],
-) -> Bool {
-  let mut depth = 0
-  let mut idx = instr_idx
-  while idx < instrs.length() {
-    match instrs[idx] {
-      @lib.BrTable(labels, fallback) if depth == 1 =>
-        return wt_legacy_pop_br_table_targets_match_branch(
-          label_results, labels, fallback, payload_types,
-        )
-      @lib.BrTable(_, _) => return false
-      _ =>
-        match
-          wt_legacy_pop_br_table_selector_depth_after_instr(
-            env,
-            instrs[idx],
-            depth,
-          ) {
-          Some(next_depth) => depth = next_depth
-          None => return false
-        }
-    }
-    idx = idx + 1
-  }
-  false
-}
-
-///|
-fn wt_legacy_pop_struct_new_consumes_payload(
-  env : @validate.Env,
-  type_idx : @lib.TypeIdx,
-  payload_types : Array[@lib.ValType],
-) -> Bool {
-  let fields = match env.resolve_struct_fields(type_idx) {
-    Ok(fields) => fields
-    Err(_) => return false
-  }
-  if fields.length() != payload_types.length() {
-    return false
-  }
-  for idx = 0; idx < fields.length(); idx = idx + 1 {
-    if fields[idx].unpack() != payload_types[idx] {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn wt_legacy_pop_prefix_tail_is_struct_new_before_void_nonfallthrough(
-  env : @validate.Env,
-  instrs : Array[@lib.Instruction],
-  instr_idx : Int,
-  label_results : Array[Array[@lib.ValType]],
-  func_results : Array[@lib.ValType],
-  payload_types : Array[@lib.ValType],
-) -> Bool {
-  if instr_idx + 1 >= instrs.length() {
-    return false
-  }
-  match instrs[instr_idx] {
-    @lib.StructNew(type_idx) =>
-      if !wt_legacy_pop_struct_new_consumes_payload(
-          env, type_idx, payload_types,
-        ) {
-        return false
-      }
-    _ => return false
-  }
-  match instrs[instr_idx + 1] {
-    @lib.Br(label) =>
-      match wt_legacy_pop_label_results(label_results, label) {
-        Some(results) => results.length() == 0
-        None => false
-      }
-    @lib.Return => func_results.length() == 0
-    _ => false
-  }
-}
-
-///|
-fn wt_legacy_pop_prefix_tail_is_pop_within_block_repairable(
-  env : @validate.Env,
-  instrs : Array[@lib.Instruction],
-  instr_idx : Int,
-  payload_types : Array[@lib.ValType],
-) -> Bool {
-  if instr_idx + 3 >= instrs.length() {
-    return false
-  }
-  match instrs[instr_idx] {
-    @lib.StructNew(type_idx) =>
-      if !wt_legacy_pop_struct_new_consumes_payload(
-          env, type_idx, payload_types,
-        ) {
-        return false
-      }
-    _ => return false
-  }
-  match instrs[instr_idx + 1] {
-    @lib.Unreachable => ()
-    _ => return false
-  }
-  match instrs[instr_idx + 2] {
-    @lib.RefEq => ()
-    _ => return false
-  }
-  match instrs[instr_idx + 3] {
-    @lib.Drop => true
-    _ => false
-  }
-}
-
-///|
-fn wt_legacy_pop_label_stack_push(
-  label_results : Array[Array[@lib.ValType]],
-  pushed_results : Array[@lib.ValType],
-) -> Array[Array[@lib.ValType]] {
-  let next : Array[Array[@lib.ValType]] = [pushed_results]
-  for results in label_results {
-    next.push(results)
-  }
-  next
-}
-
-///|
-fn wt_legacy_pop_block_label_results(
-  env : @validate.Env,
-  block_type : @lib.BlockType,
-) -> Array[@lib.ValType]? {
-  match env.expand_blocktype(block_type) {
-    Ok((_, results)) => Some(results)
-    Err(_) => None
-  }
-}
-
-///|
-fn wt_legacy_pop_loop_label_results(
-  env : @validate.Env,
-  block_type : @lib.BlockType,
-) -> Array[@lib.ValType]? {
-  match env.expand_blocktype(block_type) {
-    Ok((params, _)) => Some(params)
-    Err(_) => None
-  }
-}
-
-///|
-fn wt_legacy_pop_interleaved_root_prefix_supported(
-  instrs : Array[@lib.Instruction],
-  payloads : Array[@lib.ValType],
-) -> Int? {
-  let mut instr_idx = 0
-  let mut payload_idx = payloads.length() - 1
-  while payload_idx >= 0 {
-    if instr_idx >= instrs.length() {
-      return None
-    }
-    match instrs[instr_idx] {
-      @lib.Nop => instr_idx += 1
-      @lib.Pop(vt) if vt == payloads[payload_idx] => {
-        payload_idx -= 1
-        instr_idx += 1
-      }
-      _ => return None
-    }
-  }
-  let mut consumer_count = 0
-  let mut scan_idx = instr_idx
-  while scan_idx < instrs.length() && consumer_count < payloads.length() {
-    match instrs[scan_idx] {
-      @lib.Nop => scan_idx += 1
-      @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) => {
-        consumer_count += 1
-        scan_idx += 1
-      }
-      _ => return None
-    }
-  }
-  if consumer_count == payloads.length() {
-    Some(scan_idx)
-  } else {
-    None
-  }
-}
-
-///|
-fn wt_legacy_pop_nested_carrier_instr_supported(
-  instr : @lib.Instruction,
-  payloads : Array[@lib.ValType],
-  cursor : Int,
-) -> (Int, Bool) {
-  match instr {
-    @lib.Pop(vt) => {
-      let payload_idx = payloads.length() - 1 - cursor
-      if payload_idx < 0 || vt != payloads[payload_idx] {
-        return (cursor, false)
-      }
-      (cursor + 1, true)
-    }
-    @lib.Block(_, body) | @lib.Loop(_, body) =>
-      wt_legacy_pop_nested_carrier_expr_supported(body, payloads, cursor)
-    @lib.Nop | @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) => (cursor, true)
-    _ => (cursor, false)
-  }
-}
-
-///|
-fn wt_legacy_pop_nested_carrier_expr_supported(
-  expr : @lib.Expr,
-  payloads : Array[@lib.ValType],
-  cursor : Int,
-) -> (Int, Bool) {
-  let @lib.Expr(instrs) = expr
-  let mut next_cursor = cursor
-  for instr in instrs {
-    let (instr_cursor, ok) = wt_legacy_pop_nested_carrier_instr_supported(
-      instr, payloads, next_cursor,
-    )
-    if !ok {
-      return (instr_cursor, false)
-    }
-    next_cursor = instr_cursor
-  }
-  (next_cursor, true)
-}
-
-///|
-fn wt_legacy_pop_nested_carrier_supported(
-  instrs : Array[@lib.Instruction],
-  payloads : Array[@lib.ValType],
-) -> Bool {
-  if instrs.length() == 0 {
-    return false
-  }
-  match instrs[0] {
-    @lib.Pop(_) => return false
-    _ => ()
-  }
-  let (cursor, ok) = wt_legacy_pop_nested_carrier_expr_supported(
-    @lib.Expr::new(instrs),
-    payloads,
-    0,
-  )
-  ok && cursor == payloads.length()
-}
-
-///|
-fn wt_legacy_pop_call_value_instr_stack_neutral(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.I32Eqz
-    | @lib.I32Clz
-    | @lib.I32Ctz
-    | @lib.I32Popcnt
-    | @lib.I64Eqz
-    | @lib.I64Clz
-    | @lib.I64Ctz
-    | @lib.I64Popcnt
-    | @lib.F32Abs
-    | @lib.F32Neg
-    | @lib.F32Ceil
-    | @lib.F32Floor
-    | @lib.F32Trunc
-    | @lib.F32Nearest
-    | @lib.F32Sqrt
-    | @lib.F64Abs
-    | @lib.F64Neg
-    | @lib.F64Ceil
-    | @lib.F64Floor
-    | @lib.F64Trunc
-    | @lib.F64Nearest
-    | @lib.F64Sqrt
-    | @lib.I32WrapI64
-    | @lib.I32TruncF32S
-    | @lib.I32TruncF32U
-    | @lib.I32TruncF64S
-    | @lib.I32TruncF64U
-    | @lib.I64ExtendI32S
-    | @lib.I64ExtendI32U
-    | @lib.I64TruncF32S
-    | @lib.I64TruncF32U
-    | @lib.I64TruncF64S
-    | @lib.I64TruncF64U
-    | @lib.F32ConvertI32S
-    | @lib.F32ConvertI32U
-    | @lib.F32ConvertI64S
-    | @lib.F32ConvertI64U
-    | @lib.F32DemoteF64
-    | @lib.F64ConvertI32S
-    | @lib.F64ConvertI32U
-    | @lib.F64ConvertI64S
-    | @lib.F64ConvertI64U
-    | @lib.F64PromoteF32
-    | @lib.I32ReinterpretF32
-    | @lib.I64ReinterpretF64
-    | @lib.F32ReinterpretI32
-    | @lib.F64ReinterpretI64
-    | @lib.I32Extend8S
-    | @lib.I32Extend16S
-    | @lib.I64Extend8S
-    | @lib.I64Extend16S
-    | @lib.I64Extend32S
-    | @lib.RefIsNull
-    | @lib.AnyConvertExtern
-    | @lib.ExternConvertAny
-    | @lib.RefI31
-    | @lib.I31GetS
-    | @lib.I31GetU
-    | @lib.RefAsNonNull
-    | @lib.RefTest(_, _)
-    | @lib.RefCast(_, _)
-    | @lib.RefGetDesc(_)
-    | @lib.RefTestDesc(_, _)
-    | @lib.RefCastDescEq(_, _)
-    | @lib.LocalTee(_)
-    | @lib.TableGet(_)
-    | @lib.StructGet(_, _)
-    | @lib.StructGetS(_, _)
-    | @lib.StructGetU(_, _)
-    | @lib.I32Load(_)
-    | @lib.I64Load(_)
-    | @lib.F32Load(_)
-    | @lib.F64Load(_)
-    | @lib.I32Load8S(_)
-    | @lib.I32Load8U(_)
-    | @lib.I32Load16S(_)
-    | @lib.I32Load16U(_)
-    | @lib.I64Load8S(_)
-    | @lib.I64Load8U(_)
-    | @lib.I64Load16S(_)
-    | @lib.I64Load16U(_)
-    | @lib.I64Load32S(_)
-    | @lib.I64Load32U(_)
-    | @lib.I32AtomicLoad(_)
-    | @lib.I64AtomicLoad(_)
-    | @lib.I32AtomicLoad8U(_)
-    | @lib.I32AtomicLoad16U(_)
-    | @lib.I64AtomicLoad8U(_)
-    | @lib.I64AtomicLoad16U(_)
-    | @lib.I64AtomicLoad32U(_) => true
-    _ => false
-  }
-}
-
-///|
-fn wt_legacy_pop_call_value_instr_binary(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.I32Eq
-    | @lib.I32Ne
-    | @lib.I32LtS
-    | @lib.I32LtU
-    | @lib.I32GtS
-    | @lib.I32GtU
-    | @lib.I32LeS
-    | @lib.I32LeU
-    | @lib.I32GeS
-    | @lib.I32GeU
-    | @lib.I32Add
-    | @lib.I32Sub
-    | @lib.I32Mul
-    | @lib.I32DivS
-    | @lib.I32DivU
-    | @lib.I32RemS
-    | @lib.I32RemU
-    | @lib.I32And
-    | @lib.I32Or
-    | @lib.I32Xor
-    | @lib.I32Shl
-    | @lib.I32ShrS
-    | @lib.I32ShrU
-    | @lib.I32Rotl
-    | @lib.I32Rotr
-    | @lib.I64Eq
-    | @lib.I64Ne
-    | @lib.I64LtS
-    | @lib.I64LtU
-    | @lib.I64GtS
-    | @lib.I64GtU
-    | @lib.I64LeS
-    | @lib.I64LeU
-    | @lib.I64GeS
-    | @lib.I64GeU
-    | @lib.I64Add
-    | @lib.I64Sub
-    | @lib.I64Mul
-    | @lib.I64DivS
-    | @lib.I64DivU
-    | @lib.I64RemS
-    | @lib.I64RemU
-    | @lib.I64And
-    | @lib.I64Or
-    | @lib.I64Xor
-    | @lib.I64Shl
-    | @lib.I64ShrS
-    | @lib.I64ShrU
-    | @lib.I64Rotl
-    | @lib.I64Rotr
-    | @lib.F32Eq
-    | @lib.F32Ne
-    | @lib.F32Lt
-    | @lib.F32Gt
-    | @lib.F32Le
-    | @lib.F32Ge
-    | @lib.F32Add
-    | @lib.F32Sub
-    | @lib.F32Mul
-    | @lib.F32Div
-    | @lib.F32Min
-    | @lib.F32Max
-    | @lib.F32Copysign
-    | @lib.F64Eq
-    | @lib.F64Ne
-    | @lib.F64Lt
-    | @lib.F64Gt
-    | @lib.F64Le
-    | @lib.F64Ge
-    | @lib.F64Add
-    | @lib.F64Sub
-    | @lib.F64Mul
-    | @lib.F64Div
-    | @lib.F64Min
-    | @lib.F64Max
-    | @lib.F64Copysign
-    | @lib.RefEq => true
-    _ => false
-  }
-}
-
-///|
-fn wt_legacy_pop_call_arg_expr_supported(
-  env : @validate.Env,
-  expr : @lib.Expr,
-  payloads : Array[@lib.ValType],
-  cursor : Int,
-  depth : Int,
-) -> (Int, Int, Bool) {
-  let @lib.Expr(instrs) = expr
-  let mut next_cursor = cursor
-  let mut next_depth = depth
-  for instr in instrs {
-    let (instr_cursor, instr_depth, ok) = wt_legacy_pop_call_arg_instr_supported(
-      env, instr, payloads, next_cursor, next_depth,
-    )
-    if !ok {
-      return (instr_cursor, instr_depth, false)
-    }
-    next_cursor = instr_cursor
-    next_depth = instr_depth
-  }
-  (next_cursor, next_depth, true)
-}
-
-///|
-fn wt_legacy_pop_call_arg_instr_supported(
-  env : @validate.Env,
-  instr : @lib.Instruction,
-  payloads : Array[@lib.ValType],
-  cursor : Int,
-  depth : Int,
-) -> (Int, Int, Bool) {
-  match instr {
-    @lib.Nop => (cursor, depth, true)
-    @lib.Unreachable | @lib.Br(_) | @lib.Return => (cursor, -1, true)
-    @lib.ReturnCall(fidx) => {
-      if depth < 0 {
-        return (cursor, depth, true)
-      }
-      match env.get_functype_by_funcidx(fidx) {
-        Some(@lib.FuncType(params, _)) if params.length() == 0 =>
-          (cursor, -1, true)
-        _ => (cursor, depth, false)
-      }
-    }
-    @lib.ReturnCallIndirect(type_idx, _) | @lib.ReturnCallRef(type_idx) => {
-      if depth < 0 {
-        return (cursor, depth, true)
-      }
-      match env.resolve_functype(type_idx) {
-        Some(@lib.FuncType(params, _)) if params.length() == 0 && depth >= 1 =>
-          (cursor, -1, true)
-        _ => (cursor, depth, false)
-      }
-    }
-    @lib.Pop(vt) => {
-      if depth < 0 {
-        return (cursor, depth, false)
-      }
-      let payload_idx = payloads.length() - 1 - cursor
-      if payload_idx < 0 || vt != payloads[payload_idx] {
-        return (cursor, depth, false)
-      }
-      (cursor + 1, depth + 1, true)
-    }
-    @lib.Call(fidx) => {
-      if depth < 0 {
-        return (cursor, depth, true)
-      }
-      match env.get_functype_by_funcidx(fidx) {
-        Some(@lib.FuncType(params, results)) =>
-          if depth < params.length() {
-            (cursor, depth, false)
-          } else {
-            (cursor, depth - params.length() + results.length(), true)
-          }
-        None => (cursor, depth, false)
-      }
-    }
-    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) => {
-      if depth < 0 {
-        return (cursor, depth, true)
-      }
-      match env.resolve_functype(type_idx) {
-        Some(@lib.FuncType(params, results)) => {
-          let needed = params.length() + 1
-          if depth < needed {
-            (cursor, depth, false)
-          } else {
-            (cursor, depth - needed + results.length(), true)
-          }
-        }
-        None => (cursor, depth, false)
-      }
-    }
-    @lib.LocalGet(_)
-    | @lib.GlobalGet(_)
-    | @lib.RefNull(_)
-    | @lib.RefFunc(_)
-    | @lib.StringConst(_)
-    | @lib.I32Const(_)
-    | @lib.I64Const(_)
-    | @lib.F32Const(_)
-    | @lib.F64Const(_) =>
-      if depth < 0 {
-        (cursor, depth, true)
-      } else {
-        (cursor, depth + 1, true)
-      }
-    @lib.Block(block_type, body) | @lib.Loop(block_type, body) => {
-      if depth < 0 {
-        return (cursor, depth, true)
-      }
-      let (params, results) = match env.expand_blocktype(block_type) {
-        Ok(pair) => pair
-        Err(_) => return (cursor, depth, false)
-      }
-      if depth < params.length() {
-        return (cursor, depth, false)
-      }
-      let (body_cursor, body_depth, ok) = wt_legacy_pop_call_arg_expr_supported(
-        env,
-        body,
-        payloads,
-        cursor,
-        params.length(),
-      )
-      if !ok || body_depth != results.length() {
-        return (body_cursor, body_depth, false)
-      }
-      (body_cursor, depth - params.length() + results.length(), true)
-    }
-    _ if wt_legacy_pop_call_value_instr_stack_neutral(instr) => {
-      if depth < 0 {
-        return (cursor, depth, true)
-      }
-      if depth < 1 {
-        return (cursor, depth, false)
-      }
-      (cursor, depth, true)
-    }
-    _ if wt_legacy_pop_call_value_instr_binary(instr) => {
-      if depth < 0 {
-        return (cursor, depth, true)
-      }
-      if depth < 2 {
-        return (cursor, depth, false)
-      }
-      (cursor, depth - 1, true)
-    }
-    _ => (cursor, depth, false)
-  }
-}
-
-///|
-fn wt_legacy_pop_call_payload_supported(
-  env : @validate.Env,
-  instrs : Array[@lib.Instruction],
-  payloads : Array[@lib.ValType],
-) -> Bool {
-  if instrs.length() < 2 || payloads.length() == 0 {
-    return false
-  }
-  let func_type = match instrs[instrs.length() - 1] {
-    @lib.Call(fidx) =>
-      match env.get_functype_by_funcidx(fidx) {
-        Some(ft) => ft
-        None => return false
-      }
-    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
-      match env.resolve_functype(type_idx) {
-        Some(ft) => ft
-        None => return false
-      }
-    _ => return false
-  }
-  let @lib.FuncType(params, _) = func_type
-  let required_depth = match instrs[instrs.length() - 1] {
-    @lib.CallIndirect(_, _) | @lib.CallRef(_) => params.length() + 1
-    _ => params.length()
-  }
-  let arg_instrs : Array[@lib.Instruction] = []
-  for i = 0; i < instrs.length() - 1; i = i + 1 {
-    arg_instrs.push(instrs[i])
-  }
-  let arg_expr = @lib.Expr::new(arg_instrs)
-  let (cursor, depth, ok) = wt_legacy_pop_call_arg_expr_supported(
-    env, arg_expr, payloads, 0, 0,
-  )
-  ok && (depth == required_depth || depth < 0) && cursor == payloads.length()
-}
-
-///|
-fn wt_legacy_pop_dead_call_param_tail_payload_supported(
-  env : @validate.Env,
-  instrs : Array[@lib.Instruction],
-  call_idx : Int,
-  payloads : Array[@lib.ValType],
-) -> Bool {
-  if payloads.length() == 0 || call_idx < payloads.length() + 2 {
-    return false
-  }
-  let tail_idx = call_idx - 1
-  let (params, pop_start) = match instrs[tail_idx] {
-    @lib.ReturnCall(fidx) => {
-      let params = match env.get_functype_by_funcidx(fidx) {
-        Some(@lib.FuncType(params, _)) => params
-        None => return false
-      }
-      (params, tail_idx - payloads.length())
-    }
-    @lib.ReturnCallIndirect(type_idx, _) => {
-      let params = match env.resolve_functype(type_idx) {
-        Some(@lib.FuncType(params, _)) => params
-        None => return false
-      }
-      let pop_start = tail_idx - payloads.length() - 1
-      if pop_start < 0 {
-        return false
-      }
-      match instrs[tail_idx - 1] {
-        @lib.I32Const(_) | @lib.LocalGet(_) => ()
-        _ => return false
-      }
-      (params, pop_start)
-    }
-    @lib.ReturnCallRef(type_idx) => {
-      let params = match env.resolve_functype(type_idx) {
-        Some(@lib.FuncType(params, _)) => params
-        None => return false
-      }
-      let pop_start = tail_idx - payloads.length() - 1
-      if pop_start < 0 {
-        return false
-      }
-      match instrs[tail_idx - 1] {
-        @lib.RefFunc(_) | @lib.LocalGet(_) => ()
-        _ => return false
-      }
-      (params, pop_start)
-    }
-    _ => return false
-  }
-  let pop_types : Array[@lib.ValType] = []
-  for offset = 0; offset < payloads.length(); offset = offset + 1 {
-    let payload_idx = payloads.length() - 1 - offset
-    match instrs[pop_start + offset] {
-      @lib.Pop(vt) if vt == payloads[payload_idx] => pop_types.push(vt)
-      _ => return false
-    }
-  }
-  if params.length() == 0 || !wt_legacy_pop_types_match(params, pop_types) {
-    return false
-  }
-  let mut prefix_depth = 0
-  for idx = 0; idx < pop_start; idx = idx + 1 {
-    match instrs[idx] {
-      @lib.Nop => ()
-      @lib.I32Const(_)
-      | @lib.I64Const(_)
-      | @lib.F32Const(_)
-      | @lib.F64Const(_)
-      | @lib.LocalGet(_)
-      | @lib.GlobalGet(_)
-      | @lib.RefNull(_)
-      | @lib.RefFunc(_)
-      | @lib.StringConst(_) => prefix_depth = prefix_depth + 1
-      @lib.LocalTee(_) => if prefix_depth < 1 { return false }
-      @lib.Select(types) => {
-        let result_count = match types {
-          Some(vts) if vts.length() > 0 => vts.length()
-          Some(_) => return false
-          None => 1
-        }
-        let consumed = result_count * 2 + 1
-        if prefix_depth < consumed {
-          return false
-        }
-        prefix_depth = prefix_depth - consumed + result_count
-      }
-      @lib.Call(fidx) =>
-        match env.get_functype_by_funcidx(fidx) {
-          Some(@lib.FuncType(params, results)) if results.length() > 0 &&
-            prefix_depth >= params.length() =>
-            prefix_depth = prefix_depth - params.length() + results.length()
-          _ => return false
-        }
-      @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
-        match env.resolve_functype(type_idx) {
-          Some(@lib.FuncType(params, results)) if results.length() > 0 &&
-            prefix_depth >= params.length() + 1 =>
-            prefix_depth = prefix_depth - params.length() - 1 + results.length()
-          _ => return false
-        }
-      @lib.Block(block_type, _) | @lib.Loop(block_type, _) =>
-        match env.expand_blocktype(block_type) {
-          Ok((params, results)) if params.length() == 0 && results.length() == 1 =>
-            prefix_depth = prefix_depth + 1
-          _ => return false
-        }
-      @lib.StructNew(type_idx) =>
-        match env.resolve_struct_fields(type_idx) {
-          Ok(fields) if prefix_depth >= fields.length() =>
-            prefix_depth = prefix_depth - fields.length() + 1
-          _ => return false
-        }
-      @lib.StructNewDefault(_) => prefix_depth = prefix_depth + 1
-      @lib.StructNewDesc(type_idx) =>
-        match env.resolve_struct_fields(type_idx) {
-          Ok(fields) if prefix_depth >= fields.length() + 1 =>
-            prefix_depth = prefix_depth - fields.length()
-          _ => return false
-        }
-      @lib.StructNewDefaultDesc(_) => if prefix_depth < 1 { return false }
-      @lib.MemorySize(_) | @lib.TableSize(_) => prefix_depth = prefix_depth + 1
-      @lib.MemoryGrow(_) => if prefix_depth < 1 { return false }
-      @lib.GlobalSet(_) =>
-        if prefix_depth < 1 {
-          return false
-        } else {
-          prefix_depth = prefix_depth - 1
-        }
-      @lib.I32Store(_)
-      | @lib.I64Store(_)
-      | @lib.F32Store(_)
-      | @lib.F64Store(_)
-      | @lib.I32Store8(_)
-      | @lib.I32Store16(_)
-      | @lib.I64Store8(_)
-      | @lib.I64Store16(_)
-      | @lib.I64Store32(_) =>
-        if prefix_depth < 2 {
-          return false
-        } else {
-          prefix_depth = prefix_depth - 2
-        }
-      @lib.TableSet(_) =>
-        if prefix_depth < 2 {
-          return false
-        } else {
-          prefix_depth = prefix_depth - 2
-        }
-      @lib.TableGrow(_) =>
-        if prefix_depth < 2 {
-          return false
-        } else {
-          prefix_depth = prefix_depth - 1
-        }
-      @lib.TableFill(_)
-      | @lib.TableCopy(_, _)
-      | @lib.TableInit(_, _)
-      | @lib.MemoryFill(_)
-      | @lib.MemoryCopy(_, _)
-      | @lib.MemoryInit(_, _) =>
-        if prefix_depth < 3 {
-          return false
-        } else {
-          prefix_depth = prefix_depth - 3
-        }
-      @lib.ArrayNew(_) =>
-        if prefix_depth < 2 {
-          return false
-        } else {
-          prefix_depth = prefix_depth - 1
-        }
-      @lib.ArrayNewDefault(_) => if prefix_depth < 1 { return false }
-      @lib.ArrayNewFixed(_, @lib.U32(length)) =>
-        if prefix_depth < length.to_int() {
-          return false
-        } else {
-          prefix_depth = prefix_depth - length.to_int() + 1
-        }
-      @lib.ArrayNewData(_, _) | @lib.ArrayNewElem(_, _) =>
-        if prefix_depth < 2 {
-          return false
-        } else {
-          prefix_depth = prefix_depth - 1
-        }
-      @lib.StringNewUtf8Array
-      | @lib.StringNewWtf16Array
-      | @lib.StringNewLossyUtf8Array
-      | @lib.StringNewWtf8Array
-      | @lib.StringEncodeUtf8Array
-      | @lib.StringEncodeWtf16Array
-      | @lib.StringEncodeLossyUtf8Array
-      | @lib.StringEncodeWtf8Array =>
-        if prefix_depth < 3 {
-          return false
-        } else {
-          prefix_depth = prefix_depth - 2
-        }
-      _ if wt_legacy_pop_call_value_instr_stack_neutral(instrs[idx]) =>
-        if prefix_depth < 1 {
-          return false
-        }
-      _ if wt_legacy_pop_call_value_instr_binary(instrs[idx]) =>
-        if prefix_depth < 2 {
-          return false
-        } else {
-          prefix_depth = prefix_depth - 1
-        }
-      _ => return false
-    }
-  }
-  prefix_depth > 0
-}
-
-///|
-fn wt_legacy_pop_dead_call_payload_supported(
-  env : @validate.Env,
-  instrs : Array[@lib.Instruction],
-  payloads : Array[@lib.ValType],
-) -> Bool {
-  if instrs.length() < 3 || payloads.length() == 0 {
-    return false
-  }
-  for call_idx = 1; call_idx < instrs.length() - 1; call_idx = call_idx + 1 {
-    match instrs[call_idx] {
-      @lib.Call(fidx) => {
-        match env.get_functype_by_funcidx(fidx) {
-          Some(_) => ()
-          None => continue
-        }
-        let arg_instrs : Array[@lib.Instruction] = []
-        for i = 0; i < call_idx; i = i + 1 {
-          arg_instrs.push(instrs[i])
-        }
-        let (cursor, depth, ok) = wt_legacy_pop_call_arg_expr_supported(
-          env,
-          @lib.Expr::new(arg_instrs),
-          payloads,
-          0,
-          0,
-        )
-        if ok && depth < 0 && cursor == payloads.length() {
-          return true
-        }
-        if wt_legacy_pop_dead_call_param_tail_payload_supported(
-            env, instrs, call_idx, payloads,
-          ) {
-          return true
-        }
-      }
-      @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) => {
-        match env.resolve_functype(type_idx) {
-          Some(_) => ()
-          None => continue
-        }
-        let arg_instrs : Array[@lib.Instruction] = []
-        for i = 0; i < call_idx; i = i + 1 {
-          arg_instrs.push(instrs[i])
-        }
-        let (cursor, depth, ok) = wt_legacy_pop_call_arg_expr_supported(
-          env,
-          @lib.Expr::new(arg_instrs),
-          payloads,
-          0,
-          0,
-        )
-        if ok && depth < 0 && cursor == payloads.length() {
-          return true
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn wt_direct_legacy_pop_expr_supported(
-  env : @validate.Env,
-  expr : @lib.Expr,
-  label_results : Array[Array[@lib.ValType]],
-  func_results : Array[@lib.ValType],
-) -> Bool {
-  let @lib.Expr(instrs) = expr
-  for instr in instrs {
-    if !wt_direct_legacy_pop_instr_supported(
-        env, instr, label_results, func_results,
-      ) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn wt_direct_legacy_pop_instr_supported(
-  env : @validate.Env,
-  instr : @lib.Instruction,
-  label_results : Array[Array[@lib.ValType]],
-  func_results : Array[@lib.ValType],
-) -> Bool {
-  match instr {
-    @lib.Pop(_) => false
-    @lib.Block(block_type, body) => {
-      let pushed_results = match
-        wt_legacy_pop_block_label_results(env, block_type) {
-        Some(results) => results
-        None => return false
-      }
-      wt_direct_legacy_pop_expr_supported(
-        env,
-        body,
-        wt_legacy_pop_label_stack_push(label_results, pushed_results),
-        func_results,
-      )
-    }
-    @lib.Loop(block_type, body) => {
-      let pushed_results = match
-        wt_legacy_pop_loop_label_results(env, block_type) {
-        Some(results) => results
-        None => return false
-      }
-      wt_direct_legacy_pop_expr_supported(
-        env,
-        body,
-        wt_legacy_pop_label_stack_push(label_results, pushed_results),
-        func_results,
-      )
-    }
-    @lib.If(block_type, then_body, else_body) => {
-      let pushed_results = match
-        wt_legacy_pop_block_label_results(env, block_type) {
-        Some(results) => results
-        None => return false
-      }
-      let nested_labels = wt_legacy_pop_label_stack_push(
-        label_results, pushed_results,
-      )
-      for i in then_body {
-        if !wt_direct_legacy_pop_instr_supported(
-            env, i, nested_labels, func_results,
-          ) {
-          return false
-        }
-      }
-      match else_body {
-        Some(body) =>
-          for i in body {
-            if !wt_direct_legacy_pop_instr_supported(
-                env, i, nested_labels, func_results,
-              ) {
-              return false
-            }
-          }
-        None => ()
-      }
-      true
-    }
-    @lib.Try(block_type, body, catches, _) => {
-      let pushed_results = match
-        wt_legacy_pop_block_label_results(env, block_type) {
-        Some(results) => results
-        None => return false
-      }
-      let nested_labels = wt_legacy_pop_label_stack_push(
-        label_results, pushed_results,
-      )
-      if !wt_direct_legacy_pop_expr_supported(
-          env, body, nested_labels, func_results,
-        ) {
-        return false
-      }
-      for catch_ in catches {
-        match catch_ {
-          @lib.LegacyCatch(tag, catch_body) => {
-            let payloads = wt_legacy_tag_payloads(env, tag)
-            let @lib.Expr(catch_instrs) = catch_body
-            let mut instr_idx = 0
-            if catch_instrs.length() > 0 {
-              match catch_instrs[0] {
-                @lib.Pop(_) => {
-                  let prefix_types : Array[@lib.ValType] = []
-                  let mut payload_idx = payloads.length() - 1
-                  while instr_idx < catch_instrs.length() && payload_idx >= 0 {
-                    match catch_instrs[instr_idx] {
-                      @lib.Pop(vt) if vt == payloads[payload_idx] => {
-                        prefix_types.push(vt)
-                        payload_idx -= 1
-                        instr_idx += 1
-                      }
-                      _ =>
-                        match
-                          wt_legacy_pop_interleaved_root_prefix_supported(
-                            catch_instrs, payloads,
-                          ) {
-                          Some(next_idx) => {
-                            instr_idx = next_idx
-                            payload_idx = -1
-                            break
-                          }
-                          None => return false
-                        }
-                    }
-                  }
-                  if payload_idx >= 0 {
-                    return false
-                  }
-                  if instr_idx != catch_instrs.length() ||
-                    prefix_types.length() == payloads.length() {
-                    let prefix_flows_to_nonfallthrough = instr_idx <
-                      catch_instrs.length() &&
-                      (
-                        wt_legacy_pop_prefix_tail_is_nonfallthrough(
-                          env,
-                          catch_instrs[instr_idx],
-                          nested_labels,
-                          func_results,
-                          prefix_types,
-                        ) ||
-                        wt_legacy_pop_prefix_tail_starts_br_table_statement(
-                          env, catch_instrs, instr_idx, nested_labels, prefix_types,
-                        ) ||
-                        wt_legacy_pop_prefix_tail_is_pop_within_block_repairable(
-                          env, catch_instrs, instr_idx, prefix_types,
-                        ) ||
-                        wt_legacy_pop_prefix_tail_is_struct_new_before_void_nonfallthrough(
-                          env, catch_instrs, instr_idx, nested_labels, func_results,
-                          prefix_types,
-                        ) ||
-                        wt_legacy_pop_prefix_tail_is_simple_operand_tail_call(
-                          env, catch_instrs, instr_idx, prefix_types,
-                        )
-                      )
-                    if !prefix_flows_to_nonfallthrough {
-                      if wt_legacy_pop_call_payload_supported(
-                          env, catch_instrs, payloads,
-                        ) {
-                        instr_idx = catch_instrs.length()
-                      } else {
-                        if catch_instrs.length() < instr_idx + payloads.length() {
-                          return false
-                        }
-                        for consumer_idx = instr_idx
-                            consumer_idx < instr_idx + payloads.length()
-                            consumer_idx = consumer_idx + 1 {
-                          match catch_instrs[consumer_idx] {
-                            @lib.Drop | @lib.LocalSet(_) | @lib.LocalTee(_) =>
-                              ()
-                            _ => return false
-                          }
-                        }
-                        instr_idx += payloads.length()
-                      }
-                    }
-                  }
-                }
-                _ =>
-                  if wt_legacy_pop_nested_carrier_supported(
-                      catch_instrs, payloads,
-                    ) ||
-                    wt_legacy_pop_call_payload_supported(
-                      env, catch_instrs, payloads,
-                    ) ||
-                    wt_legacy_pop_dead_call_payload_supported(
-                      env, catch_instrs, payloads,
-                    ) {
-                    instr_idx = catch_instrs.length()
-                  }
-              }
-            }
-            while instr_idx < catch_instrs.length() {
-              if !wt_direct_legacy_pop_instr_supported(
-                  env,
-                  catch_instrs[instr_idx],
-                  nested_labels,
-                  func_results,
-                ) {
-                return false
-              }
-              instr_idx += 1
-            }
-          }
-          @lib.LegacyCatchAll(catch_body) =>
-            if !wt_direct_legacy_pop_expr_supported(
-                env, catch_body, nested_labels, func_results,
-              ) {
-              return false
-            }
-        }
-      }
-      true
-    }
-    @lib.TryTable(block_type, _, body) => {
-      let pushed_results = match
-        wt_legacy_pop_block_label_results(env, block_type) {
-        Some(results) => results
-        None => return false
-      }
-      wt_direct_legacy_pop_expr_supported(
-        env,
-        body,
-        wt_legacy_pop_label_stack_push(label_results, pushed_results),
-        func_results,
-      )
-    }
-    _ => true
-  }
-}
-
-///|
-fn wt_legacy_pop_text_supported(
-  source_has_pop : Bool,
-  mod : @lib.Module,
-) -> Bool {
-  if !source_has_pop {
-    return true
-  }
-  let env = @validate.empty_env().with_module(mod)
-  match mod.code_sec {
-    Some(@lib.CodeSec(funcs)) => {
-      let func_type_idxs = match mod.func_sec {
-        Some(@lib.FuncSec(type_idxs)) => type_idxs
-        None => []
-      }
-      let mut func_idx = 0
-      for func in funcs {
-        let @lib.Func(_, body) = func
-        let func_results = match func_type_idxs.get(func_idx) {
-          Some(type_idx) =>
-            match env.resolve_functype(type_idx) {
-              Some(@lib.FuncType(_, results)) => results
-              None => return false
-            }
-          None => return false
-        }
-        if !wt_direct_legacy_pop_expr_supported(env, body, [], func_results) {
-          return false
-        }
-        func_idx += 1
-      }
-    }
-    None => ()
-  }
-  true
-}
-
-///|
 pub fn wast_to_binary_module(
   source : String,
   filename? : String = "<memory>",
 ) -> Result[@lib.Module, String] {
-  match wt_unsupported_stack_switching_reason(source, filename) {
-    Some(reason) => return Err("\{reason} in \{filename}")
-    None => ()
+  match wast_to_module(source, filename~) {
+    Ok(mod) => wast_ast_to_binary_module(mod)
+    Err(e) => Err(e)
   }
-  let source_has_pop = wt_source_contains_legacy_pop(source, filename)
-  let parsed = match wast_to_module(source, filename~) {
-    Ok(m) => m
-    Err(e) => return Err(e)
-  }
-  let lowered = match wast_ast_to_binary_module(parsed) {
-    Ok(m) => m
-    Err(e) => return Err(e)
-  }
-  if !wt_legacy_pop_text_supported(source_has_pop, lowered) {
-    return Err("\{wt_legacy_pop_unsupported_message()} in \{filename}")
-  }
-  Ok(lowered)
 }
 
 ///|
@@ -4974,11 +3633,6 @@ pub fn wast_text_binary_roundtrip(
   source : String,
   filename? : String = "<memory>",
 ) -> Result[(String, @lib.Module), String] {
-  match wt_unsupported_stack_switching_reason(source, filename) {
-    Some(reason) => return Err("\{reason} in \{filename}")
-    None => ()
-  }
-  let source_has_pop = wt_source_contains_legacy_pop(source, filename)
   let parsed = match wast_to_module(source, filename~) {
     Ok(m) => m
     Err(e) => return Err(e)
@@ -4990,9 +3644,6 @@ pub fn wast_text_binary_roundtrip(
   let lowered = match wast_ast_to_binary_module(parsed) {
     Ok(m) => m
     Err(e) => return Err("text lowering failed during roundtrip: \{e}")
-  }
-  if !wt_legacy_pop_text_supported(source_has_pop, lowered) {
-    return Err("\{wt_legacy_pop_unsupported_message()} in \{filename}")
   }
   let bytes = match @binary.encode_module(lowered) {
     Ok(raw) => raw
@@ -7734,1013 +6385,6 @@ test "wast_to_binary_module lowers advanced reference no-immediate instructions"
       fail(
         "expected lowered function body containing advanced reference instructions",
       )
-  }
-}
-
-///|
-test "wast_to_binary_module preserves real legacy try without pop" {
-  let src =
-    #|(module
-    #|  (tag $e)
-    #|  (func
-    #|    (try
-    #|      (do unreachable)
-    #|      (catch $e unreachable))))
-  let lowered = match
-    wast_to_binary_module(src, filename="legacy-try-real-surface.wat") {
-    Ok(m) => m
-    Err(e) =>
-      fail("expected legacy try without pop to lower to real @lib.Try: \{e}")
-  }
-  match lowered.code_sec {
-    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
-      match try_instr {
-        @lib.Try(
-          _,
-          @lib.Expr([@lib.Unreachable]),
-          [@lib.LegacyCatch(@lib.TagIdx(0), @lib.Expr([@lib.Unreachable]))],
-          None
-        ) => ()
-        _ =>
-          fail("expected real @lib.Try with one catch body, got \{try_instr}")
-      }
-    _ => fail("expected lowered legacy try function body")
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip supports real legacy try without pop" {
-  let src =
-    #|(module
-    #|  (tag $e)
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e nop))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(src, filename="legacy-try-no-pop-roundtrip.wat") {
-    Ok(m) => m
-    Err(e) => fail("expected legacy try without pop to roundtrip: \{e}")
-  }
-  match decoded.code_sec {
-    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
-      match try_instr {
-        @lib.Try(
-          _,
-          @lib.Expr([@lib.Nop]),
-          [@lib.LegacyCatch(@lib.TagIdx(0), @lib.Expr([@lib.Nop]))],
-          None
-        ) => ()
-        _ =>
-          fail(
-            "expected decoded real @lib.Try with one catch body, got \{try_instr}",
-          )
-      }
-    _ => fail("expected roundtripped legacy try function body")
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip preserves legacy rethrow opcode" {
-  let src =
-    #|(module
-    #|  (tag $e)
-    #|  (func
-    #|    (try
-    #|      (do (throw $e))
-    #|      (catch $e
-    #|        (rethrow 0)))))
-  let lowered = match wast_to_binary_module(src) {
-    Ok(m) => m
-    Err(e) => fail("expected legacy rethrow lowering to succeed: \{e}")
-  }
-  let bytes = match @binary.encode_module(lowered) {
-    Ok(raw) => raw.to_array()
-    Err(e) => fail("expected legacy rethrow module to encode: \{e}")
-  }
-  assert_true(
-    bytes.any(fn(b) { b == (0x09).to_byte() }),
-    msg="expected encoded module to contain legacy rethrow opcode 0x09",
-  )
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(src, filename="legacy-rethrow-roundtrip.wat") {
-    Ok(m) => m
-    Err(e) => fail("expected legacy rethrow to roundtrip: \{e}")
-  }
-  match decoded.code_sec {
-    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
-      match try_instr {
-        @lib.Try(
-          _,
-          @lib.Expr([@lib.Throw(@lib.TagIdx(0))]),
-          [
-            @lib.LegacyCatch(
-              @lib.TagIdx(0),
-              @lib.Expr([@lib.Rethrow(@lib.LabelIdx(0))])
-            ),
-          ],
-          None
-        ) => ()
-        _ =>
-          fail(
-            "expected decoded legacy try with rethrow catch, got \{try_instr}",
-          )
-      }
-    _ => fail("expected roundtripped legacy rethrow function body")
-  }
-}
-
-///|
-test "wast_ast_to_binary_module represents legacy pop distinctly" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (drop (pop i32))))))
-  let parsed = match
-    wast_to_module(src, filename="legacy-pop-representation.wat") {
-    Ok(m) => m
-    Err(e) => fail("expected parser to accept legacy pop text: \{e}")
-  }
-  let lowered = match wast_ast_to_binary_module(parsed) {
-    Ok(m) => m
-    Err(e) => fail("expected AST lowering to preserve legacy pop: \{e}")
-  }
-  match lowered.code_sec {
-    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
-      match try_instr {
-        @lib.Try(
-          _,
-          _,
-          [
-            @lib.LegacyCatch(
-              @lib.TagIdx(0),
-              @lib.Expr(
-                [@lib.Pop(@lib.NumTypeValType(@lib.I32NumType)), @lib.Drop]
-              )
-            ),
-          ],
-          None
-        ) => ()
-        _ =>
-          fail(
-            "expected catch body to contain real @lib.Pop(i32), got \{try_instr}",
-          )
-      }
-    _ => fail("expected lowered function with real legacy try/pop")
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip supports direct legacy catch pop consumer" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (drop (pop i32))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(src, filename="legacy-pop-direct-roundtrip.wat") {
-    Ok(m) => m
-    Err(e) => fail("expected direct catch-prefix legacy pop to roundtrip: \{e}")
-  }
-  match decoded.code_sec {
-    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
-      match try_instr {
-        @lib.Try(
-          _,
-          _,
-          [
-            @lib.LegacyCatch(
-              @lib.TagIdx(0),
-              @lib.Expr(
-                [@lib.Pop(@lib.NumTypeValType(@lib.I32NumType)), @lib.Drop]
-              )
-            ),
-          ],
-          None
-        ) => ()
-        _ =>
-          fail("expected decoded legacy try catch direct pop, got \{try_instr}")
-      }
-    _ => fail("expected decoded function with real legacy try/pop")
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip supports direct legacy catch pop local tee" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func (local i32)
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (drop (local.tee 0 (pop i32)))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-local-tee-roundtrip.wat",
-    ) {
-    Ok(m) => m
-    Err(e) =>
-      fail(
-        "expected direct catch-prefix legacy pop local.tee to roundtrip: \{e}",
-      )
-  }
-  match decoded.code_sec {
-    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
-      match try_instr {
-        @lib.Try(
-          _,
-          _,
-          [
-            @lib.LegacyCatch(
-              @lib.TagIdx(0),
-              @lib.Expr(
-                [
-                  @lib.Pop(@lib.NumTypeValType(@lib.I32NumType)),
-                  @lib.LocalTee(@lib.LocalIdx(0)),
-                  @lib.Drop,
-                ]
-              )
-            ),
-          ],
-          None
-        ) => ()
-        _ =>
-          fail(
-            "expected decoded legacy try catch direct pop local.tee, got \{try_instr}",
-          )
-      }
-    _ => fail("expected decoded function with real legacy try/pop local.tee")
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip supports direct legacy catch pop local set" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func (local i32)
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (local.set 0 (pop i32))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-local-set-roundtrip.wat",
-    ) {
-    Ok(m) => m
-    Err(e) =>
-      fail(
-        "expected direct catch-prefix legacy pop local.set to roundtrip: \{e}",
-      )
-  }
-  match decoded.code_sec {
-    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
-      match try_instr {
-        @lib.Try(
-          _,
-          _,
-          [
-            @lib.LegacyCatch(
-              @lib.TagIdx(0),
-              @lib.Expr(
-                [
-                  @lib.Pop(@lib.NumTypeValType(@lib.I32NumType)),
-                  @lib.LocalSet(@lib.LocalIdx(0)),
-                ]
-              )
-            ),
-          ],
-          None
-        ) => ()
-        _ =>
-          fail(
-            "expected decoded legacy try catch direct pop local.set, got \{try_instr}",
-          )
-      }
-    _ => fail("expected decoded function with real legacy try/pop local.set")
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip supports direct multi-payload legacy pop prefix" {
-  let src =
-    #|(module
-    #|  (tag $e-pair (param i32 i64))
-    #|  (func (local i32 i64)
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-pair
-    #|        (pop i64)
-    #|        (pop i32)
-    #|        (local.set 0)
-    #|        (local.set 1)))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-multi-prefix-roundtrip.wat",
-    ) {
-    Ok(m) => m
-    Err(e) =>
-      fail("expected direct multi-payload legacy pop prefix to roundtrip: \{e}")
-  }
-  match decoded.code_sec {
-    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([try_instr]))])) =>
-      match try_instr {
-        @lib.Try(
-          _,
-          _,
-          [
-            @lib.LegacyCatch(
-              @lib.TagIdx(0),
-              @lib.Expr(
-                [
-                  @lib.Pop(@lib.NumTypeValType(@lib.I64NumType)),
-                  @lib.Pop(@lib.NumTypeValType(@lib.I32NumType)),
-                  @lib.LocalSet(@lib.LocalIdx(0)),
-                  @lib.LocalSet(@lib.LocalIdx(1)),
-                ]
-              )
-            ),
-          ],
-          None
-        ) => ()
-        _ =>
-          fail(
-            "expected decoded legacy try catch multi-payload prefix, got \{try_instr}",
-          )
-      }
-    _ => fail("expected decoded function with real legacy try/pop prefix")
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip supports nop-interleaved legacy pop prefix" {
-  let src =
-    #|(module
-    #|  (tag $e-pair (param i32 i64))
-    #|  (func (local i32 i64)
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-pair
-    #|        (pop i64)
-    #|        nop
-    #|        (pop i32)
-    #|        (local.set 0)
-    #|        (local.set 1)))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(src, filename="legacy-pop-interleaved.wat") {
-    Ok(m) => m
-    Err(e) =>
-      fail("expected nop-interleaved legacy pop prefix to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("local.set"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip rejects incomplete nop-interleaved legacy pop prefix" {
-  let src =
-    #|(module
-    #|  (tag $e-pair (param i32 i64))
-    #|  (func (local i32 i64)
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-pair
-    #|        (pop i64)
-    #|        nop
-    #|        (local.set 1)))))
-  match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-interleaved-incomplete.wat",
-    ) {
-    Ok(_) => fail("expected incomplete nop-interleaved legacy pop to reject")
-    Err(err) => {
-      assert_true(err.contains("legacy"), msg=err)
-      assert_true(err.contains("pop"), msg=err)
-      assert_true(err.contains("catch payload"), msg=err)
-    }
-  }
-}
-
-///|
-test "wast_to_binary_module supports pop-within-block DCE ingress shape" {
-  let src =
-    #|(module
-    #|  (type $struct (struct (field eqref)))
-    #|  (tag $e-eqref (param eqref))
-    #|  (func (result i32)
-    #|    (try (result i32)
-    #|      (do i32.const 0)
-    #|      (catch $e-eqref
-    #|        (drop
-    #|          (ref.eq
-    #|            (struct.new $struct
-    #|              (pop eqref))
-    #|            (unreachable)))
-    #|        i32.const 0))))
-  let lowered = match
-    wast_to_binary_module(src, filename="legacy-pop-within-block-dce.wat") {
-    Ok(m) => m
-    Err(e) => fail("expected pop-within-block DCE ingress to lower: \{e}")
-  }
-  let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("struct.new"), msg=pretty)
-  assert_true(pretty.contains("unreachable"), msg=pretty)
-}
-
-///|
-test "wast_to_binary_module rejects pop-within-block payload mismatch" {
-  let src =
-    #|(module
-    #|  (type $struct (struct (field i64)))
-    #|  (tag $e-i32 (param i32))
-    #|  (func (result i32)
-    #|    (try (result i32)
-    #|      (do i32.const 0)
-    #|      (catch $e-i32
-    #|        (drop
-    #|          (ref.eq
-    #|            (struct.new $struct
-    #|              (pop i32))
-    #|            (unreachable)))
-    #|        i32.const 0))))
-  match
-    wast_to_binary_module(src, filename="legacy-pop-within-block-mismatch.wat") {
-    Ok(_) =>
-      fail("expected mismatched pop-within-block payload to stay unsupported")
-    Err(err) => {
-      assert_true(err.contains("legacy"), msg=err)
-      assert_true(err.contains("pop"), msg=err)
-      assert_true(err.contains("catch payload"), msg=err)
-    }
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip supports nested block legacy pop payload" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (block
-    #|          (drop (pop i32)))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(src, filename="legacy-pop-nested.wat") {
-    Ok(m) => m
-    Err(e) => fail("expected nested legacy pop payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports call pop before nonfallthrough argument" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func $helper (param i32 i32))
-    #|  (func
-    #|    (block $label
-    #|      (try
-    #|        (do nop)
-    #|        (catch $e-i32
-    #|          (call $helper
-    #|            (pop i32)
-    #|            (br $label)))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(src, filename="legacy-pop-call-prefix.wat") {
-    Ok(m) => m
-    Err(e) => fail("expected call-pop-catch prefix to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("br"), msg=pretty)
-  assert_true(pretty.contains("call"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports call pop before br_table argument" {
-  let const_selector_src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func $helper (param i32 i32))
-    #|  (func
-    #|    (block $label
-    #|      (try
-    #|        (do nop)
-    #|        (catch $e-i32
-    #|          (call $helper
-    #|            (pop i32)
-    #|            (i32.const 0)
-    #|            (br_table $label $label)))))))
-  let (_, decoded_const_selector) = match
-    wast_text_binary_roundtrip(
-      const_selector_src,
-      filename="legacy-pop-call-br-table-prefix.wat",
-    ) {
-    Ok(m) => m
-    Err(e) => fail("expected call-pop-catch br_table prefix to roundtrip: \{e}")
-  }
-  let const_pretty = decoded_const_selector.pretty_print_func(
-    @lib.FuncIdx::new(1U),
-  )
-  assert_true(const_pretty.contains("pop"), msg=const_pretty)
-  assert_true(const_pretty.contains("br_table"), msg=const_pretty)
-  assert_true(const_pretty.contains("call"), msg=const_pretty)
-
-  let local_selector_src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func $helper (param i32 i32))
-    #|  (func (param i32)
-    #|    (block $label
-    #|      (try
-    #|        (do nop)
-    #|        (catch $e-i32
-    #|          (call $helper
-    #|            (pop i32)
-    #|            (local.get 0)
-    #|            (br_table $label $label)))))))
-  let (_, decoded_local_selector) = match
-    wast_text_binary_roundtrip(
-      local_selector_src,
-      filename="legacy-pop-call-br-table-local-prefix.wat",
-    ) {
-    Ok(m) => m
-    Err(e) =>
-      fail("expected call-pop-catch local br_table prefix to roundtrip: \{e}")
-  }
-  let local_pretty = decoded_local_selector.pretty_print_func(
-    @lib.FuncIdx::new(1U),
-  )
-  assert_true(local_pretty.contains("pop"), msg=local_pretty)
-  assert_true(local_pretty.contains("br_table"), msg=local_pretty)
-  assert_true(local_pretty.contains("call"), msg=local_pretty)
-
-  let computed_selector_src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func $helper (param i32 i32))
-    #|  (func (param i32)
-    #|    (block $label
-    #|      (try
-    #|        (do nop)
-    #|        (catch $e-i32
-    #|          (call $helper
-    #|            (pop i32)
-    #|            (local.get 0)
-    #|            (i32.const 1)
-    #|            (i32.and)
-    #|            (br_table $label $label)))))))
-  let (_, decoded_computed_selector) = match
-    wast_text_binary_roundtrip(
-      computed_selector_src,
-      filename="legacy-pop-call-br-table-computed-prefix.wat",
-    ) {
-    Ok(m) => m
-    Err(e) =>
-      fail(
-        "expected call-pop-catch computed br_table prefix to roundtrip: \{e}",
-      )
-  }
-  let computed_pretty = decoded_computed_selector.pretty_print_func(
-    @lib.FuncIdx::new(1U),
-  )
-  assert_true(computed_pretty.contains("pop"), msg=computed_pretty)
-  assert_true(computed_pretty.contains("br_table"), msg=computed_pretty)
-  assert_true(computed_pretty.contains("i32.and"), msg=computed_pretty)
-  assert_true(computed_pretty.contains("call"), msg=computed_pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports non-prefix legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func $helper (param i32 i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call $helper
-    #|          (i32.const 0)
-    #|          (pop i32))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(src, filename="legacy-pop-call-payload.wat") {
-    Ok(m) => m
-    Err(e) =>
-      fail("expected non-prefix legacy pop call payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("call"), msg=pretty)
-  assert_true(pretty.contains("i32.const"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports local and multi-pop call payloads" {
-  let src =
-    #|(module
-    #|  (tag $e-pair (param i32 i64))
-    #|  (func $helper (param i32 i64 i32))
-    #|  (func (param i32)
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-pair
-    #|        (call $helper
-    #|          (local.get 0)
-    #|          (pop i64)
-    #|          (pop i32))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-call-multi-payload.wat",
-    ) {
-    Ok(m) => m
-    Err(e) => fail("expected local/multi-pop call payloads to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("local.get"), msg=pretty)
-  assert_true(pretty.contains("call"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports effectful legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (memory 1)
-    #|  (tag $e-i32 (param i32))
-    #|  (func $helper (param i32 i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call $helper
-    #|          (i32.load (i32.const 0))
-    #|          (pop i32))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-call-effectful-payload.wat",
-    ) {
-    Ok(m) => m
-    Err(e) => fail("expected effectful call payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("i32.load"), msg=pretty)
-  assert_true(pretty.contains("call"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports side-effect call before legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func $side (result i32) (i32.const 11))
-    #|  (func $helper (param i32 i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call $helper
-    #|          (call $side)
-    #|          (pop i32))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-call-side-effect-payload.wat",
-    ) {
-    Ok(m) => m
-    Err(e) => fail("expected side-effect call payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("call"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports multivalue call before legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func $side (result i32 i64)
-    #|    (i32.const 11)
-    #|    (i64.const 12))
-    #|  (func $helper (param i32 i64 i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call $helper
-    #|          (call $side)
-    #|          (pop i32))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-call-multivalue-side-effect-payload.wat",
-    ) {
-    Ok(m) => m
-    Err(e) =>
-      fail("expected multivalue side-effect call payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("call"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports indirect legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (type $helper-type (func (param i32)))
-    #|  (tag $e-i32 (param i32))
-    #|  (table 1 funcref)
-    #|  (func $helper (type $helper-type))
-    #|  (elem (i32.const 0) $helper)
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call_indirect (type $helper-type)
-    #|          (pop i32)
-    #|          (i32.const 0))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-call-indirect-payload.wat",
-    ) {
-    Ok(m) => m
-    Err(e) => fail("expected indirect call pop payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("call_indirect"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports indirect call before legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (type $side-type (func (result i32)))
-    #|  (tag $e-i32 (param i32))
-    #|  (table 1 funcref)
-    #|  (func $side (type $side-type) (i32.const 11))
-    #|  (elem (i32.const 0) $side)
-    #|  (func $helper (param i32 i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call $helper
-    #|          (call_indirect (type $side-type) (i32.const 0))
-    #|          (pop i32))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-call-indirect-side-effect-payload.wat",
-    ) {
-    Ok(m) => m
-    Err(e) => fail("expected indirect call payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("call_indirect"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports call_ref legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (type $helper-type (func (param i32)))
-    #|  (tag $e-i32 (param i32))
-    #|  (func $helper (type $helper-type))
-    #|  (elem declare func $helper)
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call_ref (type $helper-type)
-    #|          (pop i32)
-    #|          (ref.func $helper))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(src, filename="legacy-pop-call-ref-payload.wat") {
-    Ok(m) => m
-    Err(e) => fail("expected call_ref pop payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("call_ref"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports call_ref before legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (type $side-type (func (result i32)))
-    #|  (tag $e-i32 (param i32))
-    #|  (func $side (type $side-type) (i32.const 11))
-    #|  (elem declare func $side)
-    #|  (func $helper (param i32 i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call $helper
-    #|          (call_ref (type $side-type) (ref.func $side))
-    #|          (pop i32))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-call-ref-side-effect-payload.wat",
-    ) {
-    Ok(m) => m
-    Err(e) => fail("expected call_ref payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("call_ref"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip supports nested control legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func $helper (param i32 i32))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call $helper
-    #|          (block (result i32)
-    #|            (i32.const 7))
-    #|          (block (result i32)
-    #|            (pop i32)))))))
-  let (_, decoded) = match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-call-nested-control-payload.wat",
-    ) {
-    Ok(m) => m
-    Err(e) => fail("expected nested control call payload to roundtrip: \{e}")
-  }
-  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("pop"), msg=pretty)
-  assert_true(pretty.contains("block"), msg=pretty)
-  assert_true(pretty.contains("call"), msg=pretty)
-}
-
-///|
-test "wast_text_binary_roundtrip rejects branch-alternative legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (tag $e-i32 (param i32))
-    #|  (func $helper (param i32))
-    #|  (func (param i32)
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-i32
-    #|        (call $helper
-    #|          (if (result i32)
-    #|            (local.get 0)
-    #|            (then (pop i32))
-    #|            (else (i32.const 0))))))))
-  match
-    wast_text_binary_roundtrip(
-      src,
-      filename="legacy-pop-call-if-alternative.wat",
-    ) {
-    Ok(_) =>
-      fail("expected branch-alternative legacy pop call payload to reject")
-    Err(err) => {
-      assert_true(err.contains("legacy"), msg=err)
-      assert_true(err.contains("pop"), msg=err)
-      assert_true(err.contains("catch payload"), msg=err)
-    }
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip rejects wrong-order legacy pop call payload" {
-  let src =
-    #|(module
-    #|  (tag $e-pair (param i32 i64))
-    #|  (func $helper (param i32 i64))
-    #|  (func
-    #|    (try
-    #|      (do nop)
-    #|      (catch $e-pair
-    #|        (call $helper
-    #|          (pop i32)
-    #|          (pop i64))))))
-  match
-    wast_text_binary_roundtrip(src, filename="legacy-pop-call-wrong-order.wat") {
-    Ok(_) => fail("expected wrong-order legacy pop call payload to reject")
-    Err(err) => {
-      assert_true(err.contains("legacy"), msg=err)
-      assert_true(err.contains("pop"), msg=err)
-      assert_true(err.contains("catch payload"), msg=err)
-    }
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip reports first unsupported stack switching token" {
-  let cases : Array[(String, String)] = [
-    (
-      "cont",
-      (
-        #|(module
-        #|  (type $function (func))
-        #|  (type $cont (cont $function)))
-      ),
-    ),
-    ("resume", "(module (func (resume)))"),
-    ("resume_throw", "(module (func (resume_throw)))"),
-    ("on", "(module (func (on)))"),
-  ]
-  for case in cases {
-    let (token, src) = case
-    match
-      wast_text_binary_roundtrip(src, filename="stack-switching-\{token}.wat") {
-      Ok(_) => fail("expected stack-switching \{token} fixture to reject")
-      Err(err) => {
-        assert_true(err.contains("stack-switching"), msg=err)
-        assert_true(err.contains("unsupported token `\{token}`"), msg=err)
-      }
-    }
-  }
-}
-
-///|
-test "wast_text_binary_roundtrip rejects unsupported stack switching explicitly" {
-  let src =
-    #|(module
-    #|  (type $function (func))
-    #|  (type $cont (cont $function))
-    #|  (tag $tag)
-    #|  (func (param $c (ref $cont))
-    #|    (block $exit
-    #|      (drop
-    #|        (block $handle_effect (result (ref $cont))
-    #|          (resume $cont (on $tag $handle_effect)
-    #|            (local.get $c)))))))
-  match
-    wast_text_binary_roundtrip(src, filename="stack-switching-roundtrip.wat") {
-    Ok(_) => fail("expected stack-switching roundtrip to stay unsupported")
-    Err(err) => {
-      assert_true(err.contains("stack-switching"), msg=err)
-      assert_true(err.contains("cont"), msg=err)
-      assert_true(err.contains("resume"), msg=err)
-      assert_true(err.contains("resume_throw"), msg=err)
-      assert_true(err.contains("on"), msg=err)
-    }
-  }
-}
-
-///|
-test "wast_to_binary_module rejects unsupported stack switching explicitly" {
-  let src =
-    #|(module
-    #|  (type $function (func))
-    #|  (type $cont (cont $function))
-    #|  (tag $tag)
-    #|  (func (param $c (ref $cont))
-    #|    (block $exit
-    #|      (drop
-    #|        (block $handle_effect (result (ref $cont))
-    #|          (resume $cont (on $tag $handle_effect)
-    #|            (local.get $c)))))))
-  match wast_to_binary_module(src, filename="stack-switching-boundary.wat") {
-    Ok(_) => fail("expected stack-switching text to stay unsupported")
-    Err(err) => {
-      assert_true(err.contains("stack-switching"), msg=err)
-      assert_true(err.contains("cont"), msg=err)
-      assert_true(err.contains("resume"), msg=err)
-      assert_true(err.contains("resume_throw"), msg=err)
-      assert_true(err.contains("on"), msg=err)
-      assert_true(err.contains("stack-switching-boundary.wat"), msg=err)
-    }
   }
 }
 

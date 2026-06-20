@@ -76,7 +76,6 @@ using @lib {
   type DataMode,
   type BlockType,
   type Catch,
-  type LegacyCatch,
   type MemArg,
   type AtomicOrder,
   type AtomicRmwOp,
@@ -93,5 +92,4 @@ using @validate {
   make_state,
   validate_module,
   validation_error_message,
-  empty_env,
 }

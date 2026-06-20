@@ -137,22 +137,6 @@ pub fn hot_node_kind_is_atomic(func : HotFunc, node_id : NodeId) -> Bool {
 }
 
 ///|
-pub fn hot_node_kind_is_legacy_pop(func : HotFunc, node_id : NodeId) -> Bool {
-  hot_query_op(func, node_id) == HotOp::Pop
-}
-
-///|
-pub fn hot_func_has_legacy_pop(func : HotFunc) -> Bool {
-  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
-    if hot_node_is_live(func, node_id) &&
-      hot_query_op(func, node_id) == HotOp::Pop {
-      return true
-    }
-  }
-  false
-}
-
-///|
 pub fn hot_node_type(func : HotFunc, node_id : NodeId) -> TypeId {
   hot_node_get(func, node_id).ty
 }

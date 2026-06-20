@@ -75,19 +75,6 @@ pub fn HotCatchArm::all_ref(label_id : LabelId) -> HotCatchArm {
 }
 
 ///|
-pub fn HotCatchArm::legacy_catch(
-  tag_idx : TagIdx,
-  root_count : Int,
-) -> HotCatchArm {
-  LegacyCatchArm(tag_idx, root_count)
-}
-
-///|
-pub fn HotCatchArm::legacy_all(root_count : Int) -> HotCatchArm {
-  LegacyCatchAllArm(root_count)
-}
-
-///|
 pub fn HotCatchInfo::new(catches : Array[HotCatchArm]) -> HotCatchInfo {
   { catches, }
 }
@@ -212,8 +199,6 @@ fn hot_exact_instr_payload_id_for_op(node : HotNode) -> SideTableId? {
     | HotOp::BrOnCast
     | HotOp::BrOnCastFail => Some(node.imm1)
     HotOp::Select
-    | HotOp::Pop
-    | HotOp::Rethrow
     | HotOp::Heap
     | HotOp::Unary
     | HotOp::Binary

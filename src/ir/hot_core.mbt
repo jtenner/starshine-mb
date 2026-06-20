@@ -63,7 +63,6 @@ pub enum HotOp {
   Const
   Drop
   Select
-  Pop
   RefNull
   RefIsNull
   RefFunc
@@ -254,8 +253,6 @@ pub enum HotCatchArm {
   CatchRefArm(TagIdx, LabelId)
   CatchAllArm(LabelId)
   CatchAllRefArm(LabelId)
-  LegacyCatchArm(TagIdx, Int)
-  LegacyCatchAllArm(Int)
 } derive(Eq, Debug)
 
 ///|

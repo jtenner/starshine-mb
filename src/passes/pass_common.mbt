@@ -33,8 +33,6 @@ pub fn pass_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
             | @ir.HotCatchArm::CatchRefArm(_, label_id)
             | @ir.HotCatchArm::CatchAllArm(label_id)
             | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
-            @ir.HotCatchArm::LegacyCatchArm(_, _)
-            | @ir.HotCatchArm::LegacyCatchAllArm(_) => continue
           }
           mark_label(label_id)
         }

@@ -246,7 +246,6 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
-  CallRef(TypeUse)
   ReturnCall(Index)
   ReturnCallIndirect(Index, TypeUse)
   ReturnCallRef(TypeUse)
@@ -255,11 +254,8 @@ pub enum Instruction {
   Rethrow(Index)
   TryTable(BlockType, Array[CatchClause], Array[Instruction])
   TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
-  Resume(Index, Array[ResumeHandler], Array[Instruction])
-  ResumeThrow(Index, Index, Array[ResumeHandler], Array[Instruction])
   Drop
   Select(Array[ValueType]?)
-  Pop(ValueType)
   LocalGet(Index)
   LocalSet(Index)
   LocalTee(Index)
@@ -301,11 +297,6 @@ pub enum Instruction {
   StringEncodeWtf8Array
   StructNew(Index)
   StructNewDefault(Index)
-  ArrayNew(Index)
-  ArrayNewDefault(Index)
-  ArrayNewFixed(Index, UInt)
-  ArrayNewData(Index, Index)
-  ArrayNewElem(Index, Index)
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
@@ -500,7 +491,6 @@ pub enum Opcode {
   Return
   Call
   CallIndirect
-  CallRef
   ReturnCall
   ReturnCallIndirect
   ReturnCallRef
@@ -528,11 +518,6 @@ pub enum Opcode {
   I31GetU
   StructNew
   StructNewDefault
-  ArrayNew
-  ArrayNewDefault
-  ArrayNewFixed
-  ArrayNewData
-  ArrayNewElem
   StructGet
   StructGetS
   StructGetU
@@ -995,11 +980,6 @@ pub struct ParseError {
 pub impl @lib.PrettyPrint for ParseError
 pub impl Show for ParseError
 
-pub struct ResumeHandler {
-  tag : Index
-  label : Index
-} derive(Eq, @debug.Debug)
-
 pub struct ShuffleLanes {
   lanes : FixedArray[UInt]
 } derive(Eq, @debug.Debug)
@@ -1164,7 +1144,6 @@ pub enum TypeDefBody {
   Func(FuncType)
   Struct(Array[StructFieldDef])
   Array(StructFieldDef)
-  Cont(Index)
 } derive(Eq, @debug.Debug)
 pub impl Show for TypeDefBody
 

@@ -655,8 +655,6 @@ fn remove_unused_brs_compute_cycle_scan(
             | @ir.HotCatchArm::CatchRefArm(_, label_id)
             | @ir.HotCatchArm::CatchAllArm(label_id)
             | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
-            @ir.HotCatchArm::LegacyCatchArm(_, _)
-            | @ir.HotCatchArm::LegacyCatchAllArm(_) => continue
           }
           if label_id >= 0 && label_id < label_refs.length() {
             label_refs[label_id] = label_refs[label_id] + 1
@@ -960,11 +958,6 @@ fn remove_unused_brs_match_caught_throw(
             @ir.HotCatchArm::CatchAllArm(label_id) =>
               return CaughtThrowAll(label_id)
             @ir.HotCatchArm::CatchAllRefArm(_) => return CaughtThrowRef
-            @ir.HotCatchArm::LegacyCatchArm(tag_idx, _) =>
-              if remove_unused_brs_tag_idx_raw(tag_idx) == throw_tag {
-                return CaughtThrowRef
-              }
-            @ir.HotCatchArm::LegacyCatchAllArm(_) => return CaughtThrowRef
           }
         }
       }
@@ -6704,8 +6697,6 @@ fn remove_unused_brs_count_label_uses_in_roots(
             | @ir.HotCatchArm::CatchRefArm(_, label_id)
             | @ir.HotCatchArm::CatchAllArm(label_id)
             | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
-            @ir.HotCatchArm::LegacyCatchArm(_, _)
-            | @ir.HotCatchArm::LegacyCatchAllArm(_) => continue
           }
           if label_id == target_label {
             count += 1

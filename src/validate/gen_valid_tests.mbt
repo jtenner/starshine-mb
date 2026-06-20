@@ -1845,7 +1845,6 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   @debug.assert_eq(gen_valid_profile_name(PassMemoryProfile), "pass-memory")
   @debug.assert_eq(gen_valid_profile_name(PassGcRefProfile), "pass-gc-ref")
   @debug.assert_eq(gen_valid_profile_name(PassControlProfile), "pass-control")
-  @debug.assert_eq(gen_valid_profile_name(DceProfile), "dce")
 
   let cleanup = GenValidConfig::for_profile(PassCleanupProfile)
   @debug.assert_eq(gen_valid_config_label(cleanup), "pass-cleanup")
@@ -1882,58 +1881,9 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   assert_true(control.features.allow_tail_calls)
   assert_true(control.max_body_depth >= 4)
 
-  let dce = GenValidConfig::for_profile(DceProfile)
-  @debug.assert_eq(gen_valid_config_label(dce), "dce")
-  assert_true(dce.features.allow_dce_body_generator)
-  assert_true(dce.features.allow_branch_heavy_control)
-  assert_true(dce.features.allow_tags)
-  assert_false(dce.features.allow_imports)
-  assert_false(dce.features.allow_mems)
-
   match gen_valid_profile_by_name("pass dae") {
     Ok(profile) => @debug.assert_eq(profile, PassDaeProfile)
     Err(msg) => fail(msg)
-  }
-  match gen_valid_profile_by_name("dead-code-elimination") {
-    Ok(profile) => @debug.assert_eq(profile, DceProfile)
-    Err(msg) => fail(msg)
-  }
-}
-
-///|
-test "DCE GenValid profile emits unreachable-shape feature labels" {
-  let generated = match
-    gen_valid_module_result_from_seed(
-      0xdceUL,
-      GenValidConfig::for_profile(DceProfile),
-    ) {
-    Ok(v) => v
-    Err(failure) => fail(failure.validation_error_message)
-  }
-  match validate_module(generated.wasm_module) {
-    Ok(_) => ()
-    Err(err) => fail(validation_error_message(err))
-  }
-  assert_true(generated.facts.has_dce_non_control_unreachable_child)
-  assert_true(generated.facts.has_dce_block_dead_suffix)
-  assert_true(generated.facts.has_dce_block_has_break_guard)
-  assert_true(generated.facts.has_dce_if_unreachable_condition)
-  assert_true(generated.facts.has_dce_if_both_arms_unreachable)
-  assert_true(generated.facts.has_dce_loop_literal_unreachable_body)
-  assert_true(generated.facts.has_dce_try_table_unreachable)
-  assert_true(generated.facts.has_dce_drop_unreachable)
-
-  for
-    label in [
-      "dce-non-control-unreachable-child", "dce-block-dead-suffix", "dce-block-has-break-guard",
-      "dce-if-unreachable-condition", "dce-if-both-arms-unreachable", "dce-loop-literal-unreachable-body",
-      "dce-try-table-unreachable", "dce-drop-unreachable",
-    ] {
-    match validate_valid_feature_floor_by_label(label, 1) {
-      Ok(_) => ()
-      Err(msg) =>
-        fail("expected DCE feature label \{label} to resolve, got \{msg}")
-    }
   }
 }
 

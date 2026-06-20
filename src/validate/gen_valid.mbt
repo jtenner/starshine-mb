@@ -100,7 +100,6 @@ pub struct GenValidFeatureToggles {
   allow_name_custom_sections : Bool
   allow_typed_body_generator : Bool
   allow_ssa_nomerge_body_generator : Bool
-  allow_dce_body_generator : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -155,8 +154,6 @@ pub impl Show for GenValidFeatureToggles with fn output(self, logger) {
   self.allow_typed_body_generator.output(logger)
   logger.write_string(", allow_ssa_nomerge_body_generator:")
   self.allow_ssa_nomerge_body_generator.output(logger)
-  logger.write_string(", allow_dce_body_generator:")
-  self.allow_dce_body_generator.output(logger)
 }
 
 ///|
@@ -187,7 +184,6 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_name_custom_sections: true,
     allow_typed_body_generator: false,
     allow_ssa_nomerge_body_generator: false,
-    allow_dce_body_generator: false,
   }
 }
 
@@ -643,7 +639,6 @@ pub enum GenValidProfile {
   ValidatorStressProfile
   PassCleanupProfile
   PassDaeProfile
-  DceProfile
   PassInliningProfile
   PassMemoryProfile
   PassGcRefProfile
@@ -694,7 +689,6 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ValidatorStressProfile => "validator-stress"
     PassCleanupProfile => "pass-cleanup"
     PassDaeProfile => "pass-dae"
-    DceProfile => "dce"
     PassInliningProfile => "pass-inlining"
     PassMemoryProfile => "pass-memory"
     PassGcRefProfile => "pass-gc-ref"
@@ -796,7 +790,6 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ValidatorStressProfile,
     PassCleanupProfile,
     PassDaeProfile,
-    DceProfile,
     PassInliningProfile,
     PassMemoryProfile,
     PassGcRefProfile,
@@ -865,7 +858,6 @@ pub fn gen_valid_profile_by_name(
     "coverage-forced" => Ok(CoverageForcedAllFeaturesProfile)
     "portable-coverage-forced" => Ok(CoverageForcedPortableProfile)
     "binaryen-oracle-coverage-forced" => Ok(BinaryenOraclePortableProfile)
-    "dead-code-elimination" | "dce" => Ok(DceProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
     _ =>
@@ -996,50 +988,6 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
           ..base.features,
           allow_globals: true,
           allow_calls: true,
-        },
-      }
-    }
-    DceProfile => {
-      let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
-      GenValidConfig::{
-        ..base,
-        max_type_defs: 4,
-        max_imports: 0,
-        max_defined_funcs: 4,
-        max_tables: 0,
-        max_mems: 0,
-        max_globals: 1,
-        max_tags: 1,
-        max_elems: 0,
-        max_datas: 0,
-        max_params: 2,
-        max_results: 1,
-        max_locals: 4,
-        max_body_statements: 24,
-        max_body_depth: 4,
-        features: GenValidFeatureToggles::{
-          ..base.features,
-          allow_imports: false,
-          allow_tables: false,
-          allow_mems: false,
-          allow_globals: true,
-          allow_tags: true,
-          allow_start: false,
-          allow_elems: false,
-          allow_datas: false,
-          allow_calls: false,
-          allow_call_indirect: false,
-          allow_tail_calls: false,
-          allow_branch_heavy_control: true,
-          allow_v128: false,
-          allow_relaxed_simd: false,
-          allow_memory64: false,
-          allow_atomics: false,
-          allow_shared_memories: false,
-          allow_subtyping_topology: false,
-          allow_name_custom_sections: false,
-          allow_typed_body_generator: false,
-          allow_dce_body_generator: true,
         },
       }
     }
@@ -1398,14 +1346,6 @@ pub struct GenValidFeatureFacts {
   has_gc_tail_call_combo : Bool
   has_shared_memory_atomics : Bool
   has_imports_start_exports : Bool
-  has_dce_non_control_unreachable_child : Bool
-  has_dce_block_dead_suffix : Bool
-  has_dce_block_has_break_guard : Bool
-  has_dce_if_unreachable_condition : Bool
-  has_dce_if_both_arms_unreachable : Bool
-  has_dce_loop_literal_unreachable_body : Bool
-  has_dce_try_table_unreachable : Bool
-  has_dce_drop_unreachable : Bool
   has_ssa_straight_line_local_chain : Bool
   has_ssa_already_ssa_local : Bool
   has_ssa_multi_def_same_local : Bool
@@ -1578,14 +1518,6 @@ pub struct GenValidFeatureStats {
   gc_tail_call_combo : Int
   shared_memory_atomics : Int
   imports_start_exports : Int
-  dce_non_control_unreachable_child : Int
-  dce_block_dead_suffix : Int
-  dce_block_has_break_guard : Int
-  dce_if_unreachable_condition : Int
-  dce_if_both_arms_unreachable : Int
-  dce_loop_literal_unreachable_body : Int
-  dce_try_table_unreachable : Int
-  dce_drop_unreachable : Int
   ssa_straight_line_local_chain : Int
   ssa_already_ssa_local : Int
   ssa_multi_def_same_local : Int
@@ -1769,22 +1701,6 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.shared_memory_atomics.output(logger)
   logger.write_string(", imports_start_exports: ")
   self.imports_start_exports.output(logger)
-  logger.write_string(", dce_non_control_unreachable_child: ")
-  self.dce_non_control_unreachable_child.output(logger)
-  logger.write_string(", dce_block_dead_suffix: ")
-  self.dce_block_dead_suffix.output(logger)
-  logger.write_string(", dce_block_has_break_guard: ")
-  self.dce_block_has_break_guard.output(logger)
-  logger.write_string(", dce_if_unreachable_condition: ")
-  self.dce_if_unreachable_condition.output(logger)
-  logger.write_string(", dce_if_both_arms_unreachable: ")
-  self.dce_if_both_arms_unreachable.output(logger)
-  logger.write_string(", dce_loop_literal_unreachable_body: ")
-  self.dce_loop_literal_unreachable_body.output(logger)
-  logger.write_string(", dce_try_table_unreachable: ")
-  self.dce_try_table_unreachable.output(logger)
-  logger.write_string(", dce_drop_unreachable: ")
-  self.dce_drop_unreachable.output(logger)
   logger.write_string(", ssa_straight_line_local_chain: ")
   self.ssa_straight_line_local_chain.output(logger)
   logger.write_string(", ssa_already_ssa_local: ")
@@ -1962,14 +1878,6 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     gc_tail_call_combo: 0,
     shared_memory_atomics: 0,
     imports_start_exports: 0,
-    dce_non_control_unreachable_child: 0,
-    dce_block_dead_suffix: 0,
-    dce_block_has_break_guard: 0,
-    dce_if_unreachable_condition: 0,
-    dce_if_both_arms_unreachable: 0,
-    dce_loop_literal_unreachable_body: 0,
-    dce_try_table_unreachable: 0,
-    dce_drop_unreachable: 0,
     ssa_straight_line_local_chain: 0,
     ssa_already_ssa_local: 0,
     ssa_multi_def_same_local: 0,
@@ -2133,22 +2041,6 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_shared_memory_atomics),
     imports_start_exports: self.imports_start_exports +
     gen_valid_bool_count(facts.has_imports_start_exports),
-    dce_non_control_unreachable_child: self.dce_non_control_unreachable_child +
-    gen_valid_bool_count(facts.has_dce_non_control_unreachable_child),
-    dce_block_dead_suffix: self.dce_block_dead_suffix +
-    gen_valid_bool_count(facts.has_dce_block_dead_suffix),
-    dce_block_has_break_guard: self.dce_block_has_break_guard +
-    gen_valid_bool_count(facts.has_dce_block_has_break_guard),
-    dce_if_unreachable_condition: self.dce_if_unreachable_condition +
-    gen_valid_bool_count(facts.has_dce_if_unreachable_condition),
-    dce_if_both_arms_unreachable: self.dce_if_both_arms_unreachable +
-    gen_valid_bool_count(facts.has_dce_if_both_arms_unreachable),
-    dce_loop_literal_unreachable_body: self.dce_loop_literal_unreachable_body +
-    gen_valid_bool_count(facts.has_dce_loop_literal_unreachable_body),
-    dce_try_table_unreachable: self.dce_try_table_unreachable +
-    gen_valid_bool_count(facts.has_dce_try_table_unreachable),
-    dce_drop_unreachable: self.dce_drop_unreachable +
-    gen_valid_bool_count(facts.has_dce_drop_unreachable),
     ssa_straight_line_local_chain: self.ssa_straight_line_local_chain +
     gen_valid_bool_count(facts.has_ssa_straight_line_local_chain),
     ssa_already_ssa_local: self.ssa_already_ssa_local +
@@ -2816,14 +2708,6 @@ priv struct GenValidInstrFacts {
   has_subtyping_topology : Bool
   has_rich_gc_field_plans : Bool
   has_shared_memories : Bool
-  has_dce_non_control_unreachable_child : Bool
-  has_dce_block_dead_suffix : Bool
-  has_dce_block_has_break_guard : Bool
-  has_dce_if_unreachable_condition : Bool
-  has_dce_if_both_arms_unreachable : Bool
-  has_dce_loop_literal_unreachable_body : Bool
-  has_dce_try_table_unreachable : Bool
-  has_dce_drop_unreachable : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
   control_nodes : Int
   branch_ops : Int
@@ -3830,14 +3714,6 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_subtyping_topology: false,
     has_rich_gc_field_plans: false,
     has_shared_memories: false,
-    has_dce_non_control_unreachable_child: false,
-    has_dce_block_dead_suffix: false,
-    has_dce_block_has_break_guard: false,
-    has_dce_if_unreachable_condition: false,
-    has_dce_if_both_arms_unreachable: false,
-    has_dce_loop_literal_unreachable_body: false,
-    has_dce_try_table_unreachable: false,
-    has_dce_drop_unreachable: false,
     exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
     control_nodes: 0,
     branch_ops: 0,
@@ -6560,123 +6436,6 @@ fn gen_valid_append_typed_body_generator_slice(
     return
   }
   gen_valid_typed_stmt(out, ctx, env, env.depth_left)
-}
-
-///|
-fn gen_valid_append_dce_body_generator_slice(
-  out : Array[Instruction],
-  ctx : GenValidContext,
-  _env : GenValidBodyEnv,
-) -> Unit {
-  if !ctx.config.features.allow_dce_body_generator {
-    return
-  }
-
-  // Non-control expression whose first unreachable child makes later operands dead.
-  out.push(Instruction::i32_const(I32(10)))
-  out.push(Instruction::unreachable_())
-  out.push(Instruction::i32_const(I32(11)))
-  out.push(Instruction::i32_add())
-  out.push(Instruction::drop())
-
-  // `drop (unreachable)` in flat form.
-  out.push(Instruction::unreachable_())
-  out.push(Instruction::drop())
-
-  // Block suffix trimming after unconditional branch, br_table, and hard unreachable.
-  out.push(
-    Instruction::block(
-      BlockType::void_(),
-      Expr::new([
-        Instruction::br(LabelIdx::new(0U)),
-        Instruction::i32_const(I32(12)),
-        Instruction::drop(),
-      ]),
-    ),
-  )
-  out.push(
-    Instruction::block(
-      BlockType::void_(),
-      Expr::new([
-        Instruction::i32_const(I32(0)),
-        Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
-        Instruction::nop(),
-      ]),
-    ),
-  )
-  out.push(
-    Instruction::block(
-      BlockType::void_(),
-      Expr::new([
-        Instruction::unreachable_(),
-        Instruction::i32_const(I32(13)),
-        Instruction::drop(),
-      ]),
-    ),
-  )
-
-  // Concrete result block with a break targeting it: DCE must keep the result contract.
-  out.push(
-    Instruction::block(
-      BlockType::val_type(ValType::i32()),
-      Expr::new([
-        Instruction::i32_const(I32(14)),
-        Instruction::br(LabelIdx::new(0U)),
-        Instruction::unreachable_(),
-      ]),
-    ),
-  )
-  out.push(Instruction::drop())
-
-  // Concrete result block without incoming breaks whose final survivor is unreachable.
-  out.push(
-    Instruction::block(
-      BlockType::val_type(ValType::i32()),
-      Expr::new([Instruction::unreachable_()]),
-    ),
-  )
-  out.push(Instruction::drop())
-
-  // If with an unreachable condition.
-  out.push(Instruction::unreachable_())
-  out.push(
-    Instruction::if_(
-      BlockType::val_type(ValType::i32()),
-      [Instruction::i32_const(I32(15))],
-      Some([Instruction::i32_const(I32(16))]),
-    ),
-  )
-  out.push(Instruction::drop())
-
-  // If whose arms are both unreachable.
-  out.push(Instruction::i32_const(I32(1)))
-  out.push(
-    Instruction::if_(
-      BlockType::val_type(ValType::i32()),
-      [Instruction::unreachable_()],
-      Some([Instruction::unreachable_()]),
-    ),
-  )
-  out.push(Instruction::drop())
-
-  // Loop whose body is literally unreachable.
-  out.push(
-    Instruction::loop_(
-      BlockType::val_type(ValType::i32()),
-      Expr::new([Instruction::unreachable_()]),
-    ),
-  )
-  out.push(Instruction::drop())
-
-  // try_table whose body is literally unreachable. Legacy try is fixture-only until
-  // GenValid grows a structured legacy-try emitter.
-  out.push(
-    Instruction::try_table(
-      BlockType::void_(),
-      [Catch::all(LabelIdx::new(0U))],
-      Expr::new([Instruction::unreachable_()]),
-    ),
-  )
 }
 
 ///|
@@ -10799,7 +10558,6 @@ fn gen_valid_build_func(
     append_void_stmt(body_instrs, ctx, env)
   }
   gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
-  gen_valid_append_dce_body_generator_slice(body_instrs, ctx, env)
   match current_func_idx {
     Some(idx) if gen_valid_is_ssa_nomerge_family_config(ctx.config) &&
       idx != FuncIdx::new(0U) => ()
@@ -13658,22 +13416,6 @@ fn gen_valid_merge_instr_facts(
     has_rich_gc_field_plans: left.has_rich_gc_field_plans ||
     right.has_rich_gc_field_plans,
     has_shared_memories: left.has_shared_memories || right.has_shared_memories,
-    has_dce_non_control_unreachable_child: left.has_dce_non_control_unreachable_child ||
-    right.has_dce_non_control_unreachable_child,
-    has_dce_block_dead_suffix: left.has_dce_block_dead_suffix ||
-    right.has_dce_block_dead_suffix,
-    has_dce_block_has_break_guard: left.has_dce_block_has_break_guard ||
-    right.has_dce_block_has_break_guard,
-    has_dce_if_unreachable_condition: left.has_dce_if_unreachable_condition ||
-    right.has_dce_if_unreachable_condition,
-    has_dce_if_both_arms_unreachable: left.has_dce_if_both_arms_unreachable ||
-    right.has_dce_if_both_arms_unreachable,
-    has_dce_loop_literal_unreachable_body: left.has_dce_loop_literal_unreachable_body ||
-    right.has_dce_loop_literal_unreachable_body,
-    has_dce_try_table_unreachable: left.has_dce_try_table_unreachable ||
-    right.has_dce_try_table_unreachable,
-    has_dce_drop_unreachable: left.has_dce_drop_unreachable ||
-    right.has_dce_drop_unreachable,
     exact_opcode_counts: left.exact_opcode_counts.add(right.exact_opcode_counts),
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
@@ -14236,133 +13978,9 @@ fn gen_valid_exact_opcode_counts_for_instr(
 }
 
 ///|
-fn gen_valid_block_body_has_dead_suffix(body : Array[Instruction]) -> Bool {
-  for i = 0; i + 1 < body.length(); i = i + 1 {
-    match body[i] {
-      Unreachable | Br(_) | Return | BrTable(_, _) => return true
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn gen_valid_block_body_has_break_to_own_label(
-  body : Array[Instruction],
-) -> Bool {
-  for instr in body {
-    match instr {
-      Br(label) | BrIf(label) if label == LabelIdx::new(0U) => return true
-      BrTable(targets, default_label) => {
-        if default_label == LabelIdx::new(0U) {
-          return true
-        }
-        for target in targets {
-          if target == LabelIdx::new(0U) {
-            return true
-          }
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn gen_valid_block_body_is_literal_unreachable(
-  body : Array[Instruction],
-) -> Bool {
-  body == [Instruction::unreachable_()]
-}
-
-///|
-fn gen_valid_scan_expr_dce_facts(
-  instrs : Array[Instruction],
-) -> GenValidInstrFacts {
-  let mut facts = GenValidInstrFacts::empty()
-  for i = 0; i < instrs.length(); i = i + 1 {
-    if i + 4 < instrs.length() {
-      match
-        (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
-        (I32Const(_), Unreachable, I32Const(_), I32Add, Drop) =>
-          facts = GenValidInstrFacts::{
-            ..facts,
-            has_dce_non_control_unreachable_child: true,
-          }
-        _ => ()
-      }
-    }
-    if i + 1 < instrs.length() {
-      match (instrs[i], instrs[i + 1]) {
-        (Unreachable, Drop) =>
-          facts = GenValidInstrFacts::{
-            ..facts,
-            has_dce_drop_unreachable: true,
-          }
-        (Unreachable, If(_, _, _)) =>
-          facts = GenValidInstrFacts::{
-            ..facts,
-            has_dce_if_unreachable_condition: true,
-          }
-        _ => ()
-      }
-    }
-    match instrs[i] {
-      Block(ValTypeBlockType(_), Expr(body)) => {
-        if gen_valid_block_body_has_dead_suffix(body) {
-          facts = GenValidInstrFacts::{
-            ..facts,
-            has_dce_block_dead_suffix: true,
-          }
-        }
-        if gen_valid_block_body_has_break_to_own_label(body) &&
-          gen_valid_block_body_has_dead_suffix(body) {
-          facts = GenValidInstrFacts::{
-            ..facts,
-            has_dce_block_has_break_guard: true,
-          }
-        }
-      }
-      Block(_, Expr(body)) =>
-        if gen_valid_block_body_has_dead_suffix(body) {
-          facts = GenValidInstrFacts::{
-            ..facts,
-            has_dce_block_dead_suffix: true,
-          }
-        }
-      If(_, then_body, Some(else_body)) =>
-        if gen_valid_block_body_is_literal_unreachable(then_body) &&
-          gen_valid_block_body_is_literal_unreachable(else_body) {
-          facts = GenValidInstrFacts::{
-            ..facts,
-            has_dce_if_both_arms_unreachable: true,
-          }
-        }
-      Loop(_, Expr(body)) =>
-        if gen_valid_block_body_is_literal_unreachable(body) {
-          facts = GenValidInstrFacts::{
-            ..facts,
-            has_dce_loop_literal_unreachable_body: true,
-          }
-        }
-      TryTable(_, _, Expr(body)) =>
-        if gen_valid_block_body_is_literal_unreachable(body) {
-          facts = GenValidInstrFacts::{
-            ..facts,
-            has_dce_try_table_unreachable: true,
-          }
-        }
-      _ => ()
-    }
-  }
-  facts
-}
-
-///|
 fn gen_valid_scan_expr(expr : Expr) -> GenValidInstrFacts {
   let Expr(instrs) = expr
-  let mut facts = gen_valid_scan_expr_dce_facts(instrs)
+  let mut facts = GenValidInstrFacts::empty()
   for instr in instrs {
     facts = gen_valid_merge_instr_facts(facts, gen_valid_scan_instr(instr))
   }
@@ -15590,14 +15208,6 @@ pub fn gen_valid_feature_facts(
   let mut has_data_segment_range = false
   let mut has_name_custom_sections = false
   let mut has_shared_memories = false
-  let mut has_dce_non_control_unreachable_child = false
-  let mut has_dce_block_dead_suffix = false
-  let mut has_dce_block_has_break_guard = false
-  let mut has_dce_if_unreachable_condition = false
-  let mut has_dce_if_both_arms_unreachable = false
-  let mut has_dce_loop_literal_unreachable_body = false
-  let mut has_dce_try_table_unreachable = false
-  let mut has_dce_drop_unreachable = false
   let mut exact_opcode_counts = GenValidExactOpcodeCounts::empty()
   let mut control_nodes = 0
   let mut branch_ops = 0
@@ -16213,22 +15823,6 @@ pub fn gen_valid_feature_facts(
         has_string_ops = has_string_ops || facts.has_string_ops
         has_exception_try_table_matrix = has_exception_try_table_matrix ||
           facts.has_exception_try_table_matrix
-        has_dce_non_control_unreachable_child = has_dce_non_control_unreachable_child ||
-          facts.has_dce_non_control_unreachable_child
-        has_dce_block_dead_suffix = has_dce_block_dead_suffix ||
-          facts.has_dce_block_dead_suffix
-        has_dce_block_has_break_guard = has_dce_block_has_break_guard ||
-          facts.has_dce_block_has_break_guard
-        has_dce_if_unreachable_condition = has_dce_if_unreachable_condition ||
-          facts.has_dce_if_unreachable_condition
-        has_dce_if_both_arms_unreachable = has_dce_if_both_arms_unreachable ||
-          facts.has_dce_if_both_arms_unreachable
-        has_dce_loop_literal_unreachable_body = has_dce_loop_literal_unreachable_body ||
-          facts.has_dce_loop_literal_unreachable_body
-        has_dce_try_table_unreachable = has_dce_try_table_unreachable ||
-          facts.has_dce_try_table_unreachable
-        has_dce_drop_unreachable = has_dce_drop_unreachable ||
-          facts.has_dce_drop_unreachable
         exact_opcode_counts = exact_opcode_counts.add(facts.exact_opcode_counts)
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
@@ -16310,14 +15904,6 @@ pub fn gen_valid_feature_facts(
     has_gc_tail_call_combo: has_gc_feature && has_tail_calls,
     has_shared_memory_atomics: has_shared_memories && has_atomics,
     has_imports_start_exports: has_imports && has_start && has_any_export,
-    has_dce_non_control_unreachable_child,
-    has_dce_block_dead_suffix,
-    has_dce_block_has_break_guard,
-    has_dce_if_unreachable_condition,
-    has_dce_if_both_arms_unreachable,
-    has_dce_loop_literal_unreachable_body,
-    has_dce_try_table_unreachable,
-    has_dce_drop_unreachable,
     has_ssa_straight_line_local_chain: ssa_facts.has_ssa_straight_line_local_chain,
     has_ssa_already_ssa_local: ssa_facts.has_ssa_already_ssa_local,
     has_ssa_multi_def_same_local: ssa_facts.has_ssa_multi_def_same_local,

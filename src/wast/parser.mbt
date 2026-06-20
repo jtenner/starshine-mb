@@ -184,7 +184,6 @@ pub enum TypeDefBody {
   Func(FuncType)
   Struct(Array[StructFieldDef])
   Array(StructFieldDef)
-  Cont(Index)
 } derive(Eq, Debug)
 
 ///|
@@ -364,12 +363,6 @@ pub enum LegacyCatchClause {
 } derive(Eq, Debug)
 
 ///|
-pub struct ResumeHandler {
-  tag : Index
-  label : Index
-} derive(Eq, Debug)
-
-///|
 pub enum Instruction {
   // Control
   Unreachable
@@ -383,7 +376,6 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
-  CallRef(TypeUse)
   ReturnCall(Index)
   ReturnCallIndirect(Index, TypeUse)
   ReturnCallRef(TypeUse)
@@ -392,13 +384,10 @@ pub enum Instruction {
   Rethrow(Index)
   TryTable(BlockType, Array[CatchClause], Array[Instruction])
   TryLegacy(BlockType, Array[Instruction], Array[LegacyCatchClause], Index?)
-  Resume(Index, Array[ResumeHandler], Array[Instruction])
-  ResumeThrow(Index, Index, Array[ResumeHandler], Array[Instruction])
 
   // Parametric
   Drop
   Select(Array[ValueType]?)
-  Pop(ValueType)
 
   // Variable
   LocalGet(Index)
@@ -450,11 +439,6 @@ pub enum Instruction {
   StringEncodeWtf8Array
   StructNew(Index)
   StructNewDefault(Index)
-  ArrayNew(Index)
-  ArrayNewDefault(Index)
-  ArrayNewFixed(Index, UInt)
-  ArrayNewData(Index, Index)
-  ArrayNewElem(Index, Index)
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
@@ -1551,21 +1535,6 @@ fn WastParser::parse_folded_instruction(
       let _ = self.advance()
       [Rethrow(self.parse_index())]
     }
-    Reserved => {
-      let text = self.get_text(self.current)
-      if text == "pop" {
-        let _ = self.advance()
-        [Pop(self.parse_value_type())]
-      } else if text == "resume" {
-        let _ = self.advance()
-        [self.parse_resume_instruction()]
-      } else if text == "resume_throw" {
-        let _ = self.advance()
-        [self.parse_resume_throw_instruction()]
-      } else {
-        raise UnexpectedToken(self.current, "expected instruction")
-      }
-    }
     Opcode(op) => {
       let _ = self.advance()
       if op is TryTable {
@@ -1683,97 +1652,12 @@ fn WastParser::try_parse_plain_instruction(
       let _ = self.advance()
       Some(self.parse_try_table_instruction(true))
     }
-    Reserved => {
-      let text = self.get_text(self.current)
-      if text == "pop" {
-        let _ = self.advance()
-        Some(Pop(self.parse_value_type()))
-      } else if text == "resume" {
-        let _ = self.advance()
-        Some(self.parse_resume_instruction())
-      } else if text == "resume_throw" {
-        let _ = self.advance()
-        Some(self.parse_resume_throw_instruction())
-      } else {
-        None
-      }
-    }
     Opcode(op) => {
       let _ = self.advance()
       Some(self.parse_opcode_instruction(op))
     }
     _ => None
   }
-}
-
-///|
-fn WastParser::parse_resume_on_handler(
-  self : WastParser,
-) -> ResumeHandler raise ParserError {
-  self.expect_lpar()
-  if !self.is_reserved_word("on") {
-    raise UnexpectedToken(self.current, "expected 'on'")
-  }
-  let _ = self.advance()
-  let tag = self.parse_index()
-  let label = self.parse_index()
-  self.expect_rpar()
-  { tag, label }
-}
-
-///|
-fn WastParser::next_is_resume_on_handler(
-  self : WastParser,
-) -> Bool raise ParserError {
-  if !self.check(Lpar) {
-    return false
-  }
-  let saved_state = self.save_lexer_state()
-  let saved_token = self.current
-  self.expect_lpar()
-  let is_on = self.is_reserved_word("on")
-  self.restore_lexer_state(saved_state)
-  self.current = saved_token
-  is_on
-}
-
-///|
-fn WastParser::parse_resume_instruction(
-  self : WastParser,
-) -> Instruction raise ParserError {
-  let cont = self.parse_index()
-  let (handlers, body) = self.parse_resume_handlers_and_body()
-  Resume(cont, handlers, body)
-}
-
-///|
-fn WastParser::parse_resume_throw_instruction(
-  self : WastParser,
-) -> Instruction raise ParserError {
-  let cont = self.parse_index()
-  let tag = self.parse_index()
-  let (handlers, body) = self.parse_resume_handlers_and_body()
-  ResumeThrow(cont, tag, handlers, body)
-}
-
-///|
-fn WastParser::parse_resume_handlers_and_body(
-  self : WastParser,
-) -> (Array[ResumeHandler], Array[Instruction]) raise ParserError {
-  let handlers : Array[ResumeHandler] = []
-  let body : Array[Instruction] = []
-  while self.next_is_resume_on_handler() {
-    handlers.push(self.parse_resume_on_handler())
-  }
-  while self.check(Lpar) {
-    self.expect_lpar()
-    let nested = self.parse_folded_instruction()
-    for instr in nested {
-      body.push(instr)
-    }
-    self.expect_rpar()
-  }
-  (handlers, body)
 }
 
 ///|
@@ -2023,7 +1907,6 @@ fn WastParser::parse_opcode_instruction(
       let type_use = self.parse_type_use()
       CallIndirect(table_index, type_use)
     }
-    CallRef => CallRef(self.parse_type_use())
     ReturnCall => ReturnCall(self.parse_index())
     ReturnCallIndirect => {
       let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
@@ -2036,23 +1919,6 @@ fn WastParser::parse_opcode_instruction(
     TryTable => self.parse_try_table_instruction(false)
     StructNew => StructNew(self.parse_index())
     StructNewDefault => StructNewDefault(self.parse_index())
-    ArrayNew => ArrayNew(self.parse_index())
-    ArrayNewDefault => ArrayNewDefault(self.parse_index())
-    ArrayNewFixed => {
-      let type_idx = self.parse_index()
-      let length = self.parse_nat("expected array.new_fixed length")
-      ArrayNewFixed(type_idx, length)
-    }
-    ArrayNewData => {
-      let type_idx = self.parse_index()
-      let data_idx = self.parse_index()
-      ArrayNewData(type_idx, data_idx)
-    }
-    ArrayNewElem => {
-      let type_idx = self.parse_index()
-      let elem_idx = self.parse_index()
-      ArrayNewElem(type_idx, elem_idx)
-    }
     StructGet => {
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
@@ -2517,12 +2383,6 @@ fn WastParser::parse_type_def_body(
     let field = self.parse_struct_field_item()
     self.expect_rpar()
     return TypeDefBody::Array(field)
-  }
-  if self.is_reserved_word("cont") {
-    let _ = self.advance()
-    let idx = self.parse_index()
-    self.expect_rpar()
-    return TypeDefBody::Cont(idx)
   }
   raise UnexpectedToken(self.current, "expected type body")
 }
@@ -4359,107 +4219,6 @@ test "parse type with no params no results" {
   let mod = parser.parse_module()
   assert_false(parser.has_errors())
   @debug.assert_eq(mod.fields.length(), 1)
-}
-
-///|
-test "parse stack switching cont type body" {
-  let source = "(module (type $function (func)) (type $cont (cont $function)))"
-  let lexer = make_lexer(source)
-  let parser = WastParser::new(lexer)
-  let mod = parser.parse_module()
-  assert_false(parser.has_errors())
-  match mod.fields {
-    [TypeField(_), TypeField(cont_type)] =>
-      @debug.assert_eq(
-        cont_type.body,
-        TypeDefBody::Cont(Index::Id("$function")),
-      )
-    _ => fail("expected function type followed by cont type")
-  }
-  let printed = match module_to_wast(mod) {
-    Ok(text) => text
-    Err(err) => fail("expected cont type to print: \{err}")
-  }
-  assert_true(printed.contains("(type $cont (cont $function))"), msg=printed)
-}
-
-///|
-test "parse stack switching resume placeholder instruction" {
-  let source =
-    #|(module
-    #|  (type $function (func))
-    #|  (type $cont (cont $function))
-    #|  (tag $tag)
-    #|  (func $resume (param $c (ref $cont))
-    #|    (block $handle_effect (result (ref $cont))
-    #|      (resume $cont (on $tag $handle_effect)
-    #|        (local.get $c)))))
-  let lexer = make_lexer(source)
-  let parser = WastParser::new(lexer)
-  let mod = parser.parse_module()
-  assert_false(parser.has_errors())
-  match mod.fields {
-    [TypeField(_), TypeField(_), TagField(_), FuncField(func)] =>
-      match func.body {
-        [Block(_, [Resume(cont, handlers, body)])] => {
-          @debug.assert_eq(cont, Index::Id("$cont"))
-          @debug.assert_eq(handlers, [
-            { tag: Index::Id("$tag"), label: Index::Id("$handle_effect") },
-          ])
-          @debug.assert_eq(body, [LocalGet(Index::Id("$c"))])
-        }
-        _ => fail("expected block containing parsed resume placeholder")
-      }
-    _ => fail("expected types, tag, and resume function")
-  }
-  let printed = match module_to_wast(mod) {
-    Ok(text) => text
-    Err(err) => fail("expected resume placeholder to print: \{err}")
-  }
-  assert_true(
-    printed.contains("resume $cont (on $tag $handle_effect)"),
-    msg=printed,
-  )
-}
-
-///|
-test "parse stack switching resume_throw placeholder instruction" {
-  let source =
-    #|(module
-    #|  (type $function (func))
-    #|  (type $cont (cont $function))
-    #|  (tag $tag)
-    #|  (func $resume_throw (param $c (ref $cont))
-    #|    (block $handle_effect (result (ref $cont))
-    #|      (resume_throw $cont $tag (on $tag $handle_effect)
-    #|        (local.get $c)))))
-  let lexer = make_lexer(source)
-  let parser = WastParser::new(lexer)
-  let mod = parser.parse_module()
-  assert_false(parser.has_errors())
-  match mod.fields {
-    [TypeField(_), TypeField(_), TagField(_), FuncField(func)] =>
-      match func.body {
-        [Block(_, [ResumeThrow(cont, tag, handlers, body)])] => {
-          @debug.assert_eq(cont, Index::Id("$cont"))
-          @debug.assert_eq(tag, Index::Id("$tag"))
-          @debug.assert_eq(handlers, [
-            { tag: Index::Id("$tag"), label: Index::Id("$handle_effect") },
-          ])
-          @debug.assert_eq(body, [Instruction::LocalGet(Index::Id("$c"))])
-        }
-        _ => fail("expected block containing parsed resume_throw placeholder")
-      }
-    _ => fail("expected types, tag, and resume_throw function")
-  }
-  let printed = match module_to_wast(mod) {
-    Ok(text) => text
-    Err(err) => fail("expected resume_throw placeholder to print: \{err}")
-  }
-  assert_true(
-    printed.contains("resume_throw $cont $tag (on $tag $handle_effect)"),
-    msg=printed,
-  )
 }
 
 ///|

@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-16
+last_reviewed: 2026-05-06
 sources:
-  - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
@@ -96,7 +95,7 @@ Do not use the local Starshine page to claim upstream Binaryen behavior.
 The upstream `dce` contract is narrower and should still be read from [`./binaryen-strategy.md`](./binaryen-strategy.md) and [`./typed-control-voidification-and-eh.md`](./typed-control-voidification-and-eh.md).
 
 Do not use the upstream strategy page to erase the local HOT-specific behavior.
-The local owner file includes payload-forwarder, split-wrapper, raw-skip, and writeback concerns that are simply not part of Binaryen `version_130` `DeadCodeElimination.cpp`.
+The local owner file includes payload-forwarder, split-wrapper, raw-skip, and writeback concerns that are simply not part of Binaryen `version_129` `DeadCodeElimination.cpp`.
 
 ## How the local pages fit together
 

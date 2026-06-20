@@ -846,11 +846,6 @@ pub impl Show for Instruction with fn output(self, logger) {
       logger.write_char(')')
     }
     ThrowRef => logger.write_string("throw_ref")
-    Rethrow(l) => {
-      logger.write_string("(rethrow ")
-      Show::output(l, logger)
-      logger.write_char(')')
-    }
     Br(l) => {
       logger.write_string("(br ")
       Show::output(l, logger)
@@ -912,40 +907,6 @@ pub impl Show for Instruction with fn output(self, logger) {
       for vt in vts {
         logger.write_char(' ')
         Show::output(vt, logger)
-      }
-      logger.write_char(')')
-    }
-    Pop(vt) => {
-      logger.write_string("(pop ")
-      Show::output(vt, logger)
-      logger.write_char(')')
-    }
-    Try(bt, body, catches, delegate_target) => {
-      logger.write_string("(try ")
-      Show::output(bt, logger)
-      logger.write_char(' ')
-      Show::output(body, logger)
-      for catch_ in catches {
-        logger.write_char(' ')
-        match catch_ {
-          LegacyCatch(tag, catch_body) => {
-            logger.write_string("(catch ")
-            Show::output(tag, logger)
-            logger.write_char(' ')
-            Show::output(catch_body, logger)
-            logger.write_char(')')
-          }
-          LegacyCatchAll(catch_body) => {
-            logger.write_string("(catch_all ")
-            Show::output(catch_body, logger)
-            logger.write_char(')')
-          }
-        }
-      }
-      if delegate_target is Some(target) {
-        logger.write_string(" (delegate ")
-        Show::output(target, logger)
-        logger.write_char(')')
       }
       logger.write_char(')')
     }

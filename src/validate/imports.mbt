@@ -49,7 +49,6 @@ using @lib {
   type ImportSec,
   type Instruction,
   type LabelIdx,
-  type LegacyCatch,
   type LaneIdx,
   type Limits,
   type LocalIdx,

@@ -282,20 +282,6 @@ pub fn hot_build_select(
 }
 
 ///|
-pub fn hot_build_legacy_pop(func : HotFunc, result_type : ValType) -> NodeId {
-  let payload_id = hot_alloc_instr_payload(
-    func,
-    HotInstrPayload::new(@lib.Instruction::pop(result_type)),
-  )
-  hot_build_node(
-    func,
-    HotOp::Pop,
-    hot_type_intern_value(func, result_type),
-    imm0=payload_id,
-  )
-}
-
-///|
 pub fn hot_build_string_const(func : HotFunc, value : Bytes) -> NodeId {
   let const_id = hot_alloc_const(func, HotConstPayload::string_const(value))
   hot_build_node(

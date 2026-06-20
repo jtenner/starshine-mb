@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-17
+last_reviewed: 2026-05-06
 sources:
-  - ../../../raw/binaryen/2026-06-16-dead-code-elimination-v130-recheck.md
   - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
@@ -35,7 +34,7 @@ The goal here is not to re-explain upstream Binaryen, but to show exactly where 
 ## Short version
 
 The 2026-04-21 source-confirmation reread already corrected the upstream side:
-Binaryen `version_130` `dce` is a small `TypeUpdater`-centered unreachable-shape postwalk.
+Binaryen `version_129` `dce` is a small `TypeUpdater`-centered unreachable-shape postwalk.
 
 Current Starshine is still broader than that oracle.
 The local pass combines:
@@ -75,7 +74,6 @@ The fastest read-along path through the current Starshine implementation is:
     - `dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(...)`
     - `dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload(...)`
   - dead-result and tail-repair helpers:
-    - `dead_code_elimination_try_replace_noncontrol_unreachable_root(...)`
     - `dead_code_elimination_try_voidify_split_drop_control(...)`
     - `dead_code_elimination_voidify_control(...)`
     - `dead_code_elimination_ensure_explicit_unreachable_tail(...)`
@@ -153,14 +151,11 @@ That is broader and more operational than upstream Binaryen's small postwalk, bu
 ## Raw-skip behavior is part of the local strategy
 
 A major local difference from upstream Binaryen is the raw fast path in `src/passes/pass_manager.mbt`.
-The pipeline can skip HOT lifting entirely when raw Wasm inspection shows there are no likely DCE candidates. There is no longer a blanket `-O4z` DCE no-op: DCE-positive O4z functions must run the pass, while the remaining raw skips are shape-specific guards or no-candidate classifications.
-
-As of 2026-06-16, the `load-call-set-dce-noop`, `loop-outer-branch-dce-noop`, and broader `no-dce-candidates` skips are narrowed for explicit dead suffixes. If a function has a root or nested region that reaches an explicit `return`, `return_call*`, `throw*`, `br`, `br_table`, or `unreachable`, Starshine performs a raw explicit-suffix trim before considering those skips; guarded hazard functions still avoid HOT lifting. This matches Binaryen v130 `--dce` on the focused load/call/set and loop-outer-branch root and nested fixtures plus the literal-unreachable no-candidate fixture, while preserving the guard for true no-candidate hazard-only bodies; when a trimmed `block` or `loop` becomes literal `unreachable`, the raw path collapses that wrapper so the containing explicit suffix can be trimmed too. Structured-control fallthrough is intentionally not inferred beyond these exact literal-unreachable collapses because branch targets can make a containing structured node appear nonfallthrough without making its following sibling roots dead.
+The pipeline can skip HOT lifting entirely when raw Wasm inspection shows there are no likely DCE candidates.
 
 The key helpers are:
 
 - `run_hot_pipeline_dce_raw_has_early_terminator(...)`
-- `run_hot_pipeline_dce_raw_trim_explicit_dead_suffixes(...)`
 - `run_hot_pipeline_dce_raw_void_structured_noop(...)`
 - `run_hot_pipeline_dce_raw_live_typed_control_only(...)`
 - `run_hot_pipeline_dce_can_skip_raw(...)`
@@ -193,20 +188,14 @@ The local proof surface is broader than one regression file.
 `src/passes/dead_code_elimination_test.mbt` locks the main local families, including:
 
 - ordinary dead dropped-value cleanup
-- unreachable-root pruning after `return`, including raw root and nested explicit-suffix trimming before the load/call/set, loop-outer-branch, and no-candidate raw skips
+- unreachable-root pruning after `return`
 - dead-result typed `if` and block cleanup
-- modern EH `try_table` body-fallthrough handling, including unreachable-body suffix trimming and result-drop collapse
-- the first real legacy-`try` DCE reachability subset for legacy `try` without `pop`, legacy `rethrow` binary/WAST roundtrip support, legacy catch-arm HOT preservation, HOT legacy-`pop` representation/query support, the first represented nested-pop DCE repair, plus the remaining stack-switching handler-label tooling boundaries
 - payload-forwarder rewrites
 - split-`local.set` wrapper rewrites
 - explicit `unreachable` tail repair
 - detached label-owner and detached shared-subtree cleanup
 
 This file is the best compact proof surface for what the MoonBit owner file actually tries to do.
-
-The legacy `try`, legacy `pop`, and stack-switching tests are intentionally narrow. Binaryen v130 supports these surfaces, and Starshine now has a first real local representation for legacy `try` without `pop`: WAST lowering creates `@lib.Instruction::Try`, validation/typechecking covers body/catch regions, and HOT lift/lower can carry the narrow real-`Try` surface. The follow-up HOT preservation slice records legacy catch-arm metadata while lifting and splits the combined catch region on lower, so tag-specific catches and `catch_all` no longer collapse into a simplified catch-all arm. HOT now also represents legacy `pop` as `HotOp::Pop`, seeds catch payload types while lifting catch arms, preserves a pop-consuming root inside its reconstructed catch arm, and exposes `hot_func_has_legacy_pop` for the DCE `hasPop` gate. The first DCE repair slice extracts `pop` nodes nested under legacy catch-arm block subtrees into fresh locals after a DCE mutation and rewrites the nested uses to `local.get`, covering the initial represented form of Binaryen's nested-pop hazard. The follow-up represented `$call-pop-catch` analogue replaces a dead non-control root with a new block containing drops/roots for children before the first unreachable child, then relies on the same legacy-pop repair to hoist a preserved nested `pop`; it also rebuilds legacy catch-arm root counts from surviving roots after DCE shortens a catch body. The represented `$pop-within-block` analogue now handles a dead `drop` wrapper whose non-control child has a nonfallthrough child, so `drop(ref.eq(struct.new(pop), typed-unreachable-block))` gets the DCE-created block shape needed by legacy-pop repair.
-
-The DCE tests therefore no longer rely on the old synthetic sequential check for the reachable-catch and all-unreachable legacy-`try` cases, and now include represented nested-`pop` repair fixtures for block-subtree, non-control-unreachable-child, and drop-wrapped nonfallthrough-child shapes. Binary encode/decode now roundtrips the real legacy `try`/`catch`/`catch_all` surface when no `pop` is present, and legacy `rethrow` opcode `0x09` now survives WAST-to-binary roundtrip as `@lib.Instruction::Rethrow(LabelIdx)`, so no-pop legacy EH text can complete a text/binary roundtrip closer to Binaryen's `$rethrow` lit case. The binary surface also has a narrow contextual catch-payload bridge: module encode strips direct, tag-type-matching `Pop` pseudo-instructions from legacy catch bodies, and module decode reinjects direct `Pop` pseudo-instructions from tag payload signatures, covering repaired payload consumers such as `pop -> local.set`. The high-level WAST path now admits only the simplest direct single-payload consumer text shape, such as `(drop (pop i32))`; broader Binaryen `pop` text remains fail-closed. Full legacy EH parity is still blocked because broader Binaryen `pop` movement/repair coverage is not complete, nested/interleaved binary catch-payload flow is not complete, and high-level legacy `pop` WAST-to-binary remains only a tiny subset. Stack-switching boundaries also remain fail-closed with explicit diagnostics naming the missing APIs. Reopen full legacy-EH and stack-switching DCE parity when the remaining local representations exist; do not count these representation slices or explicit rejections as full Binaryen parity for those surfaces.
 
 ### Live repro coverage
 
@@ -286,7 +275,7 @@ It also makes future refactors easier to reason about:
 
 If Starshine moves closer to upstream Binaryen `dce`, preserve two truths at the same time:
 
-1. Binaryen `version_130` remains the semantic oracle.
+1. Binaryen `version_129` remains the semantic oracle.
 2. Current Starshine has already learned real HOT/lowering lessons that should not be discarded casually.
 
 So future work should aim to shrink the semantic gap without erasing the local evidence encoded in:

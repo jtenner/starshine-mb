@@ -282,7 +282,6 @@ fn render_type_def_body(body : TypeDefBody) -> String {
       }
       "(array \{field_text})"
     }
-    TypeDefBody::Cont(idx) => "(cont \{index_text(idx)})"
   }
 }
 
@@ -373,7 +372,6 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     Call(idx) => "call \{index_text(idx)}"
     CallIndirect(table_idx, type_use) =>
       "call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"
-    CallRef(type_use) => "call_ref\{render_type_use(type_use)}"
     ReturnCall(idx) => "return_call \{index_text(idx)}"
     ReturnCallIndirect(table_idx, type_use) =>
       "return_call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"
@@ -381,34 +379,6 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     Throw(idx) => "throw \{index_text(idx)}"
     ThrowRef => "throw_ref"
     Rethrow(idx) => "rethrow \{index_text(idx)}"
-    Resume(cont, handlers, _) => {
-      let out = StringBuilder::new()
-      out.write_string("resume ")
-      out.write_string(index_text(cont))
-      for handler in handlers {
-        out.write_string(" (on ")
-        out.write_string(index_text(handler.tag))
-        out.write_char(' ')
-        out.write_string(index_text(handler.label))
-        out.write_char(')')
-      }
-      out.to_string()
-    }
-    ResumeThrow(cont, tag, handlers, _) => {
-      let out = StringBuilder::new()
-      out.write_string("resume_throw ")
-      out.write_string(index_text(cont))
-      out.write_char(' ')
-      out.write_string(index_text(tag))
-      for handler in handlers {
-        out.write_string(" (on ")
-        out.write_string(index_text(handler.tag))
-        out.write_char(' ')
-        out.write_string(index_text(handler.label))
-        out.write_char(')')
-      }
-      out.to_string()
-    }
     Drop => "drop"
     Select(None) => "select"
     Select(Some(vts)) => {
@@ -421,7 +391,6 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
       out.write_char(')')
       out.to_string()
     }
-    Pop(vt) => "pop \{keyword_from_value_type(vt)}"
     LocalGet(idx) => "local.get \{index_text(idx)}"
     LocalSet(idx) => "local.set \{index_text(idx)}"
     LocalTee(idx) => "local.tee \{index_text(idx)}"
@@ -464,13 +433,6 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     StringEncodeWtf8Array => "string.encode_wtf8_array"
     StructNew(idx) => "struct.new \{index_text(idx)}"
     StructNewDefault(idx) => "struct.new_default \{index_text(idx)}"
-    ArrayNew(idx) => "array.new \{index_text(idx)}"
-    ArrayNewDefault(idx) => "array.new_default \{index_text(idx)}"
-    ArrayNewFixed(idx, length) => "array.new_fixed \{index_text(idx)} \{length}"
-    ArrayNewData(type_idx, data_idx) =>
-      "array.new_data \{index_text(type_idx)} \{index_text(data_idx)}"
-    ArrayNewElem(type_idx, elem_idx) =>
-      "array.new_elem \{index_text(type_idx)} \{index_text(elem_idx)}"
     StructGet(idx, field_idx) => "struct.get \{index_text(idx)} \{field_idx}"
     StructGetS(idx, field_idx) => "struct.get_s \{index_text(idx)} \{field_idx}"
     StructGetU(idx, field_idx) => "struct.get_u \{index_text(idx)} \{field_idx}"
@@ -621,14 +583,6 @@ fn write_instruction(
         out.write_string("\{pad}  (delegate \{index_text(idx)})\n")
       }
       out.write_string("\{pad}end\n")
-    }
-    Resume(_, _, body) | ResumeThrow(_, _, _, body) if body.length() > 0 => {
-      out.write_string(pad)
-      out.write_char('(')
-      out.write_string(render_instruction_head(instr))
-      out.write_char('\n')
-      write_instructions(out, body, indent + 2)
-      out.write_string("\{pad})\n")
     }
     _ => {
       out.write_string(pad)
