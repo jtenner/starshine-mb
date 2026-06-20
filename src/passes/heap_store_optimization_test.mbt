@@ -4145,6 +4145,46 @@ test "heap-store-optimization keeps memory-growing constructors before nested wr
 }
 
 ///|
+test "heap-store-optimization keeps memory-growing constructors before deep nested wrapped memory.fill" {
+  let nested_roots = [
+    hso_test_block_wrap(
+      hso_test_block_wrap(hso_test_if_wrap(hso_test_memory_fill_body())),
+    ),
+    hso_test_if_wrap(
+      hso_test_block_wrap(hso_test_block_wrap(hso_test_memory_fill_body())),
+    ),
+    hso_test_loop_wrap(
+      hso_test_block_wrap(hso_test_block_wrap(hso_test_memory_fill_body())),
+    ),
+  ]
+  for roots in nested_roots {
+    hso_assert_memory_grow_wrapped_passive_boundary(
+      roots, "memory.fill", "memory-grow/deep-nested-memory-fill",
+    )
+  }
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before deep nested wrapped memory.copy" {
+  let nested_roots = [
+    hso_test_block_wrap(
+      hso_test_block_wrap(hso_test_if_wrap(hso_test_memory_copy_body())),
+    ),
+    hso_test_if_wrap(
+      hso_test_block_wrap(hso_test_block_wrap(hso_test_memory_copy_body())),
+    ),
+    hso_test_loop_wrap(
+      hso_test_block_wrap(hso_test_block_wrap(hso_test_memory_copy_body())),
+    ),
+  ]
+  for roots in nested_roots {
+    hso_assert_memory_grow_wrapped_passive_boundary(
+      roots, "memory.copy", "memory-grow/deep-nested-memory-copy",
+    )
+  }
+}
+
+///|
 test "heap-store-optimization keeps table-growing constructors before nested wrapped table.fill" {
   let nested_roots = [
     hso_test_block_wrap(hso_test_if_wrap(hso_test_table_fill_body())),
@@ -4168,6 +4208,46 @@ test "heap-store-optimization keeps table-growing constructors before nested wra
   for roots in nested_roots {
     hso_assert_table_grow_wrapped_passive_boundary(
       roots, "table.copy", "table-grow/nested-table-copy",
+    )
+  }
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before deep nested wrapped table.fill" {
+  let nested_roots = [
+    hso_test_block_wrap(
+      hso_test_block_wrap(hso_test_if_wrap(hso_test_table_fill_body())),
+    ),
+    hso_test_if_wrap(
+      hso_test_block_wrap(hso_test_block_wrap(hso_test_table_fill_body())),
+    ),
+    hso_test_loop_wrap(
+      hso_test_block_wrap(hso_test_block_wrap(hso_test_table_fill_body())),
+    ),
+  ]
+  for roots in nested_roots {
+    hso_assert_table_grow_wrapped_passive_boundary(
+      roots, "table.fill", "table-grow/deep-nested-table-fill",
+    )
+  }
+}
+
+///|
+test "heap-store-optimization keeps table-growing constructors before deep nested wrapped table.copy" {
+  let nested_roots = [
+    hso_test_block_wrap(
+      hso_test_block_wrap(hso_test_if_wrap(hso_test_table_copy_body())),
+    ),
+    hso_test_if_wrap(
+      hso_test_block_wrap(hso_test_block_wrap(hso_test_table_copy_body())),
+    ),
+    hso_test_loop_wrap(
+      hso_test_block_wrap(hso_test_block_wrap(hso_test_table_copy_body())),
+    ),
+  ]
+  for roots in nested_roots {
+    hso_assert_table_grow_wrapped_passive_boundary(
+      roots, "table.copy", "table-grow/deep-nested-table-copy",
     )
   }
 }
