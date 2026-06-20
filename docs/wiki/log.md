@@ -3,6 +3,11 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I ref.as_non_null basics
+
+- Filed [`raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md`](raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md) for the second `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now rewrites `ref.as_non_null(ref.null)` to `unreachable`, rewrites `ref.as_non_null(ref.i31(x))` to `ref.i31(x)`, and collapses exact `ref.cast` nodes whose operand has become `unreachable` so stacked cast shapes lower validly.
+- Evidence: red-first focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*ref.as_non_null*'` failed the new positive before implementation. A broader pass run exposed the `ref.cast(unreachable)` validity issue, which is now locked by direct-core OI coverage. Final focused `*ref.as_non_null*` passed `2/2`, focused `*ref*` passed `13/13`, focused `*optimize-instructions*` passed `141/141`, `moon fmt` passed, `moon test src/passes` passed `2653/2653`, native `src/cmd` release build passed with existing unused-function warnings, and `moon info` passed with existing warnings. Direct compare rerun in `.tmp/pass-fuzz-optimize-instructions-oi-i-ref-as-non-null-10000-rerun` compared `55/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no `ref.as_non_null`, `ref.cast`, `ref.test`, `ref.eq`, or `ref.is_null` occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I ref null basics
 
 - Filed [`raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md`](raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md) for the first `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.is_null(ref.null)` to `i32.const 1`, rewrites both null-operand `ref.eq` orders to `ref.is_null(x)`, and folds `ref.eq(null, null)` to `i32.const 1` without entering descriptor/exactness/TNH/IIT-sensitive cast work.

@@ -948,6 +948,65 @@ test "optimize-instructions folds ref.is_null on known null refs" {
 }
 
 ///|
+test "optimize-instructions folds ref.as_non_null on known null and non-null refs" {
+  let source =
+    #|(module
+    #|  (func (export "null") (result eqref)
+    #|    ref.null eq
+    #|    ref.as_non_null)
+    #|  (func (export "i31") (result eqref)
+    #|    i32.const 7
+    #|    ref.i31
+    #|    ref.as_non_null)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref.as_non_null optimize success, got \{err}")
+  }
+  let null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let i31_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(null_pretty.contains("unreachable"), msg=null_pretty)
+  assert_false(null_pretty.contains("ref.as_non_null"), msg=null_pretty)
+  assert_true(i31_pretty.contains("ref.i31"), msg=i31_pretty)
+  assert_false(i31_pretty.contains("ref.as_non_null"), msg=i31_pretty)
+}
+
+///|
+test "optimize-instructions collapses casts fed by unreachable ref.as_non_null" {
+  let func_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
+  let func_ref = @lib.ValType::ref_type(@lib.RefType::new(false, func_heap))
+  let func_type = @lib.TypeIdx::new(0U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [func_ref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(func_heap),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_cast(false, func_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_false(pretty.contains("ref.cast"), msg=pretty)
+}
+
+///|
 test "optimize-instructions rewrites ref.eq null comparisons through ref.is_null" {
   let source =
     #|(module

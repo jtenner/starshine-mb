@@ -380,6 +380,19 @@ fn optimize_instructions_replace_with_const_i64(
 }
 
 ///|
+fn optimize_instructions_replace_with_unreachable(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  let temp = @ir.hot_build_unreachable(func)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_replace_with_existing_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4418,6 +4431,58 @@ fn optimize_instructions_try_fold_ref_is_null(
 }
 
 ///|
+fn optimize_instructions_try_replace_ref_cast_unreachable_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::Unreachable => {
+      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_ref_as_non_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::RefNull => {
+      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+      true
+    }
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, operand_id) {
+        Some(@lib.Instruction::RefI31) => {
+          optimize_instructions_replace_with_node_id(
+            ctx, func, node_id, operand_id,
+          )
+          true
+        }
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_ref_eq_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4771,7 +4836,12 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
     @ir.HotOp::RefIsNull =>
       optimize_instructions_try_fold_ref_is_null(ctx, func, node_id)
+    @ir.HotOp::RefCast =>
+      optimize_instructions_try_replace_ref_cast_unreachable_operand(
+        ctx, func, node_id,
+      )
     @ir.HotOp::Heap =>
+      optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
       optimize_instructions_try_rewrite_ref_eq_null(ctx, func, node_id)
     @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef =>
       optimize_instructions_try_directize_ref_func_call_ref(

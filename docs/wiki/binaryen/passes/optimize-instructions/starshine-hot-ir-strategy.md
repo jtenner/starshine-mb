@@ -35,6 +35,7 @@ sources:
   - ../../../raw/research/0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md
   - ../../../raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md
   - ../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md
+  - ../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -82,6 +83,7 @@ Its center of gravity is:
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
 - direct `ref.func` target directization for `call_ref` / `return_call_ref`, `table.get` target lowering to `call_indirect` / `return_call_indirect`, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, argument-bearing select-of-direct-`ref.func` lowering that localizes single-result call arguments before the direct-call `if`, zero-argument fallthrough-known block target directization with the target expression dropped for effects, and fail-closed boundary tests for mixed select arms plus argument-bearing fallthrough targets
 - first null-reference basics from OI-I: `ref.is_null(ref.null)` folds to `i32.const 1`, `ref.eq(x, null)` and `ref.eq(null, x)` rewrite through `ref.is_null(x)`, and `ref.eq(null, null)` folds to `i32.const 1`
+- first `ref.as_non_null` basics from OI-I: `ref.as_non_null(ref.null)` rewrites to `unreachable`, `ref.as_non_null(ref.i31(x))` rewrites to `ref.i31(x)`, and exact `ref.cast(unreachable)` collapses to `unreachable` so stacked cast shapes lower validly
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -139,6 +141,8 @@ The fastest read-along path is:
   - `optimize_instructions_try_fold_const_select(...)`
   - `optimize_instructions_try_directize_ref_func_call_ref(...)`
   - `optimize_instructions_try_fold_ref_is_null(...)`
+  - `optimize_instructions_try_fold_ref_as_non_null(...)`
+  - `optimize_instructions_try_replace_ref_cast_unreachable_operand(...)`
   - `optimize_instructions_try_rewrite_ref_eq_null(...)`
   - `optimize_instructions_replace_with_store_exact(...)`
   - `optimize_instructions_repeated_fill_i32(...)`
@@ -258,13 +262,13 @@ This is still the bigger story.
 
 ## 1. No broad AST reference / GC optimization surface yet
 
-The local file now implements only the first OI-I null-reference basics: `ref.is_null(ref.null)` and `ref.eq` with null operands. It still does not implement the broader upstream visitor families for things like:
+The local file now implements the first two OI-I reference basics: `ref.is_null(ref.null)` / `ref.eq` with null operands, plus `ref.as_non_null(ref.null)`, `ref.as_non_null(ref.i31(x))`, and exact `ref.cast(unreachable)` validity repair. It still does not implement the broader upstream visitor families for things like:
 
 - impossible `ref.eq` / known-non-null equality proofs
 - broader `ref.is_null` known-non-null proofs
-- `ref.cast`
+- broader `ref.cast`
 - `ref.test`
-- `ref.as_non_null` cleanup
+- broader `ref.as_non_null` cleanup
 - descriptor-aware casts
 - exactness-aware cast tightening
 
