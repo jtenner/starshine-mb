@@ -4741,6 +4741,30 @@ test "heap-store-optimization keeps memory.size constructors before branch-conta
 }
 
 ///|
+test "heap-store-optimization keeps memory.grow constructors before branch-containing memory roots" {
+  for roots in hso_test_branch_containing_wraps(hso_test_memory_fill_body()) {
+    hso_assert_memory_grow_wrapped_passive_boundary(
+      roots, "memory.fill", "memory-grow/branch-wrapper-memory-fill",
+    )
+  }
+  for roots in hso_test_branch_containing_wraps(hso_test_memory_copy_body()) {
+    hso_assert_memory_grow_wrapped_passive_boundary(
+      roots, "memory.copy", "memory-grow/branch-wrapper-memory-copy",
+    )
+  }
+  for roots in hso_test_branch_containing_wraps(hso_test_memory_init_body()) {
+    hso_assert_memory_grow_wrapped_passive_boundary(
+      roots, "memory.init", "memory-grow/branch-wrapper-memory-init",
+    )
+  }
+  for roots in hso_test_branch_containing_wraps(hso_test_data_drop_body()) {
+    hso_assert_memory_grow_wrapped_passive_boundary(
+      roots, "data.drop", "memory-grow/branch-wrapper-data-drop",
+    )
+  }
+}
+
+///|
 test "heap-store-optimization keeps memory.size constructors before memory.copy" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
@@ -5952,6 +5976,30 @@ test "heap-store-optimization keeps table.size constructors before branch-contai
   for roots in hso_test_branch_containing_wraps(hso_test_elem_drop_body()) {
     hso_assert_table_size_wrapped_passive_boundary(
       roots, "elem.drop", "table-size/branch-wrapper-elem-drop",
+    )
+  }
+}
+
+///|
+test "heap-store-optimization keeps table.grow constructors before branch-containing table roots" {
+  for roots in hso_test_branch_containing_wraps(hso_test_table_fill_body()) {
+    hso_assert_table_grow_wrapped_passive_boundary(
+      roots, "table.fill", "table-grow/branch-wrapper-table-fill",
+    )
+  }
+  for roots in hso_test_branch_containing_wraps(hso_test_table_copy_body()) {
+    hso_assert_table_grow_wrapped_passive_boundary(
+      roots, "table.copy", "table-grow/branch-wrapper-table-copy",
+    )
+  }
+  for roots in hso_test_branch_containing_wraps(hso_test_table_init_body()) {
+    hso_assert_table_grow_wrapped_passive_boundary(
+      roots, "table.init", "table-grow/branch-wrapper-table-init",
+    )
+  }
+  for roots in hso_test_branch_containing_wraps(hso_test_elem_drop_body()) {
+    hso_assert_table_grow_wrapped_passive_boundary(
+      roots, "elem.drop", "table-grow/branch-wrapper-elem-drop",
     )
   }
 }
