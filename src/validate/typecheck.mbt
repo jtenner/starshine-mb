@@ -1847,12 +1847,7 @@ fn typecheck_ref_is_null(st : TcState) -> TcResult {
     Ok(pair) => pair
   }
   match v {
-    RefTypeValType(rt) => {
-      if !rt.is_nullable() {
-        return Err("ref.is_null expects a nullable reference")
-      }
-      Ok(st1.push1(ValType::i32()))
-    }
+    RefTypeValType(_) => Ok(st1.push1(ValType::i32()))
     _ => Err("ref.is_null expects a reference type")
   }
 }
@@ -5988,6 +5983,15 @@ test "Typecheck RefNull extern" {
 ///|
 test "Typecheck RefIsNull" {
   let state = make_state(empty_env(), [nullable_funcref()])
+  let new_state = assert_ok(
+    Typecheck::typecheck(Instruction::ref_is_null(), state),
+  )
+  assert_stack(new_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck RefIsNull accepts non-null references" {
+  let state = make_state(empty_env(), [ValType::i31ref()])
   let new_state = assert_ok(
     Typecheck::typecheck(Instruction::ref_is_null(), state),
   )

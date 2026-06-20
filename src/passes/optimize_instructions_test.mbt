@@ -948,6 +948,63 @@ test "optimize-instructions folds ref.is_null on known null refs" {
 }
 
 ///|
+test "optimize-instructions folds ref.is_null on locally known non-null refs" {
+  let source =
+    #|(module
+    #|  (func $callee)
+    #|  (elem declare func $callee)
+    #|  (func (export "i31") (result i32)
+    #|    i32.const 7
+    #|    ref.i31
+    #|    ref.is_null)
+    #|  (func (export "func") (result i32)
+    #|    ref.func $callee
+    #|    ref.is_null)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected non-null ref.is_null optimize success, got \{err}")
+  }
+  let i31_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let func_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(i31_pretty.contains("ref.is_null"), msg=i31_pretty)
+  assert_false(func_pretty.contains("ref.is_null"), msg=func_pretty)
+  assert_true(i31_pretty.contains("I32(0)"), msg=i31_pretty)
+  assert_true(func_pretty.contains("I32(0)"), msg=func_pretty)
+}
+
+///|
+test "optimize-instructions folds null equality against locally known non-null refs" {
+  let source =
+    #|(module
+    #|  (func (export "i31-right-null") (result i32)
+    #|    i32.const 7
+    #|    ref.i31
+    #|    ref.null eq
+    #|    ref.eq)
+    #|  (func (export "null-i31") (result i32)
+    #|    ref.null eq
+    #|    i32.const 7
+    #|    ref.i31
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected known non-null ref.eq optimize success, got \{err}")
+  }
+  let right_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let left_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(right_pretty.contains("ref.eq"), msg=right_pretty)
+  assert_false(left_pretty.contains("ref.eq"), msg=left_pretty)
+  assert_true(right_pretty.contains("I32(0)"), msg=right_pretty)
+  assert_true(left_pretty.contains("I32(0)"), msg=left_pretty)
+}
+
+///|
 test "optimize-instructions folds ref.as_non_null on known null and non-null refs" {
   let source =
     #|(module

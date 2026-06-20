@@ -36,6 +36,7 @@ sources:
   - ../../../raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md
   - ../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md
   - ../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md
+  - ../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -83,6 +84,7 @@ Its center of gravity is:
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
 - direct `ref.func` target directization for `call_ref` / `return_call_ref`, `table.get` target lowering to `call_indirect` / `return_call_indirect`, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, argument-bearing select-of-direct-`ref.func` lowering that localizes single-result call arguments before the direct-call `if`, zero-argument fallthrough-known block target directization with the target expression dropped for effects, and fail-closed boundary tests for mixed select arms plus argument-bearing fallthrough targets
 - first null-reference basics from OI-I: `ref.is_null(ref.null)` folds to `i32.const 1`, `ref.eq(x, null)` and `ref.eq(null, x)` rewrite through `ref.is_null(x)`, and `ref.eq(null, null)` folds to `i32.const 1`
+- known-non-null constructor basics from OI-I: `ref.is_null(ref.i31)` and `ref.is_null(ref.func)` fold to `i32.const 0`, and `ref.eq(ref.i31, null)` / `ref.eq(null, ref.i31)` fold to `i32.const 0`; the validator now accepts non-null `ref.is_null` operands so these fixtures can be authored through WAT
 - first `ref.as_non_null` basics from OI-I: `ref.as_non_null(ref.null)` rewrites to `unreachable`, `ref.as_non_null(ref.i31(x))` rewrites to `ref.i31(x)`, and exact `ref.cast(unreachable)` collapses to `unreachable` so stacked cast shapes lower validly
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
@@ -140,6 +142,7 @@ The fastest read-along path is:
   - `optimize_instructions_try_wrap_boolean_if_value_in_eqz(...)`
   - `optimize_instructions_try_fold_const_select(...)`
   - `optimize_instructions_try_directize_ref_func_call_ref(...)`
+  - `optimize_instructions_ref_is_known_non_null(...)`
   - `optimize_instructions_try_fold_ref_is_null(...)`
   - `optimize_instructions_try_fold_ref_as_non_null(...)`
   - `optimize_instructions_try_replace_ref_cast_unreachable_operand(...)`
@@ -182,7 +185,7 @@ That exact code map is the main practical improvement in this refresh: readers c
 The local tests are intentionally split across multiple files:
 
 - `src/passes/optimize_instructions_test.mbt`
-  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, constant-condition `select` cleanup with effect/trap negatives, direct-core `ref.func` `call_ref` / `return_call_ref` directization, `table.get` `call_ref` / `return_call_ref` indirect-call lowering, zero-argument select-of-`ref.func` `call_ref` / `return_call_ref` if-lowering, argument-bearing select-of-`ref.func` call_ref localization coverage, fail-closed non-direct select-arm and argument-bearing fallthrough boundaries, fallthrough-known block target `call_ref` / `return_call_ref` directization, first `ref.is_null` / `ref.eq` null-reference rewrites, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
+  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, constant-condition `select` cleanup with effect/trap negatives, direct-core `ref.func` `call_ref` / `return_call_ref` directization, `table.get` `call_ref` / `return_call_ref` indirect-call lowering, zero-argument select-of-`ref.func` `call_ref` / `return_call_ref` if-lowering, argument-bearing select-of-`ref.func` call_ref localization coverage, fail-closed non-direct select-arm and argument-bearing fallthrough boundaries, fallthrough-known block target `call_ref` / `return_call_ref` directization, first `ref.is_null` / `ref.eq` null-reference rewrites plus known-non-null constructor folds, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
 - `src/passes/registry_test.mbt`
   - registry/descriptors exposure for the public HOT pass surface
 - `src/cmd/cmd_wbtest.mbt`
@@ -262,10 +265,10 @@ This is still the bigger story.
 
 ## 1. No broad AST reference / GC optimization surface yet
 
-The local file now implements the first two OI-I reference basics: `ref.is_null(ref.null)` / `ref.eq` with null operands, plus `ref.as_non_null(ref.null)`, `ref.as_non_null(ref.i31(x))`, and exact `ref.cast(unreachable)` validity repair. It still does not implement the broader upstream visitor families for things like:
+The local file now implements the first three OI-I reference basics: `ref.is_null(ref.null)` / `ref.eq` with null operands, known-non-null constructor folds for `ref.i31` / `ref.func` null tests and `ref.i31` null equality, plus `ref.as_non_null(ref.null)`, `ref.as_non_null(ref.i31(x))`, and exact `ref.cast(unreachable)` validity repair. It still does not implement the broader upstream visitor families for things like:
 
-- impossible `ref.eq` / known-non-null equality proofs
-- broader `ref.is_null` known-non-null proofs
+- impossible `ref.eq` / known-non-null equality proofs beyond the local `null` vs `ref.i31` subset
+- broader `ref.is_null` known-non-null proofs beyond exact local constructors
 - broader `ref.cast`
 - `ref.test`
 - broader `ref.as_non_null` cleanup

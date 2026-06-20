@@ -4407,6 +4407,22 @@ fn optimize_instructions_replace_with_ref_is_null(
 }
 
 ///|
+fn optimize_instructions_ref_is_known_non_null(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefFunc => true
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefI31) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_ref_is_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4423,6 +4439,15 @@ fn optimize_instructions_try_fold_ref_is_null(
         func,
         node_id,
         @lib.I32(1),
+      )
+      true
+    }
+    _ if optimize_instructions_ref_is_known_non_null(func, operand_id) => {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(0),
       )
       true
     }
@@ -4508,11 +4533,33 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
       true
     }
     (@ir.HotOp::RefNull, _) => {
-      optimize_instructions_replace_with_ref_is_null(ctx, func, node_id, rhs_id)
+      if optimize_instructions_ref_is_known_non_null(func, rhs_id) {
+        optimize_instructions_replace_with_const_i32(
+          ctx,
+          func,
+          node_id,
+          @lib.I32(0),
+        )
+      } else {
+        optimize_instructions_replace_with_ref_is_null(
+          ctx, func, node_id, rhs_id,
+        )
+      }
       true
     }
     (_, @ir.HotOp::RefNull) => {
-      optimize_instructions_replace_with_ref_is_null(ctx, func, node_id, lhs_id)
+      if optimize_instructions_ref_is_known_non_null(func, lhs_id) {
+        optimize_instructions_replace_with_const_i32(
+          ctx,
+          func,
+          node_id,
+          @lib.I32(0),
+        )
+      } else {
+        optimize_instructions_replace_with_ref_is_null(
+          ctx, func, node_id, lhs_id,
+        )
+      }
       true
     }
     _ => false

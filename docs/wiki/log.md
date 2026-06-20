@@ -3,6 +3,11 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I known-non-null reference basics
+
+- Filed [`raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md`](raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md) for the third `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.is_null(ref.i31(...))` and `ref.is_null(ref.func f)` to `i32.const 0`, folds `ref.eq(ref.i31(...), ref.null eq)` and the reverse operand order to `i32.const 0`, and accepts non-null `ref.is_null` operands in validation so the public WAT fixtures can be authored.
+- Evidence: the first focused `*known non-null*` run exposed the pre-existing validation rejection for non-null `ref.is_null`; after the typechecker correction and before the optimizer implementation, the same new OI positives failed because the original reference operations remained. Final focused `*RefIsNull*` typecheck tests passed `2/2`, focused `*known non-null*` passed `2/2`, focused `*ref*` passed `15/15`, focused `*optimize-instructions*` passed `143/143`, `moon fmt` passed, `moon test src/passes` passed `2655/2655`, `moon test src/validate` passed `1612/1612`, native `src/cmd` release build passed with existing unused-function warnings, and `moon info` passed with existing warnings. Direct compare rerun in `.tmp/pass-fuzz-optimize-instructions-oi-i-known-non-null-10000-rerun` compared `56/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no reference operation occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I ref.as_non_null basics
 
 - Filed [`raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md`](raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md) for the second `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now rewrites `ref.as_non_null(ref.null)` to `unreachable`, rewrites `ref.as_non_null(ref.i31(x))` to `ref.i31(x)`, and collapses exact `ref.cast` nodes whose operand has become `unreachable` so stacked cast shapes lower validly.
