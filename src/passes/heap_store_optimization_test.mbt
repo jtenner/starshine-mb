@@ -4656,6 +4656,45 @@ test "heap-store-optimization keeps memory.size constructors before loop-wrapped
 }
 
 ///|
+test "heap-store-optimization keeps memory.size constructors before branch-containing memory.fill wrappers" {
+  let branch_roots = [
+    hso_test_block_wrap(
+      [
+        ..hso_test_memory_fill_body(),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ],
+    ),
+    hso_test_block_wrap([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          ..hso_test_memory_fill_body(),
+          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+        ],
+        None,
+      ),
+    ]),
+    hso_test_block_wrap([
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new(
+          [
+            ..hso_test_memory_fill_body(),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+        ),
+      ),
+    ]),
+  ]
+  for roots in branch_roots {
+    hso_assert_memory_size_wrapped_passive_boundary(
+      roots, "memory.fill", "memory-size/branch-wrapper-memory-fill",
+    )
+  }
+}
+
+///|
 test "heap-store-optimization keeps memory.size constructors before memory.copy" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
@@ -5807,6 +5846,45 @@ test "heap-store-optimization keeps table.size constructors before loop-wrapped 
   assert_true(pretty.contains("table.size"), msg=pretty)
   assert_true(pretty.contains("table.fill"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps table.size constructors before branch-containing table.fill wrappers" {
+  let branch_roots = [
+    hso_test_block_wrap(
+      [
+        ..hso_test_table_fill_body(),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ],
+    ),
+    hso_test_block_wrap([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          ..hso_test_table_fill_body(),
+          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+        ],
+        None,
+      ),
+    ]),
+    hso_test_block_wrap([
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new(
+          [
+            ..hso_test_table_fill_body(),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+        ),
+      ),
+    ]),
+  ]
+  for roots in branch_roots {
+    hso_assert_table_size_wrapped_passive_boundary(
+      roots, "table.fill", "table-size/branch-wrapper-table-fill",
+    )
+  }
 }
 
 ///|
