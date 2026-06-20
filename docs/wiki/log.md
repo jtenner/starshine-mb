@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-19] passes/optimize-instructions | Add OI-H ref.func call_ref directization
+
+- Filed [`raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md`](raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md) for the first `[O4Z-AUDIT-OI-H]` sub-slice. Starshine now covers the simplest Binaryen `visitCallRef(...)` known-target family: direct `ref.func` targets under `call_ref` and `return_call_ref` rewrite to direct `call` and `return_call`, preserving argument order and dropping only the pure target reference. Broader `table.get`, fallthrough-known, and select-known-target `call_ref` families remain open.
+- Evidence: local Binaryen oracle probe with `--enable-gc --enable-reference-types --enable-tail-call` directized both covered forms. Red-first focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*ref.func call_ref*'` failed before implementation and passed after; focused `*call_ref*` passed `1/1`, focused `*optimize-instructions*` passed `131/131`, `moon fmt` passed, `moon test src/passes` passed `2643/2643`, native `src/cmd` release build passed with existing warnings, and `moon info` passed with existing warnings. Direct compare rerun in `.tmp/pass-fuzz-optimize-instructions-oi-h-ref-func-call-ref-10000-rerun` compared `54/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no `call_ref`, `return_call_ref`, `ref.func`, `call_indirect`, or `return_call_indirect` occurrences.
+
 ## [2026-06-19] passes/optimize-instructions | Add OI-G pointer-add offset boundary
 
 - Filed [`raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md`](raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md) for the eighteenth `[O4Z-AUDIT-OI-G]` sub-slice. This is a source-backed boundary decision: Binaryen `version_130` `optimize-instructions` keeps tested nonconstant pointer-add memory address forms as `i32.add` plus the original static offset, so Starshine does not claim `local.get + const` load/store offset canonicalization as OI-owned behavior.

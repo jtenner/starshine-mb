@@ -27,6 +27,7 @@ sources:
   - ../../../raw/research/0747-2026-06-19-optimize-instructions-oi-g-const-store-value.md
   - ../../../raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md
   - ../../../raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md
+  - ../../../raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -72,6 +73,7 @@ Its center of gravity is:
 - constant-pointer static-offset folding for scalar loads/stores: memory32 uses Binaryen's nonnegative `i32` range guard and memory64 uses Binaryen's unsigned `u64` no-wrap guard
 - an explicit nonconstant pointer-add offset boundary: Binaryen `version_130` `optimize-instructions` keeps tested `local.get + const` memory addresses as arithmetic plus the original static offset, so Starshine does not claim that shape as OI-owned load/store canonicalization
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
+- direct `ref.func` target directization for `call_ref` / `return_call_ref`, matching the simplest Binaryen `visitCallRef(...)` known-target family while leaving broader `table.get`, fallthrough-known, and select-known-target forms open
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -127,6 +129,7 @@ The fastest read-along path is:
   - `optimize_instructions_negate_boolean_expr_recursive(...)`
   - `optimize_instructions_try_wrap_boolean_if_value_in_eqz(...)`
   - `optimize_instructions_try_fold_const_select(...)`
+  - `optimize_instructions_try_directize_ref_func_call_ref(...)`
   - `optimize_instructions_replace_with_store_exact(...)`
   - `optimize_instructions_repeated_fill_i32(...)`
   - `optimize_instructions_repeated_fill_i64(...)`
@@ -165,7 +168,7 @@ That exact code map is the main practical improvement in this refresh: readers c
 The local tests are intentionally split across multiple files:
 
 - `src/passes/optimize_instructions_test.mbt`
-  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, constant-condition `select` cleanup with effect/trap negatives, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
+  - focused reduced pass behavior: exact constant folding, Binaryen-aligned literal-constant `eqz` preservation, non-constant `eqz` and compare canonicalization, arithmetic rewrites, scalar float spelling, `i32.wrap_i64` constant folding, sign-extension fact and idiom rewrites, nested boolean-`if` cleanup, constant-condition `select` cleanup with effect/trap negatives, direct-core `ref.func` `call_ref` / `return_call_ref` directization, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant/operand normalization, and guard-heavy no-reorder cases
 - `src/passes/registry_test.mbt`
   - registry/descriptors exposure for the public HOT pass surface
 - `src/cmd/cmd_wbtest.mbt`

@@ -466,6 +466,53 @@ fn optimize_instructions_rewrite_exact_with_children(
 }
 
 ///|
+fn optimize_instructions_try_directize_ref_func_call_ref(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef => ()
+    _ => return false
+  }
+  if node.child_count < 1 {
+    return false
+  }
+  let callee_ref_id = @ir.hot_child_get(func, node_id, node.child_count - 1)
+  if !optimize_instructions_node_is_live(func, dead, callee_ref_id) {
+    return false
+  }
+  let callee_ref = @ir.hot_node_get(func, callee_ref_id)
+  match callee_ref.op {
+    @ir.HotOp::RefFunc => ()
+    _ => return false
+  }
+  let args : Array[Int] = []
+  for slot = 0; slot < node.child_count - 1; slot = slot + 1 {
+    args.push(@ir.hot_child_get(func, node_id, slot))
+  }
+  let temp = match node.op {
+    @ir.HotOp::CallRef =>
+      @ir.hot_build_call(
+        func,
+        callee_ref.imm0,
+        @ir.hot_type_results(func, node.ty),
+        args,
+      )
+    @ir.HotOp::ReturnCallRef =>
+      @ir.hot_build_return_call(func, callee_ref.imm0, args)
+    _ => abort("unreachable call_ref directization op")
+  }
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_constant_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4410,6 +4457,10 @@ fn optimize_instructions_visit_node(
       }
     @ir.HotOp::Select =>
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
+    @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef =>
+      optimize_instructions_try_directize_ref_func_call_ref(
+        ctx, func, dead, node_id,
+      )
     @ir.HotOp::Load =>
       optimize_instructions_try_fold_const_memory_access_offset(
         ctx, func, dead, node_id,

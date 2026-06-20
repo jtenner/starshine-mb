@@ -83,6 +83,21 @@ fn optimize_instructions_loop_gate_fixture() -> String {
 }
 
 ///|
+fn optimize_instructions_test_run_module(mod_ : @lib.Module) -> @lib.Module {
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort("unexpected invalid optimize-instructions fixture: \{err}")
+  }
+  match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort("expected optimize-instructions pipeline success, got \{err}")
+  }
+}
+
+///|
 fn optimize_instructions_assert_skip_reason(
   text : String,
   reason : String,
@@ -912,6 +927,63 @@ test "optimize-instructions folds i32.wrap_i64 constants" {
     @ir.hot_const_get(func, @ir.hot_node_get(func, root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(-1)),
   )
+}
+
+///|
+test "optimize-instructions directizes ref.func call_ref targets" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([callee_type_idx, callee_type_idx, callee_type_idx]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(callee_type_idx),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::return_call_ref(callee_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let tail = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(caller.contains("call (Func 0)"), msg=caller)
+  assert_false(caller.contains("call_ref"), msg=caller)
+  assert_false(caller.contains("ref.func"), msg=caller)
+  assert_true(tail.contains("return_call (Func 0)"), msg=tail)
+  assert_false(tail.contains("return_call_ref"), msg=tail)
+  assert_false(tail.contains("ref.func"), msg=tail)
 }
 
 ///|
