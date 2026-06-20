@@ -2303,7 +2303,22 @@ fn hso_process_node_regions(
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
-  match node.op {
+  let mut child_changed = false
+  if !hso_node_may_have_regions(node.op) {
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      child_changed = hso_process_node_regions(
+          cache,
+          type_cache,
+          func,
+          module_ctx,
+          node_masks,
+          @ir.hot_child_get(func, node_id, slot),
+          active_catch_depth,
+        ) ||
+        child_changed
+    }
+  }
+  let region_changed = match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       hso_process_region(
         cache,
@@ -2380,6 +2395,7 @@ fn hso_process_node_regions(
       )
     _ => false
   }
+  child_changed || region_changed
 }
 
 ///|
@@ -2420,13 +2436,10 @@ fn hso_process_region(
   let mut changed = false
 
   for root_id in roots {
-    let root_node = @ir.hot_node_get(func, root_id)
-    if hso_node_may_have_regions(root_node.op) {
-      changed = hso_process_node_regions(
-          cache, type_cache, func, module_ctx, node_masks, root_id, active_catch_depth,
-        ) ||
-        changed
-    }
+    changed = hso_process_node_regions(
+        cache, type_cache, func, module_ctx, node_masks, root_id, active_catch_depth,
+      ) ||
+      changed
   }
 
   let next_roots : Array[Int] = []

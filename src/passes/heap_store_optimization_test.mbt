@@ -1948,6 +1948,129 @@ test "heap-store-optimization folds function-return set values into struct.new" 
 }
 
 ///|
+test "heap-store-optimization folds safe external call values into struct.new" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_call_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_tee(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::drop(),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected safe external-call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds first safe set before unsafe escaping branch values" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(pair),
+            @lib.Instruction::local_set(local0),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(42)),
+          ]),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected branch-sequence heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.new_default"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps branch values when the target local escapes later" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_ref_result_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(pair),
+            @lib.Instruction::local_set(local0),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::i32_const(@lib.I32(4)),
+            @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(5)),
+            @lib.Instruction::i32_const(@lib.I32(6)),
+            @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+            @lib.Instruction::i32_const(@lib.I32(42)),
+          ]),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(local0),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected escaping-local branch heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps struct.set for calls caught inside the function" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
