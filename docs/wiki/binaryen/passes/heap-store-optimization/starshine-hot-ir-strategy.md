@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0825-2026-06-20-heap-store-optimization-table-grow-bulk-boundaries.md
   - ../../../raw/research/0824-2026-06-20-heap-store-optimization-memory-grow-bulk-boundaries.md
   - ../../../raw/research/0823-2026-06-20-heap-store-optimization-memory-grow-data-boundaries.md
   - ../../../raw/research/0822-2026-06-20-heap-store-optimization-table-grow-elem-boundaries.md
