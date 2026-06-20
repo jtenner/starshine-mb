@@ -4430,6 +4430,21 @@ fn optimize_instructions_ref_is_known_non_null(
 }
 
 ///|
+fn optimize_instructions_ref_is_null_operand(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefNull => true
+    _ =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefNull(_)) => true
+        _ => false
+      }
+  }
+}
+
+///|
 fn optimize_instructions_ref_i31_matches_target(ht : @lib.HeapType) -> Bool {
   match ht {
     @lib.HeapType::AbsHeapTypeHeapType(abs) =>
@@ -5241,48 +5256,63 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
     )
     return true
   }
-  match (@ir.hot_node_get(func, lhs_id).op, @ir.hot_node_get(func, rhs_id).op) {
-    (@ir.HotOp::RefNull, @ir.HotOp::RefNull) => {
-      optimize_instructions_replace_with_const_i32(
-        ctx,
-        func,
-        node_id,
-        @lib.I32(1),
-      )
-      true
-    }
-    (@ir.HotOp::RefNull, _) => {
-      if optimize_instructions_ref_is_known_non_null(func, rhs_id) {
-        optimize_instructions_replace_with_const_i32(
-          ctx,
-          func,
-          node_id,
-          @lib.I32(0),
-        )
-      } else {
-        optimize_instructions_replace_with_ref_is_null(
-          ctx, func, node_id, rhs_id,
-        )
-      }
-      true
-    }
-    (_, @ir.HotOp::RefNull) => {
-      if optimize_instructions_ref_is_known_non_null(func, lhs_id) {
-        optimize_instructions_replace_with_const_i32(
-          ctx,
-          func,
-          node_id,
-          @lib.I32(0),
-        )
-      } else {
-        optimize_instructions_replace_with_ref_is_null(
-          ctx, func, node_id, lhs_id,
-        )
-      }
-      true
-    }
-    _ => false
+  if optimize_instructions_ref_is_null_operand(func, lhs_id) &&
+    optimize_instructions_ref_is_null_operand(func, rhs_id) {
+    optimize_instructions_replace_with_const_i32(
+      ctx,
+      func,
+      node_id,
+      @lib.I32(1),
+    )
+    return true
   }
+  if optimize_instructions_ref_is_null_operand(func, lhs_id) {
+    if optimize_instructions_ref_is_known_non_null(func, rhs_id) {
+      if optimize_instructions_node_effects_are_pure(ctx, func, rhs_id) {
+        optimize_instructions_replace_with_const_i32(
+          ctx,
+          func,
+          node_id,
+          @lib.I32(0),
+        )
+      } else {
+        optimize_instructions_replace_with_drop_then_const_i32(
+          ctx,
+          func,
+          node_id,
+          rhs_id,
+          @lib.I32(0),
+        )
+      }
+    } else {
+      optimize_instructions_replace_with_ref_is_null(ctx, func, node_id, rhs_id)
+    }
+    return true
+  }
+  if optimize_instructions_ref_is_null_operand(func, rhs_id) {
+    if optimize_instructions_ref_is_known_non_null(func, lhs_id) {
+      if optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
+        optimize_instructions_replace_with_const_i32(
+          ctx,
+          func,
+          node_id,
+          @lib.I32(0),
+        )
+      } else {
+        optimize_instructions_replace_with_drop_then_const_i32(
+          ctx,
+          func,
+          node_id,
+          lhs_id,
+          @lib.I32(0),
+        )
+      }
+    } else {
+      optimize_instructions_replace_with_ref_is_null(ctx, func, node_id, lhs_id)
+    }
+    return true
+  }
+  false
 }
 
 ///|
