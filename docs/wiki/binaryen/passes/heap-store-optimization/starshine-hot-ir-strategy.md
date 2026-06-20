@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0829-2026-06-20-heap-store-optimization-wrapped-bulk-fill-boundaries.md
   - ../../../raw/research/0828-2026-06-20-heap-store-optimization-mixed-index-copy-boundaries.md
   - ../../../raw/research/0827-2026-06-20-heap-store-optimization-multi-index-copy-boundaries.md
   - ../../../raw/research/0826-2026-06-20-heap-store-optimization-multi-index-bulk-boundaries.md
@@ -111,7 +112,7 @@ The fastest read-along path through the current MoonBit implementation is:
   - [`src/passes/heap_store_optimization.mbt:2028-2218`](../../../../../src/passes/heap_store_optimization.mbt) recursively processes HOT regions, later-set chains, swaps, and root replacement
   - [`src/passes/heap_store_optimization.mbt:2220-2241`](../../../../../src/passes/heap_store_optimization.mbt) requires effect summaries, marks mutation, and returns pass results
 - focused local evidence surfaces
-  - [`src/passes/heap_store_optimization_test.mbt:476-4135`](../../../../../src/passes/heap_store_optimization_test.mbt) covers reduced constructor/store, old-field side-effect preservation, later-field call barriers, descriptor immutable/mutable global barriers, descriptor `local.get`, block-wrapped immutable global operands, descriptor `if` operands, descriptor block self-branch operands, branchless descriptor loops plus self-branching loop negatives, readonly-prefix, swap including memory/table growth and size operands, block/if/loop-wrapped blockers, nested mixed-wrapper blockers, trapping-load and call-valued negatives, direct and wrapped constructor-ping-pong boundaries, branch, raw-prefix, and wrapper-cleanup regressions
+  - [`src/passes/heap_store_optimization_test.mbt:476-4135`](../../../../../src/passes/heap_store_optimization_test.mbt) covers reduced constructor/store, old-field side-effect preservation, later-field call barriers, descriptor immutable/mutable global barriers, descriptor `local.get`, block-wrapped immutable global operands, descriptor `if` operands, descriptor block self-branch operands, branchless descriptor loops plus self-branching loop negatives, readonly-prefix, swap including memory/table growth and size operands, block/if/loop-wrapped blockers, nested mixed-wrapper blockers, wrapped bulk-fill barriers, trapping-load and call-valued negatives, direct and wrapped constructor-ping-pong boundaries, branch, raw-prefix, and wrapper-cleanup regressions
   - [`src/passes/perf_test.mbt:6241-6320`](../../../../../src/passes/perf_test.mbt) covers raw fast-skip trace/perf behavior
   - [`src/cmd/cmd_wbtest.mbt:2514-3490`](../../../../../src/cmd/cmd_wbtest.mbt) and [`src/cmd/cmd_wbtest.mbt:6600-6634`](../../../../../src/cmd/cmd_wbtest.mbt) cover focused `--heap-store-optimization` CLI replay and debug-artifact lanes
 
