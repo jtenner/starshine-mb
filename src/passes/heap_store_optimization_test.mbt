@@ -76,6 +76,42 @@ fn hso_test_module(
 }
 
 ///|
+fn hso_i32_array_type() -> @lib.RecType {
+  @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+}
+
+///|
+fn hso_array_test_module(body : Array[@lib.Instruction]) -> @lib.Module {
+  let array_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([hso_i32_array_type(), func_type]))
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([array_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
 fn hso_ref_result_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -326,6 +362,21 @@ fn hso_test_run_with_locals(
     Ok(_) => ()
     Err(err) =>
       abort("unexpected invalid heap-store-optimization test fixture: \{err}")
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_array_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_array_test_module(body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid array heap-store-optimization test fixture: \{err}",
+      )
   }
   run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
 }
@@ -845,6 +896,66 @@ test "heap-store-optimization keeps struct.set for a different target local" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("struct.set"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization leaves array stores as an explicit non-goal" {
+  let array = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_array_test_run([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::array_new_default(array),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::array_set(array),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::array_get(array),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected array non-goal heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("array.new_default"), msg=pretty)
+  assert_true(pretty.contains("array.set"), msg=pretty)
+  assert_true(pretty.contains("array.get"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps struct.set behind ordinary memory stores" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_test_run(
+      [
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(99)),
+        @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 0UL)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected memory-store heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
