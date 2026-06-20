@@ -1525,6 +1525,58 @@ test "optimize-instructions drops masked low bits before i64 narrow stores" {
 }
 
 ///|
+test "optimize-instructions drops commuted masks before narrow stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $value32 i32) (param $value64 i64)
+        #|    local.get $ptr
+        #|    i32.const 255
+        #|    local.get $value32
+        #|    i32.and
+        #|    i32.store8
+        #|    local.get $ptr
+        #|    i32.const 65535
+        #|    local.get $value32
+        #|    i32.and
+        #|    i32.store16
+        #|    local.get $ptr
+        #|    i64.const 255
+        #|    local.get $value64
+        #|    i64.and
+        #|    i64.store8
+        #|    local.get $ptr
+        #|    i64.const 65535
+        #|    local.get $value64
+        #|    i64.and
+        #|    i64.store16
+        #|    local.get $ptr
+        #|    i64.const 4294967295
+        #|    local.get $value64
+        #|    i64.and
+        #|    i64.store32))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected commuted narrow store optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("i64.and"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "(local.get (Local 1))", "i32.store8", "(local.get (Local 0))",
+    "(local.get (Local 1))", "i32.store16", "(local.get (Local 0))", "(local.get (Local 2))",
+    "i64.store8", "(local.get (Local 0))", "(local.get (Local 2))", "i64.store16",
+    "(local.get (Local 0))", "(local.get (Local 2))", "i64.store32",
+  ])
+}
+
+///|
 test "optimize-instructions keeps value-changing masks before i64 narrow stores" {
   let optimized = match
     pass_test_run_pipeline(

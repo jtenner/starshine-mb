@@ -2985,28 +2985,40 @@ fn optimize_instructions_try_drop_narrow_store_value_mask(
   }
   let lhs_id = @ir.hot_child_get(func, value_id, 0)
   let rhs_id = @ir.hot_child_get(func, value_id, 1)
-  if optimize_instructions_store_value_is_i64(instr) {
-    let mask = match optimize_instructions_i64_const(func, dead, rhs_id) {
-      Some(@lib.I64(raw)) => raw
-      _ => return false
+  let unmasked_id = if optimize_instructions_store_value_is_i64(instr) {
+    let (mask, unmasked_id) = match
+      optimize_instructions_i64_const(func, dead, rhs_id) {
+      Some(@lib.I64(raw)) => (raw, lhs_id)
+      _ =>
+        match optimize_instructions_i64_const(func, dead, lhs_id) {
+          Some(@lib.I64(raw)) => (raw, rhs_id)
+          _ => return false
+        }
     }
     let required_mask = (1L << bits) - 1L
     if (mask & required_mask) != required_mask {
       return false
     }
+    unmasked_id
   } else {
-    let mask = match optimize_instructions_i32_const(func, dead, rhs_id) {
-      Some(@lib.I32(raw)) => raw
-      _ => return false
+    let (mask, unmasked_id) = match
+      optimize_instructions_i32_const(func, dead, rhs_id) {
+      Some(@lib.I32(raw)) => (raw, lhs_id)
+      _ =>
+        match optimize_instructions_i32_const(func, dead, lhs_id) {
+          Some(@lib.I32(raw)) => (raw, rhs_id)
+          _ => return false
+        }
     }
     let required_mask = (1 << bits) - 1
     if (mask & required_mask) != required_mask {
       return false
     }
+    unmasked_id
   }
   optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [
     @ir.hot_child_get(func, node_id, 0),
-    lhs_id,
+    unmasked_id,
   ])
   true
 }
