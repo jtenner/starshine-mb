@@ -89,6 +89,7 @@ sources:
   - ../../../raw/research/0803-2026-06-20-optimize-instructions-oi-i-effectful-ref-func-basics.md
   - ../../../raw/research/0804-2026-06-20-optimize-instructions-oi-i-effectful-nullable-i31-supertype.md
   - ../../../raw/research/0805-2026-06-20-optimize-instructions-oi-i-effectful-struct-array-ref-eq.md
+  - ../../../raw/research/0806-2026-06-20-optimize-instructions-oi-i-effectful-i31-struct-local-ref-eq.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -185,6 +186,7 @@ related:
   - ../../../raw/research/0803-2026-06-20-optimize-instructions-oi-i-effectful-ref-func-basics.md
   - ../../../raw/research/0804-2026-06-20-optimize-instructions-oi-i-effectful-nullable-i31-supertype.md
   - ../../../raw/research/0805-2026-06-20-optimize-instructions-oi-i-effectful-struct-array-ref-eq.md
+  - ../../../raw/research/0806-2026-06-20-optimize-instructions-oi-i-effectful-i31-struct-local-ref-eq.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
