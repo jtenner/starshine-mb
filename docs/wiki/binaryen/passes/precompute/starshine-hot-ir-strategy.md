@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
   - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
   - ../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
@@ -245,7 +246,7 @@ Important focused tests include:
 - `precompute runs narrow raw scalar folds under O4z gate`
 - `precompute keeps O4z hot-only cleanup no-op until ownership hazards are safe`
 
-Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, self-exiting block cleanup, constant-true loop dead-tail cleanup, full-module-validation, branch-carrier safety, and narrow O4z raw-scalar recovery stories. The bounded compare-proof surface now has source-backed regular GenValid handling: `precompute-all` is green at `1000/1000` with PC normalizers and explicit `_build/native/release/build/cmd/cmd.exe`, and `.tmp/pass-fuzz-precompute-loop-nop-normalizer-direct-100` compares `100/100` with `0` mismatches after classifying exact `loop (nop)` / empty void wrapper debris as a Starshine no-op-control cleanup win. The final-evidence refresh raises regular GenValid, dedicated `precompute-all`, and broad `pass-fuzz-stress` to green `10000`-case lanes, while explicit wasm-smith exposes a single reachable-`atomic.fence` divergence now protected by `precompute intentionally preserves reachable atomic fence before branch-to-end`. The remaining O4z no-op surface is explicitly accepted for v0.1.0 in `0793`, with `.artifacts` slot replay noted as unavailable in this checkout. This remains bounded evidence; final closeout still needs the `100000` regular lane and an explicit atomic-fence boundary decision.
+Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, self-exiting block cleanup, constant-true loop dead-tail cleanup, full-module-validation, branch-carrier safety, narrow O4z raw-scalar recovery, and reachable-`atomic.fence` preservation stories. The compare-proof surface now has source-backed regular GenValid handling: `precompute-all` is green at `1000/1000` with PC normalizers and explicit `_build/native/release/build/cmd/cmd.exe`, and `.tmp/pass-fuzz-precompute-loop-nop-normalizer-direct-100` compares `100/100` with `0` mismatches after classifying exact `loop (nop)` / empty void wrapper debris as a Starshine no-op-control cleanup win. The final-evidence refresh raises dedicated `precompute-all` and broad `pass-fuzz-stress` to green `10000`-case lanes, while explicit wasm-smith exposes a single reachable-`atomic.fence` divergence now protected by `precompute intentionally preserves reachable atomic fence before branch-to-end`. The final closeout adds `.tmp/pass-fuzz-precompute-final-regular-100000`, which compares `100000/100000` with `15491` normalized, `84509` cleanup-normalized, and `0` mismatches/failures. The remaining O4z no-op surface is explicitly accepted for v0.1.0 in `0793`, with `.artifacts` slot replay noted as unavailable in this checkout. Under those caveats, `[O4Z-AUDIT-PC]` is closed for v0.1.0.
 
 ## 2. Preset-slot proof
 
