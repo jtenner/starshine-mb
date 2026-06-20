@@ -83,6 +83,7 @@ sources:
   - ../../../raw/research/0797-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-i31.md
   - ../../../raw/research/0798-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-as-non-null.md
   - ../../../raw/research/0799-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-cast.md
+  - ../../../raw/research/0800-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-nullable-target.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -173,6 +174,7 @@ related:
   - ../../../raw/research/0797-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-i31.md
   - ../../../raw/research/0798-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-as-non-null.md
   - ../../../raw/research/0799-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-cast.md
+  - ../../../raw/research/0800-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-nullable-target.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md

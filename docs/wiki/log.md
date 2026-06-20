@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful nullable-source nullable-target cast/test
+
+- Filed [`raw/research/0800-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-nullable-target.md`](raw/research/0800-2026-06-20-optimize-instructions-oi-i-effectful-nullable-source-nullable-target.md) for the forty-fourth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding nullable-source, nullable-target local-supertype `ref.test` to `i32.const 1` and removing the matching no-op `ref.cast` to the original local.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded test and cast results. Red-first did not apply because this was coverage for existing behavior. Focused `*nullable-source nullable-target ref.test*` passed `2/2`, final `*ref.test and ref.cast*` passed `18/18`, final `*ref*` passed `51/51`, final `*optimize-instructions*` passed `181/181`, `moon fmt`, `moon test src/passes` (`2711/2711`), native `src/cmd` build, and `moon info` passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful same-local ref.cast equality
 
 - Filed [`raw/research/0799-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-cast.md`](raw/research/0799-2026-06-20-optimize-instructions-oi-i-effectful-same-local-ref-cast.md) for the forty-third `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds same-local nullable `ref.cast(local.get)` equality for exact no-op and absolute `struct`→`eq` upcast forms while preserving an already-evaluated effectful prefix such as `drop(call $effect)`.
