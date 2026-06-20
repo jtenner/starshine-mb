@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful nullable i31 supertype cast/test
+
+- Filed [`raw/research/0804-2026-06-20-optimize-instructions-oi-i-effectful-nullable-i31-supertype.md`](raw/research/0804-2026-06-20-optimize-instructions-oi-i-effectful-nullable-i31-supertype.md) for the forty-eighth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding nullable-source nullable-target `i31`→`eq` supertype `ref.test` to `i32.const 1` and removing matching `ref.cast` to the original local.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded/simplified nullable `i31` supertype results. Red-first did not apply because this was coverage for existing behavior. Focused `*nullable-source nullable-target i31*` passed `2/2`, `*ref*` passed `55/55`, final `*optimize-instructions*` passed `185/185`, `moon fmt`, `moon test src/passes` (`2715/2715`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful ref.func basics
 
 - Filed [`raw/research/0803-2026-06-20-optimize-instructions-oi-i-effectful-ref-func-basics.md`](raw/research/0803-2026-06-20-optimize-instructions-oi-i-effectful-ref-func-basics.md) for the forty-seventh `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while simplifying exact `ref.func` reference basics: `ref.test (ref func)` folds to `i32.const 1`, matching `ref.cast (ref func)` and `ref.as_non_null` rewrite to `ref.func $callee`, and `ref.is_null` folds to `i32.const 0`.

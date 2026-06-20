@@ -3272,6 +3272,81 @@ test "optimize-instructions covers nullable-source nullable-target i31 ref.test 
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix for nullable-source nullable-target i31 ref.test and ref.cast" {
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let nullable_i31_ref = @lib.ValType::ref_null(i31_heap)
+  let nullable_eq_ref = @lib.ValType::ref_null(eq_heap)
+  let effect_type = @lib.TypeIdx::new(0U)
+  let test_type = @lib.TypeIdx::new(1U)
+  let cast_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_i31_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_i31_ref], [nullable_eq_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type, cast_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(true, eq_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(true, eq_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_eq = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let cast_eq = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(test_eq.contains("ref.test"), msg=test_eq)
+  assert_true(test_eq.contains("call (Func 0)"), msg=test_eq)
+  assert_true(test_eq.contains("drop"), msg=test_eq)
+  assert_true(test_eq.contains("I32(1)"), msg=test_eq)
+  assert_false(cast_eq.contains("ref.cast"), msg=cast_eq)
+  assert_true(cast_eq.contains("call (Func 0)"), msg=cast_eq)
+  assert_true(cast_eq.contains("drop"), msg=cast_eq)
+  assert_true(cast_eq.contains("local.get"), msg=cast_eq)
+}
+
+///|
 test "optimize-instructions folds successful ref.test and ref.cast on non-null local refs" {
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let eq_ref = @lib.ValType::ref_type(@lib.RefType::new(false, eq_heap))
