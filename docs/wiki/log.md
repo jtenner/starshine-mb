@@ -3,6 +3,11 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I ref.as_non_null ref.func proof
+
+- Filed [`raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md`](raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md) for the fourth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now rewrites `ref.as_non_null(ref.func f)` to `ref.func f` by reusing the existing local known-non-null constructor proof, while keeping broader `ref.cast`, `ref.test`, descriptor, exactness, TNH, and IIT-sensitive proofs open.
+- Evidence: local Binaryen `version_130` oracle probe with `wasm-opt --enable-reference-types --enable-gc -S -O --optimize-instructions` removed `ref.as_non_null` from a `ref.func` fixture. Red-first focused `*ref.as_non_null*` failed before implementation because the new func case still contained `ref.func; ref.as_non_null`; final `*ref.as_non_null*` passed `2/2`, focused `*ref*` passed `15/15`, focused `*optimize-instructions*` passed `143/143`, `moon fmt` passed, `moon test src/passes` passed `2655/2655`, native `src/cmd` release build passed with existing unused-function warnings, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare in `.tmp/pass-fuzz-optimize-instructions-oi-i-ref-as-func-10000` compared `53/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no reference operation occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I known-non-null reference basics
 
 - Filed [`raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md`](raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md) for the third `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.is_null(ref.i31(...))` and `ref.is_null(ref.func f)` to `i32.const 0`, folds `ref.eq(ref.i31(...), ref.null eq)` and the reverse operand order to `i32.const 0`, and accepts non-null `ref.is_null` operands in validation so the public WAT fixtures can be authored.

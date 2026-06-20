@@ -37,6 +37,7 @@ sources:
   - ../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md
   - ../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md
   - ../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md
+  - ../../../raw/research/0760-2026-06-20-optimize-instructions-oi-i-ref-as-func.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -85,7 +86,7 @@ Its center of gravity is:
 - direct `ref.func` target directization for `call_ref` / `return_call_ref`, `table.get` target lowering to `call_indirect` / `return_call_indirect`, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, argument-bearing select-of-direct-`ref.func` lowering that localizes single-result call arguments before the direct-call `if`, zero-argument fallthrough-known block target directization with the target expression dropped for effects, and fail-closed boundary tests for mixed select arms plus argument-bearing fallthrough targets
 - first null-reference basics from OI-I: `ref.is_null(ref.null)` folds to `i32.const 1`, `ref.eq(x, null)` and `ref.eq(null, x)` rewrite through `ref.is_null(x)`, and `ref.eq(null, null)` folds to `i32.const 1`
 - known-non-null constructor basics from OI-I: `ref.is_null(ref.i31)` and `ref.is_null(ref.func)` fold to `i32.const 0`, and `ref.eq(ref.i31, null)` / `ref.eq(null, ref.i31)` fold to `i32.const 0`; the validator now accepts non-null `ref.is_null` operands so these fixtures can be authored through WAT
-- first `ref.as_non_null` basics from OI-I: `ref.as_non_null(ref.null)` rewrites to `unreachable`, `ref.as_non_null(ref.i31(x))` rewrites to `ref.i31(x)`, and exact `ref.cast(unreachable)` collapses to `unreachable` so stacked cast shapes lower validly
+- first `ref.as_non_null` basics from OI-I: `ref.as_non_null(ref.null)` rewrites to `unreachable`, `ref.as_non_null(ref.i31(x))` rewrites to `ref.i31(x)`, `ref.as_non_null(ref.func f)` rewrites to `ref.func f`, and exact `ref.cast(unreachable)` collapses to `unreachable` so stacked cast shapes lower validly
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 

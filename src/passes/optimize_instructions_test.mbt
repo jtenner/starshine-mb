@@ -1008,6 +1008,8 @@ test "optimize-instructions folds null equality against locally known non-null r
 test "optimize-instructions folds ref.as_non_null on known null and non-null refs" {
   let source =
     #|(module
+    #|  (func $callee)
+    #|  (elem declare func $callee)
     #|  (func (export "null") (result eqref)
     #|    ref.null eq
     #|    ref.as_non_null)
@@ -1015,18 +1017,24 @@ test "optimize-instructions folds ref.as_non_null on known null and non-null ref
     #|    i32.const 7
     #|    ref.i31
     #|    ref.as_non_null)
+    #|  (func (export "func") (result funcref)
+    #|    ref.func $callee
+    #|    ref.as_non_null)
     #|)
   let optimized = match
     pass_test_run_pipeline(source, ["optimize-instructions"]) {
     Ok(mod_) => mod_
     Err(err) => fail("expected ref.as_non_null optimize success, got \{err}")
   }
-  let null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  let i31_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let null_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let i31_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let func_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   assert_true(null_pretty.contains("unreachable"), msg=null_pretty)
   assert_false(null_pretty.contains("ref.as_non_null"), msg=null_pretty)
   assert_true(i31_pretty.contains("ref.i31"), msg=i31_pretty)
   assert_false(i31_pretty.contains("ref.as_non_null"), msg=i31_pretty)
+  assert_true(func_pretty.contains("ref.func"), msg=func_pretty)
+  assert_false(func_pretty.contains("ref.as_non_null"), msg=func_pretty)
 }
 
 ///|

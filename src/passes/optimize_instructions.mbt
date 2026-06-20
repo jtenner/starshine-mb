@@ -4493,16 +4493,10 @@ fn optimize_instructions_try_fold_ref_as_non_null(
       optimize_instructions_replace_with_unreachable(ctx, func, node_id)
       true
     }
-    @ir.HotOp::Heap =>
-      match @ir.hot_node_exact_instr(func, operand_id) {
-        Some(@lib.Instruction::RefI31) => {
-          optimize_instructions_replace_with_node_id(
-            ctx, func, node_id, operand_id,
-          )
-          true
-        }
-        _ => false
-      }
+    _ if optimize_instructions_ref_is_known_non_null(func, operand_id) => {
+      optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
+      true
+    }
     _ => false
   }
 }
