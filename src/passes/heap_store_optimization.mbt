@@ -369,9 +369,6 @@ fn hso_subtree_may_escape_to_active_catch(
     @ir.HotOp::Call
     | @ir.HotOp::CallIndirect
     | @ir.HotOp::CallRef
-    | @ir.HotOp::ReturnCall
-    | @ir.HotOp::ReturnCallIndirect
-    | @ir.HotOp::ReturnCallRef
     | @ir.HotOp::Throw
     | @ir.HotOp::Rethrow
     | @ir.HotOp::ThrowRef
@@ -560,15 +557,15 @@ fn hso_subtree_may_skip_local_set_from_root(
     return true
   }
   match node.op {
-    @ir.HotOp::Return => return false
-    @ir.HotOp::ReturnCall
+    @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
     | @ir.HotOp::ReturnCallIndirect
     | @ir.HotOp::ReturnCallRef
     | @ir.HotOp::Throw
     | @ir.HotOp::Rethrow
     | @ir.HotOp::ThrowRef
-    | @ir.HotOp::Delegate
-    | @ir.HotOp::Unreachable => return true
+    | @ir.HotOp::Delegate => return false
+    @ir.HotOp::Unreachable => return true
     _ => ()
   }
   let pushes_owner = match node.op {
