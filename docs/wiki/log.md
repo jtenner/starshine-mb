@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I nullable-source nullable-target i31 cast/test coverage
+
+- Filed [`raw/research/0786-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-i31-success-test-cast.md`](raw/research/0786-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-i31-success-test-cast.md) for the thirtieth `[O4Z-AUDIT-OI-I]` sub-slice. This is coverage for existing `0785` behavior: Starshine folds `ref.test (ref null eq)` on a declared nullable `(ref null i31)` local to `i32.const 1` and removes matching nullable-target `ref.cast` to the original local, while keeping non-null-target success, arbitrary subtype-lattice or indexed/defined heap proofs, descriptor/exactness/TNH/IIT behavior, and effectful operand cleanup out of scope.
+- Evidence: Binaryen oracle folded the same nullable-source/nullable-target i31 supertype shapes. Red-first did not apply because this was a coverage/type-surface audit slice; focused `*nullable-source nullable-target i31*` passed `1/1`; final `*ref*` passed `37/37`, and `*optimize-instructions*` passed `167/167`. Broader validation and direct compare are recorded in the research note.
+
 ## [2026-06-20] passes/optimize-instructions | Implement OI-I nullable-source nullable-target success cast/test
 
 - Filed [`raw/research/0785-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-success-test-cast.md`](raw/research/0785-2026-06-20-optimize-instructions-oi-i-nullable-source-nullable-target-success-test-cast.md) for the twenty-ninth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.test (ref null eq)` on a declared nullable `(ref null struct)` local to `i32.const 1` and removes matching nullable-target `ref.cast` to the original local, while keeping non-null-target success, arbitrary subtype-lattice or indexed/defined heap proofs, descriptor/exactness/TNH/IIT behavior, and effectful operand cleanup out of scope.
