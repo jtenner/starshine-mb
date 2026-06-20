@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I i31 ref.eq constant proof
+
+- Filed [`raw/research/0765-2026-06-20-optimize-instructions-oi-i-i31-ref-eq.md`](raw/research/0765-2026-06-20-optimize-instructions-oi-i-i31-ref-eq.md) for the ninth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.eq` between immediate `ref.i31(i32.const)` operands to `i32.const 1` for equal payloads and `i32.const 0` for unequal payloads. The proof remains limited to local literal i31 constructors.
+- Evidence: local Binaryen `version_130` oracle probe with `wasm-opt --enable-reference-types --enable-gc -S -O --optimize-instructions -o -` folded the equal and unequal literal-i31 equality shapes. Red-first focused `*local ref.i31 constants*` failed before implementation because the new `same` function still contained `ref.eq`; final `*local ref.i31 constants*` passed `1/1`, focused `*ref*` passed `19/19`, focused `*optimize-instructions*` passed `147/147`, `moon fmt` passed, `moon test src/passes` passed `2659/2659`, native `src/cmd` release build passed with existing unused-function warnings, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare in `.tmp/pass-fuzz-optimize-instructions-oi-i-i31-eq-10000` compared `53/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no reference operation occurrences.
+
 ## [2026-06-20] passes/optimize-instructions | Add OI-I ref.func ref.test/ref.cast proof
 
 - Filed [`raw/research/0764-2026-06-20-optimize-instructions-oi-i-ref-func-test-cast.md`](raw/research/0764-2026-06-20-optimize-instructions-oi-i-ref-func-test-cast.md) for the eighth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds exact `ref.test (ref func)` fed by a local `ref.func` constructor to `i32.const 1` and rewrites exact `ref.cast (ref func)` fed by local `ref.func` to the constructor child. The proof remains limited to immediate local `ref.func` operands and exact absolute `func` targets.

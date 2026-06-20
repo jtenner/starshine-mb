@@ -4617,9 +4617,30 @@ fn optimize_instructions_try_fold_ref_as_non_null(
 }
 
 ///|
+fn optimize_instructions_ref_i31_const_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> @lib.I32? {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefI31) =>
+      optimize_instructions_i32_const(
+        func,
+        dead,
+        @ir.hot_child_get(func, node_id, 0),
+      )
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_ref_eq_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
@@ -4631,6 +4652,26 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   }
   let lhs_id = @ir.hot_child_get(func, node_id, 0)
   let rhs_id = @ir.hot_child_get(func, node_id, 1)
+  match
+    (
+      optimize_instructions_ref_i31_const_operand(func, dead, lhs_id),
+      optimize_instructions_ref_i31_const_operand(func, dead, rhs_id),
+    ) {
+    (Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        if lhs == rhs {
+          @lib.I32(1)
+        } else {
+          @lib.I32(0)
+        },
+      )
+      return true
+    }
+    _ => ()
+  }
   match (@ir.hot_node_get(func, lhs_id).op, @ir.hot_node_get(func, rhs_id).op) {
     (@ir.HotOp::RefNull, @ir.HotOp::RefNull) => {
       optimize_instructions_replace_with_const_i32(
@@ -5001,7 +5042,7 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::Heap =>
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
-      optimize_instructions_try_rewrite_ref_eq_null(ctx, func, node_id)
+      optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id)
     @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef =>
       optimize_instructions_try_directize_ref_func_call_ref(
         ctx, func, dead, node_id,

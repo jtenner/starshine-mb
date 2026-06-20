@@ -1005,6 +1005,36 @@ test "optimize-instructions folds null equality against locally known non-null r
 }
 
 ///|
+test "optimize-instructions folds equality on local ref.i31 constants" {
+  let source =
+    #|(module
+    #|  (func (export "same") (result i32)
+    #|    i32.const 7
+    #|    ref.i31
+    #|    i32.const 7
+    #|    ref.i31
+    #|    ref.eq)
+    #|  (func (export "different") (result i32)
+    #|    i32.const 7
+    #|    ref.i31
+    #|    i32.const 8
+    #|    ref.i31
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref.i31 ref.eq optimize success, got \{err}")
+  }
+  let same_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let different_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(same_pretty.contains("ref.eq"), msg=same_pretty)
+  assert_false(different_pretty.contains("ref.eq"), msg=different_pretty)
+  assert_true(same_pretty.contains("I32(1)"), msg=same_pretty)
+  assert_true(different_pretty.contains("I32(0)"), msg=different_pretty)
+}
+
+///|
 test "optimize-instructions folds ref.as_non_null on known null and non-null refs" {
   let source =
     #|(module
