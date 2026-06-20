@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful i31 ref.as_non_null
+
+- Filed [`raw/research/0792-2026-06-20-optimize-instructions-oi-i-effectful-ref-as-non-null.md`](raw/research/0792-2026-06-20-optimize-instructions-oi-i-effectful-ref-as-non-null.md) for the thirty-sixth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already removes redundant `ref.as_non_null` around immediate `ref.i31(call $effect)` while preserving the effectful `ref.i31(call $effect)` operand.
+- Evidence: Binaryen oracle removed `ref.as_non_null` and preserved `call $effect`. Red-first did not apply because this was coverage for existing behavior. Focused `*ref.as_non_null*` passed `4/4`, final `*ref*` passed `43/43`, final `*optimize-instructions*` passed `173/173`, `moon fmt`, `moon test src/passes` (`2697/2697`), native `src/cmd` build, `moon info`, and `git diff --check` passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Preserve OI-I effectful impossible ref.eq
 
 - Filed [`raw/research/0791-2026-06-20-optimize-instructions-oi-i-effectful-impossible-ref-eq.md`](raw/research/0791-2026-06-20-optimize-instructions-oi-i-effectful-impossible-ref-eq.md) for the thirty-fifth `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now preserves represented effectful impossible `ref.eq` operands as `drop(operand)` before folding to `i32.const 0`, while retaining direct folds for pure impossible equality.

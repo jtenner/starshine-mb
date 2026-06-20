@@ -1432,6 +1432,28 @@ test "optimize-instructions folds ref.as_non_null on known null and non-null ref
 }
 
 ///|
+test "optimize-instructions preserves effectful ref.i31 while folding ref.as_non_null" {
+  let source =
+    #|(module
+    #|  (import "env" "effect" (func $effect (result i32)))
+    #|  (func (export "f") (result (ref i31))
+    #|    call $effect
+    #|    ref.i31
+    #|    ref.as_non_null)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful ref.as_non_null optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("ref.i31"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds nullable ref.test and ref.cast on known null refs" {
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let eq_ref = @lib.ValType::ref_null(eq_heap)
