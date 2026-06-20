@@ -32,6 +32,7 @@ sources:
   - ../../../raw/research/0752-2026-06-19-optimize-instructions-oi-h-select-ref-func-call-ref.md
   - ../../../raw/research/0753-2026-06-19-optimize-instructions-oi-h-argument-select-call-ref-boundary.md
   - ../../../raw/research/0754-2026-06-19-optimize-instructions-oi-h-fallthrough-call-ref.md
+  - ../../../raw/research/0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -77,7 +78,7 @@ Its center of gravity is:
 - constant-pointer static-offset folding for scalar loads/stores: memory32 uses Binaryen's nonnegative `i32` range guard and memory64 uses Binaryen's unsigned `u64` no-wrap guard
 - an explicit nonconstant pointer-add offset boundary: Binaryen `version_130` `optimize-instructions` keeps tested `local.get + const` memory addresses as arithmetic plus the original static offset, so Starshine does not claim that shape as OI-owned load/store canonicalization
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
-- direct `ref.func` target directization for `call_ref` / `return_call_ref`, `table.get` target lowering to `call_indirect` / `return_call_indirect`, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, zero-argument fallthrough-known block target directization with the target expression dropped for effects, and an explicit fail-closed argument-bearing select boundary until Binaryen-style argument localization exists
+- direct `ref.func` target directization for `call_ref` / `return_call_ref`, `table.get` target lowering to `call_indirect` / `return_call_indirect`, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, argument-bearing select-of-direct-`ref.func` lowering that localizes single-result call arguments before the direct-call `if`, and zero-argument fallthrough-known block target directization with the target expression dropped for effects
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -266,18 +267,18 @@ So the upstream cast/null-trap/descriptor story is still largely missing locally
 
 ## 2. Partial `call_ref` directization surface
 
-The local HOT implementation now models four upstream `visitCallRef(...)` known-target slices and one explicit boundary:
+The local HOT implementation now models five upstream `visitCallRef(...)` known-target slices plus one superseded boundary note:
 
 - `ref.func` targets lower to direct `call` / `return_call`
 - `table.get` targets lower to `call_indirect` / `return_call_indirect`
 - zero-argument typed `select` targets whose arms are direct `ref.func`s lower to an `if` with direct `call` / `return_call` arms
+- argument-bearing typed `select` targets whose arms are direct `ref.func`s lower to an argument-localizing block followed by an `if` with direct `call` / `return_call` arms for the covered single-result argument subset
 - zero-argument fallthrough-known block targets lower to a dropped target expression followed by direct `call` / `return_call`, preserving target-side effects
-- argument-bearing select-of-direct-`ref.func` targets remain unchanged until a future localizing lowering can store already-evaluated arguments before introducing the `if`
+- the older argument-bearing select fail-closed note remains as superseded boundary history for why localization was required
 
 The remaining upstream `visitCallRef(...)` surface is still open for `[O4Z-AUDIT-OI-H]`:
 
-- positive argument-bearing select-of-known-direct-target rewrites, which need Binaryen-style argument localization to preserve evaluation order
-- broader type/effect negatives around those shapes
+- broader type/effect negatives around select-known-target and fallthrough-known shapes
 
 So `call_ref` is no longer entirely missing, but full upstream directization parity is still incomplete.
 
@@ -419,7 +420,7 @@ Treat the current local implementation as:
 - a real implemented HOT pass
 - strongest today on integer / boolean / control canonicalization
 - intentionally carrying extra writeback-safety logic for local artifact history
-- still missing the remaining upstream `call_ref` positive argument-bearing select localization family, broader type/effect negatives, broader load/store canonicalization, GC, tuple, and helper-substrate surface
+- still missing broader `call_ref` type/effect negatives, broader load/store canonicalization, GC, tuple, and helper-substrate surface
 
 For this pass, "what Starshine does today" and "what Binaryen `version_130` expects for release-gating O4z parity" are not the same thing.
 The wiki should keep that difference explicit and use `[O4Z-AUDIT-OI-*]` slice owners from the 2026-06-19 matrix when expanding coverage.

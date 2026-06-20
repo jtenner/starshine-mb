@@ -6,9 +6,9 @@ Can Starshine safely widen the OI-H `visitCallRef(...)` select-known-target lowe
 
 ## Classification
 
-Completed boundary `[O4Z-AUDIT-OI-H]` sub-slice: Starshine intentionally keeps argument-bearing typed `select(ref.func A, ref.func B, cond)` targets under `call_ref` and `return_call_ref` unchanged until the pass has a Binaryen-style localizing lowering.
+Completed boundary `[O4Z-AUDIT-OI-H]` sub-slice, now superseded in part by [`0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md`](0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md): Starshine intentionally kept argument-bearing typed `select(ref.func A, ref.func B, cond)` targets under `call_ref` and `return_call_ref` unchanged until the pass had a Binaryen-style localizing lowering.
 
-This is a fail-closed behavior guard, not a parity implementation. Binaryen `version_130` rewrites the probed forms by storing already-evaluated call arguments in temporary locals before moving the target condition into an `if`. Starshine's current zero-argument select lowering cannot be widened by simply duplicating `args`, because that would duplicate argument side effects/traps and reorder evaluation relative to the target condition.
+This was a fail-closed behavior guard, not a parity implementation. Binaryen `version_130` rewrites the probed forms by storing already-evaluated call arguments in temporary locals before moving the target condition into an `if`. Starshine's zero-argument select lowering could not be widened by simply duplicating `args`, because that would duplicate argument side effects/traps and reorder evaluation relative to the target condition. The later `0755` positive slice implements localization for the single-result argument subset; broader type/effect negatives remain open.
 
 ## Source anchors
 
@@ -26,14 +26,14 @@ wasm-opt .tmp/oi-h-select-call-ref-args.wat --enable-gc --enable-reference-types
 
 ## Local Starshine decision
 
-The local implementation in `src/passes/optimize_instructions.mbt` keeps the select-known-target branch guarded by `args.length() == 0`. That guard is intentional for now:
+At this point in the audit, the local implementation in `src/passes/optimize_instructions.mbt` kept the select-known-target branch guarded by `args.length() == 0`. That guard was intentional for the boundary slice:
 
 - WebAssembly evaluates call arguments before the callee reference for `call_ref` stack forms.
 - Rewriting an argument-bearing select target to `if` arms must preserve that single argument evaluation before the branch condition chooses the direct target.
 - Binaryen preserves this by localizing the already-evaluated arguments, then reading the temporaries from each direct-call arm.
-- Starshine does not yet have a dedicated localizing builder/proof in this OI helper for fresh temp locals, local lifetime cleanup, multivalue arguments, or effect/trap preservation.
+- At the time, Starshine did not yet have a dedicated localizing builder/proof in this OI helper for fresh temp locals, local lifetime cleanup, multivalue arguments, or effect/trap preservation.
 
-The new boundary test locks this behavior so a future widening must be explicit and accompanied by localization tests rather than accidentally duplicating arguments.
+The boundary test locked this behavior so a future widening had to be explicit and accompanied by localization tests rather than accidentally duplicating arguments. The `0755` slice later replaced the test with positive single-result argument localization coverage.
 
 ## Tests
 

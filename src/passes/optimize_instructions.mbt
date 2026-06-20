@@ -535,6 +535,42 @@ fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
 }
 
 ///|
+fn optimize_instructions_call_ref_localize_args(
+  func : @ir.HotFunc,
+  args : Array[Int],
+) -> (Array[Int], Array[Int])? {
+  let arg_types : Array[@lib.ValType] = []
+  for arg in args {
+    let arg_node = @ir.hot_node_get(func, arg)
+    let arg_results = @ir.hot_type_results(func, arg_node.ty)
+    if arg_results.length() != 1 {
+      return None
+    }
+    arg_types.push(arg_results[0])
+  }
+  let prefix : Array[Int] = []
+  let local_ids : Array[Int] = []
+  for i = 0; i < args.length(); i = i + 1 {
+    let local_id = @ir.hot_append_body_local(func, arg_types[i])
+    prefix.push(@ir.hot_build_local_set(func, local_id, args[i]))
+    local_ids.push(local_id)
+  }
+  Some((prefix, local_ids))
+}
+
+///|
+fn optimize_instructions_call_ref_local_gets(
+  func : @ir.HotFunc,
+  local_ids : Array[Int],
+) -> Array[Int] {
+  let gets : Array[Int] = []
+  for local_id in local_ids {
+    gets.push(@ir.hot_build_local_get(func, local_id))
+  }
+  gets
+}
+
+///|
 fn optimize_instructions_try_directize_ref_func_call_ref(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -607,7 +643,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
         _ => abort("unreachable call_ref directization op")
       }
     }
-    @ir.HotOp::Select if args.length() == 0 && callee_ref.child_count == 3 => {
+    @ir.HotOp::Select if callee_ref.child_count == 3 => {
       let true_ref_id = @ir.hot_child_get(func, callee_ref_id, 0)
       let false_ref_id = @ir.hot_child_get(func, callee_ref_id, 1)
       let condition_id = @ir.hot_child_get(func, callee_ref_id, 2)
@@ -622,13 +658,22 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
         (@ir.HotOp::RefFunc, @ir.HotOp::RefFunc) => ()
         _ => return false
       }
-      match node.op {
-        @ir.HotOp::CallRef => {
-          let block_type = match
-            optimize_instructions_call_ref_result_block_type(func, node) {
+      let block_type = match node.op {
+        @ir.HotOp::CallRef =>
+          match optimize_instructions_call_ref_result_block_type(func, node) {
             Some(block_type) => block_type
             None => return false
           }
+        @ir.HotOp::ReturnCallRef => @lib.BlockType::void_()
+        _ => abort("unreachable call_ref directization op")
+      }
+      let (prefix, local_ids) = match
+        optimize_instructions_call_ref_localize_args(func, args) {
+        Some(localized) => localized
+        None => return false
+      }
+      let replacement_if = match node.op {
+        @ir.HotOp::CallRef =>
           @ir.hot_build_if(
             func,
             block_type,
@@ -638,7 +683,7 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
                 func,
                 true_ref.imm0,
                 @ir.hot_type_results(func, node.ty),
-                [],
+                optimize_instructions_call_ref_local_gets(func, local_ids),
               ),
             ],
             else_body=Some([
@@ -646,20 +691,38 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
                 func,
                 false_ref.imm0,
                 @ir.hot_type_results(func, node.ty),
-                [],
+                optimize_instructions_call_ref_local_gets(func, local_ids),
               ),
             ]),
           )
-        }
         @ir.HotOp::ReturnCallRef =>
           @ir.hot_build_if(
             func,
             @lib.BlockType::void_(),
             condition_id,
-            [@ir.hot_build_return_call(func, true_ref.imm0, [])],
-            else_body=Some([@ir.hot_build_return_call(func, false_ref.imm0, [])]),
+            [
+              @ir.hot_build_return_call(
+                func,
+                true_ref.imm0,
+                optimize_instructions_call_ref_local_gets(func, local_ids),
+              ),
+            ],
+            else_body=Some([
+              @ir.hot_build_return_call(
+                func,
+                false_ref.imm0,
+                optimize_instructions_call_ref_local_gets(func, local_ids),
+              ),
+            ]),
           )
         _ => abort("unreachable call_ref directization op")
+      }
+      if prefix.length() == 0 {
+        replacement_if
+      } else {
+        let body = prefix.copy()
+        body.push(replacement_if)
+        @ir.hot_build_block(func, block_type, body)
       }
     }
     _ => return false

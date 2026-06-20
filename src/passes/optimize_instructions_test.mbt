@@ -1067,7 +1067,7 @@ test "optimize-instructions lowers select ref.func call_ref targets to direct if
 }
 
 ///|
-test "optimize-instructions intentionally keeps argument select call_ref targets until localization exists" {
+test "optimize-instructions localizes argument select call_ref targets before direct calls" {
   let target_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)
   let target_type = @lib.RecType::new(
@@ -1142,16 +1142,22 @@ test "optimize-instructions intentionally keeps argument select call_ref targets
   )
   let caller = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   let tail = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  assert_true(caller.contains("call_ref"), msg=caller)
-  assert_true(caller.contains("select"), msg=caller)
-  assert_true(caller.contains("ref.func"), msg=caller)
-  assert_false(caller.contains("call (Func 0)"), msg=caller)
-  assert_false(caller.contains("call (Func 1)"), msg=caller)
-  assert_true(tail.contains("return_call_ref"), msg=tail)
-  assert_true(tail.contains("select"), msg=tail)
-  assert_true(tail.contains("ref.func"), msg=tail)
-  assert_false(tail.contains("return_call (Func 0)"), msg=tail)
-  assert_false(tail.contains("return_call (Func 1)"), msg=tail)
+  assert_true(caller.contains("local.set"), msg=caller)
+  assert_true(caller.contains("local.get"), msg=caller)
+  assert_true(caller.contains("if"), msg=caller)
+  assert_true(caller.contains("call (Func 0)"), msg=caller)
+  assert_true(caller.contains("call (Func 1)"), msg=caller)
+  assert_false(caller.contains("call_ref"), msg=caller)
+  assert_false(caller.contains("select"), msg=caller)
+  assert_false(caller.contains("ref.func"), msg=caller)
+  assert_true(tail.contains("local.set"), msg=tail)
+  assert_true(tail.contains("local.get"), msg=tail)
+  assert_true(tail.contains("if"), msg=tail)
+  assert_true(tail.contains("return_call (Func 0)"), msg=tail)
+  assert_true(tail.contains("return_call (Func 1)"), msg=tail)
+  assert_false(tail.contains("return_call_ref"), msg=tail)
+  assert_false(tail.contains("select"), msg=tail)
+  assert_false(tail.contains("ref.func"), msg=tail)
 }
 
 ///|
