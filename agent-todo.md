@@ -398,6 +398,18 @@ Preset behavior inventory:
   - Scope: struct.new/struct.set folding, local escape analysis, effect ordering, GC descriptor/refinalization shapes, and allocation-heavy performance.
   - Deliverables: apply the common checklist; add missing GC/effect/escape fixtures; refresh direct compare and `HSO` slot evidence; record unsafe fold blockers separately from missed profitable folds.
 
+- [O4Z-AUDIT-PLS] - Refresh `pick-load-signs` modern closeout evidence
+  - Status: reopened on 2026-06-20 as a v0.1.0 release-gating evidence/profile slice, not because of a known semantic behavior bug. The 2026-06-03 audit remains behavior-green under the older standard (`9975/10000` compared, `0` mismatches, `25` Binaryen/tool command failures), but current final pass closeout now requires the full four-lane matrix and a pass-specific GenValid profile.
+  - Scope: keep the existing narrow producer/use contract, local-vs-upstream i64 divergence, no-memory/imported-memory coverage, raw skip behavior, direct pass compare support, saved O4z slot18 evidence, and pass-local timing evidence current under the repo's modern pass-audit standard.
+  - Current finding: `docs/wiki/binaryen/passes/pick-load-signs/fuzzing.md` still documents no dedicated profile. Discovery command `bun scripts/pass-fuzz-compare.ts --list-passes | grep pick-load-signs` printed `pick-load-signs`; no fresh compare lane was run in the 2026-06-20 docs refresh because `target/native/release/build/cmd/cmd.exe` was missing and no executable behavior changed. Details live in `docs/wiki/raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md`.
+  - Deliverables:
+    - [ ] Add a PLS-specific GenValid profile, preferably a composite/aggregate, that deliberately emits signed, unsigned, mixed/unknown-use, width-mismatch, `local.tee`, no-memory/imported-memory, and local i64 Starshine-watchpoint families.
+    - [ ] Add focused generator tests proving the profile resolves, emits validating modules, records selected subprofile/family metadata when composite, and actually exercises pass-owned optimization opportunities or boundaries.
+    - [ ] Update `docs/wiki/binaryen/passes/pick-load-signs/fuzzing.md`, `parity.md`, and this backlog entry with the profile name and intended closeout lane.
+    - [ ] Run modern final closeout: `moon info`, `moon fmt`, focused PLS tests, `moon test src/passes`, full `moon test`, native `src/cmd` build, regular GenValid `100000`, explicit wasm-smith `10000`, dedicated PLS GenValid profile `10000`, and broad named `pass-fuzz-stress` `10000` unless a literal all-profiles random profile exists by then.
+    - [ ] Classify command failures separately from semantic mismatches, report cache counters and selected-profile counts, refresh pass-local timing or state why unavailable, then close this slice only if all lanes are green or remaining differences are narrow/evidence-backed/accepted.
+  - Suggested tests: focused `src/passes/pick_load_signs_test.mbt`, focused generator tests in `src/validate/gen_valid_tests.mbt`, `moon test src/passes`, `moon test src/validate`, `moon build --target native --release src/cmd`, and the four compare-pass lanes documented in `docs/wiki/binaryen/passes/pick-load-signs/fuzzing.md`.
+
 - [O4Z-AUDIT-PC] - Deep audit `precompute`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit; branch-heavy direct compare blocker cleared on 2026-06-06, but the broader audit still needs the common checklist and O4z slot evidence.
   - Scope: constant folding, trap/effect preservation, raw precleaner/writeback guards, precompute-propagate prefix distinction, GC/array atomic exclusions, and O4z slot19/slot43 history.

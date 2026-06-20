@@ -1,8 +1,9 @@
 ---
 kind: entity
-status: supported
-last_reviewed: 2026-06-03
+status: working
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md
   - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
   - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
@@ -71,6 +72,7 @@ It is a tiny, shape-driven local rewrite.
   - `pick-load-signs` then picks a better narrow-load signedness in the remaining exact local cases
   - later `precompute` and rerun cleanup can benefit from the simpler opcode choice
 - The 2026-06-03 O4z audit refreshed direct signoff with `9975 / 10000` compared cases, `9975` normalized matches, `0` semantic mismatches, and `25` Binaryen/tool command failures; it also added focused local i64 positive tests and corrected the imported-memory fixture.
+- The 2026-06-20 modern-signoff refresh found no new semantic PLS behavior gap, but reopened `[O4Z-AUDIT-PLS]` as a release-gating evidence/profile slice because the older closeout predates the current four-lane final signoff matrix and no PLS-specific GenValid profile exists yet.
 - The saved generated-artifact `-O4z` audit records a successful top-level slot here:
   - ordered audit row `15`
   - Binaryen slot `18`
@@ -127,13 +129,15 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering direct sign-ext positives, mask and shift-pair positives, branch/tee/atomic bailouts, and the important non-goals.
 - [`./parity.md`](./parity.md)
-  - Current in-tree Starshine parity state, focused evidence, and the explicit local-vs-upstream scope difference.
+  - Current in-tree Starshine parity state, focused evidence, the explicit local-vs-upstream scope difference, and the 2026-06-20 modern-signoff gap.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Concise Starshine status and code-map page for the active hot pass, including the registry, scheduler, raw-skip, test, and replay surfaces.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Deeper HOT-IR implementation note: exact MoonBit registry / dispatcher / raw-skip / rewrite / test ownership, the broader local i64 recognition surface, and the now-focused i64/imported-memory test coverage.
+- [`../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md`](../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md)
+  - Modern signoff refresh: no new semantic bug found, but `[O4Z-AUDIT-PLS]` reopened for a pass-specific GenValid profile and the current four-lane final closeout matrix.
 - [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md)
-  - O4z release-gating audit: direct `10000` requested compare, focused i64/imported-memory test refresh, saved slot `18` timing, and `[O4Z-AUDIT-PLS]` closure.
+  - Historical O4z release-gating audit under the older standard: direct `10000` requested compare, focused i64/imported-memory test refresh, saved slot `18` timing, and `[O4Z-AUDIT-PLS]` closure.
 - [`../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md`](../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md)
   - Refreshed direct pass-fuzz signoff after the 2026-05-06 harness audit.
 - [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md)
@@ -163,6 +167,7 @@ Keep that difference explicit instead of silently smoothing it away.
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `pick-load-signs` parity and scheduler research.
+- Do not treat PLS as fully reclosed under the current final pass closeout standard until the pass-specific GenValid profile and four-lane matrix described in [`./fuzzing.md`](./fuzzing.md) are complete.
 - Keep the main correction explicit:
   - upstream `pick-load-signs` is a narrow AST-context pass, not a generic all-width load-sign canonicalizer
 - Keep the local-vs-upstream i64 scope difference explicit until it is either removed or intentionally documented as a standing divergence.
@@ -171,6 +176,7 @@ Keep that difference explicit instead of silently smoothing it away.
 
 ## Sources
 
+- [`../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md`](../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md)
 - [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md)
 - [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md)
 - [`../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md)
