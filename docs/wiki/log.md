@@ -16114,3 +16114,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Reduced the broad-lane `ssa-nomerge` mismatch replay from 9 to 6 cases by matching Binaryen's zero-SIMD default shape and straight-line pre-write default materialization.
 - Hardened the raw no-write/default-debris path so unsupported HOT lift or HOT verification rejects fail closed instead of aborting on wasm-smith atomic/unreachable-tail cases.
 - Added pass-fuzz command-failure classes for Starshine validator policy gaps (`starshine-atomic-unshared-memory-validator` and `starshine-unreachable-ref-validator`) and recorded replay evidence in the SSA no-merge fuzzing/parity pages.
+
+## 2026-06-19 optimize-instructions OI-H fallthrough call_ref
+
+- Recorded `docs/wiki/raw/research/0754-2026-06-19-optimize-instructions-oi-h-fallthrough-call-ref.md` for the fifth `[O4Z-AUDIT-OI-H]` sub-slice.
+- Starshine now directizes zero-argument `call_ref` / `return_call_ref` targets whose block fallthrough value is a direct `ref.func`, while preserving target-side effects by dropping the original target expression before the direct `call` / `return_call`.
+- Updated the optimize-instructions dossier, Starshine HOT strategy, wiki index, and active backlog to keep remaining OI-H work scoped to argument-localizing positive select lowering plus type/effect negatives.

@@ -479,6 +479,62 @@ fn optimize_instructions_call_ref_result_block_type(
 }
 
 ///|
+fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node : @ir.HotNode,
+  callee_ref_id : Int,
+  args : Array[Int],
+) -> Int? {
+  if args.length() != 0 {
+    return None
+  }
+  let callee_ref = @ir.hot_node_get(func, callee_ref_id)
+  match callee_ref.op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, callee_ref_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < 1 {
+    return None
+  }
+  let target_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+  if !optimize_instructions_node_is_live(func, dead, target_id) {
+    return None
+  }
+  let target = @ir.hot_node_get(func, target_id)
+  match target.op {
+    @ir.HotOp::RefFunc => ()
+    _ => return None
+  }
+  let replacement_body : Array[Int] = [@ir.hot_build_drop(func, callee_ref_id)]
+  match node.op {
+    @ir.HotOp::CallRef => {
+      let block_type = match
+        optimize_instructions_call_ref_result_block_type(func, node) {
+        Some(block_type) => block_type
+        None => return None
+      }
+      replacement_body.push(
+        @ir.hot_build_call(
+          func,
+          target.imm0,
+          @ir.hot_type_results(func, node.ty),
+          [],
+        ),
+      )
+      Some(@ir.hot_build_block(func, block_type, replacement_body))
+    }
+    @ir.HotOp::ReturnCallRef => {
+      replacement_body.push(@ir.hot_build_return_call(func, target.imm0, []))
+      Some(@ir.hot_build_block(func, @lib.BlockType::void_(), replacement_body))
+    }
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_try_directize_ref_func_call_ref(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -515,6 +571,14 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
         @ir.HotOp::ReturnCallRef =>
           @ir.hot_build_return_call(func, callee_ref.imm0, args)
         _ => abort("unreachable call_ref directization op")
+      }
+    @ir.HotOp::Block =>
+      match
+        optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
+          func, dead, node, callee_ref_id, args,
+        ) {
+        Some(replacement) => replacement
+        None => return false
       }
     @ir.HotOp::TableGet if callee_ref.child_count == 1 => {
       let table_index_id = @ir.hot_child_get(func, callee_ref_id, 0)
