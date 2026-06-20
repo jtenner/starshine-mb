@@ -3886,6 +3886,80 @@ test "heap-store-optimization keeps memory.size constructors before data.drop" {
 }
 
 ///|
+test "heap-store-optimization keeps memory-growing constructors before memory.init" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_data_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::memory_grow(@lib.MemIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::memory_init(
+          @lib.DataIdx::new(0U),
+          @lib.MemIdx::new(0U),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-grow/memory-init heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.grow"), msg=pretty)
+  assert_true(pretty.contains("memory.init"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps memory-growing constructors before data.drop" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_data_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::memory_grow(@lib.MemIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::data_drop(@lib.DataIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-grow/data-drop heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.grow"), msg=pretty)
+  assert_true(pretty.contains("data.drop"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps table.size constructors before table.init" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
