@@ -45,6 +45,7 @@ sources:
   - ../../../raw/research/0765-2026-06-20-optimize-instructions-oi-i-i31-ref-eq.md
   - ../../../raw/research/0766-2026-06-20-optimize-instructions-oi-i-non-null-local-refs.md
   - ../../../raw/research/0767-2026-06-20-optimize-instructions-oi-i-non-null-local-test-cast.md
+  - ../../../raw/research/0768-2026-06-20-optimize-instructions-oi-i-non-null-local-i31-supertype-test-cast.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -97,7 +98,7 @@ Its center of gravity is:
 - first nullable null-operand `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref null T)` fed by `ref.null` folds to `i32.const 1`, and nullable `ref.cast` fed by `ref.null` rewrites to the null child; non-null null-operand cast/test public fixtures remain open behind current validation/type-surface matching
 - successful local-i31 `ref.test` / `ref.cast` basics from OI-I: `ref.test` fed by a local `ref.i31` constructor folds to `i32.const 1` for absolute targets `i31`, `eq`, and `any`, and matching `ref.cast` targets rewrite to the constructor child
 - successful local-`ref.func` `ref.test` / `ref.cast` basics from OI-I: exact `ref.test (ref func)` fed by local `ref.func` folds to `i32.const 1`, and exact `ref.cast (ref func)` fed by local `ref.func` rewrites to the constructor child; target-supertypes and arbitrary function-subtype facts remain open
-- exact declared non-null local `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref T)` fed by a `local.get` whose declared type is non-null `(ref T)` folds to `i32.const 1`, and exact `ref.cast (ref T)` fed by that local rewrites to the local child; broader subtype, indexed-type, nullable-local, flow-sensitive, descriptor, exactness, TNH, and IIT facts remain open
+- declared non-null local `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref T)` fed by a `local.get` whose declared type is non-null `(ref T)` folds to `i32.const 1`, and exact `ref.cast (ref T)` fed by that local rewrites to the local child; additionally, declared non-null `(ref i31)` locals fold successful `ref.test` / `ref.cast` for absolute target supertypes `eq` and `any`; broader subtype, indexed-type, nullable-local, flow-sensitive, descriptor, exactness, TNH, and IIT facts remain open
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
@@ -279,11 +280,11 @@ This is still the bigger story.
 
 ## 1. No broad AST reference / GC optimization surface yet
 
-The local file now implements the first ten OI-I reference basics: `ref.is_null(ref.null)` / `ref.eq` with null operands, known-non-null constructor folds for `ref.i31` / `ref.func` null tests and `ref.i31` null equality, declared non-null `local.get` folds for `ref.is_null`, null equality, and `ref.as_non_null`, `ref.as_non_null(ref.null)`, `ref.as_non_null(ref.i31(x))`, `ref.as_non_null(ref.func f)`, exact `ref.cast(unreachable)` validity repair, nullable null-operand `ref.test` / `ref.cast` cleanup, successful local-`ref.i31` `ref.test` / `ref.cast` folds for absolute `i31` / `eq` / `any` targets, successful local-`ref.func` `ref.test` / `ref.cast` folds for exact `func` targets, and immediate literal-`i31` `ref.eq` folding. It still does not implement the broader upstream visitor families for things like:
+The local file now implements the first twelve OI-I reference basics: `ref.is_null(ref.null)` / `ref.eq` with null operands, known-non-null constructor folds for `ref.i31` / `ref.func` null tests and `ref.i31` null equality, declared non-null `local.get` folds for `ref.is_null`, null equality, and `ref.as_non_null`, `ref.as_non_null(ref.null)`, `ref.as_non_null(ref.i31(x))`, `ref.as_non_null(ref.func f)`, exact `ref.cast(unreachable)` validity repair, nullable null-operand `ref.test` / `ref.cast` cleanup, successful local-`ref.i31` `ref.test` / `ref.cast` folds for absolute `i31` / `eq` / `any` targets, successful local-`ref.func` `ref.test` / `ref.cast` folds for exact `func` targets, immediate literal-`i31` `ref.eq` folding, exact same-heap declared non-null local `ref.test` / `ref.cast` folds, and declared non-null `(ref i31)` local `ref.test` / `ref.cast` folds for absolute `eq` / `any` target supertypes. It still does not implement the broader upstream visitor families for things like:
 
 - impossible `ref.eq` / known-non-null equality proofs beyond the covered null-vs-known-non-null and literal-i31 subsets
 - public non-null null-operand `ref.test` / `ref.cast` fixtures, currently blocked by local validation/type-surface matching
-- definitely successful `ref.cast` / `ref.test` cases and broader failed cast/test cases
+- definitely successful `ref.cast` / `ref.test` cases beyond the covered constructor, exact local, and `(ref i31)` local-supertype subsets plus broader failed cast/test cases
 - broader flow-sensitive `ref.as_non_null` cleanup
 - descriptor-aware casts
 - exactness-aware cast tightening

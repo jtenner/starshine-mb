@@ -51,6 +51,7 @@ sources:
   - ../../../raw/research/0765-2026-06-20-optimize-instructions-oi-i-i31-ref-eq.md
   - ../../../raw/research/0766-2026-06-20-optimize-instructions-oi-i-non-null-local-refs.md
   - ../../../raw/research/0767-2026-06-20-optimize-instructions-oi-i-non-null-local-test-cast.md
+  - ../../../raw/research/0768-2026-06-20-optimize-instructions-oi-i-non-null-local-i31-supertype-test-cast.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -109,6 +110,7 @@ related:
   - ../../../raw/research/0765-2026-06-20-optimize-instructions-oi-i-i31-ref-eq.md
   - ../../../raw/research/0766-2026-06-20-optimize-instructions-oi-i-non-null-local-refs.md
   - ../../../raw/research/0767-2026-06-20-optimize-instructions-oi-i-non-null-local-test-cast.md
+  - ../../../raw/research/0768-2026-06-20-optimize-instructions-oi-i-non-null-local-i31-supertype-test-cast.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md

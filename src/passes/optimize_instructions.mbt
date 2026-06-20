@@ -4459,7 +4459,15 @@ fn optimize_instructions_ref_is_known_match_for_target(
     @ir.HotOp::LocalGet =>
       match @ir.hot_local_type(func, node.imm0) {
         Some(@lib.ValType::RefTypeValType(ref_type)) =>
-          ref_type.is_non_nullable() && ref_type.get_heap_type() == target
+          ref_type.is_non_nullable() &&
+          (
+            ref_type.get_heap_type() == target ||
+            (
+              ref_type.get_heap_type() ==
+              @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+              optimize_instructions_ref_i31_matches_target(target)
+            )
+          )
         _ => false
       }
     @ir.HotOp::RefFunc => optimize_instructions_ref_func_matches_target(target)
