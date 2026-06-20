@@ -1067,6 +1067,94 @@ test "optimize-instructions lowers select ref.func call_ref targets to direct if
 }
 
 ///|
+test "optimize-instructions intentionally keeps argument select call_ref targets until localization exists" {
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+        @lib.ValType::i32(),
+      ]),
+    ),
+  )
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(target_type_idx)),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, caller_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        target_type_idx, target_type_idx, caller_type_idx, caller_type_idx,
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_add(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::select(types=Some([typed_func_ref])),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::select(types=Some([typed_func_ref])),
+            @lib.Instruction::return_call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let tail = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(caller.contains("call_ref"), msg=caller)
+  assert_true(caller.contains("select"), msg=caller)
+  assert_true(caller.contains("ref.func"), msg=caller)
+  assert_false(caller.contains("call (Func 0)"), msg=caller)
+  assert_false(caller.contains("call (Func 1)"), msg=caller)
+  assert_true(tail.contains("return_call_ref"), msg=tail)
+  assert_true(tail.contains("select"), msg=tail)
+  assert_true(tail.contains("ref.func"), msg=tail)
+  assert_false(tail.contains("return_call (Func 0)"), msg=tail)
+  assert_false(tail.contains("return_call (Func 1)"), msg=tail)
+}
+
+///|
 test "optimize-instructions lowers table.get call_ref targets to indirect calls" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let callee_type = @lib.RecType::new(
