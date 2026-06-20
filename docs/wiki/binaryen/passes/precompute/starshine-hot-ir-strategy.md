@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
+  - ../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md
   - ../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md
   - ../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md
   - ../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md
@@ -241,7 +242,7 @@ Important focused tests include:
 - `precompute runs narrow raw scalar folds under O4z gate`
 - `precompute keeps O4z hot-only cleanup no-op until ownership hazards are safe`
 
-Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, self-exiting block cleanup, constant-true loop dead-tail cleanup, full-module-validation, branch-carrier safety, and narrow O4z raw-scalar recovery stories. The current compare-proof surface is mixed: `precompute-all` is green at `1000/1000` with PC normalizers and explicit `_build/native/release/build/cmd/cmd.exe`, but regular GenValid remains open after the first two reductions. `.tmp/pass-fuzz-precompute-true-loop-hot-fix-direct-100` still has `20` raw mismatches after PC normalizers, mostly around constant-false self-branching loop and mixed root-debris cleanup, and must not be treated as closed.
+Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, self-exiting block cleanup, constant-true loop dead-tail cleanup, full-module-validation, branch-carrier safety, and narrow O4z raw-scalar recovery stories. The bounded compare-proof surface now has source-backed regular GenValid handling: `precompute-all` is green at `1000/1000` with PC normalizers and explicit `_build/native/release/build/cmd/cmd.exe`, and `.tmp/pass-fuzz-precompute-loop-nop-normalizer-direct-100` compares `100/100` with `0` mismatches after classifying exact `loop (nop)` / empty void wrapper debris as a Starshine no-op-control cleanup win. This remains bounded evidence; final closeout still needs the full required lanes.
 
 ## 2. Preset-slot proof
 

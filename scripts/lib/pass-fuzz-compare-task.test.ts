@@ -190,6 +190,9 @@ describe("pass-fuzz compare normalizers", () => {
  (func $1
   (loop
   )
+  (loop
+   (nop)
+  )
   (nop)
  )
 )

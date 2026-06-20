@@ -1255,7 +1255,7 @@ function escapeWatLabelForRegex(label: string): string {
 }
 
 function isSimpleEmptyVoidControlNoop(text: string): boolean {
-  return /^\s*\((?:block|loop)(?:\s+\$[A-Za-z0-9_.$-]+)?\s*\n\s*\)\s*$/.test(text);
+  return /^\s*\((?:block|loop)(?:\s+\$[A-Za-z0-9_.$-]+)?\s*\n(?:\s*\(nop\)\s*\n)*\s*\)\s*$/.test(text);
 }
 
 function isSimpleSelfBranchBlockNoop(text: string): boolean {
