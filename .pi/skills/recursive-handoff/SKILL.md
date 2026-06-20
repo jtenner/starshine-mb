@@ -1,6 +1,6 @@
 ---
 name: recursive-handoff
-description: Progress a user-specified goal in bounded slices, then either stop when complete or create a continuation thread that uses this same recursive handoff contract. Use for long-running work where the current thread should do useful work now and automatically hand off remaining work.
+description: Progress a user-specified goal in bounded slices, then either stop when complete or create a continuation thread that keeps working toward the same goal. Use for long-running work where the current thread should do useful work now and recursively hand off remaining work automatically.
 ---
 
 # Recursive Handoff
