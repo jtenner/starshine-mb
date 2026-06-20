@@ -7214,6 +7214,198 @@ test "control-heavy profile uses typed GenValid body generator slice" {
 }
 
 ///|
+fn gen_valid_test_expr_contains_ref_cast(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      RefCast(_, _, _) => return true
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_test_expr_contains_ref_cast(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_expr_contains_ref_cast(Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_expr_contains_ref_cast(Expr::new(body)) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_func_contains_structured_ref_cast(func : Func) -> Bool {
+  let Func(_, Expr(instrs)) = func
+  let mut saw_structured = false
+  let mut saw_ref_cast = false
+  for instr in instrs {
+    match instr {
+      Block(_, _) | Loop(_, _) | If(_, _, _) => saw_structured = true
+      RefCast(_, _, _) => saw_ref_cast = true
+      _ => ()
+    }
+  }
+  saw_structured && saw_ref_cast
+}
+
+///|
+fn gen_valid_test_first_func(mod : Module) -> Func raise {
+  match mod.code_sec {
+    Some(CodeSec([func, ..])) => func
+    _ => fail("expected generated module to define at least one function")
+  }
+}
+
+///|
+fn gen_valid_test_defined_global_count(mod : Module) -> Int {
+  match mod.global_sec {
+    Some(GlobalSec(globals)) => globals.length()
+    None => 0
+  }
+}
+
+///|
+test "gsi-desc-cast gen-valid profiles resolve and expose replayable aggregate" {
+  @debug.assert_eq(
+    gen_valid_profile_name(GsiDescCastPositiveProfile),
+    "gsi-desc-cast-positive",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(GsiDescCastAllProfile),
+    "gsi-desc-cast",
+  )
+  assert_true(gen_valid_profile_names().contains("gsi-desc-cast"))
+  match gen_valid_profile_by_name("global-struct-inference-desc-cast") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, GsiDescCastAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(members.length() >= 5)
+      @debug.assert_eq(members[0].profile, GsiDescCastPositiveProfile)
+    }
+    Err(msg) => fail(msg)
+  }
+  let leaf = gen_valid_profile_leaf_for_case(GsiDescCastAllProfile, 0x5eedUL, 1)
+  assert_true(!gen_valid_profile_is_composite(leaf))
+}
+
+///|
+test "gsi-desc-cast aggregate profile samples every current descriptor-cast family" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 96 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      GsiDescCastAllProfile,
+      0x5eedUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(GsiDescCastPositiveProfile))
+  assert_true(seen.contains(GsiDescCastZeroBoundaryProfile))
+  assert_true(seen.contains(GsiDescCastMultiBoundaryProfile))
+  assert_true(seen.contains(GsiDescCastStrictSubtypeProfile))
+  assert_true(seen.contains(GsiDescCastUnreachableBoundaryProfile))
+}
+
+///|
+test "gsi-desc-cast positive gen-valid profile emits singleton closed-world cast rewrites" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(GsiDescCastPositiveProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) =>
+      fail(
+        "gsi-desc-cast generation failed: \{failure.validation_error_message}",
+      )
+  }
+  @debug.assert_eq(generated.config_label, "gsi-desc-cast-positive")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected gsi-desc-cast generated module to validate: \{validation_error_message(err)}",
+      )
+  }
+  @debug.assert_eq(
+    gen_valid_test_defined_global_count(generated.wasm_module),
+    1,
+  )
+  let func = gen_valid_test_first_func(generated.wasm_module)
+  let Func(_, body) = func
+  assert_true(gen_valid_test_expr_contains_ref_cast(body))
+  assert_true(gen_valid_test_func_contains_structured_ref_cast(func))
+}
+
+///|
+test "gsi-desc-cast boundary gen-valid profiles cover zero multiple strict and unreachable cases" {
+  let zero = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(GsiDescCastZeroBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(gen_valid_test_defined_global_count(zero.wasm_module), 0)
+  assert_true(
+    gen_valid_test_expr_contains_ref_cast(
+      match gen_valid_test_first_func(zero.wasm_module) {
+        Func(_, body) => body
+      },
+    ),
+  )
+
+  let multiple = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(GsiDescCastMultiBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(gen_valid_test_defined_global_count(multiple.wasm_module), 2)
+
+  let strict = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(GsiDescCastStrictSubtypeProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_true(strict.facts.has_subtyping_topology)
+  assert_true(
+    gen_valid_test_expr_contains_ref_cast(
+      match gen_valid_test_first_func(strict.wasm_module) {
+        Func(_, body) => body
+      },
+    ),
+  )
+
+  let unreachable_case = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(GsiDescCastUnreachableBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_true(unreachable_case.facts.has_standalone_unreachable)
+}
+
+///|
 test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
   @debug.assert_eq(
     gen_valid_profile_name(SsaNomergeCoverageProfile),

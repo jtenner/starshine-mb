@@ -2426,6 +2426,7 @@ fn gsi_rewrite_instrs(
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
+  let mut stack_unreachable = false
   while idx < instrs.length() {
     let instr = instrs[idx]
     match instr {
@@ -2539,7 +2540,8 @@ fn gsi_rewrite_instrs(
             }
             None =>
               match next_instr {
-                @lib.RefCast(nullable, exact_target, heap_type) if optimize_desc_casts =>
+                @lib.RefCast(nullable, exact_target, heap_type) if optimize_desc_casts &&
+                  !stack_unreachable =>
                   match
                     gsi_desc_cast_singleton_descriptor_global(
                       env, rewrite_candidates_by_type_slot, heap_type, exact_target,
@@ -2563,7 +2565,8 @@ fn gsi_rewrite_instrs(
         if idx + 1 < instrs.length() {
           let next_instr = instrs[idx + 1]
           match next_instr {
-            @lib.RefCast(nullable, exact_target, heap_type) if optimize_desc_casts =>
+            @lib.RefCast(nullable, exact_target, heap_type) if optimize_desc_casts &&
+              !stack_unreachable =>
               match
                 gsi_desc_cast_singleton_descriptor_global(
                   env, rewrite_candidates_by_type_slot, heap_type, exact_target,
@@ -2715,6 +2718,26 @@ fn gsi_rewrite_instrs(
         } else {
           out.push(instr)
         }
+      @lib.Unreachable => {
+        stack_unreachable = true
+        out.push(instr)
+      }
+      @lib.RefCast(nullable, exact_target, heap_type) if optimize_desc_casts &&
+        !stack_unreachable =>
+        match
+          gsi_desc_cast_singleton_descriptor_global(
+            env, rewrite_candidates_by_type_slot, heap_type, exact_target,
+          ) {
+          Some(desc_global) => {
+            out.push(@lib.Instruction::global_get(desc_global))
+            out.push(
+              @lib.Instruction::ref_cast_desc_eq_type(
+                @lib.RefType::new(nullable, heap_type, exact=exact_target),
+              ),
+            )
+          }
+          None => out.push(instr)
+        }
       _ => out.push(instr)
     }
     idx += 1
@@ -2736,13 +2759,24 @@ fn gsi_instrs_may_rewrite(
   optimize_desc_casts : Bool,
 ) -> Bool {
   let mut idx = 0
+  let mut stack_unreachable = false
   while idx < instrs.length() {
     let instr = instrs[idx]
     match instr {
+      @lib.Unreachable => stack_unreachable = true
+      @lib.RefCast(_, exact_target, heap_type) if optimize_desc_casts &&
+        !stack_unreachable =>
+        if gsi_desc_cast_singleton_descriptor_global(
+            env, rewrite_candidates_by_type_slot, heap_type, exact_target,
+          )
+          is Some(_) {
+          return true
+        }
       @lib.GlobalGet(global_idx) =>
         if idx + 1 < instrs.length() {
           match instrs[idx + 1] {
-            @lib.RefCast(_, exact_target, heap_type) if optimize_desc_casts =>
+            @lib.RefCast(_, exact_target, heap_type) if optimize_desc_casts &&
+              !stack_unreachable =>
               if gsi_desc_cast_singleton_descriptor_global(
                   env, rewrite_candidates_by_type_slot, heap_type, exact_target,
                 )
@@ -2815,7 +2849,8 @@ fn gsi_instrs_may_rewrite(
       @lib.LocalGet(local_idx) =>
         if idx + 1 < instrs.length() {
           match instrs[idx + 1] {
-            @lib.RefCast(_, exact_target, heap_type) if optimize_desc_casts =>
+            @lib.RefCast(_, exact_target, heap_type) if optimize_desc_casts &&
+              !stack_unreachable =>
               if gsi_desc_cast_singleton_descriptor_global(
                   env, rewrite_candidates_by_type_slot, heap_type, exact_target,
                 )

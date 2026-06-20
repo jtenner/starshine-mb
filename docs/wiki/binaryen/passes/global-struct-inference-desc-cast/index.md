@@ -1,6 +1,6 @@
 ---
 kind: entity
-status: working
+status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md
@@ -29,8 +29,8 @@ related:
 ## Role
 
 - `global-struct-inference-desc-cast` is the local Starshine registry name for the upstream Binaryen pass published as `gsi-desc-cast`.
-- Starshine now has a **partial active implementation** as of 2026-06-20: the pass is registered as a module pass, dispatches through the GSI-family engine with desc-cast mode enabled, and rewrites the closed-world singleton-descriptor `local.get` / `global.get` cast shapes covered by focused tests, including exact targets that bypass the strict-subtype bailout.
-- The old 2026-06-04 boundary-only deferral is superseded for this implemented subset, but the behavior-parity audit remains open for broader operand coverage and dedicated closed-world descriptor-cast fuzz generation.
+- Starshine now has an **active behavior-parity implementation** as of 2026-06-20: the pass is registered as a module pass, dispatches through the GSI-family engine with desc-cast mode enabled, and rewrites closed-world singleton-descriptor casts by inserting the descriptor `global.get` immediately before eligible reachable `ref.cast` instructions. Focused tests cover local/global, nullable, exact-target, structured block/loop/if, select, intervening no-result-instruction stack shapes, and the unreachable-input bailout; the dedicated `gsi-desc-cast` GenValid profile fuzzes those positives and bailout families at scale.
+- The old 2026-06-04 boundary-only deferral and the later final-closeout blocker are superseded by the green 2026-06-20 closeout matrix: regular GenValid `100000`, explicit wasm-smith `10000`, dedicated `gsi-desc-cast` `10000`, and broad named `pass-fuzz-stress` GenValid `10000` all have zero Starshine mismatches or validation failures.
 - It is a real public upstream pass in Binaryen `version_129`, but it is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` default top-level path.
 - It is a **shared-engine sibling** of plain `gsi`, implemented upstream by the same `GlobalStructInference.cpp` file with the desc-cast mode flag enabled.
 
@@ -99,12 +99,12 @@ So this pass is best taught as:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog showing which `ref.cast` families become `ref.cast_desc_eq`, which stay plain casts, and which still bail out.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Current Starshine status and future-port map: boundary-only registry name, active request rejection, active plain-GSI sibling distinction, exact local code locations, existing `ref.cast_desc_eq` syntax/instruction infrastructure, and the missing closed-world descriptor-global / subtype machinery a faithful port needs.
+  - Current Starshine status and closeout map: active module-pass registry/dispatch, shared plain-GSI sibling engine, exact local code locations, `ref.cast_desc_eq` instruction support, implemented closed-world singleton descriptor-global/subtype gates, final compare evidence, and reopening criteria.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `global-struct-inference-desc-cast` / `gsi-desc-cast` research and port planning.
-- Keep it explicitly marked as **partial / audit-open** until Starshine closes the operand-breadth and dedicated-generator gaps documented in [`./starshine-strategy.md`](./starshine-strategy.md).
+- Keep it explicitly marked as **supported / parity-closed** while the 2026-06-20 final closeout evidence in [`./starshine-strategy.md`](./starshine-strategy.md) remains current.
 - Keep the naming split explicit:
   - local registry: `global-struct-inference-desc-cast`
   - upstream public pass: `gsi-desc-cast`

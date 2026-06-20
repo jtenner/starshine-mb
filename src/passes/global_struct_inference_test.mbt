@@ -236,6 +236,146 @@ fn gsi_desc_cast_test_module(
 }
 
 ///|
+fn gsi_desc_cast_operand_test_module(
+  params : Array[@lib.ValType],
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let type_a = @lib.TypeIdx::new(0U)
+  let type_a_desc = @lib.TypeIdx::new(1U)
+  let func_type = @lib.TypeIdx::new(2U)
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::group([
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(descriptor=Some(type_a_desc)),
+        ),
+        @lib.SubType::new(
+          false,
+          [],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(type_a)),
+        ),
+      ]),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(params, [gsi_test_ref_type(type_a, false)]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([func_type]))
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(gsi_test_ref_type_exact(type_a_desc, false), false),
+        @lib.Expr::new([@lib.Instruction::struct_new(type_a_desc)]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
+fn gsi_desc_cast_block_operand_test_module() -> @lib.Module {
+  let type_a = @lib.TypeIdx::new(0U)
+  let nullable_box = gsi_test_ref_type(type_a, true)
+  gsi_desc_cast_operand_test_module([nullable_box], [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(nullable_box),
+      @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+    ),
+    @lib.Instruction::ref_cast_type(
+      @lib.RefType::new(false, @lib.HeapType::new(type_a)),
+    ),
+  ])
+}
+
+///|
+fn gsi_desc_cast_select_operand_test_module() -> @lib.Module {
+  let type_a = @lib.TypeIdx::new(0U)
+  let nullable_box = gsi_test_ref_type(type_a, true)
+  gsi_desc_cast_operand_test_module(
+    [nullable_box, nullable_box, @lib.ValType::i32()],
+    [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::select(types=Some([nullable_box])),
+      @lib.Instruction::ref_cast_type(
+        @lib.RefType::new(false, @lib.HeapType::new(type_a)),
+      ),
+    ],
+  )
+}
+
+///|
+fn gsi_desc_cast_if_operand_test_module() -> @lib.Module {
+  let type_a = @lib.TypeIdx::new(0U)
+  let nullable_box = gsi_test_ref_type(type_a, true)
+  gsi_desc_cast_operand_test_module(
+    [@lib.ValType::i32(), nullable_box, nullable_box],
+    [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(nullable_box),
+        [@lib.Instruction::local_get(@lib.LocalIdx::new(1U))],
+        Some([@lib.Instruction::local_get(@lib.LocalIdx::new(2U))]),
+      ),
+      @lib.Instruction::ref_cast_type(
+        @lib.RefType::new(false, @lib.HeapType::new(type_a)),
+      ),
+    ],
+  )
+}
+
+///|
+fn gsi_desc_cast_loop_operand_test_module() -> @lib.Module {
+  let type_a = @lib.TypeIdx::new(0U)
+  let nullable_box = gsi_test_ref_type(type_a, true)
+  gsi_desc_cast_operand_test_module([nullable_box], [
+    @lib.Instruction::loop_(
+      @lib.BlockType::val_type(nullable_box),
+      @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+    ),
+    @lib.Instruction::ref_cast_type(
+      @lib.RefType::new(false, @lib.HeapType::new(type_a)),
+    ),
+  ])
+}
+
+///|
+fn gsi_desc_cast_intervening_nop_test_module() -> @lib.Module {
+  let type_a = @lib.TypeIdx::new(0U)
+  let nullable_box = gsi_test_ref_type(type_a, true)
+  gsi_desc_cast_operand_test_module([nullable_box], [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::ref_cast_type(
+      @lib.RefType::new(false, @lib.HeapType::new(type_a)),
+    ),
+  ])
+}
+
+///|
+fn gsi_desc_cast_unreachable_input_test_module() -> @lib.Module {
+  let type_a = @lib.TypeIdx::new(0U)
+  gsi_desc_cast_operand_test_module([], [
+    @lib.Instruction::unreachable_(),
+    @lib.Instruction::ref_cast_type(
+      @lib.RefType::new(false, @lib.HeapType::new(type_a)),
+    ),
+  ])
+}
+
+///|
 fn gsi_desc_cast_test_pretty(
   mod_ : @lib.Module,
   closed_world : Bool,
@@ -375,6 +515,72 @@ test "global-struct-inference-desc-cast rewrites exact targets despite strict su
   assert_false(pretty.contains("ref.cast "), msg=pretty)
   assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
   assert_true(pretty.contains("Exact"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast rewrites block-carried cast operands" {
+  let pretty = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_block_operand_test_module(),
+    true,
+  )
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_false(pretty.contains("ref.cast "), msg=pretty)
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast rewrites select cast operands" {
+  let pretty = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_select_operand_test_module(),
+    true,
+  )
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("ref.cast "), msg=pretty)
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast rewrites if cast operands" {
+  let pretty = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_if_operand_test_module(),
+    true,
+  )
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_false(pretty.contains("ref.cast "), msg=pretty)
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast rewrites loop cast operands" {
+  let pretty = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_loop_operand_test_module(),
+    true,
+  )
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_false(pretty.contains("ref.cast "), msg=pretty)
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast rewrites casts with intervening no-result instructions" {
+  let pretty = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_intervening_nop_test_module(),
+    true,
+  )
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("ref.cast "), msg=pretty)
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast leaves unreachable-input casts unchanged" {
+  let pretty = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_unreachable_input_test_module(),
+    true,
+  )
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("ref.cast "), msg=pretty)
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
 }
 
 ///|

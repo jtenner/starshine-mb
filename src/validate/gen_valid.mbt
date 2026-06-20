@@ -652,6 +652,12 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
+  GsiDescCastPositiveProfile
+  GsiDescCastZeroBoundaryProfile
+  GsiDescCastMultiBoundaryProfile
+  GsiDescCastStrictSubtypeProfile
+  GsiDescCastUnreachableBoundaryProfile
+  GsiDescCastAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
@@ -702,6 +708,13 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ControlHeavyProfile => "control-heavy"
     TopologyHeavyProfile => "topology-heavy"
     PathologicalValidProfile => "pathological-valid"
+    GsiDescCastPositiveProfile => "gsi-desc-cast-positive"
+    GsiDescCastZeroBoundaryProfile => "gsi-desc-cast-zero-boundary"
+    GsiDescCastMultiBoundaryProfile => "gsi-desc-cast-multi-boundary"
+    GsiDescCastStrictSubtypeProfile => "gsi-desc-cast-strict-subtype"
+    GsiDescCastUnreachableBoundaryProfile =>
+      "gsi-desc-cast-unreachable-boundary"
+    GsiDescCastAllProfile => "gsi-desc-cast"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
@@ -713,7 +726,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
 ///|
 pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
   match profile {
-    SsaNomergeAllProfile => true
+    GsiDescCastAllProfile | SsaNomergeAllProfile => true
     _ => false
   }
 }
@@ -723,6 +736,14 @@ pub fn gen_valid_profile_members(
   profile : GenValidProfile,
 ) -> Array[GenValidProfileMember] {
   match profile {
+    GsiDescCastAllProfile =>
+      [
+        GenValidProfileMember::new(GsiDescCastPositiveProfile, 5),
+        GenValidProfileMember::new(GsiDescCastStrictSubtypeProfile, 2),
+        GenValidProfileMember::new(GsiDescCastZeroBoundaryProfile, 1),
+        GenValidProfileMember::new(GsiDescCastMultiBoundaryProfile, 1),
+        GenValidProfileMember::new(GsiDescCastUnreachableBoundaryProfile, 1),
+      ]
     SsaNomergeAllProfile =>
       [
         GenValidProfileMember::new(SsaNomergeParityProfile, 3),
@@ -803,6 +824,12 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ControlHeavyProfile,
     TopologyHeavyProfile,
     PathologicalValidProfile,
+    GsiDescCastPositiveProfile,
+    GsiDescCastZeroBoundaryProfile,
+    GsiDescCastMultiBoundaryProfile,
+    GsiDescCastStrictSubtypeProfile,
+    GsiDescCastUnreachableBoundaryProfile,
+    GsiDescCastAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
@@ -858,6 +885,8 @@ pub fn gen_valid_profile_by_name(
     "coverage-forced" => Ok(CoverageForcedAllFeaturesProfile)
     "portable-coverage-forced" => Ok(CoverageForcedPortableProfile)
     "binaryen-oracle-coverage-forced" => Ok(BinaryenOraclePortableProfile)
+    "global-struct-inference-desc-cast" => Ok(GsiDescCastAllProfile)
+    "gsi-desc-cast-all" => Ok(GsiDescCastAllProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
     _ =>
@@ -1186,6 +1215,14 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_name_length: 256,
         max_segment_payload_size: 4096,
       }
+    GsiDescCastPositiveProfile
+    | GsiDescCastZeroBoundaryProfile
+    | GsiDescCastMultiBoundaryProfile
+    | GsiDescCastStrictSubtypeProfile
+    | GsiDescCastUnreachableBoundaryProfile =>
+      gen_valid_gsi_desc_cast_profile_config(profile)
+    GsiDescCastAllProfile =>
+      gen_valid_gsi_desc_cast_profile_config(GsiDescCastPositiveProfile)
     SsaNomergeCoverageProfile
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
@@ -1193,6 +1230,56 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     SsaNomergeAllProfile =>
       gen_valid_ssa_nomerge_profile_config(SsaNomergeCoverageProfile)
   }
+}
+
+///|
+fn gen_valid_gsi_desc_cast_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let max_globals = match profile {
+    GsiDescCastZeroBoundaryProfile => 0
+    GsiDescCastMultiBoundaryProfile => 2
+    _ => 1
+  }
+  let max_type_defs = match profile {
+    GsiDescCastStrictSubtypeProfile => 5
+    _ => 3
+  }
+  let max_body_statements = match profile {
+    GsiDescCastPositiveProfile => 18
+    GsiDescCastZeroBoundaryProfile => 4
+    GsiDescCastMultiBoundaryProfile => 5
+    GsiDescCastStrictSubtypeProfile => 7
+    GsiDescCastUnreachableBoundaryProfile => 3
+    _ => 18
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs,
+    max_defined_funcs: 1,
+    max_globals,
+    max_params: 3,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements,
+    max_body_depth: 3,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_globals: max_globals > 0,
+      allow_ref_types: true,
+      allow_subtyping_topology: profile == GsiDescCastStrictSubtypeProfile,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_gsi_desc_cast_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(GsiDescCastPositiveProfile) ||
+  config == GenValidConfig::for_profile(GsiDescCastZeroBoundaryProfile) ||
+  config == GenValidConfig::for_profile(GsiDescCastMultiBoundaryProfile) ||
+  config == GenValidConfig::for_profile(GsiDescCastStrictSubtypeProfile) ||
+  config == GenValidConfig::for_profile(GsiDescCastUnreachableBoundaryProfile)
 }
 
 ///|
@@ -11103,8 +11190,221 @@ fn gen_valid_import_module_name(ctx : GenValidContext, index : Int) -> Name {
 }
 
 ///|
+fn gen_valid_gsi_desc_cast_ref_type(
+  type_idx : TypeIdx,
+  nullable : Bool,
+) -> ValType {
+  ValType::ref_type(RefType::new(nullable, HeapType::new(type_idx)))
+}
+
+///|
+fn gen_valid_gsi_desc_cast_exact_ref_type(
+  type_idx : TypeIdx,
+  nullable : Bool,
+) -> ValType {
+  ValType::ref_type(RefType::new(nullable, HeapType::new(type_idx), exact=true))
+}
+
+///|
+fn gen_valid_gsi_desc_cast_global(desc_type : TypeIdx) -> Global {
+  Global::new(
+    GlobalType::new(
+      gen_valid_gsi_desc_cast_exact_ref_type(desc_type, false),
+      false,
+    ),
+    Expr::new([Instruction::struct_new(desc_type)]),
+  )
+}
+
+///|
+fn gen_valid_gsi_desc_cast_types(
+  include_strict_subtype : Bool,
+) -> Array[RecType] {
+  let type_a = TypeIdx::new(0U)
+  let type_a_desc = TypeIdx::new(1U)
+  let types : Array[RecType] = [
+    RecType::group([
+      SubType::new(
+        false,
+        [],
+        CompType::struct_([]),
+        metadata=TypeMetadata::new(descriptor=Some(type_a_desc)),
+      ),
+      SubType::new(
+        false,
+        [],
+        CompType::struct_([]),
+        metadata=TypeMetadata::new(describes=Some(type_a)),
+      ),
+    ]),
+  ]
+  if include_strict_subtype {
+    let type_b = TypeIdx::new(2U)
+    let type_b_desc = TypeIdx::new(3U)
+    types.push(
+      RecType::group([
+        SubType::new(
+          false,
+          [type_a],
+          CompType::struct_([]),
+          metadata=TypeMetadata::new(descriptor=Some(type_b_desc)),
+        ),
+        SubType::new(
+          false,
+          [type_a_desc],
+          CompType::struct_([]),
+          metadata=TypeMetadata::new(describes=Some(type_b)),
+        ),
+      ]),
+    )
+  }
+  types
+}
+
+///|
+fn gen_valid_gsi_desc_cast_positive_body() -> Array[Instruction] {
+  let type_a = TypeIdx::new(0U)
+  let nullable_box = gen_valid_gsi_desc_cast_ref_type(type_a, true)
+  [
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::ref_cast(false, HeapType::new(type_a)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::ref_cast(true, HeapType::new(type_a)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::ref_cast_type(
+      RefType::new(false, HeapType::new(type_a), exact=true),
+    ),
+    Instruction::drop(),
+    Instruction::block(
+      BlockType::val_type(nullable_box),
+      Expr::new([Instruction::local_get(LocalIdx::new(0U))]),
+    ),
+    Instruction::ref_cast(false, HeapType::new(type_a)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::select(types=Some([nullable_box])),
+    Instruction::ref_cast(false, HeapType::new(type_a)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::if_(
+      BlockType::val_type(nullable_box),
+      [Instruction::local_get(LocalIdx::new(0U))],
+      Some([Instruction::local_get(LocalIdx::new(1U))]),
+    ),
+    Instruction::ref_cast(false, HeapType::new(type_a)),
+    Instruction::drop(),
+    Instruction::loop_(
+      BlockType::val_type(nullable_box),
+      Expr::new([Instruction::local_get(LocalIdx::new(0U))]),
+    ),
+    Instruction::ref_cast(false, HeapType::new(type_a)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::nop(),
+    Instruction::ref_cast(false, HeapType::new(type_a)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_gsi_desc_cast_boundary_body(
+  hard_unreachable : Bool,
+) -> Array[Instruction] {
+  let type_a = TypeIdx::new(0U)
+  if hard_unreachable {
+    [
+      Instruction::unreachable_(),
+      Instruction::ref_cast(false, HeapType::new(type_a)),
+      Instruction::drop(),
+    ]
+  } else {
+    [
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::ref_cast(false, HeapType::new(type_a)),
+      Instruction::drop(),
+    ]
+  }
+}
+
+///|
+fn gen_valid_gsi_desc_cast_strict_body() -> Array[Instruction] {
+  let type_a = TypeIdx::new(0U)
+  [
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::ref_cast(false, HeapType::new(type_a)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::ref_cast_type(
+      RefType::new(false, HeapType::new(type_a), exact=true),
+    ),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_gsi_desc_cast_profile_module(config : GenValidConfig) -> Module {
+  let include_strict = config ==
+    GenValidConfig::for_profile(GsiDescCastStrictSubtypeProfile)
+  let hard_unreachable = config ==
+    GenValidConfig::for_profile(GsiDescCastUnreachableBoundaryProfile)
+  let positive = config ==
+    GenValidConfig::for_profile(GsiDescCastPositiveProfile)
+  let type_a = TypeIdx::new(0U)
+  let type_a_desc = TypeIdx::new(1U)
+  let func_type_idx = TypeIdx::new(
+    (if include_strict { 4 } else { 2 }).reinterpret_as_uint(),
+  )
+  let params = if hard_unreachable {
+    []
+  } else if include_strict {
+    [ValType::anyref()]
+  } else if positive {
+    [
+      gen_valid_gsi_desc_cast_ref_type(type_a, true),
+      gen_valid_gsi_desc_cast_ref_type(type_a, true),
+      ValType::i32(),
+    ]
+  } else {
+    [gen_valid_gsi_desc_cast_ref_type(type_a, true)]
+  }
+  let body = if hard_unreachable {
+    gen_valid_gsi_desc_cast_boundary_body(true)
+  } else if include_strict {
+    gen_valid_gsi_desc_cast_strict_body()
+  } else if positive {
+    gen_valid_gsi_desc_cast_positive_body()
+  } else {
+    gen_valid_gsi_desc_cast_boundary_body(false)
+  }
+  let globals : Array[Global] = []
+  let mut global_idx = 0
+  while global_idx < config.max_globals {
+    globals.push(gen_valid_gsi_desc_cast_global(type_a_desc))
+    global_idx += 1
+  }
+  let types = gen_valid_gsi_desc_cast_types(include_strict)
+  types.push(RecType::new(SubType::comp_type(CompType::func(params, []))))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new(types))
+    .with_func_sec(FuncSec::new([func_type_idx]))
+    .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new(body))]))
+  if globals.is_empty() {
+    mod
+  } else {
+    mod.with_global_sec(GlobalSec::new(globals))
+  }
+}
+
+///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_gsi_desc_cast_profile_config(config) {
+    return gen_valid_gsi_desc_cast_profile_module(config)
+  }
   let import_budget = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,
     config.features.allow_imports,

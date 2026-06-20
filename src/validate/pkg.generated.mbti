@@ -1122,6 +1122,12 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
+  GsiDescCastPositiveProfile
+  GsiDescCastZeroBoundaryProfile
+  GsiDescCastMultiBoundaryProfile
+  GsiDescCastStrictSubtypeProfile
+  GsiDescCastUnreachableBoundaryProfile
+  GsiDescCastAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile

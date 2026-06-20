@@ -165,7 +165,7 @@ A parity-minded local implementation should mirror these structural facts first:
 6. keep the inherited closed-world `typeGlobals` population and nested `reorder-globals-always` repair story explicit
 7. use the dedicated `gsi-to-desc-cast.wast` delta file as the main oracle for the sibling
 
-2026-06-20 Starshine activation note: the local pass now implements the singleton descriptor-global positive for immediate `local.get` / `global.get` cast operands plus nullable, exact target, closed-world, zero/multiple-global, and non-exact strict-subtype bailout tests. Broader operand coverage and dedicated closed-world descriptor-cast fuzz generation remain open in [`./starshine-strategy.md`](./starshine-strategy.md).
+2026-06-20 Starshine activation and closeout note: the local pass implements the singleton descriptor-global positive for eligible reachable `ref.cast` instructions by inserting the descriptor `global.get` immediately before the cast. Focused tests cover immediate `local.get` / `global.get`, nullable, exact target, closed-world, zero/multiple-global, non-exact strict-subtype bailout, block, select, if, loop, intervening no-result-instruction stack shapes, and the unreachable-input bailout. Dedicated closed-world descriptor-cast fuzz generation exists as the `gsi-desc-cast` GenValid composite profile. Final direct behavior closeout is green in [`./starshine-strategy.md`](./starshine-strategy.md): regular GenValid `100000`, explicit wasm-smith `10000`, dedicated `gsi-desc-cast` `10000`, and broad named `pass-fuzz-stress` GenValid `10000` have zero Starshine semantic mismatches and zero Starshine validation failures; residual wasm-smith command failures are Binaryen/oracle tool classes.
 
 ## Sources
 
