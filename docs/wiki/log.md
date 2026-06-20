@@ -2,6 +2,10 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Add OI-I i31 ref.test/ref.cast supertype proof
+
+- Filed [`raw/research/0763-2026-06-20-optimize-instructions-oi-i-i31-supertype-test-cast.md`](raw/research/0763-2026-06-20-optimize-instructions-oi-i-i31-supertype-test-cast.md) for the seventh `[O4Z-AUDIT-OI-I]` sub-slice. Starshine now folds `ref.test (ref eq)` and `ref.test (ref any)` fed by a local `ref.i31` constructor to `i32.const 1`, and rewrites `ref.cast (ref eq)` and `ref.cast (ref any)` fed by local `ref.i31` to the constructor child. The proof remains limited to local `ref.i31` and absolute `i31` / `eq` / `any` targets.
+- Evidence: local Binaryen `version_130` oracle probe with `wasm-opt --enable-reference-types --enable-gc -S -O --optimize-instructions -o -` folded all four supertype shapes. Red-first focused `*successful ref.test*` failed before implementation because the new `eq` supertype function still contained `ref.test`; final `*successful ref.test*` passed `1/1`, focused `*ref*` passed `17/17`, focused `*optimize-instructions*` passed `145/145`, `moon fmt` passed, `moon test src/passes` passed `2657/2657`, native `src/cmd` release build passed with existing unused-function warnings, `moon info` passed with existing warnings, and `git diff --check` passed. Direct compare in `.tmp/pass-fuzz-optimize-instructions-oi-i-i31-supertype-test-cast-10000` compared `53/10000` before the default failure ceiling with known Starshine-win raw mismatches and one known Binaryen/tool command failure; failure artifacts contained no reference operation occurrences.
 
 ## [2026-06-20] passes/optimize-instructions | Add OI-I successful i31 ref.test/ref.cast basics
 

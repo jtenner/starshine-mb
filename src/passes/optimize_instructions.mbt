@@ -4425,7 +4425,10 @@ fn optimize_instructions_ref_is_known_non_null(
 ///|
 fn optimize_instructions_ref_i31_matches_target(ht : @lib.HeapType) -> Bool {
   match ht {
-    @lib.HeapType::AbsHeapTypeHeapType(abs) => abs == @lib.AbsHeapType::i31()
+    @lib.HeapType::AbsHeapTypeHeapType(abs) =>
+      abs == @lib.AbsHeapType::i31() ||
+      abs == @lib.AbsHeapType::eq() ||
+      abs == @lib.AbsHeapType::any()
     _ => false
   }
 }

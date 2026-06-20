@@ -1088,8 +1088,12 @@ test "optimize-instructions folds nullable ref.test and ref.cast on known null r
 ///|
 test "optimize-instructions folds successful ref.test and ref.cast on local i31 refs" {
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i32_type = @lib.TypeIdx::new(0U)
   let i31_type = @lib.TypeIdx::new(1U)
+  let eq_type = @lib.TypeIdx::new(2U)
+  let any_type = @lib.TypeIdx::new(3U)
   let optimized = optimize_instructions_test_run_module(
     @lib.Module::new()
     .with_type_sec(
@@ -1104,9 +1108,23 @@ test "optimize-instructions folds successful ref.test and ref.cast on local i31 
             @lib.CompType::func([], [@lib.ValType::i31ref()]),
           ),
         ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::eqref_null()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::anyref()]),
+          ),
+        ),
       ]),
     )
-    .with_func_sec(@lib.FuncSec::new([i32_type, i31_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        i32_type, i31_type, i32_type, eq_type, i32_type, any_type,
+      ]),
+    )
     .with_code_sec(
       @lib.CodeSec::new([
         @lib.Func::new(
@@ -1125,15 +1143,59 @@ test "optimize-instructions folds successful ref.test and ref.cast on local i31 
             @lib.Instruction::ref_cast(false, i31_heap),
           ]),
         ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_test(false, eq_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_cast(false, eq_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_test(false, any_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::ref_cast(false, any_heap),
+          ]),
+        ),
       ]),
     ),
   )
   let test_i31 = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   let cast_i31 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let test_eq = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let cast_eq = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let test_any = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let cast_any = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
   assert_false(test_i31.contains("ref.test"), msg=test_i31)
   assert_true(test_i31.contains("I32(1)"), msg=test_i31)
   assert_true(cast_i31.contains("ref.i31"), msg=cast_i31)
   assert_false(cast_i31.contains("ref.cast"), msg=cast_i31)
+  assert_false(test_eq.contains("ref.test"), msg=test_eq)
+  assert_true(test_eq.contains("I32(1)"), msg=test_eq)
+  assert_true(cast_eq.contains("ref.i31"), msg=cast_eq)
+  assert_false(cast_eq.contains("ref.cast"), msg=cast_eq)
+  assert_false(test_any.contains("ref.test"), msg=test_any)
+  assert_true(test_any.contains("I32(1)"), msg=test_any)
+  assert_true(cast_any.contains("ref.i31"), msg=cast_any)
+  assert_false(cast_any.contains("ref.cast"), msg=cast_any)
 }
 
 ///|
