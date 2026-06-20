@@ -1379,6 +1379,49 @@ test "optimize-instructions preserves effectful prefix while folding same-local 
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix while folding same-local ref.as_non_null equality" {
+  let source =
+    #|(module
+    #|  (import "m" "effect" (func $effect (result i32)))
+    #|  (func (export "left") (param eqref) (result i32)
+    #|    call $effect
+    #|    drop
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    local.get 0
+    #|    ref.eq)
+    #|  (func (export "both") (param eqref) (result i32)
+    #|    call $effect
+    #|    drop
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    local.get 0
+    #|    ref.as_non_null
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected effectful same-local ref.as_non_null equality optimize success, got \{err}",
+      )
+  }
+  let left_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let both_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(left_pretty.contains("ref.eq"), msg=left_pretty)
+  assert_false(both_pretty.contains("ref.eq"), msg=both_pretty)
+  assert_true(left_pretty.contains("call (Func 0)"), msg=left_pretty)
+  assert_true(both_pretty.contains("call (Func 0)"), msg=both_pretty)
+  assert_true(left_pretty.contains("drop"), msg=left_pretty)
+  assert_true(both_pretty.contains("drop"), msg=both_pretty)
+  assert_true(left_pretty.contains("ref.as_non_null"), msg=left_pretty)
+  assert_true(both_pretty.contains("ref.as_non_null"), msg=both_pretty)
+  assert_true(left_pretty.contains("I32(1)"), msg=left_pretty)
+  assert_true(both_pretty.contains("I32(1)"), msg=both_pretty)
+}
+
+///|
 test "optimize-instructions folds impossible equality between i31 and struct locals" {
   let source =
     #|(module
