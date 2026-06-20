@@ -891,46 +891,13 @@ fn precompute_simplify_region_roots(
       match @ir.hot_node_get(func, node_id).op {
         @ir.HotOp::Block | @ir.HotOp::Loop => {
           if region_ref == @ir.HotRegionRef::root() &&
-            @ir.hot_node_result_arity(func, node_id) == 0 {
-            match @ir.hot_node_get(func, node_id).op {
-              @ir.HotOp::Loop => {
-                let body_ref = @ir.hot_region_body_ref(func, node_id)
-                if @ir.hot_region_root_count(func, body_ref) == 1 {
-                  let branch_id = @ir.hot_region_get(func, body_ref, 0)
-                  let branch_node = @ir.hot_node_get(func, branch_id)
-                  match branch_node.op {
-                    @ir.HotOp::BrIf =>
-                      if branch_node.child_count == 1 &&
-                        branch_node.imm0 ==
-                        @ir.hot_control_node_label(func, node_id) {
-                        match
-                          precompute_i32_exact_const(
-                            ctx,
-                            func,
-                            @ir.hot_child_get(func, branch_id, 0),
-                          ) {
-                          Some(@lib.I32(0)) => {
-                            let removed = pass_splice_region(
-                              ctx,
-                              func,
-                              region_ref,
-                              idx,
-                              1,
-                              [@ir.hot_build_nop(func)],
-                            )
-                            pass_delete_detached_nodes(ctx, func, removed)
-                            changed = true
-                            continue
-                          }
-                          _ => ()
-                        }
-                      }
-                    _ => ()
-                  }
-                }
-              }
-              _ => ()
-            }
+            precompute_control_is_const_self_br_if_noop(ctx, func, node_id) {
+            let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
+              @ir.hot_build_nop(func),
+            ])
+            pass_delete_detached_nodes(ctx, func, removed)
+            changed = true
+            continue
           }
           if region_ref == @ir.HotRegionRef::root() &&
             @ir.hot_node_result_arity(func, node_id) == 0 &&
@@ -1048,6 +1015,49 @@ fn precompute_simplify_region_roots(
     pass_mark_mutated(ctx, func)
   }
   changed
+}
+
+///|
+fn precompute_control_is_const_self_br_if_noop(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  control_id : Int,
+) -> Bool {
+  if @ir.hot_node_result_arity(func, control_id) != 0 {
+    return false
+  }
+  let op = @ir.hot_node_get(func, control_id).op
+  match op {
+    @ir.HotOp::Block | @ir.HotOp::Loop => ()
+    _ => return false
+  }
+  let label = @ir.hot_control_node_label(func, control_id)
+  if label < 0 || @ir.hot_label_branch_arity(func, label) != 0 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, control_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let branch_id = @ir.hot_region_get(func, body_ref, 0)
+  let branch_node = @ir.hot_node_get(func, branch_id)
+  match branch_node.op {
+    @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+  if branch_node.child_count != 1 || branch_node.imm0 != label {
+    return false
+  }
+  let cond_id = @ir.hot_child_get(func, branch_id, 0)
+  match precompute_i32_exact_const(ctx, func, cond_id) {
+    Some(@lib.I32(0)) => true
+    Some(@lib.I32(_)) =>
+      match op {
+        @ir.HotOp::Block => true
+        _ => false
+      }
+    None => false
+  }
 }
 
 ///|

@@ -556,6 +556,25 @@ test "precompute removes pure root nop prefixes before a final const result" {
 }
 
 ///|
+test "precompute removes constant self-exiting blocks before a final const result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 1 drop (block i32.const 1 br_if 0) nop i32.const 134))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected precompute self-exiting-block cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("(block"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("I32(134)"), msg=pretty)
+}
+
+///|
 test "precompute removes a leading nop before a final const result" {
   let optimized = match
     pass_test_run_pipeline("(module (func (result i32) nop i32.const 363))", [

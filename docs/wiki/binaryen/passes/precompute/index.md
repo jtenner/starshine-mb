@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md
   - ../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md
   - ../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md
   - ../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md
@@ -179,9 +180,9 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 
 ## Release-gating status as of 2026-06-20
 
-`precompute` remains open for the v0.1.0 `-O4z` per-pass audit. The older branch-heavy 10000-case direct compare evidence is still useful, the dedicated profile gap is closed by `precompute-all`, and the first O4z recovery slice now allows only changed `raw-scalar-folds` results under `optimize_level >= 4 && shrink_level >= 1`. The native path decision is now explicit for this checkout: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe` for precompute compare lanes because `target/native/release/build/cmd/cmd.exe` remains absent. The pass is still not closed under the current standard for three remaining reasons:
+`precompute` remains open for the v0.1.0 `-O4z` per-pass audit. The older branch-heavy 10000-case direct compare evidence is still useful, the dedicated profile gap is closed by `precompute-all`, and the first O4z recovery slice now allows only changed `raw-scalar-folds` results under `optimize_level >= 4 && shrink_level >= 1`. The native path decision is now explicit for this checkout: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe` for precompute compare lanes because `target/native/release/build/cmd/cmd.exe` remains absent. The first regular GenValid reduction fixed a true small gap: constant self-exiting `block br_if` debris before a final const result is now removed with focused coverage. The pass is still not closed under the current standard for three remaining reasons:
 
-1. a bounded regular GenValid refresh with current code is not green: the `1000`-case direct lane timed out before summary, and a `100`-case direct lane with PC normalizers compared `100/100` but had `20` raw mismatches that are still unclassified behavior-parity gaps;
+1. bounded regular GenValid is still not green: after the self-exiting-block fix, `.tmp/pass-fuzz-precompute-self-brif-fix-direct-100` compared `100/100` with PC normalizers but still had `20` raw mismatches. The remaining inspected subfamilies are constant-false self-branching loop cleanup (currently a focused-test-backed Starshine size win needing compare closeout handling), constant-true loop/dead-tail cleanup (open optimization-parity gap), and mixed root `nop` debris around those loop/control shapes;
 2. the modern four-lane final closeout matrix has not yet been rerun with current code: regular GenValid `100000`, explicit wasm-smith `10000`, dedicated `precompute-all` `10000`, and broad `pass-fuzz-stress` `10000`;
 3. broader O4z `precompute` work still deliberately returns `o4z-precompute-noop` for HOT-only cleanup, load/call ownership hazards, large lowered functions, br_table/parser stack hazards, raw no-candidate cases, and non-scalar raw repair reasons; current O4z slot evidence must therefore either recover more safe work or explicitly document an approved release boundary with reopening criteria.
 
@@ -191,7 +192,9 @@ The dedicated profile follow-up is [`../../../raw/research/0787-2026-06-20-preco
 
 The O4z raw scalar follow-up is [`../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md`](../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md). It adds focused O4z tests proving scalar raw folds now run while HOT-only `br_table` cleanup remains fail-closed, and it records the first `_build/native/...` explicit-native compare smoke.
 
-The native-path and bounded-evidence follow-up is [`../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md`](../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md). It makes `_build/native/release/build/cmd/cmd.exe` the accepted explicit native compare path for this checkout, records a green `1000/1000` `precompute-all` lane with PC normalizers, and opens a regular GenValid mismatch family from `.tmp/pass-fuzz-precompute-native-path-policy-direct-100/failures/` for a future reduction/TDD slice.
+The native-path and bounded-evidence follow-up is [`../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md`](../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md). It makes `_build/native/release/build/cmd/cmd.exe` the accepted explicit native compare path for this checkout, records a green `1000/1000` `precompute-all` lane with PC normalizers, and opens a regular GenValid mismatch family from `.tmp/pass-fuzz-precompute-native-path-policy-direct-100/failures/`.
+
+The first reduction follow-up is [`../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md`](../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md). It adds focused coverage and implementation for constant self-exiting `block br_if` cleanup, then reruns the bounded regular lane as `.tmp/pass-fuzz-precompute-self-brif-fix-direct-100`. That lane still has `20` raw mismatches after PC normalizers, so the remaining loop/dead-tail families stay open.
 
 The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md). Treat the pass as active/open until the regular GenValid mismatch family, remaining O4z slot decision/evidence, and final closeout lanes are recorded.
 

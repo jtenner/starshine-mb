@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
+  - ../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md
   - ../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md
   - ../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md
   - ../../../../../src/passes/precompute.mbt
@@ -50,7 +51,7 @@ Starshine currently implements a deliberately narrow HOT-IR `precompute` pass fo
 - immutable scalar-or-null `global.get` replacement
 - constant-`if` arm picking
 - dead pure-`drop` cleanup
-- root-region `nop` / empty-wrapper cleanup needed for safe writeback
+- root-region `nop` / empty-wrapper cleanup and constant self-exiting block cleanup needed for safe writeback
 - artifact-driven invalid-lower and writeback-validation guard rails around the old slot-19 failure family
 
 That is useful and already well tested.
@@ -162,6 +163,8 @@ The structural cleanup cluster in [`src/passes/precompute.mbt`](../../../../../s
   - collapses an all-`nop` root region to one `nop`
 - `precompute_trim_root_nops_before_trailing_const(...)`
   - removes a pure root `nop` prefix before a surviving final `const`
+- `precompute_control_is_const_self_br_if_noop(...)`
+  - recognizes constant false self-branching loops as no-ops and now also recognizes constant true-or-false void blocks whose `br_if` exits to the same zero-arity block label
 
 This cleanup cluster is not a generic Binaryen port. It is a local HOT/writeback hygiene design that keeps rewritten regions simple enough to lower safely.
 
@@ -235,7 +238,7 @@ Important focused tests include:
 - `precompute runs narrow raw scalar folds under O4z gate`
 - `precompute keeps O4z hot-only cleanup no-op until ownership hazards are safe`
 
-Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, full-module-validation, branch-carrier safety, and narrow O4z raw-scalar recovery stories. The current compare-proof surface is mixed: `precompute-all` is green at `1000/1000` with PC normalizers and explicit `_build/native/release/build/cmd/cmd.exe`, but regular GenValid has an open mismatch family from `.tmp/pass-fuzz-precompute-native-path-policy-direct-100/failures/` and must not be treated as closed.
+Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, self-exiting block cleanup, full-module-validation, branch-carrier safety, and narrow O4z raw-scalar recovery stories. The current compare-proof surface is mixed: `precompute-all` is green at `1000/1000` with PC normalizers and explicit `_build/native/release/build/cmd/cmd.exe`, but regular GenValid remains open after the first reduction. `.tmp/pass-fuzz-precompute-self-brif-fix-direct-100` still has `20` raw mismatches after PC normalizers, mostly around constant self-branching loop/dead-tail debris, and must not be treated as closed.
 
 ## 2. Preset-slot proof
 
