@@ -114,19 +114,43 @@ Use during implementation and before ordinary commit-sized parity slices:
 2. `moon fmt`
 3. `moon test`
 4. `moon build --target native --release src/cmd`
-5. `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name> --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`
-
-Equivalent direct entrypoint:
-
-```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name> --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
-```
+5. Run the required pass-fuzz signoff matrix below.
 
 Compare-pass generates GenValid inputs by default. Add `--wasm-smith` only for the separate external-generator lane. The persistent `.tmp/pass-fuzz-cache` remains on by default for deterministic `wasm-smith` inputs when that lane is selected and for Binaryen oracle raw/canonical/WAT outputs plus repeatable Binaryen command failures. Do not disable this for ordinary signoff; use `--cache-dir <dir>` when an isolated/shared cache is needed, and `--no-cache` only when debugging cache behavior. Starshine outputs are never cached and are regenerated every run.
 
+#### Required pass-fuzz signoff matrix
+
+A proper pass signoff must run and report these four separate lanes unless the user explicitly approves a smaller replacement for that pass:
+
+1. **Regular GenValid lane:** `100000` requested cases, seed `0x5eed`, no `--gen-valid-profile`.
+
+   ```sh
+   bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name>-genvalid-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+   ```
+
+2. **Explicit wasm-smith lane:** `10000` requested cases, seed `0x5eed`, with `--wasm-smith`.
+
+   ```sh
+   bun scripts/pass-fuzz-compare.ts --wasm-smith --count 10000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name>-wasm-smith-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+   ```
+
+3. **Specific pass GenValid profile lane:** `10000` requested cases, seed `0x5eed`, with the pass-owned profile that generates random examples expected to be optimized by this pass.
+
+   ```sh
+   bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <canonical-name> --gen-valid-profile <pass-specific-profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-<pass-specific-profile>-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+   ```
+
+4. **Random all-profiles GenValid lane:** `10000` requested cases, seed `0x5555`, with the random all-profiles composite profile.
+
+   ```sh
+   bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass <canonical-name> --gen-valid-profile <random-all-profiles-profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-all-profiles-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+   ```
+
+Report the four lanes separately. Include requested count, compared count, normalized matches, cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache hit/miss counters, profile name, and selected subprofile counts when the manifest has `selected_profile`.
+
 ### Final pass closeout signoff
 
-Use before declaring a pass closed, audit-complete, or behavior-parity complete. This is stronger than ordinary slice signoff:
+Use before declaring a pass closed, audit-complete, or behavior-parity complete. This is stronger than ordinary focused signoff:
 
 1. `moon info`
 2. `moon fmt`
@@ -134,19 +158,23 @@ Use before declaring a pass closed, audit-complete, or behavior-parity complete.
 4. `moon test src/passes`
 5. `moon test`
 6. `moon build --target native --release src/cmd`
-7. `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name>-final-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`
+7. Run the full required pass-fuzz signoff matrix: `100000` regular GenValid at seed `0x5eed`, `10000` explicit `--wasm-smith` at seed `0x5eed`, `10000` pass-specific GenValid profile at seed `0x5eed`, and `10000` random all-profiles GenValid at seed `0x5555`.
 
-Final closeout must use the `100000`-case direct pass lane, not the ordinary `10000`-case slice lane, unless the user explicitly approves a smaller run for that specific closeout.
+Final closeout must use the full four-lane matrix unless the user explicitly approves a smaller run for that specific closeout.
 
 ### Pass-specific generator fuzz lanes
 
-Some passes have dedicated in-repo GenValid profiles that intentionally generate shapes the general alternating smith/GenValid lane may hit only rarely. When a pass has a named profile, when you change `src/validate/gen_valid*`, or when an audit mentions pass-specific generated shapes, add a separate `compare-pass` lane with `--gen-valid-profile <profile>` after the standard direct lane. If the pass has a composite/aggregate profile documented in `docs/wiki/binaryen/passes/<pass>/fuzzing.md`, use that aggregate profile for ordinary dedicated-profile signoff and final closeout; keep singleton profiles for targeted reproduction, feature-floor narrowing, and development probes.
+Every new pass must add a GenValid profile that generates random examples expected to be optimized by that pass. The profile should produce meaningful trigger shapes, not merely valid modules that the pass usually leaves unchanged. It may be a singleton profile or a pass aggregate/composite profile, but the required signoff matrix needs one stable profile name that agents can pass as `--gen-valid-profile <pass-specific-profile>`.
 
-For ordinary implementation slices, use at least `10000` requested cases for the dedicated aggregate/profile. For final closeout or audit-close claims, use a wider dedicated-profile lane unless the user explicitly approves a smaller run:
+Existing passes should add or refresh their pass-specific profile when a parity slice exposes an important shape family that ordinary GenValid under-samples. If the pass has a composite/aggregate profile documented in `docs/wiki/binaryen/passes/<pass>/fuzzing.md`, use that aggregate for the required pass-specific lane; keep singleton profiles for targeted reproduction, feature-floor narrowing, and development probes.
 
-```sh
-bun scripts/pass-fuzz-compare.ts --count 50000 --seed 0x551a --pass <canonical-name> --gen-valid-profile <profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-<profile>-50000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
-```
+Pass-specific profile requirements:
+
+- Generate random valid modules with at least one pass-relevant optimization opportunity whenever practical.
+- Preserve enough manifest feature facts or `selected_profile` metadata to triage which generated optimization family was selected.
+- Include focused generator tests proving that the profile can emit the intended feature floors or trigger families.
+- Document the profile name, intended optimization families, known exclusions, and ordinary signoff command in `docs/wiki/binaryen/passes/<pass>/fuzzing.md`.
+- Use the required `10000`-case seed `0x5eed` pass-specific lane for signoff unless the user explicitly approves a replacement.
 
 Current dedicated pass-profile examples:
 
@@ -165,8 +193,8 @@ Report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining `m
 Required result:
 
 - Binaryen behavior parity for the targeted pass, not merely “no known catastrophic semantic bug.”
-- `10000` compared cases for ordinary implementation slices, and `100000` requested cases for final pass closeout when the harness can complete that many valid comparisons.
-- Dedicated GenValid pass-profile lanes run when applicable (`10000` ordinary; wider, e.g. `50000`, for final/audit-close or generator-widening work), and their results are reported separately from the general lane.
+- The four-lane pass-fuzz matrix is complete for pass signoff: `100000` regular GenValid at seed `0x5eed`, `10000` explicit `--wasm-smith` at seed `0x5eed`, `10000` pass-specific GenValid profile at seed `0x5eed`, and `10000` random all-profiles GenValid at seed `0x5555`.
+- Dedicated GenValid pass-profile results are reported separately from regular GenValid, wasm-smith, and random all-profiles lanes.
 - Zero true semantic mismatches, and no broad unapproved family deferrals hidden behind “safe drift.”
 - Command failures classified separately from semantic mismatches.
 - Raw wasm/text or transform-shape differences are not failures when normalized/canonical semantic comparison is green and the observed behavior matches Binaryen.
@@ -219,8 +247,12 @@ When reporting pass signoff, include:
 - tests added or updated
 - focused Moon command results
 - standard Moon signoff results: `moon info`, `moon fmt`, `moon test`
-- general GenValid compare-pass command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, cache mode or cache dir when non-default, requested count (`10000` for ordinary slices or `100000` for final closeout), compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, command-failure classification, and `result.json.cache` hit/miss counters; report any separate `--wasm-smith` lane independently
-- pass-specific GenValid compare-pass lanes, if applicable: `--gen-valid-profile`, seed, out dir, requested count (`10000` for ordinary slices, wider e.g. `50000` for final/audit-close lanes), compared count, normalized match count, cleanup-normalized match count, raw mismatch count, command failures, feature-generation/floor failures, and cache hit/miss counters
+- required pass-fuzz matrix lanes, each reported independently with command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, cache mode or cache dir when non-default, requested count, compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, validation/generator/property failures, command-failure classification, and `result.json.cache` hit/miss counters:
+  - regular GenValid: `--count 100000 --seed 0x5eed`
+  - wasm-smith: `--wasm-smith --count 10000 --seed 0x5eed`
+  - pass-specific GenValid profile: `--count 10000 --seed 0x5eed --gen-valid-profile <pass-specific-profile>`
+  - random all-profiles GenValid: `--count 10000 --seed 0x5555 --gen-valid-profile <random-all-profiles-profile>`
+- pass-specific GenValid profile metadata: profile name, intended optimization families, selected subprofile counts when present, feature-generation/floor failures, and whether generated cases actually exercise pass-owned optimization opportunities
 - agent-classified mismatch breakdown, with explicit rationale for any semantic-safe/size-winning mismatch family; never imply the harness proved semantic safety
 - replayed failure dirs and their outcomes, if any
 - pass-local performance numbers, artifact comparisons, any `[WALL]001` attribution, or why they were not applicable
@@ -234,8 +266,8 @@ A pass is done only when:
 
 - public behavior is protected by tests
 - registry, dispatcher, CLI, and preset surfaces are wired or explicitly out of scope
-- direct pass execution matches Binaryen behavior on the required compare-pass run: `10000` for ordinary slices and `100000` for final pass closeout; a green lane must be cross-checked against source/docs so broad missing transform families are not hidden as "no mismatches"
-- any dedicated GenValid pass profile relevant to the pass or touched generator code has its own reported compare lane (`10000` ordinary, wider e.g. `50000` for final/audit-close), or the report explicitly states why it was not applicable or not run
+- direct pass execution matches Binaryen behavior on the full required pass-fuzz signoff matrix: `100000` regular GenValid at seed `0x5eed`, `10000` explicit `--wasm-smith` at seed `0x5eed`, `10000` pass-specific GenValid profile at seed `0x5eed`, and `10000` random all-profiles GenValid at seed `0x5555`; green lanes must be cross-checked against source/docs so broad missing transform families are not hidden as "no mismatches"
+- new passes have a pass-specific GenValid profile that generates random valid examples expected to be optimized by that pass, plus focused generator tests and `docs/wiki/binaryen/passes/<pass>/fuzzing.md` documentation for the profile
 - any remaining behavior divergence or unimplemented family is narrow, evidence-backed, explicitly approved, and documented with reopening criteria; otherwise the audit stays active or is reopened
 - every transform is covered as safe and valid, with validation evidence for changed modules when applicable
 - relevant performance/artifact evidence is captured when applicable, and pass-local Starshine timing is at least 50% of Binaryen speed unless explicitly accepted
