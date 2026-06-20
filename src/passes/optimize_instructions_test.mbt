@@ -1557,6 +1557,92 @@ test "optimize-instructions folds declared non-null i31 local ref.test and ref.c
 }
 
 ///|
+test "optimize-instructions folds successful ref.test and ref.cast on non-null struct array supertypes" {
+  let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
+  let array_heap = @lib.HeapType::abs(@lib.AbsHeapType::array())
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let struct_ref = @lib.ValType::ref_type(@lib.RefType::new(false, struct_heap))
+  let array_ref = @lib.ValType::ref_type(@lib.RefType::new(false, array_heap))
+  let eq_ref = @lib.ValType::ref_type(@lib.RefType::new(false, eq_heap))
+  let any_ref = @lib.ValType::ref_type(@lib.RefType::new(false, any_heap))
+  let struct_i32_type = @lib.TypeIdx::new(0U)
+  let eq_type = @lib.TypeIdx::new(1U)
+  let array_i32_type = @lib.TypeIdx::new(2U)
+  let any_type = @lib.TypeIdx::new(3U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([struct_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([struct_ref], [eq_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([array_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([array_ref], [any_ref])),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([struct_i32_type, eq_type, array_i32_type, any_type]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(false, eq_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, eq_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(false, any_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(false, any_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let test_eq = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let cast_eq = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let test_any = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let cast_any = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(test_eq.contains("ref.test"), msg=test_eq)
+  assert_true(test_eq.contains("I32(1)"), msg=test_eq)
+  assert_true(cast_eq.contains("local.get"), msg=cast_eq)
+  assert_false(cast_eq.contains("ref.cast"), msg=cast_eq)
+  assert_false(test_any.contains("ref.test"), msg=test_any)
+  assert_true(test_any.contains("I32(1)"), msg=test_any)
+  assert_true(cast_any.contains("local.get"), msg=cast_any)
+  assert_false(cast_any.contains("ref.cast"), msg=cast_any)
+}
+
+///|
 test "optimize-instructions folds successful ref.test and ref.cast on non-null local refs" {
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let eq_ref = @lib.ValType::ref_type(@lib.RefType::new(false, eq_heap))

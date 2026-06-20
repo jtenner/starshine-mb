@@ -4441,6 +4441,28 @@ fn optimize_instructions_ref_i31_matches_target(ht : @lib.HeapType) -> Bool {
 }
 
 ///|
+fn optimize_instructions_abs_struct_array_matches_target(
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> Bool {
+  match (source, target) {
+    (
+      @lib.HeapType::AbsHeapTypeHeapType(source_abs),
+      @lib.HeapType::AbsHeapTypeHeapType(target_abs),
+    ) =>
+      (
+        source_abs == @lib.AbsHeapType::struct_() ||
+        source_abs == @lib.AbsHeapType::array()
+      ) &&
+      (
+        target_abs == @lib.AbsHeapType::eq() ||
+        target_abs == @lib.AbsHeapType::any()
+      )
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_func_matches_target(ht : @lib.HeapType) -> Bool {
   match ht {
     @lib.HeapType::AbsHeapTypeHeapType(abs) => abs == @lib.AbsHeapType::func()
@@ -4606,6 +4628,10 @@ fn optimize_instructions_ref_is_known_match_for_target(
               ref_type.get_heap_type() ==
               @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
               optimize_instructions_ref_i31_matches_target(target)
+            ) ||
+            optimize_instructions_abs_struct_array_matches_target(
+              ref_type.get_heap_type(),
+              target,
             )
           )
         _ => false
