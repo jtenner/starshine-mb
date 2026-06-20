@@ -1285,6 +1285,7 @@ pub impl @quickcheck.Arbitrary for Instruction with fn arbitrary(t, state) {
     212 =>
       RefCast(
         @quickcheck.Arbitrary::arbitrary(t, state),
+        false,
         @quickcheck.Arbitrary::arbitrary(t, state),
       )
     213 =>

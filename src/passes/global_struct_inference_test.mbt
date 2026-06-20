@@ -136,6 +136,128 @@ fn gsi_test_ref_type(type_idx : @lib.TypeIdx, nullable : Bool) -> @lib.ValType {
 }
 
 ///|
+fn gsi_test_ref_type_exact(
+  type_idx : @lib.TypeIdx,
+  nullable : Bool,
+) -> @lib.ValType {
+  @lib.ValType::ref_type(
+    @lib.RefType::new(nullable, @lib.HeapType::new(type_idx), exact=true),
+  )
+}
+
+///|
+fn gsi_desc_cast_test_module(
+  target_nullable? : Bool = false,
+  desc_global_count? : Int = 1,
+  include_strict_subtype? : Bool = false,
+  exact_cast_target? : Bool = false,
+) -> @lib.Module {
+  let type_a = @lib.TypeIdx::new(0U)
+  let type_a_desc = @lib.TypeIdx::new(1U)
+  let func_type = @lib.TypeIdx::new(
+    (if include_strict_subtype { 4 } else { 2 }).reinterpret_as_uint(),
+  )
+  let types : Array[@lib.RecType] = [
+    @lib.RecType::group([
+      @lib.SubType::new(
+        false,
+        [],
+        @lib.CompType::struct_([]),
+        metadata=@lib.TypeMetadata::new(descriptor=Some(type_a_desc)),
+      ),
+      @lib.SubType::new(
+        false,
+        [],
+        @lib.CompType::struct_([]),
+        metadata=@lib.TypeMetadata::new(describes=Some(type_a)),
+      ),
+    ]),
+  ]
+  if include_strict_subtype {
+    let type_b = @lib.TypeIdx::new(2U)
+    let type_b_desc = @lib.TypeIdx::new(3U)
+    types.push(
+      @lib.RecType::group([
+        @lib.SubType::new(
+          false,
+          [type_a],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(descriptor=Some(type_b_desc)),
+        ),
+        @lib.SubType::new(
+          false,
+          [type_a_desc],
+          @lib.CompType::struct_([]),
+          metadata=@lib.TypeMetadata::new(describes=Some(type_b)),
+        ),
+      ]),
+    )
+  }
+  types.push(
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::anyref()], [
+          gsi_test_ref_type(type_a, target_nullable),
+        ]),
+      ),
+    ),
+  )
+  let globals : Array[@lib.Global] = []
+  for idx = 0; idx < desc_global_count; idx = idx + 1 {
+    ignore(idx)
+    globals.push(
+      @lib.Global::new(
+        @lib.GlobalType::new(gsi_test_ref_type_exact(type_a_desc, false), false),
+        @lib.Expr::new([@lib.Instruction::struct_new(type_a_desc)]),
+      ),
+    )
+  }
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new(types))
+  .with_func_sec(@lib.FuncSec::new([func_type]))
+  .with_global_sec(@lib.GlobalSec::new(globals))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::new([]),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::ref_cast_type(
+            @lib.RefType::new(
+              target_nullable,
+              @lib.HeapType::new(type_a),
+              exact=exact_cast_target,
+            ),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gsi_desc_cast_test_pretty(
+  mod_ : @lib.Module,
+  closed_world : Bool,
+) -> String raise {
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) => fail("unexpected invalid gsi-desc-cast fixture: \{err}")
+  }
+  let options = HotPipelineOptions::new(closed_world~)
+  let optimized = match
+    run_hot_pipeline(mod_, options, ["global-struct-inference-desc-cast"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected global-struct-inference-desc-cast success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected gsi-desc-cast output to validate, got \{err}")
+  }
+}
+
+///|
 fn gsi_test_defined_global_count(mod_ : @lib.Module) -> Int raise {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals.length()
@@ -187,6 +309,72 @@ fn gsi_assert_no_unreachable_drop_debris(input : String) -> Unit raise {
   @debug.assert_eq(locals, @lib.Locals::from_types([]))
   @debug.assert_eq(gsi_test_count_drop(instrs), 0)
   @debug.assert_eq(gsi_test_count_unreachable(instrs), 1)
+}
+
+///|
+test "global-struct-inference-desc-cast rewrites singleton descriptor target casts" {
+  let pretty = gsi_desc_cast_test_pretty(gsi_desc_cast_test_module(), true)
+  assert_false(pretty.contains("ref.cast "), msg=pretty)
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast rewrites nullable singleton descriptor target casts" {
+  let pretty = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_test_module(target_nullable=true),
+    true,
+  )
+  assert_false(pretty.contains("ref.cast "), msg=pretty)
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast requires closed-world descriptor globals" {
+  let pretty = gsi_desc_cast_test_pretty(gsi_desc_cast_test_module(), false)
+  assert_true(pretty.contains("ref.cast "), msg=pretty)
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast leaves zero or multiple descriptor globals unchanged" {
+  let zero = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_test_module(desc_global_count=0),
+    true,
+  )
+  assert_true(zero.contains("ref.cast "), msg=zero)
+  assert_false(zero.contains("ref.cast_desc_eq"), msg=zero)
+
+  let multiple = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_test_module(desc_global_count=2),
+    true,
+  )
+  assert_true(multiple.contains("ref.cast "), msg=multiple)
+  assert_false(multiple.contains("ref.cast_desc_eq"), msg=multiple)
+}
+
+///|
+test "global-struct-inference-desc-cast leaves non-exact targets with strict subtypes unchanged" {
+  let pretty = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_test_module(include_strict_subtype=true),
+    true,
+  )
+  assert_true(pretty.contains("ref.cast "), msg=pretty)
+  assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+}
+
+///|
+test "global-struct-inference-desc-cast rewrites exact targets despite strict subtypes" {
+  let pretty = gsi_desc_cast_test_pretty(
+    gsi_desc_cast_test_module(
+      include_strict_subtype=true,
+      exact_cast_target=true,
+    ),
+    true,
+  )
+  assert_false(pretty.contains("ref.cast "), msg=pretty)
+  assert_true(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+  assert_true(pretty.contains("Exact"), msg=pretty)
 }
 
 ///|

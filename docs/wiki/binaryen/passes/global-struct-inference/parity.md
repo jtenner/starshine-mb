@@ -1,10 +1,11 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-08
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md
   - ../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md
   - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
@@ -26,22 +27,11 @@ related:
 
 ## Durable conclusions
 
-- Binaryen's `global-struct-inference` is broader than the older local wiki summary implied.
-  - it is **not** just a closed-world pass
-  - it still has an open-world direct immutable-global optimization layer
-- The full official contract is much broader than the current local MoonBit implementation.
-  - Binaryen handles open-world direct-global reads, closed-world candidate-global reasoning over locals and params, subtype propagation, one-vs-two-unique-value selection, non-constant un-nesting, packed fields, atomic gets, `ref.get_desc`, and the sibling `gsi-desc-cast` surface
-- The current local Starshine implementation is still a deliberately small subset, but the 2026-06-03 O4z audit removed the old closed-world-only restriction for the direct-global layer:
-  - direct `global.get -> struct.get*` / `struct.atomic.get*` pairs now fold in open world, matching Binaryen's direct immutable-global fast path, including validation-safe reads through a supertype when the immutable global initializer constructs a subtype; one-instruction `block` carriers around direct immutable `global.get` producers also fold
-  - top-level immutable `struct.new*`, `struct.new_default*`, `struct.new_desc`, and `struct.new_default_desc` globals are covered
-  - packed i8/i16 signed and unsigned reads are repaired for direct literal payloads
-  - a closed-world fact table now records immutable top-level candidate globals, mutable/too-broad global exclusions, function-local allocation poisoning, nested global-initializer allocation poisoning, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation
-  - exact single-candidate local/param origins now rewrite in closed world when the exact type has one safe direct candidate and no propagated subtype ambiguity
-  - subtype-propagated single-candidate parent/supertype origins now rewrite in closed world when the candidate global's declared reference heap type is a subtype of the read type; broad `eqref` declarations still bail to avoid invalid replacements
-  - exact and subtype-propagated multi-candidate local/param reads now fold in closed world when all safe candidates expose one equal materializable value
-  - exact and subtype-propagated multi-candidate local/param reads now synthesize typed `select(ref.eq(...))` rewrites in closed world when two materializable values have one singleton candidate group
-  - no sibling descriptor-cast implementation; arithmetic/bitwise/shift-rotate/unary-numeric/float-binary/float-rounding-sqrt/sign-extension un-nesting plus `ref.get_desc` and immutable-field `struct.atomic.get*` folds are guarded to the current local subset, with generic atomic reads still modeled conservatively
-- The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
+- Ordinary Binaryen `global-struct-inference` / `--gsi` is broader than the oldest local summaries implied, but the **current Starshine ordinary-GSI implementation has no known remaining source-backed behavior gap** as of the 2026-06-08 `version_130` refresh and strict post-cleanup compare.
+- The 2026-06-08 inventory supersedes the older v0.1.0 subset wording below: open-world direct immutable-global reads, closed-world local/param origin/value/select reasoning, subtype propagation, one/two unique-value selection, non-constant un-nesting, packed fields, immutable-field atomic gets, `ref.get_desc`, aggregate array un-nesting, carrier breadth proven for ordinary `--gsi`, Binaryen-style dropped-unreachable debris cleanup, and current refinalization-trigger coverage are all closed for ordinary GSI.
+- Strict post-cleanup signoff for ordinary `--gsi` requested `100000` cases and compared `99751 / 100000`: `99751` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `249` Binaryen/tool command failures. The `version_130` source/lit refresh found no additional ordinary-GSI positive surface beyond the covered families.
+- The saved generated-artifact `-O4z` slot remains exactly green and is now supporting evidence, not the main parity claim.
+- Explicit non-scope: the sibling Binaryen `gsi-desc-cast` / Starshine `global-struct-inference-desc-cast` pass remains boundary-only and must not be claimed as ordinary-GSI parity.
 
 ## Current in-tree status
 
@@ -930,11 +920,13 @@ The focused local tests now cover the direct-global O4z audit subset plus closed
 That is a stronger local floor for the current subset.
 It is still far smaller than the official Binaryen lit surface.
 
-## Main remaining divergences from official Binaryen
+## Historical gap triage superseded by 2026-06-08 ordinary-GSI closeout
+
+The following 2026-06-04 matrix is retained as a chronological audit record. For current ordinary-`--gsi` status, prefer the 2026-06-08 behavior-gap inventory and the durable conclusions at the top of this page. Rows below that describe unbounded un-nesting, carrier breadth, larger decision trees, refinalization triggers, dropped-unreachable debris, array aggregate un-nesting, or broader ordinary-GSI behavior as deferred are stale unless they are explicitly about the separate `gsi-desc-cast` sibling or future proposal/opcode surfaces.
 
 ## 2026-06-04 remaining-gap owner matrix
 
-This matrix is the current release-gating triage for the remaining official `gsi.wast`, shared descriptor, and sibling `gsi-desc-cast` surfaces. It is a docs classification, not compare-harness output. The source inventory is the Binaryen primary-source manifest, the current-main recheck, the local implementation/test map, the sibling desc-cast dossier, and the focused Starshine GSI tests listed above.
+This matrix was the release-gating triage for the then-remaining official `gsi.wast`, shared descriptor, and sibling `gsi-desc-cast` surfaces. It is a docs classification, not compare-harness output. The source inventory was the Binaryen primary-source manifest, the current-main recheck, the local implementation/test map, the sibling desc-cast dossier, and the focused Starshine GSI tests listed above.
 
 | Gap family | Official/source shape | Starshine coverage today | Classification | Owner slice | Notes |
 | --- | --- | --- | --- | --- | --- |
@@ -1051,14 +1043,10 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 
 ## Practical rule for future work
 
-- Keep the current local subset described honestly as a subset.
-- Do **not** describe it as “what Binaryen `gsi` does.”
-- If future parity work targets the full Binaryen contract, the next missing surfaces to implement are, in value order:
-  1. unbounded or more Binaryen-complete un-nesting of non-constant operands, only with pass-local runtime evidence
-  2. broader atomic-get parity only if new Binaryen lit shapes exceed the current immutable-field direct-global/local-param subset
-  3. the sibling descriptor-cast pass when explicitly scheduled
-  4. explicit type-repair/refinalization if a future rewrite needs more than validation-preserving replacement typing
-- If local code remains intentionally narrower, keep the green artifact evidence explicit so readers do not confuse “narrow but enough for this artifact” with “full upstream parity.”
+- Treat ordinary `global-struct-inference` / `--gsi` as behavior-closed unless a fresh Binaryen source/lit refresh, focused test, or compare mismatch reopens a concrete family.
+- Keep the sibling `global-struct-inference-desc-cast` / `gsi-desc-cast` separate: it is still boundary-only and is the next GSI-family parity target if the user wants the full public Binaryen GSI family.
+- Future proposal/opcode work, especially aggregate/array atomic writes/RMW/cmpxchg, must recheck GSI assumptions before broadening optimization claims.
+- If a future rewrite intentionally narrows an enclosing expression type, reopen typed repair/refinalization with a failing fixture before implementation.
 
 ## Sources
 
@@ -1066,6 +1054,7 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 - Current-main recheck: [`../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md)
 - Current follow-up note: [`../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md)
 - Older follow-up note: [`../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md)
+- Behavior-gap closeout inventory: [`../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md`](../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md)
 - Direct revalidation note: [`../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md`](../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md)
 - Archived earlier note: [`../../../raw/research/0068-2026-03-25-global-struct-inference.md`](../../../raw/research/0068-2026-03-25-global-struct-inference.md)
 - Updated research note: [`../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md`](../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md)

@@ -1228,9 +1228,9 @@ pub enum Instruction {
   ArrayInitElem(TypeIdx, ElemIdx)
   RefGetDesc(TypeIdx)
   RefTest(Bool, HeapType)
-  RefCast(Bool, HeapType)
+  RefCast(Bool, Bool, HeapType)
   RefTestDesc(Bool, HeapType)
-  RefCastDescEq(Bool, HeapType)
+  RefCastDescEq(Bool, Bool, HeapType)
   BrOnCast(LabelIdx, CastOp, HeapType, HeapType)
   BrOnCastFail(LabelIdx, CastOp, HeapType, HeapType)
   AnyConvertExtern
@@ -1970,6 +1970,8 @@ pub fn Instruction::nop() -> Self
 pub fn Instruction::ref_as_non_null() -> Self
 pub fn Instruction::ref_cast(Bool, HeapType) -> Self
 pub fn Instruction::ref_cast_desc_eq(Bool, HeapType) -> Self
+pub fn Instruction::ref_cast_desc_eq_type(RefType) -> Self
+pub fn Instruction::ref_cast_type(RefType) -> Self
 pub fn Instruction::ref_eq() -> Self
 pub fn Instruction::ref_func(FuncIdx) -> Self
 pub fn Instruction::ref_get_desc(TypeIdx) -> Self

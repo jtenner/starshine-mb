@@ -189,6 +189,12 @@ Reopened from prior removed audits because committed docs still list behavior ga
   - Scope closed: open-world direct immutable-global reads, closed-world candidate-global reasoning over locals and params, subtype propagation, one/two unique-value selection, non-constant un-nesting, packed fields, atomic gets, `ref.get_desc`, aggregate array un-nesting, carrier breadth proven for ordinary `--gsi`, larger decision trees, Binaryen-style refinalization triggers, and Binaryen-style dropped-unreachable debris cleanup before hard `unreachable`.
   - Explicit non-scope: sibling `global-struct-inference-desc-cast` / `gsi-desc-cast` remains a separate pass audit; do not claim `ref.cast_desc_eq` parity under ordinary `--gsi`.
 
+- [O4Z-AUDIT-GSI-DESC-CAST] - Complete `global-struct-inference-desc-cast` / Binaryen `gsi-desc-cast` parity
+  - Status: active partial implementation as of 2026-06-20. Starshine now registers and dispatches the direct module pass, maps the compare harness spelling to Binaryen `--gsi-desc-cast`, and rewrites closed-world singleton-descriptor casts for immediate `local.get` / `global.get` operands. Focused tests cover singleton, nullable, and exact-target positives plus closed-world-required, zero/multiple descriptor-global, and non-exact strict-subtype bailouts. Evidence: focused `global_struct_inference_test.mbt` `64/64`, focused binary tests `103/103`, `moon test src/passes` `2894/2894`, `moon test` `6254/6254`, and prior direct `.tmp/pass-fuzz-global-struct-inference-desc-cast-10000-rerun` compared `7602/10000` with `7602` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+  - Remaining gaps: desc-cast rewrites are limited to immediate `local.get` / `global.get` operands; no dedicated closed-world descriptor-cast GenValid profile exists, so ordinary compare evidence mostly exercises inherited non-closed-world behavior.
+  - Deliverables: widen operand coverage with failing-first tests, add a dedicated generator/profile for closed-world descriptor-singleton positives and bailouts, then run final closeout signoff for the sibling pass.
+  - Suggested tests: focused `src/passes/global_struct_inference_test.mbt`, `moon test src/passes`, `moon test src/cmd`, `moon test`, `moon build --target native --release src/cmd`, ordinary direct compare for `global-struct-inference-desc-cast`, and a future dedicated GenValid profile lane once available.
+
 Preset behavior inventory:
 
 - [O4Z-PRESET-BEHAVIOR] - Reconcile documented Binaryen no-DWARF order with Starshine public presets

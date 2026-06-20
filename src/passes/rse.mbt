@@ -1057,8 +1057,8 @@ fn rse_raw_rewrite_expr_scoped(
         out.push(instr)
       }
       @lib.Instruction::RefAsNonNull
-      | @lib.Instruction::RefCast(_, _)
-      | @lib.Instruction::RefCastDescEq(_, _) => {
+      | @lib.Instruction::RefCast(_, _, _)
+      | @lib.Instruction::RefCastDescEq(_, _, _) => {
         let value = rse_raw_pop(state)
         out.push(instr)
         rse_raw_push(state, value)

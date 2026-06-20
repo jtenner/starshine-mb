@@ -402,7 +402,7 @@ fn h2l_collect_source_use(
       }
       return false
     }
-    Some(@lib.Instruction::RefCast(_, cast_heap_type)) => {
+    Some(@lib.Instruction::RefCast(_, _, cast_heap_type)) => {
       if cast_heap_type != @lib.HeapType::new(struct_type) {
         return false
       }
@@ -895,7 +895,7 @@ fn h2l_passthrough_child_node(func : @ir.HotFunc, source_node_id : Int) -> Int? 
       } else {
         None
       }
-    Some(@lib.Instruction::RefCast(_, _)) =>
+    Some(@lib.Instruction::RefCast(_, _, _)) =>
       if @ir.hot_child_count(func, source_node_id) == 1 {
         Some(@ir.hot_child_get(func, source_node_id, 0))
       } else {

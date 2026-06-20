@@ -776,9 +776,9 @@ pub enum Instruction {
   ArrayInitElem(TypeIdx, ElemIdx)
   RefGetDesc(TypeIdx)
   RefTest(Bool, HeapType)
-  RefCast(Bool, HeapType)
+  RefCast(Bool, Bool, HeapType)
   RefTestDesc(Bool, HeapType)
-  RefCastDescEq(Bool, HeapType)
+  RefCastDescEq(Bool, Bool, HeapType)
   BrOnCast(LabelIdx, CastOp, HeapType, HeapType)
   BrOnCastFail(LabelIdx, CastOp, HeapType, HeapType)
   AnyConvertExtern
@@ -4214,7 +4214,12 @@ pub fn Instruction::ref_test(nullable : Bool, ht : HeapType) -> Instruction {
 
 ///|
 pub fn Instruction::ref_cast(nullable : Bool, ht : HeapType) -> Instruction {
-  RefCast(nullable, ht)
+  RefCast(nullable, false, ht)
+}
+
+///|
+pub fn Instruction::ref_cast_type(rt : RefType) -> Instruction {
+  RefCast(rt.is_nullable(), rt.is_exact(), rt.get_heap_type())
 }
 
 ///|
@@ -4230,7 +4235,12 @@ pub fn Instruction::ref_cast_desc_eq(
   nullable : Bool,
   ht : HeapType,
 ) -> Instruction {
-  RefCastDescEq(nullable, ht)
+  RefCastDescEq(nullable, false, ht)
+}
+
+///|
+pub fn Instruction::ref_cast_desc_eq_type(rt : RefType) -> Instruction {
+  RefCastDescEq(rt.is_nullable(), rt.is_exact(), rt.get_heap_type())
 }
 
 ///|

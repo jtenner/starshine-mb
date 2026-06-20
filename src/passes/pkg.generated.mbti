@@ -49,6 +49,10 @@ pub fn global_refining_run_module_pass(@lib.Module, closed_world? : Bool) -> @li
 
 pub fn global_refining_summary() -> String
 
+pub fn global_struct_inference_desc_cast_run_module_pass(@lib.Module, Bool) -> @lib.Module
+
+pub fn global_struct_inference_desc_cast_summary() -> String
+
 pub fn global_struct_inference_run_module_pass(@lib.Module, Bool) -> @lib.Module
 
 pub fn global_struct_inference_summary() -> String

@@ -2739,6 +2739,49 @@ test "encode ref.null exact type index uses heap-type immediate" {
 }
 
 ///|
+test "encode exact ref.cast and ref.cast_desc_eq immediates" {
+  let exact_cast = Instruction::ref_cast_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true),
+  )
+  let cast_buf = @buffer.new()
+  match Encode::encode(exact_cast, cast_buf) {
+    Ok(_) => ()
+    Err(e) => fail("expected exact ref.cast encode success, got \{e}")
+  }
+  let cast_bytes = cast_buf.to_bytes()
+  @debug.assert_eq(cast_bytes, b"\xfb\x16\x62\x00")
+  let (decoded_cast, cast_i) = match
+    (
+      Decode::decode(cast_bytes, 0) :
+      Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(e) => fail("expected exact ref.cast decode success, got \{e}")
+  }
+  @debug.assert_eq(cast_i, cast_bytes.length())
+  @debug.assert_eq(decoded_cast, exact_cast)
+
+  let exact_desc_cast = Instruction::ref_cast_desc_eq_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(1U)), exact=true),
+  )
+  let desc_buf = @buffer.new()
+  match Encode::encode(exact_desc_cast, desc_buf) {
+    Ok(_) => ()
+    Err(e) => fail("expected exact ref.cast_desc_eq encode success, got \{e}")
+  }
+  let desc_bytes = desc_buf.to_bytes()
+  @debug.assert_eq(desc_bytes, b"\xfb\x24\x62\x01")
+  let (decoded_desc, desc_i) = match
+    (
+      Decode::decode(desc_bytes, 0) :
+      Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(e) => fail("expected exact ref.cast_desc_eq decode success, got \{e}")
+  }
+  @debug.assert_eq(desc_i, desc_bytes.length())
+  @debug.assert_eq(decoded_desc, exact_desc_cast)
+}
+
+///|
 test "Comp Types" {
   roundtrip(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),

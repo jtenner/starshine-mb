@@ -4,6 +4,11 @@ pub fn global_struct_inference_summary() -> String {
 }
 
 ///|
+pub fn global_struct_inference_desc_cast_summary() -> String {
+  "Run global-struct-inference and rewrite eligible casts to descriptor-equality casts."
+}
+
+///|
 fn gsi_type_slot(type_idx : @lib.TypeIdx, type_count : Int) -> Int {
   match type_idx {
     @lib.TypeIdx(idx) => {
@@ -2300,6 +2305,113 @@ fn gsi_append_direct_global_replacement(
 }
 
 ///|
+fn gsi_heap_type_idx(heap_type : @lib.HeapType) -> @lib.TypeIdx? {
+  match heap_type {
+    @lib.HeapType(type_idx) => Some(type_idx)
+    _ => None
+  }
+}
+
+///|
+fn gsi_type_is_strict_subtype_of(
+  env : @validate.Env,
+  child : @lib.TypeIdx,
+  target : @lib.TypeIdx,
+  visited : Array[Bool],
+) -> Bool {
+  let child_slot = gsi_type_slot(child, visited.length())
+  if child_slot < 0 || visited[child_slot] {
+    return false
+  }
+  visited[child_slot] = true
+  for super_type in env.global_types[child_slot].super_types() {
+    if super_type == target ||
+      gsi_type_is_strict_subtype_of(env, super_type, target, visited) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gsi_type_has_strict_subtypes(
+  env : @validate.Env,
+  target : @lib.TypeIdx,
+) -> Bool {
+  let type_count = env.global_types.length()
+  for slot = 0; slot < type_count; slot = slot + 1 {
+    let child = gsi_type_idx_from_slot(slot)
+    if child == target {
+      continue
+    }
+    if gsi_type_is_strict_subtype_of(
+        env,
+        child,
+        target,
+        Array::make(type_count, false),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gsi_desc_cast_singleton_descriptor_global(
+  env : @validate.Env,
+  rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+  heap_type : @lib.HeapType,
+  exact_target : Bool,
+) -> @lib.GlobalIdx? {
+  let target_type = match gsi_heap_type_idx(heap_type) {
+    Some(type_idx) => type_idx
+    None => return None
+  }
+  let target_slot = gsi_type_slot(target_type, env.global_types.length())
+  if target_slot < 0 {
+    return None
+  }
+  if !exact_target && gsi_type_has_strict_subtypes(env, target_type) {
+    return None
+  }
+  let desc_type = match env.global_types[target_slot].descriptor_type() {
+    Some(type_idx) => type_idx
+    None => return None
+  }
+  let desc_slot = gsi_type_slot(
+    desc_type,
+    rewrite_candidates_by_type_slot.length(),
+  )
+  if desc_slot < 0 {
+    return None
+  }
+  let candidates = rewrite_candidates_by_type_slot[desc_slot]
+  if candidates.length() == 1 {
+    Some(candidates[0])
+  } else {
+    None
+  }
+}
+
+///|
+fn gsi_append_desc_cast_rewrite(
+  out : Array[@lib.Instruction],
+  operand : @lib.Instruction,
+  desc_global : @lib.GlobalIdx,
+  nullable : Bool,
+  exact_target : Bool,
+  heap_type : @lib.HeapType,
+) -> Unit {
+  out.push(operand)
+  out.push(@lib.Instruction::global_get(desc_global))
+  out.push(
+    @lib.Instruction::ref_cast_desc_eq_type(
+      @lib.RefType::new(nullable, heap_type, exact=exact_target),
+    ),
+  )
+}
+
+///|
 fn gsi_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -2310,6 +2422,7 @@ fn gsi_rewrite_instrs(
   global_type_slots : Array[Int],
   exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?],
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+  optimize_desc_casts : Bool,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -2345,7 +2458,7 @@ fn gsi_rewrite_instrs(
                 gsi_rewrite_instrs(
                   body, env, local_env, fields_by_type, global_values_by_abs_idx,
                   global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
-                  rewrite_candidates_by_type_slot,
+                  rewrite_candidates_by_type_slot, optimize_desc_casts,
                 ),
               ),
             ),
@@ -2358,7 +2471,7 @@ fn gsi_rewrite_instrs(
                 gsi_rewrite_instrs(
                   body, env, local_env, fields_by_type, global_values_by_abs_idx,
                   global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
-                  rewrite_candidates_by_type_slot,
+                  rewrite_candidates_by_type_slot, optimize_desc_casts,
                 ),
               ),
             ),
@@ -2372,6 +2485,7 @@ fn gsi_rewrite_instrs(
               gsi_rewrite_instrs(
                 body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
                 global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+                optimize_desc_casts,
               ),
             ),
           ),
@@ -2383,12 +2497,13 @@ fn gsi_rewrite_instrs(
             gsi_rewrite_instrs(
               then_body, env, local_env, fields_by_type, global_values_by_abs_idx,
               global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
-              rewrite_candidates_by_type_slot,
+              rewrite_candidates_by_type_slot, optimize_desc_casts,
             ),
             else_body.map(fn(body) {
               gsi_rewrite_instrs(
                 body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
                 global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+                optimize_desc_casts,
               )
             }),
           ),
@@ -2402,6 +2517,7 @@ fn gsi_rewrite_instrs(
               gsi_rewrite_instrs(
                 body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
                 global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+                optimize_desc_casts,
               ),
             ),
           ),
@@ -2421,7 +2537,24 @@ fn gsi_rewrite_instrs(
               idx += 2
               continue
             }
-            None => out.push(instr)
+            None =>
+              match next_instr {
+                @lib.RefCast(nullable, exact_target, heap_type) if optimize_desc_casts =>
+                  match
+                    gsi_desc_cast_singleton_descriptor_global(
+                      env, rewrite_candidates_by_type_slot, heap_type, exact_target,
+                    ) {
+                    Some(desc_global) => {
+                      gsi_append_desc_cast_rewrite(
+                        out, instr, desc_global, nullable, exact_target, heap_type,
+                      )
+                      idx += 2
+                      continue
+                    }
+                    None => out.push(instr)
+                  }
+                _ => out.push(instr)
+              }
           }
         } else {
           out.push(instr)
@@ -2429,6 +2562,24 @@ fn gsi_rewrite_instrs(
       @lib.LocalGet(local_idx) =>
         if idx + 1 < instrs.length() {
           let next_instr = instrs[idx + 1]
+          match next_instr {
+            @lib.RefCast(nullable, exact_target, heap_type) if optimize_desc_casts =>
+              match
+                gsi_desc_cast_singleton_descriptor_global(
+                  env, rewrite_candidates_by_type_slot, heap_type, exact_target,
+                ) {
+                Some(desc_global) => {
+                  ignore(local_idx)
+                  gsi_append_desc_cast_rewrite(
+                    out, instr, desc_global, nullable, exact_target, heap_type,
+                  )
+                  idx += 2
+                  continue
+                }
+                None => ()
+              }
+            _ => ()
+          }
           let origin_rewrite = match next_instr {
             @lib.StructGet(type_idx, field_idx)
             | @lib.StructGetS(type_idx, field_idx)
@@ -2582,6 +2733,7 @@ fn gsi_instrs_may_rewrite(
   global_type_slots : Array[Int],
   exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?],
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+  optimize_desc_casts : Bool,
 ) -> Bool {
   let mut idx = 0
   while idx < instrs.length() {
@@ -2590,6 +2742,13 @@ fn gsi_instrs_may_rewrite(
       @lib.GlobalGet(global_idx) =>
         if idx + 1 < instrs.length() {
           match instrs[idx + 1] {
+            @lib.RefCast(_, exact_target, heap_type) if optimize_desc_casts =>
+              if gsi_desc_cast_singleton_descriptor_global(
+                  env, rewrite_candidates_by_type_slot, heap_type, exact_target,
+                )
+                is Some(_) {
+                return true
+              }
             @lib.StructGet(type_idx, field_idx) =>
               if gsi_folded_global_field_expr(
                   env, fields_by_type, global_values_by_abs_idx, global_type_slots,
@@ -2656,6 +2815,13 @@ fn gsi_instrs_may_rewrite(
       @lib.LocalGet(local_idx) =>
         if idx + 1 < instrs.length() {
           match instrs[idx + 1] {
+            @lib.RefCast(_, exact_target, heap_type) if optimize_desc_casts =>
+              if gsi_desc_cast_singleton_descriptor_global(
+                  env, rewrite_candidates_by_type_slot, heap_type, exact_target,
+                )
+                is Some(_) {
+                return true
+              }
             @lib.StructGet(type_idx, field_idx) => {
               if gsi_single_candidate_local_origin_block(
                   env, local_env, exact_single_candidate_by_type_slot, local_idx,
@@ -2832,6 +2998,7 @@ fn gsi_instrs_may_rewrite(
         if gsi_instrs_may_rewrite(
             body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
             global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+            optimize_desc_casts,
           ) {
           return true
         }
@@ -2840,6 +3007,7 @@ fn gsi_instrs_may_rewrite(
         if gsi_instrs_may_rewrite(
             body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
             global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+            optimize_desc_casts,
           ) {
           return true
         }
@@ -2847,7 +3015,7 @@ fn gsi_instrs_may_rewrite(
         if gsi_instrs_may_rewrite(
             then_body, env, local_env, fields_by_type, global_values_by_abs_idx,
             global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
-            rewrite_candidates_by_type_slot,
+            rewrite_candidates_by_type_slot, optimize_desc_casts,
           ) {
           return true
         }
@@ -2856,7 +3024,7 @@ fn gsi_instrs_may_rewrite(
             if gsi_instrs_may_rewrite(
                 else_body, env, local_env, fields_by_type, global_values_by_abs_idx,
                 global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
-                rewrite_candidates_by_type_slot,
+                rewrite_candidates_by_type_slot, optimize_desc_casts,
               ) {
               return true
             }
@@ -2867,6 +3035,7 @@ fn gsi_instrs_may_rewrite(
         if gsi_instrs_may_rewrite(
             body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
             global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+            optimize_desc_casts,
           ) {
           return true
         }
@@ -2905,15 +3074,16 @@ fn gsi_cleanup_dropped_unreachable_debris(
 }
 
 ///|
-pub fn global_struct_inference_run_module_pass(
+fn gsi_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
+  optimize_desc_casts : Bool,
 ) -> @lib.Module {
   let (unnested_mod, did_unnest) = gsi_unnest_global_operands(
     mod_, closed_world,
   )
   if did_unnest {
-    return global_struct_inference_run_module_pass(unnested_mod, closed_world)
+    return gsi_run_module_pass(unnested_mod, closed_world, optimize_desc_casts)
   }
   let (mod_, cleanup_changed) = gsi_cleanup_dropped_unreachable_debris(mod_)
   let env = @validate.Env::new().with_module(mod_)
@@ -3046,12 +3216,14 @@ pub fn global_struct_inference_run_module_pass(
     if !gsi_instrs_may_rewrite(
         instrs, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
         global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+        optimize_desc_casts,
       ) {
       continue
     }
     let next_instrs = gsi_rewrite_instrs(
       instrs, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
       global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+      optimize_desc_casts,
     )
     if next_instrs == instrs {
       continue
@@ -3067,4 +3239,20 @@ pub fn global_struct_inference_run_module_pass(
     return mod_
   }
   mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+}
+
+///|
+pub fn global_struct_inference_run_module_pass(
+  mod_ : @lib.Module,
+  closed_world : Bool,
+) -> @lib.Module {
+  gsi_run_module_pass(mod_, closed_world, false)
+}
+
+///|
+pub fn global_struct_inference_desc_cast_run_module_pass(
+  mod_ : @lib.Module,
+  closed_world : Bool,
+) -> @lib.Module {
+  gsi_run_module_pass(mod_, closed_world, true)
 }

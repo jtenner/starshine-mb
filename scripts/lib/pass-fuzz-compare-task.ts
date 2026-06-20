@@ -262,6 +262,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--once-reduction",
   "--global-refining",
   "--global-struct-inference",
+  "--global-struct-inference-desc-cast",
   "--reorder-locals",
   "--local-subtyping",
   "--coalesce-locals",
@@ -284,6 +285,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
 const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--dead-code-elimination", "--dce"],
   ["--global-struct-inference", "--gsi"],
+  ["--global-struct-inference-desc-cast", "--gsi-desc-cast"],
   ["--redundant-set-elimination", "--rse"],
   ["--simplify-locals-no-structure", "--simplify-locals-nostructure"],
 ]);

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md
   - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
@@ -158,12 +158,14 @@ So the reviewed `version_129` owner/test map still matches current `main` on the
 A parity-minded local implementation should mirror these structural facts first:
 
 1. keep `global-struct-inference-desc-cast` as a sibling of `gsi`, not as a mode mixed into unrelated cast passes
-2. preserve the public naming split and boundary-only registry identity
-3. keep the desc-cast-specific rewrite isolated to a `visitRefCast`-style hook
+2. preserve the public naming split while treating the pass as a real module-pass surface, not a boundary-only alias
+3. keep the desc-cast-specific rewrite isolated to a `visitRefCast`-style hook or local equivalent
 4. drive that rewrite from the **target descriptor singleton** rule, not from a made-up richer cast-input-origin oracle
 5. keep the strict-subtype legality check explicit
 6. keep the inherited closed-world `typeGlobals` population and nested `reorder-globals-always` repair story explicit
 7. use the dedicated `gsi-to-desc-cast.wast` delta file as the main oracle for the sibling
+
+2026-06-20 Starshine activation note: the local pass now implements the singleton descriptor-global positive for immediate `local.get` / `global.get` cast operands plus nullable, exact target, closed-world, zero/multiple-global, and non-exact strict-subtype bailout tests. Broader operand coverage and dedicated closed-world descriptor-cast fuzz generation remain open in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Sources
 

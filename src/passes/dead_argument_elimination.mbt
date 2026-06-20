@@ -2499,9 +2499,9 @@ fn dae_collect_used_type_idx_instrs(
       | @lib.StructSet(type_idx, _) => dae_mark_used_type_idx(type_idx, used)
       @lib.RefNull(rt) => dae_mark_used_ref_type(rt, used)
       @lib.RefTest(_, ht)
-      | @lib.RefCast(_, ht)
+      | @lib.RefCast(_, _, ht)
       | @lib.RefTestDesc(_, ht)
-      | @lib.RefCastDescEq(_, ht) => dae_mark_used_heap_type(ht, used)
+      | @lib.RefCastDescEq(_, _, ht) => dae_mark_used_heap_type(ht, used)
       @lib.BrOnCast(_, _, source_ht, target_ht)
       | @lib.BrOnCastFail(_, _, source_ht, target_ht) => {
         dae_mark_used_heap_type(source_ht, used)
@@ -2643,10 +2643,13 @@ fn dae_rewrite_pruned_type_idx_instr(
         nullable,
         dae_rewrite_pruned_heap_type(ht, remap),
       )
-    @lib.RefCast(nullable, ht) =>
-      @lib.Instruction::ref_cast(
-        nullable,
-        dae_rewrite_pruned_heap_type(ht, remap),
+    @lib.RefCast(nullable, exact, ht) =>
+      @lib.Instruction::ref_cast_type(
+        @lib.RefType::new(
+          nullable,
+          dae_rewrite_pruned_heap_type(ht, remap),
+          exact~,
+        ),
       )
     _ => instr
   }
@@ -9254,7 +9257,7 @@ fn dae_heap_type_accepts_i31_ref(ht : @lib.HeapType) -> Bool {
 ///|
 fn dae_instr_is_i31_success_ref_cast(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.RefCast(_, ht) => dae_heap_type_accepts_i31_ref(ht)
+    @lib.RefCast(_, _, ht) => dae_heap_type_accepts_i31_ref(ht)
     _ => false
   }
 }
@@ -9262,7 +9265,7 @@ fn dae_instr_is_i31_success_ref_cast(instr : @lib.Instruction) -> Bool {
 ///|
 fn dae_instr_is_nullable_ref_cast(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.RefCast(true, _) => true
+    @lib.RefCast(true, _, _) => true
     _ => false
   }
 }
@@ -9831,7 +9834,7 @@ fn dae_find_droppable_pure_stack_expr_start(
       match out[start] {
         @lib.RefNull(_) => ()
         @lib.RefI31 => needs.push(0)
-        @lib.RefCast(true, ht) if dae_heap_type_accepts_i31_ref(ht) =>
+        @lib.RefCast(true, _, ht) if dae_heap_type_accepts_i31_ref(ht) =>
           needs.push(3)
         instr if dae_instr_is_nullable_ref_cast(instr) => needs.push(2)
         _ => return None
@@ -9854,7 +9857,7 @@ fn dae_find_droppable_pure_stack_expr_start(
       match out[start] {
         @lib.I31GetS | @lib.I31GetU => needs.push(1)
         @lib.RefAsNonNull => needs.push(1)
-        @lib.RefCast(true, ht) if dae_heap_type_accepts_i31_ref(ht) =>
+        @lib.RefCast(true, _, ht) if dae_heap_type_accepts_i31_ref(ht) =>
           needs.push(3)
         instr if dae_instr_is_i31_success_ref_cast(instr) => needs.push(1)
         instr if dae_instr_is_nullable_ref_cast(instr) => needs.push(2)

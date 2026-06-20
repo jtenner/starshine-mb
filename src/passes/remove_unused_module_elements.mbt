@@ -2468,9 +2468,9 @@ fn rume_mark_instruction_types(
     }
     @lib.RefNull(ref_type) => rume_mark_ref_type(used_types, ref_type)
     @lib.RefTest(_, heap_type)
-    | @lib.RefCast(_, heap_type)
+    | @lib.RefCast(_, _, heap_type)
     | @lib.RefTestDesc(_, heap_type)
-    | @lib.RefCastDescEq(_, heap_type) =>
+    | @lib.RefCastDescEq(_, _, heap_type) =>
       rume_mark_heap_type(used_types, heap_type)
     @lib.BrOnCast(_, _, source, target)
     | @lib.BrOnCastFail(_, _, source, target) => {

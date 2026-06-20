@@ -2341,8 +2341,8 @@ fn precompute_raw_instr_is_preserved_dropped_effect(
     | @lib.I64RemS
     | @lib.I64RemU
     | @lib.RefAsNonNull
-    | @lib.RefCast(_, _)
-    | @lib.RefCastDescEq(_, _)
+    | @lib.RefCast(_, _, _)
+    | @lib.RefCastDescEq(_, _, _)
     | @lib.StructGet(_, _)
     | @lib.StructGetS(_, _)
     | @lib.StructGetU(_, _)

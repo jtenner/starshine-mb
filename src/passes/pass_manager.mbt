@@ -10836,7 +10836,7 @@ fn run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill_for_non_nul
         Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
         _ => false
       }
-    Some(@lib.RefCast(_, _))
+    Some(@lib.RefCast(_, _, _))
     | Some(@lib.StructNew(_))
     | Some(@lib.ArrayNew(_))
     | Some(@lib.ArrayNewFixed(_, _))
@@ -10893,9 +10893,9 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     | Some(@lib.If(@lib.ValTypeBlockType(ref_type), _, _)) =>
       (ref_type, None, true, false)
     Some(@lib.Select(Some([ref_type]))) => (ref_type, None, true, false)
-    Some(@lib.RefCast(nullable, heap_type)) =>
+    Some(@lib.RefCast(nullable, exact, heap_type)) =>
       (
-        @lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)),
+        @lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type, exact~)),
         None,
         true,
         false,
@@ -19688,7 +19688,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_branch_sequence(
         if previous_is_call || previous_is_call_ref_cast {
           return true
         }
-      @lib.RefCast(_, _) if previous_is_call => {
+      @lib.RefCast(_, _, _) if previous_is_call => {
         previous_is_call = false
         previous_is_call_ref_cast = true
         continue
@@ -27015,6 +27015,11 @@ fn run_hot_pipeline_apply_module_pass(
       global_refining_run_module_pass(mod_, closed_world=options.closed_world)
     "global-struct-inference" =>
       global_struct_inference_run_module_pass(mod_, options.closed_world)
+    "global-struct-inference-desc-cast" =>
+      global_struct_inference_desc_cast_run_module_pass(
+        mod_,
+        options.closed_world,
+      )
     "reorder-locals" => reorder_locals_run_module_pass(mod_)
     "local-subtyping" => local_subtyping_run_module_pass(mod_)
     "coalesce-locals" =>

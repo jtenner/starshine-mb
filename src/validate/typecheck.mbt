@@ -1996,8 +1996,13 @@ fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
 }
 
 ///|
-fn typecheck_ref_cast(st : TcState, nullable : Bool, ht : HeapType) -> TcResult {
-  let rt = RefType::new(nullable, ht)
+fn typecheck_ref_cast(
+  st : TcState,
+  nullable : Bool,
+  exact : Bool,
+  ht : HeapType,
+) -> TcResult {
+  let rt = RefType::new(nullable, ht, exact~)
   if Validate::validate(rt, st.env) is Err(t) {
     return Err("invalid ref.cast target reftype: " + t)
   }
@@ -2066,10 +2071,16 @@ fn typecheck_ref_cast_desc_eq_descriptor_matches(
 fn typecheck_ref_cast_desc_eq(
   st : TcState,
   nullable : Bool,
+  exact : Bool,
   ht : HeapType,
 ) -> TcResult {
   let rt = match st.env.resolve_descriptor_target_ref_type(nullable, ht) {
-    Ok(t) => t
+    Ok(t) =>
+      if exact {
+        RefType::new(t.is_nullable(), t.get_heap_type(), exact=true)
+      } else {
+        t
+      }
     Err(e) => return Err(e)
   }
   let (st1, first_opt) = match st.pop_ref_or_bot() {
@@ -3553,9 +3564,10 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
       )
     RefGetDesc(type_idx) => typecheck_ref_get_desc(st, type_idx)
     RefTest(nullable, ht) => typecheck_ref_test(st, nullable, ht)
-    RefCast(nullable, ht) => typecheck_ref_cast(st, nullable, ht)
+    RefCast(nullable, exact, ht) => typecheck_ref_cast(st, nullable, exact, ht)
     RefTestDesc(nullable, ht) => typecheck_ref_test_desc(st, nullable, ht)
-    RefCastDescEq(nullable, ht) => typecheck_ref_cast_desc_eq(st, nullable, ht)
+    RefCastDescEq(nullable, exact, ht) =>
+      typecheck_ref_cast_desc_eq(st, nullable, exact, ht)
     AnyConvertExtern => typecheck_any_convert_extern(st)
     ExternConvertAny => typecheck_extern_convert_any(st)
     RefI31 => typecheck_ref_i31(st)

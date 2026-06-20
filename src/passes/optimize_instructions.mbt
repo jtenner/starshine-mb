@@ -4752,7 +4752,7 @@ fn optimize_instructions_try_fold_ref_cast_null(
     return false
   }
   let (nullable, target) = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefCast(nullable, target)) => (nullable, target)
+    Some(@lib.Instruction::RefCast(nullable, _, target)) => (nullable, target)
     _ => return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
@@ -4841,7 +4841,7 @@ fn optimize_instructions_ref_eq_same_local_operand(
         return None
       }
       match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::RefCast(true, target)) => {
+        Some(@lib.Instruction::RefCast(true, _, target)) => {
           let child_id = @ir.hot_child_get(func, node_id, 0)
           match @ir.hot_node_get(func, child_id).op {
             @ir.HotOp::LocalGet => {

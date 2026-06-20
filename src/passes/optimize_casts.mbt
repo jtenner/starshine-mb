@@ -163,9 +163,10 @@ fn oc_ref_type_from_node(func : @ir.HotFunc, node_id : Int) -> @lib.RefType? {
 ///|
 fn oc_target_ref_type(
   nullable : Bool,
+  exact : Bool,
   heap_type : @lib.HeapType,
 ) -> @lib.RefType {
-  @lib.RefType::new(nullable, heap_type)
+  @lib.RefType::new(nullable, heap_type, exact~)
 }
 
 ///|
@@ -322,15 +323,15 @@ fn oc_rewrite_node(
     return false
   }
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefCast(nullable, heap_type))
-    | Some(@lib.Instruction::RefCastDescEq(nullable, heap_type)) => {
+    Some(@lib.Instruction::RefCast(nullable, exact, heap_type))
+    | Some(@lib.Instruction::RefCastDescEq(nullable, exact, heap_type)) => {
       if @ir.hot_child_count(func, node_id) != 1 {
         return false
       }
       let child_id = @ir.hot_child_get(func, node_id, 0)
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
-          let target_ref = oc_target_ref_type(nullable, heap_type)
+          let target_ref = oc_target_ref_type(nullable, exact, heap_type)
           if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
             oc_replace_with_child(ctx, func, node_id)
             return true
@@ -348,7 +349,7 @@ fn oc_rewrite_node(
       let child_id = @ir.hot_child_get(func, node_id, 0)
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
-          let target_ref = oc_target_ref_type(nullable, heap_type)
+          let target_ref = oc_target_ref_type(nullable, false, heap_type)
           if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
             oc_replace_with_const_i32(ctx, func, node_id, 1)
             return true
@@ -373,7 +374,7 @@ fn oc_rewrite_node(
       )
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
-          let target_ref = oc_target_ref_type(nullable, heap_type)
+          let target_ref = oc_target_ref_type(nullable, false, heap_type)
           if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
             oc_replace_with_unconditional_br(ctx, func, node_id)
             return true
@@ -397,7 +398,7 @@ fn oc_rewrite_node(
       let child_id = @ir.hot_child_get(func, node_id, 0)
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
-          let target_ref = oc_target_ref_type(nullable, heap_type)
+          let target_ref = oc_target_ref_type(nullable, false, heap_type)
           if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
             oc_replace_with_child(ctx, func, node_id)
             return true

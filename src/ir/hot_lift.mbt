@@ -780,9 +780,9 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::I64Store16(_)
     | Instruction::I64Store32(_) => Some(HotOp::Store)
     Instruction::RefTest(_, _) => Some(HotOp::RefTest)
-    Instruction::RefCast(_, _) => Some(HotOp::RefCast)
+    Instruction::RefCast(_, _, _) => Some(HotOp::RefCast)
     Instruction::RefTestDesc(_, _) => Some(HotOp::RefTestDesc)
-    Instruction::RefCastDescEq(_, _) => Some(HotOp::RefCastDescEq)
+    Instruction::RefCastDescEq(_, _, _) => Some(HotOp::RefCastDescEq)
     Instruction::BrOnCast(_, _, _, _) => Some(HotOp::BrOnCast)
     Instruction::BrOnCastFail(_, _, _, _) => Some(HotOp::BrOnCastFail)
     Instruction::StringNewUtf8Array
@@ -1442,9 +1442,9 @@ fn hot_lift_impl_exact_node_shape(
       (op, ty, memarg_id, payload_id)
     }
     Instruction::RefTest(_, _)
-    | Instruction::RefCast(_, _)
+    | Instruction::RefCast(_, _, _)
     | Instruction::RefTestDesc(_, _)
-    | Instruction::RefCastDescEq(_, _)
+    | Instruction::RefCastDescEq(_, _, _)
     | Instruction::BrOnCast(_, _, _, _)
     | Instruction::BrOnCastFail(_, _, _, _) => (op, ty, 0, payload_id)
     _ => (op, ty, payload_id, 0)

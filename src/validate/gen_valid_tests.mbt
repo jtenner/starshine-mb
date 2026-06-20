@@ -4092,7 +4092,7 @@ fn gen_valid_test_has_table_call_ref_source(
   }
   for i = 0; i + 3 < instrs.length(); i = i + 1 {
     match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
-      (I32Const(_), TableGet(_), RefCast(_, _), CallRef(_)) => return true
+      (I32Const(_), TableGet(_), RefCast(_, _, _), CallRef(_)) => return true
       _ => ()
     }
   }

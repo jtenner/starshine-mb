@@ -508,7 +508,7 @@ test "rse treats ref.cast refined locals as equivalent subtype sources" {
   match instrs {
     [
       @lib.Instruction::LocalGet(@lib.LocalIdx(cast_src)),
-      @lib.Instruction::RefCast(_, _),
+      @lib.Instruction::RefCast(_, _, _),
       @lib.Instruction::LocalSet(_),
       @lib.Instruction::LocalGet(@lib.LocalIdx(retargeted)),
       @lib.Instruction::Drop,
@@ -540,7 +540,7 @@ test "rse treats ref.cast_desc_eq refined locals as equivalent subtype sources" 
   match instrs {
     [
       @lib.Instruction::LocalGet(@lib.LocalIdx(cast_src)),
-      @lib.Instruction::RefCastDescEq(_, _),
+      @lib.Instruction::RefCastDescEq(_, _, _),
       @lib.Instruction::LocalSet(_),
       @lib.Instruction::LocalGet(@lib.LocalIdx(retargeted)),
       @lib.Instruction::Drop,

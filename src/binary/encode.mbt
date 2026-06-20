@@ -175,16 +175,23 @@ fn encode_ref_null_immediate(
   buf : @buffer.Buffer,
 ) -> Result[Unit, BinaryEncodeError] {
   match rt {
-    HeapTypeRefType(_, exact, ht) => {
-      if exact {
-        buf.write_byte(0x62)
-      }
-      Encode::encode(ht, buf)
-    }
+    HeapTypeRefType(_, exact, ht) => encode_ref_heap_type(exact, ht, buf)
     AbsHeapTypeRefType(StringAbsHeapType) =>
       Encode::encode(AbsHeapType::string_(), buf)
     AbsHeapTypeRefType(abs) => Encode::encode(abs, buf)
   }
+}
+
+///|
+fn encode_ref_heap_type(
+  exact : Bool,
+  ht : HeapType,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  if exact {
+    buf.write_byte(0x62)
+  }
+  Encode::encode(ht, buf)
 }
 
 ///|
@@ -2926,21 +2933,21 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
-    RefCast(false, ht) => {
+    RefCast(false, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(22), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht, buf) is Err(t) {
+      if encode_ref_heap_type(exact, ht, buf) is Err(t) {
         return Err(t)
       }
     }
-    RefCast(true, ht) => {
+    RefCast(true, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(23), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht, buf) is Err(t) {
+      if encode_ref_heap_type(exact, ht, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -2971,21 +2978,21 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
-    RefCastDescEq(false, ht) => {
+    RefCastDescEq(false, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(35), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht, buf) is Err(t) {
+      if encode_ref_heap_type(exact, ht, buf) is Err(t) {
         return Err(t)
       }
     }
-    RefCastDescEq(true, ht) => {
+    RefCastDescEq(true, exact, ht) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(36), buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht, buf) is Err(t) {
+      if encode_ref_heap_type(exact, ht, buf) is Err(t) {
         return Err(t)
       }
     }

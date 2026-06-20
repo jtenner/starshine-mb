@@ -3212,13 +3212,19 @@ fn decode_instruction_with_depth(
             Err(t) => Err(t)
           }
         Ok((@lib.U32(22), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((Instruction::ref_cast(false, ht), i))
+          match decode_ref_heap_type(bytes, i) {
+            Ok((exact, ht, i)) =>
+              Ok(
+                (Instruction::ref_cast_type(RefType::new(false, ht, exact~)), i),
+              )
             Err(t) => Err(t)
           }
         Ok((@lib.U32(23), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((Instruction::ref_cast(true, ht), i))
+          match decode_ref_heap_type(bytes, i) {
+            Ok((exact, ht, i)) =>
+              Ok(
+                (Instruction::ref_cast_type(RefType::new(true, ht, exact~)), i),
+              )
             Err(t) => Err(t)
           }
         Ok((U32(24), i)) => {
@@ -3289,13 +3295,29 @@ fn decode_instruction_with_depth(
             Err(t) => Err(t)
           }
         Ok((@lib.U32(35), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((Instruction::ref_cast_desc_eq(false, ht), i))
+          match decode_ref_heap_type(bytes, i) {
+            Ok((exact, ht, i)) =>
+              Ok(
+                (
+                  Instruction::ref_cast_desc_eq_type(
+                    RefType::new(false, ht, exact~),
+                  ),
+                  i,
+                ),
+              )
             Err(t) => Err(t)
           }
         Ok((@lib.U32(36), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((Instruction::ref_cast_desc_eq(true, ht), i))
+          match decode_ref_heap_type(bytes, i) {
+            Ok((exact, ht, i)) =>
+              Ok(
+                (
+                  Instruction::ref_cast_desc_eq_type(
+                    RefType::new(true, ht, exact~),
+                  ),
+                  i,
+                ),
+              )
             Err(t) => Err(t)
           }
         Err(t) => Err(t)

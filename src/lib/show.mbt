@@ -1528,9 +1528,9 @@ pub impl Show for Instruction with fn output(self, logger) {
       HeapTypeRefType(n, false, ht).output(logger)
       logger.write_char(')')
     }
-    RefCast(n, ht) => {
+    RefCast(n, exact, ht) => {
       logger.write_string("(ref.cast ")
-      HeapTypeRefType(n, false, ht).output(logger)
+      HeapTypeRefType(n, exact, ht).output(logger)
       logger.write_char(')')
     }
     RefTestDesc(n, ht) => {
@@ -1538,9 +1538,9 @@ pub impl Show for Instruction with fn output(self, logger) {
       HeapTypeRefType(n, false, ht).output(logger)
       logger.write_char(')')
     }
-    RefCastDescEq(n, ht) => {
+    RefCastDescEq(n, exact, ht) => {
       logger.write_string("(ref.cast_desc_eq ")
-      HeapTypeRefType(n, false, ht).output(logger)
+      HeapTypeRefType(n, exact, ht).output(logger)
       logger.write_char(')')
     }
     BrOnCast(i, CastOp(l, r), lht, rht) => {

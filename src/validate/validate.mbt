@@ -5292,9 +5292,9 @@ fn gen_valid_gc_surface_facts_instr(
         has_ref_test: true,
         has_ref_test_desc: true,
       }
-    RefCast(_, _) =>
+    RefCast(_, _, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_ref_cast: true }
-    RefCastDescEq(_, _) =>
+    RefCastDescEq(_, _, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
         has_ref_cast: true,
@@ -6750,7 +6750,7 @@ fn validate_test_basic_ref_forms_instr(
         ref_test_nullable: nullable,
         ref_test_nonnullable: !nullable,
       }
-    RefCast(nullable, _) =>
+    RefCast(nullable, _, _) =>
       {
         ..validate_test_basic_ref_forms_empty(),
         ref_cast_nullable: nullable,

@@ -14395,7 +14395,7 @@ fn gen_valid_instr_is_basic_ref_instruction(instr : Instruction) -> Bool {
       }
     RefIsNull
     | RefTest(_, _)
-    | RefCast(_, _)
+    | RefCast(_, _, _)
     | BrOnCast(_, _, _, _)
     | BrOnCastFail(_, _, _, _) => true
     _ => false
@@ -14641,7 +14641,7 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         has_typed_select: true,
       }
     }
-    RefNull(_) | RefIsNull | RefTest(_, _) | RefCast(_, _) =>
+    RefNull(_) | RefIsNull | RefTest(_, _) | RefCast(_, _, _) =>
       GenValidInstrFacts::{
         ..GenValidInstrFacts::empty(),
         uses_ref_types: true,
@@ -14673,7 +14673,7 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
     | ThrowRef
     | RefGetDesc(_)
     | RefTestDesc(_, _)
-    | RefCastDescEq(_, _) =>
+    | RefCastDescEq(_, _, _) =>
       GenValidInstrFacts::{
         ..GenValidInstrFacts::empty(),
         uses_ref_types: true,
@@ -14831,7 +14831,7 @@ fn gen_valid_instr_template_signature_label(instr : Instruction) -> String {
     | RefIsNull
     | RefFunc(_)
     | RefTest(_, _)
-    | RefCast(_, _)
+    | RefCast(_, _, _)
     | BrOnCast(_, _, _, _)
     | BrOnCastFail(_, _, _, _) => "ref"
     MemorySize(_)

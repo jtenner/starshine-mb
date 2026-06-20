@@ -503,8 +503,8 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::RefTest(_, _) => 158
     @lib.Instruction::AnyConvertExtern => 159
     @lib.Instruction::ExternConvertAny => 160
-    @lib.Instruction::RefCast(true, _) => 162
-    @lib.Instruction::RefCast(false, _) => 163
+    @lib.Instruction::RefCast(true, _, _) => 162
+    @lib.Instruction::RefCast(false, _, _) => 163
     @lib.Instruction::RefAsNonNull => 164
     @lib.Instruction::RefI31 => 165
     @lib.Instruction::StructGet(_, _) => 166
@@ -515,7 +515,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::ArrayGetU(_) => 171
     @lib.Instruction::ArrayLen => 172
     @lib.Instruction::RefGetDesc(_) => 174
-    @lib.Instruction::RefCastDescEq(_, _) => 175
+    @lib.Instruction::RefCastDescEq(_, _, _) => 175
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -1330,7 +1330,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::AnyConvertExtern
     | @lib.Instruction::ExternConvertAny
     | @lib.Instruction::RefAsNonNull
-    | @lib.Instruction::RefCast(_, _)
+    | @lib.Instruction::RefCast(_, _, _)
     | @lib.Instruction::RefI31
     | @lib.Instruction::RefGetDesc(_)
     | @lib.Instruction::I32TruncF32S
@@ -1350,7 +1350,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::StructAtomicGetS(_, _, _)
     | @lib.Instruction::StructAtomicGetU(_, _, _)
     | @lib.Instruction::ArrayLen => Some(1)
-    @lib.Instruction::RefCastDescEq(_, _)
+    @lib.Instruction::RefCastDescEq(_, _, _)
     | @lib.Instruction::StructSet(_, _)
     | @lib.Instruction::TableSet(_) => Some(2)
     @lib.Instruction::TableGet(_) => Some(1)
@@ -1653,9 +1653,11 @@ fn lcse_raw_result_type(
       Some(@lib.ValType::ref_array_nonnull(type_idx))
     @lib.Instruction::RefAsNonNull =>
       lcse_ref_as_non_null_result_type(child_exprs)
-    @lib.Instruction::RefCast(nullable, heap_type)
-    | @lib.Instruction::RefCastDescEq(nullable, heap_type) =>
-      Some(@lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)))
+    @lib.Instruction::RefCast(nullable, exact, heap_type)
+    | @lib.Instruction::RefCastDescEq(nullable, exact, heap_type) =>
+      Some(
+        @lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type, exact~)),
+      )
     @lib.Instruction::RefI31 => Some(@lib.ValType::i31ref())
     @lib.Instruction::RefGetDesc(type_idx) =>
       lcse_raw_ref_get_desc_result_type(subtypes, type_idx, child_exprs)
@@ -1801,8 +1803,8 @@ fn lcse_raw_expr_profitable(expr : LcseRawExpr) -> Bool {
 fn lcse_raw_instr_caches_child_for_replay(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::RefAsNonNull
-    | @lib.Instruction::RefCast(false, _)
-    | @lib.Instruction::RefCastDescEq(false, _)
+    | @lib.Instruction::RefCast(false, _, _)
+    | @lib.Instruction::RefCastDescEq(false, _, _)
     | @lib.Instruction::RefI31
     | @lib.Instruction::RefGetDesc(_) => true
     _ => false
