@@ -197,6 +197,169 @@ fn hso_region_touches_local(
 }
 
 ///|
+fn hso_region_accesses_global(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  global_id : Int,
+  want_write : Bool,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hso_subtree_accesses_global(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        global_id,
+        want_write,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hso_subtree_accesses_global(
+  func : @ir.HotFunc,
+  node_id : Int,
+  global_id : Int,
+  want_write : Bool,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::GlobalGet =>
+      if !want_write && node.imm0 == global_id {
+        return true
+      }
+    @ir.HotOp::GlobalSet =>
+      if want_write && node.imm0 == global_id {
+        return true
+      }
+    _ => ()
+  }
+  for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
+    if hso_subtree_accesses_global(
+        func,
+        @ir.hot_child_get(func, node_id, idx),
+        global_id,
+        want_write,
+      ) {
+      return true
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_accesses_global(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        global_id,
+        want_write,
+      )
+    @ir.HotOp::If =>
+      if hso_region_accesses_global(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+          global_id,
+          want_write,
+        ) {
+        true
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_accesses_global(func, region_ref, global_id, want_write)
+          None => false
+        }
+      }
+    @ir.HotOp::Try =>
+      if hso_region_accesses_global(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          global_id,
+          want_write,
+        ) {
+        true
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_accesses_global(func, region_ref, global_id, want_write)
+          None => false
+        }
+      }
+    @ir.HotOp::TryTable =>
+      hso_region_accesses_global(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        global_id,
+        want_write,
+      ) ||
+      hso_region_accesses_global(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        global_id,
+        want_write,
+      )
+    _ => false
+  }
+}
+
+///|
+fn hso_subtree_has_global_write(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::GlobalSet => return true
+    _ => ()
+  }
+  for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
+    if hso_subtree_has_global_write(func, @ir.hot_child_get(func, node_id, idx)) {
+      return true
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_has_global_write(func, @ir.hot_region_body_ref(func, node_id))
+    @ir.HotOp::If =>
+      hso_region_has_global_write(func, @ir.hot_region_then_ref(func, node_id)) ||
+      (match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) => hso_region_has_global_write(func, region_ref)
+        None => false
+      })
+    @ir.HotOp::Try =>
+      hso_region_has_global_write(func, @ir.hot_region_body_ref(func, node_id)) ||
+      (match @ir.hot_region_catch_ref(func, node_id) {
+        Some(region_ref) => hso_region_has_global_write(func, region_ref)
+        None => false
+      })
+    @ir.HotOp::TryTable =>
+      hso_region_has_global_write(func, @ir.hot_region_body_ref(func, node_id)) ||
+      hso_region_has_global_write(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+      )
+    _ => false
+  }
+}
+
+///|
+fn hso_region_has_global_write(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hso_subtree_has_global_write(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn hso_subtree_touches_local(
   func : @ir.HotFunc,
   node_id : Int,
@@ -1204,6 +1367,79 @@ fn hso_struct_new_operand_effect_mask(
 }
 
 ///|
+fn hso_struct_new_operand_has_global_write(
+  func : @ir.HotFunc,
+  struct_new_id : Int,
+) -> Bool {
+  if struct_new_id < 0 || !@ir.hot_node_is_live(func, struct_new_id) {
+    return false
+  }
+  for idx = 0; idx < @ir.hot_child_count(func, struct_new_id); idx = idx + 1 {
+    if hso_subtree_has_global_write(
+        func,
+        @ir.hot_child_get(func, struct_new_id, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hso_struct_new_global_read_conflicts_with_write(
+  func : @ir.HotFunc,
+  struct_new_id : Int,
+  blocker_id : Int,
+) -> Bool {
+  if struct_new_id < 0 || !@ir.hot_node_is_live(func, struct_new_id) {
+    return false
+  }
+  if blocker_id < 0 || !@ir.hot_node_is_live(func, blocker_id) {
+    return false
+  }
+  let blocker = @ir.hot_node_get(func, blocker_id)
+  match blocker.op {
+    @ir.HotOp::GlobalSet => {
+      for idx = 0; idx < @ir.hot_child_count(func, struct_new_id); idx = idx + 1 {
+        if hso_subtree_accesses_global(
+            func,
+            @ir.hot_child_get(func, struct_new_id, idx),
+            blocker.imm0,
+            false,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn hso_global_only_ordering_can_be_ignored(
+  func : @ir.HotFunc,
+  moved_struct_new_id : Int,
+  moved_mask : UInt,
+  blocker_id : Int,
+  blocker_mask : UInt,
+) -> Bool {
+  let moved_without_global = moved_mask ^
+    (moved_mask & @ir.EFFECT_MASK_GLOBAL_STATE)
+  let blocker_without_global = blocker_mask ^
+    (blocker_mask & @ir.EFFECT_MASK_GLOBAL_STATE)
+  if moved_without_global != 0U || blocker_without_global != 0U {
+    return false
+  }
+  if hso_struct_new_operand_has_global_write(func, moved_struct_new_id) {
+    return false
+  }
+  !hso_struct_new_global_read_conflicts_with_write(
+    func, moved_struct_new_id, blocker_id,
+  )
+}
+
+///|
 fn hso_root_can_swap_before_local_struct_new(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
@@ -1237,7 +1473,10 @@ fn hso_root_can_swap_before_local_struct_new(
   let moved_mask = hso_struct_new_operand_effect_mask(
     func, module_ctx, node_masks, moved_struct_new_id,
   )
-  if hso_mask_ordered_before(moved_mask, blocker_mask) {
+  if hso_mask_ordered_before(moved_mask, blocker_mask) &&
+    !hso_global_only_ordering_can_be_ignored(
+      func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
+    ) {
     return false
   }
   let disallowed_effects = @ir.EFFECT_MASK_CONTROL |

@@ -241,6 +241,25 @@ fn hso_global_test_module(
 }
 
 ///|
+fn hso_two_global_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  hso_test_module(field_count, body).with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn hso_immutable_global_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -614,6 +633,22 @@ fn hso_global_test_run(
     Err(err) =>
       abort(
         "unexpected invalid global heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_two_global_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_two_global_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid two-global heap-store-optimization test fixture: \{err}",
       )
   }
   run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
@@ -3864,6 +3899,40 @@ test "heap-store-optimization keeps global.set before constructor global.get" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.set"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds constructor global.get across unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_two_global_test_run(
+      [
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unrelated-global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
