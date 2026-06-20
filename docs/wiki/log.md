@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful known-null ref.test/ref.cast
+
+- Filed [`raw/research/0794-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-test-cast.md`](raw/research/0794-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-test-cast.md) for the thirty-eighth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds known-null non-null-target `ref.test` / `ref.cast` while preserving an already-evaluated effectful prefix such as `drop(call $effect)`.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` before `i32.const 0` / `unreachable`. Red-first did not apply because this was coverage for existing behavior. Focused `*known-null ref.test*` passed `1/1`, focused `*ref.test and ref.cast*` passed `17/17`, final `*ref*` passed `45/45`, final `*optimize-instructions*` passed `175/175`, `moon fmt`, `moon test src/passes` (`2699/2699`), native `src/cmd` build, `moon info`, and `git diff --check` passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful known-null ref.as_non_null
 
 - Filed [`raw/research/0793-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-as-non-null.md`](raw/research/0793-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-as-non-null.md) for the thirty-seventh `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already rewrites known-null `ref.as_non_null` to `unreachable` while preserving an already-evaluated effectful prefix such as `drop(call $effect)`.
