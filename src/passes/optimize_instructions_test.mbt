@@ -210,6 +210,47 @@ test "optimize-instructions skips functions mixing loads and calls" {
 }
 
 ///|
+test "optimize-instructions intentionally keeps load-call memory offset folds behind raw gate" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "touch" (func $touch))
+        #|  (memory 1)
+        #|  (func
+        #|    i32.const 8
+        #|    i32.load offset=4
+        #|    drop
+        #|    call $touch))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected load-call memory offset gate success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=load-call-optimize-instructions-noop",
+      )
+    }),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  // Intentional fail-closed OI-G boundary: the direct HOT pass can fold
+  // constant-pointer static offsets, but the public pipeline keeps mixed
+  // load/call functions unchanged until the raw gate has a narrower,
+  // source-backed escape proof.
+  assert_true(pretty.contains("i32.const I32(8)"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("offset=U64(4)"), msg=pretty)
+  assert_false(pretty.contains("i32.const I32(12)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions skips call-local-write functions" {
   let trace : Array[String] = []
   match
