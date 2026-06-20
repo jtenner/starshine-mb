@@ -666,6 +666,18 @@ pub enum GenValidProfile {
   PrecomputeGcAtomicBoundaryProfile
   PrecomputeDirectPrefixWatchProfile
   PrecomputeAllProfile
+  PickLoadSignsSignedExtendProfile
+  PickLoadSignsSignedShiftProfile
+  PickLoadSignsUnsignedMaskProfile
+  PickLoadSignsUnsignedShiftProfile
+  PickLoadSignsUnknownUseBoundaryProfile
+  PickLoadSignsMixedWidthBoundaryProfile
+  PickLoadSignsWidthMismatchBoundaryProfile
+  PickLoadSignsTeeBoundaryProfile
+  PickLoadSignsNoMemoryBoundaryProfile
+  PickLoadSignsImportedMemoryProfile
+  PickLoadSignsI64WatchProfile
+  PickLoadSignsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
@@ -731,6 +743,21 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PrecomputeGcAtomicBoundaryProfile => "precompute-gc-atomic-boundary"
     PrecomputeDirectPrefixWatchProfile => "precompute-direct-prefix-watch"
     PrecomputeAllProfile => "precompute-all"
+    PickLoadSignsSignedExtendProfile => "pick-load-signs-signed-extend"
+    PickLoadSignsSignedShiftProfile => "pick-load-signs-signed-shift"
+    PickLoadSignsUnsignedMaskProfile => "pick-load-signs-unsigned-mask"
+    PickLoadSignsUnsignedShiftProfile => "pick-load-signs-unsigned-shift"
+    PickLoadSignsUnknownUseBoundaryProfile =>
+      "pick-load-signs-unknown-use-boundary"
+    PickLoadSignsMixedWidthBoundaryProfile =>
+      "pick-load-signs-mixed-width-boundary"
+    PickLoadSignsWidthMismatchBoundaryProfile =>
+      "pick-load-signs-width-mismatch-boundary"
+    PickLoadSignsTeeBoundaryProfile => "pick-load-signs-tee-boundary"
+    PickLoadSignsNoMemoryBoundaryProfile => "pick-load-signs-no-memory-boundary"
+    PickLoadSignsImportedMemoryProfile => "pick-load-signs-imported-memory"
+    PickLoadSignsI64WatchProfile => "pick-load-signs-i64-watch"
+    PickLoadSignsAllProfile => "pick-load-signs-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
@@ -742,7 +769,10 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
 ///|
 pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
   match profile {
-    GsiDescCastAllProfile | PrecomputeAllProfile | SsaNomergeAllProfile => true
+    GsiDescCastAllProfile
+    | PrecomputeAllProfile
+    | PickLoadSignsAllProfile
+    | SsaNomergeAllProfile => true
     _ => false
   }
 }
@@ -769,6 +799,20 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(PrecomputeEffectBoundaryProfile, 2),
         GenValidProfileMember::new(PrecomputeGcAtomicBoundaryProfile, 1),
         GenValidProfileMember::new(PrecomputeDirectPrefixWatchProfile, 1),
+      ]
+    PickLoadSignsAllProfile =>
+      [
+        GenValidProfileMember::new(PickLoadSignsSignedExtendProfile, 3),
+        GenValidProfileMember::new(PickLoadSignsSignedShiftProfile, 2),
+        GenValidProfileMember::new(PickLoadSignsUnsignedMaskProfile, 3),
+        GenValidProfileMember::new(PickLoadSignsUnsignedShiftProfile, 2),
+        GenValidProfileMember::new(PickLoadSignsUnknownUseBoundaryProfile, 1),
+        GenValidProfileMember::new(PickLoadSignsMixedWidthBoundaryProfile, 1),
+        GenValidProfileMember::new(PickLoadSignsWidthMismatchBoundaryProfile, 1),
+        GenValidProfileMember::new(PickLoadSignsTeeBoundaryProfile, 1),
+        GenValidProfileMember::new(PickLoadSignsNoMemoryBoundaryProfile, 1),
+        GenValidProfileMember::new(PickLoadSignsImportedMemoryProfile, 1),
+        GenValidProfileMember::new(PickLoadSignsI64WatchProfile, 1),
       ]
     SsaNomergeAllProfile =>
       [
@@ -864,6 +908,18 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PrecomputeGcAtomicBoundaryProfile,
     PrecomputeDirectPrefixWatchProfile,
     PrecomputeAllProfile,
+    PickLoadSignsSignedExtendProfile,
+    PickLoadSignsSignedShiftProfile,
+    PickLoadSignsUnsignedMaskProfile,
+    PickLoadSignsUnsignedShiftProfile,
+    PickLoadSignsUnknownUseBoundaryProfile,
+    PickLoadSignsMixedWidthBoundaryProfile,
+    PickLoadSignsWidthMismatchBoundaryProfile,
+    PickLoadSignsTeeBoundaryProfile,
+    PickLoadSignsNoMemoryBoundaryProfile,
+    PickLoadSignsImportedMemoryProfile,
+    PickLoadSignsI64WatchProfile,
+    PickLoadSignsAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
@@ -924,6 +980,9 @@ pub fn gen_valid_profile_by_name(
     "precompute" => Ok(PrecomputeAllProfile)
     "precompute-closeout" => Ok(PrecomputeAllProfile)
     "precompute-all-profiles" => Ok(PrecomputeAllProfile)
+    "pick-load-signs" => Ok(PickLoadSignsAllProfile)
+    "pick-load-signs-closeout" => Ok(PickLoadSignsAllProfile)
+    "pick-load-signs-all-profiles" => Ok(PickLoadSignsAllProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
     _ =>
@@ -1270,6 +1329,20 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_precompute_profile_config(profile)
     PrecomputeAllProfile =>
       gen_valid_precompute_profile_config(PrecomputeScalarProfile)
+    PickLoadSignsSignedExtendProfile
+    | PickLoadSignsSignedShiftProfile
+    | PickLoadSignsUnsignedMaskProfile
+    | PickLoadSignsUnsignedShiftProfile
+    | PickLoadSignsUnknownUseBoundaryProfile
+    | PickLoadSignsMixedWidthBoundaryProfile
+    | PickLoadSignsWidthMismatchBoundaryProfile
+    | PickLoadSignsTeeBoundaryProfile
+    | PickLoadSignsNoMemoryBoundaryProfile
+    | PickLoadSignsImportedMemoryProfile
+    | PickLoadSignsI64WatchProfile =>
+      gen_valid_pick_load_signs_profile_config(profile)
+    PickLoadSignsAllProfile =>
+      gen_valid_pick_load_signs_profile_config(PickLoadSignsSignedExtendProfile)
     SsaNomergeCoverageProfile
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
@@ -1422,6 +1495,97 @@ fn gen_valid_is_precompute_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(PrecomputeEffectBoundaryProfile) ||
   config == GenValidConfig::for_profile(PrecomputeGcAtomicBoundaryProfile) ||
   config == GenValidConfig::for_profile(PrecomputeDirectPrefixWatchProfile)
+}
+
+///|
+fn gen_valid_pick_load_signs_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let body_statements = match profile {
+    PickLoadSignsSignedExtendProfile => 11
+    PickLoadSignsSignedShiftProfile => 12
+    PickLoadSignsUnsignedMaskProfile => 13
+    PickLoadSignsUnsignedShiftProfile => 14
+    PickLoadSignsUnknownUseBoundaryProfile => 15
+    PickLoadSignsMixedWidthBoundaryProfile => 16
+    PickLoadSignsWidthMismatchBoundaryProfile => 17
+    PickLoadSignsTeeBoundaryProfile => 18
+    PickLoadSignsNoMemoryBoundaryProfile => 19
+    PickLoadSignsImportedMemoryProfile => 20
+    PickLoadSignsI64WatchProfile => 21
+    _ => 11
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 1,
+    max_imports: if profile == PickLoadSignsImportedMemoryProfile {
+      1
+    } else {
+      0
+    },
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: if profile == PickLoadSignsNoMemoryBoundaryProfile ||
+      profile == PickLoadSignsImportedMemoryProfile {
+      0
+    } else {
+      1
+    },
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 0,
+    max_results: if profile == PickLoadSignsTeeBoundaryProfile {
+      0
+    } else {
+      1
+    },
+    max_locals: 1,
+    max_body_statements: body_statements,
+    max_body_depth: 1,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: profile == PickLoadSignsImportedMemoryProfile,
+      allow_tables: false,
+      allow_mems: profile != PickLoadSignsNoMemoryBoundaryProfile,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_memory_limit_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_subtyping_topology: false,
+      allow_typed_body_generator: false,
+      allow_name_custom_sections: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_pick_load_signs_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(PickLoadSignsSignedExtendProfile) ||
+  config == GenValidConfig::for_profile(PickLoadSignsSignedShiftProfile) ||
+  config == GenValidConfig::for_profile(PickLoadSignsUnsignedMaskProfile) ||
+  config == GenValidConfig::for_profile(PickLoadSignsUnsignedShiftProfile) ||
+  config == GenValidConfig::for_profile(PickLoadSignsUnknownUseBoundaryProfile) ||
+  config == GenValidConfig::for_profile(PickLoadSignsMixedWidthBoundaryProfile) ||
+  config ==
+  GenValidConfig::for_profile(PickLoadSignsWidthMismatchBoundaryProfile) ||
+  config == GenValidConfig::for_profile(PickLoadSignsTeeBoundaryProfile) ||
+  config == GenValidConfig::for_profile(PickLoadSignsNoMemoryBoundaryProfile) ||
+  config == GenValidConfig::for_profile(PickLoadSignsImportedMemoryProfile) ||
+  config == GenValidConfig::for_profile(PickLoadSignsI64WatchProfile)
 }
 
 ///|
@@ -11817,6 +11981,201 @@ fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_pick_load_signs_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(PickLoadSignsSignedShiftProfile) {
+    PickLoadSignsSignedShiftProfile
+  } else if config ==
+    GenValidConfig::for_profile(PickLoadSignsUnsignedMaskProfile) {
+    PickLoadSignsUnsignedMaskProfile
+  } else if config ==
+    GenValidConfig::for_profile(PickLoadSignsUnsignedShiftProfile) {
+    PickLoadSignsUnsignedShiftProfile
+  } else if config ==
+    GenValidConfig::for_profile(PickLoadSignsUnknownUseBoundaryProfile) {
+    PickLoadSignsUnknownUseBoundaryProfile
+  } else if config ==
+    GenValidConfig::for_profile(PickLoadSignsMixedWidthBoundaryProfile) {
+    PickLoadSignsMixedWidthBoundaryProfile
+  } else if config ==
+    GenValidConfig::for_profile(PickLoadSignsWidthMismatchBoundaryProfile) {
+    PickLoadSignsWidthMismatchBoundaryProfile
+  } else if config ==
+    GenValidConfig::for_profile(PickLoadSignsTeeBoundaryProfile) {
+    PickLoadSignsTeeBoundaryProfile
+  } else if config ==
+    GenValidConfig::for_profile(PickLoadSignsNoMemoryBoundaryProfile) {
+    PickLoadSignsNoMemoryBoundaryProfile
+  } else if config ==
+    GenValidConfig::for_profile(PickLoadSignsImportedMemoryProfile) {
+    PickLoadSignsImportedMemoryProfile
+  } else if config == GenValidConfig::for_profile(PickLoadSignsI64WatchProfile) {
+    PickLoadSignsI64WatchProfile
+  } else {
+    PickLoadSignsSignedExtendProfile
+  }
+}
+
+///|
+fn gen_valid_pick_load_signs_memarg() -> MemArg {
+  MemArg::new(0U, None, 0UL)
+}
+
+///|
+fn gen_valid_pick_load_signs_i32_body(
+  kind : GenValidProfile,
+) -> Array[Instruction] {
+  let ma = gen_valid_pick_load_signs_memarg()
+  match kind {
+    PickLoadSignsSignedShiftProfile =>
+      [
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_load8u(ma),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(24)),
+        Instruction::i32_shl(),
+        Instruction::i32_const(I32(24)),
+        Instruction::i32_shr_s(),
+      ]
+    PickLoadSignsUnsignedMaskProfile =>
+      [
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_load8s(ma),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(255)),
+        Instruction::i32_and(),
+      ]
+    PickLoadSignsUnsignedShiftProfile =>
+      [
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_load16u(ma),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(16)),
+        Instruction::i32_shl(),
+        Instruction::i32_const(I32(16)),
+        Instruction::i32_shr_u(),
+      ]
+    PickLoadSignsUnknownUseBoundaryProfile =>
+      [
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_load8u(ma),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_eq(),
+      ]
+    PickLoadSignsMixedWidthBoundaryProfile =>
+      [
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_load8u(ma),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_extend8s(),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_extend16s(),
+      ]
+    PickLoadSignsWidthMismatchBoundaryProfile =>
+      [
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_load16u(ma),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_extend8s(),
+      ]
+    PickLoadSignsNoMemoryBoundaryProfile =>
+      [
+        Instruction::i32_const(I32(1)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ]
+    _ =>
+      [
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_load8u(ma),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_extend8s(),
+      ]
+  }
+}
+
+///|
+fn gen_valid_pick_load_signs_tee_body() -> Array[Instruction] {
+  let ma = gen_valid_pick_load_signs_memarg()
+  [
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load8u(ma),
+    Instruction::local_tee(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_extend8s(),
+    Instruction::drop(),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_pick_load_signs_i64_body() -> Array[Instruction] {
+  let ma = gen_valid_pick_load_signs_memarg()
+  [
+    Instruction::i32_const(I32(0)),
+    Instruction::i64_load32s(ma),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i64_extend32s(),
+  ]
+}
+
+///|
+fn gen_valid_pick_load_signs_profile_module(config : GenValidConfig) -> Module {
+  let kind = gen_valid_pick_load_signs_profile_kind(config)
+  let is_i64 = kind == PickLoadSignsI64WatchProfile
+  let is_tee = kind == PickLoadSignsTeeBoundaryProfile
+  let result_type = if is_tee {
+    []
+  } else if is_i64 {
+    [ValType::i64()]
+  } else {
+    [ValType::i32()]
+  }
+  let local_type = if is_i64 { ValType::i64() } else { ValType::i32() }
+  let body = if is_tee {
+    gen_valid_pick_load_signs_tee_body()
+  } else if is_i64 {
+    gen_valid_pick_load_signs_i64_body()
+  } else {
+    gen_valid_pick_load_signs_i32_body(kind)
+  }
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([], result_type)),
+  )
+  let func = Func::new(Locals::from_types([local_type]), Expr::new(body))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(CodeSec::new([func]))
+  if kind == PickLoadSignsNoMemoryBoundaryProfile {
+    mod
+  } else if kind == PickLoadSignsImportedMemoryProfile {
+    mod.with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("memory"),
+          ExternType::mem(MemType::new(Limits::i32(1U, None))),
+        ),
+      ]),
+    )
+  } else {
+    mod.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+  }
+}
+
+///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
   if gen_valid_is_gsi_desc_cast_profile_config(config) {
@@ -11824,6 +12183,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_precompute_profile_config(config) {
     return gen_valid_precompute_profile_module(config)
+  }
+  if gen_valid_is_pick_load_signs_profile_config(config) {
+    return gen_valid_pick_load_signs_profile_module(config)
   }
   let import_budget = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,

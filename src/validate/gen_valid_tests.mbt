@@ -8305,6 +8305,232 @@ test "precompute boundary gen-valid profiles emit trap effect gc atomic and dire
 }
 
 ///|
+fn gen_valid_test_instrs_contain_pick_load_signs_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut has_narrow_load = false
+  let mut has_local_set = false
+  let mut has_local_use_evidence = false
+  for instr in instrs {
+    match instr {
+      I32Load8S(_)
+      | I32Load8U(_)
+      | I32Load16S(_)
+      | I32Load16U(_)
+      | I64Load8S(_)
+      | I64Load8U(_)
+      | I64Load16S(_)
+      | I64Load16U(_)
+      | I64Load32S(_)
+      | I64Load32U(_) => has_narrow_load = true
+      LocalSet(_) => has_local_set = true
+      I32Extend8S
+      | I32Extend16S
+      | I64Extend8S
+      | I64Extend16S
+      | I64Extend32S
+      | I32And
+      | I64And
+      | I32Shl
+      | I32ShrS
+      | I32ShrU
+      | I64Shl
+      | I64ShrS
+      | I64ShrU
+      | I32Eq => has_local_use_evidence = true
+      _ => ()
+    }
+  }
+  has_narrow_load && has_local_set && has_local_use_evidence
+}
+
+///|
+fn gen_valid_test_module_contains_pick_load_signs_candidate(
+  mod : Module,
+) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_instrs_contain_pick_load_signs_candidate(instrs) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_imports_memory(mod : Module) -> Bool {
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          Import(_, _, MemExternType(_)) => return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_defines_memory(mod : Module) -> Bool {
+  match mod.mem_sec {
+    Some(MemSec(mems)) => !mems.is_empty()
+    None => false
+  }
+}
+
+///|
+test "pick-load-signs gen-valid profiles resolve and expose replayable aggregate" {
+  @debug.assert_eq(
+    gen_valid_profile_name(PickLoadSignsSignedExtendProfile),
+    "pick-load-signs-signed-extend",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(PickLoadSignsAllProfile),
+    "pick-load-signs-all",
+  )
+  assert_true(gen_valid_profile_names().contains("pick-load-signs-all"))
+  match gen_valid_profile_by_name("pick-load-signs") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, PickLoadSignsAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(members.length() >= 11)
+      @debug.assert_eq(members[0].profile, PickLoadSignsSignedExtendProfile)
+    }
+    Err(msg) => fail(msg)
+  }
+  let leaf = gen_valid_profile_leaf_for_case(
+    PickLoadSignsAllProfile,
+    0x5eedUL,
+    1,
+  )
+  assert_true(!gen_valid_profile_is_composite(leaf))
+}
+
+///|
+test "pick-load-signs aggregate profile samples every current family" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 256 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      PickLoadSignsAllProfile,
+      0x5eedUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(PickLoadSignsSignedExtendProfile))
+  assert_true(seen.contains(PickLoadSignsSignedShiftProfile))
+  assert_true(seen.contains(PickLoadSignsUnsignedMaskProfile))
+  assert_true(seen.contains(PickLoadSignsUnsignedShiftProfile))
+  assert_true(seen.contains(PickLoadSignsUnknownUseBoundaryProfile))
+  assert_true(seen.contains(PickLoadSignsMixedWidthBoundaryProfile))
+  assert_true(seen.contains(PickLoadSignsWidthMismatchBoundaryProfile))
+  assert_true(seen.contains(PickLoadSignsTeeBoundaryProfile))
+  assert_true(seen.contains(PickLoadSignsNoMemoryBoundaryProfile))
+  assert_true(seen.contains(PickLoadSignsImportedMemoryProfile))
+  assert_true(seen.contains(PickLoadSignsI64WatchProfile))
+}
+
+///|
+test "pick-load-signs optimization profiles emit validating narrow-load local-use candidates" {
+  for
+    profile in [
+      PickLoadSignsSignedExtendProfile,
+      PickLoadSignsSignedShiftProfile,
+      PickLoadSignsUnsignedMaskProfile,
+      PickLoadSignsUnsignedShiftProfile,
+      PickLoadSignsImportedMemoryProfile,
+      PickLoadSignsI64WatchProfile,
+    ] {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    @debug.assert_eq(generated.config_label, gen_valid_profile_name(profile))
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    assert_true(
+      gen_valid_test_module_contains_pick_load_signs_candidate(
+        generated.wasm_module,
+      ),
+      msg=gen_valid_profile_name(profile),
+    )
+  }
+}
+
+///|
+test "pick-load-signs boundary profiles emit deliberate skip and watchpoint modules" {
+  for
+    profile in [
+      PickLoadSignsUnknownUseBoundaryProfile,
+      PickLoadSignsMixedWidthBoundaryProfile,
+      PickLoadSignsWidthMismatchBoundaryProfile,
+      PickLoadSignsTeeBoundaryProfile,
+    ] {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    let instrs = gen_valid_test_first_func_instrs(generated.wasm_module)
+    assert_true(
+      gen_valid_test_instrs_contain_pick_load_signs_candidate(instrs) ||
+      generated.facts.has_local_tee,
+      msg=gen_valid_profile_name(profile),
+    )
+  }
+
+  let no_memory = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PickLoadSignsNoMemoryBoundaryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(no_memory.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_false(gen_valid_test_module_defines_memory(no_memory.wasm_module))
+  assert_false(gen_valid_test_module_imports_memory(no_memory.wasm_module))
+
+  let imported = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PickLoadSignsImportedMemoryProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_true(gen_valid_test_module_imports_memory(imported.wasm_module))
+  assert_false(gen_valid_test_module_defines_memory(imported.wasm_module))
+}
+
+///|
 test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
   for
     label in [

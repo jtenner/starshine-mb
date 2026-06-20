@@ -1136,6 +1136,18 @@ pub enum GenValidProfile {
   PrecomputeGcAtomicBoundaryProfile
   PrecomputeDirectPrefixWatchProfile
   PrecomputeAllProfile
+  PickLoadSignsSignedExtendProfile
+  PickLoadSignsSignedShiftProfile
+  PickLoadSignsUnsignedMaskProfile
+  PickLoadSignsUnsignedShiftProfile
+  PickLoadSignsUnknownUseBoundaryProfile
+  PickLoadSignsMixedWidthBoundaryProfile
+  PickLoadSignsWidthMismatchBoundaryProfile
+  PickLoadSignsTeeBoundaryProfile
+  PickLoadSignsNoMemoryBoundaryProfile
+  PickLoadSignsImportedMemoryProfile
+  PickLoadSignsI64WatchProfile
+  PickLoadSignsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile

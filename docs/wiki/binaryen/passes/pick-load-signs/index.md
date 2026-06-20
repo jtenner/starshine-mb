@@ -20,6 +20,9 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/fuzz/main_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/PickLoadSigns.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h
@@ -72,7 +75,7 @@ It is a tiny, shape-driven local rewrite.
   - `pick-load-signs` then picks a better narrow-load signedness in the remaining exact local cases
   - later `precompute` and rerun cleanup can benefit from the simpler opcode choice
 - The 2026-06-03 O4z audit refreshed direct signoff with `9975 / 10000` compared cases, `9975` normalized matches, `0` semantic mismatches, and `25` Binaryen/tool command failures; it also added focused local i64 positive tests and corrected the imported-memory fixture.
-- The 2026-06-20 modern-signoff refresh found no new semantic PLS behavior gap, but reopened `[O4Z-AUDIT-PLS]` as a release-gating evidence/profile slice because the older closeout predates the current four-lane final signoff matrix and no PLS-specific GenValid profile exists yet.
+- The 2026-06-20 modern-signoff refresh found no new semantic PLS behavior gap, but reopened `[O4Z-AUDIT-PLS]` as a release-gating evidence/profile slice because the older closeout predates the current four-lane final signoff matrix. The dedicated `pick-load-signs-all` GenValid profile now exists, so the remaining reclose work is running and recording the final matrix.
 - The saved generated-artifact `-O4z` audit records a successful top-level slot here:
   - ordered audit row `15`
   - Binaryen slot `18`
@@ -129,7 +132,7 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering direct sign-ext positives, mask and shift-pair positives, branch/tee/atomic bailouts, and the important non-goals.
 - [`./parity.md`](./parity.md)
-  - Current in-tree Starshine parity state, focused evidence, the explicit local-vs-upstream scope difference, and the 2026-06-20 modern-signoff gap.
+  - Current in-tree Starshine parity state, focused evidence, the explicit local-vs-upstream scope difference, the `pick-load-signs-all` GenValid profile, and the remaining 2026-06-20 modern-signoff matrix gap.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Concise Starshine status and code-map page for the active hot pass, including the registry, scheduler, raw-skip, test, and replay surfaces.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
@@ -167,7 +170,7 @@ Keep that difference explicit instead of silently smoothing it away.
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `pick-load-signs` parity and scheduler research.
-- Do not treat PLS as fully reclosed under the current final pass closeout standard until the pass-specific GenValid profile and four-lane matrix described in [`./fuzzing.md`](./fuzzing.md) are complete.
+- Do not treat PLS as fully reclosed under the current final pass closeout standard until the four-lane matrix described in [`./fuzzing.md`](./fuzzing.md) is complete with the `pick-load-signs-all` dedicated profile lane.
 - Keep the main correction explicit:
   - upstream `pick-load-signs` is a narrow AST-context pass, not a generic all-width load-sign canonicalizer
 - Keep the local-vs-upstream i64 scope difference explicit until it is either removed or intentionally documented as a standing divergence.

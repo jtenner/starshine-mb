@@ -18,6 +18,9 @@ sources:
   - ../../../../../src/passes/pick_load_signs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_tests.mbt
+  - ../../../../../src/fuzz/main_wbtest.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/PickLoadSigns.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/pick-load-signs_sign-ext.wast
@@ -48,7 +51,7 @@ related:
 - Current local artifact and focused fuzz evidence are still green despite that broader local surface.
 - The 2026-06-03 O4z audit refreshed direct signoff for `pick-load-signs` with `9975 / 10000` compared cases, `9975` normalized matches, 0 semantic mismatches, and 25 Binaryen/tool command failures.
 - Focused local tests now isolate the broader i64 positive rewrite surface and use a real imported-memory fixture, so the former i64-test caveat is closed while the local-vs-upstream scope divergence remains explicit.
-- The 2026-06-20 refresh found no new semantic behavior gap, but reopened `[O4Z-AUDIT-PLS]` as a release-gating evidence/profile slice: the older closeout predates the current four-lane final pass signoff matrix and `fuzzing.md` still has no pass-specific GenValid profile.
+- The 2026-06-20 refresh found no new semantic behavior gap, but reopened `[O4Z-AUDIT-PLS]` as a release-gating evidence/profile slice: the older closeout predates the current four-lane final pass signoff matrix. The pass now has a dedicated `pick-load-signs-all` GenValid profile and focused generator/manifest tests, but the full four-lane matrix has not been rerun yet.
 
 ## Current in-tree status
 
@@ -60,7 +63,7 @@ related:
 
 ## Signoff status
 
-Current status under the modern repo standard: not fully reclosed yet. The pass remains behavior-closed on existing inspected evidence, but modern final closeout still needs a PLS-specific GenValid profile plus the four-lane matrix from [`./fuzzing.md`](./fuzzing.md).
+Current status under the modern repo standard: not fully reclosed yet. The pass remains behavior-closed on existing inspected evidence, and `pick-load-signs-all` now supplies the required PLS-specific GenValid profile surface. Modern final closeout still needs the four-lane matrix from [`./fuzzing.md`](./fuzzing.md).
 
 - The `2026-03-29` debug-artifact signoff recorded canonical wasm parity and normalized WAT parity.
 - The same signoff recorded Starshine wall time at about `2067.184 ms` versus Binaryen at `1408.509 ms`.
@@ -70,7 +73,8 @@ Current status under the modern repo standard: not fully reclosed yet. The pass 
   - gen-valid: `200 / 200` compared, `200` normalized matches, `0` mismatches, `0` failures
 - The saved generated-artifact `-O4z` audit also records a successful ordered replay at Binaryen slot `18` / audit row `15`: exact wasm equality, meaningful equality, valid Starshine/Binaryen outputs, `7.492 ms` Starshine pass-local time, and `24.574 ms` Binaryen pass-local time.
 - The `2026-06-03` O4z audit direct closeout recorded `9975 / 10000` compared cases, `9975` normalized matches, `0` semantic mismatches, and `25` Binaryen/tool command failures in `.tmp/pass-fuzz-pick-load-signs-audit-10000`.
-- The `2026-06-20` refresh command `bun scripts/pass-fuzz-compare.ts --list-passes | grep pick-load-signs` still printed `pick-load-signs`. No new compare lane was run in that docs/backlog slice because `target/native/release/build/cmd/cmd.exe` was missing and no executable behavior changed.
+- The `2026-06-20` refresh command `bun scripts/pass-fuzz-compare.ts --list-passes | grep pick-load-signs` still printed `pick-load-signs`. No compare lane was run in that docs/backlog slice because `target/native/release/build/cmd/cmd.exe` was missing and no executable behavior changed.
+- The later 2026-06-20 profile slice added `pick-load-signs-all` plus singleton leaves for signed direct/shift evidence, unsigned mask/shift evidence, unknown/mixed/width/tee/no-memory/imported-memory boundaries, and the Starshine-local i64 watchpoint. Focused tests cover profile resolution, validation, aggregate leaf sampling, and manifest `selected_profile` metadata. The dedicated profile smoke `.tmp/pass-fuzz-pick-load-signs-profile-smoke-50-v2` compared `50/50`, normalized `50`, and had `0` mismatches/failures while sampling all 11 leaves.
 
 ## Important honesty note
 
@@ -95,7 +99,7 @@ The current final pass closeout standard requires:
 3. pass-specific GenValid profile `10000` cases at seed `0x5eed`
 4. broad named all-profiles-style GenValid lane `10000` cases at seed `0x5555`
 
-PLS has not yet run that matrix and has no dedicated pass-specific GenValid profile. Track that gap in `[O4Z-AUDIT-PLS]` rather than treating the 2026-06-03 closure as sufficient for current release-gating standards.
+PLS has not yet run that matrix. It now has the dedicated `pick-load-signs-all` profile required for lane 3, so `[O4Z-AUDIT-PLS]` remains open only until the matrix is run and classified rather than because of missing profile infrastructure.
 
 ## Freshness note
 
@@ -117,6 +121,9 @@ So there is no post-`version_129` trunk-drift caveat to maintain for this pass r
 - [`../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md)
 - [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt)
 - [`../../../../../src/passes/pick_load_signs_test.mbt`](../../../../../src/passes/pick_load_signs_test.mbt)
+- [`../../../../../src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt)
+- [`../../../../../src/validate/gen_valid_tests.mbt`](../../../../../src/validate/gen_valid_tests.mbt)
+- [`../../../../../src/fuzz/main_wbtest.mbt`](../../../../../src/fuzz/main_wbtest.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - Binaryen `version_129` sources:

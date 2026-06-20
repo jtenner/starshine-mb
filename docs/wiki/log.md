@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/pick-load-signs | Add dedicated GenValid profile
+
+- Added `pick-load-signs-all` as the dedicated composite GenValid profile for `[O4Z-AUDIT-PLS]`. The profile samples signed direct/shift positives, unsigned mask/shift positives, unknown-use, mixed-width, width-mismatch, `local.tee`, no-memory, imported-memory, and local i64 Starshine-watchpoint families.
+- Evidence: focused generator tests in `src/validate/gen_valid_tests.mbt` cover profile resolution, aggregate leaf sampling, validating modules, pass-owned candidate shapes, and deliberate boundaries. `src/fuzz/main_wbtest.mbt` covers composite batch manifest metadata with requested `config_label: "pick-load-signs-all"` and per-case `selected_profile`. Dedicated profile smoke `.tmp/pass-fuzz-pick-load-signs-profile-smoke-50-v2` compared `50/50`, normalized `50`, sampled all 11 leaves, and had `0` mismatches/failures. Docs and backlog now identify `pick-load-signs-all` as the required dedicated profile lane; the full four-lane closeout matrix remains to run.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful struct/array ref.eq miss
 
 - Filed [`raw/research/0805-2026-06-20-optimize-instructions-oi-i-effectful-struct-array-ref-eq.md`](raw/research/0805-2026-06-20-optimize-instructions-oi-i-effectful-struct-array-ref-eq.md) for the forty-ninth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding impossible `ref.eq` between absolute aggregate sibling locals with at least one non-null operand to `i32.const 0`.
