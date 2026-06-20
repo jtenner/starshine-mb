@@ -78,6 +78,7 @@ sources:
   - ../../../raw/research/0792-2026-06-20-optimize-instructions-oi-i-effectful-ref-as-non-null.md
   - ../../../raw/research/0793-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-as-non-null.md
   - ../../../raw/research/0794-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-test-cast.md
+  - ../../../raw/research/0795-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-eq.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -163,6 +164,7 @@ related:
   - ../../../raw/research/0792-2026-06-20-optimize-instructions-oi-i-effectful-ref-as-non-null.md
   - ../../../raw/research/0793-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-as-non-null.md
   - ../../../raw/research/0794-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-test-cast.md
+  - ../../../raw/research/0795-2026-06-20-optimize-instructions-oi-i-effectful-known-null-ref-eq.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md

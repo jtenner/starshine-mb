@@ -1432,6 +1432,55 @@ test "optimize-instructions folds ref.as_non_null on known null and non-null ref
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix while folding known-null ref.eq" {
+  let source =
+    #|(module
+    #|  (import "m" "effect" (func $effect (result i32)))
+    #|  (func (export "both-null") (result i32)
+    #|    call $effect
+    #|    drop
+    #|    ref.null eq
+    #|    ref.null eq
+    #|    ref.eq)
+    #|  (func (export "left-null") (result i32)
+    #|    call $effect
+    #|    drop
+    #|    ref.null eq
+    #|    i32.const 1
+    #|    ref.i31
+    #|    ref.eq)
+    #|  (func (export "right-null") (result i32)
+    #|    call $effect
+    #|    drop
+    #|    i32.const 1
+    #|    ref.i31
+    #|    ref.null eq
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful known-null ref.eq optimize success, got \{err}")
+  }
+  let both_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let left_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let right_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(both_pretty.contains("ref.eq"), msg=both_pretty)
+  assert_false(left_pretty.contains("ref.eq"), msg=left_pretty)
+  assert_false(right_pretty.contains("ref.eq"), msg=right_pretty)
+  assert_true(both_pretty.contains("call (Func 0)"), msg=both_pretty)
+  assert_true(left_pretty.contains("call (Func 0)"), msg=left_pretty)
+  assert_true(right_pretty.contains("call (Func 0)"), msg=right_pretty)
+  assert_true(both_pretty.contains("drop"), msg=both_pretty)
+  assert_true(left_pretty.contains("drop"), msg=left_pretty)
+  assert_true(right_pretty.contains("drop"), msg=right_pretty)
+  assert_true(both_pretty.contains("I32(1)"), msg=both_pretty)
+  assert_true(left_pretty.contains("I32(0)"), msg=left_pretty)
+  assert_true(right_pretty.contains("I32(0)"), msg=right_pretty)
+}
+
+///|
 test "optimize-instructions preserves effectful prefix while folding known-null ref.as_non_null" {
   let source =
     #|(module
