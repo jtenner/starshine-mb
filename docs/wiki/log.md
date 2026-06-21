@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I indexed i31 aggregate ref.eq miss
+
+- Filed [`raw/research/0814-2026-06-20-optimize-instructions-oi-i-indexed-i31-aggregate-ref-eq.md`](raw/research/0814-2026-06-20-optimize-instructions-oi-i-indexed-i31-aggregate-ref-eq.md) for the fifty-seventh `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds impossible equality between definitely non-null `i31` references and indexed/defined struct or array locals to `i32.const 0`, including preserving an effect-prefix call before the folded miss.
+- Evidence: Binaryen oracle folded `(ref i31)` vs `(ref $s)`, nullable `(ref null $a)` vs `(ref i31)`, and effect-prefix `(ref i31)` vs `(ref $a)` equality misses. Red-first did not apply because this was coverage for existing behavior. Focused `*indexed i31 aggregate*` passed immediately (`1/1`); final `*ref.eq*` passed `8/8`, `*ref*` passed `66/66`, final `*optimize-instructions*` passed `196/196`, `moon fmt`, `moon test src/passes` (`2726/2726`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference/call_ref operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Implement OI-I same-heap non-null ref.cast lowering
 
 - Filed [`raw/research/0813-2026-06-20-optimize-instructions-oi-i-same-heap-nonnull-ref-cast.md`](raw/research/0813-2026-06-20-optimize-instructions-oi-i-same-heap-nonnull-ref-cast.md) for the fifty-sixth `[O4Z-AUDIT-OI-I]` implementation sub-slice. Starshine now lowers unknown nullable exact-heap non-null `ref.cast` to `ref.as_non_null`, preserving operand effects and the null trap while keeping narrowing heap-check casts as `ref.cast`.

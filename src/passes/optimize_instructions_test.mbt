@@ -1698,6 +1698,51 @@ test "optimize-instructions preserves effectful prefix while folding i31 array l
 }
 
 ///|
+test "optimize-instructions locks indexed i31 aggregate local ref.eq miss coverage" {
+  // Coverage-only audit slice: Binaryen folds these indexed/defined heap
+  // disjoint equality proofs, and the existing Starshine proof already handles
+  // the narrow local forms. This locks the indexed heap surface explicitly.
+  let source =
+    #|(module
+    #|  (type $s (struct))
+    #|  (type $a (array i32))
+    #|  (import "m" "effect" (func $effect))
+    #|  (func (export "indexed-struct") (param (ref i31)) (param (ref $s)) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    ref.eq)
+    #|  (func (export "indexed-array-nullable") (param (ref null $a)) (param (ref i31)) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    ref.eq)
+    #|  (func (export "effect-prefix") (param (ref i31)) (param (ref $a)) (result i32)
+    #|    call $effect
+    #|    local.get 0
+    #|    local.get 1
+    #|    ref.eq)
+    #|)
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected indexed i31/aggregate ref.eq miss optimize success, got \{err}",
+      )
+  }
+  let struct_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let array_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let effect_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(struct_pretty.contains("ref.eq"), msg=struct_pretty)
+  assert_false(array_pretty.contains("ref.eq"), msg=array_pretty)
+  assert_false(effect_pretty.contains("ref.eq"), msg=effect_pretty)
+  assert_true(struct_pretty.contains("I32(0)"), msg=struct_pretty)
+  assert_true(array_pretty.contains("I32(0)"), msg=array_pretty)
+  assert_true(effect_pretty.contains("call (Func 0)"), msg=effect_pretty)
+  assert_true(effect_pretty.contains("drop"), msg=effect_pretty)
+  assert_true(effect_pretty.contains("I32(0)"), msg=effect_pretty)
+}
+
+///|
 test "optimize-instructions folds impossible equality between non-null struct and array locals" {
   let source =
     #|(module
