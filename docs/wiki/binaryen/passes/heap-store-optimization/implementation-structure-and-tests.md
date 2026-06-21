@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0857-2026-06-20-heap-store-optimization-descriptor-target-local-hazard.md
   - ../../../raw/research/0856-2026-06-20-heap-store-optimization-descriptor-old-field-combinations.md
   - ../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md
   - ../../../raw/research/0854-2026-06-20-heap-store-optimization-target-local-write-negative.md
@@ -233,6 +234,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0857-2026-06-20-heap-store-optimization-descriptor-target-local-hazard.md`](../../../raw/research/0857-2026-06-20-heap-store-optimization-descriptor-target-local-hazard.md)
+  - added descriptor target-local hazard coverage: Binaryen preserves `struct.set` when a `struct.new_desc` chain's moved value reads the fresh-struct target local; focused HSO tests passed `211/211`, and no implementation change was needed.
 - [`../../../raw/research/0856-2026-06-20-heap-store-optimization-descriptor-old-field-combinations.md`](../../../raw/research/0856-2026-06-20-heap-store-optimization-descriptor-old-field-combinations.md)
   - added default/descriptor old-field combination coverage: Binaryen folds safe `struct.new_default_desc` chain stores into `struct.new_desc`, but preserves a descriptor `struct.set` when a later constructor field call orders before the moved call; focused HSO tests passed `210/210`, and no implementation change was needed.
 - [`../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md`](../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md)

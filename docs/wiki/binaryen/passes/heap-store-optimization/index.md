@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0857-2026-06-20-heap-store-optimization-descriptor-target-local-hazard.md
   - ../../../raw/research/0856-2026-06-20-heap-store-optimization-descriptor-old-field-combinations.md
   - ../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md
   - ../../../raw/research/0854-2026-06-20-heap-store-optimization-target-local-write-negative.md
@@ -167,6 +168,7 @@ It is a narrow GC constructor/store cleanup pass.
   - A 2026-05-05 focused current-main source bridge found no teaching-relevant drift in `HeapStoreOptimization.cpp`, the dedicated `heap-store-optimization.wast` test file, and helper surfaces versus the `version_129` contract.
 - Target-local hazards are checked for each attempted chain movement.
   - Follow-up `0855` confirmed Binaryen preserves a chain when an early moved value writes the target local, but still folds an earlier harmless store before preserving a later target-local-read store.
+  - Follow-up `0857` confirmed descriptor constructors keep the same moved-value target-local read hazard: Binaryen preserves the later `struct.set` rather than reading the target local before its fresh-struct assignment.
 - Descriptor/default old-field combinations follow the same directional effect rules.
   - Follow-up `0856` confirmed Binaryen folds `struct.new_default_desc` chain stores into `struct.new_desc` when safe, but preserves a descriptor `struct.set` when a later constructor field call orders before a moved call value.
 
