@@ -1570,25 +1570,6 @@ fn hso_struct_new_operand_effect_mask(
 }
 
 ///|
-fn hso_struct_new_operand_has_global_write(
-  func : @ir.HotFunc,
-  struct_new_id : Int,
-) -> Bool {
-  if struct_new_id < 0 || !@ir.hot_node_is_live(func, struct_new_id) {
-    return false
-  }
-  for idx = 0; idx < @ir.hot_child_count(func, struct_new_id); idx = idx + 1 {
-    if hso_subtree_has_global_write(
-        func,
-        @ir.hot_child_get(func, struct_new_id, idx),
-      ) {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn hso_struct_new_global_read_conflicts_with_write(
   func : @ir.HotFunc,
   struct_new_id : Int,
@@ -1634,9 +1615,7 @@ fn hso_global_only_ordering_can_be_ignored(
   if moved_without_global != 0U || blocker_without_global != 0U {
     return false
   }
-  if hso_struct_new_operand_has_global_write(func, moved_struct_new_id) {
-    return false
-  }
+  !hso_subtree_global_order_conflicts(func, blocker_id, moved_struct_new_id) &&
   !hso_struct_new_global_read_conflicts_with_write(
     func, moved_struct_new_id, blocker_id,
   )
