@@ -3551,35 +3551,22 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
     _ => return false
   }
   let array_node = @ir.hot_node_get(func, array_id)
-  let new_fixed_len = match @ir.hot_node_exact_instr(func, array_id) {
+  // 0 = array.new_fixed, 1 = array.new_default, 2 = array.new repeated value.
+  let (array_kind, len) = match @ir.hot_node_exact_instr(func, array_id) {
     Some(@lib.Instruction::ArrayNewFixed(new_type_idx, @lib.U32(len))) if new_type_idx ==
-      type_idx => Some(len.reinterpret_as_int())
-    Some(@lib.Instruction::ArrayNewDefault(new_type_idx)) if new_type_idx ==
-      type_idx => None
-    _ => return false
-  }
-  let len = match new_fixed_len {
-    Some(len) => {
+      type_idx => {
+      let len = len.reinterpret_as_int()
       if len != array_node.child_count {
         return false
       }
-      for i = 0; i < array_node.child_count; i = i + 1 {
-        if i != index &&
-          !optimize_instructions_node_effects_are_pure(
-            ctx,
-            func,
-            @ir.hot_child_get(func, array_id, i),
-          ) {
-          return false
-        }
-      }
-      len
+      (0, len)
     }
-    None => {
+    Some(@lib.Instruction::ArrayNewDefault(new_type_idx)) if new_type_idx ==
+      type_idx => {
       if array_node.child_count != 1 {
         return false
       }
-      match
+      let len = match
         optimize_instructions_i32_const(
           func,
           dead,
@@ -3588,7 +3575,46 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
         Some(@lib.I32(len)) => len
         _ => return false
       }
+      (1, len)
     }
+    Some(@lib.Instruction::ArrayNew(new_type_idx)) if new_type_idx == type_idx => {
+      if array_node.child_count != 2 {
+        return false
+      }
+      let len = match
+        optimize_instructions_i32_const(
+          func,
+          dead,
+          @ir.hot_child_get(func, array_id, 1),
+        ) {
+        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+            len,
+          ) => len
+        _ => return false
+      }
+      (2, len)
+    }
+    _ => return false
+  }
+  if array_kind == 0 {
+    for i = 0; i < array_node.child_count; i = i + 1 {
+      if (index < 0 || index >= len || i != index) &&
+        !optimize_instructions_node_effects_are_pure(
+          ctx,
+          func,
+          @ir.hot_child_get(func, array_id, i),
+        ) {
+        return false
+      }
+    }
+  } else if array_kind == 2 &&
+    (index < 0 || index >= len) &&
+    !optimize_instructions_node_effects_are_pure(
+      ctx,
+      func,
+      @ir.hot_child_get(func, array_id, 0),
+    ) {
+    return false
   }
   if index < 0 || index >= len {
     if !optimize_instructions_node_effects_are_pure(ctx, func, index_id) {
@@ -3596,49 +3622,30 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
     }
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
   } else {
-    match new_fixed_len {
-      Some(_) => {
-        let value_id = @ir.hot_child_get(func, array_id, index)
-        match packed_signed {
-          Some(signed) => {
-            let bits = match
-              optimize_instructions_array_field_pack_bits(ctx, type_idx) {
-              Some(bits) => bits
-              None => return false
-            }
-            optimize_instructions_replace_with_packed_i32_value(
-              ctx, func, dead, node_id, value_id, bits, signed,
-            )
-          }
-          None =>
-            optimize_instructions_replace_with_node_id(
-              ctx, func, node_id, value_id,
-            )
-        }
+    let value_id = if array_kind == 0 {
+      @ir.hot_child_get(func, array_id, index)
+    } else if array_kind == 1 {
+      match
+        optimize_instructions_array_default_element_value(ctx, func, type_idx) {
+        Some(value_id) => value_id
+        None => return false
       }
-      None => {
-        let value_id = match
-          optimize_instructions_array_default_element_value(ctx, func, type_idx) {
-          Some(value_id) => value_id
+    } else {
+      @ir.hot_child_get(func, array_id, 0)
+    }
+    match packed_signed {
+      Some(signed) => {
+        let bits = match
+          optimize_instructions_array_field_pack_bits(ctx, type_idx) {
+          Some(bits) => bits
           None => return false
         }
-        match packed_signed {
-          Some(signed) => {
-            let bits = match
-              optimize_instructions_array_field_pack_bits(ctx, type_idx) {
-              Some(bits) => bits
-              None => return false
-            }
-            optimize_instructions_replace_with_packed_i32_value(
-              ctx, func, dead, node_id, value_id, bits, signed,
-            )
-          }
-          None =>
-            optimize_instructions_replace_with_node_id(
-              ctx, func, node_id, value_id,
-            )
-        }
+        optimize_instructions_replace_with_packed_i32_value(
+          ctx, func, dead, node_id, value_id, bits, signed,
+        )
       }
+      None =>
+        optimize_instructions_replace_with_node_id(ctx, func, node_id, value_id)
     }
   }
   true

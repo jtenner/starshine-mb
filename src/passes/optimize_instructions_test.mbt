@@ -6874,6 +6874,213 @@ test "optimize-instructions folds packed array.get_s and array.get_u of pure arr
 }
 
 ///|
+test "optimize-instructions folds array.get of constant-size array.new repeated values" {
+  let array_i32_type = @lib.TypeIdx::new(0U)
+  let array_i8_type = @lib.TypeIdx::new(1U)
+  let array_i16_type = @lib.TypeIdx::new(2U)
+  let result_type = @lib.TypeIdx::new(3U)
+  let param_result_type = @lib.TypeIdx::new(4U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::pack_type(@lib.PackType::i8()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::pack_type(@lib.PackType::i16()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        result_type, result_type, param_result_type, result_type, result_type, result_type,
+        result_type, param_result_type, param_result_type, result_type, result_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(99))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_i32_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_i32_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_i32_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_i32_type),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_i32_type),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_i8_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get_s(array_i8_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_i16_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get_u(array_i16_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_i32_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::array_new(array_i32_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(2147483647)),
+            @lib.Instruction::array_new(array_i32_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let const_value = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let local_value = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let effect_value = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let pure_oob = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let effect_oob = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  let s8 = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  let u16_local = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  let dynamic_index = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
+  let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
+  let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(10U))
+  for pretty in [const_value, local_value, effect_value, s8, u16_local] {
+    assert_false(pretty.contains("array.get"), msg=pretty)
+    assert_false(pretty.contains("array.new"), msg=pretty)
+  }
+  assert_true(const_value.contains("I32(7)"), msg=const_value)
+  assert_true(local_value.contains("local.get (Local 0)"), msg=local_value)
+  assert_true(effect_value.contains("call (Func 0)"), msg=effect_value)
+  assert_false(pure_oob.contains("array.get"), msg=pure_oob)
+  assert_false(pure_oob.contains("array.new"), msg=pure_oob)
+  assert_true(pure_oob.contains("unreachable"), msg=pure_oob)
+  assert_true(s8.contains("I32(-1)"), msg=s8)
+  assert_true(u16_local.contains("i32.and"), msg=u16_local)
+  assert_true(u16_local.contains("I32(65535)"), msg=u16_local)
+  assert_true(dynamic_index.contains("array.get"), msg=dynamic_index)
+  assert_true(dynamic_index.contains("array.new"), msg=dynamic_index)
+  // Boundary-only half of this OI-K slice: Binaryen can preserve an effectful
+  // repeated value with a drop before the out-of-bounds trap, but Starshine
+  // keeps the stack form until safe localizing lowering can preserve the call.
+  assert_true(effect_oob.contains("array.get"), msg=effect_oob)
+  assert_true(effect_oob.contains("array.new"), msg=effect_oob)
+  assert_true(effect_oob.contains("call (Func 0)"), msg=effect_oob)
+  // Boundary-only half of this OI-K slice: trap-preserving length limits mirror
+  // the array.new len slice and keep negative/huge allocation traps intact.
+  assert_true(negative_len.contains("array.get"), msg=negative_len)
+  assert_true(negative_len.contains("array.new"), msg=negative_len)
+  assert_true(huge_len.contains("array.get"), msg=huge_len)
+  assert_true(huge_len.contains("array.new"), msg=huge_len)
+}
+
+///|
 test "optimize-instructions folds array.get of constant-size array.new_default defaults" {
   let array_i32_type = @lib.TypeIdx::new(0U)
   let array_i8_type = @lib.TypeIdx::new(1U)

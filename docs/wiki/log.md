@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-21] passes/optimize-instructions | Implement OI-K array.get(array.new)
+
+- Filed [`raw/research/0832-2026-06-21-optimize-instructions-oi-k-array-new-get.md`](raw/research/0832-2026-06-21-optimize-instructions-oi-k-array-new-get.md) for the tenth `[O4Z-AUDIT-OI-K]` GC repeated-value array sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle folds constant-index `array.get(array.new ...)` in-bounds reads to the repeated value, preserving local/effectful selected value evaluation, folds pure out-of-bounds reads to `unreachable`, and preserves packed signedness with constants/sign-extension/masks; Starshine now matches the direct one-use small constant-length subset.
+- Evidence: Binaryen oracle probe `.tmp/oi-k-array-new-get-probe.wat` folded constant/local/effectful in-bounds reads, folded pure out-of-bounds reads, kept dynamic indexes, and kept negative/huge lengths; out-of-bounds effect probe `.tmp/oi-k-array-new-get-oob-probe.wat` preserved `call` with `drop` before `unreachable`; packed probe `.tmp/oi-k-packed-array-new-get-probe.wat` produced the expected constants, sign-extension, and mask forms. Red-first focused `*array.get*array.new repeated*` failed before implementation and passed `1/1` after; final `*array.get*` passed `4/4`, `*optimize-instructions*` passed `216/216`, `moon fmt`, `moon test src/passes` (`2746/2746`), native `src/cmd` build, and `moon info` passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-21] passes/optimize-instructions | Implement OI-K array.len(array.new)
 
 - Filed [`raw/research/0831-2026-06-21-optimize-instructions-oi-k-array-new-len.md`](raw/research/0831-2026-06-21-optimize-instructions-oi-k-array-new-len.md) for the ninth `[O4Z-AUDIT-OI-K]` GC constructor/array sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle folds `array.len(array.new ...)` to the bounded constant length when the repeated value and length are constants, while keeping nonconstant/effectful repeated values and negative/huge lengths; Starshine now matches the direct one-use `i32.const` repeated-value subset.
