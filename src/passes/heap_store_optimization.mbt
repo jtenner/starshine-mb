@@ -2486,6 +2486,10 @@ fn hso_liftable_swapped_block_roots(
     return None
   }
   for root_id in roots {
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::TryTable => return None
+      _ => ()
+    }
     if !hso_root_can_swap_before_local_struct_new(
         cache, func, module_ctx, node_masks, moved_struct_new_id, root_id, local_id,
       ) {

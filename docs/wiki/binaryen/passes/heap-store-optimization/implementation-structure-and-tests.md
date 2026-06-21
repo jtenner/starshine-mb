@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md
   - ../../../raw/research/0926-2026-06-21-heap-store-optimization-call-indirect-memory-store-boundary.md
   - ../../../raw/research/0925-2026-06-21-heap-store-optimization-call-indirect-old-field-store-boundary.md
   - ../../../raw/research/0924-2026-06-21-heap-store-optimization-call-indirect-table-set-boundary.md
@@ -343,8 +344,10 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for indirect-call old-field boundaries before unrelated mutable `global.set` and unrelated `table.set`; Binaryen preserves `call_indirect`, the intervening store root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0926-2026-06-21-heap-store-optimization-call-indirect-memory-store-boundary.md`](../../../raw/research/0926-2026-06-21-heap-store-optimization-call-indirect-memory-store-boundary.md)
   - added focused HSO-D/G coverage for indirect-call constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_indirect`, the intervening memory store, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md`](../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md)
+  - fixed the HSO-G `0922` parity gap for `memory.size` / `table.size` constructors crossing a block-wrapped, non-throwing `try_table` body that only performs unrelated `global.set`; the implementation keeps direct `try_table` roots inside their block wrapper during swaps so catch-label depths remain valid.
 - [`../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md`](../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md)
-  - records an open HSO-G parity gap: Binaryen folds a `table.size` / `memory.size` constructor through a non-throwing `try_table` body that only performs an unrelated `global.set`; Starshine currently preserves the later `struct.set`, and local HOT catch-label movement/lowering must be handled before landing focused positive tests.
+  - historical gap note superseded for the covered `memory.size` / `table.size` non-throwing `try_table` / unrelated `global.set` positives by `0927`; arbitrary throwing `try_table` bodies and broader catch/branch wrappers remain open.
 - [`../../../raw/research/0921-2026-06-21-heap-store-optimization-return-call-ref-direct-active-catch.md`](../../../raw/research/0921-2026-06-21-heap-store-optimization-return-call-ref-direct-active-catch.md)
   - added focused HSO-F/H coverage and classification for the active-catch counterpart of the direct `return_call_ref` set-value boundary; Binaryen preserves the dead store inside `try_table`, while Starshine keeps validating output and drops the dead store as a narrow better-than-Binaryen cleanup.
 - [`../../../raw/research/0920-2026-06-21-heap-store-optimization-return-call-ref-direct-value.md`](../../../raw/research/0920-2026-06-21-heap-store-optimization-return-call-ref-direct-value.md)
