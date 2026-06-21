@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0959-2026-06-21-heap-store-optimization-loop-call-constructor-growth-boundary.md
+  - ../../../raw/research/0958-2026-06-21-heap-store-optimization-loop-call-constructor-store-boundary.md
   - ../../../raw/research/0957-2026-06-21-heap-store-optimization-loop-call-ref-old-field-growth-boundary.md
   - ../../../raw/research/0956-2026-06-21-heap-store-optimization-loop-call-ref-old-field-store-boundary.md
   - ../../../raw/research/0955-2026-06-21-heap-store-optimization-loop-call-indirect-old-field-growth-boundary.md
@@ -424,6 +426,10 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_ref` old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten loop-wrapped typed-function-reference call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0957-2026-06-21-heap-store-optimization-loop-call-ref-old-field-growth-boundary.md`](../../../raw/research/0957-2026-06-21-heap-store-optimization-loop-call-ref-old-field-growth-boundary.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_ref` old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten loop-wrapped typed-function-reference call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0958-2026-06-21-heap-store-optimization-loop-call-constructor-store-boundary.md`](../../../raw/research/0958-2026-06-21-heap-store-optimization-loop-call-constructor-store-boundary.md)
+  - added focused HSO-D/G coverage for branchless loop-wrapped ordinary direct-call constructor operands before unrelated `i32.store` and `table.set`; Binaryen preserves the loop-wrapped direct call constructor operand, intervening store root, and later other-field `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0959-2026-06-21-heap-store-optimization-loop-call-constructor-growth-boundary.md`](../../../raw/research/0959-2026-06-21-heap-store-optimization-loop-call-constructor-growth-boundary.md)
+  - added focused HSO-D/G coverage for branchless loop-wrapped ordinary direct-call constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the loop-wrapped direct call constructor operand, intervening growth root, and later other-field `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md`](../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md)
   - added focused HSO-D/G coverage for the ordinary direct-call old-field counterpart before unrelated `i32.store`; Binaryen preserves the call, intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md`](../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md)
