@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful non-null aggregate cast/test
+
+- Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/pick-load-signs | Add dedicated GenValid profile
 
 - Added `pick-load-signs-all` as the dedicated composite GenValid profile for `[O4Z-AUDIT-PLS]`. The profile samples signed direct/shift positives, unsigned mask/shift positives, unknown-use, mixed-width, width-mismatch, `local.tee`, no-memory, imported-memory, and local i64 Starshine-watchpoint families.
