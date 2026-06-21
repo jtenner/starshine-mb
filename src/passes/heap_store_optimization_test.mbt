@@ -3458,6 +3458,53 @@ test "heap-store-optimization keeps struct.set when later field block br_if cond
 }
 
 ///|
+test "heap-store-optimization keeps struct.set when later field block br_if condition may trap" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_memory_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_load(
+              @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL)),
+            ),
+            @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+          ]),
+        ),
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected later-field-block-br-if-trap heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds through later field block br_if with pure condition" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
