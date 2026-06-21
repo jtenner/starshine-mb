@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md
   - ../../../raw/research/0928-2026-06-21-heap-store-optimization-call-constructor-store-boundary.md
   - ../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md
   - ../../../raw/research/0926-2026-06-21-heap-store-optimization-call-indirect-memory-store-boundary.md
@@ -347,6 +348,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for indirect-call constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_indirect`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0928-2026-06-21-heap-store-optimization-call-constructor-store-boundary.md`](../../../raw/research/0928-2026-06-21-heap-store-optimization-call-constructor-store-boundary.md)
   - added focused HSO-G coverage for ordinary direct-call constructor operands before unrelated `i32.store` and unrelated `table.set`; Binaryen preserves the call, intervening store root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md`](../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md)
+  - added focused HSO-D/G coverage for the ordinary direct-call old-field counterpart before unrelated `i32.store`; Binaryen preserves the call, intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md`](../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md)
   - fixed the HSO-G `0922` parity gap for `memory.size` / `table.size` constructors crossing a block-wrapped, non-throwing `try_table` body that only performs unrelated `global.set`; the implementation keeps direct `try_table` roots inside their block wrapper during swaps so catch-label depths remain valid.
 - [`../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md`](../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md)

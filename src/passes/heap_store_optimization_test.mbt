@@ -6978,6 +6978,39 @@ test "heap-store-optimization keeps call old fields before unrelated global.set"
 }
 
 ///|
+test "heap-store-optimization keeps call old fields before unrelated i32.store" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let mod_ = hso_call_test_module(2, [
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(99)),
+    @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 0UL)),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+  ]).with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  let optimized = match hso_test_run_module(mod_) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call-old-field/memory-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps call old fields before unrelated table.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
