@@ -6335,6 +6335,101 @@ test "optimize-instructions folds array.len of pure array.new_fixed length" {
 }
 
 ///|
+test "optimize-instructions folds array.len of constant-size array.new_default" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let result_type = @lib.TypeIdx::new(1U)
+  let param_result_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        result_type, param_result_type, result_type, result_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(2147483647)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let constant_len = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let dynamic_len = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(constant_len.contains("array.len"), msg=constant_len)
+  assert_false(constant_len.contains("array.new_default"), msg=constant_len)
+  assert_true(constant_len.contains("I32(3)"), msg=constant_len)
+  // Boundary-only half of this OI-K slice: Binaryen's O4z-style oracle keeps
+  // dynamic-length default arrays because removing allocation could drop the
+  // allocation-size trap.
+  assert_true(dynamic_len.contains("array.len"), msg=dynamic_len)
+  assert_true(dynamic_len.contains("array.new_default"), msg=dynamic_len)
+  // Boundary-only half of this OI-K slice: Binaryen also keeps negative
+  // i32.const lengths because the huge unsigned allocation should still trap.
+  assert_true(negative_len.contains("array.len"), msg=negative_len)
+  assert_true(negative_len.contains("array.new_default"), msg=negative_len)
+  // Boundary-only half of this OI-K slice: Binaryen keeps huge non-negative
+  // lengths past the O4z-observed allocation limit for the same trap reason.
+  assert_true(huge_len.contains("array.len"), msg=huge_len)
+  assert_true(huge_len.contains("array.new_default"), msg=huge_len)
+}
+
+///|
 test "optimize-instructions folds array.get of pure array.new_fixed elements" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)

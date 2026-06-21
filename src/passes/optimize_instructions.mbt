@@ -3424,6 +3424,15 @@ fn optimize_instructions_replace_with_packed_i32_value(
 }
 
 ///|
+/// Binaryen version_130 keeps `array.new_default` lengths above this
+/// O4z-observed limit to preserve allocation trap behavior.
+fn optimize_instructions_array_new_default_len_is_known_non_trapping(
+  len : Int,
+) -> Bool {
+  len >= 0 && len <= 44739241
+}
+
+///|
 fn optimize_instructions_try_fold_array_len_new_fixed(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3445,21 +3454,40 @@ fn optimize_instructions_try_fold_array_len_new_fixed(
   }
   let array_node = @ir.hot_node_get(func, array_id)
   let len = match @ir.hot_node_exact_instr(func, array_id) {
-    Some(@lib.Instruction::ArrayNewFixed(_, @lib.U32(len))) =>
-      len.reinterpret_as_int()
-    _ => return false
-  }
-  if len != array_node.child_count {
-    return false
-  }
-  for i = 0; i < array_node.child_count; i = i + 1 {
-    if !optimize_instructions_node_effects_are_pure(
-        ctx,
-        func,
-        @ir.hot_child_get(func, array_id, i),
-      ) {
-      return false
+    Some(@lib.Instruction::ArrayNewFixed(_, @lib.U32(len))) => {
+      let len = len.reinterpret_as_int()
+      if len != array_node.child_count {
+        return false
+      }
+      for i = 0; i < array_node.child_count; i = i + 1 {
+        if !optimize_instructions_node_effects_are_pure(
+            ctx,
+            func,
+            @ir.hot_child_get(func, array_id, i),
+          ) {
+          return false
+        }
+      }
+      len
     }
+    Some(@lib.Instruction::ArrayNewDefault(_)) => {
+      if array_node.child_count != 1 {
+        return false
+      }
+      let len = match
+        optimize_instructions_i32_const(
+          func,
+          dead,
+          @ir.hot_child_get(func, array_id, 0),
+        ) {
+        Some(@lib.I32(len)) if optimize_instructions_array_new_default_len_is_known_non_trapping(
+            len,
+          ) => len
+        _ => return false
+      }
+      len
+    }
+    _ => return false
   }
   optimize_instructions_replace_with_const_i32(
     ctx,

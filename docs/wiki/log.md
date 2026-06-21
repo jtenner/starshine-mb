@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-21] passes/optimize-instructions | Implement OI-K array.len(array.new_default)
+
+- Filed [`raw/research/0830-2026-06-21-optimize-instructions-oi-k-array-new-default-len.md`](raw/research/0830-2026-06-21-optimize-instructions-oi-k-array-new-default-len.md) for the eighth `[O4Z-AUDIT-OI-K]` GC constructor/array/default sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle folds small non-negative constant-length `array.len(array.new_default ...)` to the length constant, while keeping dynamic, negative, and huge non-negative lengths to preserve allocation trap behavior; Starshine now matches the direct one-use bounded constant-length subset.
+- Evidence: Binaryen oracle probe `.tmp/oi-k-array-new-default-len-probe.wat` produced `i32.const 3` for a constant length and kept the dynamic-length shape; negative-length boundary probe `.tmp/oi-k-array-new-default-len-negative-probe.wat` kept the original shape; a huge-positive probe also kept `i32.const 2147483647`. Red-first focused `*array.len*new_default*` failed before implementation and passed `1/1` after; final `*array.len*` passed `2/2`, `*optimize-instructions*` passed `214/214`, `moon fmt`, `moon test src/passes` (`2744/2744`), native `src/cmd` build, `moon info`, and diff checks passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-21] passes/optimize-instructions | Implement OI-K array.get(array.new_default)
 
 - Filed [`raw/research/0829-2026-06-21-optimize-instructions-oi-k-array-new-default-get.md`](raw/research/0829-2026-06-21-optimize-instructions-oi-k-array-new-default-get.md) for the seventh `[O4Z-AUDIT-OI-K]` GC constructor/array/default sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle folds constant-length `array.get(array.new_default ...)` default reads to zero/default values and folds constant out-of-bounds indexes to `unreachable`; Starshine now matches the direct one-use constant-length/index subset for plain and packed array reads.
