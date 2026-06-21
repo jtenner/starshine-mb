@@ -17223,3 +17223,49 @@ test "heap-store-optimization folds earlier chain stores before a later target-l
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_true(pretty.contains("I32(1)"), msg=pretty)
 }
+
+///|
+fn hso_assert_pure_branch_old_field_folds_through_bytes(
+  bytes : Array[Int],
+  preserved_root : String,
+) -> Unit raise {
+  let optimized = match
+    run_hot_pipeline(
+      hso_decode_fixture_module(hso_bytes_from_ints(bytes)),
+      HotPipelineOptions::new(),
+      ["heap-store-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("unexpected HSO byte fixture failure: \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(hso_test_count_occurrences(pretty, "struct.set"), 0, msg=pretty)
+  assert_eq(hso_test_count_occurrences(pretty, "br_if"), 0, msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_true(pretty.contains(preserved_root), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds pure branch-loop old fields before unrelated store roots" {
+  hso_assert_pure_branch_old_field_folds_through_bytes(
+    [0, 97, 115, 109, 1, 0, 0, 0, 1, 11, 2, 95, 2, 127, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1, 1, 5, 3, 1, 0, 1, 10, 53, 1, 51, 1, 1, 99, 0, 2, 127, 3, 64, 65, 1, 65, 0, 13, 1, 26, 65, 2, 26, 11, 65, 3, 11, 65, 2, 251, 0, 0, 33, 0, 65, 0, 65, 9, 54, 2, 0, 32, 0, 65, 4, 251, 5, 0, 0, 32, 0, 251, 2, 0, 0, 11],
+    "i32.store",
+  )
+  hso_assert_pure_branch_old_field_folds_through_bytes(
+    [0, 97, 115, 109, 1, 0, 0, 0, 1, 11, 2, 95, 2, 127, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1, 1, 4, 4, 1, 112, 0, 1, 10, 52, 1, 50, 1, 1, 99, 0, 2, 127, 3, 64, 65, 1, 65, 0, 13, 1, 26, 65, 2, 26, 11, 65, 3, 11, 65, 2, 251, 0, 0, 33, 0, 65, 0, 208, 115, 38, 0, 32, 0, 65, 4, 251, 5, 0, 0, 32, 0, 251, 2, 0, 0, 11],
+    "table.set",
+  )
+}
+
+///|
+test "heap-store-optimization folds pure branch-loop old fields before unrelated growth roots" {
+  hso_assert_pure_branch_old_field_folds_through_bytes(
+    [0, 97, 115, 109, 1, 0, 0, 0, 1, 11, 2, 95, 2, 127, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1, 1, 5, 3, 1, 0, 1, 10, 51, 1, 49, 1, 1, 99, 0, 2, 127, 3, 64, 65, 1, 65, 0, 13, 1, 26, 65, 2, 26, 11, 65, 3, 11, 65, 2, 251, 0, 0, 33, 0, 65, 1, 64, 0, 26, 32, 0, 65, 4, 251, 5, 0, 0, 32, 0, 251, 2, 0, 0, 11],
+    "memory.grow",
+  )
+  hso_assert_pure_branch_old_field_folds_through_bytes(
+    [0, 97, 115, 109, 1, 0, 0, 0, 1, 11, 2, 95, 2, 127, 1, 127, 1, 96, 0, 1, 127, 3, 2, 1, 1, 4, 4, 1, 112, 0, 1, 10, 54, 1, 52, 1, 1, 99, 0, 2, 127, 3, 64, 65, 1, 65, 0, 13, 1, 26, 65, 2, 26, 11, 65, 3, 11, 65, 2, 251, 0, 0, 33, 0, 208, 115, 65, 1, 252, 15, 0, 26, 32, 0, 65, 4, 251, 5, 0, 0, 32, 0, 251, 2, 0, 0, 11],
+    "table.grow",
+  )
+}
