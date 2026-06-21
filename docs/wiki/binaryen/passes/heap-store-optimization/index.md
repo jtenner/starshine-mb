@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0862-2026-06-20-heap-store-optimization-br-table-local-escape.md
   - ../../../raw/research/0861-2026-06-20-heap-store-optimization-descriptor-later-field-global-write.md
   - ../../../raw/research/0860-2026-06-20-heap-store-optimization-descriptor-later-field-global-conflict.md
   - ../../../raw/research/0859-2026-06-20-heap-store-optimization-descriptor-later-field-local-read.md

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0862-2026-06-20-heap-store-optimization-br-table-local-escape.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
@@ -202,9 +203,11 @@ So these tend to be safer than beginners expect:
 
 And these are more dangerous than beginners expect:
 
-- `br` / `br_if` to an outer in-function block
+- `br` / `br_if` / `br_table` to an outer in-function block
 - loop backedges that can re-enter earlier local uses
 - calls that may throw to a `try` / `try_table` catch inside the same function
+
+A 2026-06-20 Starshine probe documents one narrow better-than-Binaryen extension: Starshine folds a `br_table` branch-valued store when the only target-local read that would become unsafe disappears and no later code observes the fresh-struct local. It still preserves `struct.set` for the corresponding escaping-local `br_table` negative that Binaryen also preserves.
 
 ## `trySwap(...)` has a smaller job than it sounds like
 
