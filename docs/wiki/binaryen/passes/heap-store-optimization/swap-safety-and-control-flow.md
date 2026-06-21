@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md
   - ../../../raw/research/0862-2026-06-20-heap-store-optimization-br-table-local-escape.md
   - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
@@ -207,7 +208,9 @@ And these are more dangerous than beginners expect:
 - loop backedges that can re-enter earlier local uses
 - calls that may throw to a `try` / `try_table` catch inside the same function
 
-A 2026-06-20 Starshine probe documents one narrow better-than-Binaryen extension: Starshine folds a `br_table` branch-valued store when the only target-local read that would become unsafe disappears and no later code observes the fresh-struct local. It still preserves `struct.set` for the corresponding escaping-local `br_table` negative that Binaryen also preserves.
+A 2026-06-20 loop-backedge probe confirmed the local-use point: Binaryen preserves `struct.set` when a branch-valued store can jump back to a loop header that reads the fresh-struct target local before the next assignment, and Starshine now has matching coverage.
+
+A separate 2026-06-20 Starshine probe documents one narrow better-than-Binaryen extension: Starshine folds a `br_table` branch-valued store when the only target-local read that would become unsafe disappears and no later code observes the fresh-struct local. It still preserves `struct.set` for the corresponding escaping-local `br_table` negative that Binaryen also preserves.
 
 ## `trySwap(...)` has a smaller job than it sounds like
 

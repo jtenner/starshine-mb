@@ -3833,6 +3833,57 @@ test "heap-store-optimization folds br_table branch values when later local read
 }
 
 ///|
+test "heap-store-optimization keeps loop backedge values before prior local reads" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_test_run_with_locals(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::loop_(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(local0),
+                @lib.Instruction::drop(),
+                @lib.Instruction::struct_new_default(pair),
+                @lib.Instruction::local_set(local0),
+                @lib.Instruction::local_get(local0),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(local1),
+                    @lib.Instruction::br_if(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::i32_const(@lib.I32(7)),
+                  ]),
+                ),
+                @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(42)),
+          ]),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+      [@lib.ValType::ref_null(@lib.HeapType::new(pair)), @lib.ValType::i32()],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected loop-backedge heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps struct.set for calls caught inside the function" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

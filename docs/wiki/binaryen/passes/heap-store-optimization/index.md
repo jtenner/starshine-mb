@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md
   - ../../../raw/research/0862-2026-06-20-heap-store-optimization-br-table-local-escape.md
   - ../../../raw/research/0861-2026-06-20-heap-store-optimization-descriptor-later-field-global-write.md
   - ../../../raw/research/0860-2026-06-20-heap-store-optimization-descriptor-later-field-global-conflict.md
@@ -178,6 +179,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0859` fixed the complementary descriptor later-field local-read positive: Binaryen folds when the later constructor field reads the target local but the moved value itself has no local-state effects.
   - Follow-up `0860` fixed descriptor later-field global conflict handling for later-field reads: Binaryen folds when a later field reads mutable global `$g0` and the moved value writes unrelated `$g1`, but preserves `struct.set` when both touch `$g0`.
   - Follow-up `0861` fixed the complementary later-field global-write split: Binaryen folds when a later field writes `$g0` and the moved value reads or writes unrelated `$g1`, but preserves `struct.set` for same-global read/write conflicts.
+- Control-flow skip-local-set hazards include loop backedges that can re-enter target-local reads.
+  - Follow-up `0863` confirmed Binaryen preserves `struct.set` when a branch-valued store can `br_if` to a loop header that reads the fresh-struct target local before the next `local.set`; Starshine already matched this HSO-F negative.
 - Descriptor/default old-field combinations follow the same directional effect rules.
   - Follow-up `0856` confirmed Binaryen folds `struct.new_default_desc` chain stores into `struct.new_desc` when safe, but preserves a descriptor `struct.set` when a later constructor field call orders before a moved call value.
 
