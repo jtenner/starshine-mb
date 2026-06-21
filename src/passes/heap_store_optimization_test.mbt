@@ -7979,6 +7979,118 @@ test "heap-store-optimization keeps block-wrapped call_ref constructor operands 
 }
 
 ///|
+test "heap-store-optimization keeps block-wrapped call_ref old fields before unrelated stores" {
+  let pair = @lib.TypeIdx::new(0U)
+  let callee_type_idx = @lib.TypeIdx::new(1U)
+  let local0 = @lib.LocalIdx::new(1U)
+  let memory_optimized = match
+    hso_test_run_module(
+      hso_call_ref_table_test_module([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::call_ref(callee_type_idx),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(99)),
+        @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 0UL)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ]).with_mem_sec(
+        @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-call-ref-old-field/memory-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let memory_pretty = memory_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(memory_pretty.contains("call_ref"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("i32.store"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("struct.set"), msg=memory_pretty)
+  let memory_store_idx = match hso_test_index_of(memory_pretty, "i32.store") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected i32.store in block-call-ref-old-field/memory-store output: \{memory_pretty}",
+      )
+  }
+  let memory_struct_set_idx = match
+    hso_test_index_of(memory_pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected struct.set in block-call-ref-old-field/memory-store output: \{memory_pretty}",
+      )
+  }
+  assert_true(memory_store_idx < memory_struct_set_idx, msg=memory_pretty)
+
+  let table_optimized = match
+    hso_test_run_module(
+      hso_call_ref_table_test_module([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::call_ref(callee_type_idx),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-call-ref-old-field/table-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let table_pretty = table_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(table_pretty.contains("call_ref"), msg=table_pretty)
+  assert_true(table_pretty.contains("table.set"), msg=table_pretty)
+  assert_true(table_pretty.contains("struct.set"), msg=table_pretty)
+  let table_set_idx = match hso_test_index_of(table_pretty, "table.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected table.set in block-call-ref-old-field/table-set output: \{table_pretty}",
+      )
+  }
+  let table_struct_set_idx = match
+    hso_test_index_of(table_pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected struct.set in block-call-ref-old-field/table-set output: \{table_pretty}",
+      )
+  }
+  assert_true(table_set_idx < table_struct_set_idx, msg=table_pretty)
+}
+
+///|
 test "heap-store-optimization keeps call_ref old fields before unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let callee_type_idx = @lib.TypeIdx::new(1U)
