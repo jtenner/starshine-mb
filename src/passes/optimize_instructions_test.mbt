@@ -2113,6 +2113,110 @@ test "optimize-instructions intentionally keeps exact ref.cast on inexact locals
 }
 
 ///|
+test "optimize-instructions folds exact ref.cast on already exact locals" {
+  // OI-J exactness positive: Binaryen version_130 removes exact casts when the
+  // operand is already exactly the target heap. Nullable-to-non-null exact casts
+  // still preserve the null trap by becoming ref.as_non_null.
+  let foo_type = @lib.TypeIdx::new(0U)
+  let nonnull_type = @lib.TypeIdx::new(1U)
+  let nullable_to_nonnull_type = @lib.TypeIdx::new(2U)
+  let nullable_to_nullable_type = @lib.TypeIdx::new(3U)
+  let foo_heap = @lib.HeapType::new(foo_type)
+  let exact_foo_ref_type = @lib.RefType::new(false, foo_heap, exact=true)
+  let nullable_exact_foo_ref_type = @lib.RefType::new(
+    true,
+    foo_heap,
+    exact=true,
+  )
+  let exact_foo_ref = @lib.ValType::ref_type(exact_foo_ref_type)
+  let nullable_exact_foo_ref = @lib.ValType::ref_type(
+    nullable_exact_foo_ref_type,
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([exact_foo_ref], [exact_foo_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_exact_foo_ref], [exact_foo_ref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_exact_foo_ref], [
+              nullable_exact_foo_ref,
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        nonnull_type, nullable_to_nonnull_type, nullable_to_nullable_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_type(exact_foo_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_type(exact_foo_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_type(nullable_exact_foo_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let nonnull_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let nullable_to_nonnull_pretty = optimized.pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  let nullable_to_nullable_pretty = optimized.pretty_print_func(
+    @lib.FuncIdx::new(2U),
+  )
+  assert_false(nonnull_pretty.contains("ref.cast"), msg=nonnull_pretty)
+  assert_true(nonnull_pretty.contains("local.get"), msg=nonnull_pretty)
+  assert_false(
+    nullable_to_nonnull_pretty.contains("ref.cast"),
+    msg=nullable_to_nonnull_pretty,
+  )
+  assert_true(
+    nullable_to_nonnull_pretty.contains("ref.as_non_null"),
+    msg=nullable_to_nonnull_pretty,
+  )
+  assert_false(
+    nullable_to_nullable_pretty.contains("ref.cast"),
+    msg=nullable_to_nullable_pretty,
+  )
+  assert_true(
+    nullable_to_nullable_pretty.contains("local.get"),
+    msg=nullable_to_nullable_pretty,
+  )
+}
+
+///|
 test "optimize-instructions folds nullable ref.test and ref.cast on known null refs" {
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let eq_ref = @lib.ValType::ref_null(eq_heap)

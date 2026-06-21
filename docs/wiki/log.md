@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-J already-exact ref.cast cleanup
+
+- Filed [`raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md`](raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md) for the second `[O4Z-AUDIT-OI-J]` exactness sub-slice. Binaryen `version_130` removes exact `ref.cast` when the operand is already exact on the same heap, and rewrites nullable-exact to non-null-exact casts to `ref.as_non_null`; Starshine already matched this after the `0818` exactness guard and now has direct-core coverage for the three local shapes.
+- Evidence: Binaryen oracle probe `.tmp/oi-j-exact-already-exact-probe.wat` removed/converted the already-exact casts with `--enable-custom-descriptors`. Red-first positive implementation did not apply because this was coverage for existing behavior. Focused `*exact ref.cast*` passed `2/2`, `*ref.cast*` passed `32/32`, `*ref*` passed `68/68`, `*optimize-instructions*` passed `201/201`, `moon fmt`, `moon test src/passes` (`2731/2731`), native `src/cmd` build, and `moon info` passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference/call_ref operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Preserve OI-J exact ref.cast boundary
 
 - Filed [`raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md`](raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md) for the first `[O4Z-AUDIT-OI-J]` exactness sub-slice. Binaryen `version_130` keeps exact `ref.cast` checks from inexact same-heap locals under custom descriptors; Starshine now does the same and no longer removes those casts into invalid exact-result functions.
