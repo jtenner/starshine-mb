@@ -84,6 +84,30 @@ fn code_pushing_node_is_local_get(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn code_pushing_node_has_any_local_get(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if code_pushing_node_has_any_local_get(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn code_pushing_effects_safe_to_cross_for_value(mask : UInt) -> Bool {
   (
     mask &
@@ -851,6 +875,124 @@ fn code_pushing_try_sink_local_get_set_after_if(
 }
 
 ///|
+fn code_pushing_try_sink_ordered_sets_after_void_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  set_idx : Int,
+) -> Bool {
+  if set_idx + 2 >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let set_ids : Array[Int] = []
+  let local_ids : Array[Int] = []
+  let value_ids : Array[Int] = []
+  let mut idx = set_idx
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    let kind = code_pushing_push_point_kind(func, root_id)
+    if kind != "none" {
+      break
+    }
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      return false
+    }
+    let root_node = @ir.hot_node_get(func, root_id)
+    match root_node.op {
+      @ir.HotOp::LocalSet => ()
+      _ => return false
+    }
+    if @ir.hot_node_result_arity(func, root_id) != 0 {
+      return false
+    }
+    let local_id = root_node.imm0
+    if local_ids.any(fn(existing) { existing == local_id }) {
+      return false
+    }
+    let value_id = @ir.hot_child_get(func, root_id, 0)
+    if !code_pushing_node_is_movable_value(func, value_id) ||
+      code_pushing_node_has_any_local_get(func, value_id) {
+      return false
+    }
+    let (prefix_gets, _) = code_pushing_count_local_gets_writes_in_region_prefix_bounded(
+      func, region_ref, local_id, set_idx, 0, 1_000_000,
+    )
+    if prefix_gets != 0 {
+      return false
+    }
+    let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
+      func, local_id, 1_000_000, 1,
+    )
+    if total_writes != 1 || total_gets == 0 {
+      return false
+    }
+    set_ids.push(root_id)
+    local_ids.push(local_id)
+    value_ids.push(value_id)
+    idx += 1
+  }
+  if set_ids.length() < 2 || idx >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let if_id = @ir.hot_region_get(func, region_ref, idx)
+  if code_pushing_push_point_kind(func, if_id) != "if" {
+    return false
+  }
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  if @ir.hot_node_result_arity(func, if_id) != 0 {
+    return false
+  }
+  for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
+    let local_id = local_ids[move_idx]
+    let value_id = value_ids[move_idx]
+    if !code_pushing_node_safe_to_cross_for_value(func, if_id, value_id) {
+      return false
+    }
+    let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
+      func, if_id, local_id,
+    )
+    if then_gets + else_gets != 0 {
+      return false
+    }
+    let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
+      func, local_id, 1_000_000, 1,
+    )
+    if total_writes != 1 || total_gets == 0 {
+      return false
+    }
+    let (suffix_gets, suffix_writes) = code_pushing_count_local_gets_writes_in_region_suffix_bounded(
+      func,
+      region_ref,
+      local_id,
+      idx + 1,
+      total_gets,
+      0,
+    )
+    if suffix_writes != 0 || suffix_gets != total_gets {
+      return false
+    }
+  }
+  let pushed_sets : Array[Int] = []
+  for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
+    pushed_sets.push(
+      code_pushing_make_local_set_clone(
+        func,
+        local_ids[move_idx],
+        value_ids[move_idx],
+      ),
+    )
+  }
+  ignore(pass_splice_region(ctx, func, region_ref, idx + 1, 0, pushed_sets))
+  for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
+    let nop = @ir.hot_build_nop(func)
+    pass_replace_node(ctx, func, set_ids[move_idx], @ir.hot_node_get(func, nop))
+  }
+  true
+}
+
+///|
 fn code_pushing_try_sink_set_after_if_push_point(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1123,6 +1265,11 @@ fn code_pushing_scan_region_once(
       return true
     }
     if code_pushing_try_sink_local_get_set_after_if(ctx, func, region_ref, idx) {
+      return true
+    }
+    if code_pushing_try_sink_ordered_sets_after_void_if(
+        ctx, func, region_ref, idx,
+      ) {
       return true
     }
     if code_pushing_try_sink_set_after_if_push_point(ctx, func, region_ref, idx) {

@@ -5,6 +5,7 @@ last_reviewed: 2026-06-20
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
   - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
   - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
   - ../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md
@@ -24,7 +25,7 @@ Native-path note for this checkout: after `moon build --target native --release 
 
 ## Dedicated GenValid profile
 
-Use `code-pushing-all` for the pass-specific lane. It is a deterministic composite over four currently implemented positive families:
+Use `code-pushing-all` for the pass-specific lane. It is a deterministic composite over five currently implemented positive families:
 
 | Leaf profile | Shape |
 | --- | --- |
@@ -32,8 +33,9 @@ Use `code-pushing-all` for the pass-specific lane. It is a deterministic composi
 | `code-pushing-after-if` | A pure computed `local.set` before an ordinary void `if` that does not read the local, followed by same-region suffix reads after the `if`. |
 | `code-pushing-dropped-if` | A pure `local.set` before a dropped value `if` that does not read the local, followed by same-region suffix reads after the dropped wrapper. |
 | `code-pushing-br-if` | A pure `local.set` before a void-block-target `br_if` that does not read the local, followed by same-block suffix reads after the branch. |
+| `code-pushing-multi-set` | Two local-independent pure `local.set` roots before an ordinary void `if`, followed by same-region suffix reads after the `if`, preserving source order. |
 
-The profile intentionally does **not** cover remaining audit gaps such as switch/`br_table`, branch-value or loop-target conditional branches, ordered multi-set movement, atomics/GC/EH, or trap-option widening. Add new leaves when those families land.
+The profile intentionally does **not** cover remaining audit gaps such as switch/`br_table`, branch-value or loop-target conditional branches, ordered multi-set movement outside the first ordinary-void-`if` local-independent slice, atomics/GC/EH, or trap-option widening. Add new leaves when those families land.
 
 Current bounded dedicated lane:
 
@@ -58,6 +60,14 @@ bun scripts/pass-fuzz-compare.ts --count 400 --seed 0x5eed --pass code-pushing -
 ```
 
 Result: compared `400/400`, normalized matches `200`, cleanup-normalized matches `200`, raw mismatches `0`, validation/generator/property/command failures `0`, selected subprofiles `code-pushing-if-arm: 100`, `code-pushing-br-if: 100`, `code-pushing-dropped-if: 100`, `code-pushing-after-if: 100`, cache `wasm-smith 0 hits/0 misses`, `Binaryen 396 hits/4 misses`, `Binaryen failures 0 hits/0 misses`.
+
+2026-06-20 ordered multi-set refresh after adding `code-pushing-multi-set`:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 500 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-multi-set-profile-500 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 50 --keep-going-after-command-failures
+```
+
+Result: compared `500/500`, normalized matches `227`, cleanup-normalized matches `273`, raw mismatches `0`, validation/generator/property/command failures `0`, selected subprofiles `code-pushing-after-if: 91`, `code-pushing-multi-set: 85`, `code-pushing-if-arm: 97`, `code-pushing-dropped-if: 121`, `code-pushing-br-if: 106`, cache `wasm-smith 0 hits/0 misses`, `Binaryen 498 hits/2 misses`, `Binaryen failures 0 hits/0 misses`.
 
 A raw lane without `--normalize local-cleanup-debris` stopped after `65` raw mismatches in `65` compared cases before the dropped-if slice. Inspected artifacts showed a bounded local-cleanup drift: Starshine removes standalone `nop`/empty-else debris around the movement while Binaryen leaves it. Treat the normalized lane as bounded slice evidence, not final raw-output parity or pass closeout.
 
