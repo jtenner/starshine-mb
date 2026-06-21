@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0934-2026-06-21-heap-store-optimization-call-indirect-old-field-growth-boundary.md
+  - ../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md
   - ../../../raw/research/0932-2026-06-21-heap-store-optimization-call-indirect-growth-boundary.md
   - ../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md
   - ../../../raw/research/0930-2026-06-21-heap-store-optimization-call-ref-memory-store-boundary.md
@@ -351,6 +353,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for indirect-call constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_indirect`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0932-2026-06-21-heap-store-optimization-call-indirect-growth-boundary.md`](../../../raw/research/0932-2026-06-21-heap-store-optimization-call-indirect-growth-boundary.md)
   - added focused HSO-D/G coverage for indirect-call constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_indirect`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0934-2026-06-21-heap-store-optimization-call-indirect-old-field-growth-boundary.md`](../../../raw/research/0934-2026-06-21-heap-store-optimization-call-indirect-old-field-growth-boundary.md)
+  - added focused HSO-D/G coverage for indirect-call old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_indirect`, the intervening growth root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0928-2026-06-21-heap-store-optimization-call-constructor-store-boundary.md`](../../../raw/research/0928-2026-06-21-heap-store-optimization-call-constructor-store-boundary.md)
   - added focused HSO-G coverage for ordinary direct-call constructor operands before unrelated `i32.store` and unrelated `table.set`; Binaryen preserves the call, intervening store root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md`](../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md)
@@ -359,6 +363,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for ordinary direct-call constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the call, intervening growth root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0930-2026-06-21-heap-store-optimization-call-ref-memory-store-boundary.md`](../../../raw/research/0930-2026-06-21-heap-store-optimization-call-ref-memory-store-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
+  - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md`](../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md)
   - fixed the HSO-G `0922` parity gap for `memory.size` / `table.size` constructors crossing a block-wrapped, non-throwing `try_table` body that only performs unrelated `global.set`; the implementation keeps direct `try_table` roots inside their block wrapper during swaps so catch-label depths remain valid.
 - [`../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md`](../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md)
