@@ -1025,6 +1025,88 @@ fn hso_call_catch_test_run(
 }
 
 ///|
+fn hso_memory_table_call_catch_test_module(
+  field_count : Int,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let struct_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(field_count)),
+    ),
+  )
+  let helper_type_idx = @lib.TypeIdx::new(1U)
+  let helper_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let tag_type_idx = @lib.TypeIdx::new(2U)
+  let tag_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let func_type_idx = @lib.TypeIdx::new(3U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([struct_type, helper_type, tag_type, func_type]),
+  )
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("helper"),
+        @lib.ExternType::func(helper_type_idx),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(tag_type_idx)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([struct_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_memory_table_call_catch_test_run(
+  body : Array[@lib.Instruction],
+  field_count : Int,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_memory_table_call_catch_test_module(field_count, body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid memory+table call/catch heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_desc_test_module(body : Array[@lib.Instruction]) -> @lib.Module {
   let descriptor_group = @lib.RecType::group([
     @lib.SubType::comp_type(
@@ -3211,6 +3293,111 @@ test "heap-store-optimization keeps memory.size constructors before result try_t
   assert_true(pretty.contains("try_table"), msg=pretty)
   assert_true(pretty.contains("memory.fill"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps result try_table same-effect fills after catchable calls" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let memory_optimized = match
+    hso_memory_table_call_catch_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(4)),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.size/result-try_table-call-memory-fill heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let memory_pretty = memory_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(memory_pretty.contains("memory.size"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("try_table"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("call"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("memory.fill"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("struct.set"), msg=memory_pretty)
+
+  let table_optimized = match
+    hso_memory_table_call_catch_test_run(
+      [
+        @lib.Instruction::table_size(@lib.TableIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::ref_null(
+                  @lib.HeapType::abs(@lib.AbsHeapType::func()),
+                ),
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::table_fill(@lib.TableIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(4)),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.size/result-try_table-call-table-fill heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let table_pretty = table_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(table_pretty.contains("table.size"), msg=table_pretty)
+  assert_true(table_pretty.contains("try_table"), msg=table_pretty)
+  assert_true(table_pretty.contains("call"), msg=table_pretty)
+  assert_true(table_pretty.contains("table.fill"), msg=table_pretty)
+  assert_true(table_pretty.contains("struct.set"), msg=table_pretty)
 }
 
 ///|
