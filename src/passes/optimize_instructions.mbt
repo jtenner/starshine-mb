@@ -4609,6 +4609,11 @@ fn optimize_instructions_ref_is_null_or_known_miss_for_non_null_target(
     @ir.HotOp::LocalGet =>
       match @ir.hot_local_type(func, node.imm0) {
         Some(@lib.ValType::RefTypeValType(ref_type)) =>
+          (
+            ref_type.get_heap_type() ==
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+            optimize_instructions_ref_i31_cannot_match_target(target)
+          ) ||
           optimize_instructions_abs_struct_array_disjoint(
             ref_type.get_heap_type(),
             target,
