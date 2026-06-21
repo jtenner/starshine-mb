@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-21] passes/optimize-instructions | Implement OI-K struct.get(struct.new_default)
+
+- Filed [`raw/research/0828-2026-06-21-optimize-instructions-oi-k-struct-new-default.md`](raw/research/0828-2026-06-21-optimize-instructions-oi-k-struct-new-default.md) for the sixth `[O4Z-AUDIT-OI-K]` GC constructor/field/default sub-slice. Binaryen `version_130` folds plain numeric/reference `struct.get(struct.new_default ...)` fields to zero/default nulls and folds packed signed/unsigned default fields to `i32.const 0`; Starshine now matches the direct one-use non-descriptor subset.
+- Evidence: Binaryen oracle probes `.tmp/oi-k-struct-new-default-probe.wat` and `.tmp/oi-k-struct-new-default-packed-probe.wat` produced default constants/nulls. Red-first focused `*struct.new_default*` failed before implementation and passed `2/2` after; final `*struct.get*` passed `5/5`, `*optimize-instructions*` passed `212/212`, `moon fmt`, `moon test src/passes` (`2742/2742`), native `src/cmd` build, and `moon info` passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-21] passes/optimize-instructions | Implement OI-K packed array.get(array.new_fixed)
 
 - Filed [`raw/research/0827-2026-06-21-optimize-instructions-oi-k-packed-array-get-new-fixed.md`](raw/research/0827-2026-06-21-optimize-instructions-oi-k-packed-array-get-new-fixed.md) for the fifth `[O4Z-AUDIT-OI-K]` GC constructor/field/array sub-slice. Binaryen `version_130` folds constant-index packed `array.get_s` / `array.get_u(array.new_fixed ...)` to signed/unsigned constants, rewrites nonconstant selected values through sign-extension or masks, folds constant out-of-bounds indexes to `unreachable`, keeps dynamic indexes, and localizes effectful non-selected element operands; Starshine now matches the pure/non-effectful-sibling subset and keeps the localization boundary explicit.

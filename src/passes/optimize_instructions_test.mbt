@@ -6108,6 +6108,102 @@ test "optimize-instructions folds pure struct.get of struct.new field values" {
 }
 
 ///|
+test "optimize-instructions folds struct.get of struct.new_default field defaults" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct
+        #|    (field i32)
+        #|    (field i64)
+        #|    (field f32)
+        #|    (field f64)
+        #|    (field (ref null extern))))
+        #|  (func (export "get_i32") (result i32)
+        #|    struct.new_default $s
+        #|    struct.get $s 0)
+        #|  (func (export "get_i64") (result i64)
+        #|    struct.new_default $s
+        #|    struct.get $s 1)
+        #|  (func (export "get_f32") (result f32)
+        #|    struct.new_default $s
+        #|    struct.get $s 2)
+        #|  (func (export "get_f64") (result f64)
+        #|    struct.new_default $s
+        #|    struct.get $s 3)
+        #|  (func (export "get_ref") (result externref)
+        #|    struct.new_default $s
+        #|    struct.get $s 4))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected struct.get(struct.new_default) optimize success, got \{err}",
+      )
+  }
+  let get_i32 = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let get_i64 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let get_f32 = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let get_f64 = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let get_ref = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_false(get_i32.contains("struct.get"), msg=get_i32)
+  assert_false(get_i32.contains("struct.new_default"), msg=get_i32)
+  assert_true(get_i32.contains("I32(0)"), msg=get_i32)
+  assert_false(get_i64.contains("struct.get"), msg=get_i64)
+  assert_false(get_i64.contains("struct.new_default"), msg=get_i64)
+  assert_true(get_i64.contains("I64(0)"), msg=get_i64)
+  assert_false(get_f32.contains("struct.get"), msg=get_f32)
+  assert_false(get_f32.contains("struct.new_default"), msg=get_f32)
+  assert_true(get_f32.contains("F32(0)"), msg=get_f32)
+  assert_false(get_f64.contains("struct.get"), msg=get_f64)
+  assert_false(get_f64.contains("struct.new_default"), msg=get_f64)
+  assert_true(get_f64.contains("F64(0)"), msg=get_f64)
+  assert_false(get_ref.contains("struct.get"), msg=get_ref)
+  assert_false(get_ref.contains("struct.new_default"), msg=get_ref)
+  assert_true(get_ref.contains("ref.null"), msg=get_ref)
+}
+
+///|
+test "optimize-instructions folds packed struct.get_s and struct.get_u of struct.new_default defaults" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field i8) (field i16)))
+        #|  (func (export "gets8") (result i32)
+        #|    struct.new_default $s
+        #|    struct.get_s $s 0)
+        #|  (func (export "getu8") (result i32)
+        #|    struct.new_default $s
+        #|    struct.get_u $s 0)
+        #|  (func (export "gets16") (result i32)
+        #|    struct.new_default $s
+        #|    struct.get_s $s 1)
+        #|  (func (export "getu16") (result i32)
+        #|    struct.new_default $s
+        #|    struct.get_u $s 1))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected packed struct.get(struct.new_default) optimize success, got \{err}",
+      )
+  }
+  for i = 0; i < 4; i = i + 1 {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(i.to_uint()))
+    assert_false(pretty.contains("struct.get"), msg=pretty)
+    assert_false(pretty.contains("struct.new_default"), msg=pretty)
+    assert_true(pretty.contains("I32(0)"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions folds packed struct.get_s and struct.get_u of struct.new field values" {
   let optimized = match
     pass_test_run_pipeline(

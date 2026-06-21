@@ -3311,6 +3311,56 @@ fn optimize_instructions_array_field_pack_bits(
 }
 
 ///|
+fn optimize_instructions_default_value_for_storage(
+  func : @ir.HotFunc,
+  storage : @lib.StorageType,
+) -> Int? {
+  match storage.unpack() {
+    @lib.ValType::NumTypeValType(@lib.NumType::I32NumType) =>
+      Some(@ir.hot_build_const_i32(func, @lib.I32(0)))
+    @lib.ValType::NumTypeValType(@lib.NumType::I64NumType) =>
+      Some(@ir.hot_build_const_i64(func, @lib.I64(0L)))
+    @lib.ValType::NumTypeValType(@lib.NumType::F32NumType) =>
+      Some(@ir.hot_build_const_f32(func, @lib.F32(0.0)))
+    @lib.ValType::NumTypeValType(@lib.NumType::F64NumType) =>
+      Some(@ir.hot_build_const_f64(func, @lib.F64(0.0)))
+    @lib.ValType::VecTypeValType => Some(@ir.hot_build_const_v128_zero(func))
+    @lib.ValType::RefTypeValType(ref_type) =>
+      if ref_type.is_nullable() {
+        Some(@ir.hot_build_ref_null(func, ref_type))
+      } else {
+        None
+      }
+    @lib.ValType::BotValType => None
+  }
+}
+
+///|
+fn optimize_instructions_struct_default_field_value(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  type_idx : @lib.TypeIdx,
+  field_idx : Int,
+) -> Int? {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let fields = match
+    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+    Some(fields) => fields
+    None => return None
+  }
+  if field_idx < 0 || field_idx >= fields.length() {
+    return None
+  }
+  optimize_instructions_default_value_for_storage(
+    func,
+    fields[field_idx].get_storage_type(),
+  )
+}
+
+///|
 fn optimize_instructions_replace_with_packed_i32_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3499,25 +3549,34 @@ fn optimize_instructions_try_fold_struct_get_struct_new(
     return false
   }
   let struct_node = @ir.hot_node_get(func, struct_id)
-  if field_idx < 0 || field_idx >= struct_node.child_count {
-    return false
-  }
-  match @ir.hot_node_exact_instr(func, struct_id) {
-    Some(@lib.Instruction::StructNew(new_type_idx)) if new_type_idx == type_idx =>
-      ()
+  let value_id = match @ir.hot_node_exact_instr(func, struct_id) {
+    Some(@lib.Instruction::StructNew(new_type_idx)) if new_type_idx == type_idx => {
+      if field_idx < 0 || field_idx >= struct_node.child_count {
+        return false
+      }
+      for i = 0; i < struct_node.child_count; i = i + 1 {
+        if i != field_idx &&
+          !optimize_instructions_node_effects_are_pure(
+            ctx,
+            func,
+            @ir.hot_child_get(func, struct_id, i),
+          ) {
+          return false
+        }
+      }
+      @ir.hot_child_get(func, struct_id, field_idx)
+    }
+    Some(@lib.Instruction::StructNewDefault(new_type_idx)) if new_type_idx ==
+      type_idx =>
+      match
+        optimize_instructions_struct_default_field_value(
+          ctx, func, type_idx, field_idx,
+        ) {
+        Some(value_id) => value_id
+        None => return false
+      }
     _ => return false
   }
-  for i = 0; i < struct_node.child_count; i = i + 1 {
-    if i != field_idx &&
-      !optimize_instructions_node_effects_are_pure(
-        ctx,
-        func,
-        @ir.hot_child_get(func, struct_id, i),
-      ) {
-      return false
-    }
-  }
-  let value_id = @ir.hot_child_get(func, struct_id, field_idx)
   match packed_signed {
     Some(signed) => {
       let bits = match
