@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0885-2026-06-21-heap-store-optimization-descriptor-old-field-effects.md
   - ../../../raw/research/0884-2026-06-21-heap-store-optimization-descriptor-block-br-if-trap-condition.md
   - ../../../raw/research/0883-2026-06-21-heap-store-optimization-later-field-block-br-if-trap-condition.md
   - ../../../raw/research/0882-2026-06-21-heap-store-optimization-later-field-if-trap-condition.md
@@ -218,6 +219,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0865` locked the descriptor `ref.as_non_null` trap boundary: Binaryen and Starshine both preserve `struct.set` when a nullable descriptor operand may trap before the later call-valued store is evaluated.
   - Probe note `0866` found Binaryen preserves `struct.set` when a descriptor block uses `br_on_non_null` to produce an exact descriptor and falls through to `unreachable`; a focused Starshine AST fixture currently hits a HOT CFG/verifier surface blocker, so this remains an open local-surface blocker rather than HSO parity evidence or an accepted non-goal.
   - Surface note `0869` refreshed the exact descriptor `ref.cast` blocker from `0789`: Binaryen preserves `struct.set`, Starshine still rejects the exact WAT during decode, and a direct-AST `ref_cast_desc_eq` attempt does not validate as an equivalent HSO fixture. This remains a local decode/instruction-surface blocker, not an HSO semantic non-goal.
+  - Coverage note `0885` locked descriptor old-field side-effect preservation: Binaryen folds a call-valued later store into `struct.new_desc` while preserving the overwritten old field's call under `drop`; Starshine already matched.
 - Control-flow skip-local-set hazards include loop backedges that can re-enter target-local reads.
   - Follow-up `0863` confirmed Binaryen preserves `struct.set` when a branch-valued store can `br_if` to a loop header that reads the fresh-struct target local before the next `local.set`; Starshine already matched this HSO-F negative.
 - Descriptor/default old-field combinations follow the same directional effect rules.
