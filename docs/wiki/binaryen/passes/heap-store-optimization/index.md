@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0859-2026-06-20-heap-store-optimization-descriptor-later-field-local-read.md
   - ../../../raw/research/0858-2026-06-20-heap-store-optimization-descriptor-target-local-write-hazard.md
   - ../../../raw/research/0857-2026-06-20-heap-store-optimization-descriptor-target-local-hazard.md
   - ../../../raw/research/0856-2026-06-20-heap-store-optimization-descriptor-old-field-combinations.md
@@ -171,6 +172,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0855` confirmed Binaryen preserves a chain when an early moved value writes the target local, but still folds an earlier harmless store before preserving a later target-local-read store.
   - Follow-up `0857` confirmed descriptor constructors keep the same moved-value target-local read hazard: Binaryen preserves the later `struct.set` rather than reading the target local before its fresh-struct assignment.
   - Follow-up `0858` confirmed the matching descriptor target-local write hazard: Binaryen preserves the later `struct.set` when the moved value assigns a replacement descriptor-constructed struct to the same local.
+  - Follow-up `0859` fixed the complementary descriptor later-field local-read positive: Binaryen folds when the later constructor field reads the target local but the moved value itself has no local-state effects.
 - Descriptor/default old-field combinations follow the same directional effect rules.
   - Follow-up `0856` confirmed Binaryen folds `struct.new_default_desc` chain stores into `struct.new_desc` when safe, but preserves a descriptor `struct.set` when a later constructor field call orders before a moved call value.
 

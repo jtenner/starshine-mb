@@ -1127,6 +1127,15 @@ fn hso_nodes_can_reorder(
   if !hso_mask_ordered_before(barrier_mask, moved_mask) {
     return true
   }
+  let local_control_barrier_mask = @ir.EFFECT_MASK_LOCAL_STATE |
+    @ir.EFFECT_MASK_CONTROL
+  let local_only_barrier = (
+      barrier_mask ^ (barrier_mask & local_control_barrier_mask)
+    ) ==
+    0U
+  if local_only_barrier && (moved_mask & @ir.EFFECT_MASK_LOCAL_STATE) == 0U {
+    return true
+  }
   hso_subtree_is_trapless_readonly(cache, func, node_masks, barrier_id) &&
   hso_subtree_is_trapless_readonly(cache, func, node_masks, moved_id)
 }
