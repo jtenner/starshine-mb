@@ -311,6 +311,37 @@ fn code_pushing_count_local_gets_writes_in_region_bounded(
 }
 
 ///|
+fn code_pushing_count_local_gets_writes_in_region_suffix_bounded(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  local_id : Int,
+  start_idx : Int,
+  max_gets : Int,
+  max_writes : Int,
+) -> (Int, Int) {
+  let mut gets = 0
+  let mut writes = 0
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let mut idx = if start_idx > 0 { start_idx } else { 0 }
+  while idx < root_count {
+    let (root_gets, root_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+      func,
+      @ir.hot_region_get(func, region_ref, idx),
+      local_id,
+      max_gets - gets,
+      max_writes - writes,
+    )
+    gets += root_gets
+    writes += root_writes
+    if gets > max_gets || writes > max_writes {
+      break
+    }
+    idx += 1
+  }
+  (gets, writes)
+}
+
+///|
 fn code_pushing_count_local_gets_in_if_arms(
   func : @ir.HotFunc,
   if_id : Int,
@@ -352,6 +383,29 @@ fn code_pushing_make_local_set_clone(
   value_id : Int,
 ) -> Int {
   @ir.hot_build_local_set(func, local_id, value_id)
+}
+
+///|
+fn code_pushing_region_cannot_fall_through_simple(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return false
+  }
+  let last_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+  if last_id < 0 || !@ir.hot_node_is_live(func, last_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, last_id).op {
+    @ir.HotOp::Unreachable
+    | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef => true
+    _ => false
+  }
 }
 
 ///|
@@ -758,15 +812,45 @@ fn code_pushing_try_sink_set_into_if_then(
     return false
   }
   let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-    func, local_id, arm_gets, 1,
+    func, local_id, 1_000_000, 1,
   )
-  if total_writes != 1 || total_gets != arm_gets {
+  if total_writes != 1 {
     return false
   }
-  let target_ref = if then_gets > 0 {
-    Some(@ir.hot_region_then_ref(func, if_id))
-  } else {
-    @ir.hot_region_else_ref(func, if_id)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = @ir.hot_region_else_ref(func, if_id)
+  let target_ref = if then_gets > 0 { Some(then_ref) } else { else_ref }
+  let mut gets_are_safe = total_gets == arm_gets
+  if !gets_are_safe && total_gets > arm_gets {
+    let (prefix_gets, prefix_writes) = code_pushing_count_local_gets_writes_in_region_prefix_bounded(
+      func, region_ref, local_id, set_idx, 0, 0,
+    )
+    let (suffix_gets, suffix_writes) = code_pushing_count_local_gets_writes_in_region_suffix_bounded(
+      func,
+      region_ref,
+      local_id,
+      if_idx + 1,
+      total_gets - arm_gets,
+      0,
+    )
+    let non_consuming_ref = if then_gets > 0 {
+      else_ref
+    } else {
+      Some(then_ref)
+    }
+    let non_consuming_exits = match non_consuming_ref {
+      Some(ref_) => code_pushing_region_cannot_fall_through_simple(func, ref_)
+      None => false
+    }
+    gets_are_safe = prefix_gets == 0 &&
+      prefix_writes == 0 &&
+      suffix_writes == 0 &&
+      suffix_gets > 0 &&
+      total_gets == arm_gets + suffix_gets &&
+      non_consuming_exits
+  }
+  if !gets_are_safe {
+    return false
   }
   match target_ref {
     Some(target_ref) => {

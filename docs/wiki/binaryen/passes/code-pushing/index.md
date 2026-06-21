@@ -1,8 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-09
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md
   - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
@@ -64,19 +67,19 @@ This folder previously contained a 2026-04-25 correction that removed `Pusher`, 
 
 The preferred source manifest is now:
 
+- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
-- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
 
-The 2026-05-05 current-main recheck refreshed the same owner and scheduler surfaces and found no teaching-relevant drift. Keep the useful part of the 2026-04-25 warning: do not teach arbitrary two-live-arm duplication as the baseline. But restore the correct upstream owner concepts: `LocalAnalyzer`, `Pusher`, segment windows, `isPushable`, `isPushPoint`, and `optimizeSegment`.
+The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. It keeps the same owner and scheduler surfaces, adds `code-pushing-atomics.wast` as an audit-relevant lit family, and records the `version_130` effect-ordering drift from `invalidates(...)` to `effects.orderedBefore(cumulativeEffects)`. Keep the useful part of the 2026-04-25 warning: do not teach arbitrary two-live-arm duplication as the baseline. But restore the correct upstream owner concepts: `LocalAnalyzer`, `Pusher`, segment windows, `isPushable`, `isPushPoint`, and `optimizeSegment`.
 
 ## Why it matters
 
 - Binaryen schedules `code-pushing` in the canonical no-DWARF function pipeline between `precompute` and the tuple/local-cleanup neighborhood.
 - The saved generated-artifact `-O4z` audit recorded it as top-level skipped slot `20` before Starshine grew the current direct subset.
 - Starshine's `tuple-optimization` exact-slot story still depends on this pass and the now-active `simplify-locals-nostructure` neighbor being represented honestly in the scheduler and preset replay.
-- The pass is easy to over-broaden. Correctness depends on SFA local proofs, effect invalidation, trap policy, GC/reference behavior, EH, and post-if read rules.
+- The pass is easy to over-broaden. Correctness depends on SFA local proofs, effect ordering/invalidation, trap policy, GC/reference behavior, atomics, EH, and post-if read rules.
 
 ## Inputs and outputs
 
@@ -108,7 +111,7 @@ The 2026-05-05 current-main recheck refreshed the same owner and scheduler surfa
 ## Invariants and correctness constraints
 
 - Do not move non-SFA locals without a stronger local-use proof.
-- Do not move values across effects that can invalidate the delayed computation.
+- Do not move values across effects that can invalidate or must be ordered after the delayed computation.
 - Do not change trap timing unless the active trap policy explicitly permits that behavior.
 - Do not strand post-if uses unless the non-consuming arm cannot fall through or another proof preserves the value.
 - Do not treat two-live-arm duplication as a default `code-pushing` behavior.
@@ -124,13 +127,13 @@ The 2026-05-05 current-main recheck refreshed the same owner and scheduler surfa
 - Post-if reads where the non-consuming arm is unreachable.
 - `switch` and conditional `br` push points.
 - Trap-capable expressions under default, ignore-implicit-traps, and TNH options.
-- GC/reference operations such as `ref.func`, casts, and null checks.
+- GC/reference operations such as `ref.func`, casts, null checks, and the `version_130` atomics/GC ordering family.
 - EH control where movement can change exceptional observability.
 - Starshine dead-block flattening, which is local cleanup rather than upstream `CodePushing.cpp` behavior.
 
 ## Validation
 
-The direct `--pass code-pushing` lane is accepted as complete for v0.1.0 direct-pass purposes. The 2026-05-09 evidence is:
+The older direct `--pass code-pushing` lane was accepted under the previous v0.1.0 direct-pass standard, but `[O4Z-AUDIT-CP]` has reopened broader behavior-parity audit work. The 2026-05-09 evidence remains useful for the then-current subset:
 
 - `moon info`, `moon fmt`, and `moon test` green;
 - `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures;
@@ -141,11 +144,11 @@ Raw canonical wasm/text still differs, but that is accepted representation drift
 
 For docs maintenance:
 
-- prefer the 2026-05-05 current-main recheck over the older 2026-04-26 and 2026-04-25 corrections;
+- prefer the 2026-06-20 `version_130` source/lit refresh over the older 2026-05-05, 2026-04-26, and 2026-04-25 corrections;
 - search for stale “no `Pusher`,” “no segment selection,” or “no local profitability” wording in this folder;
 - keep the no-two-live-arm-duplication warning, but do not erase Binaryen's real `Pusher` model.
 
-For future optional widening:
+For current `[O4Z-AUDIT-CP]` widening:
 
 1. add focused tests in `src/passes/code_pushing_test.mbt` before widening behavior;
 2. build an analyzer/segment-discovery slice before broad mutation;
@@ -171,6 +174,9 @@ For future optional widening:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md)
 - [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
@@ -179,4 +185,5 @@ For future optional widening:
 - [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
 - [`../../../../../src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- Binaryen `version_130` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/CodePushing.cpp>
 - Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>

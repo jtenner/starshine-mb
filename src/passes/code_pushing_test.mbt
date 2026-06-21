@@ -253,6 +253,38 @@ test "code-pushing keeps local.set before if when the local is used after the if
 }
 
 ///|
+test "code-pushing sinks if-arm local.set when the opposite arm cannot fall through to a later use" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32)
+      #|    i32.const 7
+      #|    local.set 1
+      #|    local.get 0
+      #|    if
+      #|      local.get 1
+      #|      drop
+      #|    else
+      #|      unreachable
+      #|    end
+      #|    local.get 1))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  let if_id = @ir.hot_root_get(func, 1)
+  code_pushing_expect_op(func, if_id, "if")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "local.get")
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
+  let pushed_set = @ir.hot_region_get(func, then_ref, 0)
+  code_pushing_expect_op(func, pushed_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
+}
+
+///|
 test "code-pushing flattens dead typed block before unreachable" {
   let func = code_pushing_test_run_hot(
     (

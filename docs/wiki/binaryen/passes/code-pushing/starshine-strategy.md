@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-09
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md
   - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
@@ -39,11 +42,12 @@ The owner file is:
 
 - [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
 
-The current implementation is deliberately narrower than Binaryen's full source-level `Pusher` model, but accepted as complete for direct-pass purposes under Starshine's semantic criteria:
+The current implementation is deliberately narrower than Binaryen's full source-level `Pusher` model. Its older direct-pass subset was accepted under the previous semantic criteria, but `[O4Z-AUDIT-CP]` is active under the current release-gating standard:
 
 1. **Safe single-consuming-arm local-set sinking**
    - A root `local.set` before a void `if` can be replaced with `nop`.
-   - A cloned `local.set` is inserted into the one `if` arm that contains all reads of that local.
+   - A cloned `local.set` is inserted into the one `if` arm that contains all in-arm reads of that local.
+   - Same-region suffix reads after the `if` are allowed only when the opposite arm cannot fall through under the current conservative root proof.
    - Values are limited to pure nontrapping HOT values plus guarded `global.get` and local-copy setup shapes.
 2. **Guarded setup movement across later roots**
    - Selected `global.get` and local-copy `local.set` roots can move later when intervening roots do not invalidate the source value or local proof.
@@ -83,8 +87,9 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get` and local-copy cases |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Only void `if` path is supported |
 | `optimizeSegment(...)` ordered multi-set movement | Not implemented generally |
-| `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm and no post-if reads |
-| Unreachable-arm post-use allowance | Not implemented yet |
+| `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm, plus same-region suffix reads when the opposite arm cannot fall through |
+| Unreachable-arm post-use allowance | First conservative slice implemented for roots ending in `unreachable`, `return`, or tail-return roots |
+| `version_130` ordered-before / atomics source surfaces | Not implemented generally; retained as explicit audit gap |
 | GC/EH/trap-option source surfaces | Guarded out or not modeled broadly |
 | Refinalization / later optimizer cycles | Starshine relies on HOT verification, lowering, and final validation; future broader ports need equivalent local retyping discipline |
 
@@ -109,7 +114,7 @@ Current HOT rewrite shape:
 The pass refuses to move when:
 
 - both arms read the local;
-- the local is read after the `if`;
+- the local is read after the `if` and the non-consuming arm can fall through;
 - there is more than one write;
 - the `if` has a result;
 - the source value is not movable under the strict pure/nontrapping or guarded setup gates;
@@ -144,20 +149,20 @@ So the honest local status is:
 - direct pass flag: active;
 - focused HOT subset: accepted complete under semantic / validity / 50%-speed criteria;
 - exact Binaryen preset slot: not claimed;
-- broader source-level `Pusher` coverage: optional future widening, not active v0.1.0 direct-pass work.
+- broader source-level `Pusher` coverage: active `[O4Z-AUDIT-CP]` work before release-gating closeout.
 
-## Optional future widening
+## Current audit widening
 
-Read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the detailed optional first-slice ladder.
+Read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the detailed first-slice ladder.
 
 The short version:
 
 1. add an analyzer-only SFA candidate classifier;
 2. add segment-window and push-point discovery without mutation;
 3. expand safe segment movement before widening value effects;
-4. add unreachable-arm post-use support;
-5. only then widen to Binaryen's broader effect-checked value movement;
-6. test GC, EH, trap-option, switch, and conditional-branch families explicitly;
+4. preserve the first unreachable-arm post-use support and broaden it only with source-backed control-flow proof;
+5. only then widen to Binaryen's broader effect-checked / ordered-before value movement;
+6. test GC, atomics, EH, trap-option, switch, and conditional-branch families explicitly;
 7. revisit public preset placement only with ordered-neighborhood proof.
 
 ## Related local dossiers
@@ -173,10 +178,13 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active and accepted as a completed direct HOT pass under semantic / validity / 50%-speed criteria. It remains intentionally outside public presets until ordered-neighborhood proof lands; broader source-level `Pusher` work is optional future widening rather than active direct-pass debt.
+Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, and the `version_130` source/lit refresh makes analyzer/segment discovery plus ordered-before / atomics boundaries the next active audit work. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md)
 - [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)

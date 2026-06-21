@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
@@ -21,7 +23,7 @@ related:
 
 ## Corrected framing
 
-The current source-backed Binaryen frame after the 2026-05-05 recheck is:
+The current source-backed Binaryen frame after the 2026-06-20 `version_130` refresh is:
 
 - `LocalAnalyzer` finds single-first-assignment locals;
 - `Pusher` scans block-root segments;
@@ -52,13 +54,13 @@ Starshine currently approximates a tiny part of this with whole-root get/write c
 
 Current Starshine is stricter than Binaryen's full `isPushable(...)` model: it moves pure nontrapping values plus guarded `global.get` and local-copy setup shapes only when local/effect barriers prove the delayed computation safe.
 
-## Barrier 3: intervening effects must not invalidate the value
+## Barrier 3: intervening effects must not invalidate or order before the value
 
-`optimizeSegment(...)` accumulates effects between source and destination and refuses movement when those effects invalidate the candidate value's effects.
+`optimizeSegment(...)` accumulates effects between source and destination and refuses movement when the candidate value's effects are ordered before the cumulative intervening effects. This is the current `version_130` source wording; older notes that describe only invalidation are now incomplete.
 
-Beginner rule: even if the value looks simple, it cannot cross a sibling that can make computing it later observe a different world.
+Beginner rule: even if the value looks simple, it cannot cross a sibling that can make computing it later observe a different world or violate ordered-before constraints.
 
-Advanced rule: future Starshine widening should keep extending the local effect-invalidation predicate before admitting broader value families.
+Advanced rule: future Starshine widening should keep extending the local effect-ordering / effect-invalidation predicate before admitting broader value families.
 
 ## Barrier 4: push points are specific
 
@@ -87,9 +89,10 @@ Trap timing and exceptional control are correctness boundaries.
 
 - Default trap policy is stricter than ignore-implicit-traps / TNH modes.
 - GC/reference expressions are allowed only when the same effect and use proof succeeds.
+- `code-pushing-atomics.wast` proves GC reads can move past shared atomic loads but not shared atomic stores.
 - EH can make movement observable through exceptional paths.
 
-Use the official `code-pushing_ignore-implicit-traps.wast`, `code-pushing_tnh.wast`, `code-pushing-gc.wast`, and `code-pushing-eh.wast` files as the proof surface for these families.
+Use the official `version_130` `code-pushing_ignore-implicit-traps.wast`, `code-pushing_tnh.wast`, `code-pushing-gc.wast`, `code-pushing-atomics.wast`, `code-pushing-eh.wast`, and `code-pushing-eh-legacy.wast` files as the proof surface for these families.
 
 ## Starshine-local extra boundary
 
@@ -111,16 +114,19 @@ A future broader Starshine port should preserve these rules before widening moti
 2. discover block-local candidate segments and push points;
 3. keep one-arm `if` sinking separate from generic segment movement;
 4. preserve order among multiple moved sets;
-5. extend effect-invalidation before moving broader value families;
+5. extend effect-ordering / effect-invalidation before moving broader value families;
 6. keep trap options explicit;
 7. test GC and EH as first-class boundaries;
 8. document Starshine-local helper families separately from upstream Binaryen behavior.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
+- Binaryen `version_130` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/CodePushing.cpp>
 - Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
 - Current Starshine owner: [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)

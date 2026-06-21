@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
@@ -19,7 +22,7 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the source-backed shapes future readers should keep in mind after the 2026-05-05 current-main recheck and the earlier 2026-04-26 source correction.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the 2026-06-20 post-use Starshine slice, and the earlier source corrections.
 
 ## Mental model
 
@@ -61,7 +64,7 @@ Why it can move:
 
 - `$tmp` is SFA-like;
 - the set's value is movable;
-- the intervening roots do not invalidate the value effects;
+- the intervening roots do not invalidate the value effects or violate `version_130` ordered-before constraints;
 - the destination is a recognized push point.
 
 ## Shape 2: `if` arm sinking into the only consuming arm
@@ -107,7 +110,7 @@ Conceptual family:
 (drop (local.get $tmp))
 ```
 
-The post-if read is not automatically fatal if the non-consuming path cannot continue. This nuance belongs to Binaryen's `optimizeIntoIf(...)` family and should be tested before Starshine claims it.
+The post-if read is not automatically fatal if the non-consuming path cannot continue. This nuance belongs to Binaryen's `optimizeIntoIf(...)` family. Starshine's first conservative slice now supports the same-region suffix-read subset when the opposite arm cannot fall through.
 
 ## Shape 4: both reachable arms using a value is not the baseline push
 
@@ -173,14 +176,15 @@ Binaryen's push-point concept is broader than plain `if`. Future Starshine work 
 
 and switch/br-table-like shapes where the local's later consumption and effect barriers can be proved.
 
-## Shape 8: GC/reference expressions are not categorically excluded
+## Shape 8: GC/reference and atomics expressions are not categorically excluded
 
-The official `code-pushing-gc.wast` test remains part of the proof surface.
+The official `version_130` `code-pushing-gc.wast` and `code-pushing-atomics.wast` tests are part of the proof surface.
 
 Safe rule:
 
 - reference-typed expressions may participate only when the same SFA, use, and effect proof succeeds;
-- `ref.func`, casts, null checks, and descriptor-shaped operations need explicit tests before Starshine widens.
+- `code-pushing-atomics.wast` shows a GC `struct.get` may move past a shared atomic load, but not past a shared atomic store;
+- `ref.func`, casts, null checks, descriptor-shaped operations, and atomics need explicit tests before Starshine widens.
 
 ## Shape 9: EH shapes are bailout-rich
 
@@ -236,14 +240,17 @@ Before expecting a `code-pushing` rewrite, ask:
 3. Are all local gets accounted for at or after the destination?
 4. Can the value cross every intervening effect?
 5. Does trap policy matter?
-6. Are GC/EH/reference details involved?
+6. Are GC/atomics/EH/reference details involved?
 7. Is the example actually current Starshine-local rather than upstream Binaryen?
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../../../src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt)
-- Binaryen `version_129` tests linked in the raw manifest.
+- Binaryen `version_130` tests linked in the raw manifest.

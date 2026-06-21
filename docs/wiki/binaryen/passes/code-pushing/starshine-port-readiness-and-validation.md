@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-09
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md
   - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
@@ -26,7 +29,11 @@ related:
 
 ## Current local status
 
-`code-pushing` is an active direct HOT pass and is accepted as complete for v0.1.0 direct-pass purposes. As of 2026-05-09, direct debug-artifact compare for `tests/node/dist/starshine-debug-wasi.wasm --code-pushing` is semantically/canonically green through the self-opt compare canonical-function fallback (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`). Raw canonical wasm/text still differs because HOT lowering and Binaryen choose different temporary-local / expression-stack shapes, but that is accepted representation drift rather than pass debt.
+`code-pushing` is an active direct HOT pass. Its earlier v0.1.0 direct-pass acceptance is now superseded by the broader active `[O4Z-AUDIT-CP]` behavior-audit track in `agent-todo.md`; future closure must satisfy the repo's current pass-audit standard rather than relying only on the older 2026-05-09 direct revalidation. As of 2026-05-09, direct debug-artifact compare for `tests/node/dist/starshine-debug-wasi.wasm --code-pushing` was semantically/canonically green through the self-opt compare canonical-function fallback (`Normalized WAT equal: yes`, `Canonical function compare equal: yes`). Raw canonical wasm/text still differed because HOT lowering and Binaryen choose different temporary-local / expression-stack shapes.
+
+The first 2026-06-20 audit-widening slice adds Binaryen-backed post-`if` read support when the local is read in exactly one `if` arm and the opposite arm cannot fall through. The note [`0806`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md) records the Binaryen oracle probe, red-first test, implementation guard, and focused evidence.
+
+The second 2026-06-20 audit slice refreshed the current `version_130` Binaryen source/lit surface. The new bridge [`2026-06-20-code-pushing-version-130-source-lit-refresh`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md) and research note [`0807`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md) supersede the older current-main bridge for release-gating decisions. The refresh found stable owner structure, `effects.orderedBefore(cumulativeEffects)` replacing the older invalidation checks, and a new `code-pushing-atomics.wast` proof surface for GC reads across shared atomic loads/stores.
 
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 
@@ -53,11 +60,11 @@ Binaryen's source-backed strategy is broader than the local subset:
 | --- | --- | --- |
 | `LocalAnalyzer` SFA proof over all locals | Ad hoc exact-one-write / all-reads-in-arm counters for one local | Build analyzer first, ideally with explainable no-rewrite diagnostics |
 | `Pusher` block segment scan | Bounded root lookahead covers selected `if` and later-barrier shapes, but not general Binaryen segment windows | Add segment-window discovery before widening moved values |
-| `isPushable(...)` effect/removability gate | Pure nontrapping values plus guarded `global.get` and local-copy shapes | Preserve strictness unless local effect modeling proves more |
+| `isPushable(...)` effect/removability gate | Pure nontrapping values plus guarded `global.get` and local-copy shapes | Preserve strictness unless local effect modeling proves more; `version_130` movement checks require ordered-before reasoning, not only coarse invalidation |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped forms | Void `if` only | Add one push-point family at a time |
 | `optimizeSegment(...)` ordered multi-set pushing | One set at a time | Keep order-preservation tests when multi-set support appears |
-| `optimizeIntoIf(...)` post-if-read / unreachable-arm allowance | Only all reads inside exactly one arm | Add unreachable-arm post-use fixtures before claiming parity |
-| GC/EH/trap option surfaces | Mostly guarded out | Treat as explicit follow-up slices, not incidental wins |
+| `optimizeIntoIf(...)` post-if-read / unreachable-arm allowance | First conservative slice implemented for same-region suffix reads when the opposite arm ends in non-fallthrough roots such as `unreachable` | Broaden only with source-backed control-flow proofs; keep fallthrough post-use negative coverage |
+| GC/EH/trap/atomics option surfaces | Mostly guarded out | Treat as explicit follow-up slices, not incidental wins; `code-pushing-atomics.wast` is now part of the current proof surface |
 | Public preset placement | Omitted | Do not schedule until `simplify-locals-nostructure` and parity lanes are ready |
 
 ## Optional future widening slices
@@ -69,11 +76,12 @@ Binaryen's source-backed strategy is broader than the local subset:
 2. **Segment-window slice**
    - Discover candidate block segments ending at a push point without moving anything.
    - Test ordinary `if`, dropped `if`, conditional branch, and `switch` recognition separately.
+   - Include source-backed diagnostics for ordered-before / atomic-store barriers before broad movement.
 3. **Safe segment movement**
    - Reuse the existing strict movable-value gate but allow non-immediate segment movement before a push point.
    - Keep all trap/GC/EH candidates negative.
 4. **Unreachable-arm post-use slice**
-   - Add the Binaryen `if` nuance where the local can be read after the `if` if the opposite arm cannot fall through.
+   - First conservative slice completed in [`0806`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md): same-region suffix reads are allowed when the non-consuming arm cannot fall through. Future work can broaden the non-fallthrough proof beyond the current simple root-ending helper only with source-backed tests.
 5. **Effect-checked widening**
    - Only after the earlier slices are green, widen beyond the current strict movable-value gates using Starshine's effect model.
 6. **Preset slice**
@@ -100,15 +108,18 @@ Do not widen without explicit tests for:
 - both-arm live uses where duplication would be required;
 - post-if reads when the non-consuming arm can fall through;
 - multi-set order preservation;
-- GC reference cases where `ref.func`, casts, or null checks make movement observable;
+- GC reference and atomics cases where `ref.func`, casts, null checks, shared atomic stores, or ordered-before effects make movement observable;
 - EH cases where exceptional control observes the moved value or trap timing.
 
 ## Bottom line
 
-Starshine's direct `code-pushing` pass is accepted as complete under semantic / validity / 50%-speed criteria. If future workloads justify broader source-level parity, the next useful work is analysis and segment discovery, not broad mutation. Public preset scheduling remains separate ordered-neighborhood work.
+Starshine's older direct `code-pushing` subset remains supported by its 2026-05 evidence, but `[O4Z-AUDIT-CP]` is active and not closed under the current release-gating standard. The next useful work is analysis and segment discovery, with ordered-before / atomics boundaries carried forward from the `version_130` refresh. Public preset scheduling remains separate ordered-neighborhood work.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md)
 - [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
@@ -28,7 +30,7 @@ supersedes:
 
 The 2026-04-25 `code-pushing` correction went too far. It correctly warned against teaching arbitrary two-live-arm duplication, but it incorrectly said the reviewed upstream file did not use `Pusher`, segment selection, or local profitability-style movement.
 
-The 2026-04-26 primary-source recheck found that official Binaryen `version_129` and current-main `src/passes/CodePushing.cpp` are in fact organized around:
+The 2026-04-26 primary-source recheck found, and the 2026-06-20 `version_130` refresh confirmed, that official Binaryen `src/passes/CodePushing.cpp` is organized around:
 
 - `LocalAnalyzer`,
 - `Pusher`,
@@ -39,12 +41,12 @@ The 2026-04-26 primary-source recheck found that official Binaryen `version_129`
 - cached `EffectAnalyzer` / `Properties` reasoning,
 - and `doWalkFunction(...)` running the analysis plus the walker.
 
-Use [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md) as the current source manifest. The older 2026-04-26 file stays as historical provenance for local-status notes, and the 2026-05-05 recheck kept the reviewed owner and scheduler surfaces unchanged on the teaching-relevant lines.
+Use [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md) as the current local-oracle source manifest. The older 2026-05-05 and 2026-04-26 files stay as historical provenance for local-status notes. The 2026-06-20 `version_130` refresh kept the reviewed owner and scheduler surfaces intact and found one audit-relevant source drift: `optimizeSegment(...)` and `optimizeIntoIf(...)` now use `effects.orderedBefore(cumulativeEffects)` where the older `version_129` source used a coarser invalidation check.
 
 Primary sources:
 
+- Binaryen `version_130` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/CodePushing.cpp>
 - Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
-- Binaryen `version_129` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
 
 ## High-level intent
 
@@ -113,13 +115,14 @@ So the corrected rule is: `code-pushing` can sink into an `if` arm, including un
 
 ## Effects, traps, GC, and EH
 
-The official lit suite shows why movement is not just syntactic:
+The official `version_130` lit suite shows why movement is not just syntactic:
 
 - `code-pushing_ignore-implicit-traps.wast` and `code-pushing_tnh.wast` cover trap-policy differences.
 - `code-pushing-gc.wast` proves reference/GC-shaped expressions are part of the proof surface.
-- `code-pushing-eh.wast` keeps exceptional control in scope.
+- `code-pushing-atomics.wast` proves ordered-before behavior around shared atomic loads/stores and GC reads.
+- `code-pushing-eh.wast` and `code-pushing-eh-legacy.wast` keep exceptional control in scope.
 
-The core rule is effect invalidation: a candidate can move only when intervening effects do not make the delayed value computation observably different under the active options.
+The core rule is effect ordering and invalidation: a candidate can move only when intervening effects do not make the delayed value computation observably different under the active options, and `version_130` makes the ordered-before relation explicit in the pass-local checks.
 
 ## Starshine implication
 
@@ -127,9 +130,11 @@ Starshine's current direct pass is an accepted safe subset under semantic / vali
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
+- Binaryen `version_130` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/CodePushing.cpp>
 - Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
-- Binaryen `version_129` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>

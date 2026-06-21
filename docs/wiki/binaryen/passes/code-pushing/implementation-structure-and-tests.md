@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
@@ -23,16 +25,16 @@ related:
 
 This page is the source map future readers should use before editing `code-pushing` strategy or shape pages.
 
-The 2026-05-05 recheck refreshes the same reviewed owner and scheduler surfaces and still supersedes the 2026-04-25 miscorrection: upstream Binaryen `CodePushing.cpp` does use `LocalAnalyzer`, `Pusher`, segment selection, and effect-checked movement.
+The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. It keeps the same reviewed owner and scheduler surfaces and still supersedes the 2026-04-25 miscorrection: upstream Binaryen `CodePushing.cpp` does use `LocalAnalyzer`, `Pusher`, segment selection, and effect-checked movement. It also records audit-relevant drift from `version_129`: movement checks now use `effects.orderedBefore(cumulativeEffects)`, and the official lit proof surface includes a new atomics/GC ordering file.
 
 ## Upstream owner file
 
 The pass is concentrated in:
 
+- Binaryen `version_130` `src/passes/CodePushing.cpp`
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/CodePushing.cpp>
 - Binaryen current-main `src/passes/CodePushing.cpp`
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
-- Binaryen `version_129` `src/passes/CodePushing.cpp`
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
 
 Important source regions by owner name:
 
@@ -50,7 +52,7 @@ Important source regions by owner name:
 
 - `src/passes/pass.cpp`
   - Registers and schedules the public pass name.
-  - Source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - Source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
 - Effect/property helper surfaces used from `CodePushing.cpp`
   - The concrete source path should start at the pass-local `EffectAnalyzer` / `Properties` calls rather than at generic helper descriptions.
 
@@ -58,21 +60,25 @@ Important source regions by owner name:
 
 | Test file | What it proves |
 | --- | --- |
-| `code-pushing.wast` | Baseline local-set segment pushing and ordinary no-op boundaries |
+| `code-pushing-atomics.wast` | `version_130` atomics/GC ordering: GC reads may move past shared atomic loads but not shared atomic stores, both into `if` arms and across segment push points |
 | `code-pushing_into_if.wast` | One-arm `if` sinking plus post-if-read and unreachable-arm subtleties |
 | `code-pushing_ignore-implicit-traps.wast` | Option-sensitive relaxation around implicit traps |
 | `code-pushing_tnh.wast` | Traps-never-happen behavior |
 | `code-pushing-gc.wast` | GC/reference-typed families under the same movement-safety rules |
 | `code-pushing-eh.wast` | Exception-handling-sensitive no-op and movement boundaries |
+| `code-pushing-eh-legacy.wast` | Legacy EH-sensitive coverage retained in the `version_130` lit surface |
 
-Official test URLs:
+There is no generic `code-pushing.wast` file in the `version_130` lit directory; use the named family files above as the current proof surface.
 
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_into_if.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_ignore-implicit-traps.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_tnh.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-gc.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-eh.wast>
+Official `version_130` test URLs:
+
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing-atomics.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing_into_if.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing_ignore-implicit-traps.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing_tnh.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing-gc.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing-eh.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/code-pushing-eh-legacy.wast>
 
 ## Starshine implementation/test map
 
@@ -97,8 +103,10 @@ The correct caveat is narrower: Binaryen has a `Pusher` / segment algorithm, but
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
-- Binaryen current-main and `version_129` source/test links above.
+- Binaryen `version_130` and current-main source/test links above.
