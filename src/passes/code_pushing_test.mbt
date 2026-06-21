@@ -1213,6 +1213,134 @@ test "code-pushing preserves order through local-get-separated multi-set window 
 }
 
 ///|
+test "code-pushing preserves order through global-get-separated multi-set window after if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (global i32 (i32.const 42))
+      #|  (func (param i32) (local i32 i32)
+      #|    i32.const 7
+      #|    local.set 1
+      #|    global.get 0
+      #|    drop
+      #|    i32.const 9
+      #|    local.set 2
+      #|    local.get 0
+      #|    if
+      #|      nop
+      #|    end
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2
+      #|    drop))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 8)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "drop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "if")
+  let first_moved = @ir.hot_root_get(func, 4)
+  let second_moved = @ir.hot_root_get(func, 5)
+  code_pushing_expect_op(func, first_moved, "local.set")
+  code_pushing_expect_op(func, second_moved, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_moved).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, second_moved).imm0, 2)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 6), "drop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 7), "drop")
+}
+
+///|
+test "code-pushing preserves order through global-get-separated multi-set window after dropped value if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (global i32 (i32.const 42))
+      #|  (func (param i32) (local i32 i32)
+      #|    i32.const 7
+      #|    local.set 1
+      #|    global.get 0
+      #|    drop
+      #|    i32.const 9
+      #|    local.set 2
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      i32.const 2
+      #|    end
+      #|    drop
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2
+      #|    drop))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 8)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "drop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "drop")
+  let first_moved = @ir.hot_root_get(func, 4)
+  let second_moved = @ir.hot_root_get(func, 5)
+  code_pushing_expect_op(func, first_moved, "local.set")
+  code_pushing_expect_op(func, second_moved, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_moved).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, second_moved).imm0, 2)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 6), "drop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 7), "drop")
+}
+
+///|
+test "code-pushing keeps global-get-separated multi-set window before br_if boundary" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (global i32 (i32.const 42))
+      #|  (func (param i32) (local i32 i32)
+      #|    (block $exit
+      #|      i32.const 7
+      #|      local.set 1
+      #|      global.get 0
+      #|      drop
+      #|      i32.const 9
+      #|      local.set 2
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop
+      #|      local.get 2
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 6)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 2),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 4), "drop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 5), "drop")
+}
+
+///|
 test "code-pushing preserves order when moving multiple local-copy SFA sets after br_if" {
   let func = code_pushing_test_run_hot(
     (

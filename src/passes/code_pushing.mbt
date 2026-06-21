@@ -903,12 +903,34 @@ fn code_pushing_node_is_drop_local_get_window_separator(
 }
 
 ///|
+fn code_pushing_node_is_drop_global_get_window_separator(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, node_id) != 0 ||
+    @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  code_pushing_node_is_global_get(func, child_id)
+}
+
+///|
 fn code_pushing_node_is_safe_drop_window_separator(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
   code_pushing_node_is_drop_const_window_separator(func, node_id) ||
-  code_pushing_node_is_drop_local_get_window_separator(func, node_id)
+  code_pushing_node_is_drop_local_get_window_separator(func, node_id) ||
+  code_pushing_node_is_drop_global_get_window_separator(func, node_id)
 }
 
 ///|
@@ -1009,6 +1031,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
   let local_ids : Array[Int] = []
   let value_ids : Array[Int] = []
   let source_local_ids : Array[Int] = []
+  let mut saw_drop_global_get_separator = false
   let mut idx = set_idx
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
@@ -1071,13 +1094,19 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
         }
       @ir.HotOp::Drop if code_pushing_node_is_safe_drop_window_separator(
           func, root_id,
-        ) =>
-        // Source-backed non-adjacent slices admit only dead drop(const) and
-        // drop(local.get) roots as local-independent, non-effectful separators;
-        // other non-set roots still need orderedBefore/effect tests first.
+        ) => {
+        // Source-backed non-adjacent slices admit only dead drop(const),
+        // drop(local.get), and ordinary/dropped-if drop(global.get) roots as
+        // bounded separators. Binaryen v130 probes did not move the same
+        // global-get separator window across br_if, so that push point is
+        // rejected after we discover the destination below.
         if set_ids.length() == 0 {
           return false
         }
+        if code_pushing_node_is_drop_global_get_window_separator(func, root_id) {
+          saw_drop_global_get_separator = true
+        }
+      }
       _ => return false
     }
     idx += 1
@@ -1095,6 +1124,9 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
     if_id = @ir.hot_child_get(func, push_id, 0)
   } else if push_kind == "conditional-branch" &&
     code_pushing_br_if_push_point_supported(func, push_id) {
+    if saw_drop_global_get_separator {
+      return false
+    }
     branch_id = push_id
   } else {
     return false
@@ -1226,6 +1258,7 @@ fn code_pushing_try_sink_set_after_if_push_point(
   let mut idx = set_idx + 1
   let mut if_id = -1
   let mut branch_id = -1
+  let mut saw_drop_global_get_separator = false
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let candidate_id = @ir.hot_region_get(func, region_ref, idx)
     let kind = code_pushing_push_point_kind(func, candidate_id)
@@ -1237,12 +1270,25 @@ fn code_pushing_try_sink_set_after_if_push_point(
         if_id = @ir.hot_child_get(func, candidate_id, 0)
       } else if kind == "conditional-branch" &&
         code_pushing_br_if_push_point_supported(func, candidate_id) {
+        if saw_drop_global_get_separator ||
+          (
+            set_idx > 0 &&
+            code_pushing_node_is_drop_global_get_window_separator(
+              func,
+              @ir.hot_region_get(func, region_ref, set_idx - 1),
+            )
+          ) {
+          return false
+        }
         branch_id = candidate_id
       } else {
         return false
       }
       push_idx = idx
       break
+    }
+    if code_pushing_node_is_drop_global_get_window_separator(func, candidate_id) {
+      saw_drop_global_get_separator = true
     }
     idx += 1
   }

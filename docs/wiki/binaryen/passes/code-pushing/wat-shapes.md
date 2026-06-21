@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
   - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
   - ../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md
@@ -33,7 +34,7 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, and `drop(local.get)`-window segment-movement Starshine slices, and the earlier source corrections.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, `drop(local.get)`-window, and bounded `drop(global.get)`-window segment-movement Starshine slices, and the earlier source corrections.
 
 ## Mental model
 
@@ -366,9 +367,42 @@ Binaryen-backed after:
 (drop (local.get $b))
 ```
 
-Starshine implements this only for `drop` roots with exactly one `local.get` child before ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points. Other non-adjacent windows still need source-backed `orderedBefore` / effect tests. The current ordered multi-set slices intentionally do not cover switch/`br_table`, branch values, `br_on_*`, arbitrary non-adjacent windows beyond `nop` / `drop(const)` / `drop(local.get)`, local-copy dependency chains, or general local-read-dependent value expressions.
+Starshine implements this only for `drop` roots with exactly one `local.get` child before ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points.
 
-## Shape 6g: loop-target `br_if` movement
+## Shape 6g: bounded `drop(global.get)`-separated ordered multi-set movement
+
+Binaryen-backed positive before ordinary void `if` / dropped value-`if` push points:
+
+```wat
+(global $g i32 (i32.const 42))
+(local.set $a (i32.const 7))
+(drop (global.get $g))
+(local.set $b (i32.const 9))
+(if
+  (local.get $cond)
+  (then
+    nop))
+(drop (local.get $a))
+(drop (local.get $b))
+```
+
+Binaryen-backed positive after:
+
+```wat
+(drop (global.get $g))
+(if
+  (local.get $cond)
+  (then
+    nop))
+(local.set $a (i32.const 7))
+(local.set $b (i32.const 9))
+(drop (local.get $a))
+(drop (local.get $b))
+```
+
+Starshine implements this only for `drop` roots with exactly one `global.get` child before ordinary void `if` and dropped value-`if` push points. Binaryen v130 did not move the same separator window before no-branch-value block-/loop-target `br_if`; Starshine keeps that as an explicit boundary. Other non-adjacent windows still need source-backed `orderedBefore` / effect tests. The current ordered multi-set slices intentionally do not cover switch/`br_table`, branch values, `br_on_*`, arbitrary non-adjacent windows beyond `nop` / `drop(const)` / `drop(local.get)` / bounded ordinary-/dropped-`if` `drop(global.get)`, local-copy dependency chains, or general local-read-dependent value expressions.
+
+## Shape 6h: loop-target `br_if` movement
 
 Binaryen-backed before:
 

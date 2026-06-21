@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
   - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
   - ../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md
@@ -75,8 +76,8 @@ The current Starshine implementation is an accepted direct-pass subset under Sta
 - a narrow `br_if` segment movement slice that moves one SFA set after a void-block-target or void-loop-target `br_if` when the branch does not read the local and all reads are same-block / same-loop-body suffix reads;
 - ordered multi-set movement slices that move adjacent local-independent SFA sets after an ordinary void `if`, dropped value-`if`, or narrow void-block-target / void-loop-target `br_if` while preserving source order;
 - an ordered direct local-copy multi-set slice that preserves source order across the same three push-point families when copied source locals are not rewritten by the crossed push point;
-- ordered separator-window multi-set slices that preserve source order across the same three push-point families when only `nop`, `drop(const)`, or `drop(local.get)` roots separate local-independent SFA sets;
-- a dedicated `code-pushing-all` GenValid profile covering the currently implemented `if`-arm, after-`if`, dropped-`if`, `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, `br_if` multi-set, local-copy multi-set, `nop`-window multi-set, loop-target `br_if`, `drop(const)`-window multi-set, and `drop(local.get)`-window multi-set positive families;
+- ordered separator-window multi-set slices that preserve source order across the same three push-point families when only `nop`, `drop(const)`, or `drop(local.get)` roots separate local-independent SFA sets, plus a bounded `drop(global.get)` separator slice for ordinary void `if` and dropped value-`if` push points only;
+- a dedicated `code-pushing-all` GenValid profile covering the currently implemented `if`-arm, after-`if`, dropped-`if`, `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, `br_if` multi-set, local-copy multi-set, `nop`-window multi-set, loop-target `br_if`, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, and `drop(global.get)`-window ordinary-/dropped-`if` positive families;
 - guarded movement of selected `global.get` and local-copy setup shapes across safe intervening roots;
 - one Starshine-local typed/dead-block flattening helper near unreachable context.
 
@@ -126,7 +127,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 ### Current Starshine output shape
 
 - Narrow single-consuming-arm local-set sinks become `nop` at the original root plus a cloned `local.set` inside the target arm.
-- The first segment movement slices can replace original SFA sets with `nop` and insert cloned sets immediately after an ordinary void `if`, after a dropped value-`if` wrapper, or after a narrow void-block-target / void-loop-target `br_if` when all uses are later suffix reads. Multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow void-block-target / void-loop-target `br_if` push points, plus direct local-copy, `nop`-separated, `drop(const)`-separated, and `drop(local.get)`-separated subcases with explicit source-local/order boundaries.
+- The first segment movement slices can replace original SFA sets with `nop` and insert cloned sets immediately after an ordinary void `if`, after a dropped value-`if` wrapper, or after a narrow void-block-target / void-loop-target `br_if` when all uses are later suffix reads. Multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow void-block-target / void-loop-target `br_if` push points, plus direct local-copy, `nop`-separated, `drop(const)`-separated, `drop(local.get)`-separated, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated subcases with explicit source-local/order boundaries.
 - Some typed/dead block roots near unreachable context are spliced into the parent region.
 - Unmatched shapes stay unchanged.
 

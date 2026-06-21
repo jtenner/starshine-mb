@@ -690,6 +690,7 @@ pub enum GenValidProfile {
   CodePushingLoopBrIfProfile
   CodePushingMultiSetDropWindowProfile
   CodePushingMultiSetLocalGetWindowProfile
+  CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
@@ -784,6 +785,8 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingMultiSetDropWindowProfile => "code-pushing-multi-set-drop-window"
     CodePushingMultiSetLocalGetWindowProfile =>
       "code-pushing-multi-set-local-get-window"
+    CodePushingMultiSetGlobalGetWindowProfile =>
+      "code-pushing-multi-set-global-get-window"
     CodePushingAllProfile => "code-pushing-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
@@ -856,6 +859,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingLoopBrIfProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetDropWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetLocalGetWindowProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetGlobalGetWindowProfile, 1),
       ]
     SsaNomergeAllProfile =>
       [
@@ -975,6 +979,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingLoopBrIfProfile,
     CodePushingMultiSetDropWindowProfile,
     CodePushingMultiSetLocalGetWindowProfile,
+    CodePushingMultiSetGlobalGetWindowProfile,
     CodePushingAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
@@ -1413,7 +1418,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | CodePushingMultiSetNopWindowProfile
     | CodePushingLoopBrIfProfile
     | CodePushingMultiSetDropWindowProfile
-    | CodePushingMultiSetLocalGetWindowProfile =>
+    | CodePushingMultiSetLocalGetWindowProfile
+    | CodePushingMultiSetGlobalGetWindowProfile =>
       gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
@@ -1674,7 +1680,11 @@ fn gen_valid_code_pushing_profile_config(
     max_defined_funcs: 1,
     max_tables: 0,
     max_mems: 0,
-    max_globals: 0,
+    max_globals: if profile == CodePushingMultiSetGlobalGetWindowProfile {
+      1
+    } else {
+      0
+    },
     max_tags: 0,
     max_elems: 0,
     max_datas: 0,
@@ -1697,7 +1707,8 @@ fn gen_valid_code_pushing_profile_config(
       profile == CodePushingMultiSetNopWindowProfile ||
       profile == CodePushingLoopBrIfProfile ||
       profile == CodePushingMultiSetDropWindowProfile ||
-      profile == CodePushingMultiSetLocalGetWindowProfile {
+      profile == CodePushingMultiSetLocalGetWindowProfile ||
+      profile == CodePushingMultiSetGlobalGetWindowProfile {
       2
     } else {
       1
@@ -1714,6 +1725,7 @@ fn gen_valid_code_pushing_profile_config(
       CodePushingLoopBrIfProfile => 15
       CodePushingMultiSetDropWindowProfile => 16
       CodePushingMultiSetLocalGetWindowProfile => 16
+      CodePushingMultiSetGlobalGetWindowProfile => 16
       _ => 5
     },
     max_body_depth: 2,
@@ -1722,7 +1734,7 @@ fn gen_valid_code_pushing_profile_config(
       allow_imports: false,
       allow_tables: false,
       allow_mems: false,
-      allow_globals: false,
+      allow_globals: profile == CodePushingMultiSetGlobalGetWindowProfile,
       allow_tags: false,
       allow_elems: false,
       allow_datas: false,
@@ -1758,7 +1770,9 @@ fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(CodePushingLoopBrIfProfile) ||
   config == GenValidConfig::for_profile(CodePushingMultiSetDropWindowProfile) ||
   config ==
-  GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile)
+  GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile) ||
+  config ==
+  GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile)
 }
 
 ///|
@@ -12380,6 +12394,9 @@ fn gen_valid_code_pushing_profile_kind(
   } else if config ==
     GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile) {
     CodePushingMultiSetLocalGetWindowProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile) {
+    CodePushingMultiSetGlobalGetWindowProfile
   } else {
     CodePushingIfArmProfile
   }
@@ -12580,6 +12597,30 @@ fn gen_valid_code_pushing_multi_set_local_get_window_body() -> Array[
 }
 
 ///|
+fn gen_valid_code_pushing_multi_set_global_get_window_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::global_get(GlobalIdx::new(0U)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(9)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
 fn gen_valid_code_pushing_multi_set_local_copy_body() -> Array[Instruction] {
   [
     Instruction::local_get(LocalIdx::new(1U)),
@@ -12646,6 +12687,8 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
       gen_valid_code_pushing_multi_set_drop_window_body()
     CodePushingMultiSetLocalGetWindowProfile =>
       gen_valid_code_pushing_multi_set_local_get_window_body()
+    CodePushingMultiSetGlobalGetWindowProfile =>
+      gen_valid_code_pushing_multi_set_global_get_window_body()
     _ => gen_valid_code_pushing_if_arm_body()
   }
   let params = if kind == CodePushingMultiSetLocalCopyProfile {
@@ -12658,31 +12701,44 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
   let func_type = RecType::new(
     SubType::comp_type(CompType::func(params, result_type)),
   )
-  Module::new()
-  .with_type_sec(TypeSec::new([func_type]))
-  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-  .with_code_sec(
-    CodeSec::new([
-      Func::new(
-        Locals::from_types(
-          if kind == CodePushingMultiSetProfile ||
-            kind == CodePushingMultiSetDroppedIfProfile ||
-            kind == CodePushingMultiSetBrIfProfile ||
-            kind == CodePushingMultiSetLocalCopyProfile ||
-            kind == CodePushingMultiSetNopWindowProfile ||
-            kind == CodePushingLoopBrIfProfile ||
-            kind == CodePushingMultiSetDropWindowProfile {
-            [ValType::i32(), ValType::i32()]
-          } else if kind == CodePushingMultiSetLocalGetWindowProfile {
-            [ValType::i32(), ValType::i32()]
-          } else {
-            [ValType::i32()]
-          },
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::from_types(
+            if kind == CodePushingMultiSetProfile ||
+              kind == CodePushingMultiSetDroppedIfProfile ||
+              kind == CodePushingMultiSetBrIfProfile ||
+              kind == CodePushingMultiSetLocalCopyProfile ||
+              kind == CodePushingMultiSetNopWindowProfile ||
+              kind == CodePushingLoopBrIfProfile ||
+              kind == CodePushingMultiSetDropWindowProfile ||
+              kind == CodePushingMultiSetGlobalGetWindowProfile {
+              [ValType::i32(), ValType::i32()]
+            } else if kind == CodePushingMultiSetLocalGetWindowProfile {
+              [ValType::i32(), ValType::i32()]
+            } else {
+              [ValType::i32()]
+            },
+          ),
+          Expr::new(body),
         ),
-        Expr::new(body),
-      ),
-    ]),
-  )
+      ]),
+    )
+  if kind == CodePushingMultiSetGlobalGetWindowProfile {
+    mod.with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), false),
+          Expr::new([Instruction::i32_const(I32(42))]),
+        ),
+      ]),
+    )
+  } else {
+    mod
+  }
 }
 
 ///|
