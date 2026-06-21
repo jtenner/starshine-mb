@@ -6874,6 +6874,177 @@ test "optimize-instructions folds packed array.get_s and array.get_u of pure arr
 }
 
 ///|
+test "optimize-instructions removes array.set to fresh pure arrays with constant indexes" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let effect_type = @lib.TypeIdx::new(1U)
+  let void_type = @lib.TypeIdx::new(2U)
+  let indexed_void_type = @lib.TypeIdx::new(3U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        void_type, void_type, void_type, void_type, void_type, indexed_void_type,
+        void_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let fixed_inbounds = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let fixed_oob = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let default_inbounds = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let effect_inbounds = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let effect_oob = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  let dynamic_index = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  let effectful_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  assert_false(fixed_inbounds.contains("array.set"), msg=fixed_inbounds)
+  assert_false(fixed_inbounds.contains("array.new_fixed"), msg=fixed_inbounds)
+  assert_false(fixed_oob.contains("array.set"), msg=fixed_oob)
+  assert_false(fixed_oob.contains("array.new_fixed"), msg=fixed_oob)
+  assert_true(fixed_oob.contains("unreachable"), msg=fixed_oob)
+  assert_false(default_inbounds.contains("array.set"), msg=default_inbounds)
+  assert_false(
+    default_inbounds.contains("array.new_default"),
+    msg=default_inbounds,
+  )
+  // Boundary-only half of this OI-K slice: Binaryen can preserve the effectful
+  // set value with a drop before removing the unused set, but Starshine keeps
+  // the stack form until a broader value-effect localizing proof is added.
+  assert_true(effect_inbounds.contains("array.set"), msg=effect_inbounds)
+  assert_true(effect_inbounds.contains("array.new_fixed"), msg=effect_inbounds)
+  assert_true(effect_inbounds.contains("call (Func 0)"), msg=effect_inbounds)
+  assert_true(effect_oob.contains("array.set"), msg=effect_oob)
+  assert_true(effect_oob.contains("array.new_fixed"), msg=effect_oob)
+  assert_true(effect_oob.contains("call (Func 0)"), msg=effect_oob)
+  assert_true(dynamic_index.contains("array.set"), msg=dynamic_index)
+  assert_true(dynamic_index.contains("array.new_fixed"), msg=dynamic_index)
+  // Boundary-only half of this OI-K slice: Binaryen can preserve the effectful
+  // sibling with a drop before removing the unused set, but Starshine keeps the
+  // stack form until a broader constructor-effect localizing proof is added.
+  assert_true(effectful_sibling.contains("array.set"), msg=effectful_sibling)
+  assert_true(
+    effectful_sibling.contains("array.new_fixed"),
+    msg=effectful_sibling,
+  )
+  assert_true(
+    effectful_sibling.contains("call (Func 0)"),
+    msg=effectful_sibling,
+  )
+}
+
+///|
 test "optimize-instructions folds array.get of constant-size array.new repeated values" {
   let array_i32_type = @lib.TypeIdx::new(0U)
   let array_i8_type = @lib.TypeIdx::new(1U)

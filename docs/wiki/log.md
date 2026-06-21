@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-21] passes/optimize-instructions | Implement OI-K array.set fresh arrays
+
+- Filed [`raw/research/0833-2026-06-21-optimize-instructions-oi-k-array-set-fresh.md`](raw/research/0833-2026-06-21-optimize-instructions-oi-k-array-set-fresh.md) for the eleventh `[O4Z-AUDIT-OI-K]` GC array-write sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle removes pure constant-index `array.set` operations targeting fresh `array.new_fixed` and `array.new_default` arrays, folds pure out-of-bounds writes to `unreachable`, and localizes effectful set values/siblings with `drop`; Starshine now matches the pure direct one-use fixed/default subset while keeping effectful localization open.
+- Evidence: Binaryen oracle probe `.tmp/oi-k-array-set-probe.wat` removed pure in-bounds fixed/default writes, folded a pure out-of-bounds fixed write, and localized an effectful set value; `.tmp/oi-k-array-set-oob-effect-probe.wat` showed effectful value/sibling trap preservation via `drop(call); unreachable`; direct-OI-only kept the probed shapes. Red-first focused `*array.set*fresh pure arrays*` failed before implementation and passed `1/1` after; final `*array.set*` passed `1/1`, `*optimize-instructions*` passed `217/217`, `moon fmt`, `moon test src/passes` (`2747/2747`), native `src/cmd` build, `moon info`, and diff checks passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-21] passes/optimize-instructions | Implement OI-K array.get(array.new)
 
 - Filed [`raw/research/0832-2026-06-21-optimize-instructions-oi-k-array-new-get.md`](raw/research/0832-2026-06-21-optimize-instructions-oi-k-array-new-get.md) for the tenth `[O4Z-AUDIT-OI-K]` GC repeated-value array sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle folds constant-index `array.get(array.new ...)` in-bounds reads to the repeated value, preserving local/effectful selected value evaluation, folds pure out-of-bounds reads to `unreachable`, and preserves packed signedness with constants/sign-extension/masks; Starshine now matches the direct one-use small constant-length subset.

@@ -3652,6 +3652,94 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
 }
 
 ///|
+fn optimize_instructions_replace_with_nop(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Unit {
+  let temp = @ir.hot_build_nop(func)
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_try_remove_array_set_fresh_array(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 3 {
+    return false
+  }
+  let type_idx = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::ArraySet(type_idx)) => type_idx
+    _ => return false
+  }
+  let array_id = @ir.hot_child_get(func, node_id, 0)
+  let index_id = @ir.hot_child_get(func, node_id, 1)
+  let value_id = @ir.hot_child_get(func, node_id, 2)
+  if !optimize_instructions_node_is_live(func, dead, array_id) ||
+    pass_node_use_count(ctx, func, array_id) != 1 {
+    return false
+  }
+  let index = match optimize_instructions_i32_const(func, dead, index_id) {
+    Some(@lib.I32(index)) => index
+    _ => return false
+  }
+  if !optimize_instructions_node_effects_are_pure(ctx, func, value_id) {
+    return false
+  }
+  let array_node = @ir.hot_node_get(func, array_id)
+  let len = match @ir.hot_node_exact_instr(func, array_id) {
+    Some(@lib.Instruction::ArrayNewFixed(new_type_idx, @lib.U32(len))) if new_type_idx ==
+      type_idx => {
+      let len = len.reinterpret_as_int()
+      if len != array_node.child_count {
+        return false
+      }
+      for i = 0; i < array_node.child_count; i = i + 1 {
+        if !optimize_instructions_node_effects_are_pure(
+            ctx,
+            func,
+            @ir.hot_child_get(func, array_id, i),
+          ) {
+          return false
+        }
+      }
+      len
+    }
+    Some(@lib.Instruction::ArrayNewDefault(new_type_idx)) if new_type_idx ==
+      type_idx => {
+      if array_node.child_count != 1 {
+        return false
+      }
+      match
+        optimize_instructions_i32_const(
+          func,
+          dead,
+          @ir.hot_child_get(func, array_id, 0),
+        ) {
+        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+            len,
+          ) => len
+        _ => return false
+      }
+    }
+    _ => return false
+  }
+  if index < 0 || index >= len {
+    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+  } else {
+    optimize_instructions_replace_with_nop(ctx, func, node_id)
+  }
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_struct_get_struct_new(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6332,6 +6420,9 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_fold_array_get_new_fixed(
+        ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_remove_array_set_fresh_array(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_fold_struct_get_struct_new(
