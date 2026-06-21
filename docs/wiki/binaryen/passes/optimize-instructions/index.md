@@ -35,6 +35,7 @@ sources:
   - ../../../raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md
   - ../../../raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md
   - ../../../raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md
+  - ../../../raw/research/0817-2026-06-20-optimize-instructions-oi-g-signed-load-store-boundary.md
   - ../../../raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md
   - ../../../raw/research/0751-2026-06-19-optimize-instructions-oi-h-table-get-call-ref.md
   - ../../../raw/research/0752-2026-06-19-optimize-instructions-oi-h-select-ref-func-call-ref.md
@@ -143,6 +144,7 @@ related:
   - ../../../raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md
   - ../../../raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md
   - ../../../raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md
+  - ../../../raw/research/0817-2026-06-20-optimize-instructions-oi-g-signed-load-store-boundary.md
   - ../../../raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md
   - ../../../raw/research/0751-2026-06-19-optimize-instructions-oi-h-table-get-call-ref.md
   - ../../../raw/research/0752-2026-06-19-optimize-instructions-oi-h-select-ref-func-call-ref.md
@@ -426,3 +428,4 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md`](../../../raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md) records the eighteenth `[O4Z-AUDIT-OI-G]` sub-slice: a source-backed boundary decision that nonconstant pointer-add address forms such as `local.get + const` are not claimed as `optimize-instructions`-owned load/store offset canonicalization under Binaryen `version_130`; Starshine keeps the tested forms unchanged.
 - [`../../../raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md`](../../../raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md) records the nineteenth `[O4Z-AUDIT-OI-G]` boundary sub-slice: Binaryen `version_130` canonicalizes sign-extension shift pairs before narrow stores to explicit sign-extension opcodes but does not drop those opcodes, so Starshine locks the same keep-spelling boundary rather than treating sign-extension-before-store removal as an OI-owned gap.
 - [`../../../raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md`](../../../raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md) records the twentieth `[O4Z-AUDIT-OI-G]` boundary sub-slice: Binaryen `version_130` lowers stack-carried effectful-call size-1/8 `memory.copy` operands to load/store forms, while Starshine keeps the same shapes behind `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT lowering can prove call-result preservation without reordering.
+- [`../../../raw/research/0817-2026-06-20-optimize-instructions-oi-g-signed-load-store-boundary.md`](../../../raw/research/0817-2026-06-20-optimize-instructions-oi-g-signed-load-store-boundary.md) records the twenty-first `[O4Z-AUDIT-OI-G]` boundary sub-slice: Binaryen `version_130` keeps signed loads before matching narrow stores, so Starshine locks those exact signed-load-before-store spellings as non-gaps.

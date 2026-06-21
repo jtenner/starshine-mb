@@ -5594,6 +5594,59 @@ test "optimize-instructions intentionally keeps sign extensions before narrow st
 }
 
 ///|
+test "optimize-instructions intentionally keeps signed loads before narrow stores" {
+  // Boundary-only OI-G slice: Binaryen version_130 optimize-instructions keeps
+  // signed loads feeding same-width narrow stores rather than changing their
+  // spelling to unsigned loads. Lock that exact stored-value boundary so the
+  // signed-load forms are not counted as a missing narrow-store cleanup gap.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $src i32)
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.load8_s
+        #|    i32.store8
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.load16_s
+        #|    i32.store16
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i64.load8_s
+        #|    i64.store8
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i64.load16_s
+        #|    i64.store16
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i64.load32_s
+        #|    i64.store32))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected narrow-store signed-load boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.load8s"), msg=pretty)
+  assert_true(pretty.contains("i32.load16s"), msg=pretty)
+  assert_true(pretty.contains("i64.load8s"), msg=pretty)
+  assert_true(pretty.contains("i64.load16s"), msg=pretty)
+  assert_true(pretty.contains("i64.load32s"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+  assert_true(pretty.contains("i32.store16"), msg=pretty)
+  assert_true(pretty.contains("i64.store8"), msg=pretty)
+  assert_true(pretty.contains("i64.store16"), msg=pretty)
+  assert_true(pretty.contains("i64.store32"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps value-changing masks before i64 narrow stores" {
   let optimized = match
     pass_test_run_pipeline(
