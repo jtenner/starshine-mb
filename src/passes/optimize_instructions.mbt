@@ -3424,11 +3424,9 @@ fn optimize_instructions_replace_with_packed_i32_value(
 }
 
 ///|
-/// Binaryen version_130 keeps `array.new_default` lengths above this
-/// O4z-observed limit to preserve allocation trap behavior.
-fn optimize_instructions_array_new_default_len_is_known_non_trapping(
-  len : Int,
-) -> Bool {
+/// Binaryen version_130 keeps fresh array lengths above this O4z-observed
+/// limit to preserve allocation trap behavior.
+fn optimize_instructions_array_new_len_is_known_non_trapping(len : Int) -> Bool {
   len >= 0 && len <= 44739241
 }
 
@@ -3480,7 +3478,33 @@ fn optimize_instructions_try_fold_array_len_new_fixed(
           dead,
           @ir.hot_child_get(func, array_id, 0),
         ) {
-        Some(@lib.I32(len)) if optimize_instructions_array_new_default_len_is_known_non_trapping(
+        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+            len,
+          ) => len
+        _ => return false
+      }
+      len
+    }
+    Some(@lib.Instruction::ArrayNew(_)) => {
+      if array_node.child_count != 2 {
+        return false
+      }
+      match
+        optimize_instructions_i32_const(
+          func,
+          dead,
+          @ir.hot_child_get(func, array_id, 0),
+        ) {
+        Some(_) => ()
+        None => return false
+      }
+      let len = match
+        optimize_instructions_i32_const(
+          func,
+          dead,
+          @ir.hot_child_get(func, array_id, 1),
+        ) {
+        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
             len,
           ) => len
         _ => return false

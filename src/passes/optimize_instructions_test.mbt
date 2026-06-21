@@ -6430,6 +6430,122 @@ test "optimize-instructions folds array.len of constant-size array.new_default" 
 }
 
 ///|
+test "optimize-instructions folds array.len of constant-value constant-size array.new" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let result_type = @lib.TypeIdx::new(1U)
+  let param_result_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        result_type, result_type, param_result_type, result_type, result_type, result_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(9))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(2147483647)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let constant_value = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let local_value = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let effectful_value = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_false(constant_value.contains("array.len"), msg=constant_value)
+  assert_false(constant_value.contains("array.new"), msg=constant_value)
+  assert_true(constant_value.contains("I32(3)"), msg=constant_value)
+  // Boundary-only half of this OI-K slice: Binaryen's O4z-style oracle keeps
+  // nonconstant repeated values, even pure local.get values, so Starshine keeps
+  // them until a broader source-backed proof justifies dropping value evaluation.
+  assert_true(local_value.contains("array.len"), msg=local_value)
+  assert_true(local_value.contains("array.new"), msg=local_value)
+  // Boundary-only half of this OI-K slice: effectful repeated values must not be
+  // dropped while removing the allocation.
+  assert_true(effectful_value.contains("array.len"), msg=effectful_value)
+  assert_true(effectful_value.contains("array.new"), msg=effectful_value)
+  assert_true(effectful_value.contains("call (Func 0)"), msg=effectful_value)
+  // Boundary-only half of this OI-K slice: trap-preserving length limits mirror
+  // the array.new_default length slice.
+  assert_true(negative_len.contains("array.len"), msg=negative_len)
+  assert_true(negative_len.contains("array.new"), msg=negative_len)
+  assert_true(huge_len.contains("array.len"), msg=huge_len)
+  assert_true(huge_len.contains("array.new"), msg=huge_len)
+}
+
+///|
 test "optimize-instructions folds array.get of pure array.new_fixed elements" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)

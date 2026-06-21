@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-21] passes/optimize-instructions | Implement OI-K array.len(array.new)
+
+- Filed [`raw/research/0831-2026-06-21-optimize-instructions-oi-k-array-new-len.md`](raw/research/0831-2026-06-21-optimize-instructions-oi-k-array-new-len.md) for the ninth `[O4Z-AUDIT-OI-K]` GC constructor/array sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle folds `array.len(array.new ...)` to the bounded constant length when the repeated value and length are constants, while keeping nonconstant/effectful repeated values and negative/huge lengths; Starshine now matches the direct one-use `i32.const` repeated-value subset.
+- Evidence: Binaryen oracle probe `.tmp/oi-k-array-new-len-probe.wat` produced `i32.const 3` for the constant repeated-value/length shape and kept dynamic/effectful shapes; boundary probe `.tmp/oi-k-array-new-len-boundary-probe.wat` kept local repeated values plus negative/huge-positive lengths; threshold probe `.tmp/oi-k-array-new-len-threshold-probe.wat` folded `44739241` and kept `44739242`. Red-first focused `*array.len*array.new*` failed before implementation and passed `3/3` after; final `*array.len*` passed `3/3`, `*optimize-instructions*` passed `215/215`, `moon fmt`, `moon test src/passes` (`2745/2745`), native `src/cmd` build, `moon info`, and diff checks passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-21] passes/optimize-instructions | Implement OI-K array.len(array.new_default)
 
 - Filed [`raw/research/0830-2026-06-21-optimize-instructions-oi-k-array-new-default-len.md`](raw/research/0830-2026-06-21-optimize-instructions-oi-k-array-new-default-len.md) for the eighth `[O4Z-AUDIT-OI-K]` GC constructor/array/default sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle folds small non-negative constant-length `array.len(array.new_default ...)` to the length constant, while keeping dynamic, negative, and huge non-negative lengths to preserve allocation trap behavior; Starshine now matches the direct one-use bounded constant-length subset.
