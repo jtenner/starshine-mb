@@ -828,8 +828,10 @@ fn code_pushing_try_sink_set_after_if_push_point(
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
 ) -> Bool {
-  if code_pushing_segment_window_diagnostic(func, region_ref, set_idx) !=
-    "candidate:if" {
+  let diagnostic = code_pushing_segment_window_diagnostic(
+    func, region_ref, set_idx,
+  )
+  if diagnostic != "candidate:if" && diagnostic != "candidate:dropped-if" {
     return false
   }
   let set_id = @ir.hot_region_get(func, region_ref, set_idx)
@@ -851,11 +853,17 @@ fn code_pushing_try_sink_set_after_if_push_point(
   let local_id = set_node.imm0
   let mut if_idx = -1
   let mut idx = set_idx + 1
+  let mut if_id = -1
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let candidate_id = @ir.hot_region_get(func, region_ref, idx)
     let kind = code_pushing_push_point_kind(func, candidate_id)
     if kind != "none" {
-      if kind != "if" {
+      if kind == "if" {
+        if_id = candidate_id
+      } else if kind == "dropped-if" &&
+        @ir.hot_child_count(func, candidate_id) == 1 {
+        if_id = @ir.hot_child_get(func, candidate_id, 0)
+      } else {
         return false
       }
       if_idx = idx
@@ -863,11 +871,10 @@ fn code_pushing_try_sink_set_after_if_push_point(
     }
     idx += 1
   }
-  if if_idx < 0 {
+  if if_idx < 0 || if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
     return false
   }
-  let if_id = @ir.hot_region_get(func, region_ref, if_idx)
-  if @ir.hot_node_result_arity(func, if_id) != 0 {
+  if diagnostic == "candidate:if" && @ir.hot_node_result_arity(func, if_id) != 0 {
     return false
   }
   let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(

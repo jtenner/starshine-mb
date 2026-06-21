@@ -316,6 +316,78 @@ test "code-pushing moves pure SFA set after harmless if before later use" {
 }
 
 ///|
+test "code-pushing moves pure SFA set after dropped value if before later use" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    i32.const 7
+      #|    local.set 1
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      i32.const 2
+      #|    end
+      #|    drop
+      #|    local.get 1
+      #|    drop))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  let dropped_if = @ir.hot_root_get(func, 1)
+  code_pushing_expect_op(func, dropped_if, "drop")
+  code_pushing_expect_op(func, @ir.hot_child_get(func, dropped_if, 0), "if")
+  let moved_set = @ir.hot_root_get(func, 2)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "drop")
+}
+
+///|
+test "code-pushing keeps SFA set before dropped if when the dropped if reads it" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (local i32)
+        #|    i32.const 7
+        #|    local.set 0
+        #|    local.get 0
+        #|    if (result i32)
+        #|      i32.const 1
+        #|    else
+        #|      i32.const 2
+        #|    end
+        #|    drop
+        #|    local.get 0
+        #|    drop))
+        #|
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded dropped-if success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_true(
+    pretty.contains("(local.set (Local 0))(local.get (Local 0))(if"),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-pushing keeps SFA set before if when the local is used before the if" {
   let trace : Array[String] = []
   let optimized = match

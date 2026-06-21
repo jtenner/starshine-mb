@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
   - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
   - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
@@ -73,7 +74,7 @@ Binaryen's push points include:
 - conditional branch forms,
 - and dropped wrappers around push points.
 
-A random later expression is not automatically a destination. The first Starshine segment inventory discovers selected push points: ordinary `if`, dropped `if`, locally representable conditional branch roots, and switch/`br_table` roots. The first mutating consumer only accepts ordinary void `if` and moves the set after that `if`; dropped wrappers, switch/br_table, and conditional branches remain discovery-only.
+A random later expression is not automatically a destination. The first Starshine segment inventory discovers selected push points: ordinary `if`, dropped `if`, locally representable conditional branch roots, and switch/`br_table` roots. The first mutating consumers accept ordinary void `if` and dropped value-`if` wrappers, moving the set after the push-point root when all local reads are same-region suffix reads. Switch/br_table and conditional branches remain discovery-only.
 
 ## Barrier 5: `if` arm sinking needs one consuming arm
 
@@ -112,7 +113,7 @@ Do not confuse that with upstream Binaryen's `CodePushing.cpp` strategy. It is a
 
 A future broader Starshine port should preserve these rules before widening motion:
 
-1. build on the initial SFA and segment-window diagnostic inventory in [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md) and the first ordinary-void-`if` movement slice in [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md);
+1. build on the initial SFA and segment-window diagnostic inventory in [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the first ordinary-void-`if` movement slice in [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), and the first dropped-`if` movement slice in [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md);
 2. keep one-arm `if` sinking separate from generic segment movement;
 3. preserve order among multiple moved sets;
 4. extend effect-ordering / effect-invalidation before moving broader value families;
@@ -123,6 +124,7 @@ A future broader Starshine port should preserve these rules before widening moti
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md)
 - [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
 - [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
 - [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)

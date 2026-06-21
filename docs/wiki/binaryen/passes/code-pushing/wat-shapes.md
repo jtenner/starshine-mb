@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
   - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
   - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
@@ -24,7 +25,7 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the 2026-06-20 post-use and ordinary-`if` segment-movement Starshine slices, and the earlier source corrections.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the 2026-06-20 post-use, ordinary-`if`, and dropped-`if` segment-movement Starshine slices, and the earlier source corrections.
 
 ## Mental model
 
@@ -95,7 +96,35 @@ Binaryen-backed after:
 
 Starshine now implements this single-set ordinary-void-`if` subset when the segment-window diagnostic reports `candidate:if`, neither arm reads the local, and every read is a same-region suffix read after the `if`.
 
-## Shape 3: `if` arm sinking into the only consuming arm
+## Shape 3: segment movement after a dropped value `if` before later suffix use
+
+Binaryen-backed before:
+
+```wat
+(local.set $tmp (i32.const 7))
+(drop
+  (if (result i32)
+    (local.get $cond)
+    (then (i32.const 1))
+    (else (i32.const 2))))
+(drop (local.get $tmp))
+```
+
+Binaryen-backed after:
+
+```wat
+(drop
+  (if (result i32)
+    (local.get $cond)
+    (then (i32.const 1))
+    (else (i32.const 2))))
+(local.set $tmp (i32.const 7))
+(drop (local.get $tmp))
+```
+
+Starshine now implements this single-set dropped-`if` subset when the segment-window diagnostic reports `candidate:dropped-if`, the dropped push point does not read the local, and every read is a same-region suffix read after the dropped wrapper.
+
+## Shape 4: `if` arm sinking into the only consuming arm
 
 Conceptual before:
 
@@ -123,7 +152,7 @@ Conceptual after:
 
 This is close to Starshine's current positive subset when the value passes the strict movable-value gate and all local reads are in one arm.
 
-## Shape 4: post-if use can be safe when the other arm is unreachable
+## Shape 5: post-if use can be safe when the other arm is unreachable
 
 Conceptual family:
 
@@ -140,7 +169,7 @@ Conceptual family:
 
 The post-if read is not automatically fatal if the non-consuming path cannot continue. This nuance belongs to Binaryen's `optimizeIntoIf(...)` family. Starshine's first conservative slice now supports the same-region suffix-read subset when the opposite arm cannot fall through.
 
-## Shape 5: both reachable arms using a value is not the baseline push
+## Shape 6: both reachable arms using a value is not the baseline push
 
 Assume unchanged unless a source/test proves a more specific case:
 
@@ -156,7 +185,7 @@ Assume unchanged unless a source/test proves a more specific case:
 
 The pass is not a generic “duplicate the set into both arms” transform.
 
-## Shape 6: post-if read with fallthrough from the other arm should not sink into one arm
+## Shape 7: post-if read with fallthrough from the other arm should not sink into one arm
 
 ```wat
 (local.set $tmp (i32.const 7))
@@ -174,7 +203,7 @@ Why this remains a bailout family:
 - moving the set into the `then` arm would leave the later read uninitialized on the `else` fallthrough path;
 - Starshine has a focused guard for this family in `src/passes/code_pushing_test.mbt`.
 
-## Shape 7: trap-sensitive computations are option-sensitive
+## Shape 8: trap-sensitive computations are option-sensitive
 
 ```wat
 (local.set $tmp
@@ -193,7 +222,7 @@ Why it is sensitive:
 - Binaryen has tests for ignore-implicit-traps and TNH modes;
 - Starshine's current subset avoids this with an explicit nontrapping gate for movable values.
 
-## Shape 8: `switch` and conditional branch push points
+## Shape 9: `switch` and conditional branch push points
 
 Binaryen's push-point concept is broader than plain `if`. Future Starshine work should add no-rewrite shape recognition before mutation for:
 
@@ -204,7 +233,7 @@ Binaryen's push-point concept is broader than plain `if`. Future Starshine work 
 
 and switch/br-table-like shapes where the local's later consumption and effect barriers can be proved.
 
-## Shape 9: GC/reference and atomics expressions are not categorically excluded
+## Shape 10: GC/reference and atomics expressions are not categorically excluded
 
 The official `version_130` `code-pushing-gc.wast` and `code-pushing-atomics.wast` tests are part of the proof surface.
 
@@ -214,11 +243,11 @@ Safe rule:
 - `code-pushing-atomics.wast` shows a GC `struct.get` may move past a shared atomic load, but not past a shared atomic store;
 - `ref.func`, casts, null checks, descriptor-shaped operations, and atomics need explicit tests before Starshine widens.
 
-## Shape 10: EH shapes are bailout-rich
+## Shape 11: EH shapes are bailout-rich
 
 Exception-handling shapes can make movement observable through exceptional control and value availability. Future Starshine fixtures should cover `try`, `catch`, `throw`, and any moved root whose value crosses an exceptional boundary.
 
-## Shape 11: current Starshine positive single-consuming-arm sink
+## Shape 12: current Starshine positive single-consuming-arm sink
 
 Current Starshine implements this narrower HOT subset:
 
@@ -239,7 +268,7 @@ Current local HOT result shape:
 - a cloned `local.set 1` is inserted at the beginning of the consuming arm;
 - the arm's existing `local.get 1` remains.
 
-## Shape 12: current Starshine local dead-block flattening helper
+## Shape 13: current Starshine local dead-block flattening helper
 
 Current Starshine also has a local cleanup shape around a typed block next to unreachable context.
 
@@ -274,6 +303,7 @@ Before expecting a `code-pushing` rewrite, ask:
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md)
 - [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
 - [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
 - [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
