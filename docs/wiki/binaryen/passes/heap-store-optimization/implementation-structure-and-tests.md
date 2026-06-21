@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md
   - ../../../raw/research/0890-2026-06-21-heap-store-optimization-default-starshine-win.md
   - ../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md
   - ../../../raw/research/0888-2026-06-21-heap-store-optimization-cross-family-growth-swap.md
@@ -267,6 +268,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md`](../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md)
+  - added focused HSO-G coverage for the indirect-call constructor-operand no-swap boundary: Binaryen preserves `call_indirect` before an unrelated `global.set` and leaves the later `struct.set`; Starshine already matched.
 - [`../../../raw/research/0890-2026-06-21-heap-store-optimization-default-starshine-win.md`](../../../raw/research/0890-2026-06-21-heap-store-optimization-default-starshine-win.md)
   - added focused HSO-D/E coverage for a narrow plain-default Starshine win: Binaryen folds only the first call-valued store after `struct.new_default`, but Starshine folds both call-valued stores into the materialized `struct.new` while preserving call order.
 - [`../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md`](../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md)

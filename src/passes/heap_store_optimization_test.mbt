@@ -5719,6 +5719,57 @@ test "heap-store-optimization keeps call constructor operands before unrelated g
 }
 
 ///|
+test "heap-store-optimization keeps call_indirect constructor operands before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_table_global_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::call_indirect(
+          @lib.TypeIdx::new(1U),
+          @lib.TableIdx::new(0U),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call-indirect/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  let global_set_idx = match hso_test_index_of(pretty, "global.set") {
+    Some(idx) => idx
+    None =>
+      fail("expected global.set in call-indirect/global-set output: \{pretty}")
+  }
+  let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail("expected struct.set in call-indirect/global-set output: \{pretty}")
+  }
+  assert_true(global_set_idx < struct_set_idx, msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds memory.grow constructor operands across unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

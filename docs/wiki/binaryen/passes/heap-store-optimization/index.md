@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md
   - ../../../raw/research/0890-2026-06-21-heap-store-optimization-default-starshine-win.md
   - ../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md
   - ../../../raw/research/0888-2026-06-21-heap-store-optimization-cross-family-growth-swap.md
@@ -237,6 +238,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0868` confirmed Binaryen `version_130` preserves `struct.set` for direct-root unreachable constructor and set-value shapes, matching Starshine's existing `0792` boundary tests. The exact direct-root set-value fixture remains a local HOT/test-surface caveat, not an accepted semantic non-goal.
 - Cross-family memory/table growth swap cases follow the same resource-sensitive directionality as the ordinary-store cross-family cases.
   - Coverage note `0888` confirmed Binaryen folds when a `memory.size` constructor operand crosses an intervening `table.grow`, and when a `table.size` constructor operand crosses an intervening `memory.grow`, while preserving the growth roots. Starshine already matched both shapes. Same-family growth/store/bulk/passive barriers from `0815` through `0843` remain no-fold boundaries.
+- Effectful indirect-call constructor operands are a no-swap boundary across intervening roots.
+  - Coverage note `0891` confirmed Binaryen preserves the constructor `local.set` and later `struct.set` when a `call_indirect` constructor field precedes an unrelated mutable `global.set`; folding would move the indirect call across the root. Starshine already matched this HSO-G boundary.
 - Plain and descriptor default double-store folding have narrow documented Starshine-win divergences.
   - Coverage note `0889` found Binaryen folds only the first call-valued store after `struct.new_default_desc`, leaving the second `struct.set`; Starshine folds both call-valued stores into the materialized `struct.new_desc` while preserving call order and only moving across an immutable descriptor `global.get`. This is recorded as a narrow better-than-Binaryen behavior, not a general license to cross mutable/effectful/trapping descriptor operands, target-local hazards, old-field side effects, or later-field effect barriers.
   - Coverage note `0890` found the same one-store-left Binaryen behavior after plain `struct.new_default`; Starshine folds both call-valued stores into the materialized `struct.new` while preserving call order. This is a narrow plain-default Starshine win, not a broader effect-order exception.
