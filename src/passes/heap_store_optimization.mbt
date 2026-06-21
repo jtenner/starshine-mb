@@ -726,6 +726,78 @@ fn hso_subtree_may_escape_to_active_catch(
 }
 
 ///|
+fn hso_subtree_contains_try_table(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::TryTable => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if hso_subtree_contains_try_table(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_contains_try_table(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If => {
+      let then_has_try_table = hso_region_contains_try_table(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+      )
+      if then_has_try_table {
+        true
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) => hso_region_contains_try_table(func, region_ref)
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::Try => {
+      let body_has_try_table = hso_region_contains_try_table(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+      if body_has_try_table {
+        true
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(region_ref) => hso_region_contains_try_table(func, region_ref)
+          None => false
+        }
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn hso_region_contains_try_table(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hso_subtree_contains_try_table(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn hso_subtree_has_catchable_try_table_escape(
   func : @ir.HotFunc,
   node_id : Int,
@@ -2745,9 +2817,8 @@ fn hso_liftable_swapped_block_roots(
     return None
   }
   for root_id in roots {
-    match @ir.hot_node_get(func, root_id).op {
-      @ir.HotOp::TryTable => return None
-      _ => ()
+    if hso_subtree_contains_try_table(func, root_id) {
+      return None
     }
     if !hso_root_can_swap_before_local_struct_new(
         cache, func, module_ctx, node_masks, moved_struct_new_id, root_id, local_id,
