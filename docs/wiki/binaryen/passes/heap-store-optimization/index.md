@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0979-2026-06-21-heap-store-optimization-nested-try-table-global-set.md
   - ../../../raw/research/0978-2026-06-21-heap-store-optimization-contained-branch-old-field-fold.md
   - ../../../raw/research/0977-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-growth-gap.md
   - ../../../raw/research/0976-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-store-gap.md
@@ -326,7 +327,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0911` confirmed the table-side counterpart: Binaryen preserves `table.size`, `try_table` / `i32.store`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0912` confirmed the same-effect bulk-root counterparts: Binaryen preserves `memory.size` before `try_table` / `memory.fill` and `table.size` before `try_table` / `table.fill`; Starshine already matched.
   - Coverage note `0913` confirmed the cross-family growth-root counterparts: Binaryen preserves `memory.size` before `try_table` / `table.grow` and `table.size` before `try_table` / `memory.grow`; Starshine already matched. These notes do not supersede the existing block/if/loop/br_table cross-family ordinary-store positives or the direct cross-family growth positives from `0888`.
-  - Follow-up `0927` fixed the distinct `0922` parity gap: Starshine now matches Binaryen by folding `memory.size` / `table.size` constructors through a block-wrapped, non-throwing `try_table` body that only performs an unrelated mutable `global.set`, while preserving the block wrapper so catch-label depths remain valid.
+  - Follow-up `0927` fixed the distinct `0922` parity gap: Starshine now matches Binaryen by folding `memory.size` / `table.size` constructors through a block-wrapped, non-throwing `try_table` body that only performs an unrelated mutable `global.set`, while preserving the block wrapper so catch-label depths remain valid. Coverage note `0979` adds the nested inert-block wrapper counterpart for the same non-throwing `try_table` / unrelated `global.set` family; Starshine already matched.
   - Coverage note `0914` confirmed the typed-function-reference counterpart of the direct call roots: Binaryen preserves a `call_ref`-valued constructor operand before an unrelated mutable `global.set` and keeps the later `struct.set`; Starshine already matched. This extends the covered `call` / `call_indirect` no-swap family but does not close all reference-typed branch/catch roots.
   - Coverage note `0915` confirmed the matching old-field boundary: Binaryen preserves a `call_ref`-valued overwritten constructor field before an unrelated mutable `global.set` and keeps the later `struct.set`; Starshine already matched.
   - Coverage note `0916` confirmed the table-side constructor-operand boundary: Binaryen preserves a `call_ref`-valued constructor operand before an unrelated `table.set` and keeps the later `struct.set`; Starshine already matched.
