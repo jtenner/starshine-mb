@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Classify OI-G sign-extension store boundary
+
+- Filed [`raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md`](raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md) for the nineteenth `[O4Z-AUDIT-OI-G]` memory/load-store boundary sub-slice. Binaryen `version_130` keeps explicit `i32.extend8_s`, `i32.extend16_s`, and `i64.extend16_s` before narrow stores and canonicalizes shift-pair sign extensions to extension opcodes without dropping them, so Starshine locks the same keep-spelling behavior instead of treating those exact forms as an OI gap.
+- Evidence: Binaryen oracle probes `.tmp/oi-g-store-signext-probe.wat` and `.tmp/oi-g-store-shift-signext-probe.wat` kept/canonicalized to extension opcodes before stores. Red-first positive implementation did not apply because this was boundary coverage. Focused `*sign extensions before narrow stores*` passed immediately (`1/1`); final `*narrow stores*` passed `6/6`, `*memory*` passed `23/23`, `*optimize-instructions*` passed `197/197`, `moon fmt`, `moon test src/passes` (`2727/2727`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no narrow-store or bulk-memory operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I indexed i31 aggregate ref.eq miss
 
 - Filed [`raw/research/0814-2026-06-20-optimize-instructions-oi-i-indexed-i31-aggregate-ref-eq.md`](raw/research/0814-2026-06-20-optimize-instructions-oi-i-indexed-i31-aggregate-ref-eq.md) for the fifty-seventh `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds impossible equality between definitely non-null `i31` references and indexed/defined struct or array locals to `i32.const 0`, including preserving an effect-prefix call before the folded miss.

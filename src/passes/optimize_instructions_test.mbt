@@ -5506,6 +5506,47 @@ test "optimize-instructions truncates constant narrow store values" {
 }
 
 ///|
+test "optimize-instructions intentionally keeps sign extensions before narrow stores" {
+  // Binaryen version_130 optimize-instructions canonicalizes sign-extension shift
+  // pairs to extension opcodes here, but does not drop the extension before the
+  // narrow store. Keep this as an explicit OI-G boundary rather than claiming a
+  // missing stored-value cleanup gap.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $value32 i32) (param $value64 i64)
+        #|    local.get $ptr
+        #|    local.get $value32
+        #|    i32.extend8_s
+        #|    i32.store8
+        #|    local.get $ptr
+        #|    local.get $value32
+        #|    i32.extend16_s
+        #|    i32.store16
+        #|    local.get $ptr
+        #|    local.get $value64
+        #|    i64.extend16_s
+        #|    i64.store16))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected narrow-store sign extension boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.extend8s"), msg=pretty)
+  assert_true(pretty.contains("i32.extend16s"), msg=pretty)
+  assert_true(pretty.contains("i64.extend16s"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+  assert_true(pretty.contains("i32.store16"), msg=pretty)
+  assert_true(pretty.contains("i64.store16"), msg=pretty)
+}
+
+///|
 test "optimize-instructions keeps value-changing masks before i64 narrow stores" {
   let optimized = match
     pass_test_run_pipeline(
