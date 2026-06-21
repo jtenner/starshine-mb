@@ -4794,6 +4794,53 @@ test "optimize-instructions expands one-byte memory.copy to load8/store8" {
 }
 
 ///|
+test "optimize-instructions intentionally keeps stack-carried effectful tiny memory.copy" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "env" "dst" (func $dst (result i32)))
+        #|  (import "env" "src" (func $src (result i32)))
+        #|  (memory 1)
+        #|  (func
+        #|    call $dst
+        #|    call $src
+        #|    i32.const 1
+        #|    memory.copy
+        #|    call $dst
+        #|    call $src
+        #|    i32.const 8
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful memory.copy boundary success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  // Binaryen version_130 lowers these size-1/8 copies to load/store despite the
+  // call operands, but Starshine keeps them until a localizing/HOT lowering can
+  // prove the stack-carried call results are preserved without reordering.
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "memory.copy"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-instructions expands wider tiny memory.copy to exact load/store" {
   let optimized = match
     pass_test_run_pipeline(

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Classify OI-G effectful memory.copy boundary
+
+- Filed [`raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md`](raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md) for the twentieth `[O4Z-AUDIT-OI-G]` memory/load-store boundary sub-slice. Binaryen `version_130` lowers stack-carried effectful-call size-1/8 `memory.copy` operands to load/store forms, but Starshine intentionally keeps those shapes behind `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT-lowering slice can prove call-result preservation without reordering.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-effectful-memory-copy-probe.wat` lowered to `i32.store8`/`i32.load8_u` and `i64.store`/`i64.load`. A red-first positive `*effectful tiny memory.copy*` failed `0/1`; the landed fail-closed boundary `*stack-carried effectful tiny memory.copy*` passed `1/1` and asserts the raw skip trace plus two remaining `memory.copy` operations. Final `*memory.copy*` passed `6/6`, `*memory*` passed `24/24`, `*optimize-instructions*` passed `198/198`, `moon fmt`, `moon test src/passes` (`2728/2728`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no memory-copy/fill/load/store boundary operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Classify OI-G sign-extension store boundary
 
 - Filed [`raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md`](raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md) for the nineteenth `[O4Z-AUDIT-OI-G]` memory/load-store boundary sub-slice. Binaryen `version_130` keeps explicit `i32.extend8_s`, `i32.extend16_s`, and `i64.extend16_s` before narrow stores and canonicalizes shift-pair sign extensions to extension opcodes without dropping them, so Starshine locks the same keep-spelling behavior instead of treating those exact forms as an OI gap.

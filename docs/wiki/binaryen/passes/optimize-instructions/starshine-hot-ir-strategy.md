@@ -28,6 +28,7 @@ sources:
   - ../../../raw/research/0748-2026-06-19-optimize-instructions-oi-g-byte-fill-const-truncation.md
   - ../../../raw/research/0749-2026-06-19-optimize-instructions-oi-g-pointer-add-boundary.md
   - ../../../raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md
+  - ../../../raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md
   - ../../../raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md
   - ../../../raw/research/0751-2026-06-19-optimize-instructions-oi-h-table-get-call-ref.md
   - ../../../raw/research/0752-2026-06-19-optimize-instructions-oi-h-select-ref-func-call-ref.md
@@ -138,6 +139,7 @@ Its center of gravity is:
 - constant-pointer static-offset folding for scalar loads/stores: memory32 uses Binaryen's nonnegative `i32` range guard and memory64 uses Binaryen's unsigned `u64` no-wrap guard
 - an explicit nonconstant pointer-add offset boundary: Binaryen `version_130` `optimize-instructions` keeps tested `local.get + const` memory addresses as arithmetic plus the original static offset, so Starshine does not claim that shape as OI-owned load/store canonicalization
 - an explicit sign-extension-before-narrow-store boundary: Binaryen `version_130` canonicalizes shift-pair sign extensions to extension opcodes before narrow stores but keeps those extension opcodes, so Starshine also keeps `i32.extend8_s` / `i32.extend16_s` / `i64.extend16_s` before matching narrow stores instead of claiming a stored-value cleanup gap
+- an explicit stack-carried effectful-call `memory.copy` boundary: Binaryen `version_130` lowers size-1/8 call-operand copies to load/store forms, but Starshine keeps those shapes behind `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT lowering can prove already-evaluated call-result preservation without reordering
 - an explicit public-pipeline fail-closed boundary for `load-call-optimize-instructions-noop`: mixed plain-load plus call functions still skip the pass, so constant-offset folding does not escape that raw gate yet
 - direct `ref.func` target directization for `call_ref` / `return_call_ref`, constant-index `table.get` target lowering to `call_indirect` / `return_call_indirect`, an explicit call-indexed `table.get` fail-closed boundary, zero-argument select-of-direct-`ref.func` lowering to an `if` with direct `call` / `return_call` arms, argument-bearing select-of-direct-`ref.func` lowering that localizes single-result call arguments before the direct-call `if`, zero-argument fallthrough-known block target directization with the target expression dropped for effects, and fail-closed boundary tests for mixed select arms plus argument-bearing fallthrough targets
 - first null-reference basics from OI-I: `ref.is_null(ref.null)` folds to `i32.const 1`, `ref.eq(x, null)` and `ref.eq(null, x)` rewrite through `ref.is_null(x)`, and `ref.eq(null, null)` folds to `i32.const 1`
