@@ -1943,6 +1943,203 @@ fn hso_global_only_ordering_can_be_ignored(
 }
 
 ///|
+fn hso_subtree_has_tail_or_throw_escape(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Unreachable => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if hso_subtree_has_tail_or_throw_escape(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_has_tail_or_throw_escape(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If =>
+      if hso_region_has_tail_or_throw_escape(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        true
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_has_tail_or_throw_escape(func, region_ref)
+          None => false
+        }
+      }
+    @ir.HotOp::Try =>
+      if hso_region_has_tail_or_throw_escape(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        true
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_has_tail_or_throw_escape(func, region_ref)
+          None => false
+        }
+      }
+    @ir.HotOp::TryTable =>
+      hso_region_has_tail_or_throw_escape(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      ) ||
+      hso_region_has_tail_or_throw_escape(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+      )
+    _ => false
+  }
+}
+
+///|
+fn hso_region_has_tail_or_throw_escape(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hso_subtree_has_tail_or_throw_escape(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hso_result_try_table_allows_drop_swap(
+  func : @ir.HotFunc,
+  try_id : Int,
+) -> Bool {
+  if try_id < 0 || !@ir.hot_node_is_live(func, try_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, try_id).op {
+    @ir.HotOp::TryTable => ()
+    _ => return false
+  }
+  hso_sequence_result_type(func, try_id) != None &&
+  !hso_region_has_tail_or_throw_escape(
+    func,
+    @ir.hot_region_body_ref(func, try_id),
+  )
+}
+
+///|
+fn hso_is_dropped_result_try_table_block(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if hso_sequence_result_type(func, node_id) != None {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count == 1 {
+    let drop_id = @ir.hot_region_get(func, body_ref, 0)
+    if drop_id < 0 || !@ir.hot_node_is_live(func, drop_id) {
+      return false
+    }
+    match @ir.hot_node_get(func, drop_id).op {
+      @ir.HotOp::Drop => ()
+      _ => return false
+    }
+    if @ir.hot_child_count(func, drop_id) != 1 {
+      return false
+    }
+    let try_id = @ir.hot_child_get(func, drop_id, 0)
+    if try_id < 0 || !@ir.hot_node_is_live(func, try_id) {
+      return false
+    }
+    hso_result_try_table_allows_drop_swap(func, try_id)
+  } else if root_count == 2 {
+    let try_id = @ir.hot_region_get(func, body_ref, 0)
+    let drop_id = @ir.hot_region_get(func, body_ref, 1)
+    if try_id < 0 ||
+      drop_id < 0 ||
+      !@ir.hot_node_is_live(func, try_id) ||
+      !@ir.hot_node_is_live(func, drop_id) {
+      return false
+    }
+    if !hso_result_try_table_allows_drop_swap(func, try_id) {
+      return false
+    }
+    match @ir.hot_node_get(func, drop_id).op {
+      @ir.HotOp::Drop => true
+      _ => false
+    }
+  } else {
+    false
+  }
+}
+
+///|
+fn hso_dropped_result_try_table_swap_allowed(
+  cache : HsoPredicateCache,
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  node_masks : Array[UInt],
+  moved_struct_new_id : Int,
+  blocker_id : Int,
+  target_local_id : Int,
+) -> Bool {
+  if !hso_is_dropped_result_try_table_block(func, blocker_id) {
+    return false
+  }
+  let blocker_mask = hso_reorder_effect_mask(
+    cache, func, node_masks, blocker_id,
+  )
+  let moved_mask = hso_struct_new_operand_effect_mask(
+    func, module_ctx, node_masks, moved_struct_new_id,
+  )
+  if hso_mask_ordered_before(moved_mask, blocker_mask) &&
+    !hso_global_only_ordering_can_be_ignored(
+      func, moved_struct_new_id, moved_mask, blocker_id, blocker_mask,
+    ) {
+    return false
+  }
+  if (blocker_mask & @ir.EFFECT_MASK_LOCAL_STATE) != 0U &&
+    hso_subtree_touches_local(func, blocker_id, target_local_id) {
+    return false
+  }
+  true
+}
+
+///|
 fn hso_root_can_swap_before_local_struct_new(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
@@ -1978,8 +2175,15 @@ fn hso_root_can_swap_before_local_struct_new(
       }
     _ => ()
   }
-  if hso_subtree_may_escape_to_active_catch(func, blocker_id) {
+  let dropped_result_try_table_swap = hso_dropped_result_try_table_swap_allowed(
+    cache, func, module_ctx, node_masks, moved_struct_new_id, blocker_id, target_local_id,
+  )
+  if hso_subtree_may_escape_to_active_catch(func, blocker_id) &&
+    !dropped_result_try_table_swap {
     return false
+  }
+  if dropped_result_try_table_swap {
+    return true
   }
   let blocker_mask = hso_reorder_effect_mask(
     cache, func, node_masks, blocker_id,
