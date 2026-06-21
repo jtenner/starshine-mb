@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0910-2026-06-21-heap-store-optimization-try-table-memory-size-boundary.md
   - ../../../raw/research/0909-2026-06-21-heap-store-optimization-table-init-old-field.md
   - ../../../raw/research/0908-2026-06-21-heap-store-optimization-memory-init-old-field.md
   - ../../../raw/research/0907-2026-06-21-heap-store-optimization-table-copy-old-field.md
@@ -322,6 +323,8 @@ Current local proof surfaces include:
   - fixed the same HSO-D/G trapping old-field parity gap for exact non-saturating float-to-int truncation: Binaryen preserves `i32.trunc_f32_s` in an overwritten constructor field and leaves the later `struct.set` when a mutable `global.set` intervenes; Starshine now marks exact `i32`/`i64.trunc_f32`/`trunc_f64` nodes as trapping for HSO effect and reorderability checks.
 - [`../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md`](../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md)
   - fixed a focused HSO-D/G parity gap for trapping old-field preservation: Binaryen preserves `i32.div_s` in an overwritten constructor field and leaves the later `struct.set` when a mutable `global.set` intervenes; Starshine now marks exact integer div/rem nodes as trapping for HSO effect and reorderability checks.
+- [`../../../raw/research/0910-2026-06-21-heap-store-optimization-try-table-memory-size-boundary.md`](../../../raw/research/0910-2026-06-21-heap-store-optimization-try-table-memory-size-boundary.md)
+  - added focused HSO-G coverage for the memory-side `try_table` wrapper boundary: Binaryen preserves `memory.size`, `try_table` / `table.set`, and the later `struct.set`; Starshine already matched.
 - [`../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md`](../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md)
   - added focused HSO-G coverage for the indirect-call constructor-operand no-swap boundary: Binaryen preserves `call_indirect` before an unrelated `global.set` and leaves the later `struct.set`; Starshine already matched.
 - [`../../../raw/research/0890-2026-06-21-heap-store-optimization-default-starshine-win.md`](../../../raw/research/0890-2026-06-21-heap-store-optimization-default-starshine-win.md)

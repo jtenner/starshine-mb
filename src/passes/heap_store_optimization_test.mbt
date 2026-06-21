@@ -2300,6 +2300,55 @@ test "heap-store-optimization folds table.size constructors across memory stores
 }
 
 ///|
+test "heap-store-optimization keeps memory.size constructors before try_table-wrapped table stores" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_table_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::struct_new(pair),
+            @lib.Instruction::local_set(local0),
+            @lib.Instruction::try_table(
+              @lib.BlockType::void_(),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::ref_null(
+                  @lib.HeapType::abs(@lib.AbsHeapType::func()),
+                ),
+                @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.size/try_table-table-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds table.size constructors across br_table-wrapped memory stores" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
