@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md
   - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
   - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
   - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
@@ -27,7 +28,7 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the 2026-06-20 post-use, ordinary-`if`, dropped-`if`, `br_if`, and ordered multi-set segment-movement Starshine slices, and the earlier source corrections.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the 2026-06-20 post-use, ordinary-`if`, dropped-`if`, `br_if`, ordinary-`if` multi-set, and dropped-`if` multi-set segment-movement Starshine slices, and the earlier source corrections.
 
 ## Mental model
 
@@ -176,9 +177,41 @@ Binaryen-backed after:
 (drop (local.get $b))
 ```
 
-Starshine now implements this first ordered multi-set subset only for adjacent local-independent values before an ordinary void `if`, preserving source order. The current slice intentionally does not cover dropped wrappers, `br_if`, switch/`br_table`, branch values, loop targets, or local-read-dependent value expressions.
+Starshine now implements this first ordered multi-set subset only for adjacent local-independent values before an ordinary void `if`, preserving source order.
 
-## Shape 6: `if` arm sinking into the only consuming arm
+## Shape 6: ordered multi-set movement after a dropped value `if`
+
+Binaryen-backed before:
+
+```wat
+(local.set $a (i32.const 7))
+(local.set $b (i32.const 9))
+(drop
+  (if (result i32)
+    (local.get $cond)
+    (then (i32.const 1))
+    (else (i32.const 2))))
+(drop (local.get $a))
+(drop (local.get $b))
+```
+
+Binaryen-backed after:
+
+```wat
+(drop
+  (if (result i32)
+    (local.get $cond)
+    (then (i32.const 1))
+    (else (i32.const 2))))
+(local.set $a (i32.const 7))
+(local.set $b (i32.const 9))
+(drop (local.get $a))
+(drop (local.get $b))
+```
+
+Starshine now implements this ordered multi-set subset only for adjacent local-independent values before a dropped value `if`, preserving source order. The current ordered multi-set slices intentionally do not cover `br_if`, switch/`br_table`, branch values, loop targets, or local-read-dependent value expressions.
+
+## Shape 7: `if` arm sinking into the only consuming arm
 
 Conceptual before:
 
@@ -206,7 +239,7 @@ Conceptual after:
 
 This is close to Starshine's current positive subset when the value passes the strict movable-value gate and all local reads are in one arm.
 
-## Shape 7: post-if use can be safe when the other arm is unreachable
+## Shape 8: post-if use can be safe when the other arm is unreachable
 
 Conceptual family:
 
@@ -223,7 +256,7 @@ Conceptual family:
 
 The post-if read is not automatically fatal if the non-consuming path cannot continue. This nuance belongs to Binaryen's `optimizeIntoIf(...)` family. Starshine's first conservative slice now supports the same-region suffix-read subset when the opposite arm cannot fall through.
 
-## Shape 8: both reachable arms using a value is not the baseline push
+## Shape 9: both reachable arms using a value is not the baseline push
 
 Assume unchanged unless a source/test proves a more specific case:
 
@@ -239,7 +272,7 @@ Assume unchanged unless a source/test proves a more specific case:
 
 The pass is not a generic “duplicate the set into both arms” transform.
 
-## Shape 9: post-if read with fallthrough from the other arm should not sink into one arm
+## Shape 10: post-if read with fallthrough from the other arm should not sink into one arm
 
 ```wat
 (local.set $tmp (i32.const 7))
@@ -257,7 +290,7 @@ Why this remains a bailout family:
 - moving the set into the `then` arm would leave the later read uninitialized on the `else` fallthrough path;
 - Starshine has a focused guard for this family in `src/passes/code_pushing_test.mbt`.
 
-## Shape 10: trap-sensitive computations are option-sensitive
+## Shape 11: trap-sensitive computations are option-sensitive
 
 ```wat
 (local.set $tmp
@@ -276,7 +309,7 @@ Why it is sensitive:
 - Binaryen has tests for ignore-implicit-traps and TNH modes;
 - Starshine's current subset avoids this with an explicit nontrapping gate for movable values.
 
-## Shape 11: `switch` and broader conditional branch push points
+## Shape 12: `switch` and broader conditional branch push points
 
 Binaryen's push-point concept is broader than plain `if`. Starshine has one narrow `br_if` mutation slice; future work should widen or keep no-rewrite shape recognition for:
 
@@ -287,7 +320,7 @@ Binaryen's push-point concept is broader than plain `if`. Starshine has one narr
 
 and switch/br-table-like shapes, `br_on_*`, loop-target branches, and branch-value conditional branches where the local's later consumption and effect barriers can be proved.
 
-## Shape 12: GC/reference and atomics expressions are not categorically excluded
+## Shape 13: GC/reference and atomics expressions are not categorically excluded
 
 The official `version_130` `code-pushing-gc.wast` and `code-pushing-atomics.wast` tests are part of the proof surface.
 
@@ -297,11 +330,11 @@ Safe rule:
 - `code-pushing-atomics.wast` shows a GC `struct.get` may move past a shared atomic load, but not past a shared atomic store;
 - `ref.func`, casts, null checks, descriptor-shaped operations, and atomics need explicit tests before Starshine widens.
 
-## Shape 13: EH shapes are bailout-rich
+## Shape 14: EH shapes are bailout-rich
 
 Exception-handling shapes can make movement observable through exceptional control and value availability. Future Starshine fixtures should cover `try`, `catch`, `throw`, and any moved root whose value crosses an exceptional boundary.
 
-## Shape 14: current Starshine positive single-consuming-arm sink
+## Shape 15: current Starshine positive single-consuming-arm sink
 
 Current Starshine implements this narrower HOT subset:
 
@@ -322,7 +355,7 @@ Current local HOT result shape:
 - a cloned `local.set 1` is inserted at the beginning of the consuming arm;
 - the arm's existing `local.get 1` remains.
 
-## Shape 15: current Starshine local dead-block flattening helper
+## Shape 16: current Starshine local dead-block flattening helper
 
 Current Starshine also has a local cleanup shape around a typed block next to unreachable context.
 

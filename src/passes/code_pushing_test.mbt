@@ -357,6 +357,47 @@ test "code-pushing preserves order when moving multiple SFA sets after if" {
 }
 
 ///|
+test "code-pushing preserves order when moving multiple SFA sets after dropped value if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32 i32)
+      #|    i32.const 7
+      #|    local.set 1
+      #|    i32.const 9
+      #|    local.set 2
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      i32.const 2
+      #|    end
+      #|    drop
+      #|    local.get 1
+      #|    drop
+      #|    local.get 2
+      #|    drop))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 7)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "nop")
+  let dropped_if = @ir.hot_root_get(func, 2)
+  code_pushing_expect_op(func, dropped_if, "drop")
+  code_pushing_expect_op(func, @ir.hot_child_get(func, dropped_if, 0), "if")
+  let first_moved = @ir.hot_root_get(func, 3)
+  let second_moved = @ir.hot_root_get(func, 4)
+  code_pushing_expect_op(func, first_moved, "local.set")
+  code_pushing_expect_op(func, second_moved, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_moved).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, second_moved).imm0, 2)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 5), "drop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 6), "drop")
+}
+
+///|
 test "code-pushing moves pure SFA set after dropped value if before later use" {
   let func = code_pushing_test_run_hot(
     (

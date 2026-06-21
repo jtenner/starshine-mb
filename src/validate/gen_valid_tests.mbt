@@ -8442,6 +8442,68 @@ fn gen_valid_test_instrs_contain_code_pushing_multi_set_candidate(
 }
 
 ///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_dropped_if_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 10 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+        instrs[i + 10],
+      ) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(first_set)),
+        I32Const(_),
+        LocalSet(LocalIdx(second_set)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+        Drop,
+        LocalGet(LocalIdx(first_use)),
+        Drop,
+        LocalGet(LocalIdx(second_use)),
+        Drop,
+      ) if first_set == 1U &&
+        second_set == 2U &&
+        cond_idx == 0U &&
+        first_use == 1U &&
+        second_use == 2U => {
+        let then_reads = then_body.any(fn(instr) {
+          match instr {
+            LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+            _ => false
+          }
+        })
+        let else_reads = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+                _ => false
+              }
+            })
+          None => false
+        }
+        if !then_reads && !else_reads {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_instrs_contain_code_pushing_br_if_candidate(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -8548,6 +8610,10 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
     "code-pushing-multi-set",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetDroppedIfProfile),
+    "code-pushing-multi-set-dropped-if",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(CodePushingAllProfile),
     "code-pushing-all",
   )
@@ -8557,7 +8623,7 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       @debug.assert_eq(profile, CodePushingAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 5)
+      @debug.assert_eq(members.length(), 6)
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingIfArmProfile }),
       )
@@ -8572,6 +8638,11 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       )
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingMultiSetProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingMultiSetDroppedIfProfile
+        }),
       )
     }
     Err(msg) => fail(msg)
@@ -8600,6 +8671,7 @@ test "code-pushing aggregate profile samples every current code-pushing family" 
   assert_true(seen.contains(CodePushingDroppedIfProfile))
   assert_true(seen.contains(CodePushingBrIfProfile))
   assert_true(seen.contains(CodePushingMultiSetProfile))
+  assert_true(seen.contains(CodePushingMultiSetDroppedIfProfile))
 }
 
 ///|
@@ -8702,6 +8774,29 @@ test "code-pushing gen-valid profiles emit pass-owned if movement candidates" {
   assert_true(
     gen_valid_test_instrs_contain_code_pushing_multi_set_candidate(
       gen_valid_test_first_func_instrs(multi_set.wasm_module),
+    ),
+  )
+
+  let multi_set_dropped_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetDroppedIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    multi_set_dropped_if.config_label,
+    "code-pushing-multi-set-dropped-if",
+  )
+  match validate_module(multi_set_dropped_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set_dropped_if.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_dropped_if_candidate(
+      gen_valid_test_first_func_instrs(multi_set_dropped_if.wasm_module),
     ),
   )
 }

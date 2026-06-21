@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md
   - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
   - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
   - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
@@ -54,7 +55,9 @@ The sixth 2026-06-20 audit slice added dropped value-`if` segment movement in [`
 
 The seventh 2026-06-20 audit slice added narrow `br_if` segment movement in [`0812`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md). `code_pushing_try_sink_set_after_if_push_point(...)` now accepts `candidate:conditional-branch` only for a no-branch-value `BrIf` to a void block label, and inserts the cloned set after the branch when the branch does not read the local and every read is a same-block suffix read. The `code-pushing-all` profile now includes `code-pushing-br-if`; a bounded native profile lane compared `400/400` with `0` raw mismatches/failures under `--normalize local-cleanup-debris`.
 
-The eighth 2026-06-20 audit slice added ordered multi-set movement in [`0813`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md). `code_pushing_try_sink_ordered_sets_after_void_if(...)` moves adjacent local-independent SFA sets after an ordinary void `if` in source order when neither arm reads any moved local and every read is a same-region suffix read. The `code-pushing-all` profile now includes `code-pushing-multi-set`; a bounded native profile lane compared `500/500` with `0` raw mismatches/failures under `--normalize local-cleanup-debris`.
+The eighth 2026-06-20 audit slice added ordered multi-set movement in [`0813`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md). `code_pushing_try_sink_ordered_sets_after_if_push_point(...)` moves adjacent local-independent SFA sets after an ordinary void `if` in source order when neither arm reads any moved local and every read is a same-region suffix read. The `code-pushing-all` profile now includes `code-pushing-multi-set`; a bounded native profile lane compared `500/500` with `0` raw mismatches/failures under `--normalize local-cleanup-debris`.
+
+The ninth 2026-06-20 audit slice extended that ordered multi-set movement to dropped value-`if` push points in [`0814`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md). The same helper now unwraps `dropped-if` push points for arm-read checks and inserts cloned sets after the dropped wrapper in source order. The `code-pushing-all` profile now includes `code-pushing-multi-set-dropped-if`; a bounded native profile lane compared `600/600` with `0` raw mismatches/failures under `--normalize local-cleanup-debris`.
 
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 
@@ -69,7 +72,7 @@ Current Starshine code locations:
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 537-637 | Branch, unreachable, and dead-context helpers |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 638-726 | Starshine-local dead-block flattening helper |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 727-877 | Guarded `global.get` and local-copy setup movement across later roots |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 878-995 | Ordered adjacent multi-set movement after ordinary void `if` |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 878-995 | Ordered adjacent multi-set movement after ordinary void `if` or dropped value-`if` |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 996-1100 | Single-set ordinary-void-`if`, dropped value-`if`, and narrow `br_if` segment movement helper |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 1101-1249 | Current `local.set` into single-consuming `if` arm rewrite |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 1250-1364 | Recursive region scan and fixed-point driver |
@@ -90,7 +93,7 @@ Binaryen's source-backed strategy is broader than the local subset:
 | `Pusher` block segment scan | Segment-window diagnostic recognizes selected block-local candidate windows; ordinary-void-`if`, dropped value-`if`, and narrow `br_if` after-movement slices consume `candidate:if` / `candidate:dropped-if` / `candidate:conditional-branch`; other mutating paths remain bounded and narrower | Continue consuming the discovery layer in one safe movement family at a time |
 | `isPushable(...)` effect/removability gate | Pure nontrapping values plus guarded `global.get` and local-copy shapes; diagnostic can report coarse ordered-before/effect barriers | Preserve strictness unless local effect modeling proves more; `version_130` movement checks require ordered-before reasoning, not only coarse invalidation |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped forms | Diagnostic recognizes these families where HOT representation is local; mutation now targets ordinary void `if`, dropped value-`if` wrappers, and a no-branch-value `br_if` to a void block label | Add one remaining push-point mutation family at a time |
-| `optimizeSegment(...)` ordered multi-set pushing | First single-set ordinary-void-`if`, dropped-`if`, and narrow `br_if` after-movement slices implemented; first adjacent local-independent multi-set movement after ordinary void `if` implemented; broader movement remains one set at a time or unimplemented | Keep order-preservation tests as multi-set support grows beyond this first ordinary-`if` slice |
+| `optimizeSegment(...)` ordered multi-set pushing | First single-set ordinary-void-`if`, dropped-`if`, and narrow `br_if` after-movement slices implemented; adjacent local-independent multi-set movement after ordinary void `if` and dropped value-`if` implemented; broader movement remains one set at a time or unimplemented | Keep order-preservation tests as multi-set support grows beyond these first narrow push-point slices |
 | `optimizeIntoIf(...)` post-if-read / unreachable-arm allowance | First conservative slice implemented for same-region suffix reads when the opposite arm ends in non-fallthrough roots such as `unreachable` | Broaden only with source-backed control-flow proofs; keep fallthrough post-use negative coverage |
 | GC/EH/trap/atomics option surfaces | Mostly guarded out | Treat as explicit follow-up slices, not incidental wins; `code-pushing-atomics.wast` is now part of the current proof surface |
 | Public preset placement | Omitted | Do not schedule until `simplify-locals-nostructure` and parity lanes are ready |
@@ -105,6 +108,7 @@ Binaryen's source-backed strategy is broader than the local subset:
    - Dropped value-`if` after-movement completed in [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md): a single SFA set moves after a dropped value-`if` when all reads are later suffix reads and the dropped push point does not read the local.
    - Narrow `br_if` after-movement completed in [`0812`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md): a single SFA set moves after a no-branch-value `br_if` to a void block label when all reads are later suffix reads and the branch does not read the local.
    - Ordered multi-set ordinary-`if` movement completed in [`0813`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md): adjacent local-independent SFA sets move after an ordinary void `if` in source order.
+   - Ordered multi-set dropped-`if` movement completed in [`0814`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md): adjacent local-independent SFA sets move after a dropped value `if` in source order.
    - Future work should add other push points or broader multi-set movement only one family at a time.
    - Keep all trap/GC/EH candidates negative.
 3. **Unreachable-arm post-use slice**
@@ -112,7 +116,7 @@ Binaryen's source-backed strategy is broader than the local subset:
 4. **Effect-checked widening**
    - Only after the earlier slices are green, widen beyond the current strict movable-value gates using Starshine's effect model.
 5. **Dedicated profile growth**
-   - `code-pushing-all` now covers the implemented `if`-arm, after-`if`, dropped-`if`, narrow `br_if`, and ordinary-`if` ordered multi-set positive families. Add leaves when switch/`br_table`, broader conditional branches, broader ordered multi-set movement, or atomics/GC/EH/trap-policy slices land.
+   - `code-pushing-all` now covers the implemented `if`-arm, after-`if`, dropped-`if`, narrow `br_if`, ordinary-`if` ordered multi-set, and dropped-`if` ordered multi-set positive families. Add leaves when switch/`br_table`, broader conditional branches, broader ordered multi-set movement, or atomics/GC/EH/trap-policy slices land.
 6. **Preset slice**
    - Revisit public `optimize` / `shrink` placement only after direct-pass semantic parity and the neighboring `simplify-locals-nostructure` work are honest.
 
