@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0997-2026-06-21-heap-store-optimization-result-try-table-call-cross-store-boundary.md
   - ../../../raw/research/0996-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-boundary.md
   - ../../../raw/research/0995-2026-06-21-heap-store-optimization-result-try-table-call-ref-cross-store-boundary.md
   - ../../../raw/research/0994-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-ref-boundary.md
@@ -513,6 +514,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0997-2026-06-21-heap-store-optimization-result-try-table-call-cross-store-boundary.md`](../../../raw/research/0997-2026-06-21-heap-store-optimization-result-try-table-call-cross-store-boundary.md)
+  - added coverage-only HSO-F/G evidence for result-typed `try_table` ordinary cross-store boundaries that also contain catchable direct calls; Binaryen preserves the wrapper, direct `call`, `table.set` / `i32.store`, and later `struct.set`, and Starshine already matches.
 - [`../../../raw/research/0996-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-boundary.md`](../../../raw/research/0996-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-boundary.md)
   - added coverage-only HSO-F/G evidence for a result-typed `try_table` containing `return_call_ref`; Binaryen preserves the wrapper, tail call, constructor, and later `struct.set`, and Starshine already matches instead of extending the direct-root `return_call_ref` Starshine-win classification.
 - [`../../../raw/research/0995-2026-06-21-heap-store-optimization-result-try-table-call-ref-cross-store-boundary.md`](../../../raw/research/0995-2026-06-21-heap-store-optimization-result-try-table-call-ref-cross-store-boundary.md)
