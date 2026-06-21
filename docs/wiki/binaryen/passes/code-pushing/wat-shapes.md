@@ -267,7 +267,39 @@ Binaryen-backed after:
 (drop (local.get $b))
 ```
 
-Starshine now implements direct local-copy multi-set movement for ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points, preserving source order and rejecting cases where the crossed push point writes a copied source local. The current ordered multi-set slices intentionally do not cover switch/`br_table`, branch values, loop targets, `br_on_*`, non-adjacent windows, local-copy dependency chains, or general local-read-dependent value expressions.
+Starshine now implements direct local-copy multi-set movement for ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points, preserving source order and rejecting cases where the crossed push point writes a copied source local.
+
+## Shape 6d: `nop`-separated ordered multi-set movement
+
+Binaryen-backed before:
+
+```wat
+(local.set $a (i32.const 7))
+nop
+(local.set $b (i32.const 9))
+(if
+  (local.get $cond)
+  (then
+    nop))
+(drop (local.get $a))
+(drop (local.get $b))
+```
+
+Binaryen-backed after:
+
+```wat
+nop
+(if
+  (local.get $cond)
+  (then
+    nop))
+(local.set $a (i32.const 7))
+(local.set $b (i32.const 9))
+(drop (local.get $a))
+(drop (local.get $b))
+```
+
+Starshine implements this only for `nop` separators before ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points. Other non-adjacent windows still need source-backed `orderedBefore` / effect tests. The current ordered multi-set slices intentionally do not cover switch/`br_table`, branch values, loop targets, `br_on_*`, arbitrary non-adjacent windows beyond `nop`, local-copy dependency chains, or general local-read-dependent value expressions.
 
 ## Shape 7: `if` arm sinking into the only consuming arm
 

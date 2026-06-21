@@ -64,6 +64,7 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - The `br_if` extension moves the same single-set family after a void-block-target `br_if` with no branch values when the branch does not read the local and every read is a same-block suffix read after the branch.
    - The ordered multi-set extension moves adjacent local-independent SFA sets after an ordinary void `if`, dropped value-`if`, or narrow void-block-target `br_if` in source order when the push point does not read any moved local and every read is a suffix read after the push point.
    - A direct local-copy multi-set extension covers the same push-point family when copied source locals are not moved destinations and are not written by the crossed push point; the single local-copy sink remains able to move later independent copies if an earlier source-sensitive copy must stay before an `if`.
+   - A `nop`-window extension covers the same push-point family when local-independent SFA sets are separated only by `nop` roots, leaving those separators before the push point while moving sets after it in source order.
    - The single-set helper requires the non-mutating diagnostic to classify the window as `candidate:if`, `candidate:dropped-if`, or `candidate:conditional-branch` before rewriting; the ordered multi-set helper is currently limited to ordinary-void-`if`, dropped-value-`if`, and no-branch-value `br_if` push points.
 3. **Non-mutating segment-window inventory**
    - Whitebox-only helpers now classify block-local `local.set` candidate windows and push-point kinds before mutation.
@@ -110,7 +111,7 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | `Pusher` block segment scan | Non-mutating segment-window diagnostic recognizes selected block-local candidate windows; mutating paths now consume ordinary `if` and dropped-`if` after-movement subsets while remaining bounded and narrower |
 | `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get` and local-copy cases; diagnostic reports coarse ordered-before/effect barriers |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Diagnostic recognizes these where HOT representation is local; mutation targets ordinary void `if`, dropped value-`if` wrappers, and a void-block-target `br_if` subset |
-| `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if`, dropped-`if`, and narrow `br_if` after-movement slices implemented; ordered adjacent multi-set movement implemented for local-independent values before ordinary void `if`, dropped value-`if`, and narrow void-block-target `br_if`, plus direct local-copy values when source locals are stable; broader multi-set and other push-point movement not implemented generally |
+| `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if`, dropped-`if`, and narrow `br_if` after-movement slices implemented; ordered adjacent multi-set movement implemented for local-independent values before ordinary void `if`, dropped value-`if`, and narrow void-block-target `br_if`, plus direct local-copy values when source locals are stable and `nop`-separated local-independent windows; broader multi-set and other push-point movement not implemented generally |
 | `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm, plus same-region suffix reads when the opposite arm cannot fall through |
 | Unreachable-arm post-use allowance | First conservative slice implemented for roots ending in `unreachable`, `return`, or tail-return roots |
 | `version_130` ordered-before / atomics source surfaces | Not implemented generally; retained as explicit audit gap |
@@ -242,6 +243,22 @@ Current HOT rewrite shape:
 - insert cloned `local.set $a` then `local.set $b` immediately after the `br_if`, preserving source order;
 - require adjacent local-independent movable values and same-block suffix reads.
 
+The `nop`-window ordered multi-set slice covers the same three push points when only `nop` roots separate local-independent SFA sets:
+
+```wat
+(local.set $a (i32.const 7))
+nop
+(local.set $b (i32.const 9))
+(if
+  (local.get $cond)
+  (then
+    nop))
+(drop (local.get $a))
+(drop (local.get $b))
+```
+
+Current HOT rewrite shape leaves the separator before the push point and inserts cloned `local.set $a` then `local.set $b` after it.
+
 The pass refuses to move when:
 
 - both arms read the local;
@@ -249,7 +266,7 @@ The pass refuses to move when:
 - there is more than one write;
 - an ordinary `candidate:if` has a result outside the dropped-wrapper case;
 - a `candidate:conditional-branch` is not a no-branch-value `br_if` to a void block label;
-- ordered multi-set movement would need non-adjacent sets, push points outside ordinary void `if` / dropped value-`if` / narrow `br_if`, local-copy dependency chains, duplicate locals, arm or branch reads of moved locals, source-local writes, or non-suffix reads;
+- ordered multi-set movement would need non-adjacent sets beyond `nop` separators, push points outside ordinary void `if` / dropped value-`if` / narrow `br_if`, local-copy dependency chains, duplicate locals, arm or branch reads of moved locals, source-local writes, or non-suffix reads;
 - the source value is not movable under the strict pure/nontrapping or guarded setup gates;
 - the source value may trap;
 - or the target arm does not exist.

@@ -1156,6 +1156,7 @@ pub enum GenValidProfile {
   CodePushingMultiSetDroppedIfProfile
   CodePushingMultiSetBrIfProfile
   CodePushingMultiSetLocalCopyProfile
+  CodePushingMultiSetNopWindowProfile
   CodePushingAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile

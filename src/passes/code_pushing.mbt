@@ -962,48 +962,58 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
     }
     let root_node = @ir.hot_node_get(func, root_id)
     match root_node.op {
-      @ir.HotOp::LocalSet => ()
+      @ir.HotOp::LocalSet => {
+        if @ir.hot_node_result_arity(func, root_id) != 0 {
+          return false
+        }
+        let local_id = root_node.imm0
+        if local_ids.any(fn(existing) { existing == local_id }) {
+          return false
+        }
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        if !code_pushing_value_is_ordered_set_movable(func, value_id) {
+          return false
+        }
+        let source_local = if code_pushing_node_is_local_get(func, value_id) {
+          @ir.hot_node_get(func, value_id).imm0
+        } else {
+          if code_pushing_node_has_any_local_get(func, value_id) {
+            return false
+          }
+          -1
+        }
+        if source_local == local_id ||
+          local_ids.any(fn(existing) { existing == source_local }) {
+          return false
+        }
+        let (prefix_gets, _) = code_pushing_count_local_gets_writes_in_region_prefix_bounded(
+          func, region_ref, local_id, set_idx, 0, 1_000_000,
+        )
+        if prefix_gets != 0 {
+          return false
+        }
+        let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
+          func, local_id, 1_000_000, 1,
+        )
+        if total_writes != 1 || total_gets == 0 {
+          return false
+        }
+        set_ids.push(root_id)
+        local_ids.push(local_id)
+        value_ids.push(value_id)
+        source_local_ids.push(source_local)
+      }
+      @ir.HotOp::Nop =>
+        // Binaryen's segment optimizer can carry harmless roots such as nops
+        // in the window while preserving the moved local.set order. Keep this
+        // first non-adjacent slice intentionally narrow: other non-set roots
+        // still need source-backed orderedBefore/effect tests before movement.
+        if set_ids.length() == 0 ||
+          @ir.hot_node_result_arity(func, root_id) != 0 {
+          return false
+        }
       _ => return false
     }
-    if @ir.hot_node_result_arity(func, root_id) != 0 {
-      return false
-    }
-    let local_id = root_node.imm0
-    if local_ids.any(fn(existing) { existing == local_id }) {
-      return false
-    }
-    let value_id = @ir.hot_child_get(func, root_id, 0)
-    if !code_pushing_value_is_ordered_set_movable(func, value_id) {
-      return false
-    }
-    let source_local = if code_pushing_node_is_local_get(func, value_id) {
-      @ir.hot_node_get(func, value_id).imm0
-    } else {
-      if code_pushing_node_has_any_local_get(func, value_id) {
-        return false
-      }
-      -1
-    }
-    if source_local == local_id ||
-      local_ids.any(fn(existing) { existing == source_local }) {
-      return false
-    }
-    let (prefix_gets, _) = code_pushing_count_local_gets_writes_in_region_prefix_bounded(
-      func, region_ref, local_id, set_idx, 0, 1_000_000,
-    )
-    if prefix_gets != 0 {
-      return false
-    }
-    let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
-      func, local_id, 1_000_000, 1,
-    )
-    if total_writes != 1 || total_gets == 0 {
-      return false
-    }
-    set_ids.push(root_id)
-    local_ids.push(local_id)
-    value_ids.push(value_id)
-    source_local_ids.push(source_local)
     idx += 1
   }
   if set_ids.length() < 2 || idx >= @ir.hot_region_root_count(func, region_ref) {

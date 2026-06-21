@@ -686,6 +686,7 @@ pub enum GenValidProfile {
   CodePushingMultiSetDroppedIfProfile
   CodePushingMultiSetBrIfProfile
   CodePushingMultiSetLocalCopyProfile
+  CodePushingMultiSetNopWindowProfile
   CodePushingAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
@@ -775,6 +776,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingMultiSetDroppedIfProfile => "code-pushing-multi-set-dropped-if"
     CodePushingMultiSetBrIfProfile => "code-pushing-multi-set-br-if"
     CodePushingMultiSetLocalCopyProfile => "code-pushing-multi-set-local-copy"
+    CodePushingMultiSetNopWindowProfile => "code-pushing-multi-set-nop-window"
     CodePushingAllProfile => "code-pushing-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
@@ -843,6 +845,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingMultiSetDroppedIfProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetBrIfProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetLocalCopyProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetNopWindowProfile, 1),
       ]
     SsaNomergeAllProfile =>
       [
@@ -958,6 +961,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingMultiSetDroppedIfProfile,
     CodePushingMultiSetBrIfProfile,
     CodePushingMultiSetLocalCopyProfile,
+    CodePushingMultiSetNopWindowProfile,
     CodePushingAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
@@ -1392,7 +1396,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | CodePushingMultiSetProfile
     | CodePushingMultiSetDroppedIfProfile
     | CodePushingMultiSetBrIfProfile
-    | CodePushingMultiSetLocalCopyProfile =>
+    | CodePushingMultiSetLocalCopyProfile
+    | CodePushingMultiSetNopWindowProfile =>
       gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
@@ -1670,7 +1675,8 @@ fn gen_valid_code_pushing_profile_config(
     max_locals: if profile == CodePushingMultiSetProfile ||
       profile == CodePushingMultiSetDroppedIfProfile ||
       profile == CodePushingMultiSetBrIfProfile ||
-      profile == CodePushingMultiSetLocalCopyProfile {
+      profile == CodePushingMultiSetLocalCopyProfile ||
+      profile == CodePushingMultiSetNopWindowProfile {
       2
     } else {
       1
@@ -1683,6 +1689,7 @@ fn gen_valid_code_pushing_profile_config(
       CodePushingMultiSetDroppedIfProfile => 12
       CodePushingMultiSetBrIfProfile => 13
       CodePushingMultiSetLocalCopyProfile => 11
+      CodePushingMultiSetNopWindowProfile => 14
       _ => 5
     },
     max_body_depth: 2,
@@ -1722,7 +1729,8 @@ fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(CodePushingMultiSetProfile) ||
   config == GenValidConfig::for_profile(CodePushingMultiSetDroppedIfProfile) ||
   config == GenValidConfig::for_profile(CodePushingMultiSetBrIfProfile) ||
-  config == GenValidConfig::for_profile(CodePushingMultiSetLocalCopyProfile)
+  config == GenValidConfig::for_profile(CodePushingMultiSetLocalCopyProfile) ||
+  config == GenValidConfig::for_profile(CodePushingMultiSetNopWindowProfile)
 }
 
 ///|
@@ -12333,6 +12341,9 @@ fn gen_valid_code_pushing_profile_kind(
   } else if config ==
     GenValidConfig::for_profile(CodePushingMultiSetLocalCopyProfile) {
     CodePushingMultiSetLocalCopyProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetNopWindowProfile) {
+    CodePushingMultiSetNopWindowProfile
   } else {
     CodePushingIfArmProfile
   }
@@ -12445,6 +12456,27 @@ fn gen_valid_code_pushing_multi_set_dropped_if_body() -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_code_pushing_multi_set_nop_window_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::nop(),
+    Instruction::i32_const(I32(9)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
 fn gen_valid_code_pushing_multi_set_local_copy_body() -> Array[Instruction] {
   [
     Instruction::local_get(LocalIdx::new(1U)),
@@ -12504,6 +12536,8 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
       gen_valid_code_pushing_multi_set_br_if_body()
     CodePushingMultiSetLocalCopyProfile =>
       gen_valid_code_pushing_multi_set_local_copy_body()
+    CodePushingMultiSetNopWindowProfile =>
+      gen_valid_code_pushing_multi_set_nop_window_body()
     _ => gen_valid_code_pushing_if_arm_body()
   }
   let params = if kind == CodePushingMultiSetLocalCopyProfile {
@@ -12524,7 +12558,8 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
           if kind == CodePushingMultiSetProfile ||
             kind == CodePushingMultiSetDroppedIfProfile ||
             kind == CodePushingMultiSetBrIfProfile ||
-            kind == CodePushingMultiSetLocalCopyProfile {
+            kind == CodePushingMultiSetLocalCopyProfile ||
+            kind == CodePushingMultiSetNopWindowProfile {
             [ValType::i32(), ValType::i32()]
           } else {
             [ValType::i32()]
