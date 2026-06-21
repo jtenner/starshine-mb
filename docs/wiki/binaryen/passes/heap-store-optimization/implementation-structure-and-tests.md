@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0904-2026-06-21-heap-store-optimization-memory-fill-old-field.md
   - ../../../raw/research/0903-2026-06-21-heap-store-optimization-elem-drop-old-field.md
   - ../../../raw/research/0902-2026-06-21-heap-store-optimization-data-drop-old-field.md
   - ../../../raw/research/0901-2026-06-21-heap-store-optimization-table-store-old-field.md
@@ -280,6 +281,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0904-2026-06-21-heap-store-optimization-memory-fill-old-field.md`](../../../raw/research/0904-2026-06-21-heap-store-optimization-memory-fill-old-field.md)
+  - added focused HSO-D/G memory-fill old-field boundary coverage: Binaryen preserves an overwritten value-producing `memory.fill` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `262/262`.
 - [`../../../raw/research/0903-2026-06-21-heap-store-optimization-elem-drop-old-field.md`](../../../raw/research/0903-2026-06-21-heap-store-optimization-elem-drop-old-field.md)
   - added focused HSO-D/G passive-element old-field positive coverage: Binaryen folds an overwritten value-producing `elem.drop` constructor field while preserving `elem.drop` under `drop`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `261/261`.
 - [`../../../raw/research/0902-2026-06-21-heap-store-optimization-data-drop-old-field.md`](../../../raw/research/0902-2026-06-21-heap-store-optimization-data-drop-old-field.md)
