@@ -4727,6 +4727,43 @@ fn optimize_instructions_ref_is_known_match_for_nullable_target(
 }
 
 ///|
+fn optimize_instructions_ref_operand_is_nullable_exact_heap(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] =>
+      ref_type.is_nullable() && ref_type.get_heap_type() == target
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_replace_ref_cast_with_ref_as_non_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operand_id : Int,
+) -> Bool {
+  let result_types = @ir.hot_type_results(
+    func,
+    @ir.hot_node_type(func, node_id),
+  )
+  let temp = @ir.hot_build_heap(
+    func,
+    result_types,
+    @lib.Instruction::ref_as_non_null(),
+    [operand_id],
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_ref_is_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4880,6 +4917,13 @@ fn optimize_instructions_try_fold_ref_cast_null(
       }
       true
     }
+    _ if not(nullable) &&
+      optimize_instructions_ref_operand_is_nullable_exact_heap(
+        func, operand_id, target,
+      ) =>
+      optimize_instructions_replace_ref_cast_with_ref_as_non_null(
+        ctx, func, node_id, operand_id,
+      )
     _ if optimize_instructions_ref_is_known_match_for_target(
         func, operand_id, target,
       ) ||

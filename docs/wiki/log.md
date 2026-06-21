@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Implement OI-I same-heap non-null ref.cast lowering
+
+- Filed [`raw/research/0813-2026-06-20-optimize-instructions-oi-i-same-heap-nonnull-ref-cast.md`](raw/research/0813-2026-06-20-optimize-instructions-oi-i-same-heap-nonnull-ref-cast.md) for the fifty-sixth `[O4Z-AUDIT-OI-I]` implementation sub-slice. Starshine now lowers unknown nullable exact-heap non-null `ref.cast` to `ref.as_non_null`, preserving operand effects and the null trap while keeping narrowing heap-check casts as `ref.cast`.
+- Evidence: Binaryen oracle lowered `eqref` to `(ref eq)` casts to `ref.as_non_null` and kept `eqref` to `(ref $s)` as `ref.cast`. Red-first `*non-null same-heap ref.cast*` failed before implementation; an intermediate `*ref.cast*` run caught known-null ordering regressions. Final focused `*non-null same-heap ref.cast*` passed `1/1`, `*ref.cast*` passed `30/30`, `*ref*` passed `65/65`, `*optimize-instructions*` passed `195/195`, `moon fmt`, `moon test src/passes` (`2725/2725`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference/call_ref operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I i31/array local ref.eq miss
 
 - Filed [`raw/research/0812-2026-06-20-optimize-instructions-oi-i-i31-array-local-ref-eq.md`](raw/research/0812-2026-06-20-optimize-instructions-oi-i-i31-array-local-ref-eq.md) for the fifty-fifth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding impossible equality between a declared non-null `i31` local and a nullable array local to `i32.const 0` in either operand order.
