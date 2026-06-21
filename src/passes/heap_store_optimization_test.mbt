@@ -612,6 +612,62 @@ fn hso_table_global_test_module(
 }
 
 ///|
+fn hso_funcref_table_global_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let pair = @lib.TypeIdx::new(0U)
+  let struct_ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::funcref()),
+          @lib.Mut::var_(),
+        ),
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [struct_ref_type])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([struct_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn hso_global_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -5959,6 +6015,48 @@ test "heap-store-optimization keeps trapping memory-load old fields before unrel
     Some(idx) => idx
     None =>
       fail("expected struct.set in memory-load-old-field output: \{pretty}")
+  }
+  assert_true(global_set_idx < struct_set_idx, msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps trapping table-get old fields before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_test_run_module(
+      hso_funcref_table_global_test_module([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table-get-old-field/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  let global_set_idx = match hso_test_index_of(pretty, "global.set") {
+    Some(idx) => idx
+    None => fail("expected global.set in table-get-old-field output: \{pretty}")
+  }
+  let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
+    Some(idx) => idx
+    None => fail("expected struct.set in table-get-old-field output: \{pretty}")
   }
   assert_true(global_set_idx < struct_set_idx, msg=pretty)
 }
