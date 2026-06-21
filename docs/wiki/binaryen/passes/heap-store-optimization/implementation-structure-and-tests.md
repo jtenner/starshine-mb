@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0978-2026-06-21-heap-store-optimization-contained-branch-old-field-fold.md
   - ../../../raw/research/0977-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-growth-gap.md
   - ../../../raw/research/0976-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-store-gap.md
   - ../../../raw/research/0975-2026-06-21-heap-store-optimization-branch-loop-call-ref-old-field-growth-boundary.md
@@ -425,9 +426,9 @@ Current local proof surfaces include:
 - [`../../../raw/research/0947-2026-06-21-heap-store-optimization-if-call-old-field-growth-boundary.md`](../../../raw/research/0947-2026-06-21-heap-store-optimization-if-call-old-field-growth-boundary.md)
   - added focused HSO-D/G coverage for if-wrapped direct-call old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten if-wrapped direct call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0977-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-growth-gap.md`](../../../raw/research/0977-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-growth-gap.md)
-  - records an open HSO-D/G parity gap: Binaryen drops an overwritten pure branch-containing outer-block/inner-loop old field and folds the later same-field store across unrelated `memory.grow` and `table.grow` roots, while Starshine currently preserves the pure branch-loop old field and later `struct.set`. A focused MoonBit AST fixture attempt hit a local value-carrying-`br_if` validation/test-surface issue, so the WAT/CLI probe is the durable repro until WAT-backed or AST coverage lands.
+  - recorded the now-fixed HSO-D/G growth-root parity gap: Binaryen drops an overwritten pure branch-containing outer-block/inner-loop old field and folds the later same-field store across unrelated `memory.grow` and `table.grow` roots. Follow-up `0978` added encoded wasm coverage and the contained-control droppable-old-field implementation.
 - [`../../../raw/research/0976-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-store-gap.md`](../../../raw/research/0976-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-store-gap.md)
-  - records the matching open HSO-D/G parity gap before unrelated ordinary stores: Binaryen drops the overwritten pure branch-loop old field and folds across unrelated `i32.store` and `table.set`; Starshine currently preserves the old branch-loop value and later `struct.set`.
+  - recorded the matching now-fixed ordinary-store parity gap: Binaryen drops the overwritten pure branch-loop old field and folds across unrelated `i32.store` and `table.set`; follow-up `0978` added encoded wasm coverage and the contained-control droppable-old-field implementation.
 - [`../../../raw/research/0948-2026-06-21-heap-store-optimization-if-call-indirect-old-field-store-boundary.md`](../../../raw/research/0948-2026-06-21-heap-store-optimization-if-call-indirect-old-field-store-boundary.md)
   - added focused HSO-D/G coverage for if-wrapped `call_indirect` old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten if-wrapped indirect call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0949-2026-06-21-heap-store-optimization-if-call-indirect-old-field-growth-boundary.md`](../../../raw/research/0949-2026-06-21-heap-store-optimization-if-call-indirect-old-field-growth-boundary.md)

@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0978-2026-06-21-heap-store-optimization-contained-branch-old-field-fold.md
   - ../../../raw/research/0977-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-growth-gap.md
   - ../../../raw/research/0976-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-store-gap.md
   - ../../../raw/research/0975-2026-06-21-heap-store-optimization-branch-loop-call-ref-old-field-growth-boundary.md
@@ -377,7 +378,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0973` confirmed the matching branch-containing outer-block/inner-loop `call_indirect` old-field growth counterparts: Binaryen preserves the wrapped indirect-call old field, `br_if`, unrelated `memory.grow` or `table.grow`, and later same-field `struct.set`; Starshine already matched.
   - Coverage note `0974` confirmed the branch-containing outer-block/inner-loop `call_ref` old-field store counterparts: Binaryen preserves the wrapped typed-function-reference old field, `br_if`, unrelated `i32.store` or `table.set`, and later same-field `struct.set`; Starshine already matched.
   - Coverage note `0975` confirmed the matching branch-containing outer-block/inner-loop `call_ref` old-field growth counterparts: Binaryen preserves the wrapped typed-function-reference old field, `br_if`, unrelated `memory.grow` or `table.grow`, and later same-field `struct.set`; Starshine already matched.
-  - Gap notes `0976` and `0977` identify the complementary pure branch-containing outer-block/inner-loop old-field family as still open: Binaryen drops the overwritten pure branch-loop old field and folds the later same-field store across unrelated `i32.store`, `table.set`, `memory.grow`, and `table.grow` roots, while Starshine currently preserves the branch-loop old field and later `struct.set`. This is a parity gap, not a Starshine win; it needs a safe contained-branch droppable-old-field proof plus focused WAT/AST coverage.
+  - Follow-up `0978` fixes the pure branch-containing outer-block/inner-loop old-field gap from `0976`/`0977`: Starshine now treats trapless contained-control old fields as droppable when overwritten, folds the later same-field value into `struct.new`, preserves unrelated `i32.store`, `table.set`, `memory.grow`, and `table.grow` roots, and removes the old `br_if` debris like Binaryen `version_130`. Focused encoded wasm fixtures cover all four roots, and the direct 10000-case HSO compare is normalized-green.
   - Coverage note `0931` confirmed the ordinary direct-call constructor growth counterparts: Binaryen preserves the direct `call`, the unrelated `memory.grow` or `table.grow`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0929` confirmed the ordinary direct-call old-field / memory-store counterpart: Binaryen preserves the old-field direct `call`, the unrelated `i32.store`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0935` confirmed the ordinary direct-call old-field growth counterparts: Binaryen preserves the old-field direct `call`, the unrelated `memory.grow` or `table.grow`, and the later `struct.set`; Starshine already matched.
