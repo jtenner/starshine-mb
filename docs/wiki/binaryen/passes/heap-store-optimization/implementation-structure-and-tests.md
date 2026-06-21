@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0886-2026-06-21-heap-store-optimization-descriptor-old-field-call-barrier.md
   - ../../../raw/research/0885-2026-06-21-heap-store-optimization-descriptor-old-field-effects.md
   - ../../../raw/research/0884-2026-06-21-heap-store-optimization-descriptor-block-br-if-trap-condition.md
   - ../../../raw/research/0883-2026-06-21-heap-store-optimization-later-field-block-br-if-trap-condition.md
@@ -266,6 +267,8 @@ Current local proof surfaces include:
   - added focused HSO-D/E coverage for a trapping descriptor-if boundary: Binaryen preserves `struct.set` when the descriptor operand is an `if` whose condition is `i32.load`, because folding a call-valued later store would move the call before a possible trap. Starshine already matched.
 - [`../../../raw/research/0885-2026-06-21-heap-store-optimization-descriptor-old-field-effects.md`](../../../raw/research/0885-2026-06-21-heap-store-optimization-descriptor-old-field-effects.md)
   - added focused HSO-D coverage for descriptor old-field side-effect preservation: Binaryen folds a call-valued later store into `struct.new_desc` while preserving the overwritten old field's call under `drop`. Starshine already matched.
+- [`../../../raw/research/0886-2026-06-21-heap-store-optimization-descriptor-old-field-call-barrier.md`](../../../raw/research/0886-2026-06-21-heap-store-optimization-descriptor-old-field-call-barrier.md)
+  - added focused HSO-D/E coverage for descriptor old-field preservation interacting with a later-field call barrier: Binaryen preserves `struct.set` when folding would move a later call before a later constructor-field call, even though the overwritten old field also has call side effects. Starshine already matched.
 - [`../../../raw/research/0884-2026-06-21-heap-store-optimization-descriptor-block-br-if-trap-condition.md`](../../../raw/research/0884-2026-06-21-heap-store-optimization-descriptor-block-br-if-trap-condition.md)
   - added focused HSO-D/E coverage for a trapping descriptor block `br_if` boundary: Binaryen preserves `struct.set` when a value-carrying descriptor block's `br_if` condition is `i32.load`, because folding a call-valued later store would move the call before a possible trap. Starshine already matched.
 - [`../../../raw/research/0880-2026-06-21-heap-store-optimization-descriptor-select-trap-condition.md`](../../../raw/research/0880-2026-06-21-heap-store-optimization-descriptor-select-trap-condition.md)

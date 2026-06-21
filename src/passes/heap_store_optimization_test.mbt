@@ -2394,6 +2394,44 @@ test "heap-store-optimization preserves descriptor old field call effects when f
 }
 
 ///|
+test "heap-store-optimization keeps descriptor old field call behind later field call barrier" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor old-field/later-field barrier heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds store across mutable descriptor global when moved value is pure" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
