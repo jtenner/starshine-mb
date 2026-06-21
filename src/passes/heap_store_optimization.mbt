@@ -2807,6 +2807,156 @@ fn hso_region_roots(
 }
 
 ///|
+fn hso_process_local_set_chain(
+  cache : HsoPredicateCache,
+  type_cache : HsoTypeCache,
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  node_masks : Array[UInt],
+  roots : Array[Int],
+  root_id : Int,
+  idx : Int,
+  local_id : Int,
+  struct_new_id : Int,
+  type_idx : @lib.TypeIdx,
+  active_catch_depth : Int,
+  owner_id : Int?,
+  external_roots : Array[Int],
+) -> (Array[Int], Int, Bool) {
+  let segment_roots : Array[Int] = [root_id]
+  let swapped_prefix_roots : Array[Int] = []
+  let mut segment_local_set_idx = 0
+  let mut segment_has_swapped_prefix = false
+  let mut changed = false
+  let mut next_idx = idx + 1
+  while next_idx < roots.length() {
+    match hso_struct_set_for_local(func, roots[next_idx], local_id, type_idx) {
+      Some((field_idx, ref_id, value_id)) => {
+        if segment_has_swapped_prefix &&
+          !hso_swapped_readonly_roots_respect_ref_order(
+            cache, func, node_masks, swapped_prefix_roots, ref_id,
+          ) {
+          break
+        }
+        match
+          hso_try_fold_into_struct_new(
+            cache, type_cache, func, module_ctx, node_masks, struct_new_id, type_idx,
+            field_idx, value_id, local_id, active_catch_depth, owner_id, external_roots,
+          ) {
+          Some(lifted_prefix_roots) => {
+            let nop_id = @ir.hot_build_nop(func)
+            if segment_has_swapped_prefix {
+              hso_array_insert_prefix_roots(
+                segment_roots,
+                segment_local_set_idx,
+                [nop_id],
+                1,
+              )
+              segment_local_set_idx = segment_local_set_idx + 1
+            }
+            if !lifted_prefix_roots.is_empty() {
+              hso_array_insert_prefix_roots(
+                segment_roots,
+                segment_local_set_idx,
+                lifted_prefix_roots,
+                lifted_prefix_roots.length(),
+              )
+              segment_local_set_idx = segment_local_set_idx +
+                lifted_prefix_roots.length()
+            }
+            changed = true
+            if !segment_has_swapped_prefix {
+              segment_roots.push(nop_id)
+            }
+            next_idx = next_idx + 1
+            continue
+          }
+          None => ()
+        }
+      }
+      None => ()
+    }
+    if next_idx < roots.length() - 1 {
+      let branch_skips_owner = match owner_id {
+        Some(_) =>
+          hso_subtree_skip_is_branch_only(func, roots[next_idx]) &&
+          !hso_roots_touch_local(func, external_roots, local_id)
+        None => false
+      }
+      let next_is_matching_set = match
+        hso_struct_set_for_local(func, roots[next_idx + 1], local_id, type_idx) {
+        Some(_) => true
+        None => false
+      }
+      if branch_skips_owner && next_is_matching_set {
+        segment_roots.push(roots[next_idx])
+        let last_idx = segment_roots.length() - 1
+        let moved_local_set_id = segment_roots[segment_local_set_idx]
+        segment_roots[segment_local_set_idx] = segment_roots[last_idx]
+        segment_roots[last_idx] = moved_local_set_id
+        swapped_prefix_roots.push(roots[next_idx])
+        segment_local_set_idx = last_idx
+        segment_has_swapped_prefix = true
+        changed = true
+        next_idx = next_idx + 1
+        continue
+      }
+      match
+        hso_liftable_swapped_block_roots(
+          cache,
+          func,
+          module_ctx,
+          node_masks,
+          struct_new_id,
+          roots[next_idx],
+          local_id,
+        ) {
+        Some(lifted_roots) => {
+          hso_array_insert_prefix_roots(
+            segment_roots,
+            segment_local_set_idx,
+            lifted_roots,
+            lifted_roots.length(),
+          )
+          for lifted_root_id in lifted_roots {
+            swapped_prefix_roots.push(lifted_root_id)
+          }
+          segment_local_set_idx = segment_local_set_idx + lifted_roots.length()
+          segment_has_swapped_prefix = true
+          changed = true
+          next_idx = next_idx + 1
+          continue
+        }
+        None =>
+          if hso_root_can_swap_before_local_struct_new(
+              cache,
+              func,
+              module_ctx,
+              node_masks,
+              struct_new_id,
+              roots[next_idx],
+              local_id,
+            ) {
+            segment_roots.push(roots[next_idx])
+            let last_idx = segment_roots.length() - 1
+            let moved_local_set_id = segment_roots[segment_local_set_idx]
+            segment_roots[segment_local_set_idx] = segment_roots[last_idx]
+            segment_roots[last_idx] = moved_local_set_id
+            swapped_prefix_roots.push(roots[next_idx])
+            segment_local_set_idx = last_idx
+            segment_has_swapped_prefix = true
+            changed = true
+            next_idx = next_idx + 1
+            continue
+          }
+      }
+    }
+    break
+  }
+  (segment_roots, next_idx, changed)
+}
+
+///|
 fn hso_process_region(
   cache : HsoPredicateCache,
   type_cache : HsoTypeCache,
@@ -2868,8 +3018,30 @@ fn hso_process_region(
             ) {
             Some(replacement_roots) => {
               changed = true
-              for replacement_root_id in replacement_roots {
-                next_roots.push(replacement_root_id)
+              let replacement_last_idx = replacement_roots.length() - 1
+              let replacement_local_set_id = replacement_roots[replacement_last_idx]
+              for replacement_idx = 0
+                  replacement_idx < replacement_last_idx
+                  replacement_idx = replacement_idx + 1 {
+                next_roots.push(replacement_roots[replacement_idx])
+              }
+              match
+                hso_local_set_struct_new(
+                  type_cache, func, module_ctx, replacement_local_set_id,
+                ) {
+                Some((local_id, struct_new_id, type_idx)) => {
+                  let (segment_roots, next_idx, segment_changed) = hso_process_local_set_chain(
+                    cache, type_cache, func, module_ctx, node_masks, roots, replacement_local_set_id,
+                    idx, local_id, struct_new_id, type_idx, active_catch_depth, owner_id,
+                    external_roots,
+                  )
+                  changed = segment_changed || changed
+                  for segment_root_id in segment_roots {
+                    next_roots.push(segment_root_id)
+                  }
+                  idx = next_idx - 1
+                }
+                None => next_roots.push(replacement_local_set_id)
               }
             }
             None => next_roots.push(root_id)
@@ -2880,148 +3052,11 @@ fn hso_process_region(
       @ir.HotOp::LocalSet =>
         match hso_local_set_struct_new(type_cache, func, module_ctx, root_id) {
           Some((local_id, struct_new_id, type_idx)) => {
-            let segment_roots : Array[Int] = [root_id]
-            let swapped_prefix_roots : Array[Int] = []
-            let mut segment_local_set_idx = 0
-            let mut segment_has_swapped_prefix = false
-            let mut next_idx = idx + 1
-            while next_idx < roots.length() {
-              match
-                hso_struct_set_for_local(
-                  func,
-                  roots[next_idx],
-                  local_id,
-                  type_idx,
-                ) {
-                Some((field_idx, ref_id, value_id)) => {
-                  if segment_has_swapped_prefix &&
-                    !hso_swapped_readonly_roots_respect_ref_order(
-                      cache, func, node_masks, swapped_prefix_roots, ref_id,
-                    ) {
-                    break
-                  }
-                  match
-                    hso_try_fold_into_struct_new(
-                      cache, type_cache, func, module_ctx, node_masks, struct_new_id,
-                      type_idx, field_idx, value_id, local_id, active_catch_depth,
-                      owner_id, external_roots,
-                    ) {
-                    Some(lifted_prefix_roots) => {
-                      let nop_id = @ir.hot_build_nop(func)
-                      if segment_has_swapped_prefix {
-                        hso_array_insert_prefix_roots(
-                          segment_roots,
-                          segment_local_set_idx,
-                          [nop_id],
-                          1,
-                        )
-                        segment_local_set_idx = segment_local_set_idx + 1
-                      }
-                      if !lifted_prefix_roots.is_empty() {
-                        hso_array_insert_prefix_roots(
-                          segment_roots,
-                          segment_local_set_idx,
-                          lifted_prefix_roots,
-                          lifted_prefix_roots.length(),
-                        )
-                        segment_local_set_idx = segment_local_set_idx +
-                          lifted_prefix_roots.length()
-                      }
-                      changed = true
-                      if !segment_has_swapped_prefix {
-                        segment_roots.push(nop_id)
-                      }
-                      next_idx = next_idx + 1
-                      continue
-                    }
-                    None => ()
-                  }
-                }
-                None => ()
-              }
-              if next_idx < roots.length() - 1 {
-                let branch_skips_owner = match owner_id {
-                  Some(_) =>
-                    hso_subtree_skip_is_branch_only(func, roots[next_idx]) &&
-                    !hso_roots_touch_local(func, external_roots, local_id)
-                  None => false
-                }
-                let next_is_matching_set = match
-                  hso_struct_set_for_local(
-                    func,
-                    roots[next_idx + 1],
-                    local_id,
-                    type_idx,
-                  ) {
-                  Some(_) => true
-                  None => false
-                }
-                if branch_skips_owner && next_is_matching_set {
-                  segment_roots.push(roots[next_idx])
-                  let last_idx = segment_roots.length() - 1
-                  let moved_local_set_id = segment_roots[segment_local_set_idx]
-                  segment_roots[segment_local_set_idx] = segment_roots[last_idx]
-                  segment_roots[last_idx] = moved_local_set_id
-                  swapped_prefix_roots.push(roots[next_idx])
-                  segment_local_set_idx = last_idx
-                  segment_has_swapped_prefix = true
-                  changed = true
-                  next_idx = next_idx + 1
-                  continue
-                }
-                match
-                  hso_liftable_swapped_block_roots(
-                    cache,
-                    func,
-                    module_ctx,
-                    node_masks,
-                    struct_new_id,
-                    roots[next_idx],
-                    local_id,
-                  ) {
-                  Some(lifted_roots) => {
-                    hso_array_insert_prefix_roots(
-                      segment_roots,
-                      segment_local_set_idx,
-                      lifted_roots,
-                      lifted_roots.length(),
-                    )
-                    for lifted_root_id in lifted_roots {
-                      swapped_prefix_roots.push(lifted_root_id)
-                    }
-                    segment_local_set_idx = segment_local_set_idx +
-                      lifted_roots.length()
-                    segment_has_swapped_prefix = true
-                    changed = true
-                    next_idx = next_idx + 1
-                    continue
-                  }
-                  None =>
-                    if hso_root_can_swap_before_local_struct_new(
-                        cache,
-                        func,
-                        module_ctx,
-                        node_masks,
-                        struct_new_id,
-                        roots[next_idx],
-                        local_id,
-                      ) {
-                      segment_roots.push(roots[next_idx])
-                      let last_idx = segment_roots.length() - 1
-                      let moved_local_set_id = segment_roots[segment_local_set_idx]
-                      segment_roots[segment_local_set_idx] = segment_roots[last_idx]
-                      segment_roots[last_idx] = moved_local_set_id
-                      swapped_prefix_roots.push(roots[next_idx])
-                      segment_local_set_idx = last_idx
-                      segment_has_swapped_prefix = true
-                      changed = true
-                      next_idx = next_idx + 1
-                      continue
-                    }
-                }
-              }
-              break
-            }
+            let (segment_roots, next_idx, segment_changed) = hso_process_local_set_chain(
+              cache, type_cache, func, module_ctx, node_masks, roots, root_id, idx,
+              local_id, struct_new_id, type_idx, active_catch_depth, owner_id, external_roots,
+            )
+            changed = segment_changed || changed
             for segment_root_id in segment_roots {
               next_roots.push(segment_root_id)
             }

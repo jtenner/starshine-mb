@@ -1383,6 +1383,55 @@ test "heap-store-optimization folds consecutive struct.set roots on the same loc
 }
 
 ///|
+test "heap-store-optimization folds tee plus later local-get struct.set chain" {
+  let triple = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::i32_const(@lib.I32(20)),
+        @lib.Instruction::i32_const(@lib.I32(30)),
+        @lib.Instruction::struct_new(triple),
+        @lib.Instruction::local_tee(local0),
+        @lib.Instruction::i32_const(@lib.I32(40)),
+        @lib.Instruction::struct_set(triple, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(50)),
+        @lib.Instruction::struct_set(triple, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(60)),
+        @lib.Instruction::struct_set(triple, @lib.U32(2U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(triple, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(triple, @lib.U32(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(triple, @lib.U32(2U)),
+        @lib.Instruction::i32_add(),
+      ],
+      3,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected tee-plus-later-chain heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(40)"), msg=pretty)
+  assert_true(pretty.contains("I32(50)"), msg=pretty)
+  assert_true(pretty.contains("I32(60)"), msg=pretty)
+  assert_false(pretty.contains("I32(10)"), msg=pretty)
+  assert_false(pretty.contains("I32(20)"), msg=pretty)
+  assert_false(pretty.contains("I32(30)"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds repeated stores with the last value in the constructor" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
