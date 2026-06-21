@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0980-2026-06-21-heap-store-optimization-branch-contained-try-table-global-set.md
   - ../../../raw/research/0979-2026-06-21-heap-store-optimization-nested-try-table-global-set.md
   - ../../../raw/research/0978-2026-06-21-heap-store-optimization-contained-branch-old-field-fold.md
   - ../../../raw/research/0977-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-growth-gap.md
@@ -496,6 +497,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0980-2026-06-21-heap-store-optimization-branch-contained-try-table-global-set.md`](../../../raw/research/0980-2026-06-21-heap-store-optimization-branch-contained-try-table-global-set.md)
+  - added coverage-only HSO-G tests for non-throwing `try_table` bodies with a branch fully contained inside an inner block before an unrelated `global.set`; Binaryen folds this family and Starshine already matches for `memory.size` / `table.size` constructor operands.
 - [`../../../raw/research/0979-2026-06-21-heap-store-optimization-nested-try-table-global-set.md`](../../../raw/research/0979-2026-06-21-heap-store-optimization-nested-try-table-global-set.md)
   - added coverage-only HSO-G tests for nested inert `block(block(try_table ...))` wrappers around the non-throwing unrelated-global-set family from `0927`; Starshine already folds `memory.size` / `table.size` constructor operands and removes the redundant `struct.set` while preserving the wrapper side effect.
 - [`../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md`](../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md)
