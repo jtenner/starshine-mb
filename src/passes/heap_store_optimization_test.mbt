@@ -1791,6 +1791,72 @@ test "heap-store-optimization leaves array stores as an explicit non-goal" {
 }
 
 ///|
+test "heap-store-optimization does not do generic struct dead-store elimination" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let pair_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let optimized = match
+    hso_test_run_with_locals(
+      [
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+      ],
+      1,
+      [pair_ref_type],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected generic dead-store non-goal heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(hso_test_count_occurrences(pretty, "struct.set"), 2, msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization does not do generic struct load forwarding" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let pair_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let optimized = match
+    hso_test_run_with_locals(
+      [
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+      [pair_ref_type],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected generic load-forwarding non-goal heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization leaves unreachable constructors to later DCE" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

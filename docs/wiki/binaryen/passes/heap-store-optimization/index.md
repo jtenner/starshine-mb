@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md
   - ../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md
   - ../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md
   - ../../../raw/research/0864-2026-06-20-heap-store-optimization-descriptor-select.md
@@ -189,6 +190,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0863` confirmed Binaryen preserves `struct.set` when a branch-valued store can `br_if` to a loop header that reads the fresh-struct target local before the next `local.set`; Starshine already matched this HSO-F negative.
 - Descriptor/default old-field combinations follow the same directional effect rules.
   - Follow-up `0856` confirmed Binaryen folds `struct.new_default_desc` chain stores into `struct.new_desc` when safe, but preserves a descriptor `struct.set` when a later constructor field call orders before a moved call value.
+- Generic heap dead-store elimination and load forwarding remain explicit non-goals for direct HSO.
+  - Follow-up `0867` confirmed Binaryen `version_130` preserves repeated non-fresh-reference `struct.set` roots and a later `struct.get` after `struct.set`; Starshine now has matching boundary tests. Reopen only if Binaryen moves generic heap DSE/load forwarding into HSO or Starshine schedules a separate pass for those transforms.
 
 ## Beginner warning: what the name hides
 
