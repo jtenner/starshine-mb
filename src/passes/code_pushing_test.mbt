@@ -64,8 +64,7 @@ test "code-pushing skips O4z raw pass until self-opt decoder hazards are safe" {
 }
 
 ///|
-fn code_pushing_test_run_hot(text : String) -> @ir.HotFunc {
-  let func = pass_test_lift_first_func(text)
+fn code_pushing_test_run_hot_func(func : @ir.HotFunc) -> @ir.HotFunc {
   let ctx = HotPassContext::new(
     code_pushing_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -77,6 +76,11 @@ fn code_pushing_test_run_hot(text : String) -> @ir.HotFunc {
     Ok(_) => func
     Err(err) => abort("expected code-pushing hot pass success, got \{err}")
   }
+}
+
+///|
+fn code_pushing_test_run_hot(text : String) -> @ir.HotFunc {
+  code_pushing_test_run_hot_func(pass_test_lift_first_func(text))
 }
 
 ///|
@@ -141,6 +145,16 @@ fn code_pushing_expect_op(
       match op {
         @ir.HotOp::BrTable => ()
         _ => abort("expected br_table")
+      }
+    "atomic" =>
+      match op {
+        @ir.HotOp::Atomic => ()
+        _ => abort("expected atomic")
+      }
+    "heap" =>
+      match op {
+        @ir.HotOp::Heap => ()
+        _ => abort("expected heap")
       }
     _ => abort("unknown expected hot op")
   }
@@ -1925,6 +1939,154 @@ test "code-pushing keeps local.get set before multivalue value if" {
     ),
     msg=pretty,
   )
+}
+
+///|
+fn code_pushing_atomic_struct_get_fixture(
+  use_atomic_store : Bool,
+  use_if_arm : Bool,
+) -> @ir.HotFunc {
+  // Starshine's WAT surface cannot currently parse Binaryen's shared GC type
+  // syntax from `code-pushing-atomics.wast`, so this fixture builds the HOT
+  // shape directly: a non-null `struct.get` sourced from `local.get` before a
+  // linear-memory atomic load/store.
+  let nonnull_struct = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[nonnull_struct, @lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let source_ref = @ir.hot_build_local_get(func, 0)
+  let struct_get = @ir.hot_build_heap(
+    func,
+    [@lib.ValType::i32()],
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32::new(0U)),
+    [source_ref],
+  )
+  let set_field = @ir.hot_build_local_set(func, 2, struct_get)
+  let addr = @ir.hot_build_const_i32(func, @lib.I32(0))
+  let memarg = @lib.MemArg::new(2U, None, 0UL)
+  let atomic_memarg = @ir.hot_alloc_memarg(func, @ir.HotMemArg::new(memarg))
+  let atomic_payload = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(
+      if use_atomic_store {
+        @lib.Instruction::i32_atomic_store(memarg)
+      } else {
+        @lib.Instruction::i32_atomic_load(memarg)
+      },
+    ),
+  )
+  let atomic_node = if use_atomic_store {
+    @ir.hot_build_node(
+      func,
+      @ir.HotOp::atomic_op(),
+      @ir.hot_type_void(func),
+      imm0=atomic_memarg,
+      imm1=atomic_payload,
+      children=[addr, @ir.hot_build_const_i32(func, @lib.I32(42))],
+    )
+  } else {
+    @ir.hot_build_node(
+      func,
+      @ir.HotOp::atomic_op(),
+      @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+      imm0=atomic_memarg,
+      imm1=atomic_payload,
+      children=[addr],
+    )
+  }
+  let atomic_root = if use_atomic_store {
+    atomic_node
+  } else {
+    @ir.hot_build_drop(func, atomic_node)
+  }
+  let cond = @ir.hot_build_local_get(func, 1)
+  let if_id = if use_if_arm {
+    @ir.hot_build_if(func, @lib.BlockType::void_(), cond, [
+      @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 2)),
+    ])
+  } else {
+    @ir.hot_build_if(func, @lib.BlockType::void_(), cond, [
+      @ir.hot_build_nop(func),
+    ])
+  }
+  @ir.hot_root_append(func, set_field)
+  @ir.hot_root_append(func, atomic_root)
+  @ir.hot_root_append(func, if_id)
+  if !use_if_arm {
+    @ir.hot_root_append(
+      func,
+      @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 2)),
+    )
+  }
+  code_pushing_test_run_hot_func(func)
+}
+
+///|
+test "code-pushing sinks nonnull struct.get past atomic load into sole using if arm" {
+  let func = code_pushing_atomic_struct_get_fixture(false, true)
+
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  let atomic_drop = @ir.hot_root_get(func, 1)
+  code_pushing_expect_op(func, atomic_drop, "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, atomic_drop, 0),
+    "atomic",
+  )
+  let if_id = @ir.hot_root_get(func, 2)
+  code_pushing_expect_op(func, if_id, "if")
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
+  let moved_set = @ir.hot_region_get(func, then_ref, 0)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 2)
+  code_pushing_expect_op(func, @ir.hot_child_get(func, moved_set, 0), "heap")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, then_ref, 1), "drop")
+}
+
+///|
+test "code-pushing keeps nonnull struct.get before atomic store into-if boundary" {
+  // Binaryen v130's shared-struct atomics lit keeps this before the release
+  // store; Starshine approximates that source-backed boundary in HOT.
+  let func = code_pushing_atomic_struct_get_fixture(true, true)
+
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "local.set")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "atomic")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "if")
+}
+
+///|
+test "code-pushing moves nonnull struct.get after atomic load segment push point" {
+  let func = code_pushing_atomic_struct_get_fixture(false, false)
+
+  @debug.assert_eq(@ir.hot_root_count(func), 5)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "drop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "if")
+  let moved_set = @ir.hot_root_get(func, 3)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 2)
+  code_pushing_expect_op(func, @ir.hot_child_get(func, moved_set, 0), "heap")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 4), "drop")
+}
+
+///|
+test "code-pushing keeps nonnull struct.get before atomic store segment boundary" {
+  // Binaryen v130's shared-struct atomics lit keeps this before the release
+  // store even when the use is after the if push point.
+  let func = code_pushing_atomic_struct_get_fixture(true, false)
+
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "local.set")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "atomic")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "if")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "drop")
 }
 
 ///|

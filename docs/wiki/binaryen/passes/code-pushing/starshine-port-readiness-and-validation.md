@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
   - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
@@ -139,14 +140,15 @@ Binaryen's source-backed strategy is broader than the local subset:
    - `drop(local.get)`-separated ordered multi-set movement completed in [`0820`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md): local-independent SFA sets separated only by a dead dropped local read move after ordinary void `if`, dropped value-`if`, and narrow block-/loop-target `br_if` push points in source order.
    - Bounded `drop(global.get)`-separated ordered multi-set movement completed in [`0821`](../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md): local-independent SFA sets separated by a dropped immutable/global read move after ordinary void `if` and dropped value-`if` push points in source order, while the same separator remains a block-/loop-target `br_if` boundary.
    - Simple `br_table` switch boundary audit completed in [`0822`](../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md): Binaryen v130 kept single-set and adjacent two-set windows before a no-branch-value `br_table` to the enclosing void block label, so Starshine protects that no-mutation boundary while leaving broader switch work open.
+   - Atomics/GC boundary slice completed in [`0823`](../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md): a narrow non-null `struct.get` from `local.get` may cross atomic loads for into-`if` and segment movement, while atomic stores remain memory-write boundaries.
    - Future work should add other push points or broader multi-set movement only one family at a time.
-   - Keep all trap/GC/EH candidates negative.
+   - Keep all broader trap/GC/EH candidates negative until source-backed tests land.
 3. **Unreachable-arm post-use slice**
    - First conservative slice completed in [`0806`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md): same-region suffix reads are allowed when the non-consuming arm cannot fall through. Future work can broaden the non-fallthrough proof beyond the current simple root-ending helper only with source-backed tests.
 4. **Effect-checked widening**
    - Only after the earlier slices are green, widen beyond the current strict movable-value gates using Starshine's effect model.
 5. **Dedicated profile growth**
-   - `code-pushing-all` now covers the implemented `if`-arm, after-`if`, dropped-`if`, narrow `br_if`, ordinary-`if` ordered multi-set, dropped-`if` ordered multi-set, `br_if` ordered multi-set, local-copy ordered multi-set, `nop`-separated ordered multi-set, loop-target `br_if`, `drop(const)`-separated ordered multi-set, `drop(local.get)`-separated ordered multi-set, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated ordered multi-set positive families. Add leaves when switch/`br_table`, broader conditional branches, broader ordered multi-set movement, or atomics/GC/EH/trap-policy slices land.
+   - `code-pushing-all` now covers the implemented `if`-arm, after-`if`, dropped-`if`, narrow `br_if`, ordinary-`if` ordered multi-set, dropped-`if` ordered multi-set, `br_if` ordered multi-set, local-copy ordered multi-set, `nop`-separated ordered multi-set, loop-target `br_if`, `drop(const)`-separated ordered multi-set, `drop(local.get)`-separated ordered multi-set, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated ordered multi-set positive families. Add leaves when switch/`br_table`, broader conditional branches, broader ordered multi-set movement, or broader atomics/GC/EH/trap-policy slices land.
 6. **Preset slice**
    - Revisit public `optimize` / `shrink` placement only after direct-pass semantic parity and the neighboring `simplify-locals-nostructure` work are honest.
 
@@ -178,7 +180,7 @@ Do not widen without explicit tests for:
 
 ## Bottom line
 
-Starshine's older direct `code-pushing` subset remains supported by its 2026-05 evidence, but `[O4Z-AUDIT-CP]` is active and not closed under the current release-gating standard. The analyzer/segment inventory, ordinary-void-`if` segment movement, dropped value-`if` segment movement, narrow block-/loop-target `br_if` movement, ordered ordinary-`if` multi-set movement, dropped-`if` multi-set movement, `br_if` multi-set movement, direct local-copy multi-set movement, `nop`-window multi-set movement, `drop(const)`-window multi-set movement, `drop(local.get)`-window multi-set movement, bounded ordinary-/dropped-`if` `drop(global.get)`-window multi-set movement, simple `br_table` no-mutation boundary tests, and dedicated GenValid profile are now in-tree, so the next useful work is another source-backed push-point or movement family while keeping ordered-before / atomics boundaries carried forward from the `version_130` refresh. Public preset scheduling remains separate ordered-neighborhood work.
+Starshine's older direct `code-pushing` subset remains supported by its 2026-05 evidence, but `[O4Z-AUDIT-CP]` is active and not closed under the current release-gating standard. The analyzer/segment inventory, ordinary-void-`if` segment movement, dropped value-`if` segment movement, narrow block-/loop-target `br_if` movement, ordered ordinary-`if` multi-set movement, dropped-`if` multi-set movement, `br_if` multi-set movement, direct local-copy multi-set movement, `nop`-window multi-set movement, `drop(const)`-window multi-set movement, `drop(local.get)`-window multi-set movement, bounded ordinary-/dropped-`if` `drop(global.get)`-window multi-set movement, simple `br_table` no-mutation boundary tests, the first atomics/GC non-null `struct.get` load/store boundary slice, and dedicated GenValid profile are now in-tree, so the next useful work is another source-backed push-point or movement family while keeping ordered-before / atomics boundaries carried forward from the `version_130` refresh. Public preset scheduling remains separate ordered-neighborhood work.
 
 ## Sources
 

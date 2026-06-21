@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
   - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
@@ -61,7 +62,7 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - A root `local.set` before a void `if` can be replaced with `nop`.
    - A cloned `local.set` is inserted into the one `if` arm that contains all in-arm reads of that local.
    - Same-region suffix reads after the `if` are allowed only when the opposite arm cannot fall through under the current conservative root proof.
-   - Values are limited to pure nontrapping HOT values plus guarded `global.get` and local-copy setup shapes.
+   - Values are limited to pure nontrapping HOT values plus guarded `global.get`, local-copy setup, and narrow non-null `struct.get` heap-read shapes.
 2. **Ordinary `if`, dropped `if`, and narrow `br_if` segment movement**
    - The first mutating segment-window consumer moves one SFA `local.set` after an ordinary void `if` when the `if` itself does not read the local and every read is a same-region suffix read after the `if`.
    - The dropped-wrapper extension moves the same single-set family after a dropped value `if` when the dropped push point does not read the local and every read is a same-region suffix read after the wrapper.
@@ -70,11 +71,13 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - A direct local-copy multi-set extension covers the same push-point family when copied source locals are not moved destinations and are not written by the crossed push point; the single local-copy sink remains able to move later independent copies if an earlier source-sensitive copy must stay before an `if`.
    - Separator-window extensions cover the same push-point family when local-independent SFA sets are separated only by `nop`, `drop(const)`, or `drop(local.get)` roots, leaving those separators before the push point while moving sets after it in source order. A bounded `drop(global.get)` extension covers ordinary void `if` and dropped value-`if` push points only; the same window remains stationary before the current `br_if` push-point family to match Binaryen v130 probes.
    - The single-set helper requires the non-mutating diagnostic to classify the window as `candidate:if`, `candidate:dropped-if`, or `candidate:conditional-branch` before rewriting; the ordered multi-set helper is currently limited to ordinary-void-`if`, dropped-value-`if`, and no-branch-value `br_if` push points.
+   - The first atomics/GC slice admits a non-null `struct.get` from a `local.get` source across atomic loads for these into-`if` and segment-movement paths, while keeping atomic stores as memory-write boundaries.
 3. **Non-mutating segment-window inventory**
    - Whitebox-only helpers now classify block-local `local.set` candidate windows and push-point kinds before mutation.
    - Covered labels include ordinary `if`, dropped `if`, locally representable conditional branches, SFA rejections, and coarse ordered-before barriers.
-4. **Guarded setup movement across later roots**
-   - Selected `global.get` and local-copy `local.set` roots can move later when intervening roots do not invalidate the source value or local proof.
+4. **Guarded setup and heap-read movement across later roots**
+   - Selected `global.get`, local-copy `local.set`, and non-null `struct.get` roots can move later when intervening roots do not invalidate the source value or local proof.
+   - The atomics/GC slice admits `struct.get` across atomic loads and keeps atomic stores as memory-write barriers, matching Binaryen's shared-struct `code-pushing-atomics.wast` family through HOT fixtures.
    - Value-producing `if`, source writes, branchy/unreachable control, and effectful invalidation remain conservative barriers.
 5. **Starshine-local typed/dead-block flattening near unreachable context**
    - A block next to an `unreachable` parent context can be flattened when branch and multivalue guards prove the splice safe.
@@ -89,8 +92,8 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | File | Role |
 | --- | --- |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 2-18 | Active HOT pass descriptor and summary |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 20-110 | Pure/nontrapping movable-value gate plus `global.get` / `local.get` / value-local-read recognizers |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 111-435 | Effect, local get/write, suffix, non-fallthrough, and value-crossing guards |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 20-110 | Pure/nontrapping movable-value gate plus `global.get` / `local.get` / non-null `struct.get` / value-local-read recognizers |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 111-435 | Effect, heap-read, local get/write, suffix, non-fallthrough, and value-crossing guards |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 436-536 | Non-mutating push-point / segment-window diagnostic inventory |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 537-637 | Branch, unreachable, and dead-context helpers |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 638-726 | Starshine-local dead-block flattening helper |
@@ -113,13 +116,13 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | --- | --- |
 | Function-local `LocalAnalyzer` SFA scan | Non-mutating diagnostic reports prefix-read and multiple-write SFA rejection reasons; mutating paths still use per-candidate get/write counting |
 | `Pusher` block segment scan | Non-mutating segment-window diagnostic recognizes selected block-local candidate windows; mutating paths now consume ordinary `if` and dropped-`if` after-movement subsets while remaining bounded and narrower |
-| `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get` and local-copy cases; diagnostic reports coarse ordered-before/effect barriers |
+| `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get`, local-copy, and narrow non-null `struct.get` cases; diagnostic reports coarse ordered-before/effect barriers |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Diagnostic recognizes these where HOT representation is local; mutation targets ordinary void `if`, dropped value-`if` wrappers, and void-block-target / void-loop-target `br_if` subsets; simple no-branch-value `br_table` block-exit windows are tested as a no-mutation boundary |
 | `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if`, dropped-`if`, and narrow `br_if` after-movement slices implemented; ordered adjacent multi-set movement implemented for local-independent values before ordinary void `if`, dropped value-`if`, narrow void-block-target `br_if`, and narrow void-loop-target `br_if`, plus direct local-copy values when source locals are stable, `nop`-/`drop(const)`-/`drop(local.get)`-separated local-independent windows, and bounded ordinary-/dropped-`if` `drop(global.get)` windows; broader multi-set, arbitrary separators beyond `nop` / `drop(const)` / `drop(local.get)` / bounded ordinary-/dropped-`if` `drop(global.get)`, and other push-point movement not implemented generally |
 | `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm, plus same-region suffix reads when the opposite arm cannot fall through |
 | Unreachable-arm post-use allowance | First conservative slice implemented for roots ending in `unreachable`, `return`, or tail-return roots |
-| `version_130` ordered-before / atomics source surfaces | Not implemented generally; retained as explicit audit gap |
-| GC/EH/trap-option source surfaces | Guarded out or not modeled broadly |
+| `version_130` ordered-before / atomics source surfaces | First `code-pushing-atomics.wast` heap-read slice implemented for non-null `struct.get` across atomic loads and store boundaries; general `orderedBefore` remains an audit gap |
+| Broader GC/EH/trap-option source surfaces | Narrow `struct.get`/atomics family implemented; broader GC/EH/trap-option surfaces are guarded out or not modeled broadly |
 | Refinalization / later optimizer cycles | Starshine relies on HOT verification, lowering, and final validation; future broader ports need equivalent local retyping discipline |
 
 ## Current local positive family
@@ -339,7 +342,7 @@ Read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness
 
 The short version:
 
-1. build on the initial analyzer/segment-window diagnostic inventory from [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the first ordinary-void-`if` movement slice from [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the first dropped-`if` movement slice from [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), the first narrow `br_if` movement slice from [`0812`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md), the ordinary-`if` ordered multi-set slice from [`0813`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md), the dropped-`if` ordered multi-set slice from [`0814`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md), the `br_if` ordered multi-set slice from [`0815`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md), the local-copy slice from [`0816`](../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md), the `nop`-window slice from [`0817`](../../../raw/research/0817-2026-06-20-code-pushing-nop-window-multi-set-movement.md), the loop-target `br_if` slice from [`0818`](../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md), the `drop(const)` window slice from [`0819`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md), and the `drop(local.get)` window slice from [`0820`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md);
+1. build on the initial analyzer/segment-window diagnostic inventory from [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the first ordinary-void-`if` movement slice from [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the first dropped-`if` movement slice from [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), the first narrow `br_if` movement slice from [`0812`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md), the ordinary-`if` ordered multi-set slice from [`0813`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md), the dropped-`if` ordered multi-set slice from [`0814`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md), the `br_if` ordered multi-set slice from [`0815`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md), the local-copy slice from [`0816`](../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md), the `nop`-window slice from [`0817`](../../../raw/research/0817-2026-06-20-code-pushing-nop-window-multi-set-movement.md), the loop-target `br_if` slice from [`0818`](../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md), the `drop(const)` window slice from [`0819`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md), the `drop(local.get)` window slice from [`0820`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md), and the atomics/GC boundary slice from [`0823`](../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md);
 2. expand remaining safe segment movement before widening value effects;
 3. preserve the first unreachable-arm post-use support and broaden it only with source-backed control-flow proof;
 4. only then widen to Binaryen's broader effect-checked / ordered-before value movement;
@@ -359,7 +362,7 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the analyzer/segment inventory exists, and the ordinary-void-`if`, dropped value-`if`, block-target and loop-target `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, `br_if` multi-set, direct local-copy multi-set, `nop`-window multi-set, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, and bounded ordinary-/dropped-`if` `drop(global.get)`-window multi-set movement slices now consume that inventory. Simple no-branch-value `br_table` block-exit windows are now tested as a Binaryen-stationary no-mutation boundary, not as switch mutation parity. The next active audit work is still broader source-backed segment/push-point parity, with ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the analyzer/segment inventory exists, and the ordinary-void-`if`, dropped value-`if`, block-target and loop-target `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, `br_if` multi-set, direct local-copy multi-set, `nop`-window multi-set, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, bounded ordinary-/dropped-`if` `drop(global.get)`-window multi-set, and narrow non-null `struct.get`/atomics movement slices now consume that inventory. Simple no-branch-value `br_table` block-exit windows are tested as a Binaryen-stationary no-mutation boundary, not as switch mutation parity. The next active audit work is still broader source-backed segment/push-point parity, with general ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 

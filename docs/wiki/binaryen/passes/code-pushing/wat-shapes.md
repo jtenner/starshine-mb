@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
   - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
@@ -34,7 +35,7 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, `drop(local.get)`-window, and bounded `drop(global.get)`-window segment-movement Starshine slices, and the earlier source corrections.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, `drop(local.get)`-window, bounded `drop(global.get)`-window, and atomics/GC segment-movement Starshine slices, and the earlier source corrections.
 
 ## Mental model
 
@@ -546,8 +547,9 @@ The official `version_130` `code-pushing-gc.wast` and `code-pushing-atomics.wast
 Safe rule:
 
 - reference-typed expressions may participate only when the same SFA, use, and effect proof succeeds;
-- `code-pushing-atomics.wast` shows a GC `struct.get` may move past a shared atomic load, but not past a shared atomic store;
-- `ref.func`, casts, null checks, descriptor-shaped operations, and atomics need explicit tests before Starshine widens.
+- `code-pushing-atomics.wast` shows a non-null GC `struct.get` may move past a shared atomic load, but not past a shared atomic store;
+- Starshine implements only this narrow `struct.get`/atomic load-store family today, through HOT fixtures because the WAT parser/lowerer cannot yet consume the official shared-GC syntax;
+- `ref.func`, casts, null checks, descriptor-shaped operations, broader heap expressions, and other atomics need explicit tests before Starshine widens.
 
 ## Shape 14: EH shapes are bailout-rich
 

@@ -130,6 +130,11 @@ pub fn HotOp::catch_all() -> HotOp {
 }
 
 ///|
+pub fn HotOp::atomic_op() -> HotOp {
+  Atomic
+}
+
+///|
 pub struct HotNode {
   op : HotOp
   ty : TypeId

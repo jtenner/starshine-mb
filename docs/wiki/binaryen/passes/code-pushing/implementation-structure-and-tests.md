@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
@@ -60,7 +61,7 @@ Important source regions by owner name:
 
 | Test file | What it proves |
 | --- | --- |
-| `code-pushing-atomics.wast` | `version_130` atomics/GC ordering: GC reads may move past shared atomic loads but not shared atomic stores, both into `if` arms and across segment push points |
+| `code-pushing-atomics.wast` | `version_130` atomics/GC ordering: non-null GC `struct.get` reads may move past shared atomic loads but not shared atomic stores, both into `if` arms and across segment push points; Starshine mirrors this narrow family with HOT tests until shared-GC WAT parsing is available |
 | `code-pushing_into_if.wast` | One-arm `if` sinking plus post-if-read and unreachable-arm subtleties |
 | `code-pushing_ignore-implicit-traps.wast` | Option-sensitive relaxation around implicit traps |
 | `code-pushing_tnh.wast` | Traps-never-happen behavior |

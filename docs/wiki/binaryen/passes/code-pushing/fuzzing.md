@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
   - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
@@ -51,7 +52,7 @@ Use `code-pushing-all` for the pass-specific lane. It is a deterministic composi
 | `code-pushing-multi-set-local-get-window` | Two local-independent pure SFA sets separated by `drop (local.get ...)` before an ordinary void `if`, followed by suffix reads after the `if`, preserving source order while leaving the drop before the push point. |
 | `code-pushing-multi-set-global-get-window` | Two local-independent pure SFA sets separated by `drop (global.get ...)` before an ordinary void `if`, followed by suffix reads after the `if`, preserving source order while leaving the drop before the push point. This leaf covers the positive ordinary-`if` family; focused pass tests also cover the dropped-`if` positive and `br_if` boundary. |
 
-The profile intentionally does **not** cover remaining audit gaps such as switch/`br_table`, `br_on_*`, branch-value conditional branches, ordered multi-set movement outside the first ordinary-void-`if`, dropped-value-`if`, narrow block-/loop-target `br_if`, local-copy, `nop`-window, `drop(const)`-window, `drop(local.get)`-window, and bounded ordinary-/dropped-`if` `drop(global.get)`-window slices, atomics/GC/EH, or trap-option widening. The 2026-06-21 `br_table` work added focused no-mutation boundary tests only, so no GenValid leaf was added for it. Add new leaves when positive movement families land.
+The profile intentionally does **not** cover remaining audit gaps such as switch/`br_table`, `br_on_*`, branch-value conditional branches, ordered multi-set movement outside the first ordinary-void-`if`, dropped-value-`if`, narrow block-/loop-target `br_if`, local-copy, `nop`-window, `drop(const)`-window, `drop(local.get)`-window, and bounded ordinary-/dropped-`if` `drop(global.get)`-window slices, broader atomics/GC/EH, or trap-option widening. The 2026-06-21 `br_table` work added focused no-mutation boundary tests only, so no GenValid leaf was added for it. The 2026-06-21 atomics/GC slice added focused HOT tests for the narrow non-null `struct.get` atomic-load/store family, also without a GenValid leaf. Add new leaves when positive generated movement families land.
 
 Current bounded dedicated lane:
 

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
   - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
@@ -64,7 +65,7 @@ Starshine currently approximates a tiny part of this with whole-root get/write c
 
 `isPushable(...)` checks the set's value effects. Values with unremovable side effects do not move. Values with removable side effects may move only when the segment proof keeps behavior valid.
 
-Current Starshine is stricter than Binaryen's full `isPushable(...)` model: it moves pure nontrapping values plus guarded `global.get` and local-copy setup shapes only when local/effect barriers prove the delayed computation safe. The first segment-movement consumers keep this strict gate: single-set movement covers ordinary void `if`, dropped value-`if`, and narrow block-/loop-target `br_if`, while ordered multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow void-block-target / void-loop-target `br_if` push points, direct local-copy sets whose source locals are not rewritten by the crossed push point, local-independent sets separated only by `nop`, `drop(const)`, or `drop(local.get)` roots, and a bounded `drop(global.get)` separator family for ordinary void `if` / dropped value-`if` only.
+Current Starshine is stricter than Binaryen's full `isPushable(...)` model: it moves pure nontrapping values plus guarded `global.get`, local-copy setup, and a narrow non-null `struct.get` heap-read shape only when local/effect barriers prove the delayed computation safe. The first segment-movement consumers keep this strict gate: single-set movement covers ordinary void `if`, dropped value-`if`, and narrow block-/loop-target `br_if`, while ordered multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow void-block-target / void-loop-target `br_if` push points, direct local-copy sets whose source locals are not rewritten by the crossed push point, local-independent sets separated only by `nop`, `drop(const)`, or `drop(local.get)` roots, and a bounded `drop(global.get)` separator family for ordinary void `if` / dropped value-`if` only.
 
 ## Barrier 3: intervening effects must not invalidate or order before the value
 
@@ -101,7 +102,8 @@ Trap timing and exceptional control are correctness boundaries.
 
 - Default trap policy is stricter than ignore-implicit-traps / TNH modes.
 - GC/reference expressions are allowed only when the same effect and use proof succeeds.
-- `code-pushing-atomics.wast` proves GC reads can move past shared atomic loads but not shared atomic stores.
+- `code-pushing-atomics.wast` proves non-null GC `struct.get` reads can move past shared atomic loads but not shared atomic stores, both into the sole consuming `if` arm and across a segment push point for suffix use.
+- Starshine now mirrors that atomics/GC family with HOT fixtures because its WAT surface does not yet parse the official shared-GC syntax; the implementation admits only non-null `struct.get` from a `local.get` source and blocks intervening memory writes.
 - EH can make movement observable through exceptional paths.
 
 Use the official `version_130` `code-pushing_ignore-implicit-traps.wast`, `code-pushing_tnh.wast`, `code-pushing-gc.wast`, `code-pushing-atomics.wast`, `code-pushing-eh.wast`, and `code-pushing-eh-legacy.wast` files as the proof surface for these families.
@@ -127,7 +129,7 @@ A future broader Starshine port should preserve these rules before widening moti
 3. preserve order among multiple moved sets; the first Starshine slices cover adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow void-block-target `br_if` push points, plus direct local-copy, `nop`-separated, `drop(const)`-separated, `drop(local.get)`-separated, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated subcases with explicit boundaries;
 4. extend effect-ordering / effect-invalidation before moving broader value families;
 5. keep trap options explicit;
-6. test GC and EH as first-class boundaries;
+6. test GC, atomics, and EH as first-class boundaries;
 7. document Starshine-local helper families separately from upstream Binaryen behavior.
 
 ## Sources

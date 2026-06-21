@@ -32,6 +32,46 @@ fn code_pushing_exact_instr_can_trap(instr : @lib.Instruction?) -> Bool {
 }
 
 ///|
+fn code_pushing_nonnull_struct_get_source_local(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return -1
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Heap => ()
+    _ => return -1
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructGet(_, _))
+    | Some(@lib.Instruction::StructGetS(_, _))
+    | Some(@lib.Instruction::StructGetU(_, _)) => ()
+    _ => return -1
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return -1
+  }
+  let source_id = @ir.hot_child_get(func, node_id, 0)
+  if !code_pushing_node_is_local_get(func, source_id) {
+    return -1
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, source_id)) {
+    [@lib.RefTypeValType(rt)] if rt.is_non_nullable() =>
+      @ir.hot_node_get(func, source_id).imm0
+    _ => -1
+  }
+}
+
+///|
+fn code_pushing_node_is_nontrapping_struct_get_from_local_get(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  code_pushing_nonnull_struct_get_source_local(func, node_id) >= 0
+}
+
+///|
 fn code_pushing_node_is_movable_value(
   func : @ir.HotFunc,
   node_id : Int,
@@ -56,6 +96,8 @@ fn code_pushing_node_is_movable_value(
     | @ir.HotOp::TupleExtract =>
       @ir.effects_is_pure(@ir.effects_for_node(func, node_id))
     @ir.HotOp::GlobalGet => true
+    @ir.HotOp::Heap =>
+      code_pushing_node_is_nontrapping_struct_get_from_local_get(func, node_id)
     _ => false
   }
   movable_shape
@@ -121,6 +163,21 @@ fn code_pushing_effects_safe_to_cross_for_value(mask : UInt) -> Bool {
 }
 
 ///|
+fn code_pushing_effects_safe_to_cross_for_heap_read(mask : UInt) -> Bool {
+  (
+    mask &
+    (
+      @ir.EFFECT_MASK_CALL |
+      @ir.EFFECT_MASK_THROW |
+      @ir.EFFECT_MASK_GLOBAL_STATE |
+      @ir.EFFECT_MASK_MEMORY_WRITE |
+      @ir.EFFECT_MASK_TABLE_WRITE
+    )
+  ) ==
+  0U
+}
+
+///|
 fn code_pushing_node_safe_to_cross_for_value(
   func : @ir.HotFunc,
   node_id : Int,
@@ -143,7 +200,20 @@ fn code_pushing_node_safe_to_cross_for_value(
     )
     writes == 0
   } else {
-    true
+    let source_local = code_pushing_nonnull_struct_get_source_local(
+      func, value_id,
+    )
+    if source_local >= 0 {
+      let (_, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+        func, node_id, source_local, 0, 0,
+      )
+      writes == 0 &&
+      code_pushing_effects_safe_to_cross_for_heap_read(
+        @ir.effects_for_node(func, node_id),
+      )
+    } else {
+      true
+    }
   }
 }
 
