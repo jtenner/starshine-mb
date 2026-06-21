@@ -487,6 +487,63 @@ fn hso_memory_global_test_module(
 }
 
 ///|
+fn hso_i31ref_memory_global_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let pair = @lib.TypeIdx::new(0U)
+  let i31ref_nullable = @lib.ValType::i31ref_nullable()
+  let struct_ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(i31ref_nullable),
+          @lib.Mut::var_(),
+        ),
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [struct_ref_type])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([struct_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(i31ref_nullable, true),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn hso_memory_ref_result_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -5856,6 +5913,49 @@ test "heap-store-optimization keeps trapping trunc constructor operands before u
   let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
     Some(idx) => idx
     None => fail("expected struct.set in trunc-constructor output: \{pretty}")
+  }
+  assert_true(global_set_idx < struct_set_idx, msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps ref.as_non_null constructor operands before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_test_run_module(
+      hso_i31ref_memory_global_test_module([
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+        @lib.Instruction::ref_as_non_null(),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::ref_i31(),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref-as-non-null-constructor/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  let global_set_idx = match hso_test_index_of(pretty, "global.set") {
+    Some(idx) => idx
+    None => fail("expected global.set in ref.as_non_null output: \{pretty}")
+  }
+  let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
+    Some(idx) => idx
+    None => fail("expected struct.set in ref.as_non_null output: \{pretty}")
   }
   assert_true(global_set_idx < struct_set_idx, msg=pretty)
 }

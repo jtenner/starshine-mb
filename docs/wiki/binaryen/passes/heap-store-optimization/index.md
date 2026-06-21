@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0894-2026-06-21-heap-store-optimization-ref-as-non-null-old-field.md
   - ../../../raw/research/0893-2026-06-21-heap-store-optimization-trapping-trunc-old-field.md
   - ../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md
   - ../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md
@@ -245,6 +246,7 @@ It is a narrow GC constructor/store cleanup pass.
 - Trapping old-field values must be preserved when a later store would overwrite them.
   - Follow-up `0892` fixed a Starshine parity gap where an overwritten constructor field using integer `div`/`rem` could be treated as pure and dropped. Binaryen preserves the trapping old-field evaluation and the later `struct.set` in the probed `i32.div_s` / `global.set` shape; Starshine now matches by marking exact integer div/rem nodes as trapping for HSO legality and old-field preservation.
   - Follow-up `0893` fixed the same parity gap for exact non-saturating float-to-int truncation old fields. Binaryen preserves `i32.trunc_f32_s` before an intervening mutable `global.set` and leaves the later `struct.set`; Starshine now marks exact `i32`/`i64.trunc_f32`/`trunc_f64` nodes as trapping for the same HSO legality and old-field preservation checks.
+  - Coverage note `0894` locked the reference-trap counterpart: Binaryen preserves an overwritten `ref.as_non_null(global.get)` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so this is behavior-parity coverage rather than an implementation change.
 - Plain and descriptor default double-store folding have narrow documented Starshine-win divergences.
   - Coverage note `0889` found Binaryen folds only the first call-valued store after `struct.new_default_desc`, leaving the second `struct.set`; Starshine folds both call-valued stores into the materialized `struct.new_desc` while preserving call order and only moving across an immutable descriptor `global.get`. This is recorded as a narrow better-than-Binaryen behavior, not a general license to cross mutable/effectful/trapping descriptor operands, target-local hazards, old-field side effects, or later-field effect barriers.
   - Coverage note `0890` found the same one-store-left Binaryen behavior after plain `struct.new_default`; Starshine folds both call-valued stores into the materialized `struct.new` while preserving call order. This is a narrow plain-default Starshine win, not a broader effect-order exception.
