@@ -28,6 +28,8 @@ These are coverage-only additions for `[O4Z-AUDIT-HSO-C]`; no implementation beh
 
 ## Ref.cast descriptor probe note
 
+Updated surface status: `0869` confirms this remains open. Starshine still rejects the exact WAT during decode, and a direct-AST `ref_cast_desc_eq` attempt does not validate as an equivalent HSO fixture. This is a local decode/instruction-surface blocker, not an HSO semantic non-goal.
+
 A Binaryen probe for a descriptor operand shaped as exact descriptor `ref.cast` (`.tmp/hso-probe-desc-ref-cast-call.wat`) showed Binaryen `version_130` retaining the later `struct.set`:
 
 ```sh
