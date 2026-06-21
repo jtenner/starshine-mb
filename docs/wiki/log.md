@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-21] passes/optimize-instructions | Implement OI-K array.get(array.new_default)
+
+- Filed [`raw/research/0829-2026-06-21-optimize-instructions-oi-k-array-new-default-get.md`](raw/research/0829-2026-06-21-optimize-instructions-oi-k-array-new-default-get.md) for the seventh `[O4Z-AUDIT-OI-K]` GC constructor/array/default sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle folds constant-length `array.get(array.new_default ...)` default reads to zero/default values and folds constant out-of-bounds indexes to `unreachable`; Starshine now matches the direct one-use constant-length/index subset for plain and packed array reads.
+- Evidence: Binaryen oracle probe `.tmp/oi-k-array-new-default-get-probe.wat` produced `i32.const 0` for plain and packed default reads and `unreachable` for an out-of-bounds read. Red-first focused `*array.new_default*` failed before implementation and passed `1/1` after; final `*array.get*` passed `3/3`, `*optimize-instructions*` passed `213/213`, `moon fmt`, `moon test src/passes` (`2743/2743`), native `src/cmd` build, `moon info`, and diff checks passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-21] passes/optimize-instructions | Implement OI-K struct.get(struct.new_default)
 
 - Filed [`raw/research/0828-2026-06-21-optimize-instructions-oi-k-struct-new-default.md`](raw/research/0828-2026-06-21-optimize-instructions-oi-k-struct-new-default.md) for the sixth `[O4Z-AUDIT-OI-K]` GC constructor/field/default sub-slice. Binaryen `version_130` folds plain numeric/reference `struct.get(struct.new_default ...)` fields to zero/default nulls and folds packed signed/unsigned default fields to `i32.const 0`; Starshine now matches the direct one-use non-descriptor subset.

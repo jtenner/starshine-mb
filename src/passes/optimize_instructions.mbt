@@ -3361,6 +3361,26 @@ fn optimize_instructions_struct_default_field_value(
 }
 
 ///|
+fn optimize_instructions_array_default_element_value(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  type_idx : @lib.TypeIdx,
+) -> Int? {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
+    Some(field) => field
+    None => return None
+  }
+  optimize_instructions_default_value_for_storage(
+    func,
+    field.get_storage_type(),
+  )
+}
+
+///|
 fn optimize_instructions_replace_with_packed_i32_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3479,22 +3499,43 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
     _ => return false
   }
   let array_node = @ir.hot_node_get(func, array_id)
-  let len = match @ir.hot_node_exact_instr(func, array_id) {
+  let new_fixed_len = match @ir.hot_node_exact_instr(func, array_id) {
     Some(@lib.Instruction::ArrayNewFixed(new_type_idx, @lib.U32(len))) if new_type_idx ==
-      type_idx => len.reinterpret_as_int()
+      type_idx => Some(len.reinterpret_as_int())
+    Some(@lib.Instruction::ArrayNewDefault(new_type_idx)) if new_type_idx ==
+      type_idx => None
     _ => return false
   }
-  if len != array_node.child_count {
-    return false
-  }
-  for i = 0; i < array_node.child_count; i = i + 1 {
-    if i != index &&
-      !optimize_instructions_node_effects_are_pure(
-        ctx,
-        func,
-        @ir.hot_child_get(func, array_id, i),
-      ) {
-      return false
+  let len = match new_fixed_len {
+    Some(len) => {
+      if len != array_node.child_count {
+        return false
+      }
+      for i = 0; i < array_node.child_count; i = i + 1 {
+        if i != index &&
+          !optimize_instructions_node_effects_are_pure(
+            ctx,
+            func,
+            @ir.hot_child_get(func, array_id, i),
+          ) {
+          return false
+        }
+      }
+      len
+    }
+    None => {
+      if array_node.child_count != 1 {
+        return false
+      }
+      match
+        optimize_instructions_i32_const(
+          func,
+          dead,
+          @ir.hot_child_get(func, array_id, 0),
+        ) {
+        Some(@lib.I32(len)) => len
+        _ => return false
+      }
     }
   }
   if index < 0 || index >= len {
@@ -3503,20 +3544,49 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
     }
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
   } else {
-    let value_id = @ir.hot_child_get(func, array_id, index)
-    match packed_signed {
-      Some(signed) => {
-        let bits = match
-          optimize_instructions_array_field_pack_bits(ctx, type_idx) {
-          Some(bits) => bits
+    match new_fixed_len {
+      Some(_) => {
+        let value_id = @ir.hot_child_get(func, array_id, index)
+        match packed_signed {
+          Some(signed) => {
+            let bits = match
+              optimize_instructions_array_field_pack_bits(ctx, type_idx) {
+              Some(bits) => bits
+              None => return false
+            }
+            optimize_instructions_replace_with_packed_i32_value(
+              ctx, func, dead, node_id, value_id, bits, signed,
+            )
+          }
+          None =>
+            optimize_instructions_replace_with_node_id(
+              ctx, func, node_id, value_id,
+            )
+        }
+      }
+      None => {
+        let value_id = match
+          optimize_instructions_array_default_element_value(ctx, func, type_idx) {
+          Some(value_id) => value_id
           None => return false
         }
-        optimize_instructions_replace_with_packed_i32_value(
-          ctx, func, dead, node_id, value_id, bits, signed,
-        )
+        match packed_signed {
+          Some(signed) => {
+            let bits = match
+              optimize_instructions_array_field_pack_bits(ctx, type_idx) {
+              Some(bits) => bits
+              None => return false
+            }
+            optimize_instructions_replace_with_packed_i32_value(
+              ctx, func, dead, node_id, value_id, bits, signed,
+            )
+          }
+          None =>
+            optimize_instructions_replace_with_node_id(
+              ctx, func, node_id, value_id,
+            )
+        }
       }
-      None =>
-        optimize_instructions_replace_with_node_id(ctx, func, node_id, value_id)
     }
   }
   true
