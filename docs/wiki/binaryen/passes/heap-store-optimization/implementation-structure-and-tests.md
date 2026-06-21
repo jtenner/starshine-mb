@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0990-2026-06-21-heap-store-optimization-result-try-table-cross-store-fold.md
   - ../../../raw/research/0989-2026-06-21-heap-store-optimization-result-try-table-cross-growth-fold.md
   - ../../../raw/research/0988-2026-06-21-heap-store-optimization-result-try-table-table-fill-boundary.md
   - ../../../raw/research/0987-2026-06-21-heap-store-optimization-result-try-table-table-global-set.md
@@ -506,6 +507,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0990-2026-06-21-heap-store-optimization-result-try-table-cross-store-fold.md`](../../../raw/research/0990-2026-06-21-heap-store-optimization-result-try-table-cross-store-fold.md)
+  - added coverage-only HSO-F/G evidence for result-typed `try_table` cross-family ordinary-store folds; Binaryen preserves the wrapper plus `table.set` / `i32.store`, removes the later `struct.set`, and Starshine already matches.
 - [`../../../raw/research/0989-2026-06-21-heap-store-optimization-result-try-table-cross-growth-fold.md`](../../../raw/research/0989-2026-06-21-heap-store-optimization-result-try-table-cross-growth-fold.md)
   - added coverage-only HSO-F/G evidence for result-typed `try_table` cross-family growth folds; Binaryen preserves the wrapper plus `table.grow` / `memory.grow`, removes the later `struct.set`, and Starshine already matches.
 - [`../../../raw/research/0988-2026-06-21-heap-store-optimization-result-try-table-table-fill-boundary.md`](../../../raw/research/0988-2026-06-21-heap-store-optimization-result-try-table-table-fill-boundary.md)
