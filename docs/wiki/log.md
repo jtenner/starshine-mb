@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I known-null non-null-target cast/test
+
+- Filed [`raw/research/0810-2026-06-20-optimize-instructions-oi-i-known-null-nonnull-target.md`](raw/research/0810-2026-06-20-optimize-instructions-oi-i-known-null-nonnull-target.md) for the fifty-fourth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds `ref.null struct; ref.test (ref struct)` to `i32.const 0`, rewrites matching non-null `ref.cast` to `unreachable`, and preserves already-evaluated `drop(call $effect)` prefixes before those folded/trapping suffixes.
+- Evidence: Binaryen oracle folded pure and effect-prefix known-null vs non-null `struct` target `ref.test` / `ref.cast` shapes. Red-first did not apply because this was a coverage-only audit of existing behavior. Focused `*known-null ref.test*` passed immediately (`2/2`); final `*ref.test and ref.cast*` passed `25/25`, `*ref*` passed `62/62`, final `*optimize-instructions*` passed `192/192`, `moon fmt`, `moon test src/passes` (`2722/2722`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Implement OI-I nullable i31 non-null-target miss
 
 - Filed [`raw/research/0809-2026-06-20-optimize-instructions-oi-i-nullable-i31-nonnull-target.md`](raw/research/0809-2026-06-20-optimize-instructions-oi-i-nullable-i31-nonnull-target.md) for the fifty-third `[O4Z-AUDIT-OI-I]` implementation sub-slice. Starshine now folds `(ref null i31)` locals tested against non-null aggregate targets to `i32.const 0`, rewrites matching casts to `unreachable`, and preserves already-evaluated `drop(call $effect)` prefixes before the folded/trapping suffixes.

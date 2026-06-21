@@ -93,6 +93,7 @@ sources:
   - ../../../raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md
   - ../../../raw/research/0808-2026-06-20-optimize-instructions-oi-i-effectful-non-null-aggregate-ref-is-null.md
   - ../../../raw/research/0809-2026-06-20-optimize-instructions-oi-i-nullable-i31-nonnull-target.md
+  - ../../../raw/research/0810-2026-06-20-optimize-instructions-oi-i-known-null-nonnull-target.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
