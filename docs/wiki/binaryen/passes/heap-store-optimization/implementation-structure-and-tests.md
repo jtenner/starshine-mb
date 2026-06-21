@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0986-2026-06-21-heap-store-optimization-result-try-table-memory-fill-boundary.md
   - ../../../raw/research/0985-2026-06-21-heap-store-optimization-result-try-table-global-set.md
   - ../../../raw/research/0984-2026-06-21-heap-store-optimization-descriptor-catchable-try-table-call-boundary.md
   - ../../../raw/research/0983-2026-06-21-heap-store-optimization-descriptor-try-table-global-set.md
@@ -502,6 +503,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0986-2026-06-21-heap-store-optimization-result-try-table-memory-fill-boundary.md`](../../../raw/research/0986-2026-06-21-heap-store-optimization-result-try-table-memory-fill-boundary.md)
+  - added coverage-only HSO-F/G evidence for the result-typed `try_table` / `memory.fill` same-effect boundary; Binaryen preserves `memory.size`, the wrapper, `memory.fill`, and later `struct.set`, and Starshine already matches after `0985`.
 - [`../../../raw/research/0985-2026-06-21-heap-store-optimization-result-try-table-global-set.md`](../../../raw/research/0985-2026-06-21-heap-store-optimization-result-try-table-global-set.md)
   - fixed an HSO-F/G parity gap for result-typed non-throwing `try_table` wrappers before unrelated mutable-global writes; Binaryen folds while preserving the catch-target block wrapper, and Starshine now rejects block-wrapper peeling when any lifted root contains a nested `try_table`.
 - [`../../../raw/research/0984-2026-06-21-heap-store-optimization-descriptor-catchable-try-table-call-boundary.md`](../../../raw/research/0984-2026-06-21-heap-store-optimization-descriptor-catchable-try-table-call-boundary.md)
