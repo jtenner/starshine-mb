@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/1014-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-return-call-ref-boundary.md
   - ../../../raw/research/1013-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-tail-call-boundary.md
   - ../../../raw/research/1012-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-ref-boundary.md
   - ../../../raw/research/1011-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-boundary.md
@@ -530,6 +531,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/1014-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-return-call-ref-boundary.md`](../../../raw/research/1014-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-return-call-ref-boundary.md)
+  - added coverage-only HSO-D/E/F/G evidence for the descriptor result-typed `try_table` mutable descriptor-global `return_call_ref` boundary; Binaryen preserves `struct.new_desc`, the mutable descriptor read, dropped result wrapper, typed-function-reference tail call, and later `struct.set`, and Starshine already matches.
 - [`../../../raw/research/1013-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-tail-call-boundary.md`](../../../raw/research/1013-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-tail-call-boundary.md)
   - added coverage-only HSO-D/E/F/G evidence for descriptor result-typed `try_table` mutable descriptor-global `return_call` and `return_call_indirect` boundaries; Binaryen preserves `struct.new_desc`, the mutable descriptor read, dropped result wrapper, tail call, and later `struct.set`, and Starshine already matches.
 - [`../../../raw/research/1012-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-ref-boundary.md`](../../../raw/research/1012-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-ref-boundary.md)
