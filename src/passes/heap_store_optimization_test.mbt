@@ -7308,6 +7308,110 @@ test "heap-store-optimization keeps call_indirect old fields before unrelated ta
 }
 
 ///|
+test "heap-store-optimization keeps call_indirect constructor operands before unrelated i32.store" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_table_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::call_indirect(
+          @lib.TypeIdx::new(1U),
+          @lib.TableIdx::new(0U),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::i32_store(@lib.MemArg::new(2U, None, 0UL)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call-indirect/i32-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  let store_idx = match hso_test_index_of(pretty, "i32.store") {
+    Some(idx) => idx
+    None =>
+      fail("expected i32.store in call-indirect/i32-store output: \{pretty}")
+  }
+  let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail("expected struct.set in call-indirect/i32-store output: \{pretty}")
+  }
+  assert_true(store_idx < struct_set_idx, msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps call_indirect old fields before unrelated i32.store" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_table_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::call_indirect(
+          @lib.TypeIdx::new(1U),
+          @lib.TableIdx::new(0U),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::i32_store(@lib.MemArg::new(2U, None, 0UL)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call-indirect-old-field/i32-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  let store_idx = match hso_test_index_of(pretty, "i32.store") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected i32.store in call-indirect-old-field/i32-store output: \{pretty}",
+      )
+  }
+  let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected struct.set in call-indirect-old-field/i32-store output: \{pretty}",
+      )
+  }
+  assert_true(store_idx < struct_set_idx, msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps trapping constructor operands before unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
