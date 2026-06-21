@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md
   - ../../../raw/research/0876-2026-06-20-heap-store-optimization-descriptor-block-br-if-call-condition.md
   - ../../../raw/research/0875-2026-06-20-heap-store-optimization-later-field-block-br-if-call-condition.md
   - ../../../raw/research/0874-2026-06-20-heap-store-optimization-later-field-if-call-condition.md
@@ -198,6 +199,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0873` locked the matching effectful later-field select boundary: Binaryen preserves `struct.set` when a later constructor field is a typed `select` whose condition is a call, and Starshine already matched.
   - Coverage note `0874` locked the matching effectful later-field `if` boundary: Binaryen preserves `struct.set` when a later constructor field is an `if` whose condition is a call, and Starshine already matched.
   - Coverage note `0875` locked a branch-containing effectful later-field block boundary: Binaryen preserves `struct.set` when a later constructor field is a block with a value-carrying `br_if` whose condition is a call, and Starshine already matched.
+  - Follow-up `0877` fixed the pure side of the descriptor block `br_if` split: Binaryen folds a call-valued later store through a descriptor block with a value-carrying `br_if` when the branch operands are pure; Starshine now matches by summarizing branch/drop children through descriptor-specific effects.
   - Coverage note `0876` locked the matching branch-containing effectful descriptor block boundary: Binaryen preserves `struct.set` when the descriptor operand is a block with a value-carrying `br_if` whose condition is a call, and Starshine already matched.
   - Coverage note `0865` locked the descriptor `ref.as_non_null` trap boundary: Binaryen and Starshine both preserve `struct.set` when a nullable descriptor operand may trap before the later call-valued store is evaluated.
   - Probe note `0866` found Binaryen preserves `struct.set` when a descriptor block uses `br_on_non_null` to produce an exact descriptor and falls through to `unreachable`; a focused Starshine AST fixture currently hits a HOT CFG/verifier surface blocker, so this remains an open local-surface blocker rather than HSO parity evidence or an accepted non-goal.

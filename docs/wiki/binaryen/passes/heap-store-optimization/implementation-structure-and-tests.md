@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md
   - ../../../raw/research/0876-2026-06-20-heap-store-optimization-descriptor-block-br-if-call-condition.md
   - ../../../raw/research/0875-2026-06-20-heap-store-optimization-later-field-block-br-if-call-condition.md
   - ../../../raw/research/0874-2026-06-20-heap-store-optimization-later-field-if-call-condition.md
@@ -253,6 +254,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md`](../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md)
+  - fixed the complementary pure descriptor block `br_if` positive: Binaryen folds a call-valued later store through a value-carrying descriptor `br_if` when branch operands are pure; Starshine now summarizes branch/drop children with descriptor-specific effects and folds the store.
 - [`../../../raw/research/0876-2026-06-20-heap-store-optimization-descriptor-block-br-if-call-condition.md`](../../../raw/research/0876-2026-06-20-heap-store-optimization-descriptor-block-br-if-call-condition.md)
   - added focused HSO-D/E coverage for an effectful branch-containing descriptor boundary: Binaryen preserves `struct.set` when the descriptor operand is a block with a value-carrying `br_if` whose condition is a call. Starshine already matched.
 - [`../../../raw/research/0875-2026-06-20-heap-store-optimization-later-field-block-br-if-call-condition.md`](../../../raw/research/0875-2026-06-20-heap-store-optimization-later-field-block-br-if-call-condition.md)
