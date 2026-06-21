@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0916-2026-06-21-heap-store-optimization-call-ref-table-set-boundary.md
   - ../../../raw/research/0915-2026-06-21-heap-store-optimization-call-ref-old-field-boundary.md
   - ../../../raw/research/0914-2026-06-21-heap-store-optimization-call-ref-constructor-boundary.md
   - ../../../raw/research/0913-2026-06-21-heap-store-optimization-try-table-growth-boundary.md
@@ -328,6 +329,8 @@ Current local proof surfaces include:
   - fixed the same HSO-D/G trapping old-field parity gap for exact non-saturating float-to-int truncation: Binaryen preserves `i32.trunc_f32_s` in an overwritten constructor field and leaves the later `struct.set` when a mutable `global.set` intervenes; Starshine now marks exact `i32`/`i64.trunc_f32`/`trunc_f64` nodes as trapping for HSO effect and reorderability checks.
 - [`../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md`](../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md)
   - fixed a focused HSO-D/G parity gap for trapping old-field preservation: Binaryen preserves `i32.div_s` in an overwritten constructor field and leaves the later `struct.set` when a mutable `global.set` intervenes; Starshine now marks exact integer div/rem nodes as trapping for HSO effect and reorderability checks.
+- [`../../../raw/research/0916-2026-06-21-heap-store-optimization-call-ref-table-set-boundary.md`](../../../raw/research/0916-2026-06-21-heap-store-optimization-call-ref-table-set-boundary.md)
+  - added focused HSO-G coverage for a `call_ref`-valued constructor operand before an unrelated `table.set`; Binaryen preserves the later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0915-2026-06-21-heap-store-optimization-call-ref-old-field-boundary.md`](../../../raw/research/0915-2026-06-21-heap-store-optimization-call-ref-old-field-boundary.md)
   - added focused HSO-D/G coverage for a `call_ref`-valued overwritten constructor field before an unrelated mutable `global.set`; Binaryen preserves the later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0914-2026-06-21-heap-store-optimization-call-ref-constructor-boundary.md`](../../../raw/research/0914-2026-06-21-heap-store-optimization-call-ref-constructor-boundary.md)

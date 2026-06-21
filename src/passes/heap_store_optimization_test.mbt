@@ -668,6 +668,59 @@ fn hso_funcref_table_global_test_module(
 }
 
 ///|
+fn hso_call_ref_table_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let pair = @lib.TypeIdx::new(0U)
+  let callee_type_idx = @lib.TypeIdx::new(1U)
+  let caller_type_idx = @lib.TypeIdx::new(2U)
+  let callee_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(callee_type_idx), exact=true),
+  )
+  let struct_ref = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::struct_(hso_struct_fields(2))),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([callee_ref], [@lib.ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([callee_type_idx, caller_type_idx]))
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::from_types([struct_ref]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
 fn hso_global_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -6615,6 +6668,52 @@ test "heap-store-optimization keeps call_ref constructor operands before unrelat
     None => fail("expected struct.set in call-ref/global-set output: \{pretty}")
   }
   assert_true(global_set_idx < struct_set_idx, msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps call_ref constructor operands before unrelated table.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let callee_type_idx = @lib.TypeIdx::new(1U)
+  let local0 = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_test_run_module(
+      hso_call_ref_table_test_module([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::ref_as_non_null(),
+        @lib.Instruction::call_ref(callee_type_idx),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call-ref/table-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  let table_set_idx = match hso_test_index_of(pretty, "table.set") {
+    Some(idx) => idx
+    None => fail("expected table.set in call-ref/table-set output: \{pretty}")
+  }
+  let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
+    Some(idx) => idx
+    None => fail("expected struct.set in call-ref/table-set output: \{pretty}")
+  }
+  assert_true(table_set_idx < struct_set_idx, msg=pretty)
 }
 
 ///|
