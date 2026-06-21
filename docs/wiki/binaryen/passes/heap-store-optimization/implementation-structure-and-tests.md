@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md
   - ../../../raw/research/0930-2026-06-21-heap-store-optimization-call-ref-memory-store-boundary.md
   - ../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md
   - ../../../raw/research/0928-2026-06-21-heap-store-optimization-call-constructor-store-boundary.md
@@ -351,6 +352,8 @@ Current local proof surfaces include:
   - added focused HSO-G coverage for ordinary direct-call constructor operands before unrelated `i32.store` and unrelated `table.set`; Binaryen preserves the call, intervening store root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md`](../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md)
   - added focused HSO-D/G coverage for the ordinary direct-call old-field counterpart before unrelated `i32.store`; Binaryen preserves the call, intervening memory store, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md`](../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md)
+  - added focused HSO-D/G coverage for ordinary direct-call constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the call, intervening growth root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0930-2026-06-21-heap-store-optimization-call-ref-memory-store-boundary.md`](../../../raw/research/0930-2026-06-21-heap-store-optimization-call-ref-memory-store-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md`](../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md)
