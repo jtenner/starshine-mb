@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Implement OI-K array.len(array.new_fixed)
+
+- Filed [`raw/research/0825-2026-06-20-optimize-instructions-oi-k-array-len-new-fixed.md`](raw/research/0825-2026-06-20-optimize-instructions-oi-k-array-len-new-fixed.md) for the third `[O4Z-AUDIT-OI-K]` GC constructor/field/array sub-slice. Binaryen `version_130` folds pure fixed-length `array.len(array.new_fixed ...)` to the length constant while keeping dynamic-length `array.new` / `array.new_default` and effectful-element `array.new_fixed` shapes in the probe; Starshine now matches the pure one-use `array.new_fixed` subset.
+- Evidence: Binaryen oracle `.tmp/oi-k-array-len-probe.wat` folded the pure fixed-length case to `i32.const 2` and kept the probed dynamic/effectful cases. Red-first focused `*array.len*` failed before implementation and passed `1/1` after; final `*optimize-instructions*` passed `208/208`, `moon fmt`, `moon test src/passes` (`2738/2738`), native `src/cmd` build, `moon info`, and diff checks passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Implement OI-K packed struct.get(struct.new)
 
 - Filed [`raw/research/0824-2026-06-20-optimize-instructions-oi-k-packed-struct-get-new.md`](raw/research/0824-2026-06-20-optimize-instructions-oi-k-packed-struct-get-new.md) for the second `[O4Z-AUDIT-OI-K]` GC constructor/field sub-slice. Binaryen `version_130` removes fresh `struct.new` allocations for pure packed `struct.get_s` / `struct.get_u` reads and preserves signedness through constants, sign-extension, or masks; Starshine now matches the pure sibling-field subset.

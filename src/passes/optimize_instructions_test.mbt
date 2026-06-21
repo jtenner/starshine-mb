@@ -6168,6 +6168,77 @@ test "optimize-instructions folds packed struct.get_s and struct.get_u of struct
 }
 
 ///|
+test "optimize-instructions folds array.len of pure array.new_fixed length" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let effect_type = @lib.TypeIdx::new(1U)
+  let result_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([effect_type, result_type, result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(99))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pure = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let effectful = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pure.contains("array.len"), msg=pure)
+  assert_false(pure.contains("array.new_fixed"), msg=pure)
+  assert_true(pure.contains("I32(2)"), msg=pure)
+  // Boundary-only half of this OI-K slice: Binaryen currently leaves the
+  // effectful element form intact, and Starshine must not drop element effects.
+  assert_true(effectful.contains("array.len"), msg=effectful)
+  assert_true(effectful.contains("array.new_fixed"), msg=effectful)
+  assert_true(effectful.contains("call (Func 0)"), msg=effectful)
+}
+
+///|
 test "optimize-instructions intentionally keeps struct.get of struct.new with effectful sibling fields" {
   let optimized = match
     pass_test_run_pipeline(

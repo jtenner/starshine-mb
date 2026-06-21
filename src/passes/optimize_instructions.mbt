@@ -3329,6 +3329,53 @@ fn optimize_instructions_replace_with_packed_struct_field(
 }
 
 ///|
+fn optimize_instructions_try_fold_array_len_new_fixed(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 1 {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::ArrayLen) => ()
+    _ => return false
+  }
+  let array_id = @ir.hot_child_get(func, node_id, 0)
+  if !optimize_instructions_node_is_live(func, dead, array_id) ||
+    pass_node_use_count(ctx, func, array_id) != 1 {
+    return false
+  }
+  let array_node = @ir.hot_node_get(func, array_id)
+  let len = match @ir.hot_node_exact_instr(func, array_id) {
+    Some(@lib.Instruction::ArrayNewFixed(_, @lib.U32(len))) =>
+      len.reinterpret_as_int()
+    _ => return false
+  }
+  if len != array_node.child_count {
+    return false
+  }
+  for i = 0; i < array_node.child_count; i = i + 1 {
+    if !optimize_instructions_node_effects_are_pure(
+        ctx,
+        func,
+        @ir.hot_child_get(func, array_id, i),
+      ) {
+      return false
+    }
+  }
+  optimize_instructions_replace_with_const_i32(
+    ctx,
+    func,
+    node_id,
+    @lib.I32(len),
+  )
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_struct_get_struct_new(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5996,6 +6043,9 @@ fn optimize_instructions_visit_node(
     @ir.HotOp::Heap =>
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
       optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id) ||
+      optimize_instructions_try_fold_array_len_new_fixed(
+        ctx, func, dead, node_id,
+      ) ||
       optimize_instructions_try_fold_struct_get_struct_new(
         ctx, func, dead, node_id,
       )
