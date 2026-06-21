@@ -2423,6 +2423,170 @@ test "heap-store-optimization keeps descriptor store before same later-field glo
 }
 
 ///|
+test "heap-store-optimization folds descriptor store across unrelated later-field global write" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_two_i32_global_test_run([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32(3)),
+        ]),
+      ),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::struct_new_desc(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(2U)),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor unrelated later-field global-write/read heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps descriptor store before same later-field global write and read" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_two_i32_global_test_run([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32(3)),
+        ]),
+      ),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::struct_new_desc(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor same later-field global-write/read heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds descriptor store across unrelated later-field and moved global writes" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_two_i32_global_test_run([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32(3)),
+        ]),
+      ),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::struct_new_desc(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(9)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(2U)),
+          @lib.Instruction::i32_const(@lib.I32(11)),
+        ]),
+      ),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor unrelated later-field and moved global writes heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps descriptor store before same later-field and moved global writes" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_two_i32_global_test_run([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32(3)),
+        ]),
+      ),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::struct_new_desc(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(9)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32(11)),
+        ]),
+      ),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor same later-field and moved global writes heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps descriptor store when moved value reads target local" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

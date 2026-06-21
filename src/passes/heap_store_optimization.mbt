@@ -1220,26 +1220,41 @@ fn hso_nodes_can_reorder(
   if hso_subtree_global_order_conflicts(func, barrier_id, moved_id) {
     return false
   }
-  let barrier_without_global = barrier_mask ^
-    (barrier_mask & @ir.EFFECT_MASK_GLOBAL_STATE)
-  let moved_without_global = moved_mask ^
-    (moved_mask & @ir.EFFECT_MASK_GLOBAL_STATE)
-  if barrier_mask != 0U &&
-    moved_mask != 0U &&
+  let barrier_reorder_mask = if hso_subtree_may_skip_local_set(
+      cache, func, barrier_id,
+    ) {
+    barrier_mask
+  } else {
+    barrier_mask ^ (barrier_mask & @ir.EFFECT_MASK_CONTROL)
+  }
+  let moved_reorder_mask = if hso_subtree_may_skip_local_set(
+      cache, func, moved_id,
+    ) {
+    moved_mask
+  } else {
+    moved_mask ^ (moved_mask & @ir.EFFECT_MASK_CONTROL)
+  }
+  let barrier_without_global = barrier_reorder_mask ^
+    (barrier_reorder_mask & @ir.EFFECT_MASK_GLOBAL_STATE)
+  let moved_without_global = moved_reorder_mask ^
+    (moved_reorder_mask & @ir.EFFECT_MASK_GLOBAL_STATE)
+  if barrier_reorder_mask != 0U &&
+    moved_reorder_mask != 0U &&
     barrier_without_global == 0U &&
     moved_without_global == 0U {
     return true
   }
-  if !hso_mask_ordered_before(barrier_mask, moved_mask) {
+  if !hso_mask_ordered_before(barrier_reorder_mask, moved_reorder_mask) {
     return true
   }
   let local_control_barrier_mask = @ir.EFFECT_MASK_LOCAL_STATE |
     @ir.EFFECT_MASK_CONTROL
   let local_only_barrier = (
-      barrier_mask ^ (barrier_mask & local_control_barrier_mask)
+      barrier_reorder_mask ^ (barrier_reorder_mask & local_control_barrier_mask)
     ) ==
     0U
-  if local_only_barrier && (moved_mask & @ir.EFFECT_MASK_LOCAL_STATE) == 0U {
+  if local_only_barrier &&
+    (moved_reorder_mask & @ir.EFFECT_MASK_LOCAL_STATE) == 0U {
     return true
   }
   hso_subtree_is_trapless_readonly(cache, func, node_masks, barrier_id) &&

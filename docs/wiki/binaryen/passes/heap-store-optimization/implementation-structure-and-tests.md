@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0861-2026-06-20-heap-store-optimization-descriptor-later-field-global-write.md
   - ../../../raw/research/0860-2026-06-20-heap-store-optimization-descriptor-later-field-global-conflict.md
   - ../../../raw/research/0859-2026-06-20-heap-store-optimization-descriptor-later-field-local-read.md
   - ../../../raw/research/0858-2026-06-20-heap-store-optimization-descriptor-target-local-write-hazard.md
@@ -237,8 +238,10 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0861-2026-06-20-heap-store-optimization-descriptor-later-field-global-write.md`](../../../raw/research/0861-2026-06-20-heap-store-optimization-descriptor-later-field-global-write.md)
+  - fixed descriptor later-field global-write barriers: Binaryen folds when a later constructor field writes `$g0` and the moved value reads or writes unrelated `$g1`, but preserves `struct.set` for same-global read/write conflicts. Starshine now normalizes non-skipping structural control out of reorder masks before applying the precise global-only movement allowance.
 - [`../../../raw/research/0860-2026-06-20-heap-store-optimization-descriptor-later-field-global-conflict.md`](../../../raw/research/0860-2026-06-20-heap-store-optimization-descriptor-later-field-global-conflict.md)
-  - fixed descriptor later-field same-global conflict handling: Binaryen folds when a later constructor field reads mutable global `$g0` and the moved value writes unrelated `$g1`, but preserves `struct.set` when both touch `$g0`. Starshine now checks precise same-global read/write conflicts before value-prefix mutation and includes peeled prefix roots in later-field/descriptor reorder checks.
+  - fixed descriptor later-field same-global conflict handling for later-field reads: Binaryen folds when a later constructor field reads mutable global `$g0` and the moved value writes unrelated `$g1`, but preserves `struct.set` when both touch `$g0`. Starshine now checks precise same-global read/write conflicts before value-prefix mutation and includes peeled prefix roots in later-field/descriptor reorder checks.
 - [`../../../raw/research/0859-2026-06-20-heap-store-optimization-descriptor-later-field-local-read.md`](../../../raw/research/0859-2026-06-20-heap-store-optimization-descriptor-later-field-local-read.md)
   - fixed a descriptor later-field local-read overblock: Binaryen folds a call-valued `struct.set` into `struct.new_desc` even when a later constructor field reads the target local, because the moved value itself has no local-state effects. Focused HSO tests passed `213/213`; direct 10000-case compare normalized `10000/10000` with `0` mismatches.
 - [`../../../raw/research/0858-2026-06-20-heap-store-optimization-descriptor-target-local-write-hazard.md`](../../../raw/research/0858-2026-06-20-heap-store-optimization-descriptor-target-local-write-hazard.md)
