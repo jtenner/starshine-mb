@@ -2217,6 +2217,80 @@ test "optimize-instructions folds exact ref.cast on already exact locals" {
 }
 
 ///|
+test "optimize-instructions intentionally keeps legacy descriptor equality casts" {
+  // Boundary-only OI-J descriptor slice: Binaryen version_130 keeps official
+  // two-operand descriptor equality casts under `--enable-custom-descriptors`
+  // because the explicit descriptor operand participates in the runtime equality
+  // check. Starshine's current HOT lift still models descriptor casts as a
+  // legacy unary surface, so this test locks the local fail-closed behavior:
+  // do not route descriptor casts through ordinary same-heap ref.cast cleanup.
+  let described_type = @lib.TypeIdx::new(0U)
+  let nullable_func_type = @lib.TypeIdx::new(2U)
+  let nonnull_func_type = @lib.TypeIdx::new(3U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nonnull_described_ref_type = @lib.RefType::new(false, described_heap)
+  let nullable_described_ref = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let nonnull_described_ref = @lib.ValType::ref_type(nonnull_described_ref_type)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(@lib.TypeIdx::rec(1)),
+            ),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(
+              describes=Some(@lib.TypeIdx::rec(0)),
+            ),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_described_ref], [
+              nullable_described_ref,
+            ]),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nonnull_described_ref], [nonnull_described_ref]),
+          ),
+        ]),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([nullable_func_type, nonnull_func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast_desc_eq_type(nonnull_described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let nullable_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let nonnull_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(nullable_pretty.contains("ref.cast_desc_eq"), msg=nullable_pretty)
+  assert_true(nonnull_pretty.contains("ref.cast_desc_eq"), msg=nonnull_pretty)
+  assert_true(nullable_pretty.contains("local.get"), msg=nullable_pretty)
+  assert_true(nonnull_pretty.contains("local.get"), msg=nonnull_pretty)
+}
+
+///|
 test "optimize-instructions folds nullable ref.test and ref.cast on known null refs" {
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let eq_ref = @lib.ValType::ref_null(eq_heap)

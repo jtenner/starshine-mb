@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Classify OI-J descriptor cast boundary
+
+- Filed [`raw/research/0821-2026-06-20-optimize-instructions-oi-j-descriptor-cast-boundary.md`](raw/research/0821-2026-06-20-optimize-instructions-oi-j-descriptor-cast-boundary.md) for the fourth `[O4Z-AUDIT-OI-J]` boundary sub-slice. Binaryen `version_130` keeps official two-operand `ref.cast_desc_eq` forms under `--enable-custom-descriptors`; Starshine now has local fail-closed coverage proving its legacy unary descriptor-cast HOT surface is not consumed by ordinary `ref.cast` cleanup helpers.
+- Evidence: Binaryen oracle probe `.tmp/oi-j-desc-cast-boundary-probe.wat` kept nullable and non-null `ref.cast_desc_eq` operations. Red-first positive implementation did not apply because this was boundary coverage for a current HOT representation blocker. Focused `*legacy descriptor equality casts*` passed `1/1`, `*descriptor*` passed `1/1`, `*optimize-instructions*` passed `203/203`, `moon fmt`, `moon test src/passes` (`2733/2733`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference/call_ref/descriptor operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Implement OI-J success-only-if-non-null ref.test
 
 - Filed [`raw/research/0820-2026-06-20-optimize-instructions-oi-j-success-only-if-non-null-ref-test.md`](raw/research/0820-2026-06-20-optimize-instructions-oi-j-success-only-if-non-null-ref-test.md) for the third `[O4Z-AUDIT-OI-J]` sub-slice. Binaryen `version_130` rewrites nullable-source / non-null-target `ref.test` cases to `i32.eqz(ref.is_null(x))`; Starshine now matches for nullable result types whose heap is known to match the target, including effectful operands kept under the null check.
