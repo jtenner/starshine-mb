@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/1011-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-boundary.md
   - ../../../raw/research/1010-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-ref-old-field-boundary.md
   - ../../../raw/research/1009-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-indirect-old-field-boundary.md
   - ../../../raw/research/1008-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-ref-fold.md
@@ -365,6 +366,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `1008` adds the descriptor result-typed `try_table` `call_ref` set-value counterpart: Binaryen folds the pure immutable-descriptor `struct.new_desc` across the dropped result wrapper while preserving the catchable typed-function-reference call and descriptor read; Starshine already matches after `1005`.
   - Coverage note `1009` adds the descriptor result-typed `try_table` `call_indirect` old-field boundary: when the overwritten `struct.new_desc` field is also a `call_indirect`, Binaryen preserves the old-field indirect call, result wrapper, catchable indirect call, descriptor read, and later `struct.set`; Starshine already matches, so `1007` remains a set-value-only positive.
   - Coverage note `1010` adds the matching descriptor result-typed `try_table` `call_ref` old-field boundary: when the overwritten `struct.new_desc` field is also a `call_ref`, Binaryen preserves the old-field typed-function-reference call, result wrapper, catchable `call_ref`, descriptor read, and later `struct.set`; Starshine already matches, so `1008` remains a set-value-only positive.
+  - Coverage note `1011` adds the mutable-descriptor split for descriptor result-typed `try_table` direct and indirect calls: Binaryen preserves `struct.new_desc`, the mutable descriptor `global.get`, the dropped result wrapper, catchable direct/indirect calls, and later `struct.set`; Starshine already matches, so the `1005`/`1007` folds stay scoped to immutable descriptor reads.
   - Coverage note `0914` confirmed the typed-function-reference counterpart of the direct call roots: Binaryen preserves a `call_ref`-valued constructor operand before an unrelated mutable `global.set` and keeps the later `struct.set`; Starshine already matched. This extends the covered `call` / `call_indirect` no-swap family but does not close all reference-typed branch/catch roots.
   - Coverage note `0915` confirmed the matching old-field boundary: Binaryen preserves a `call_ref`-valued overwritten constructor field before an unrelated mutable `global.set` and keeps the later `struct.set`; Starshine already matched.
   - Coverage note `0916` confirmed the table-side constructor-operand boundary: Binaryen preserves a `call_ref`-valued constructor operand before an unrelated `table.set` and keeps the later `struct.set`; Starshine already matched.
