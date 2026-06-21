@@ -6751,6 +6751,84 @@ test "heap-store-optimization keeps call constructor operands before unrelated g
 }
 
 ///|
+test "heap-store-optimization keeps call old fields before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let mod_ = hso_call_test_module(2, [
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+  ]).with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+  let optimized = match hso_test_run_module(mod_) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call-old-field/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps call old fields before unrelated table.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let mod_ = hso_call_test_module(2, [
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+    @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+  ]).with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  let optimized = match hso_test_run_module(mod_) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call-old-field/table-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps call_indirect constructor operands before unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
