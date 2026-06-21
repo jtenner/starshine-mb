@@ -4482,6 +4482,54 @@ test "heap-store-optimization keeps old field memory.copy before unrelated globa
 }
 
 ///|
+test "heap-store-optimization keeps old field memory.init before unrelated global write" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let body = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::memory_init(
+          @lib.DataIdx::new(0U),
+          @lib.MemIdx::new(0U),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+  ]
+  let mod_ = hso_memory_global_test_module(2, body)
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
+    .with_data_sec(
+      @lib.DataSec::new([@lib.Data::new(@lib.DataMode::passive(), b"abcd")]),
+    )
+  let optimized = match hso_test_run_module(mod_) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected old-field memory.init heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.init"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps old field table.fill before unrelated global write" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
