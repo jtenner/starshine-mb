@@ -1638,6 +1638,54 @@ test "heap-store-optimization folds memory.size constructors across table stores
 }
 
 ///|
+test "heap-store-optimization folds memory.size constructors across br_table-wrapped table stores" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_table_test_run(
+      [
+        @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::br_table(
+              [@lib.LabelIdx::new(0U)],
+              @lib.LabelIdx::new(0U),
+            ),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.size/br_table-table-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds table.size constructors across memory stores" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
@@ -4780,6 +4828,24 @@ test "heap-store-optimization keeps memory.size constructors before loop-wrapped
   assert_true(pretty.contains("memory.size"), msg=pretty)
   assert_true(pretty.contains("memory.fill"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps memory.size constructors before br_table-wrapped memory.fill" {
+  hso_assert_memory_size_wrapped_passive_boundary(
+    hso_test_block_wrap(
+      [
+        ..hso_test_memory_fill_body(),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::br_table(
+          [@lib.LabelIdx::new(0U)],
+          @lib.LabelIdx::new(0U),
+        ),
+      ],
+    ),
+    "memory.fill",
+    "memory-size/br-table-memory-fill",
+  )
 }
 
 ///|
