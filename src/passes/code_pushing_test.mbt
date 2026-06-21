@@ -117,6 +117,11 @@ fn code_pushing_expect_op(
         @ir.HotOp::Block => ()
         other => abort("expected block, got \{other}")
       }
+    "loop" =>
+      match op {
+        @ir.HotOp::Loop => ()
+        other => abort("expected loop, got \{other}")
+      }
     "unreachable" =>
       match op {
         @ir.HotOp::Unreachable => ()
@@ -675,6 +680,124 @@ test "code-pushing moves pure SFA set after br_if before later same-block use" {
   code_pushing_expect_op(func, moved_set, "local.set")
   @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
   code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
+test "code-pushing moves pure SFA set after loop-target br_if before later same-loop use" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    (loop $top
+      #|      i32.const 7
+      #|      local.set 1
+      #|      local.get 0
+      #|      br_if $top
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let loop_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, loop_id, "loop")
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "br_if")
+  let moved_set = @ir.hot_region_get(func, body_ref, 2)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
+test "code-pushing preserves order when moving multiple SFA sets after loop-target br_if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32 i32)
+      #|    (loop $top
+      #|      i32.const 7
+      #|      local.set 1
+      #|      i32.const 9
+      #|      local.set 2
+      #|      local.get 0
+      #|      br_if $top
+      #|      local.get 1
+      #|      drop
+      #|      local.get 2
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let loop_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, loop_id, "loop")
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 7)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  let first_moved = @ir.hot_region_get(func, body_ref, 3)
+  let second_moved = @ir.hot_region_get(func, body_ref, 4)
+  code_pushing_expect_op(func, first_moved, "local.set")
+  code_pushing_expect_op(func, second_moved, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_moved).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, second_moved).imm0, 2)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 5), "drop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 6), "drop")
+}
+
+///|
+test "code-pushing preserves order when moving multiple local-copy SFA sets after loop-target br_if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32 i32 i32) (local i32 i32)
+      #|    (loop $top
+      #|      local.get 1
+      #|      local.set 3
+      #|      local.get 2
+      #|      local.set 4
+      #|      local.get 0
+      #|      br_if $top
+      #|      local.get 3
+      #|      drop
+      #|      local.get 4
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let loop_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, loop_id, "loop")
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 7)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  let first_moved = @ir.hot_region_get(func, body_ref, 3)
+  let second_moved = @ir.hot_region_get(func, body_ref, 4)
+  code_pushing_expect_op(func, first_moved, "local.set")
+  code_pushing_expect_op(func, second_moved, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_moved).imm0, 3)
+  @debug.assert_eq(@ir.hot_node_get(func, second_moved).imm0, 4)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, first_moved, 0),
+    "local.get",
+  )
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, second_moved, 0),
+    "local.get",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 5), "drop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 6), "drop")
 }
 
 ///|

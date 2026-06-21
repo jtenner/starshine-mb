@@ -596,9 +596,10 @@ fn code_pushing_br_if_push_point_supported(
     @ir.HotOp::BrIf => ()
     _ => return false
   }
-  // First conditional-branch movement slice: only void block exits with a
-  // standalone condition. This keeps branch-value and loop-backedge behavior
-  // out of scope until those paths have source-backed tests.
+  // Conditional-branch movement is still narrow: only standalone-condition
+  // br_if roots without branch values, targeting void block exits or void loop
+  // backedges. Branch values and other br_on_* forms remain out of scope until
+  // they have source-backed tests.
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
   }
@@ -606,7 +607,7 @@ fn code_pushing_br_if_push_point_supported(
     return false
   }
   match @ir.hot_label_kind(func, node.imm0) {
-    @ir.HotLabelKind::BlockLabel =>
+    @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::LoopLabel =>
       @ir.hot_label_branch_arity(func, node.imm0) == 0
     _ => false
   }

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md
   - ../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md
@@ -149,7 +150,7 @@ Binaryen-backed after:
   (drop (local.get $tmp)))
 ```
 
-Starshine now implements this single-set `br_if` subset only for no-branch-value branches to a void block label, when the branch does not read the local and every read is a same-block suffix read after the branch.
+Starshine now implements this single-set `br_if` subset for no-branch-value branches to a void block or loop label, when the branch does not read the local and every read is a same-block / same-loop-body suffix read after the branch.
 
 ## Shape 5: ordered multi-set movement after a void `if`
 
@@ -237,7 +238,7 @@ Binaryen-backed after:
   (drop (local.get $b)))
 ```
 
-Starshine now implements this ordered multi-set subset only for adjacent local-independent values before a no-branch-value `br_if` to a void block label, preserving source order.
+Starshine now implements this ordered multi-set subset for adjacent local-independent values before a no-branch-value `br_if` to a void block or loop label, preserving source order.
 
 ## Shape 6c: ordered local-copy multi-set movement
 
@@ -299,7 +300,33 @@ nop
 (drop (local.get $b))
 ```
 
-Starshine implements this only for `nop` separators before ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points. Other non-adjacent windows still need source-backed `orderedBefore` / effect tests. The current ordered multi-set slices intentionally do not cover switch/`br_table`, branch values, loop targets, `br_on_*`, arbitrary non-adjacent windows beyond `nop`, local-copy dependency chains, or general local-read-dependent value expressions.
+Starshine implements this only for `nop` separators before ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points. Other non-adjacent windows still need source-backed `orderedBefore` / effect tests. The current ordered multi-set slices intentionally do not cover switch/`br_table`, branch values, `br_on_*`, arbitrary non-adjacent windows beyond `nop`, local-copy dependency chains, or general local-read-dependent value expressions.
+
+## Shape 6e: loop-target `br_if` movement
+
+Binaryen-backed before:
+
+```wat
+(loop $top
+  (local.set $a (i32.const 7))
+  (local.set $b (i32.const 9))
+  (br_if $top (local.get $cond))
+  (drop (local.get $a))
+  (drop (local.get $b)))
+```
+
+Binaryen-backed after:
+
+```wat
+(loop $top
+  (br_if $top (local.get $cond))
+  (local.set $a (i32.const 7))
+  (local.set $b (i32.const 9))
+  (drop (local.get $a))
+  (drop (local.get $b)))
+```
+
+Starshine now treats void loop labels like void block labels for the existing no-branch-value `br_if` movement proof. The same SFA, push-point-read, source-local-write, source-order, and suffix-read boundaries apply.
 
 ## Shape 7: `if` arm sinking into the only consuming arm
 
