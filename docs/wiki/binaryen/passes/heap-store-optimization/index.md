@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0901-2026-06-21-heap-store-optimization-table-store-old-field.md
   - ../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md
   - ../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md
   - ../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md
@@ -259,6 +260,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0898` locked the table-growth counterpart: Binaryen folds an overwritten `table.grow` constructor field across an unrelated mutable `global.set` while preserving the `table.grow` under `drop`; Starshine already matched, so this is behavior-parity coverage rather than an implementation change.
   - Follow-up `0899` fixed the mutable-global old-field counterpart: Binaryen folds when an overwritten constructor field writes `$g0` inside a value-producing block and an intervening root writes unrelated `$g1`, preserving the old `$g0` write under `drop` while removing `struct.set`. Starshine now uses exact global-order conflict analysis instead of blocking all constructor old-field global writes.
   - Coverage note `0900` locked the memory-store old-field boundary: Binaryen preserves an overwritten value-producing `i32.store` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so this is behavior-parity coverage rather than an implementation change.
+  - Coverage note `0901` locked the table-store old-field counterpart: Binaryen preserves an overwritten value-producing `table.set` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so this is behavior-parity coverage rather than an implementation change.
 - Plain and descriptor default double-store folding have narrow documented Starshine-win divergences.
   - Coverage note `0889` found Binaryen folds only the first call-valued store after `struct.new_default_desc`, leaving the second `struct.set`; Starshine folds both call-valued stores into the materialized `struct.new_desc` while preserving call order and only moving across an immutable descriptor `global.get`. This is recorded as a narrow better-than-Binaryen behavior, not a general license to cross mutable/effectful/trapping descriptor operands, target-local hazards, old-field side effects, or later-field effect barriers.
   - Coverage note `0890` found the same one-store-left Binaryen behavior after plain `struct.new_default`; Starshine folds both call-valued stores into the materialized `struct.new` while preserving call order. This is a narrow plain-default Starshine win, not a broader effect-order exception.

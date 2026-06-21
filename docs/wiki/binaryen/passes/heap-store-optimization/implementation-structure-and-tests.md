@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0901-2026-06-21-heap-store-optimization-table-store-old-field.md
   - ../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md
   - ../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md
   - ../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md
@@ -277,6 +278,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0901-2026-06-21-heap-store-optimization-table-store-old-field.md`](../../../raw/research/0901-2026-06-21-heap-store-optimization-table-store-old-field.md)
+  - added focused HSO-D/G table-store old-field boundary coverage: Binaryen preserves an overwritten value-producing `table.set` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `259/259`.
 - [`../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md`](../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md)
   - added focused HSO-D/G memory-store old-field boundary coverage: Binaryen preserves an overwritten value-producing `i32.store` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `258/258`.
 - [`../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md`](../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md)

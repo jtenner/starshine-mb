@@ -6173,6 +6173,50 @@ test "heap-store-optimization keeps memory-store old fields before unrelated glo
 }
 
 ///|
+test "heap-store-optimization keeps table-store old fields before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_test_run_module(
+      hso_funcref_table_global_test_module([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::funcref()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(3)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table-store-old-field/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps trapping table-get old fields before unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
