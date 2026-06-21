@@ -3424,6 +3424,50 @@ fn optimize_instructions_replace_with_packed_i32_value(
 }
 
 ///|
+fn optimize_instructions_try_fold_tuple_extract_tuple_make(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::TupleExtract if node.child_count == 1 => ()
+    _ => return false
+  }
+  let tuple_id = @ir.hot_child_get(func, node_id, 0)
+  if !optimize_instructions_node_is_live(func, dead, tuple_id) ||
+    pass_node_use_count(ctx, func, tuple_id) != 1 {
+    return false
+  }
+  let tuple = @ir.hot_node_get(func, tuple_id)
+  match tuple.op {
+    @ir.HotOp::TupleMake => ()
+    _ => return false
+  }
+  let index = node.imm0
+  if index < 0 || index >= tuple.child_count {
+    return false
+  }
+  for slot = 0; slot < tuple.child_count; slot = slot + 1 {
+    if slot == index {
+      continue
+    }
+    let sibling_id = @ir.hot_child_get(func, tuple_id, slot)
+    if !optimize_instructions_node_effects_are_pure(ctx, func, sibling_id) {
+      return false
+    }
+  }
+  optimize_instructions_replace_with_node_id(
+    ctx,
+    func,
+    node_id,
+    @ir.hot_child_get(func, tuple_id, index),
+  )
+  true
+}
+
+///|
 /// Binaryen version_130 keeps fresh array lengths above this O4z-observed
 /// limit to preserve allocation trap behavior.
 fn optimize_instructions_array_new_len_is_known_non_trapping(len : Int) -> Bool {
@@ -6404,6 +6448,10 @@ fn optimize_instructions_visit_node(
       }
     @ir.HotOp::Select =>
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
+    @ir.HotOp::TupleExtract =>
+      optimize_instructions_try_fold_tuple_extract_tuple_make(
+        ctx, func, dead, node_id,
+      )
     @ir.HotOp::RefIsNull =>
       optimize_instructions_try_fold_ref_is_null(ctx, func, node_id)
     @ir.HotOp::RefTest =>

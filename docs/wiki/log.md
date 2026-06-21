@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-21] passes/optimize-instructions | Implement OI-M tuple.extract(tuple.make)
+
+- Filed [`raw/research/0834-2026-06-21-optimize-instructions-oi-m-tuple-extract-make.md`](raw/research/0834-2026-06-21-optimize-instructions-oi-m-tuple-extract-make.md) for the first `[O4Z-AUDIT-OI-M]` tuple/multivalue sub-slice. Binaryen `version_130` direct `--optimize-instructions` lowers `tuple.extract(tuple.make(...))` through local tee/drop reconstruction, and O4z-style `-O --optimize-instructions` cleans the pure export to the selected value while preserving effectful sibling evaluation with `drop(call)`; Starshine now matches the locally safe one-use subset when all non-selected tuple children are pure.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-probe.wat` with `--enable-multivalue` showed direct-OI local tee/drop reconstruction and O4z-style cleanup. Red-first focused `*tuple.extract*` failed before implementation with the selected `local.get` not forwarded, then passed `2/2` after implementation. Final `*optimize-instructions*` passed `219/219`, `moon fmt`, `moon test src/passes` (`2749/2749`), native `src/cmd` build, and `moon info` passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no tuple/GC/bulk-memory/narrow-store operations in failure artifacts. Broader tuple tee/drop reconstruction, effectful-sibling localization, multi-use tuple proofs, and tuple-neighbor interaction checks remain open.
+
 ## [2026-06-21] passes/optimize-instructions | Implement OI-K array.set fresh arrays
 
 - Filed [`raw/research/0833-2026-06-21-optimize-instructions-oi-k-array-set-fresh.md`](raw/research/0833-2026-06-21-optimize-instructions-oi-k-array-set-fresh.md) for the eleventh `[O4Z-AUDIT-OI-K]` GC array-write sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle removes pure constant-index `array.set` operations targeting fresh `array.new_fixed` and `array.new_default` arrays, folds pure out-of-bounds writes to `unreachable`, and localizes effectful set values/siblings with `drop`; Starshine now matches the pure direct one-use fixed/default subset while keeping effectful localization open.

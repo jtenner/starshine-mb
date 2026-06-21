@@ -6264,6 +6264,93 @@ test "optimize-instructions folds packed struct.get_s and struct.get_u of struct
 }
 
 ///|
+test "optimize-instructions folds tuple.extract of one-use tuple.make" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [
+      @ir.hot_build_local_get(func, 0),
+      @ir.hot_build_const_i64(func, @lib.I64(9L)),
+    ],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected tuple.extract optimize success, got \{err}")
+  }
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail("expected tuple.extract(tuple.make) to forward selected local.get")
+  }
+  @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 0)
+}
+
+///|
+test "optimize-instructions keeps tuple.extract of tuple.make with effectful siblings" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i64(),
+    ]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [
+      @ir.hot_build_local_get(func, 0),
+      @ir.hot_build_local_tee(
+        func,
+        1,
+        @ir.hot_build_const_i64(func, @lib.I64(9L)),
+      ),
+    ],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected tuple.extract boundary success, got \{err}")
+  }
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::TupleExtract => ()
+    _ =>
+      fail("expected effectful sibling tuple.extract boundary to stay intact")
+  }
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
