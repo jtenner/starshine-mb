@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0851-2026-06-20-heap-store-optimization-core-chain-closeout.md
   - ../../../raw/research/0850-2026-06-20-heap-store-optimization-many-news-tee-barrier.md
   - ../../../raw/research/0849-2026-06-20-heap-store-optimization-many-fields-pattern-breaker.md
   - ../../../raw/research/0848-2026-06-20-heap-store-optimization-tee-later-chain.md
@@ -227,6 +228,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0851-2026-06-20-heap-store-optimization-core-chain-closeout.md`](../../../raw/research/0851-2026-06-20-heap-store-optimization-core-chain-closeout.md)
+  - classifies the currently source-backed HSO-C core-chain family as behavior-parity covered after repeated-store, wrong-target-local, tee-plus-later-chain, many-fields, pattern-breaker, and many-news coverage/fixes, with no residual debris/output-shape drift in the latest direct lanes.
 
 ## What is not covered by this page
 
