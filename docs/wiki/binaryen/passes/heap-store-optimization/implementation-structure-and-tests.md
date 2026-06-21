@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0880-2026-06-21-heap-store-optimization-descriptor-select-trap-condition.md
   - ../../../raw/research/0879-2026-06-21-heap-store-optimization-later-field-select-trap-condition.md
   - ../../../raw/research/0878-2026-06-20-heap-store-optimization-later-field-block-br-if-pure-condition.md
   - ../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md
@@ -256,6 +257,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0880-2026-06-21-heap-store-optimization-descriptor-select-trap-condition.md`](../../../raw/research/0880-2026-06-21-heap-store-optimization-descriptor-select-trap-condition.md)
+  - added focused HSO-D/E coverage for a trapping descriptor-select boundary: Binaryen preserves `struct.set` when the descriptor select condition is `i32.load`, because folding a call-valued later store would move the call before a possible trap. Starshine already matched.
 - [`../../../raw/research/0879-2026-06-21-heap-store-optimization-later-field-select-trap-condition.md`](../../../raw/research/0879-2026-06-21-heap-store-optimization-later-field-select-trap-condition.md)
   - added focused HSO-D/E coverage for a trapping later-field select boundary: Binaryen preserves `struct.set` when the select condition is `i32.load`, because folding a call-valued later store would move the call before a possible trap. Starshine already matched.
 - [`../../../raw/research/0878-2026-06-20-heap-store-optimization-later-field-block-br-if-pure-condition.md`](../../../raw/research/0878-2026-06-20-heap-store-optimization-later-field-block-br-if-pure-condition.md)

@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0880-2026-06-21-heap-store-optimization-descriptor-select-trap-condition.md
   - ../../../raw/research/0879-2026-06-21-heap-store-optimization-later-field-select-trap-condition.md
   - ../../../raw/research/0878-2026-06-20-heap-store-optimization-later-field-block-br-if-pure-condition.md
   - ../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md
@@ -198,6 +199,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0864` fixed a descriptor-expression parity gap for typed `select`: Binaryen folds a moved call into `struct.new_desc` when the descriptor operand selects between immutable descriptor globals under a pure condition, and Starshine now uses descriptor-aware child effect summaries for `HotOp::Select`.
   - Coverage note `0871` locked the mutable descriptor-global split: Binaryen folds a pure moved value across a mutable descriptor `global.get`, but preserves `struct.set` for a call-valued moved value that would reorder before that mutable descriptor read. Starshine already matched both shapes.
   - Coverage note `0872` locked the effectful descriptor-select boundary: Binaryen preserves `struct.set` when the descriptor operand is a typed `select` between immutable descriptor globals but the select condition is a call, and Starshine already matched.
+  - Coverage note `0880` locked the trapping descriptor-select boundary: Binaryen preserves `struct.set` when the descriptor operand is a typed `select` whose condition is an `i32.load`, because folding would move a later call before a possible trap; Starshine already matched.
   - Coverage note `0873` locked the matching effectful later-field select boundary: Binaryen preserves `struct.set` when a later constructor field is a typed `select` whose condition is a call, and Starshine already matched.
   - Coverage note `0874` locked the matching effectful later-field `if` boundary: Binaryen preserves `struct.set` when a later constructor field is an `if` whose condition is a call, and Starshine already matched.
   - Coverage note `0875` locked a branch-containing effectful later-field block boundary: Binaryen preserves `struct.set` when a later constructor field is a block with a value-carrying `br_if` whose condition is a call, and Starshine already matched.
