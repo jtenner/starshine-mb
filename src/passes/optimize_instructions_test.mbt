@@ -6239,6 +6239,137 @@ test "optimize-instructions folds array.len of pure array.new_fixed length" {
 }
 
 ///|
+test "optimize-instructions folds array.get of pure array.new_fixed elements" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let effect_type = @lib.TypeIdx::new(1U)
+  let result_type = @lib.TypeIdx::new(2U)
+  let indexed_type = @lib.TypeIdx::new(3U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        effect_type, result_type, result_type, indexed_type, result_type, result_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(99))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let get0 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let get1 = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let dynidx = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let oob = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let effectful_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_false(get0.contains("array.get"), msg=get0)
+  assert_false(get0.contains("array.new_fixed"), msg=get0)
+  assert_true(get0.contains("I32(7)"), msg=get0)
+  assert_false(get1.contains("array.get"), msg=get1)
+  assert_false(get1.contains("array.new_fixed"), msg=get1)
+  assert_true(get1.contains("I32(8)"), msg=get1)
+  assert_true(dynidx.contains("array.get"), msg=dynidx)
+  assert_true(dynidx.contains("array.new_fixed"), msg=dynidx)
+  assert_false(oob.contains("array.get"), msg=oob)
+  assert_false(oob.contains("array.new_fixed"), msg=oob)
+  assert_true(oob.contains("unreachable"), msg=oob)
+  // Boundary-only half of this OI-K slice: Binaryen can preserve the effectful
+  // sibling with a drop before forwarding, but Starshine keeps the stack form
+  // until a safe localizing lowering preserves element-evaluation effects.
+  assert_true(effectful_sibling.contains("array.get"), msg=effectful_sibling)
+  assert_true(
+    effectful_sibling.contains("array.new_fixed"),
+    msg=effectful_sibling,
+  )
+  assert_true(
+    effectful_sibling.contains("call (Func 0)"),
+    msg=effectful_sibling,
+  )
+}
+
+///|
 test "optimize-instructions intentionally keeps struct.get of struct.new with effectful sibling fields" {
   let optimized = match
     pass_test_run_pipeline(

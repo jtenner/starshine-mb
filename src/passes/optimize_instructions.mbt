@@ -3376,6 +3376,66 @@ fn optimize_instructions_try_fold_array_len_new_fixed(
 }
 
 ///|
+fn optimize_instructions_try_fold_array_get_new_fixed(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 2 {
+    return false
+  }
+  let type_idx = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::ArrayGet(type_idx)) => type_idx
+    _ => return false
+  }
+  let array_id = @ir.hot_child_get(func, node_id, 0)
+  let index_id = @ir.hot_child_get(func, node_id, 1)
+  if !optimize_instructions_node_is_live(func, dead, array_id) ||
+    pass_node_use_count(ctx, func, array_id) != 1 {
+    return false
+  }
+  let index = match optimize_instructions_i32_const(func, dead, index_id) {
+    Some(@lib.I32(index)) => index
+    _ => return false
+  }
+  let array_node = @ir.hot_node_get(func, array_id)
+  let len = match @ir.hot_node_exact_instr(func, array_id) {
+    Some(@lib.Instruction::ArrayNewFixed(new_type_idx, @lib.U32(len))) if new_type_idx ==
+      type_idx => len.reinterpret_as_int()
+    _ => return false
+  }
+  if len != array_node.child_count {
+    return false
+  }
+  for i = 0; i < array_node.child_count; i = i + 1 {
+    if i != index &&
+      !optimize_instructions_node_effects_are_pure(
+        ctx,
+        func,
+        @ir.hot_child_get(func, array_id, i),
+      ) {
+      return false
+    }
+  }
+  if index < 0 || index >= len {
+    if !optimize_instructions_node_effects_are_pure(ctx, func, index_id) {
+      return false
+    }
+    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+  } else {
+    optimize_instructions_replace_with_node_id(
+      ctx,
+      func,
+      node_id,
+      @ir.hot_child_get(func, array_id, index),
+    )
+  }
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_struct_get_struct_new(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6044,6 +6104,9 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
       optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id) ||
       optimize_instructions_try_fold_array_len_new_fixed(
+        ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_fold_array_get_new_fixed(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_fold_struct_get_struct_new(

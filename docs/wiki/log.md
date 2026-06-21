@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Implement OI-K array.get(array.new_fixed)
+
+- Filed [`raw/research/0826-2026-06-20-optimize-instructions-oi-k-array-get-new-fixed.md`](raw/research/0826-2026-06-20-optimize-instructions-oi-k-array-get-new-fixed.md) for the fourth `[O4Z-AUDIT-OI-K]` GC constructor/field/array sub-slice. Binaryen `version_130` folds constant-index plain `array.get(array.new_fixed ...)` to the selected element, folds constant out-of-bounds indexes to `unreachable`, keeps dynamic indexes, and localizes effectful non-selected element operands; Starshine now matches the pure/non-effectful-sibling subset and keeps the localization boundary explicit.
+- Evidence: Binaryen oracle `.tmp/oi-k-array-get-probe.wat` folded indexes `0` and `1`, folded out-of-bounds index `2` to `unreachable`, kept dynamic indexes, and preserved imported-call sibling effects with `drop`. Red-first focused `*array.get*` failed before implementation and passed `1/1` after; final `*optimize-instructions*` passed `209/209`, `moon fmt`, `moon test src/passes` (`2739/2739`), native `src/cmd` build, `moon info`, and diff checks passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Implement OI-K array.len(array.new_fixed)
 
 - Filed [`raw/research/0825-2026-06-20-optimize-instructions-oi-k-array-len-new-fixed.md`](raw/research/0825-2026-06-20-optimize-instructions-oi-k-array-len-new-fixed.md) for the third `[O4Z-AUDIT-OI-K]` GC constructor/field/array sub-slice. Binaryen `version_130` folds pure fixed-length `array.len(array.new_fixed ...)` to the length constant while keeping dynamic-length `array.new` / `array.new_default` and effectful-element `array.new_fixed` shapes in the probe; Starshine now matches the pure one-use `array.new_fixed` subset.
