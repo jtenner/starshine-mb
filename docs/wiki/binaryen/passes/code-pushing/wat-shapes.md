@@ -537,6 +537,8 @@ Binaryen's push-point concept is broader than plain `if`. Starshine has one narr
 
 and switch/br-table-like shapes, `br_on_*`, loop-target branches, and branch-value conditional branches where the local's later consumption and effect barriers can be proved.
 
+The 2026-06-21 `br_table` boundary slice records a narrower fact: local Binaryen `version_130` did **not** move either a single pure SFA set or two adjacent pure SFA sets before a no-branch-value `br_table $exit $exit` to the enclosing void block label. Starshine keeps `BrTable` as diagnostic switch recognition only for that shape and protects the no-mutation boundary in `src/passes/code_pushing_test.mbt`. Future switch work must start from a different source-backed positive probe or a Binaryen source/lit change.
+
 ## Shape 13: GC/reference and atomics expressions are not categorically excluded
 
 The official `version_130` `code-pushing-gc.wast` and `code-pushing-atomics.wast` tests are part of the proof surface.
