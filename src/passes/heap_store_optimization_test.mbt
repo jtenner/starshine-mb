@@ -5524,6 +5524,37 @@ test "heap-store-optimization folds external return_call_ref branches into struc
 }
 
 ///|
+test "heap-store-optimization drops direct return_call_ref set values as dead stores" {
+  let pair = @lib.TypeIdx::new(0U)
+  let callee_type_idx = @lib.TypeIdx::new(1U)
+  let local0 = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_return_call_ref_test_run([
+      @lib.Instruction::struct_new_default(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_as_non_null(),
+      @lib.Instruction::return_call_ref(callee_type_idx),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected direct return_call_ref set-value heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("struct.new_default"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds return_call_ref branches inside active catches" {
   let pair = @lib.TypeIdx::new(0U)
   let callee_type_idx = @lib.TypeIdx::new(1U)
