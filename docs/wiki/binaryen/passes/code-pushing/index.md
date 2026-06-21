@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md
   - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
   - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
@@ -20,6 +21,8 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_tests.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../no-dwarf-default-optimize-path.md
@@ -59,6 +62,7 @@ The current Starshine implementation is an accepted direct-pass subset under Sta
 
 - safe movable-value `local.set` sinking into the single `if` arm that contains all reads of that local;
 - a first ordinary-void-`if` segment movement slice that moves one SFA set after the `if` when all reads are same-region suffix reads;
+- a dedicated `code-pushing-all` GenValid profile covering the currently implemented `if`-arm and after-`if` positive families;
 - guarded movement of selected `global.get` and local-copy setup shapes across safe intervening roots;
 - one Starshine-local typed/dead-block flattening helper near unreachable context.
 
@@ -158,8 +162,9 @@ For current `[O4Z-AUDIT-CP]` widening:
 2. build on the first analyzer/segment-discovery slice from [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), and the first ordinary-`if` segment movement slice from [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), before broad mutation;
 3. validate direct pass execution through registry and command surfaces;
 4. compare reduced WAT against Binaryen `wasm-opt --code-pushing` for each widened family;
-5. then run pass-fuzz / artifact comparisons under the standard pass signoff criteria;
-6. only after ordered-neighborhood proof revisit public preset placement.
+5. include the dedicated `code-pushing-all` GenValid lane, currently with `--normalize local-cleanup-debris` for bounded Starshine `nop`/empty-else cleanup drift;
+6. then run pass-fuzz / artifact comparisons under the standard pass signoff criteria;
+7. only after ordered-neighborhood proof revisit public preset placement.
 
 ## Page map
 
@@ -173,12 +178,15 @@ For current `[O4Z-AUDIT-CP]` widening:
   - Beginner-friendly before/after and bailout shape catalog, including current Starshine positive and negative families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Exact local code map and current subset.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Dedicated `code-pushing-all` GenValid profile and compare lanes.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - First-slice and validation plan for future broader parity work.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md`](../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md)
 - [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
 - [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
 - [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)

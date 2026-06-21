@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md
   - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
   - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
@@ -17,6 +18,8 @@ sources:
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/passes/code_pushing_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_tests.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -42,6 +45,8 @@ The third 2026-06-20 audit slice added non-mutating segment-window inventory in 
 
 The fourth 2026-06-20 audit slice added the first mutating consumer of that inventory in [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md). `code_pushing_try_sink_set_after_if_push_point(...)` moves one SFA set after an ordinary void `if` when the `if` does not read the local and all reads are same-region suffix reads after the `if`. Focused tests cover the Binaryen-backed positive, a prefix-read negative, and a coarse ordered-before barrier negative.
 
+The fifth 2026-06-20 audit slice added the dedicated GenValid profile in [`0810`](../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md). `code-pushing-all` samples `code-pushing-if-arm` and `code-pushing-after-if`, the two currently implemented positive movement families, and the bounded native profile lane is green under `--normalize local-cleanup-debris` because Starshine removes standalone `nop`/empty-else debris that Binaryen leaves.
+
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 
 Current Starshine code locations:
@@ -62,6 +67,8 @@ Current Starshine code locations:
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 382-419 | Tuple exact-slot gate plus preset arrays that still omit `code-pushing` |
 | [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Focused positives and guard tests for mutating behavior |
 | [`src/passes/code_pushing_wbtest.mbt`](../../../../../src/passes/code_pushing_wbtest.mbt) | Whitebox segment-window inventory and rejection-reason tests |
+| [`src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt) | Dedicated `code-pushing-all` / leaf profile generation |
+| [`src/validate/gen_valid_tests.mbt`](../../../../../src/validate/gen_valid_tests.mbt) | Profile resolution, sampling, validating-module, and candidate-shape tests |
 
 ## Gap to Binaryen
 
@@ -91,12 +98,16 @@ Binaryen's source-backed strategy is broader than the local subset:
    - First conservative slice completed in [`0806`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md): same-region suffix reads are allowed when the non-consuming arm cannot fall through. Future work can broaden the non-fallthrough proof beyond the current simple root-ending helper only with source-backed tests.
 4. **Effect-checked widening**
    - Only after the earlier slices are green, widen beyond the current strict movable-value gates using Starshine's effect model.
-5. **Preset slice**
+5. **Dedicated profile growth**
+   - Initial `code-pushing-all` profile now covers the implemented `if`-arm and after-`if` positive families. Add leaves when dropped wrappers, conditional branches, switch/`br_table`, ordered multi-set movement, or atomics/GC/EH/trap-policy slices land.
+6. **Preset slice**
    - Revisit public `optimize` / `shrink` placement only after direct-pass semantic parity and the neighboring `simplify-locals-nostructure` work are honest.
 
 ## Validation ladder
 
 The 2026-05-09 direct revalidation for the current explicit HOT subset is accepted: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass code-pushing --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-code-pushing` completed with 6759/10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen/tool command failures. The direct debug-artifact replay at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1687067` reports `Normalized WAT equal: yes` and `Canonical function compare equal: yes`; canonical wasm/text remain unequal, but that drift is representation-only and not a blocker. Pass-local timing, about 1658ms for Starshine versus about 1311ms for Binaryen, is above the required 50%-of-Binaryen floor. `[CP]002` is therefore closed; preset scheduling remains deferred to ordered-neighborhood / tuple-slot work.
+
+Current dedicated-profile evidence from [`0810`](../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md): focused generator tests for `code-pushing` profiles passed `3/3` across the `*code-pushing gen-valid*` and `*code-pushing aggregate*` filters. `moon build --target native --release src/cmd` produced `_build/native/release/build/cmd/cmd.exe` in this checkout. A native `code-pushing-all` lane with `--normalize local-cleanup-debris` compared `200/200`, with `200` cleanup-normalized matches, `0` raw mismatches, `0` validation/generator/property/command failures, and selected subprofiles split evenly across `code-pushing-if-arm` and `code-pushing-after-if`. The non-normalized probe stopped after `65` raw mismatches, all classified as bounded local-cleanup drift from Starshine removing standalone `nop`/empty-else debris.
 
 For every future mutating widening slice:
 
@@ -120,11 +131,12 @@ Do not widen without explicit tests for:
 
 ## Bottom line
 
-Starshine's older direct `code-pushing` subset remains supported by its 2026-05 evidence, but `[O4Z-AUDIT-CP]` is active and not closed under the current release-gating standard. The first analyzer/segment inventory and first ordinary-void-`if` segment movement slice are now in-tree, so the next useful work is another source-backed push-point or movement family, or a dedicated GenValid profile, while keeping ordered-before / atomics boundaries carried forward from the `version_130` refresh. Public preset scheduling remains separate ordered-neighborhood work.
+Starshine's older direct `code-pushing` subset remains supported by its 2026-05 evidence, but `[O4Z-AUDIT-CP]` is active and not closed under the current release-gating standard. The first analyzer/segment inventory, first ordinary-void-`if` segment movement slice, and first dedicated GenValid profile are now in-tree, so the next useful work is another source-backed push-point or movement family while keeping ordered-before / atomics boundaries carried forward from the `version_130` refresh. Public preset scheduling remains separate ordered-neighborhood work.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md`](../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md)
 - [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
 - [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
 - [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)

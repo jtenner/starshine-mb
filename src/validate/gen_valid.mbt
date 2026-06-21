@@ -678,6 +678,9 @@ pub enum GenValidProfile {
   PickLoadSignsImportedMemoryProfile
   PickLoadSignsI64WatchProfile
   PickLoadSignsAllProfile
+  CodePushingIfArmProfile
+  CodePushingAfterIfProfile
+  CodePushingAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
@@ -758,6 +761,9 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PickLoadSignsImportedMemoryProfile => "pick-load-signs-imported-memory"
     PickLoadSignsI64WatchProfile => "pick-load-signs-i64-watch"
     PickLoadSignsAllProfile => "pick-load-signs-all"
+    CodePushingIfArmProfile => "code-pushing-if-arm"
+    CodePushingAfterIfProfile => "code-pushing-after-if"
+    CodePushingAllProfile => "code-pushing-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
@@ -772,6 +778,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     GsiDescCastAllProfile
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
+    | CodePushingAllProfile
     | SsaNomergeAllProfile => true
     _ => false
   }
@@ -813,6 +820,11 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(PickLoadSignsNoMemoryBoundaryProfile, 1),
         GenValidProfileMember::new(PickLoadSignsImportedMemoryProfile, 1),
         GenValidProfileMember::new(PickLoadSignsI64WatchProfile, 1),
+      ]
+    CodePushingAllProfile =>
+      [
+        GenValidProfileMember::new(CodePushingIfArmProfile, 1),
+        GenValidProfileMember::new(CodePushingAfterIfProfile, 1),
       ]
     SsaNomergeAllProfile =>
       [
@@ -920,6 +932,9 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PickLoadSignsImportedMemoryProfile,
     PickLoadSignsI64WatchProfile,
     PickLoadSignsAllProfile,
+    CodePushingIfArmProfile,
+    CodePushingAfterIfProfile,
+    CodePushingAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
@@ -983,6 +998,9 @@ pub fn gen_valid_profile_by_name(
     "pick-load-signs" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-closeout" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-all-profiles" => Ok(PickLoadSignsAllProfile)
+    "code-pushing" => Ok(CodePushingAllProfile)
+    "code-pushing-closeout" => Ok(CodePushingAllProfile)
+    "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
     _ =>
@@ -1343,6 +1361,10 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_pick_load_signs_profile_config(profile)
     PickLoadSignsAllProfile =>
       gen_valid_pick_load_signs_profile_config(PickLoadSignsSignedExtendProfile)
+    CodePushingIfArmProfile | CodePushingAfterIfProfile =>
+      gen_valid_code_pushing_profile_config(profile)
+    CodePushingAllProfile =>
+      gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
     SsaNomergeCoverageProfile
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
@@ -1586,6 +1608,68 @@ fn gen_valid_is_pick_load_signs_profile_config(config : GenValidConfig) -> Bool 
   config == GenValidConfig::for_profile(PickLoadSignsNoMemoryBoundaryProfile) ||
   config == GenValidConfig::for_profile(PickLoadSignsImportedMemoryProfile) ||
   config == GenValidConfig::for_profile(PickLoadSignsI64WatchProfile)
+}
+
+///|
+fn gen_valid_code_pushing_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 1,
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 1,
+    max_results: if profile == CodePushingAfterIfProfile {
+      1
+    } else {
+      0
+    },
+    max_locals: 1,
+    max_body_statements: if profile == CodePushingAfterIfProfile {
+      8
+    } else {
+      5
+    },
+    max_body_depth: 2,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_memory_limit_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_subtyping_topology: false,
+      allow_typed_body_generator: false,
+      allow_name_custom_sections: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(CodePushingIfArmProfile) ||
+  config == GenValidConfig::for_profile(CodePushingAfterIfProfile)
 }
 
 ///|
@@ -12176,6 +12260,74 @@ fn gen_valid_pick_load_signs_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_code_pushing_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(CodePushingAfterIfProfile) {
+    CodePushingAfterIfProfile
+  } else {
+    CodePushingIfArmProfile
+  }
+}
+
+///|
+fn gen_valid_code_pushing_if_arm_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::local_get(LocalIdx::new(1U)), Instruction::drop()],
+      Some([Instruction::nop()]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_after_if_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(3)),
+    Instruction::i32_const(I32(4)),
+    Instruction::i32_add(),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
+  let kind = gen_valid_code_pushing_profile_kind(config)
+  let result_type = if kind == CodePushingAfterIfProfile {
+    [ValType::i32()]
+  } else {
+    []
+  }
+  let body = if kind == CodePushingAfterIfProfile {
+    gen_valid_code_pushing_after_if_body()
+  } else {
+    gen_valid_code_pushing_if_arm_body()
+  }
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], result_type)),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::from_types([ValType::i32()]), Expr::new(body)),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
   if gen_valid_is_gsi_desc_cast_profile_config(config) {
@@ -12186,6 +12338,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_pick_load_signs_profile_config(config) {
     return gen_valid_pick_load_signs_profile_module(config)
+  }
+  if gen_valid_is_code_pushing_profile_config(config) {
+    return gen_valid_code_pushing_profile_module(config)
   }
   let import_budget = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,

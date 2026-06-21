@@ -8305,6 +8305,180 @@ test "precompute boundary gen-valid profiles emit trap effect gc atomic and dire
 }
 
 ///|
+fn gen_valid_test_instrs_contain_code_pushing_if_arm_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 3 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(set_idx)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, _),
+      ) if set_idx == 1U && cond_idx == 0U =>
+        for instr in then_body {
+          match instr {
+            LocalGet(LocalIdx(use_idx)) if use_idx == 1U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_after_if_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 5 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+      ) {
+      (
+        I32Const(_),
+        I32Const(_),
+        I32Add,
+        LocalSet(LocalIdx(set_idx)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+      ) if set_idx == 1U && cond_idx == 0U => {
+        let then_reads = then_body.any(fn(instr) {
+          match instr {
+            LocalGet(LocalIdx(idx)) => idx == 1U
+            _ => false
+          }
+        })
+        let else_reads = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                LocalGet(LocalIdx(idx)) => idx == 1U
+                _ => false
+              }
+            })
+          None => false
+        }
+        if !then_reads && !else_reads {
+          for j = i + 6; j < instrs.length(); j = j + 1 {
+            match instrs[j] {
+              LocalGet(LocalIdx(use_idx)) if use_idx == 1U => return true
+              _ => ()
+            }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingIfArmProfile),
+    "code-pushing-if-arm",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingAfterIfProfile),
+    "code-pushing-after-if",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingAllProfile),
+    "code-pushing-all",
+  )
+  assert_true(gen_valid_profile_names().contains("code-pushing-all"))
+  match gen_valid_profile_by_name("code-pushing") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, CodePushingAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      @debug.assert_eq(members.length(), 2)
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingIfArmProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingAfterIfProfile }),
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+  let leaf = gen_valid_profile_leaf_for_case(CodePushingAllProfile, 0x5eedUL, 1)
+  assert_true(!gen_valid_profile_is_composite(leaf))
+}
+
+///|
+test "code-pushing aggregate profile samples every current code-pushing family" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 32 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      CodePushingAllProfile,
+      0x5eedUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(CodePushingIfArmProfile))
+  assert_true(seen.contains(CodePushingAfterIfProfile))
+}
+
+///|
+test "code-pushing gen-valid profiles emit pass-owned if movement candidates" {
+  let into_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingIfArmProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(into_if.config_label, "code-pushing-if-arm")
+  match validate_module(into_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(into_if.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_if_arm_candidate(
+      gen_valid_test_first_func_instrs(into_if.wasm_module),
+    ),
+  )
+
+  let after_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingAfterIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(after_if.config_label, "code-pushing-after-if")
+  match validate_module(after_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(after_if.facts.has_branch_heavy_control)
+  assert_true(after_if.facts.exact_opcode_counts.i32_add > 0)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_after_if_candidate(
+      gen_valid_test_first_func_instrs(after_if.wasm_module),
+    ),
+  )
+}
+
+///|
 fn gen_valid_test_instrs_contain_pick_load_signs_candidate(
   instrs : Array[Instruction],
 ) -> Bool {

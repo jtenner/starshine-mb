@@ -1148,6 +1148,9 @@ pub enum GenValidProfile {
   PickLoadSignsImportedMemoryProfile
   PickLoadSignsI64WatchProfile
   PickLoadSignsAllProfile
+  CodePushingIfArmProfile
+  CodePushingAfterIfProfile
+  CodePushingAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
