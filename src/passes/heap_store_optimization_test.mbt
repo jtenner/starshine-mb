@@ -7056,6 +7056,116 @@ test "heap-store-optimization keeps block-wrapped call constructor operands befo
 }
 
 ///|
+test "heap-store-optimization keeps block-wrapped call constructor operands before unrelated growth roots" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let memory_mod = hso_call_test_module(2, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::memory_grow(@lib.MemIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    @lib.Instruction::drop(),
+  ]).with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  let memory_optimized = match hso_test_run_module(memory_mod) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-call/memory-grow heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let memory_pretty = memory_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(memory_pretty.contains("call"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("memory.grow"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("struct.set"), msg=memory_pretty)
+  let memory_grow_idx = match hso_test_index_of(memory_pretty, "memory.grow") {
+    Some(idx) => idx
+    None =>
+      fail("expected memory.grow in block-call/growth output: \{memory_pretty}")
+  }
+  let memory_struct_set_idx = match
+    hso_test_index_of(memory_pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail("expected struct.set in block-call/growth output: \{memory_pretty}")
+  }
+  assert_true(memory_grow_idx < memory_struct_set_idx, msg=memory_pretty)
+
+  let table_mod = hso_call_test_module(2, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::struct_new(pair),
+    @lib.Instruction::local_set(local0),
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::table_grow(@lib.TableIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::i32_const(@lib.I32(42)),
+    @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+    @lib.Instruction::local_get(local0),
+    @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    @lib.Instruction::drop(),
+  ]).with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  let table_optimized = match hso_test_run_module(table_mod) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected block-call/table-grow heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let table_pretty = table_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(table_pretty.contains("call"), msg=table_pretty)
+  assert_true(table_pretty.contains("table.grow"), msg=table_pretty)
+  assert_true(table_pretty.contains("struct.set"), msg=table_pretty)
+  let table_grow_idx = match hso_test_index_of(table_pretty, "table.grow") {
+    Some(idx) => idx
+    None =>
+      fail("expected table.grow in block-call/growth output: \{table_pretty}")
+  }
+  let table_struct_set_idx = match
+    hso_test_index_of(table_pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail("expected struct.set in block-call/growth output: \{table_pretty}")
+  }
+  assert_true(table_grow_idx < table_struct_set_idx, msg=table_pretty)
+}
+
+///|
 test "heap-store-optimization keeps call constructor operands before unrelated growth roots" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

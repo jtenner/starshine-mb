@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0937-2026-06-21-heap-store-optimization-block-call-growth-boundary.md
   - ../../../raw/research/0936-2026-06-21-heap-store-optimization-block-call-store-boundary.md
   - ../../../raw/research/0935-2026-06-21-heap-store-optimization-call-old-field-growth-boundary.md
   - ../../../raw/research/0934-2026-06-21-heap-store-optimization-call-indirect-old-field-growth-boundary.md
@@ -361,6 +362,8 @@ Current local proof surfaces include:
   - added focused HSO-G coverage for ordinary direct-call constructor operands before unrelated `i32.store` and unrelated `table.set`; Binaryen preserves the call, intervening store root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0936-2026-06-21-heap-store-optimization-block-call-store-boundary.md`](../../../raw/research/0936-2026-06-21-heap-store-optimization-block-call-store-boundary.md)
   - added focused HSO-D/G coverage for block-wrapped ordinary direct-call constructor/old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the block-wrapped call, intervening store root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0937-2026-06-21-heap-store-optimization-block-call-growth-boundary.md`](../../../raw/research/0937-2026-06-21-heap-store-optimization-block-call-growth-boundary.md)
+  - added focused HSO-D/G coverage for block-wrapped ordinary direct-call constructor/old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the block-wrapped call, intervening growth root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md`](../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md)
   - added focused HSO-D/G coverage for the ordinary direct-call old-field counterpart before unrelated `i32.store`; Binaryen preserves the call, intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md`](../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md)
