@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0935-2026-06-21-heap-store-optimization-call-old-field-growth-boundary.md
   - ../../../raw/research/0934-2026-06-21-heap-store-optimization-call-indirect-old-field-growth-boundary.md
   - ../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md
   - ../../../raw/research/0932-2026-06-21-heap-store-optimization-call-indirect-growth-boundary.md
@@ -296,6 +297,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0928` confirmed the ordinary direct-call constructor store counterparts: Binaryen preserves the direct `call`, the unrelated `i32.store` or `table.set`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0931` confirmed the ordinary direct-call constructor growth counterparts: Binaryen preserves the direct `call`, the unrelated `memory.grow` or `table.grow`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0929` confirmed the ordinary direct-call old-field / memory-store counterpart: Binaryen preserves the old-field direct `call`, the unrelated `i32.store`, and the later `struct.set`; Starshine already matched.
+  - Coverage note `0935` confirmed the ordinary direct-call old-field growth counterparts: Binaryen preserves the old-field direct `call`, the unrelated `memory.grow` or `table.grow`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0930` confirmed the typed-function-reference `call_ref` / memory-store counterparts: Binaryen preserves `call_ref`, unrelated `i32.store`, and later `struct.set` for both constructor-operand and old-field shapes; Starshine already matched.
   - Coverage note `0933` confirmed the typed-function-reference `call_ref` growth counterparts: Binaryen preserves `call_ref`, unrelated `memory.grow` or `table.grow`, and later `struct.set` for both constructor-operand and old-field shapes; Starshine already matched.
   - Coverage note `0918` confirmed the function-external tail-call counterpart: Binaryen folds a later `struct.set` into `struct.new_default` when the moved value has a branch arm that exits the function via `return_call_ref`; Starshine already matched.
