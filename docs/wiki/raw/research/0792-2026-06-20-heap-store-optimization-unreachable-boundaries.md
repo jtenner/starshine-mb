@@ -1,6 +1,6 @@
 ---
 kind: research
-status: active
+status: supported
 created: 2026-06-20
 sources:
   - ./0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
@@ -41,4 +41,4 @@ No implementation behavior changed in this coverage-only slice; the ordinary mem
 
 ## Remaining risk
 
-`[O4Z-AUDIT-HSO-H]` is narrower after this coverage, but still not complete. Remaining HSO-H work includes final wording for generic DSE/load-forwarding non-goals, future-Binaryen reopening criteria, and local exact-cast surface limits recorded in `0789`.
+Follow-up `0868` finalized the unreachable-boundary wording with a direct-root Binaryen `version_130` probe. The semantic HSO boundary is covered: unreachable constructor/set-value pairs stay no-fold and are left to later DCE. The direct-root set-value fixture limitation remains a local HOT/test-surface caveat, not an accepted HSO semantic non-goal. HSO-H still remains open for exact-cast local surface limits and descriptor `br_on_non_null` HOT CFG/verifier surface limits, plus the direct-root fixture caveat if exact lit-shape replay becomes necessary.

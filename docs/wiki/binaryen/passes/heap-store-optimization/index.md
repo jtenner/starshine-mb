@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md
   - ../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md
   - ../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md
   - ../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md
@@ -192,6 +193,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0856` confirmed Binaryen folds `struct.new_default_desc` chain stores into `struct.new_desc` when safe, but preserves a descriptor `struct.set` when a later constructor field call orders before a moved call value.
 - Generic heap dead-store elimination and load forwarding remain explicit non-goals for direct HSO.
   - Follow-up `0867` confirmed Binaryen `version_130` preserves repeated non-fresh-reference `struct.set` roots and a later `struct.get` after `struct.set`; Starshine now has matching boundary tests. Reopen only if Binaryen moves generic heap DSE/load forwarding into HSO or Starshine schedules a separate pass for those transforms.
+- Unreachable constructor/set-value pairs are an explicit no-fold boundary for HSO.
+  - Follow-up `0868` confirmed Binaryen `version_130` preserves `struct.set` for direct-root unreachable constructor and set-value shapes, matching Starshine's existing `0792` boundary tests. The exact direct-root set-value fixture remains a local HOT/test-surface caveat, not an accepted semantic non-goal.
 
 ## Beginner warning: what the name hides
 

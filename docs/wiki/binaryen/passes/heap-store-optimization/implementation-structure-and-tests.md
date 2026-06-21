@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md
   - ../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md
   - ../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md
   - ../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md
@@ -244,6 +245,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md`](../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md)
+  - finalized HSO-H unreachable-boundary wording after a direct-root Binaryen `version_130` probe: HSO preserves `struct.set` for unreachable constructor and set-value shapes and leaves cleanup to later DCE; Starshine's `0792` focused tests cover the semantic boundary while the exact direct-root set-value spelling remains a local HOT/test-surface caveat.
 - [`../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md`](../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md)
   - added HSO-H boundary coverage for the source-backed generic DSE/load-forwarding non-goal: Binaryen preserves repeated non-fresh-reference `struct.set` roots and a later `struct.get` after `struct.set`, and Starshine now has matching focused fail-closed tests.
 - [`../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md`](../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md)
