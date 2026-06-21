@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md
   - ../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md
   - ../../../raw/research/0864-2026-06-20-heap-store-optimization-descriptor-select.md
   - ../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md
@@ -242,6 +243,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md`](../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md)
+  - probed an HSO-D/F descriptor branch boundary: Binaryen preserves `struct.set` when the descriptor operand is a `br_on_non_null` block that can fall through to `unreachable` before a later call-valued store. A focused Starshine AST fixture currently hits a HOT CFG/verifier surface blocker for this descriptor-typed branch-result shape, so this is an open local-surface blocker rather than HSO parity evidence or an accepted non-goal.
 - [`../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md`](../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md)
   - added HSO-D descriptor trap-boundary coverage: Binaryen preserves `struct.set` when the descriptor operand is `ref.as_non_null` over a nullable descriptor global because folding would move a later call before a possible descriptor trap. Starshine already matched.
 - [`../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md`](../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md)
