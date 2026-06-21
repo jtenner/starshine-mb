@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0945-2026-06-21-heap-store-optimization-block-call-indirect-old-field-growth-boundary.md
   - ../../../raw/research/0944-2026-06-21-heap-store-optimization-block-call-indirect-old-field-store-boundary.md
   - ../../../raw/research/0943-2026-06-21-heap-store-optimization-block-call-ref-old-field-growth-boundary.md
   - ../../../raw/research/0942-2026-06-21-heap-store-optimization-block-call-ref-old-field-store-boundary.md
@@ -313,6 +314,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0942` confirmed the block-wrapped `call_ref` old-field store counterparts: Binaryen preserves the overwritten block-wrapped typed-function-reference call, the unrelated `i32.store` or `table.set`, and the later same-field `struct.set`; Starshine already matched.
   - Coverage note `0943` confirmed the block-wrapped `call_ref` old-field growth counterparts: Binaryen preserves the overwritten block-wrapped typed-function-reference call, the unrelated `memory.grow` or `table.grow`, and the later same-field `struct.set`; Starshine already matched.
   - Coverage note `0944` confirmed the block-wrapped `call_indirect` old-field store counterparts: Binaryen preserves the overwritten block-wrapped indirect call, the unrelated `i32.store` or `table.set`, and the later same-field `struct.set`; Starshine already matched.
+  - Coverage note `0945` confirmed the block-wrapped `call_indirect` old-field growth counterparts: Binaryen preserves the overwritten block-wrapped indirect call, the unrelated `memory.grow` or `table.grow`, and the later same-field `struct.set`; Starshine already matched.
   - Coverage note `0931` confirmed the ordinary direct-call constructor growth counterparts: Binaryen preserves the direct `call`, the unrelated `memory.grow` or `table.grow`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0929` confirmed the ordinary direct-call old-field / memory-store counterpart: Binaryen preserves the old-field direct `call`, the unrelated `i32.store`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0935` confirmed the ordinary direct-call old-field growth counterparts: Binaryen preserves the old-field direct `call`, the unrelated `memory.grow` or `table.grow`, and the later `struct.set`; Starshine already matched.
