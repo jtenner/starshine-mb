@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0913-2026-06-21-heap-store-optimization-try-table-growth-boundary.md
   - ../../../raw/research/0912-2026-06-21-heap-store-optimization-try-table-same-effect-boundary.md
   - ../../../raw/research/0911-2026-06-21-heap-store-optimization-try-table-table-size-boundary.md
   - ../../../raw/research/0910-2026-06-21-heap-store-optimization-try-table-memory-size-boundary.md
@@ -261,10 +262,11 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0888` confirmed Binaryen folds when a `memory.size` constructor operand crosses an intervening `table.grow`, and when a `table.size` constructor operand crosses an intervening `memory.grow`, while preserving the growth roots. Starshine already matched both shapes. Same-family growth/store/bulk/passive barriers from `0815` through `0843` remain no-fold boundaries.
 - Effectful indirect-call constructor operands are a no-swap boundary across intervening roots.
   - Coverage note `0891` confirmed Binaryen preserves the constructor `local.set` and later `struct.set` when a `call_indirect` constructor field precedes an unrelated mutable `global.set`; folding would move the indirect call across the root. Starshine already matched this HSO-G boundary.
-- `try_table` wrappers are a no-fold boundary for the probed ordinary-store and same-effect bulk-root swap shapes.
+- `try_table` wrappers are a no-fold boundary for the probed ordinary-store, same-effect bulk-root, and cross-family growth-root swap shapes.
   - Coverage note `0910` confirmed Binaryen preserves `memory.size`, `try_table` / `table.set`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0911` confirmed the table-side counterpart: Binaryen preserves `table.size`, `try_table` / `i32.store`, and the later `struct.set`; Starshine already matched.
-  - Coverage note `0912` confirmed the same-effect bulk-root counterparts: Binaryen preserves `memory.size` before `try_table` / `memory.fill` and `table.size` before `try_table` / `table.fill`; Starshine already matched. These notes do not supersede the existing block/if/loop/br_table cross-family ordinary-store positives.
+  - Coverage note `0912` confirmed the same-effect bulk-root counterparts: Binaryen preserves `memory.size` before `try_table` / `memory.fill` and `table.size` before `try_table` / `table.fill`; Starshine already matched.
+  - Coverage note `0913` confirmed the cross-family growth-root counterparts: Binaryen preserves `memory.size` before `try_table` / `table.grow` and `table.size` before `try_table` / `memory.grow`; Starshine already matched. These notes do not supersede the existing block/if/loop/br_table cross-family ordinary-store positives or the direct cross-family growth positives from `0888`.
 - Trapping old-field values must be preserved when a later store would overwrite them.
   - Follow-up `0892` fixed a Starshine parity gap where an overwritten constructor field using integer `div`/`rem` could be treated as pure and dropped. Binaryen preserves the trapping old-field evaluation and the later `struct.set` in the probed `i32.div_s` / `global.set` shape; Starshine now matches by marking exact integer div/rem nodes as trapping for HSO legality and old-field preservation.
   - Follow-up `0893` fixed the same parity gap for exact non-saturating float-to-int truncation old fields. Binaryen preserves `i32.trunc_f32_s` before an intervening mutable `global.set` and leaves the later `struct.set`; Starshine now marks exact `i32`/`i64.trunc_f32`/`trunc_f64` nodes as trapping for the same HSO legality and old-field preservation checks.

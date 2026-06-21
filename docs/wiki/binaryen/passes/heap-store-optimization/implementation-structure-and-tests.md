@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0913-2026-06-21-heap-store-optimization-try-table-growth-boundary.md
   - ../../../raw/research/0912-2026-06-21-heap-store-optimization-try-table-same-effect-boundary.md
   - ../../../raw/research/0911-2026-06-21-heap-store-optimization-try-table-table-size-boundary.md
   - ../../../raw/research/0910-2026-06-21-heap-store-optimization-try-table-memory-size-boundary.md
@@ -325,6 +326,8 @@ Current local proof surfaces include:
   - fixed the same HSO-D/G trapping old-field parity gap for exact non-saturating float-to-int truncation: Binaryen preserves `i32.trunc_f32_s` in an overwritten constructor field and leaves the later `struct.set` when a mutable `global.set` intervenes; Starshine now marks exact `i32`/`i64.trunc_f32`/`trunc_f64` nodes as trapping for HSO effect and reorderability checks.
 - [`../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md`](../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md)
   - fixed a focused HSO-D/G parity gap for trapping old-field preservation: Binaryen preserves `i32.div_s` in an overwritten constructor field and leaves the later `struct.set` when a mutable `global.set` intervenes; Starshine now marks exact integer div/rem nodes as trapping for HSO effect and reorderability checks.
+- [`../../../raw/research/0913-2026-06-21-heap-store-optimization-try-table-growth-boundary.md`](../../../raw/research/0913-2026-06-21-heap-store-optimization-try-table-growth-boundary.md)
+  - added focused HSO-G coverage for cross-family growth-root `try_table` wrapper boundaries: Binaryen preserves `memory.size` before `try_table` / `table.grow` and `table.size` before `try_table` / `memory.grow`; Starshine already matched.
 - [`../../../raw/research/0912-2026-06-21-heap-store-optimization-try-table-same-effect-boundary.md`](../../../raw/research/0912-2026-06-21-heap-store-optimization-try-table-same-effect-boundary.md)
   - added focused HSO-G coverage for same-effect `try_table` wrapper boundaries: Binaryen preserves `memory.size` before `try_table` / `memory.fill` and `table.size` before `try_table` / `table.fill`; Starshine already matched.
 - [`../../../raw/research/0911-2026-06-21-heap-store-optimization-try-table-table-size-boundary.md`](../../../raw/research/0911-2026-06-21-heap-store-optimization-try-table-table-size-boundary.md)
