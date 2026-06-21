@@ -164,6 +164,27 @@ fn hso_test_branching_loop_call_indirect_value() -> @lib.Instruction {
 }
 
 ///|
+fn hso_test_branching_loop_call_ref_value() -> @lib.Instruction {
+  @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::loop_(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::ref_as_non_null(),
+          @lib.Instruction::call_ref(@lib.TypeIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(1U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+      @lib.Instruction::i32_const(@lib.I32(3)),
+    ]),
+  )
+}
+
+///|
 fn hso_test_branch_containing_wraps(
   body : Array[@lib.Instruction],
 ) -> Array[Array[@lib.Instruction]] {
@@ -747,6 +768,9 @@ fn hso_call_ref_table_test_module(
         None,
       ),
     ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
   )
   .with_code_sec(
     @lib.CodeSec::new([
@@ -10476,6 +10500,205 @@ test "heap-store-optimization keeps branch-containing loop call_indirect constru
     None =>
       fail(
         "expected struct.set in branch-loop-call-indirect-constructor/table-grow output: \{table_pretty}",
+      )
+  }
+  assert_true(table_grow_idx < table_struct_set_idx, msg=table_pretty)
+}
+
+///|
+test "heap-store-optimization keeps branch-containing loop call_ref constructor operands before unrelated stores" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(1U)
+  let memory_optimized = match
+    hso_test_run_module(
+      hso_call_ref_table_test_module([
+        hso_test_branching_loop_call_ref_value(),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(99)),
+        @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 0UL)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected branch-loop-call-ref-constructor/i32-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let memory_pretty = memory_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(memory_pretty.contains("call_ref"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("loop"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("br_if"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("i32.store"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("struct.set"), msg=memory_pretty)
+  let memory_store_idx = match hso_test_index_of(memory_pretty, "i32.store") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected i32.store in branch-loop-call-ref-constructor/i32-store output: \{memory_pretty}",
+      )
+  }
+  let memory_struct_set_idx = match
+    hso_test_index_of(memory_pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected struct.set in branch-loop-call-ref-constructor/i32-store output: \{memory_pretty}",
+      )
+  }
+  assert_true(memory_store_idx < memory_struct_set_idx, msg=memory_pretty)
+
+  let table_optimized = match
+    hso_test_run_module(
+      hso_call_ref_table_test_module([
+        hso_test_branching_loop_call_ref_value(),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected branch-loop-call-ref-constructor/table-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let table_pretty = table_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(table_pretty.contains("call_ref"), msg=table_pretty)
+  assert_true(table_pretty.contains("loop"), msg=table_pretty)
+  assert_true(table_pretty.contains("br_if"), msg=table_pretty)
+  assert_true(table_pretty.contains("table.set"), msg=table_pretty)
+  assert_true(table_pretty.contains("struct.set"), msg=table_pretty)
+  let table_set_idx = match hso_test_index_of(table_pretty, "table.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected table.set in branch-loop-call-ref-constructor/table-set output: \{table_pretty}",
+      )
+  }
+  let table_struct_set_idx = match
+    hso_test_index_of(table_pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected struct.set in branch-loop-call-ref-constructor/table-set output: \{table_pretty}",
+      )
+  }
+  assert_true(table_set_idx < table_struct_set_idx, msg=table_pretty)
+}
+
+///|
+test "heap-store-optimization keeps branch-containing loop call_ref constructor operands before unrelated growth roots" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(1U)
+  let memory_optimized = match
+    hso_test_run_module(
+      hso_call_ref_table_test_module([
+        hso_test_branching_loop_call_ref_value(),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::memory_grow(@lib.MemIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected branch-loop-call-ref-constructor/memory-grow heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let memory_pretty = memory_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(memory_pretty.contains("call_ref"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("loop"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("br_if"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("memory.grow"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("struct.set"), msg=memory_pretty)
+  let memory_grow_idx = match hso_test_index_of(memory_pretty, "memory.grow") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected memory.grow in branch-loop-call-ref-constructor/memory-grow output: \{memory_pretty}",
+      )
+  }
+  let memory_struct_set_idx = match
+    hso_test_index_of(memory_pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected struct.set in branch-loop-call-ref-constructor/memory-grow output: \{memory_pretty}",
+      )
+  }
+  assert_true(memory_grow_idx < memory_struct_set_idx, msg=memory_pretty)
+
+  let table_optimized = match
+    hso_test_run_module(
+      hso_call_ref_table_test_module([
+        hso_test_branching_loop_call_ref_value(),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::table_grow(@lib.TableIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected branch-loop-call-ref-constructor/table-grow heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let table_pretty = table_optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(table_pretty.contains("call_ref"), msg=table_pretty)
+  assert_true(table_pretty.contains("loop"), msg=table_pretty)
+  assert_true(table_pretty.contains("br_if"), msg=table_pretty)
+  assert_true(table_pretty.contains("table.grow"), msg=table_pretty)
+  assert_true(table_pretty.contains("struct.set"), msg=table_pretty)
+  let table_grow_idx = match hso_test_index_of(table_pretty, "table.grow") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected table.grow in branch-loop-call-ref-constructor/table-grow output: \{table_pretty}",
+      )
+  }
+  let table_struct_set_idx = match
+    hso_test_index_of(table_pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected struct.set in branch-loop-call-ref-constructor/table-grow output: \{table_pretty}",
       )
   }
   assert_true(table_grow_idx < table_struct_set_idx, msg=table_pretty)
