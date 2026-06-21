@@ -5720,6 +5720,63 @@ test "optimize-instructions drops masked low bits before narrow stores" {
 }
 
 ///|
+test "optimize-instructions drops superset low-bit masks before narrow stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $value32 i32) (param $value64 i64)
+        #|    local.get $ptr
+        #|    local.get $value32
+        #|    i32.const 511
+        #|    i32.and
+        #|    i32.store8
+        #|    local.get $ptr
+        #|    local.get $value32
+        #|    i32.const 131071
+        #|    i32.and
+        #|    i32.store16
+        #|    local.get $ptr
+        #|    local.get $value64
+        #|    i64.const 511
+        #|    i64.and
+        #|    i64.store8
+        #|    local.get $ptr
+        #|    local.get $value64
+        #|    i64.const 131071
+        #|    i64.and
+        #|    i64.store16
+        #|    local.get $ptr
+        #|    local.get $value64
+        #|    i64.const 8589934591
+        #|    i64.and
+        #|    i64.store32))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected superset mask store optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // OI-G coverage/classification: Binaryen version_130 only drops the exact
+  // i32 masks in this family, but storing a value masked with any superset of
+  // the stored low bits is equivalent to storing the unmasked value. Starshine
+  // intentionally keeps the smaller, already-implemented cleanup for both i32
+  // and i64 narrow stores rather than matching Binaryen's larger output shape.
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("i64.and"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "(local.get (Local 1))", "i32.store8", "(local.get (Local 0))",
+    "(local.get (Local 1))", "i32.store16", "(local.get (Local 0))", "(local.get (Local 2))",
+    "i64.store8", "(local.get (Local 0))", "(local.get (Local 2))", "i64.store16",
+    "(local.get (Local 0))", "(local.get (Local 2))", "i64.store32",
+  ])
+}
+
+///|
 test "optimize-instructions keeps value-changing masks before narrow stores" {
   let optimized = match
     pass_test_run_pipeline(

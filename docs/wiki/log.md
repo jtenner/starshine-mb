@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-G superset store masks
+
+- Filed [`raw/research/0822-2026-06-20-optimize-instructions-oi-g-superset-store-mask.md`](raw/research/0822-2026-06-20-optimize-instructions-oi-g-superset-store-mask.md) for the twenty-second `[O4Z-AUDIT-OI-G]` memory/load-store sub-slice. Binaryen `version_130` keeps superset low-bit masks such as `i32.and 511` before `i32.store8`, while Starshine locks the existing smaller output shape that removes masks preserving all bits written by the narrow store.
+- Evidence: Binaryen oracle `.tmp/oi-g-wide-mask-narrow-store-probe.wat` kept the superset i32/i64 masks; control oracle `.tmp/oi-g-exact-mask-narrow-store-probe.wat` re-confirmed Binaryen's exact i32 mask cleanup and exact i64 keep-spelling boundary. Red-first positive implementation did not apply because this was coverage/classification for existing Starshine-win behavior. Focused `*superset low-bit masks*` passed `1/1`, `*narrow stores*` passed `8/8`, `*optimize-instructions*` passed `204/204`, `moon fmt`, `moon test src/passes` (`2734/2734`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known raw mismatch that had no narrow-store or bulk-memory operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Classify OI-J descriptor cast boundary
 
 - Filed [`raw/research/0821-2026-06-20-optimize-instructions-oi-j-descriptor-cast-boundary.md`](raw/research/0821-2026-06-20-optimize-instructions-oi-j-descriptor-cast-boundary.md) for the fourth `[O4Z-AUDIT-OI-J]` boundary sub-slice. Binaryen `version_130` keeps official two-operand `ref.cast_desc_eq` forms under `--enable-custom-descriptors`; Starshine now has local fail-closed coverage proving its legacy unary descriptor-cast HOT surface is not consumed by ordinary `ref.cast` cleanup helpers.
