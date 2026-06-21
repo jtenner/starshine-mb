@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md
   - ../../../raw/research/0897-2026-06-21-heap-store-optimization-memory-grow-old-field.md
   - ../../../raw/research/0896-2026-06-21-heap-store-optimization-table-get-old-field.md
   - ../../../raw/research/0895-2026-06-21-heap-store-optimization-memory-load-old-field.md
@@ -274,6 +275,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md`](../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md)
+  - added focused HSO-D/G side-effectful old-field coverage for the table-growth counterpart: Binaryen folds an overwritten `table.grow` constructor field across an unrelated mutable `global.set` while preserving `table.grow` under `drop`; Starshine already matched, so no implementation change was needed.
 - [`../../../raw/research/0897-2026-06-21-heap-store-optimization-memory-grow-old-field.md`](../../../raw/research/0897-2026-06-21-heap-store-optimization-memory-grow-old-field.md)
   - added focused HSO-D/G side-effectful old-field coverage: Binaryen folds an overwritten `memory.grow` constructor field across an unrelated mutable `global.set` while preserving `memory.grow` under `drop`; Starshine already matched, so no implementation change was needed.
 - [`../../../raw/research/0896-2026-06-21-heap-store-optimization-table-get-old-field.md`](../../../raw/research/0896-2026-06-21-heap-store-optimization-table-get-old-field.md)

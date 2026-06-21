@@ -6055,6 +6055,40 @@ test "heap-store-optimization folds memory-grow old fields across unrelated glob
 }
 
 ///|
+test "heap-store-optimization folds table-grow old fields across unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_test_run_module(
+      hso_funcref_table_global_test_module([
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::table_grow(@lib.TableIdx::new(0U)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table-grow-old-field/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.grow"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps trapping table-get old fields before unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
