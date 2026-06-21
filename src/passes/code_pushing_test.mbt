@@ -285,6 +285,116 @@ test "code-pushing sinks if-arm local.set when the opposite arm cannot fall thro
 }
 
 ///|
+test "code-pushing moves pure SFA set after harmless if before later use" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    i32.const 7
+      #|    local.set 1
+      #|    local.get 0
+      #|    if
+      #|      nop
+      #|    end
+      #|    local.get 1
+      #|    drop))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "if")
+  let moved_set = @ir.hot_root_get(func, 2)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, moved_set, 0)).op {
+    @ir.HotOp::Const => ()
+    other => abort("expected moved const value, got \{other}")
+  }
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "drop")
+}
+
+///|
+test "code-pushing keeps SFA set before if when the local is used before the if" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (local i32)
+        #|    i32.const 7
+        #|    local.set 1
+        #|    local.get 1
+        #|    drop
+        #|    local.get 0
+        #|    if
+        #|      nop
+        #|    end
+        #|    local.get 1
+        #|    drop))
+        #|
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded code-pushing success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing keeps SFA set before if across an ordered-before barrier" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global i32 (i32.const 9))
+        #|  (memory 1)
+        #|  (func (param i32) (local i32)
+        #|    global.get 0
+        #|    local.set 1
+        #|    i32.const 0
+        #|    i32.const 1
+        #|    i32.store
+        #|    local.get 0
+        #|    if
+        #|      nop
+        #|    end
+        #|    local.get 1
+        #|    drop))
+        #|
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded code-pushing success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(global.get (Global 0))(local.set (Local 1))(i32.const I32(0))(i32.const I32(1))(i32.store",
+    ),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-pushing flattens dead typed block before unreachable" {
   let func = code_pushing_test_run_hot(
     (
@@ -340,25 +450,16 @@ test "code-pushing keeps dead block with branch before unreachable" {
 }
 
 ///|
-test "code-pushing keeps const local.set when only nested later code uses it" {
-  let trace : Array[String] = []
-  let optimized = match
-    pass_test_run_pipeline(
-      "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if nop end (block local.get 1 drop)))",
-      ["code-pushing"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected guarded code-pushing success, got \{err}")
-  }
-
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
-    msg=trace.to_string(),
+test "code-pushing moves const local.set after if before nested later use" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if nop end (block local.get 1 drop)))",
   )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "if")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "local.set")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "block")
 }
 
 ///|
@@ -484,7 +585,7 @@ test "code-pushing sinks local.get set after unrelated effectful if" {
     }
   }
   assert_true(if_idx >= 0, msg="expected if root")
-  assert_true(moved_set_idx == if_idx + 1, msg="expected moved set after if")
+  assert_true(moved_set_idx > if_idx, msg="expected moved set after if")
 }
 
 ///|

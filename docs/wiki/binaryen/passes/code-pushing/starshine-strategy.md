@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
   - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md
@@ -51,13 +52,16 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - A cloned `local.set` is inserted into the one `if` arm that contains all in-arm reads of that local.
    - Same-region suffix reads after the `if` are allowed only when the opposite arm cannot fall through under the current conservative root proof.
    - Values are limited to pure nontrapping HOT values plus guarded `global.get` and local-copy setup shapes.
-2. **Non-mutating segment-window inventory**
+2. **Ordinary-void-`if` segment movement**
+   - The first mutating segment-window consumer moves one SFA `local.set` after an ordinary void `if` when the `if` itself does not read the local and every read is a same-region suffix read after the `if`.
+   - The helper requires the non-mutating diagnostic to classify the window as `candidate:if` before rewriting.
+3. **Non-mutating segment-window inventory**
    - Whitebox-only helpers now classify block-local `local.set` candidate windows and push-point kinds before mutation.
    - Covered labels include ordinary `if`, dropped `if`, locally representable conditional branches, SFA rejections, and coarse ordered-before barriers.
-3. **Guarded setup movement across later roots**
+4. **Guarded setup movement across later roots**
    - Selected `global.get` and local-copy `local.set` roots can move later when intervening roots do not invalidate the source value or local proof.
    - Value-producing `if`, source writes, branchy/unreachable control, and effectful invalidation remain conservative barriers.
-4. **Starshine-local typed/dead-block flattening near unreachable context**
+5. **Starshine-local typed/dead-block flattening near unreachable context**
    - A block next to an `unreachable` parent context can be flattened when branch and multivalue guards prove the splice safe.
    - This is local cleanup bundled in the current pass, not a source-confirmed upstream Binaryen `code-pushing` family.
 
@@ -74,10 +78,11 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 87-410 | Effect, local get/write, suffix, non-fallthrough, and value-crossing guards |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 412-516 | Non-mutating push-point / segment-window diagnostic inventory |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 519-589 | Branch, unreachable, and dead-context helpers |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 591-677 | Starshine-local dead-block flattening helper |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 680-829 | Guarded `global.get` and local-copy setup movement across later roots |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 831-975 | Current single-consuming-arm `local.set` into `if` rewrite |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 977-1084 | Recursive region scan and fixed-point driver |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 585-673 | Starshine-local dead-block flattening helper |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 674-823 | Guarded `global.get` and local-copy setup movement across later roots |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 825-902 | First ordinary-void-`if` segment movement helper |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 904-1051 | Current single-consuming-arm `local.set` into `if` rewrite |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 1053-1170 | Recursive region scan and fixed-point driver |
 | [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Focused positives and negatives for current mutating behavior |
 | [`src/passes/code_pushing_wbtest.mbt`](../../../../../src/passes/code_pushing_wbtest.mbt) | Whitebox segment-window inventory and rejection-reason tests |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 212-220 | Registry entry as `HotPass` |
@@ -94,7 +99,7 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | `Pusher` block segment scan | Non-mutating segment-window diagnostic recognizes selected block-local candidate windows; mutating paths remain bounded and narrower |
 | `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get` and local-copy cases; diagnostic reports coarse ordered-before/effect barriers |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Diagnostic recognizes these where HOT representation is local; mutation still targets the existing void-`if` subset |
-| `optimizeSegment(...)` ordered multi-set movement | Not implemented generally |
+| `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if` after-movement slice implemented; broader multi-set and other push-point movement not implemented generally |
 | `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm, plus same-region suffix reads when the opposite arm cannot fall through |
 | Unreachable-arm post-use allowance | First conservative slice implemented for roots ending in `unreachable`, `return`, or tail-return roots |
 | `version_130` ordered-before / atomics source surfaces | Not implemented generally; retained as explicit audit gap |
@@ -118,6 +123,23 @@ Current HOT rewrite shape:
 - replace the original `local.set` root with `nop`;
 - insert a cloned `local.set` at the beginning of the single consuming arm;
 - leave the existing local uses in that arm.
+
+The first ordinary-void-`if` segment slice targets this narrow shape:
+
+```wat
+(local.set $tmp (i32.const 7))
+(if
+  (local.get $cond)
+  (then
+    nop))
+(drop (local.get $tmp))
+```
+
+Current HOT rewrite shape:
+
+- replace the original `local.set` root with `nop`;
+- insert a cloned `local.set` immediately after the void `if`;
+- leave later same-region suffix reads unchanged.
 
 The pass refuses to move when:
 
@@ -165,8 +187,8 @@ Read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness
 
 The short version:
 
-1. build on the initial analyzer/segment-window diagnostic inventory from [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md);
-2. expand safe segment movement before widening value effects;
+1. build on the initial analyzer/segment-window diagnostic inventory from [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md) and the first ordinary-void-`if` movement slice from [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md);
+2. expand remaining safe segment movement before widening value effects;
 3. preserve the first unreachable-arm post-use support and broaden it only with source-backed control-flow proof;
 4. only then widen to Binaryen's broader effect-checked / ordered-before value movement;
 5. test GC, atomics, EH, trap-option, switch, and conditional-branch families explicitly;
@@ -185,11 +207,12 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, and the first analyzer/segment inventory now exists. The next active audit work is a smallest source-backed safe segment-movement slice, with ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the first analyzer/segment inventory exists, and the first ordinary-void-`if` segment movement slice now consumes that inventory. The next active audit work is still broader source-backed segment/push-point parity, with ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
 - [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
 - [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md)

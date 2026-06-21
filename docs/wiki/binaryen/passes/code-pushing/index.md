@@ -4,6 +4,8 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
+  - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md
   - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
@@ -56,6 +58,7 @@ The current source-backed Binaryen mental model is:
 The current Starshine implementation is an accepted direct-pass subset under Starshine's pass-wide completion criteria:
 
 - safe movable-value `local.set` sinking into the single `if` arm that contains all reads of that local;
+- a first ordinary-void-`if` segment movement slice that moves one SFA set after the `if` when all reads are same-region suffix reads;
 - guarded movement of selected `global.get` and local-copy setup shapes across safe intervening roots;
 - one Starshine-local typed/dead-block flattening helper near unreachable context.
 
@@ -105,6 +108,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 ### Current Starshine output shape
 
 - Narrow single-consuming-arm local-set sinks become `nop` at the original root plus a cloned `local.set` inside the target arm.
+- The first segment movement slice can replace the original SFA set with `nop` and insert the cloned set immediately after an ordinary void `if` when all uses are later suffix reads.
 - Some typed/dead block roots near unreachable context are spliced into the parent region.
 - Unmatched shapes stay unchanged.
 
@@ -151,7 +155,7 @@ For docs maintenance:
 For current `[O4Z-AUDIT-CP]` widening:
 
 1. add focused tests in `src/passes/code_pushing_test.mbt` before mutating behavior and whitebox tests in `src/passes/code_pushing_wbtest.mbt` for analyzer-only surfaces;
-2. build on the first analyzer/segment-discovery slice from [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md) before broad mutation;
+2. build on the first analyzer/segment-discovery slice from [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), and the first ordinary-`if` segment movement slice from [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), before broad mutation;
 3. validate direct pass execution through registry and command surfaces;
 4. compare reduced WAT against Binaryen `wasm-opt --code-pushing` for each widened family;
 5. then run pass-fuzz / artifact comparisons under the standard pass signoff criteria;
@@ -175,6 +179,8 @@ For current `[O4Z-AUDIT-CP]` widening:
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
+- [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
 - [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md)
 - [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md)
