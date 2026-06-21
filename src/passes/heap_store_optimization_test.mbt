@@ -1183,6 +1183,87 @@ fn hso_desc_i32_global_test_run(
 }
 
 ///|
+fn hso_desc_two_i32_global_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let descriptor_group = @lib.RecType::group([
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(2)),
+      metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(1U))),
+    ),
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
+    ),
+  ])
+  let pair_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([descriptor_group, func_type]))
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("desc"),
+        @lib.ExternType::global(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                true,
+                @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+                exact=true,
+              ),
+            ),
+            false,
+          ),
+        ),
+      ),
+    ]),
+  )
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([pair_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_desc_two_i32_global_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_desc_two_i32_global_test_module(body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid descriptor+two-i32-global heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_exact_desc_ref_type(nullable : Bool) -> @lib.ValType {
   @lib.ValType::ref_type(
     @lib.RefType::new(
@@ -2263,6 +2344,82 @@ test "heap-store-optimization folds descriptor store despite later field target-
   assert_true(pretty.contains("call"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds descriptor store across unrelated later-field global read" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_two_i32_global_test_run([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::struct_new_desc(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(2U)),
+          @lib.Instruction::i32_const(@lib.I32(9)),
+        ]),
+      ),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor unrelated later-field global-read heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps descriptor store before same later-field global read" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_two_i32_global_test_run([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::struct_new_desc(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32(9)),
+        ]),
+      ),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor same later-field global-read heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|

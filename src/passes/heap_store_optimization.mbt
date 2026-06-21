@@ -304,6 +304,99 @@ fn hso_subtree_accesses_global(
 }
 
 ///|
+fn hso_subtree_global_order_conflicts(
+  func : @ir.HotFunc,
+  barrier_id : Int,
+  moved_id : Int,
+) -> Bool {
+  if barrier_id < 0 || !@ir.hot_node_is_live(func, barrier_id) {
+    return false
+  }
+  let barrier = @ir.hot_node_get(func, barrier_id)
+  match barrier.op {
+    @ir.HotOp::GlobalGet =>
+      if hso_subtree_accesses_global(func, moved_id, barrier.imm0, true) {
+        return true
+      }
+    @ir.HotOp::GlobalSet =>
+      if hso_subtree_accesses_global(func, moved_id, barrier.imm0, false) ||
+        hso_subtree_accesses_global(func, moved_id, barrier.imm0, true) {
+        return true
+      }
+    _ => ()
+  }
+  for idx = 0; idx < @ir.hot_child_count(func, barrier_id); idx = idx + 1 {
+    if hso_subtree_global_order_conflicts(
+        func,
+        @ir.hot_child_get(func, barrier_id, idx),
+        moved_id,
+      ) {
+      return true
+    }
+  }
+  match barrier.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_global_order_conflicts(
+        func,
+        @ir.hot_region_body_ref(func, barrier_id),
+        moved_id,
+      )
+    @ir.HotOp::If =>
+      hso_region_global_order_conflicts(
+        func,
+        @ir.hot_region_then_ref(func, barrier_id),
+        moved_id,
+      ) ||
+      (match @ir.hot_region_else_ref(func, barrier_id) {
+        Some(region_ref) =>
+          hso_region_global_order_conflicts(func, region_ref, moved_id)
+        None => false
+      })
+    @ir.HotOp::Try =>
+      hso_region_global_order_conflicts(
+        func,
+        @ir.hot_region_body_ref(func, barrier_id),
+        moved_id,
+      ) ||
+      (match @ir.hot_region_catch_ref(func, barrier_id) {
+        Some(region_ref) =>
+          hso_region_global_order_conflicts(func, region_ref, moved_id)
+        None => false
+      })
+    @ir.HotOp::TryTable =>
+      hso_region_global_order_conflicts(
+        func,
+        @ir.hot_region_body_ref(func, barrier_id),
+        moved_id,
+      ) ||
+      hso_region_global_order_conflicts(
+        func,
+        @ir.hot_region_catch_list_ref(func, barrier_id),
+        moved_id,
+      )
+    _ => false
+  }
+}
+
+///|
+fn hso_region_global_order_conflicts(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  moved_id : Int,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hso_subtree_global_order_conflicts(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        moved_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn hso_subtree_has_global_write(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1124,6 +1217,19 @@ fn hso_nodes_can_reorder(
   moved_id : Int,
   moved_mask : UInt,
 ) -> Bool {
+  if hso_subtree_global_order_conflicts(func, barrier_id, moved_id) {
+    return false
+  }
+  let barrier_without_global = barrier_mask ^
+    (barrier_mask & @ir.EFFECT_MASK_GLOBAL_STATE)
+  let moved_without_global = moved_mask ^
+    (moved_mask & @ir.EFFECT_MASK_GLOBAL_STATE)
+  if barrier_mask != 0U &&
+    moved_mask != 0U &&
+    barrier_without_global == 0U &&
+    moved_without_global == 0U {
+    return true
+  }
   if !hso_mask_ordered_before(barrier_mask, moved_mask) {
     return true
   }
@@ -2396,6 +2502,21 @@ fn hso_try_fold_into_struct_new(
   if new_type_idx != type_idx || field_idx < 0 || field_idx >= field_count {
     return None
   }
+  for idx = field_idx + 1; idx < field_count; idx = idx + 1 {
+    if !needs_default_materialization {
+      let later_id = @ir.hot_child_get(func, struct_new_id, idx)
+      if hso_subtree_global_order_conflicts(func, later_id, value_id) {
+        return None
+      }
+    }
+  }
+  match desc_id {
+    Some(desc_id) =>
+      if hso_subtree_global_order_conflicts(func, desc_id, value_id) {
+        return None
+      }
+    None => ()
+  }
   ignore(hso_trim_unreachable_subtree(func, value_id))
   let lifted_prefix_roots = match
     hso_peel_reorderable_value_prefix_roots(
@@ -2442,37 +2563,54 @@ fn hso_try_fold_into_struct_new(
     } else {
       @ir.hot_child_get(func, struct_new_id, idx)
     }
+    let later_mask = if later_id >= 0 {
+      hso_effects_for_node(func, node_masks, later_id)
+    } else {
+      0U
+    }
     if !hso_nodes_can_reorder(
-        cache,
-        func,
-        node_masks,
-        later_id,
-        if later_id >= 0 {
-          hso_effects_for_node(func, node_masks, later_id)
-        } else {
-          0U
-        },
-        value_id,
-        value_reorder_mask,
+        cache, func, node_masks, later_id, later_mask, value_id, value_reorder_mask,
       ) {
       return None
     }
-  }
-  match desc_id {
-    Some(desc_id) =>
+    for prefix_id in lifted_prefix_roots {
       if !hso_nodes_can_reorder(
           cache,
           func,
           node_masks,
-          desc_id,
-          hso_desc_operand_effects_for_node(
-            func, module_ctx, node_masks, desc_id,
-          ),
-          value_id,
-          value_reorder_mask,
+          later_id,
+          later_mask,
+          prefix_id,
+          hso_reorder_effect_mask(cache, func, node_masks, prefix_id),
         ) {
         return None
       }
+    }
+  }
+  match desc_id {
+    Some(desc_id) => {
+      let desc_mask = hso_desc_operand_effects_for_node(
+        func, module_ctx, node_masks, desc_id,
+      )
+      if !hso_nodes_can_reorder(
+          cache, func, node_masks, desc_id, desc_mask, value_id, value_reorder_mask,
+        ) {
+        return None
+      }
+      for prefix_id in lifted_prefix_roots {
+        if !hso_nodes_can_reorder(
+            cache,
+            func,
+            node_masks,
+            desc_id,
+            desc_mask,
+            prefix_id,
+            hso_reorder_effect_mask(cache, func, node_masks, prefix_id),
+          ) {
+          return None
+        }
+      }
+    }
     None => ()
   }
 
