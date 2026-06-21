@@ -1722,6 +1722,105 @@ fn hso_desc_call_test_run(
 }
 
 ///|
+fn hso_desc_tail_call_test_module(
+  body : Array[@lib.Instruction],
+  mutable_desc : Bool,
+) -> @lib.Module {
+  let descriptor_group = @lib.RecType::group([
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_struct_fields(2)),
+      metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(1U))),
+    ),
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
+    ),
+  ])
+  let helper_type_idx = @lib.TypeIdx::new(2U)
+  let helper_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let func_type_idx = @lib.TypeIdx::new(3U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let pair_ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([descriptor_group, helper_type, func_type]))
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("desc"),
+        @lib.ExternType::global(
+          @lib.GlobalType::new(hso_exact_desc_ref_type(false), mutable_desc),
+        ),
+      ),
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("helper"),
+        @lib.ExternType::func(helper_type_idx),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([pair_ref_type]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_desc_tail_call_test_run(
+  body : Array[@lib.Instruction],
+  mutable_desc : Bool,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_desc_tail_call_test_module(body, mutable_desc)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid descriptor-tail-call heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_desc_tail_call_indirect_test_run(
+  body : Array[@lib.Instruction],
+  mutable_desc : Bool,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_desc_tail_call_test_module(body, mutable_desc).with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid descriptor-tail-call-indirect heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_desc_call_ref_test_module_with_desc_mutability(
   body : Array[@lib.Instruction],
   mutable_desc : Bool,
@@ -8468,6 +8567,108 @@ test "heap-store-optimization keeps descriptor result try_table mutable descript
   assert_true(pretty.contains("struct.new_desc"), msg=pretty)
   assert_true(pretty.contains("try_table"), msg=pretty)
   assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps descriptor result try_table mutable descriptor return_call" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_tail_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(4)),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      true,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor result try_table mutable descriptor return_call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps descriptor result try_table mutable descriptor return_call_indirect" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_tail_call_indirect_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::return_call_indirect(
+                  @lib.TypeIdx::new(2U),
+                  @lib.TableIdx::new(0U),
+                ),
+                @lib.Instruction::i32_const(@lib.I32(4)),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      true,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor result try_table mutable descriptor return_call_indirect heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
   assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
