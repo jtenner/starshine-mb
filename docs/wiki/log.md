@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Preserve OI-J exact ref.cast boundary
+
+- Filed [`raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md`](raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md) for the first `[O4Z-AUDIT-OI-J]` exactness sub-slice. Binaryen `version_130` keeps exact `ref.cast` checks from inexact same-heap locals under custom descriptors; Starshine now does the same and no longer removes those casts into invalid exact-result functions.
+- Evidence: Binaryen oracle probe `.tmp/oi-j-exact-cast-probe.wat` kept exact casts with `--enable-custom-descriptors`. Red-first `*exact ref.cast*` failed with a final module validation mismatch after Starshine removed the cast; after the exactness guard, `*exact ref.cast*` passed `1/1`, `*ref.cast*` passed `31/31`, `*ref*` passed `67/67`, `*optimize-instructions*` passed `200/200`, `moon fmt`, `moon test src/passes` (`2730/2730`), native `src/cmd` build, and `moon info` passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference/call_ref operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Classify OI-G signed-load store boundary
 
 - Filed [`raw/research/0817-2026-06-20-optimize-instructions-oi-g-signed-load-store-boundary.md`](raw/research/0817-2026-06-20-optimize-instructions-oi-g-signed-load-store-boundary.md) for the twenty-first `[O4Z-AUDIT-OI-G]` memory/load-store boundary sub-slice. Binaryen `version_130` keeps signed loads before matching narrow stores (`i32.load8_s`/`i32.store8`, `i32.load16_s`/`i32.store16`, and `i64.load8_s`/`i64.load16_s`/`i64.load32_s` with matching narrow stores), so Starshine locks the same keep-spelling behavior instead of treating those exact forms as an `optimizeStoredValue` cleanup gap.
