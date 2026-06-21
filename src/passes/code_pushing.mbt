@@ -875,7 +875,7 @@ fn code_pushing_try_sink_local_get_set_after_if(
 }
 
 ///|
-fn code_pushing_try_sink_ordered_sets_after_if_push_point(
+fn code_pushing_try_sink_ordered_sets_after_push_point(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -936,20 +936,30 @@ fn code_pushing_try_sink_ordered_sets_after_if_push_point(
   }
   let push_id = @ir.hot_region_get(func, region_ref, idx)
   let push_kind = code_pushing_push_point_kind(func, push_id)
-  let if_id = if push_kind == "if" {
-    push_id
+  let mut if_id = -1
+  let mut branch_id = -1
+  if push_kind == "if" {
+    if_id = push_id
   } else if push_kind == "dropped-if" && @ir.hot_child_count(func, push_id) == 1 {
-    @ir.hot_child_get(func, push_id, 0)
+    if_id = @ir.hot_child_get(func, push_id, 0)
+  } else if push_kind == "conditional-branch" &&
+    code_pushing_br_if_push_point_supported(func, push_id) {
+    branch_id = push_id
   } else {
     return false
   }
-  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
-    return false
-  }
-  if push_kind == "if" && @ir.hot_node_result_arity(func, if_id) != 0 {
-    return false
-  }
-  if push_kind == "dropped-if" && @ir.hot_node_result_arity(func, push_id) != 0 {
+  if if_id >= 0 {
+    if !@ir.hot_node_is_live(func, if_id) {
+      return false
+    }
+    if push_kind == "if" && @ir.hot_node_result_arity(func, if_id) != 0 {
+      return false
+    }
+    if push_kind == "dropped-if" &&
+      @ir.hot_node_result_arity(func, push_id) != 0 {
+      return false
+    }
+  } else if branch_id < 0 || !@ir.hot_node_is_live(func, branch_id) {
     return false
   }
   for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
@@ -958,11 +968,20 @@ fn code_pushing_try_sink_ordered_sets_after_if_push_point(
     if !code_pushing_node_safe_to_cross_for_value(func, push_id, value_id) {
       return false
     }
-    let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
-      func, if_id, local_id,
-    )
-    if then_gets + else_gets != 0 {
-      return false
+    if if_id >= 0 {
+      let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
+        func, if_id, local_id,
+      )
+      if then_gets + else_gets != 0 {
+        return false
+      }
+    } else {
+      let (branch_gets, branch_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+        func, branch_id, local_id, 0, 0,
+      )
+      if branch_gets != 0 || branch_writes != 0 {
+        return false
+      }
     }
     let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
       func, local_id, 1_000_000, 1,
@@ -1275,7 +1294,7 @@ fn code_pushing_scan_region_once(
     if code_pushing_try_sink_local_get_set_after_if(ctx, func, region_ref, idx) {
       return true
     }
-    if code_pushing_try_sink_ordered_sets_after_if_push_point(
+    if code_pushing_try_sink_ordered_sets_after_push_point(
         ctx, func, region_ref, idx,
       ) {
       return true

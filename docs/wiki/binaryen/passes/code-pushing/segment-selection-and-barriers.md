@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md
   - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md
   - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
   - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
@@ -58,7 +59,7 @@ Starshine currently approximates a tiny part of this with whole-root get/write c
 
 `isPushable(...)` checks the set's value effects. Values with unremovable side effects do not move. Values with removable side effects may move only when the segment proof keeps behavior valid.
 
-Current Starshine is stricter than Binaryen's full `isPushable(...)` model: it moves pure nontrapping values plus guarded `global.get` and local-copy setup shapes only when local/effect barriers prove the delayed computation safe. The first segment-movement consumers keep this strict gate: single-set movement covers ordinary void `if`, dropped value-`if`, and narrow `br_if`, while ordered multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if` and dropped value-`if` push points.
+Current Starshine is stricter than Binaryen's full `isPushable(...)` model: it moves pure nontrapping values plus guarded `global.get` and local-copy setup shapes only when local/effect barriers prove the delayed computation safe. The first segment-movement consumers keep this strict gate: single-set movement covers ordinary void `if`, dropped value-`if`, and narrow `br_if`, while ordered multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow void-block-target `br_if` push points.
 
 ## Barrier 3: intervening effects must not invalidate or order before the value
 
@@ -77,7 +78,7 @@ Binaryen's push points include:
 - conditional branch forms,
 - and dropped wrappers around push points.
 
-A random later expression is not automatically a destination. The first Starshine segment inventory discovers selected push points: ordinary `if`, dropped `if`, locally representable conditional branch roots, and switch/`br_table` roots. Current mutating consumers accept ordinary void `if`, dropped value-`if` wrappers, and a narrow no-branch-value `br_if` to a void block label, moving the set after the push-point root when all local reads are same-region suffix reads. The ordinary void-`if` and dropped value-`if` paths also have bounded ordered multi-set subcases for adjacent local-independent SFA sets, preserving source order. Switch/`br_table`, `br_on_*`, loop-target branches, branch-value conditional branches, and multi-set movement outside those two narrow subcases remain discovery-only or unimplemented.
+A random later expression is not automatically a destination. The first Starshine segment inventory discovers selected push points: ordinary `if`, dropped `if`, locally representable conditional branch roots, and switch/`br_table` roots. Current mutating consumers accept ordinary void `if`, dropped value-`if` wrappers, and a narrow no-branch-value `br_if` to a void block label, moving the set after the push-point root when all local reads are same-region suffix reads. The ordinary void-`if`, dropped value-`if`, and narrow `br_if` paths also have bounded ordered multi-set subcases for adjacent local-independent SFA sets, preserving source order. Switch/`br_table`, `br_on_*`, loop-target branches, branch-value conditional branches, and multi-set movement outside those three narrow subcases remain discovery-only or unimplemented.
 
 ## Barrier 5: `if` arm sinking needs one consuming arm
 
@@ -116,9 +117,9 @@ Do not confuse that with upstream Binaryen's `CodePushing.cpp` strategy. It is a
 
 A future broader Starshine port should preserve these rules before widening motion:
 
-1. build on the initial SFA and segment-window diagnostic inventory in [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the first ordinary-void-`if` movement slice in [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the first dropped-`if` movement slice in [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), the first narrow `br_if` movement slice in [`0812`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md), the first ordinary-`if` ordered multi-set slice in [`0813`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md), and the dropped-`if` ordered multi-set slice in [`0814`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md);
+1. build on the initial SFA and segment-window diagnostic inventory in [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the first ordinary-void-`if` movement slice in [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the first dropped-`if` movement slice in [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), the first narrow `br_if` movement slice in [`0812`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md), the first ordinary-`if` ordered multi-set slice in [`0813`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md), the dropped-`if` ordered multi-set slice in [`0814`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md), and the `br_if` ordered multi-set slice in [`0815`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md);
 2. keep one-arm `if` sinking separate from generic segment movement;
-3. preserve order among multiple moved sets; the first Starshine slices cover only adjacent local-independent sets before ordinary void `if` and dropped value-`if` push points;
+3. preserve order among multiple moved sets; the first Starshine slices cover only adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow void-block-target `br_if` push points;
 4. extend effect-ordering / effect-invalidation before moving broader value families;
 5. keep trap options explicit;
 6. test GC and EH as first-class boundaries;
@@ -127,6 +128,7 @@ A future broader Starshine port should preserve these rules before widening moti
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md)
 - [`../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md)
 - [`../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md)
 - [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md)

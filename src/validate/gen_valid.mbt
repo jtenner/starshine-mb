@@ -684,6 +684,7 @@ pub enum GenValidProfile {
   CodePushingBrIfProfile
   CodePushingMultiSetProfile
   CodePushingMultiSetDroppedIfProfile
+  CodePushingMultiSetBrIfProfile
   CodePushingAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
@@ -771,6 +772,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingBrIfProfile => "code-pushing-br-if"
     CodePushingMultiSetProfile => "code-pushing-multi-set"
     CodePushingMultiSetDroppedIfProfile => "code-pushing-multi-set-dropped-if"
+    CodePushingMultiSetBrIfProfile => "code-pushing-multi-set-br-if"
     CodePushingAllProfile => "code-pushing-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
@@ -837,6 +839,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingBrIfProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetDroppedIfProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetBrIfProfile, 1),
       ]
     SsaNomergeAllProfile =>
       [
@@ -950,6 +953,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingBrIfProfile,
     CodePushingMultiSetProfile,
     CodePushingMultiSetDroppedIfProfile,
+    CodePushingMultiSetBrIfProfile,
     CodePushingAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
@@ -1382,7 +1386,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | CodePushingDroppedIfProfile
     | CodePushingBrIfProfile
     | CodePushingMultiSetProfile
-    | CodePushingMultiSetDroppedIfProfile =>
+    | CodePushingMultiSetDroppedIfProfile
+    | CodePushingMultiSetBrIfProfile =>
       gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
@@ -1654,7 +1659,8 @@ fn gen_valid_code_pushing_profile_config(
       0
     },
     max_locals: if profile == CodePushingMultiSetProfile ||
-      profile == CodePushingMultiSetDroppedIfProfile {
+      profile == CodePushingMultiSetDroppedIfProfile ||
+      profile == CodePushingMultiSetBrIfProfile {
       2
     } else {
       1
@@ -1665,6 +1671,7 @@ fn gen_valid_code_pushing_profile_config(
       CodePushingBrIfProfile => 7
       CodePushingMultiSetProfile => 11
       CodePushingMultiSetDroppedIfProfile => 12
+      CodePushingMultiSetBrIfProfile => 13
       _ => 5
     },
     max_body_depth: 2,
@@ -1702,7 +1709,8 @@ fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(CodePushingDroppedIfProfile) ||
   config == GenValidConfig::for_profile(CodePushingBrIfProfile) ||
   config == GenValidConfig::for_profile(CodePushingMultiSetProfile) ||
-  config == GenValidConfig::for_profile(CodePushingMultiSetDroppedIfProfile)
+  config == GenValidConfig::for_profile(CodePushingMultiSetDroppedIfProfile) ||
+  config == GenValidConfig::for_profile(CodePushingMultiSetBrIfProfile)
 }
 
 ///|
@@ -12307,6 +12315,9 @@ fn gen_valid_code_pushing_profile_kind(
   } else if config ==
     GenValidConfig::for_profile(CodePushingMultiSetDroppedIfProfile) {
     CodePushingMultiSetDroppedIfProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetBrIfProfile) {
+    CodePushingMultiSetBrIfProfile
   } else {
     CodePushingIfArmProfile
   }
@@ -12419,6 +12430,27 @@ fn gen_valid_code_pushing_multi_set_dropped_if_body() -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_code_pushing_multi_set_br_if_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_if(LabelIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+      ]),
+    ),
+  ]
+}
+
+///|
 fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
   let kind = gen_valid_code_pushing_profile_kind(config)
   let result_type = if kind == CodePushingAfterIfProfile {
@@ -12433,6 +12465,8 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
     CodePushingMultiSetProfile => gen_valid_code_pushing_multi_set_body()
     CodePushingMultiSetDroppedIfProfile =>
       gen_valid_code_pushing_multi_set_dropped_if_body()
+    CodePushingMultiSetBrIfProfile =>
+      gen_valid_code_pushing_multi_set_br_if_body()
     _ => gen_valid_code_pushing_if_arm_body()
   }
   let func_type = RecType::new(
@@ -12446,7 +12480,8 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
       Func::new(
         Locals::from_types(
           if kind == CodePushingMultiSetProfile ||
-            kind == CodePushingMultiSetDroppedIfProfile {
+            kind == CodePushingMultiSetDroppedIfProfile ||
+            kind == CodePushingMultiSetBrIfProfile {
             [ValType::i32(), ValType::i32()]
           } else {
             [ValType::i32()]

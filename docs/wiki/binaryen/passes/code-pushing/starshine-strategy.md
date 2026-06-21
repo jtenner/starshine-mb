@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md
   - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md
   - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
   - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
@@ -60,8 +61,8 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - The first mutating segment-window consumer moves one SFA `local.set` after an ordinary void `if` when the `if` itself does not read the local and every read is a same-region suffix read after the `if`.
    - The dropped-wrapper extension moves the same single-set family after a dropped value `if` when the dropped push point does not read the local and every read is a same-region suffix read after the wrapper.
    - The `br_if` extension moves the same single-set family after a void-block-target `br_if` with no branch values when the branch does not read the local and every read is a same-block suffix read after the branch.
-   - The ordered multi-set extension moves adjacent local-independent SFA sets after an ordinary void `if` or dropped value-`if` in source order when neither arm reads any moved local and every read is a same-region suffix read after the push point.
-   - The single-set helper requires the non-mutating diagnostic to classify the window as `candidate:if`, `candidate:dropped-if`, or `candidate:conditional-branch` before rewriting; the ordered multi-set helper is currently limited to ordinary-void-`if` and dropped-value-`if` push points.
+   - The ordered multi-set extension moves adjacent local-independent SFA sets after an ordinary void `if`, dropped value-`if`, or narrow void-block-target `br_if` in source order when the push point does not read any moved local and every read is a suffix read after the push point.
+   - The single-set helper requires the non-mutating diagnostic to classify the window as `candidate:if`, `candidate:dropped-if`, or `candidate:conditional-branch` before rewriting; the ordered multi-set helper is currently limited to ordinary-void-`if`, dropped-value-`if`, and no-branch-value `br_if` push points.
 3. **Non-mutating segment-window inventory**
    - Whitebox-only helpers now classify block-local `local.set` candidate windows and push-point kinds before mutation.
    - Covered labels include ordinary `if`, dropped `if`, locally representable conditional branches, SFA rejections, and coarse ordered-before barriers.
@@ -87,7 +88,7 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 537-637 | Branch, unreachable, and dead-context helpers |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 638-726 | Starshine-local dead-block flattening helper |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 727-877 | Guarded `global.get` and local-copy setup movement across later roots |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 878-995 | Ordered adjacent multi-set movement after ordinary void `if` or dropped value-`if` |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 878-1023 | Ordered adjacent multi-set movement after ordinary void `if`, dropped value-`if`, or narrow `br_if` |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 996-1100 | Single-set ordinary-void-`if`, dropped value-`if`, and narrow `br_if` segment movement helper |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 1101-1249 | Current single-consuming-arm `local.set` into `if` rewrite |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 1250-1364 | Recursive region scan and fixed-point driver |
@@ -107,7 +108,7 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | `Pusher` block segment scan | Non-mutating segment-window diagnostic recognizes selected block-local candidate windows; mutating paths now consume ordinary `if` and dropped-`if` after-movement subsets while remaining bounded and narrower |
 | `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get` and local-copy cases; diagnostic reports coarse ordered-before/effect barriers |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Diagnostic recognizes these where HOT representation is local; mutation targets ordinary void `if`, dropped value-`if` wrappers, and a void-block-target `br_if` subset |
-| `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if`, dropped-`if`, and narrow `br_if` after-movement slices implemented; ordered adjacent multi-set movement implemented only for local-independent values before ordinary void `if` and dropped value-`if`; broader multi-set and other push-point movement not implemented generally |
+| `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if`, dropped-`if`, and narrow `br_if` after-movement slices implemented; ordered adjacent multi-set movement implemented only for local-independent values before ordinary void `if`, dropped value-`if`, and narrow void-block-target `br_if`; broader multi-set and other push-point movement not implemented generally |
 | `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm, plus same-region suffix reads when the opposite arm cannot fall through |
 | Unreachable-arm post-use allowance | First conservative slice implemented for roots ending in `unreachable`, `return`, or tail-return roots |
 | `version_130` ordered-before / atomics source surfaces | Not implemented generally; retained as explicit audit gap |
@@ -222,6 +223,23 @@ Current HOT rewrite shape:
 - insert cloned `local.set $a` then `local.set $b` immediately after the dropped wrapper, preserving source order;
 - require adjacent local-independent movable values and same-region suffix reads.
 
+The ordered multi-set `br_if` slice targets this shape:
+
+```wat
+(block $exit
+  (local.set $a (i32.const 7))
+  (local.set $b (i32.const 9))
+  (br_if $exit (local.get $cond))
+  (drop (local.get $a))
+  (drop (local.get $b)))
+```
+
+Current HOT rewrite shape:
+
+- replace both original `local.set` roots with `nop`;
+- insert cloned `local.set $a` then `local.set $b` immediately after the `br_if`, preserving source order;
+- require adjacent local-independent movable values and same-block suffix reads.
+
 The pass refuses to move when:
 
 - both arms read the local;
@@ -229,7 +247,7 @@ The pass refuses to move when:
 - there is more than one write;
 - an ordinary `candidate:if` has a result outside the dropped-wrapper case;
 - a `candidate:conditional-branch` is not a no-branch-value `br_if` to a void block label;
-- ordered multi-set movement would need non-adjacent sets, push points outside ordinary void `if` / dropped value-`if`, local-reading values, duplicate locals, arm reads, or non-suffix reads;
+- ordered multi-set movement would need non-adjacent sets, push points outside ordinary void `if` / dropped value-`if` / narrow `br_if`, local-reading values, duplicate locals, arm or branch reads, or non-suffix reads;
 - the source value is not movable under the strict pure/nontrapping or guarded setup gates;
 - the source value may trap;
 - or the target arm does not exist.
@@ -290,11 +308,12 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the analyzer/segment inventory exists, and the ordinary-void-`if`, dropped value-`if`, narrow `br_if`, ordinary-`if` multi-set, and dropped-`if` multi-set segment movement slices now consume that inventory. The next active audit work is still broader source-backed segment/push-point parity, with ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the analyzer/segment inventory exists, and the ordinary-void-`if`, dropped value-`if`, narrow `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, and `br_if` multi-set segment movement slices now consume that inventory. The next active audit work is still broader source-backed segment/push-point parity, with ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md)
 - [`../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md)
 - [`../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md)
 - [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md)
