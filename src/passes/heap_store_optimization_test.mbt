@@ -1722,7 +1722,10 @@ fn hso_desc_call_test_run(
 }
 
 ///|
-fn hso_desc_call_ref_test_module(body : Array[@lib.Instruction]) -> @lib.Module {
+fn hso_desc_call_ref_test_module_with_desc_mutability(
+  body : Array[@lib.Instruction],
+  mutable_desc : Bool,
+) -> @lib.Module {
   let pair = @lib.TypeIdx::new(0U)
   let callee_type_idx = @lib.TypeIdx::new(2U)
   let caller_type_idx = @lib.TypeIdx::new(3U)
@@ -1760,7 +1763,7 @@ fn hso_desc_call_ref_test_module(body : Array[@lib.Instruction]) -> @lib.Module 
         @lib.Name::new("env"),
         @lib.Name::new("desc"),
         @lib.ExternType::global(
-          @lib.GlobalType::new(hso_exact_desc_ref_type(false), false),
+          @lib.GlobalType::new(hso_exact_desc_ref_type(false), mutable_desc),
         ),
       ),
     ]),
@@ -1774,6 +1777,29 @@ fn hso_desc_call_ref_test_module(body : Array[@lib.Instruction]) -> @lib.Module 
       ),
     ]),
   )
+}
+
+///|
+fn hso_desc_call_ref_test_module(body : Array[@lib.Instruction]) -> @lib.Module {
+  hso_desc_call_ref_test_module_with_desc_mutability(body, false)
+}
+
+///|
+fn hso_desc_call_ref_test_run_with_desc_mutability(
+  body : Array[@lib.Instruction],
+  mutable_desc : Bool,
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_desc_call_ref_test_module_with_desc_mutability(
+    body, mutable_desc,
+  )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid descriptor-call-ref heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
 }
 
 ///|
@@ -8544,6 +8570,55 @@ test "heap-store-optimization folds descriptor result try_table call_ref set val
   assert_true(pretty.contains("try_table"), msg=pretty)
   assert_true(pretty.contains("call_ref"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps descriptor result try_table mutable descriptor call_ref" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local_s = @lib.LocalIdx::new(1U)
+  let callee_type = @lib.TypeIdx::new(2U)
+  let optimized = match
+    hso_desc_call_ref_test_run_with_desc_mutability(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local_s),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::call_ref(callee_type),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local_s),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      true,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor result try_table mutable descriptor call_ref heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|
