@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md
   - ../../../raw/research/0888-2026-06-21-heap-store-optimization-cross-family-growth-swap.md
   - ../../../raw/research/0887-2026-06-21-heap-store-optimization-plain-old-field-call-barrier.md
   - ../../../raw/research/0886-2026-06-21-heap-store-optimization-descriptor-old-field-call-barrier.md
@@ -265,6 +266,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md`](../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md)
+  - added focused HSO-D/E coverage for a narrow default-descriptor Starshine win: Binaryen folds only the first call-valued store after `struct.new_default_desc`, but Starshine folds both call-valued stores into the materialized `struct.new_desc` while preserving call order and only crossing an immutable descriptor `global.get`.
 - [`../../../raw/research/0888-2026-06-21-heap-store-optimization-cross-family-growth-swap.md`](../../../raw/research/0888-2026-06-21-heap-store-optimization-cross-family-growth-swap.md)
   - added focused HSO-G coverage for cross-family growth swap positives: Binaryen folds when a `memory.size` constructor operand crosses `table.grow`, and when a `table.size` constructor operand crosses `memory.grow`, preserving the growth root while removing the later `struct.set`. Starshine already matched.
 - [`../../../raw/research/0881-2026-06-21-heap-store-optimization-descriptor-if-trap-condition.md`](../../../raw/research/0881-2026-06-21-heap-store-optimization-descriptor-if-trap-condition.md)
