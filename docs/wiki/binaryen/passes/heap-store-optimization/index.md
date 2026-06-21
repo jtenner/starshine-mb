@@ -3,6 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0925-2026-06-21-heap-store-optimization-call-indirect-old-field-store-boundary.md
+  - ../../../raw/research/0924-2026-06-21-heap-store-optimization-call-indirect-table-set-boundary.md
   - ../../../raw/research/0917-2026-06-21-heap-store-optimization-call-ref-old-field-table-set-boundary.md
   - ../../../raw/research/0916-2026-06-21-heap-store-optimization-call-ref-table-set-boundary.md
   - ../../../raw/research/0915-2026-06-21-heap-store-optimization-call-ref-old-field-boundary.md
@@ -276,6 +278,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0916` confirmed the table-side constructor-operand boundary: Binaryen preserves a `call_ref`-valued constructor operand before an unrelated `table.set` and keeps the later `struct.set`; Starshine already matched.
   - Coverage note `0917` confirmed the table-side old-field boundary: Binaryen preserves a `call_ref`-valued overwritten constructor field before an unrelated `table.set` and keeps the later `struct.set`; Starshine already matched.
   - Coverage note `0923` confirmed the ordinary direct-call old-field counterparts for both unrelated mutable `global.set` and unrelated `table.set`: Binaryen preserves the call, the intervening store root, and the later `struct.set`; Starshine already matched.
+  - Coverage note `0924` confirmed the table-side indirect-call constructor boundary: Binaryen preserves a `call_indirect` constructor operand before an unrelated `table.set` and keeps the later `struct.set`; Starshine already matched.
+  - Coverage note `0925` confirmed the indirect-call old-field counterparts for both unrelated mutable `global.set` and unrelated `table.set`: Binaryen preserves the `call_indirect`, the intervening store root, and the later `struct.set`; Starshine already matched.
   - Coverage note `0918` confirmed the function-external tail-call counterpart: Binaryen folds a later `struct.set` into `struct.new_default` when the moved value has a branch arm that exits the function via `return_call_ref`; Starshine already matched.
   - Coverage note `0919` confirmed the active-catch counterpart: Binaryen still folds when that `return_call_ref` branch sits inside a `try_table` catch region, preserving the wrapper and tail-call branch; Starshine already matched.
   - Coverage/classification note `0920` narrowed the direct-root `return_call_ref` set-value divergence: Binaryen preserves the `struct.set`, while Starshine drops the dead store in validating output because the direct tail call exits before the store can execute. This is documented as a narrow Starshine win, not a broader branch/catch exception.

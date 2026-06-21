@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0925-2026-06-21-heap-store-optimization-call-indirect-old-field-store-boundary.md
+  - ../../../raw/research/0924-2026-06-21-heap-store-optimization-call-indirect-table-set-boundary.md
   - ../../../raw/research/0917-2026-06-21-heap-store-optimization-call-ref-old-field-table-set-boundary.md
   - ../../../raw/research/0916-2026-06-21-heap-store-optimization-call-ref-table-set-boundary.md
   - ../../../raw/research/0915-2026-06-21-heap-store-optimization-call-ref-old-field-boundary.md
@@ -334,6 +336,10 @@ Current local proof surfaces include:
   - fixed a focused HSO-D/G parity gap for trapping old-field preservation: Binaryen preserves `i32.div_s` in an overwritten constructor field and leaves the later `struct.set` when a mutable `global.set` intervenes; Starshine now marks exact integer div/rem nodes as trapping for HSO effect and reorderability checks.
 - [`../../../raw/research/0923-2026-06-21-heap-store-optimization-call-old-field-store-boundary.md`](../../../raw/research/0923-2026-06-21-heap-store-optimization-call-old-field-store-boundary.md)
   - added focused HSO-D/G coverage for ordinary direct-call old-field boundaries before unrelated mutable `global.set` and unrelated `table.set`; Binaryen preserves the call, intervening store root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0924-2026-06-21-heap-store-optimization-call-indirect-table-set-boundary.md`](../../../raw/research/0924-2026-06-21-heap-store-optimization-call-indirect-table-set-boundary.md)
+  - added focused HSO-G coverage for the indirect-call constructor-operand boundary before unrelated `table.set`; Binaryen preserves `call_indirect`, `table.set`, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0925-2026-06-21-heap-store-optimization-call-indirect-old-field-store-boundary.md`](../../../raw/research/0925-2026-06-21-heap-store-optimization-call-indirect-old-field-store-boundary.md)
+  - added focused HSO-D/G coverage for indirect-call old-field boundaries before unrelated mutable `global.set` and unrelated `table.set`; Binaryen preserves `call_indirect`, the intervening store root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md`](../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md)
   - records an open HSO-G parity gap: Binaryen folds a `table.size` / `memory.size` constructor through a non-throwing `try_table` body that only performs an unrelated `global.set`; Starshine currently preserves the later `struct.set`, and local HOT catch-label movement/lowering must be handled before landing focused positive tests.
 - [`../../../raw/research/0921-2026-06-21-heap-store-optimization-return-call-ref-direct-active-catch.md`](../../../raw/research/0921-2026-06-21-heap-store-optimization-return-call-ref-direct-active-catch.md)
