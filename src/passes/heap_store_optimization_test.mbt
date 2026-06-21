@@ -3615,6 +3615,115 @@ test "heap-store-optimization keeps result try_table same-effect fills after cat
 }
 
 ///|
+test "heap-store-optimization keeps result try_table cross stores after catchable indirect calls" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let memory_optimized = match
+    hso_memory_table_test_run(
+      [
+        @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::call_indirect(
+                  @lib.TypeIdx::new(1U),
+                  @lib.TableIdx::new(0U),
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::ref_null(
+                  @lib.HeapType::abs(@lib.AbsHeapType::func()),
+                ),
+                @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(4)),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory.size/result-try_table-call-indirect-table-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let memory_pretty = memory_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(memory_pretty.contains("memory.size"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("try_table"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("call_indirect"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("table.set"), msg=memory_pretty)
+  assert_true(memory_pretty.contains("struct.set"), msg=memory_pretty)
+
+  let table_optimized = match
+    hso_memory_table_test_run(
+      [
+        @lib.Instruction::table_size(@lib.TableIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::call_indirect(
+                  @lib.TypeIdx::new(1U),
+                  @lib.TableIdx::new(0U),
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::i32_const(@lib.I32(99)),
+                @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 0UL)),
+                @lib.Instruction::i32_const(@lib.I32(4)),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table.size/result-try_table-call-indirect-memory-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let table_pretty = table_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(table_pretty.contains("table.size"), msg=table_pretty)
+  assert_true(table_pretty.contains("try_table"), msg=table_pretty)
+  assert_true(table_pretty.contains("call_indirect"), msg=table_pretty)
+  assert_true(table_pretty.contains("i32.store"), msg=table_pretty)
+  assert_true(table_pretty.contains("struct.set"), msg=table_pretty)
+}
+
+///|
 test "heap-store-optimization keeps result try_table same-effect fills after catchable call_refs" {
   let pair = @lib.TypeIdx::new(0U)
   let callee_type_idx = @lib.TypeIdx::new(1U)
