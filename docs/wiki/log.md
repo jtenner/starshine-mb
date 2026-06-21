@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful non-null aggregate ref.is_null
+
+- Filed [`raw/research/0808-2026-06-20-optimize-instructions-oi-i-effectful-non-null-aggregate-ref-is-null.md`](raw/research/0808-2026-06-20-optimize-instructions-oi-i-effectful-non-null-aggregate-ref-is-null.md) for the fifty-second `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding declared non-null aggregate `ref.is_null` suffixes for `(ref struct)` and `(ref array)` locals to `i32.const 0`.
+- Evidence: Binaryen oracle preserved `drop(call $effect)` before both folded `i32.const 0` results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null aggregate ref.is_null*` passed `1/1`, `*ref.is_null*` passed `5/5`, `*ref*` passed `59/59`, final `*optimize-instructions*` passed `189/189`, `moon fmt`, `moon test src/passes` (`2719/2719`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I effectful non-null aggregate cast/test
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.

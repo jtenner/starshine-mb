@@ -3283,6 +3283,79 @@ test "optimize-instructions preserves effectful prefix for non-null-source non-n
 }
 
 ///|
+test "optimize-instructions preserves effectful prefix while folding non-null aggregate ref.is_null" {
+  let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
+  let array_heap = @lib.HeapType::abs(@lib.AbsHeapType::array())
+  let struct_ref = @lib.ValType::ref_type(@lib.RefType::new(false, struct_heap))
+  let array_ref = @lib.ValType::ref_type(@lib.RefType::new(false, array_heap))
+  let effect_type = @lib.TypeIdx::new(0U)
+  let struct_test_type = @lib.TypeIdx::new(1U)
+  let array_test_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([struct_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([array_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([struct_test_type, array_test_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_is_null(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let struct_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let array_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  for pretty in [struct_pretty, array_pretty] {
+    assert_false(pretty.contains("ref.is_null"), msg=pretty)
+    assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+    assert_true(pretty.contains("drop"), msg=pretty)
+    assert_true(pretty.contains("I32(0)"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions folds nullable-source nullable-target ref.test and ref.cast on local supertypes" {
   let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
