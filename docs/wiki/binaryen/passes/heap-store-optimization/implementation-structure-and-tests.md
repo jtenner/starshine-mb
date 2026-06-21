@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md
   - ../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md
   - ../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md
   - ../../../raw/research/0897-2026-06-21-heap-store-optimization-memory-grow-old-field.md
@@ -276,6 +277,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md`](../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md)
+  - added focused HSO-D/G memory-store old-field boundary coverage: Binaryen preserves an overwritten value-producing `i32.store` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `258/258`.
 - [`../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md`](../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md)
   - fixed HSO-D/G mutable-global old-field parity: Binaryen folds an overwritten value-producing old field that writes `$g0` across an unrelated `$g1` root write, preserving the old `$g0` write under `drop`; Starshine now relies on exact-global conflict analysis instead of rejecting every constructor old-field global write. Focused HSO tests passed `257/257`; direct 10000-case compare normalized `10000/10000` with `0` mismatches.
 - [`../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md`](../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md)
