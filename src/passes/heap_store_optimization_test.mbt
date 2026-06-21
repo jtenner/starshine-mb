@@ -8350,6 +8350,61 @@ test "heap-store-optimization folds descriptor result try_table call_indirect se
 }
 
 ///|
+test "heap-store-optimization keeps descriptor result try_table call_indirect old fields" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_table_call_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::call_indirect(
+          @lib.TypeIdx::new(2U),
+          @lib.TableIdx::new(0U),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::struct_new_desc(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::call_indirect(
+                  @lib.TypeIdx::new(2U),
+                  @lib.TableIdx::new(0U),
+                ),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      ],
+      false,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor result try_table call_indirect old-field heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds descriptor result try_table call_ref set values" {
   let pair = @lib.TypeIdx::new(0U)
   let local_s = @lib.LocalIdx::new(1U)
