@@ -726,6 +726,94 @@ fn hso_subtree_may_escape_to_active_catch(
 }
 
 ///|
+fn hso_subtree_has_catchable_try_table_escape(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::TryTable =>
+      if hso_region_may_escape_to_active_catch(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return true
+      }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if hso_subtree_has_catchable_try_table_escape(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      hso_region_has_catchable_try_table_escape(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If => {
+      let then_has_escape = hso_region_has_catchable_try_table_escape(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+      )
+      if then_has_escape {
+        true
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_has_catchable_try_table_escape(func, region_ref)
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::Try => {
+      let body_has_escape = hso_region_has_catchable_try_table_escape(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+      if body_has_escape {
+        true
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(region_ref) =>
+            hso_region_has_catchable_try_table_escape(func, region_ref)
+          None => false
+        }
+      }
+    }
+    @ir.HotOp::TryTable =>
+      hso_region_has_catchable_try_table_escape(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+      )
+    _ => false
+  }
+}
+
+///|
+fn hso_region_has_catchable_try_table_escape(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hso_subtree_has_catchable_try_table_escape(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn hso_region_may_escape_to_active_catch(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -1817,6 +1905,9 @@ fn hso_root_can_swap_before_local_struct_new(
         }
       }
     _ => ()
+  }
+  if hso_subtree_may_escape_to_active_catch(func, blocker_id) {
+    return false
   }
   let blocker_mask = hso_reorder_effect_mask(
     cache, func, node_masks, blocker_id,
@@ -3276,6 +3367,7 @@ fn hso_process_local_set_chain(
       let branch_skips_owner = match owner_id {
         Some(_) =>
           hso_subtree_skip_is_branch_only(func, roots[next_idx]) &&
+          !hso_subtree_has_catchable_try_table_escape(func, roots[next_idx]) &&
           !hso_roots_touch_local(func, external_roots, local_id)
         None => false
       }
