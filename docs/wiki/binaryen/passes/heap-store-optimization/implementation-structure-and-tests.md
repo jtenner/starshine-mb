@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0983-2026-06-21-heap-store-optimization-descriptor-try-table-global-set.md
   - ../../../raw/research/0982-2026-06-21-heap-store-optimization-catchable-try-table-call-boundary.md
   - ../../../raw/research/0981-2026-06-21-heap-store-optimization-catch-taken-try-table-throw-boundary.md
   - ../../../raw/research/0980-2026-06-21-heap-store-optimization-branch-contained-try-table-global-set.md
@@ -499,6 +500,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0983-2026-06-21-heap-store-optimization-descriptor-try-table-global-set.md`](../../../raw/research/0983-2026-06-21-heap-store-optimization-descriptor-try-table-global-set.md)
+  - added coverage-only HSO-D/G evidence for `struct.new_desc` across a non-throwing `try_table` body that performs an unrelated mutable `global.set`; Binaryen folds the later value into the descriptor constructor while preserving `try_table`, `global.set`, and descriptor `global.get`, and Starshine already matches.
 - [`../../../raw/research/0982-2026-06-21-heap-store-optimization-catchable-try-table-call-boundary.md`](../../../raw/research/0982-2026-06-21-heap-store-optimization-catchable-try-table-call-boundary.md)
   - added coverage-only HSO-G/F boundary coverage for a constructor local followed by a catchable-call `try_table` before the later `struct.set`; Binaryen preserves the constructor local, `try_table`, `call`, and `struct.set`, and Starshine already matches.
 - [`../../../raw/research/0981-2026-06-21-heap-store-optimization-catch-taken-try-table-throw-boundary.md`](../../../raw/research/0981-2026-06-21-heap-store-optimization-catch-taken-try-table-throw-boundary.md)
