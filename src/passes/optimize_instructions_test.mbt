@@ -6073,6 +6073,73 @@ test "optimize-instructions keeps value-changing masks before i64 narrow stores"
 }
 
 ///|
+test "optimize-instructions folds pure struct.get of struct.new field values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field i32) (field i64)))
+        #|  (func (export "get0") (result i32)
+        #|    i32.const 7
+        #|    i64.const 9
+        #|    struct.new $s
+        #|    struct.get $s 0)
+        #|  (func (export "get1") (result i64)
+        #|    i32.const 7
+        #|    i64.const 9
+        #|    struct.new $s
+        #|    struct.get $s 1))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected struct.get(struct.new) optimize success, got \{err}")
+  }
+  let get0 = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let get1 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(get0.contains("struct.get"), msg=get0)
+  assert_false(get0.contains("struct.new"), msg=get0)
+  assert_true(get0.contains("I32(7)"), msg=get0)
+  assert_false(get1.contains("struct.get"), msg=get1)
+  assert_false(get1.contains("struct.new"), msg=get1)
+  assert_true(get1.contains("I64(9)"), msg=get1)
+}
+
+///|
+test "optimize-instructions intentionally keeps struct.get of struct.new with effectful sibling fields" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field i32) (field i32)))
+        #|  (import "env" "a" (func $a (result i32)))
+        #|  (import "env" "b" (func $b (result i32)))
+        #|  (func (export "get0") (result i32)
+        #|    call $a
+        #|    call $b
+        #|    struct.new $s
+        #|    struct.get $s 0))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected effectful struct.get(struct.new) boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  // Boundary-only OI-K coverage: Binaryen can localize and drop effectful sibling
+  // fields before replacing the allocation, but Starshine keeps this stack-carried
+  // shape until a safe localizing lowering preserves field-evaluation effects.
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds constant memory access offset into i32 address" {
   let load_func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (result i32) i32.const 8 i32.load offset=4))",

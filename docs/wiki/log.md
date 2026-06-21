@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Implement OI-K pure struct.get(struct.new)
+
+- Filed [`raw/research/0823-2026-06-20-optimize-instructions-oi-k-struct-get-new.md`](raw/research/0823-2026-06-20-optimize-instructions-oi-k-struct-get-new.md) for the first `[O4Z-AUDIT-OI-K]` GC constructor/field sub-slice. Binaryen `version_130` removes fresh `struct.new` allocations when a following `struct.get` selects a field; Starshine now matches the pure sibling-field subset and documents effectful sibling fields as a localizing boundary.
+- Evidence: Binaryen oracle `.tmp/oi-k-struct-get-new-probe.wat` folded pure `struct.get(struct.new)` to the selected constants, and `.tmp/oi-k-struct-get-new-effects-probe.wat` showed Binaryen preserving effectful sibling fields through locals/drops. Red-first focused `*struct.get of struct.new*` failed before implementation and passed `2/2` after; `*optimize-instructions*` passed `206/206`, `moon fmt`, `moon test src/passes` (`2736/2736`), native `src/cmd` build, and `moon info` passed. First direct count-1 compare attempt timed out before `result.json`; rerun compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-G superset store masks
 
 - Filed [`raw/research/0822-2026-06-20-optimize-instructions-oi-g-superset-store-mask.md`](raw/research/0822-2026-06-20-optimize-instructions-oi-g-superset-store-mask.md) for the twenty-second `[O4Z-AUDIT-OI-G]` memory/load-store sub-slice. Binaryen `version_130` keeps superset low-bit masks such as `i32.and 511` before `i32.store8`, while Starshine locks the existing smaller output shape that removes masks preserving all bits written by the narrow store.

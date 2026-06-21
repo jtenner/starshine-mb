@@ -3241,6 +3241,55 @@ fn optimize_instructions_store_value_is_i64(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn optimize_instructions_try_fold_struct_get_struct_new(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 1 {
+    return false
+  }
+  let (type_idx, field_idx) = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructGet(type_idx, @lib.U32(field_idx))) =>
+      (type_idx, field_idx.reinterpret_as_int())
+    _ => return false
+  }
+  let struct_id = @ir.hot_child_get(func, node_id, 0)
+  if !optimize_instructions_node_is_live(func, dead, struct_id) ||
+    pass_node_use_count(ctx, func, struct_id) != 1 {
+    return false
+  }
+  let struct_node = @ir.hot_node_get(func, struct_id)
+  if field_idx < 0 || field_idx >= struct_node.child_count {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, struct_id) {
+    Some(@lib.Instruction::StructNew(new_type_idx)) if new_type_idx == type_idx =>
+      ()
+    _ => return false
+  }
+  for i = 0; i < struct_node.child_count; i = i + 1 {
+    if i != field_idx &&
+      !optimize_instructions_node_effects_are_pure(
+        ctx,
+        func,
+        @ir.hot_child_get(func, struct_id, i),
+      ) {
+      return false
+    }
+  }
+  optimize_instructions_replace_with_node_id(
+    ctx,
+    func,
+    node_id,
+    @ir.hot_child_get(func, struct_id, field_idx),
+  )
+  true
+}
+
+///|
 fn optimize_instructions_try_truncate_narrow_store_const_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5844,7 +5893,10 @@ fn optimize_instructions_visit_node(
       )
     @ir.HotOp::Heap =>
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
-      optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id)
+      optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id) ||
+      optimize_instructions_try_fold_struct_get_struct_new(
+        ctx, func, dead, node_id,
+      )
     @ir.HotOp::CallRef | @ir.HotOp::ReturnCallRef =>
       optimize_instructions_try_directize_ref_func_call_ref(
         ctx, func, dead, node_id,
