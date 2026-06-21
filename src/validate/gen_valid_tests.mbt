@@ -8382,6 +8382,40 @@ fn gen_valid_test_instrs_contain_code_pushing_after_if_candidate(
 }
 
 ///|
+fn gen_valid_test_instrs_contain_code_pushing_br_if_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 5 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(set_idx)),
+              LocalGet(LocalIdx(cond_idx)),
+              BrIf(_),
+              LocalGet(LocalIdx(use_idx)),
+              Drop,
+            ) if set_idx == 1U && cond_idx == 0U && use_idx == 1U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_instrs_contain_code_pushing_dropped_if_candidate(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -8446,6 +8480,10 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
     "code-pushing-dropped-if",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrIfProfile),
+    "code-pushing-br-if",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(CodePushingAllProfile),
     "code-pushing-all",
   )
@@ -8455,7 +8493,7 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       @debug.assert_eq(profile, CodePushingAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 3)
+      @debug.assert_eq(members.length(), 4)
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingIfArmProfile }),
       )
@@ -8464,6 +8502,9 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       )
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingDroppedIfProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingBrIfProfile }),
       )
     }
     Err(msg) => fail(msg)
@@ -8490,6 +8531,7 @@ test "code-pushing aggregate profile samples every current code-pushing family" 
   assert_true(seen.contains(CodePushingIfArmProfile))
   assert_true(seen.contains(CodePushingAfterIfProfile))
   assert_true(seen.contains(CodePushingDroppedIfProfile))
+  assert_true(seen.contains(CodePushingBrIfProfile))
 }
 
 ///|
@@ -8552,6 +8594,26 @@ test "code-pushing gen-valid profiles emit pass-owned if movement candidates" {
   assert_true(
     gen_valid_test_instrs_contain_code_pushing_dropped_if_candidate(
       gen_valid_test_first_func_instrs(dropped_if.wasm_module),
+    ),
+  )
+
+  let br_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(br_if.config_label, "code-pushing-br-if")
+  match validate_module(br_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_if.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_if_candidate(
+      gen_valid_test_first_func_instrs(br_if.wasm_module),
     ),
   )
 }

@@ -681,6 +681,7 @@ pub enum GenValidProfile {
   CodePushingIfArmProfile
   CodePushingAfterIfProfile
   CodePushingDroppedIfProfile
+  CodePushingBrIfProfile
   CodePushingAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
@@ -765,6 +766,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingIfArmProfile => "code-pushing-if-arm"
     CodePushingAfterIfProfile => "code-pushing-after-if"
     CodePushingDroppedIfProfile => "code-pushing-dropped-if"
+    CodePushingBrIfProfile => "code-pushing-br-if"
     CodePushingAllProfile => "code-pushing-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
@@ -828,6 +830,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingIfArmProfile, 1),
         GenValidProfileMember::new(CodePushingAfterIfProfile, 1),
         GenValidProfileMember::new(CodePushingDroppedIfProfile, 1),
+        GenValidProfileMember::new(CodePushingBrIfProfile, 1),
       ]
     SsaNomergeAllProfile =>
       [
@@ -938,6 +941,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingIfArmProfile,
     CodePushingAfterIfProfile,
     CodePushingDroppedIfProfile,
+    CodePushingBrIfProfile,
     CodePushingAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
@@ -1367,8 +1371,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_pick_load_signs_profile_config(PickLoadSignsSignedExtendProfile)
     CodePushingIfArmProfile
     | CodePushingAfterIfProfile
-    | CodePushingDroppedIfProfile =>
-      gen_valid_code_pushing_profile_config(profile)
+    | CodePushingDroppedIfProfile
+    | CodePushingBrIfProfile => gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
     SsaNomergeCoverageProfile
@@ -1642,6 +1646,7 @@ fn gen_valid_code_pushing_profile_config(
     max_body_statements: match profile {
       CodePushingAfterIfProfile => 8
       CodePushingDroppedIfProfile => 9
+      CodePushingBrIfProfile => 7
       _ => 5
     },
     max_body_depth: 2,
@@ -1676,7 +1681,8 @@ fn gen_valid_code_pushing_profile_config(
 fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(CodePushingIfArmProfile) ||
   config == GenValidConfig::for_profile(CodePushingAfterIfProfile) ||
-  config == GenValidConfig::for_profile(CodePushingDroppedIfProfile)
+  config == GenValidConfig::for_profile(CodePushingDroppedIfProfile) ||
+  config == GenValidConfig::for_profile(CodePushingBrIfProfile)
 }
 
 ///|
@@ -12274,6 +12280,8 @@ fn gen_valid_code_pushing_profile_kind(
     CodePushingAfterIfProfile
   } else if config == GenValidConfig::for_profile(CodePushingDroppedIfProfile) {
     CodePushingDroppedIfProfile
+  } else if config == GenValidConfig::for_profile(CodePushingBrIfProfile) {
+    CodePushingBrIfProfile
   } else {
     CodePushingIfArmProfile
   }
@@ -12328,6 +12336,23 @@ fn gen_valid_code_pushing_dropped_if_body() -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_code_pushing_br_if_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_if(LabelIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+      ]),
+    ),
+  ]
+}
+
+///|
 fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
   let kind = gen_valid_code_pushing_profile_kind(config)
   let result_type = if kind == CodePushingAfterIfProfile {
@@ -12338,6 +12363,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
   let body = match kind {
     CodePushingAfterIfProfile => gen_valid_code_pushing_after_if_body()
     CodePushingDroppedIfProfile => gen_valid_code_pushing_dropped_if_body()
+    CodePushingBrIfProfile => gen_valid_code_pushing_br_if_body()
     _ => gen_valid_code_pushing_if_arm_body()
   }
   let func_type = RecType::new(

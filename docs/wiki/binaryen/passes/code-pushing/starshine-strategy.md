@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
   - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
   - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
   - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
@@ -53,10 +54,11 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - A cloned `local.set` is inserted into the one `if` arm that contains all in-arm reads of that local.
    - Same-region suffix reads after the `if` are allowed only when the opposite arm cannot fall through under the current conservative root proof.
    - Values are limited to pure nontrapping HOT values plus guarded `global.get` and local-copy setup shapes.
-2. **Ordinary and dropped `if` segment movement**
+2. **Ordinary `if`, dropped `if`, and narrow `br_if` segment movement**
    - The first mutating segment-window consumer moves one SFA `local.set` after an ordinary void `if` when the `if` itself does not read the local and every read is a same-region suffix read after the `if`.
    - The dropped-wrapper extension moves the same single-set family after a dropped value `if` when the dropped push point does not read the local and every read is a same-region suffix read after the wrapper.
-   - The helper requires the non-mutating diagnostic to classify the window as `candidate:if` or `candidate:dropped-if` before rewriting.
+   - The `br_if` extension moves the same single-set family after a void-block-target `br_if` with no branch values when the branch does not read the local and every read is a same-block suffix read after the branch.
+   - The helper requires the non-mutating diagnostic to classify the window as `candidate:if`, `candidate:dropped-if`, or `candidate:conditional-branch` before rewriting.
 3. **Non-mutating segment-window inventory**
    - Whitebox-only helpers now classify block-local `local.set` candidate windows and push-point kinds before mutation.
    - Covered labels include ordinary `if`, dropped `if`, locally representable conditional branches, SFA rejections, and coarse ordered-before barriers.
@@ -82,7 +84,7 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 519-589 | Branch, unreachable, and dead-context helpers |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 585-673 | Starshine-local dead-block flattening helper |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 674-823 | Guarded `global.get` and local-copy setup movement across later roots |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 825-910 | Ordinary-void-`if` and dropped value-`if` segment movement helper |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 825-930 | Ordinary-void-`if`, dropped value-`if`, and narrow `br_if` segment movement helper |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 912-1059 | Current single-consuming-arm `local.set` into `if` rewrite |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 1053-1170 | Recursive region scan and fixed-point driver |
 | [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Focused positives and negatives for current mutating behavior |
@@ -100,8 +102,8 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | Function-local `LocalAnalyzer` SFA scan | Non-mutating diagnostic reports prefix-read and multiple-write SFA rejection reasons; mutating paths still use per-candidate get/write counting |
 | `Pusher` block segment scan | Non-mutating segment-window diagnostic recognizes selected block-local candidate windows; mutating paths now consume ordinary `if` and dropped-`if` after-movement subsets while remaining bounded and narrower |
 | `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get` and local-copy cases; diagnostic reports coarse ordered-before/effect barriers |
-| `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Diagnostic recognizes these where HOT representation is local; mutation targets ordinary void `if` and dropped value-`if` wrappers |
-| `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if` and dropped-`if` after-movement slices implemented; broader multi-set and other push-point movement not implemented generally |
+| `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Diagnostic recognizes these where HOT representation is local; mutation targets ordinary void `if`, dropped value-`if` wrappers, and a void-block-target `br_if` subset |
+| `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if`, dropped-`if`, and narrow `br_if` after-movement slices implemented; broader multi-set and other push-point movement not implemented generally |
 | `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm, plus same-region suffix reads when the opposite arm cannot fall through |
 | Unreachable-arm post-use allowance | First conservative slice implemented for roots ending in `unreachable`, `return`, or tail-return roots |
 | `version_130` ordered-before / atomics source surfaces | Not implemented generally; retained as explicit audit gap |
@@ -161,12 +163,29 @@ Current HOT rewrite shape:
 - insert a cloned `local.set` immediately after the dropped wrapper;
 - leave later same-region suffix reads unchanged.
 
+The narrow `br_if` segment slice targets this shape:
+
+```wat
+(block $exit
+  (local.set $tmp (i32.const 7))
+  (br_if $exit (local.get $cond))
+  (drop (local.get $tmp)))
+```
+
+Current HOT rewrite shape:
+
+- replace the original `local.set` root with `nop`;
+- insert a cloned `local.set` immediately after the `br_if`;
+- require a void block target with no branch values;
+- leave later same-block suffix reads unchanged.
+
 The pass refuses to move when:
 
 - both arms read the local;
 - the local is read after the `if` and the non-consuming arm can fall through;
 - there is more than one write;
 - an ordinary `candidate:if` has a result outside the dropped-wrapper case;
+- a `candidate:conditional-branch` is not a no-branch-value `br_if` to a void block label;
 - the source value is not movable under the strict pure/nontrapping or guarded setup gates;
 - the source value may trap;
 - or the target arm does not exist.
@@ -207,7 +226,7 @@ Read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness
 
 The short version:
 
-1. build on the initial analyzer/segment-window diagnostic inventory from [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the first ordinary-void-`if` movement slice from [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), and the first dropped-`if` movement slice from [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md);
+1. build on the initial analyzer/segment-window diagnostic inventory from [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the first ordinary-void-`if` movement slice from [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the first dropped-`if` movement slice from [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), and the first narrow `br_if` movement slice from [`0812`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md);
 2. expand remaining safe segment movement before widening value effects;
 3. preserve the first unreachable-arm post-use support and broaden it only with source-backed control-flow proof;
 4. only then widen to Binaryen's broader effect-checked / ordered-before value movement;
@@ -227,11 +246,12 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the analyzer/segment inventory exists, and the ordinary-void-`if` plus dropped value-`if` segment movement slices now consume that inventory. The next active audit work is still broader source-backed segment/push-point parity, with ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the analyzer/segment inventory exists, and the ordinary-void-`if`, dropped value-`if`, and narrow `br_if` segment movement slices now consume that inventory. The next active audit work is still broader source-backed segment/push-point parity, with ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md)
 - [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md)
 - [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
 - [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)

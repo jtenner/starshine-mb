@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
   - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
   - ../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md
   - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
@@ -64,7 +65,8 @@ The current Starshine implementation is an accepted direct-pass subset under Sta
 - safe movable-value `local.set` sinking into the single `if` arm that contains all reads of that local;
 - a first ordinary-void-`if` segment movement slice that moves one SFA set after the `if` when all reads are same-region suffix reads;
 - a dropped value-`if` segment movement slice that moves one SFA set after the dropped wrapper when all reads are same-region suffix reads;
-- a dedicated `code-pushing-all` GenValid profile covering the currently implemented `if`-arm, after-`if`, and dropped-`if` positive families;
+- a narrow `br_if` segment movement slice that moves one SFA set after a void-block-target `br_if` when the branch does not read the local and all reads are same-block suffix reads;
+- a dedicated `code-pushing-all` GenValid profile covering the currently implemented `if`-arm, after-`if`, dropped-`if`, and `br_if` positive families;
 - guarded movement of selected `global.get` and local-copy setup shapes across safe intervening roots;
 - one Starshine-local typed/dead-block flattening helper near unreachable context.
 
@@ -101,7 +103,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 ### Upstream Binaryen output shape
 
-- Some pushable `local.set` roots move later within the same block segment.
+- Some pushable `local.set` roots move later within the same block segment, including after supported `if`, dropped-`if`, and narrow `br_if` push points.
 - Some sets move into the only `if` arm that reads their local.
 - Moved sets keep order and should execute on the same or fewer paths as allowed by the proof.
 - Unproven shapes stay unchanged.
@@ -114,7 +116,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 ### Current Starshine output shape
 
 - Narrow single-consuming-arm local-set sinks become `nop` at the original root plus a cloned `local.set` inside the target arm.
-- The first segment movement slices can replace the original SFA set with `nop` and insert the cloned set immediately after an ordinary void `if` or after a dropped value-`if` wrapper when all uses are later suffix reads.
+- The first segment movement slices can replace the original SFA set with `nop` and insert the cloned set immediately after an ordinary void `if`, after a dropped value-`if` wrapper, or after a narrow void-block-target `br_if` when all uses are later suffix reads.
 - Some typed/dead block roots near unreachable context are spliced into the parent region.
 - Unmatched shapes stay unchanged.
 
@@ -161,7 +163,7 @@ For docs maintenance:
 For current `[O4Z-AUDIT-CP]` widening:
 
 1. add focused tests in `src/passes/code_pushing_test.mbt` before mutating behavior and whitebox tests in `src/passes/code_pushing_wbtest.mbt` for analyzer-only surfaces;
-2. build on the first analyzer/segment-discovery slice from [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), and the first ordinary-`if` segment movement slice from [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), before broad mutation;
+2. build on the analyzer/segment-discovery slice from [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the ordinary-`if` movement slice from [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the dropped-`if` movement slice from [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), and the narrow `br_if` movement slice from [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md), before broad mutation;
 3. validate direct pass execution through registry and command surfaces;
 4. compare reduced WAT against Binaryen `wasm-opt --code-pushing` for each widened family;
 5. include the dedicated `code-pushing-all` GenValid lane, currently with `--normalize local-cleanup-debris` for bounded Starshine `nop`/empty-else cleanup drift;
@@ -188,6 +190,7 @@ For current `[O4Z-AUDIT-CP]` widening:
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md)
 - [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md)
 - [`../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md`](../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md)
 - [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)

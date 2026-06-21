@@ -510,6 +510,35 @@ fn code_pushing_segment_window_diagnostic(
 }
 
 ///|
+fn code_pushing_br_if_push_point_supported(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+  // First conditional-branch movement slice: only void block exits with a
+  // standalone condition. This keeps branch-value and loop-backedge behavior
+  // out of scope until those paths have source-backed tests.
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  if node.imm0 < 0 {
+    return false
+  }
+  match @ir.hot_label_kind(func, node.imm0) {
+    @ir.HotLabelKind::BlockLabel =>
+      @ir.hot_label_branch_arity(func, node.imm0) == 0
+    _ => false
+  }
+}
+
+///|
 fn code_pushing_node_has_branch(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -831,7 +860,9 @@ fn code_pushing_try_sink_set_after_if_push_point(
   let diagnostic = code_pushing_segment_window_diagnostic(
     func, region_ref, set_idx,
   )
-  if diagnostic != "candidate:if" && diagnostic != "candidate:dropped-if" {
+  if diagnostic != "candidate:if" &&
+    diagnostic != "candidate:dropped-if" &&
+    diagnostic != "candidate:conditional-branch" {
     return false
   }
   let set_id = @ir.hot_region_get(func, region_ref, set_idx)
@@ -851,9 +882,10 @@ fn code_pushing_try_sink_set_after_if_push_point(
     return false
   }
   let local_id = set_node.imm0
-  let mut if_idx = -1
+  let mut push_idx = -1
   let mut idx = set_idx + 1
   let mut if_id = -1
+  let mut branch_id = -1
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let candidate_id = @ir.hot_region_get(func, region_ref, idx)
     let kind = code_pushing_push_point_kind(func, candidate_id)
@@ -863,25 +895,39 @@ fn code_pushing_try_sink_set_after_if_push_point(
       } else if kind == "dropped-if" &&
         @ir.hot_child_count(func, candidate_id) == 1 {
         if_id = @ir.hot_child_get(func, candidate_id, 0)
+      } else if kind == "conditional-branch" &&
+        code_pushing_br_if_push_point_supported(func, candidate_id) {
+        branch_id = candidate_id
       } else {
         return false
       }
-      if_idx = idx
+      push_idx = idx
       break
     }
     idx += 1
   }
-  if if_idx < 0 || if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+  if push_idx < 0 {
     return false
   }
-  if diagnostic == "candidate:if" && @ir.hot_node_result_arity(func, if_id) != 0 {
-    return false
-  }
-  let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
-    func, if_id, local_id,
-  )
-  if then_gets + else_gets != 0 {
-    return false
+  if branch_id >= 0 {
+    // Whole-root accounting below rejects conditions or branch values that read
+    // the moved local; this first slice only moves after a local-independent
+    // br_if when every use is in the same block suffix.
+    ()
+  } else {
+    if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+      return false
+    }
+    if diagnostic == "candidate:if" &&
+      @ir.hot_node_result_arity(func, if_id) != 0 {
+      return false
+    }
+    let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
+      func, if_id, local_id,
+    )
+    if then_gets + else_gets != 0 {
+      return false
+    }
   }
   let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
     func, local_id, 1_000_000, 1,
@@ -893,7 +939,7 @@ fn code_pushing_try_sink_set_after_if_push_point(
     func,
     region_ref,
     local_id,
-    if_idx + 1,
+    push_idx + 1,
     total_gets,
     0,
   )
@@ -901,7 +947,9 @@ fn code_pushing_try_sink_set_after_if_push_point(
     return false
   }
   let pushed_set = code_pushing_make_local_set_clone(func, local_id, value_id)
-  ignore(pass_splice_region(ctx, func, region_ref, if_idx + 1, 0, [pushed_set]))
+  ignore(
+    pass_splice_region(ctx, func, region_ref, push_idx + 1, 0, [pushed_set]),
+  )
   let nop = @ir.hot_build_nop(func)
   pass_replace_node(ctx, func, set_id, @ir.hot_node_get(func, nop))
   true
