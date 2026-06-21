@@ -81,7 +81,15 @@ fn hso_exact_instr_can_trap(instr : @lib.Instruction?) -> Bool {
     | Some(@lib.Instruction::I64DivS)
     | Some(@lib.Instruction::I64DivU)
     | Some(@lib.Instruction::I64RemS)
-    | Some(@lib.Instruction::I64RemU) => true
+    | Some(@lib.Instruction::I64RemU)
+    | Some(@lib.Instruction::I32TruncF32S)
+    | Some(@lib.Instruction::I32TruncF32U)
+    | Some(@lib.Instruction::I32TruncF64S)
+    | Some(@lib.Instruction::I32TruncF64U)
+    | Some(@lib.Instruction::I64TruncF32S)
+    | Some(@lib.Instruction::I64TruncF32U)
+    | Some(@lib.Instruction::I64TruncF64S)
+    | Some(@lib.Instruction::I64TruncF64U) => true
     _ => false
   }
 }
