@@ -72,15 +72,44 @@ fn hso_ensure_type_cache_capacity(
 }
 
 ///|
+fn hso_exact_instr_can_trap(instr : @lib.Instruction?) -> Bool {
+  match instr {
+    Some(@lib.Instruction::I32DivS)
+    | Some(@lib.Instruction::I32DivU)
+    | Some(@lib.Instruction::I32RemS)
+    | Some(@lib.Instruction::I32RemU)
+    | Some(@lib.Instruction::I64DivS)
+    | Some(@lib.Instruction::I64DivU)
+    | Some(@lib.Instruction::I64RemS)
+    | Some(@lib.Instruction::I64RemU) => true
+    _ => false
+  }
+}
+
+///|
+fn hso_node_may_trap(func : @ir.HotFunc, node_id : Int) -> Bool {
+  @ir.hot_may_trap(func, node_id) ||
+  hso_exact_instr_can_trap(@ir.hot_node_exact_instr(func, node_id))
+}
+
+///|
 fn hso_effects_for_node(
   func : @ir.HotFunc,
   node_masks : Array[UInt],
   node_id : Int,
 ) -> UInt {
-  if node_id >= 0 && node_id < node_masks.length() {
-    return node_masks[node_id]
+  let base_mask = if node_id >= 0 && node_id < node_masks.length() {
+    node_masks[node_id]
+  } else {
+    @ir.effects_for_node(func, node_id)
   }
-  @ir.effects_for_node(func, node_id)
+  if node_id >= 0 &&
+    node_id < @ir.hot_node_count(func) &&
+    hso_exact_instr_can_trap(@ir.hot_node_exact_instr(func, node_id)) {
+    base_mask | @ir.EFFECT_MASK_TRAP
+  } else {
+    base_mask
+  }
 }
 
 ///|
@@ -948,7 +977,7 @@ fn hso_compute_subtree_is_trapless_readonly(
   }
   if disallowed_effects != 0U ||
     (!allows_side_effect && @ir.hot_has_side_effect(func, node_id)) ||
-    @ir.hot_may_trap(func, node_id) ||
+    hso_node_may_trap(func, node_id) ||
     @ir.hot_is_branch(func, node_id) ||
     @ir.hot_is_terminator_node(func, node_id) ||
     @ir.hot_node_may_throw_exception(func, node_id) {
@@ -1102,7 +1131,7 @@ fn hso_subtree_is_trapless_reorderable(
   }
   if disallowed_effects != 0U ||
     (!allows_side_effect && @ir.hot_has_side_effect(func, node_id)) ||
-    @ir.hot_may_trap(func, node_id) ||
+    hso_node_may_trap(func, node_id) ||
     @ir.hot_node_may_throw_exception(func, node_id) ||
     (
       !@ir.hot_is_branch(func, node_id) &&
@@ -1903,13 +1932,13 @@ fn hso_sequence_result_type(
 
 ///|
 fn hso_build_preserved_replacement(
+  cache : HsoPredicateCache,
   func : @ir.HotFunc,
   node_masks : Array[UInt],
   old_value_id : Int,
   new_value_id : Int,
 ) -> Int? {
-  let old_mask = hso_effects_for_node(func, node_masks, old_value_id)
-  if hso_mask_is_pure(old_mask) {
+  if hso_subtree_is_trapless_readonly(cache, func, node_masks, old_value_id) {
     return Some(new_value_id)
   }
   match hso_sequence_result_type(func, new_value_id) {
@@ -2693,7 +2722,9 @@ fn hso_try_fold_into_struct_new(
   } else {
     let old_value_id = @ir.hot_child_get(func, struct_new_id, field_idx)
     let replacement = match
-      hso_build_preserved_replacement(func, node_masks, old_value_id, value_id) {
+      hso_build_preserved_replacement(
+        cache, func, node_masks, old_value_id, value_id,
+      ) {
       Some(replacement) => replacement
       None => return None
     }
