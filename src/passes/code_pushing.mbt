@@ -366,6 +366,56 @@ fn code_pushing_count_local_gets_writes_in_region_suffix_bounded(
 }
 
 ///|
+fn code_pushing_region_writes_local_deep_limited(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  local_id : Int,
+  depth : Int,
+) -> Bool {
+  if depth <= 0 {
+    return false
+  }
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if code_pushing_node_writes_local_deep_limited(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        local_id,
+        depth,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn code_pushing_if_arms_write_local_deep_limited(
+  func : @ir.HotFunc,
+  if_id : Int,
+  local_id : Int,
+  depth : Int,
+) -> Bool {
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  if code_pushing_region_writes_local_deep_limited(
+      func,
+      @ir.hot_region_then_ref(func, if_id),
+      local_id,
+      depth,
+    ) {
+    return true
+  }
+  match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) =>
+      code_pushing_region_writes_local_deep_limited(
+        func, else_ref, local_id, depth,
+      )
+    None => false
+  }
+}
+
+///|
 fn code_pushing_count_local_gets_in_if_arms(
   func : @ir.HotFunc,
   if_id : Int,
@@ -794,6 +844,15 @@ fn code_pushing_try_sink_set_before_later_barrier(
 }
 
 ///|
+fn code_pushing_value_is_ordered_set_movable(
+  func : @ir.HotFunc,
+  value_id : Int,
+) -> Bool {
+  code_pushing_node_is_movable_value(func, value_id) ||
+  code_pushing_node_is_local_get(func, value_id)
+}
+
+///|
 fn code_pushing_try_sink_local_get_set_after_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -854,6 +913,9 @@ fn code_pushing_try_sink_local_get_set_after_if(
         }
         if code_pushing_node_writes_local_deep_limited(
             func, candidate_id, source_local, 8,
+          ) ||
+          code_pushing_if_arms_write_local_deep_limited(
+            func, candidate_id, source_local, 8,
           ) {
           return false
         }
@@ -887,6 +949,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
   let set_ids : Array[Int] = []
   let local_ids : Array[Int] = []
   let value_ids : Array[Int] = []
+  let source_local_ids : Array[Int] = []
   let mut idx = set_idx
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
@@ -910,8 +973,19 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
       return false
     }
     let value_id = @ir.hot_child_get(func, root_id, 0)
-    if !code_pushing_node_is_movable_value(func, value_id) ||
-      code_pushing_node_has_any_local_get(func, value_id) {
+    if !code_pushing_value_is_ordered_set_movable(func, value_id) {
+      return false
+    }
+    let source_local = if code_pushing_node_is_local_get(func, value_id) {
+      @ir.hot_node_get(func, value_id).imm0
+    } else {
+      if code_pushing_node_has_any_local_get(func, value_id) {
+        return false
+      }
+      -1
+    }
+    if source_local == local_id ||
+      local_ids.any(fn(existing) { existing == source_local }) {
       return false
     }
     let (prefix_gets, _) = code_pushing_count_local_gets_writes_in_region_prefix_bounded(
@@ -929,6 +1003,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
     set_ids.push(root_id)
     local_ids.push(local_id)
     value_ids.push(value_id)
+    source_local_ids.push(source_local)
     idx += 1
   }
   if set_ids.length() < 2 || idx >= @ir.hot_region_root_count(func, region_ref) {
@@ -965,8 +1040,28 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
   for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
     let local_id = local_ids[move_idx]
     let value_id = value_ids[move_idx]
+    let source_local = source_local_ids[move_idx]
     if !code_pushing_node_safe_to_cross_for_value(func, push_id, value_id) {
       return false
+    }
+    if source_local >= 0 {
+      if local_ids.any(fn(moved_local) { moved_local == source_local }) {
+        return false
+      }
+      if if_id >= 0 {
+        if code_pushing_if_arms_write_local_deep_limited(
+            func, if_id, source_local, 8,
+          ) {
+          return false
+        }
+      } else {
+        let (_, source_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+          func, branch_id, source_local, 0, 0,
+        )
+        if source_writes != 0 {
+          return false
+        }
+      }
     }
     if if_id >= 0 {
       let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
@@ -1291,12 +1386,12 @@ fn code_pushing_scan_region_once(
       ) {
       return true
     }
-    if code_pushing_try_sink_local_get_set_after_if(ctx, func, region_ref, idx) {
-      return true
-    }
     if code_pushing_try_sink_ordered_sets_after_push_point(
         ctx, func, region_ref, idx,
       ) {
+      return true
+    }
+    if code_pushing_try_sink_local_get_set_after_if(ctx, func, region_ref, idx) {
       return true
     }
     if code_pushing_try_sink_set_after_if_push_point(ctx, func, region_ref, idx) {

@@ -5,6 +5,7 @@ last_reviewed: 2026-06-20
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md
   - ../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md
   - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md
   - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
@@ -27,7 +28,7 @@ Native-path note for this checkout: after `moon build --target native --release 
 
 ## Dedicated GenValid profile
 
-Use `code-pushing-all` for the pass-specific lane. It is a deterministic composite over seven currently implemented positive families:
+Use `code-pushing-all` for the pass-specific lane. It is a deterministic composite over eight currently implemented positive families:
 
 | Leaf profile | Shape |
 | --- | --- |
@@ -38,8 +39,9 @@ Use `code-pushing-all` for the pass-specific lane. It is a deterministic composi
 | `code-pushing-multi-set` | Two local-independent pure `local.set` roots before an ordinary void `if`, followed by same-region suffix reads after the `if`, preserving source order. |
 | `code-pushing-multi-set-dropped-if` | Two local-independent pure `local.set` roots before a dropped value `if`, followed by same-region suffix reads after the dropped wrapper, preserving source order. |
 | `code-pushing-multi-set-br-if` | Two local-independent pure `local.set` roots before a void-block-target `br_if`, followed by same-block suffix reads after the branch, preserving source order. |
+| `code-pushing-multi-set-local-copy` | Two adjacent direct local-copy SFA sets before an ordinary void `if`, followed by suffix reads after the `if`, preserving source order and refusing source-local writes. |
 
-The profile intentionally does **not** cover remaining audit gaps such as switch/`br_table`, `br_on_*`, branch-value or loop-target conditional branches, ordered multi-set movement outside the first ordinary-void-`if`, dropped-value-`if`, and narrow `br_if` local-independent slices, atomics/GC/EH, or trap-option widening. Add new leaves when those families land.
+The profile intentionally does **not** cover remaining audit gaps such as switch/`br_table`, `br_on_*`, branch-value or loop-target conditional branches, ordered multi-set movement outside the first ordinary-void-`if`, dropped-value-`if`, narrow `br_if`, and local-copy slices, atomics/GC/EH, or trap-option widening. Add new leaves when those families land.
 
 Current bounded dedicated lane:
 
@@ -88,6 +90,14 @@ bun scripts/pass-fuzz-compare.ts --count 700 --seed 0x5eed --pass code-pushing -
 ```
 
 Result: compared `700/700`, normalized matches `403`, cleanup-normalized matches `297`, raw mismatches `0`, validation/generator/property/command failures `0`, selected subprofiles `code-pushing-dropped-if: 91`, `code-pushing-multi-set: 97`, `code-pushing-after-if: 95`, `code-pushing-multi-set-br-if: 111`, `code-pushing-if-arm: 105`, `code-pushing-multi-set-dropped-if: 101`, `code-pushing-br-if: 100`, cache `wasm-smith 0 hits/0 misses`, `Binaryen 697 hits/3 misses`, `Binaryen failures 0 hits/0 misses`.
+
+2026-06-20 local-copy ordered multi-set refresh after adding `code-pushing-multi-set-local-copy`:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 800 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-local-copy-profile-800 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 50 --keep-going-after-command-failures
+```
+
+Result: compared `800/800`, normalized matches `400`, cleanup-normalized matches `400`, raw mismatches `0`, validation/generator/property/command failures `0`, selected subprofiles `code-pushing-if-arm: 100`, `code-pushing-multi-set-local-copy: 100`, `code-pushing-dropped-if: 100`, `code-pushing-after-if: 100`, `code-pushing-multi-set: 100`, `code-pushing-br-if: 100`, `code-pushing-multi-set-br-if: 100`, `code-pushing-multi-set-dropped-if: 100`, cache `wasm-smith 0 hits/0 misses`, `Binaryen 798 hits/2 misses`, `Binaryen failures 0 hits/0 misses`.
 
 A raw lane without `--normalize local-cleanup-debris` stopped after `65` raw mismatches in `65` compared cases before the dropped-if slice. Inspected artifacts showed a bounded local-cleanup drift: Starshine removes standalone `nop`/empty-else debris around the movement while Binaryen leaves it. Treat the normalized lane as bounded slice evidence, not final raw-output parity or pass closeout.
 

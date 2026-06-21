@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md
   - ../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md
   - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md
   - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
@@ -29,7 +30,7 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the 2026-06-20 post-use, ordinary-`if`, dropped-`if`, `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, and `br_if` multi-set segment-movement Starshine slices, and the earlier source corrections.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the 2026-06-20 post-use, ordinary-`if`, dropped-`if`, `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, `br_if` multi-set, and local-copy multi-set segment-movement Starshine slices, and the earlier source corrections.
 
 ## Mental model
 
@@ -236,7 +237,37 @@ Binaryen-backed after:
   (drop (local.get $b)))
 ```
 
-Starshine now implements this ordered multi-set subset only for adjacent local-independent values before a no-branch-value `br_if` to a void block label, preserving source order. The current ordered multi-set slices intentionally do not cover switch/`br_table`, branch values, loop targets, `br_on_*`, or local-read-dependent value expressions.
+Starshine now implements this ordered multi-set subset only for adjacent local-independent values before a no-branch-value `br_if` to a void block label, preserving source order.
+
+## Shape 6c: ordered local-copy multi-set movement
+
+Binaryen-backed before:
+
+```wat
+(local.set $a (local.get $src_a))
+(local.set $b (local.get $src_b))
+(if
+  (local.get $cond)
+  (then
+    nop))
+(drop (local.get $a))
+(drop (local.get $b))
+```
+
+Binaryen-backed after:
+
+```wat
+(if
+  (local.get $cond)
+  (then
+    nop))
+(local.set $a (local.get $src_a))
+(local.set $b (local.get $src_b))
+(drop (local.get $a))
+(drop (local.get $b))
+```
+
+Starshine now implements direct local-copy multi-set movement for ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points, preserving source order and rejecting cases where the crossed push point writes a copied source local. The current ordered multi-set slices intentionally do not cover switch/`br_table`, branch values, loop targets, `br_on_*`, non-adjacent windows, local-copy dependency chains, or general local-read-dependent value expressions.
 
 ## Shape 7: `if` arm sinking into the only consuming arm
 

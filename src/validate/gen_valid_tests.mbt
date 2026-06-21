@@ -8442,6 +8442,48 @@ fn gen_valid_test_instrs_contain_code_pushing_multi_set_candidate(
 }
 
 ///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_local_copy_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 9 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+      ) {
+      (
+        LocalGet(LocalIdx(first_source)),
+        LocalSet(LocalIdx(first_set)),
+        LocalGet(LocalIdx(second_source)),
+        LocalSet(LocalIdx(second_set)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, _, _),
+        LocalGet(LocalIdx(first_use)),
+        Drop,
+        LocalGet(LocalIdx(second_use)),
+        Drop,
+      ) if first_source == 1U &&
+        first_set == 3U &&
+        second_source == 2U &&
+        second_set == 4U &&
+        cond_idx == 0U &&
+        first_use == 3U &&
+        second_use == 4U => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_instrs_contain_code_pushing_multi_set_dropped_if_candidate(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -8664,6 +8706,10 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
     "code-pushing-multi-set-br-if",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetLocalCopyProfile),
+    "code-pushing-multi-set-local-copy",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(CodePushingAllProfile),
     "code-pushing-all",
   )
@@ -8673,7 +8719,7 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       @debug.assert_eq(profile, CodePushingAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 7)
+      @debug.assert_eq(members.length(), 8)
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingIfArmProfile }),
       )
@@ -8697,6 +8743,11 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       assert_true(
         members.any(fn(entry) {
           entry.profile == CodePushingMultiSetBrIfProfile
+        }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingMultiSetLocalCopyProfile
         }),
       )
     }
@@ -8728,6 +8779,7 @@ test "code-pushing aggregate profile samples every current code-pushing family" 
   assert_true(seen.contains(CodePushingMultiSetProfile))
   assert_true(seen.contains(CodePushingMultiSetDroppedIfProfile))
   assert_true(seen.contains(CodePushingMultiSetBrIfProfile))
+  assert_true(seen.contains(CodePushingMultiSetLocalCopyProfile))
 }
 
 ///|
@@ -8873,6 +8925,29 @@ test "code-pushing gen-valid profiles emit pass-owned if movement candidates" {
   assert_true(
     gen_valid_test_instrs_contain_code_pushing_multi_set_br_if_candidate(
       gen_valid_test_first_func_instrs(multi_set_br_if.wasm_module),
+    ),
+  )
+
+  let multi_set_local_copy = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetLocalCopyProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    multi_set_local_copy.config_label,
+    "code-pushing-multi-set-local-copy",
+  )
+  match validate_module(multi_set_local_copy.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set_local_copy.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_local_copy_candidate(
+      gen_valid_test_first_func_instrs(multi_set_local_copy.wasm_module),
     ),
   )
 }
