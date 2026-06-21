@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/1006-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-old-field-boundary.md
   - ../../../raw/research/1005-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-fold.md
   - ../../../raw/research/1004-2026-06-21-heap-store-optimization-result-try-table-call-ref-old-field-boundary.md
   - ../../../raw/research/1003-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-old-field-boundary.md
@@ -522,6 +523,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/1006-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-old-field-boundary.md`](../../../raw/research/1006-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-old-field-boundary.md)
+  - added coverage-only HSO-D/F/G evidence for descriptor result-typed `try_table` direct-call old-field boundaries; Binaryen preserves the overwritten direct-call constructor field, wrapper, catchable direct call, descriptor read, and later `struct.set`, and Starshine already matches after `1005`.
 - [`../../../raw/research/1005-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-fold.md`](../../../raw/research/1005-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-fold.md)
   - fixed HSO-D/F/G descriptor result-wrapper overblocking: Binaryen folds a pure `struct.new_desc` using an immutable descriptor global across a dropped result-typed `try_table` with a catchable direct call, while preserving existing result-typed tail-call/throw no-fold boundaries; focused HSO tests passed `374/374`, native `src/cmd` build passed with pre-existing warnings, and direct 10000-case HSO compare normalized `10000/10000` with `0` mismatches/failures.
 - [`../../../raw/research/1004-2026-06-21-heap-store-optimization-result-try-table-call-ref-old-field-boundary.md`](../../../raw/research/1004-2026-06-21-heap-store-optimization-result-try-table-call-ref-old-field-boundary.md)
