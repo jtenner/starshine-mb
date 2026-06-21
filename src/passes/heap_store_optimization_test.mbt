@@ -5918,6 +5918,52 @@ test "heap-store-optimization keeps trapping trunc constructor operands before u
 }
 
 ///|
+test "heap-store-optimization keeps trapping memory-load old fields before unrelated global.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_global_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 0UL)),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(42)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-load-old-field/global-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  let global_set_idx = match hso_test_index_of(pretty, "global.set") {
+    Some(idx) => idx
+    None =>
+      fail("expected global.set in memory-load-old-field output: \{pretty}")
+  }
+  let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail("expected struct.set in memory-load-old-field output: \{pretty}")
+  }
+  assert_true(global_set_idx < struct_set_idx, msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps ref.as_non_null constructor operands before unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

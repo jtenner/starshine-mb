@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0895-2026-06-21-heap-store-optimization-memory-load-old-field.md
   - ../../../raw/research/0894-2026-06-21-heap-store-optimization-ref-as-non-null-old-field.md
   - ../../../raw/research/0893-2026-06-21-heap-store-optimization-trapping-trunc-old-field.md
   - ../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md
@@ -271,6 +272,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0895-2026-06-21-heap-store-optimization-memory-load-old-field.md`](../../../raw/research/0895-2026-06-21-heap-store-optimization-memory-load-old-field.md)
+  - added focused HSO-D/G memory-trap old-field coverage: Binaryen preserves `i32.load` in an overwritten constructor field and leaves the later `struct.set` when an unrelated mutable `global.set` intervenes; Starshine already matched, so no implementation change was needed.
 - [`../../../raw/research/0894-2026-06-21-heap-store-optimization-ref-as-non-null-old-field.md`](../../../raw/research/0894-2026-06-21-heap-store-optimization-ref-as-non-null-old-field.md)
   - added focused HSO-D/G reference-trap old-field coverage: Binaryen preserves `ref.as_non_null(global.get)` in an overwritten constructor field and leaves the later `struct.set` when an unrelated mutable `global.set` intervenes; Starshine already matched, so no implementation change was needed.
 - [`../../../raw/research/0893-2026-06-21-heap-store-optimization-trapping-trunc-old-field.md`](../../../raw/research/0893-2026-06-21-heap-store-optimization-trapping-trunc-old-field.md)
