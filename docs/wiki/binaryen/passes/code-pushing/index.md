@@ -150,8 +150,8 @@ For docs maintenance:
 
 For current `[O4Z-AUDIT-CP]` widening:
 
-1. add focused tests in `src/passes/code_pushing_test.mbt` before widening behavior;
-2. build an analyzer/segment-discovery slice before broad mutation;
+1. add focused tests in `src/passes/code_pushing_test.mbt` before mutating behavior and whitebox tests in `src/passes/code_pushing_wbtest.mbt` for analyzer-only surfaces;
+2. build on the first analyzer/segment-discovery slice from [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md) before broad mutation;
 3. validate direct pass execution through registry and command surfaces;
 4. compare reduced WAT against Binaryen `wasm-opt --code-pushing` for each widened family;
 5. then run pass-fuzz / artifact comparisons under the standard pass signoff criteria;

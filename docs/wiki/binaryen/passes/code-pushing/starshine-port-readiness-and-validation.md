@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md
   - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
@@ -13,6 +14,7 @@ sources:
   - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
+  - ../../../../../src/passes/code_pushing_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
 related:
   - ./index.md
@@ -35,6 +37,8 @@ The first 2026-06-20 audit-widening slice adds Binaryen-backed post-`if` read su
 
 The second 2026-06-20 audit slice refreshed the current `version_130` Binaryen source/lit surface. The new bridge [`2026-06-20-code-pushing-version-130-source-lit-refresh`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md) and research note [`0807`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md) supersede the older current-main bridge for release-gating decisions. The refresh found stable owner structure, `effects.orderedBefore(cumulativeEffects)` replacing the older invalidation checks, and a new `code-pushing-atomics.wast` proof surface for GC reads across shared atomic loads/stores.
 
+The third 2026-06-20 audit slice added non-mutating segment-window inventory in [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md). `code_pushing_push_point_kind(...)` recognizes ordinary `if`, dropped push-point wrappers, locally representable conditional branches, and switch/`br_table` roots; `code_pushing_segment_window_diagnostic(...)` reports SFA/use/effect rejection reasons before any broad `optimizeSegment(...)` movement is enabled. Whitebox tests cover `candidate:if`, `candidate:dropped-if`, `candidate:conditional-branch`, `reject:prefix-local-read`, `reject:multiple-local-writes`, and `reject:ordered-before-barrier`.
+
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 
 Current Starshine code locations:
@@ -43,14 +47,17 @@ Current Starshine code locations:
 | --- | --- |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 2-18 | Descriptor and summary for the active direct pass |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 20-86 | Pure/nontrapping movable-value gate plus `global.get` / `local.get` recognizers |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 87-429 | Effect, local get/write, branch, unreachable, and multivalue guards |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 430-518 | Starshine-local dead-block flattening helper |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 519-669 | Guarded `global.get` and local-copy setup movement across later roots |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 670-784 | Current `local.set` into single-consuming `if` arm rewrite |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 786-900 | Recursive region scan and fixed-point driver |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 87-410 | Effect, local get/write, suffix, non-fallthrough, and value-crossing guards |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 412-516 | Non-mutating push-point / segment-window diagnostic inventory |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 519-589 | Branch, unreachable, and dead-context helpers |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 591-677 | Starshine-local dead-block flattening helper |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 680-829 | Guarded `global.get` and local-copy setup movement across later roots |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 831-975 | Current `local.set` into single-consuming `if` arm rewrite |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 977-1084 | Recursive region scan and fixed-point driver |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 212-220 | Registry entry as an active `HotPass` |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 382-419 | Tuple exact-slot gate plus preset arrays that still omit `code-pushing` |
-| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Focused positives and guard tests |
+| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Focused positives and guard tests for mutating behavior |
+| [`src/passes/code_pushing_wbtest.mbt`](../../../../../src/passes/code_pushing_wbtest.mbt) | Whitebox segment-window inventory and rejection-reason tests |
 
 ## Gap to Binaryen
 
@@ -58,10 +65,10 @@ Binaryen's source-backed strategy is broader than the local subset:
 
 | Binaryen strategy surface | Starshine today | Port implication |
 | --- | --- | --- |
-| `LocalAnalyzer` SFA proof over all locals | Ad hoc exact-one-write / all-reads-in-arm counters for one local | Build analyzer first, ideally with explainable no-rewrite diagnostics |
-| `Pusher` block segment scan | Bounded root lookahead covers selected `if` and later-barrier shapes, but not general Binaryen segment windows | Add segment-window discovery before widening moved values |
-| `isPushable(...)` effect/removability gate | Pure nontrapping values plus guarded `global.get` and local-copy shapes | Preserve strictness unless local effect modeling proves more; `version_130` movement checks require ordered-before reasoning, not only coarse invalidation |
-| `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped forms | Void `if` only | Add one push-point family at a time |
+| `LocalAnalyzer` SFA proof over all locals | Non-mutating diagnostic now reports prefix-read and multiple-write SFA rejection reasons; mutating paths still use per-candidate counters | Grow the diagnostic toward a fuller analyzer before broad mutation |
+| `Pusher` block segment scan | Non-mutating segment-window diagnostic recognizes selected block-local candidate windows; mutating paths remain bounded and narrower | Consume the discovery layer in one safe movement family at a time |
+| `isPushable(...)` effect/removability gate | Pure nontrapping values plus guarded `global.get` and local-copy shapes; diagnostic can report coarse ordered-before/effect barriers | Preserve strictness unless local effect modeling proves more; `version_130` movement checks require ordered-before reasoning, not only coarse invalidation |
+| `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped forms | Diagnostic recognizes these families where HOT representation is local; mutation still targets the existing void-`if` subset | Add one push-point mutation family at a time |
 | `optimizeSegment(...)` ordered multi-set pushing | One set at a time | Keep order-preservation tests when multi-set support appears |
 | `optimizeIntoIf(...)` post-if-read / unreachable-arm allowance | First conservative slice implemented for same-region suffix reads when the opposite arm ends in non-fallthrough roots such as `unreachable` | Broaden only with source-backed control-flow proofs; keep fallthrough post-use negative coverage |
 | GC/EH/trap/atomics option surfaces | Mostly guarded out | Treat as explicit follow-up slices, not incidental wins; `code-pushing-atomics.wast` is now part of the current proof surface |
@@ -69,22 +76,17 @@ Binaryen's source-backed strategy is broader than the local subset:
 
 ## Optional future widening slices
 
-1. **Analyzer-only slice**
-   - Add a local SFA candidate classifier mirroring Binaryen's `LocalAnalyzer` concepts.
-   - Return no rewrites at first, but test candidate and rejection reasons on small HOT fixtures.
-   - This reduces risk because the current pass already mutates correctly for the narrow arm-sink family.
-2. **Segment-window slice**
-   - Discover candidate block segments ending at a push point without moving anything.
-   - Test ordinary `if`, dropped `if`, conditional branch, and `switch` recognition separately.
-   - Include source-backed diagnostics for ordered-before / atomic-store barriers before broad movement.
-3. **Safe segment movement**
+1. **Analyzer/segment-window inventory slice**
+   - Initial non-mutating inventory is complete in [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md): it reports SFA/use/effect rejection reasons and recognizes ordinary `if`, dropped `if`, conditional branch, and switch/`br_table` push-point kinds.
+   - Future analyzer work can widen this into a fuller `LocalAnalyzer` equivalent, especially for tee writes, parameter locals, nested regions, and atomics/GC/EH barriers.
+2. **Safe segment movement**
    - Reuse the existing strict movable-value gate but allow non-immediate segment movement before a push point.
    - Keep all trap/GC/EH candidates negative.
-4. **Unreachable-arm post-use slice**
+3. **Unreachable-arm post-use slice**
    - First conservative slice completed in [`0806`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md): same-region suffix reads are allowed when the non-consuming arm cannot fall through. Future work can broaden the non-fallthrough proof beyond the current simple root-ending helper only with source-backed tests.
-5. **Effect-checked widening**
+4. **Effect-checked widening**
    - Only after the earlier slices are green, widen beyond the current strict movable-value gates using Starshine's effect model.
-6. **Preset slice**
+5. **Preset slice**
    - Revisit public `optimize` / `shrink` placement only after direct-pass semantic parity and the neighboring `simplify-locals-nostructure` work are honest.
 
 ## Validation ladder
@@ -113,11 +115,12 @@ Do not widen without explicit tests for:
 
 ## Bottom line
 
-Starshine's older direct `code-pushing` subset remains supported by its 2026-05 evidence, but `[O4Z-AUDIT-CP]` is active and not closed under the current release-gating standard. The next useful work is analysis and segment discovery, with ordered-before / atomics boundaries carried forward from the `version_130` refresh. Public preset scheduling remains separate ordered-neighborhood work.
+Starshine's older direct `code-pushing` subset remains supported by its 2026-05 evidence, but `[O4Z-AUDIT-CP]` is active and not closed under the current release-gating standard. The first analyzer/segment inventory is now in-tree, so the next useful work is a smallest source-backed safe segment-movement slice that consumes that inventory while keeping ordered-before / atomics boundaries carried forward from the `version_130` refresh. Public preset scheduling remains separate ordered-neighborhood work.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
 - [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md)
 - [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md)
@@ -127,4 +130,5 @@ Starshine's older direct `code-pushing` subset remains supported by its 2026-05 
 - [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
 - [`../../../../../src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt)
+- [`../../../../../src/passes/code_pushing_wbtest.mbt`](../../../../../src/passes/code_pushing_wbtest.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

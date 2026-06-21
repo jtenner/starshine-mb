@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-20
 sources:
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
   - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
@@ -71,7 +72,7 @@ Binaryen's push points include:
 - conditional branch forms,
 - and dropped wrappers around push points.
 
-A random later expression is not automatically a destination. This is why the first future Starshine segment slice should discover push points without rewriting.
+A random later expression is not automatically a destination. The first Starshine segment slice now discovers selected push points without rewriting: ordinary `if`, dropped `if`, locally representable conditional branch roots, and switch/`br_table` roots.
 
 ## Barrier 5: `if` arm sinking needs one consuming arm
 
@@ -110,18 +111,18 @@ Do not confuse that with upstream Binaryen's `CodePushing.cpp` strategy. It is a
 
 A future broader Starshine port should preserve these rules before widening motion:
 
-1. implement or test an SFA-local classifier;
-2. discover block-local candidate segments and push points;
-3. keep one-arm `if` sinking separate from generic segment movement;
-4. preserve order among multiple moved sets;
-5. extend effect-ordering / effect-invalidation before moving broader value families;
-6. keep trap options explicit;
-7. test GC and EH as first-class boundaries;
-8. document Starshine-local helper families separately from upstream Binaryen behavior.
+1. build on the initial SFA and segment-window diagnostic inventory in [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md);
+2. keep one-arm `if` sinking separate from generic segment movement;
+3. preserve order among multiple moved sets;
+4. extend effect-ordering / effect-invalidation before moving broader value families;
+5. keep trap options explicit;
+6. test GC and EH as first-class boundaries;
+7. document Starshine-local helper families separately from upstream Binaryen behavior.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
 - [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)

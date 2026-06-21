@@ -409,6 +409,107 @@ fn code_pushing_region_cannot_fall_through_simple(
 }
 
 ///|
+fn code_pushing_push_point_kind(func : @ir.HotFunc, node_id : Int) -> String {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return "none"
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::If => "if"
+    @ir.HotOp::BrTable => "switch"
+    @ir.HotOp::BrIf
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail => "conditional-branch"
+    @ir.HotOp::Drop => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return "none"
+      }
+      let child_kind = code_pushing_push_point_kind(
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+      )
+      if child_kind == "none" {
+        "none"
+      } else {
+        "dropped-" + child_kind
+      }
+    }
+    _ => "none"
+  }
+}
+
+///|
+fn code_pushing_segment_window_diagnostic(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  set_idx : Int,
+) -> String {
+  if set_idx < 0 || set_idx >= @ir.hot_region_root_count(func, region_ref) {
+    return "reject:no-local-set"
+  }
+  let set_id = @ir.hot_region_get(func, region_ref, set_idx)
+  if set_id < 0 || !@ir.hot_node_is_live(func, set_id) {
+    return "reject:no-local-set"
+  }
+  let set_node = @ir.hot_node_get(func, set_id)
+  match set_node.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return "reject:no-local-set"
+  }
+  if @ir.hot_node_result_arity(func, set_id) != 0 {
+    return "reject:no-local-set"
+  }
+  let local_id = set_node.imm0
+  let (prefix_gets, _) = code_pushing_count_local_gets_writes_in_region_prefix_bounded(
+    func, region_ref, local_id, set_idx, 0, 1_000_000,
+  )
+  if prefix_gets != 0 {
+    return "reject:prefix-local-read"
+  }
+  let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
+    func, local_id, 1_000_000, 2,
+  )
+  if total_writes != 1 {
+    return "reject:multiple-local-writes"
+  }
+  if total_gets == 0 {
+    return "reject:no-local-use"
+  }
+  let value_id = @ir.hot_child_get(func, set_id, 0)
+  if !code_pushing_node_is_movable_value(func, value_id) {
+    return "reject:not-pushable-value"
+  }
+  let mut idx = set_idx + 1
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    let candidate_id = @ir.hot_region_get(func, region_ref, idx)
+    let kind = code_pushing_push_point_kind(func, candidate_id)
+    if kind != "none" {
+      if !code_pushing_node_safe_to_cross_for_value(
+          func, candidate_id, value_id,
+        ) {
+        return "reject:ordered-before-barrier"
+      }
+      return "candidate:" + kind
+    }
+    let (gets, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
+      func, candidate_id, local_id, 1, 0,
+    )
+    if writes != 0 {
+      return "reject:multiple-local-writes"
+    }
+    if gets != 0 {
+      return "reject:use-before-push-point"
+    }
+    if !code_pushing_node_safe_to_cross_for_value(func, candidate_id, value_id) {
+      return "reject:ordered-before-barrier"
+    }
+    idx += 1
+  }
+  "reject:no-push-point"
+}
+
+///|
 fn code_pushing_node_has_branch(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -742,6 +843,9 @@ fn code_pushing_try_sink_set_into_if_then(
   if @ir.hot_node_result_arity(func, set_id) != 0 {
     return false
   }
+  // Keep the non-mutating segment inventory exercised in normal builds while
+  // mutation remains governed by the stricter source-backed checks below.
+  ignore(code_pushing_segment_window_diagnostic(func, region_ref, set_idx))
   let value_id = @ir.hot_child_get(func, set_id, 0)
   if !code_pushing_node_is_movable_value(func, value_id) {
     return false
