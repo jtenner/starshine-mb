@@ -1452,6 +1452,14 @@ fn hso_root_can_swap_before_local_struct_new(
   if blocker_id < 0 || !@ir.hot_node_is_live(func, blocker_id) {
     return false
   }
+  // Binaryen optimizes tee-wrapped struct.set action roots before block-local
+  // chain swapping sees them. Treat an unprocessed tee-root as a constructor
+  // local-set barrier here so one fresh struct chain does not move across and
+  // consume a separate tee chain in the same region.
+  match hso_tee_wrapped_struct_set_local_id(func, blocker_id) {
+    Some(_) => return false
+    None => ()
+  }
   let blocker_node = @ir.hot_node_get(func, blocker_id)
   match blocker_node.op {
     @ir.HotOp::LocalSet =>

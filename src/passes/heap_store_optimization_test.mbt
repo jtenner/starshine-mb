@@ -1475,6 +1475,90 @@ test "heap-store-optimization folds Binaryen many-fields tee roots independently
 }
 
 ///|
+test "heap-store-optimization folds Binaryen many-news independent chains" {
+  let triple = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let local1 = @lib.LocalIdx::new(1U)
+  let ref_type = @lib.ValType::ref_null(@lib.HeapType::new(triple))
+  let optimized = match
+    hso_test_run_with_locals(
+      [
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::i32_const(@lib.I32(20)),
+        @lib.Instruction::i32_const(@lib.I32(30)),
+        @lib.Instruction::struct_new(triple),
+        @lib.Instruction::local_tee(local0),
+        @lib.Instruction::i32_const(@lib.I32(40)),
+        @lib.Instruction::struct_set(triple, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(50)),
+        @lib.Instruction::struct_set(triple, @lib.U32(1U)),
+        @lib.Instruction::nop(),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(60)),
+        @lib.Instruction::struct_set(triple, @lib.U32(2U)),
+        @lib.Instruction::nop(),
+        @lib.Instruction::i32_const(@lib.I32(100)),
+        @lib.Instruction::i32_const(@lib.I32(200)),
+        @lib.Instruction::i32_const(@lib.I32(300)),
+        @lib.Instruction::struct_new(triple),
+        @lib.Instruction::local_tee(local0),
+        @lib.Instruction::i32_const(@lib.I32(400)),
+        @lib.Instruction::struct_set(triple, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(500)),
+        @lib.Instruction::struct_set(triple, @lib.U32(2U)),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(10)),
+            @lib.Instruction::i32_const(@lib.I32(20)),
+            @lib.Instruction::i32_const(@lib.I32(30)),
+            @lib.Instruction::struct_new(triple),
+            @lib.Instruction::local_tee(local0),
+            @lib.Instruction::i32_const(@lib.I32(40)),
+            @lib.Instruction::struct_set(triple, @lib.U32(0U)),
+            @lib.Instruction::i32_const(@lib.I32(100)),
+            @lib.Instruction::i32_const(@lib.I32(200)),
+            @lib.Instruction::i32_const(@lib.I32(300)),
+            @lib.Instruction::struct_new(triple),
+            @lib.Instruction::local_tee(local1),
+            @lib.Instruction::i32_const(@lib.I32(400)),
+            @lib.Instruction::struct_set(triple, @lib.U32(0U)),
+            @lib.Instruction::local_get(local1),
+            @lib.Instruction::i32_const(@lib.I32(500)),
+            @lib.Instruction::struct_set(triple, @lib.U32(2U)),
+            @lib.Instruction::local_get(local1),
+            @lib.Instruction::i32_const(@lib.I32(600)),
+            @lib.Instruction::struct_set(triple, @lib.U32(1U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(triple, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(triple, @lib.U32(2U)),
+        @lib.Instruction::i32_add(),
+      ],
+      3,
+      [ref_type, ref_type],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected many-news heap-store-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(40)"), msg=pretty)
+  assert_true(pretty.contains("I32(50)"), msg=pretty)
+  assert_true(pretty.contains("I32(60)"), msg=pretty)
+  assert_true(pretty.contains("I32(400)"), msg=pretty)
+  assert_true(pretty.contains("I32(500)"), msg=pretty)
+  assert_true(pretty.contains("I32(600)"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps Binaryen pattern-breaker local copy chains" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
