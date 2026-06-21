@@ -40,6 +40,7 @@ sources:
   - ../../../raw/research/0754-2026-06-19-optimize-instructions-oi-h-fallthrough-call-ref.md
   - ../../../raw/research/0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md
   - ../../../raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md
+  - ../../../raw/research/0811-2026-06-20-optimize-instructions-oi-h-call-indexed-table-get-boundary.md
   - ../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md
   - ../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md
   - ../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md
@@ -94,6 +95,7 @@ sources:
   - ../../../raw/research/0808-2026-06-20-optimize-instructions-oi-i-effectful-non-null-aggregate-ref-is-null.md
   - ../../../raw/research/0809-2026-06-20-optimize-instructions-oi-i-nullable-i31-nonnull-target.md
   - ../../../raw/research/0810-2026-06-20-optimize-instructions-oi-i-known-null-nonnull-target.md
+  - ../../../raw/research/0811-2026-06-20-optimize-instructions-oi-h-call-indexed-table-get-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -141,6 +143,7 @@ related:
   - ../../../raw/research/0754-2026-06-19-optimize-instructions-oi-h-fallthrough-call-ref.md
   - ../../../raw/research/0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md
   - ../../../raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md
+  - ../../../raw/research/0811-2026-06-20-optimize-instructions-oi-h-call-indexed-table-get-boundary.md
   - ../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md
   - ../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md
   - ../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md
@@ -347,6 +350,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0754-2026-06-19-optimize-instructions-oi-h-fallthrough-call-ref.md`](../../../raw/research/0754-2026-06-19-optimize-instructions-oi-h-fallthrough-call-ref.md) records the fifth `[O4Z-AUDIT-OI-H]` `call_ref` sub-slice: zero-argument fallthrough-known block targets now lower to a dropped target expression plus direct `call` / `return_call`, preserving target-side effects.
 - [`../../../raw/research/0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md`](../../../raw/research/0755-2026-06-20-optimize-instructions-oi-h-argument-select-call-ref-localization.md) records the sixth `[O4Z-AUDIT-OI-H]` `call_ref` sub-slice: argument-bearing select-of-`ref.func` targets now localize single-result call arguments before lowering to direct-call `if` arms.
 - [`../../../raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md`](../../../raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md) records the seventh `[O4Z-AUDIT-OI-H]` `call_ref` boundary sub-slice: mixed select arms and argument-bearing fallthrough-known targets are intentionally kept unchanged until a broader safe lowering is proven.
+- [`../../../raw/research/0811-2026-06-20-optimize-instructions-oi-h-call-indexed-table-get-boundary.md`](../../../raw/research/0811-2026-06-20-optimize-instructions-oi-h-call-indexed-table-get-boundary.md) records the eighth `[O4Z-AUDIT-OI-H]` `call_ref` boundary sub-slice: call-indexed `table.get` targets are intentionally kept unchanged even though Binaryen directizes them to indirect calls while preserving the index call.
 - [`../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md`](../../../raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md) records the first `[O4Z-AUDIT-OI-I]` reference-null sub-slice: `ref.is_null(ref.null)` and null-operand `ref.eq` rewrites now cover the local null equality/test basics while broader casts and exactness-sensitive behavior remain open.
 - [`../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md`](../../../raw/research/0758-2026-06-20-optimize-instructions-oi-i-ref-as-non-null.md) records the second `[O4Z-AUDIT-OI-I]` reference sub-slice: first `ref.as_non_null` null/known-`i31` cleanup and exact `ref.cast(unreachable)` validity repair are covered while broader casts, tests, and descriptor/exactness-sensitive behavior remain open.
 - [`../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md`](../../../raw/research/0759-2026-06-20-optimize-instructions-oi-i-known-non-null.md) records the third `[O4Z-AUDIT-OI-I]` reference sub-slice: known-non-null `ref.i31` / `ref.func` null tests and `ref.i31` null equality now fold to `i32.const 0`, with the supporting `ref.is_null` typechecker correction.

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Classify OI-H call-indexed table.get boundary
+
+- Filed [`raw/research/0811-2026-06-20-optimize-instructions-oi-h-call-indexed-table-get-boundary.md`](raw/research/0811-2026-06-20-optimize-instructions-oi-h-call-indexed-table-get-boundary.md) for the eighth `[O4Z-AUDIT-OI-H]` `call_ref` sub-slice. Binaryen directizes call-indexed `table.get` targets to `call_indirect` / `return_call_indirect` while preserving the table-index call; Starshine intentionally keeps the shape unchanged until a safe HOT/localizing lowering proves index-effect and argument-order preservation.
+- Evidence: Binaryen oracle with `--enable-reference-types --enable-gc --enable-tail-call` directized both call and tail-call forms. A red-first positive `*table.get index effects*` failed before implementation because Starshine kept `call_ref` / `table.get`; the landed fail-closed boundary `*call-indexed table.get*` passed `1/1`, focused `*call_ref*` passed `8/8`, focused `*optimize-instructions*` passed `193/193`, `moon fmt`, `moon test src/passes` (`2723/2723`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference/call_ref operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-I known-null non-null-target cast/test
 
 - Filed [`raw/research/0810-2026-06-20-optimize-instructions-oi-i-known-null-nonnull-target.md`](raw/research/0810-2026-06-20-optimize-instructions-oi-i-known-null-nonnull-target.md) for the fifty-fourth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already folds `ref.null struct; ref.test (ref struct)` to `i32.const 0`, rewrites matching non-null `ref.cast` to `unreachable`, and preserves already-evaluated `drop(call $effect)` prefixes before those folded/trapping suffixes.

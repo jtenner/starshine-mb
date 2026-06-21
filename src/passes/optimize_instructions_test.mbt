@@ -4531,6 +4531,88 @@ test "optimize-instructions lowers table.get call_ref targets to indirect calls"
 }
 
 ///|
+test "optimize-instructions intentionally keeps call-indexed table.get call_ref targets" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let index_type_idx = @lib.TypeIdx::new(1U)
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let index_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let typed_func_ref = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(callee_type_idx),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_type, index_type]))
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("index"),
+          @lib.ExternType::func(index_type_idx),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([callee_type_idx, callee_type_idx, callee_type_idx]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(typed_func_ref, @lib.Limits::i32(1U, Some(1U))),
+          None,
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+            @lib.Instruction::call_ref(callee_type_idx),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+            @lib.Instruction::return_call_ref(callee_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let tail = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  // Boundary: Binaryen directizes these to indirect calls while preserving the
+  // index call, but Starshine's current HOT shape does not expose the
+  // effectful table.get index as a directizable call_ref target. Keep this
+  // fail-closed until a localizing/HOT-lowering slice can prove the rewrite.
+  assert_true(caller.contains("call_ref"), msg=caller)
+  assert_true(caller.contains("call (Func 0)"), msg=caller)
+  assert_true(caller.contains("table.get"), msg=caller)
+  assert_false(caller.contains("call_indirect"), msg=caller)
+  assert_true(tail.contains("return_call_ref"), msg=tail)
+  assert_true(tail.contains("call (Func 0)"), msg=tail)
+  assert_true(tail.contains("table.get"), msg=tail)
+  assert_false(tail.contains("return_call_indirect"), msg=tail)
+}
+
+///|
 test "optimize-instructions expands one-byte memory.copy to load8/store8" {
   let optimized = match
     pass_test_run_pipeline(
