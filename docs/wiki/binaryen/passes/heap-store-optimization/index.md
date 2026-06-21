@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md
   - ../../../raw/research/0864-2026-06-20-heap-store-optimization-descriptor-select.md
   - ../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md
   - ../../../raw/research/0862-2026-06-20-heap-store-optimization-br-table-local-escape.md
@@ -181,6 +182,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0860` fixed descriptor later-field global conflict handling for later-field reads: Binaryen folds when a later field reads mutable global `$g0` and the moved value writes unrelated `$g1`, but preserves `struct.set` when both touch `$g0`.
   - Follow-up `0861` fixed the complementary later-field global-write split: Binaryen folds when a later field writes `$g0` and the moved value reads or writes unrelated `$g1`, but preserves `struct.set` for same-global read/write conflicts.
   - Follow-up `0864` fixed a descriptor-expression parity gap for typed `select`: Binaryen folds a moved call into `struct.new_desc` when the descriptor operand selects between immutable descriptor globals under a pure condition, and Starshine now uses descriptor-aware child effect summaries for `HotOp::Select`.
+  - Coverage note `0865` locked the descriptor `ref.as_non_null` trap boundary: Binaryen and Starshine both preserve `struct.set` when a nullable descriptor operand may trap before the later call-valued store is evaluated.
 - Control-flow skip-local-set hazards include loop backedges that can re-enter target-local reads.
   - Follow-up `0863` confirmed Binaryen preserves `struct.set` when a branch-valued store can `br_if` to a loop header that reads the fresh-struct target local before the next `local.set`; Starshine already matched this HSO-F negative.
 - Descriptor/default old-field combinations follow the same directional effect rules.
