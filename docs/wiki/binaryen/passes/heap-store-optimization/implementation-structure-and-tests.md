@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0941-2026-06-21-heap-store-optimization-block-call-ref-growth-boundary.md
   - ../../../raw/research/0940-2026-06-21-heap-store-optimization-block-call-ref-store-boundary.md
   - ../../../raw/research/0939-2026-06-21-heap-store-optimization-block-call-indirect-growth-boundary.md
   - ../../../raw/research/0938-2026-06-21-heap-store-optimization-block-call-indirect-store-boundary.md
@@ -373,6 +374,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for block-wrapped `call_indirect` constructor boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the block-wrapped indirect call, intervening growth root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0940-2026-06-21-heap-store-optimization-block-call-ref-store-boundary.md`](../../../raw/research/0940-2026-06-21-heap-store-optimization-block-call-ref-store-boundary.md)
   - added focused HSO-D/G coverage for block-wrapped `call_ref` constructor boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the block-wrapped typed-function-reference call, intervening store root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/0941-2026-06-21-heap-store-optimization-block-call-ref-growth-boundary.md`](../../../raw/research/0941-2026-06-21-heap-store-optimization-block-call-ref-growth-boundary.md)
+  - added focused HSO-D/G coverage for block-wrapped `call_ref` constructor boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the block-wrapped typed-function-reference call, intervening growth root, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md`](../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md)
   - added focused HSO-D/G coverage for the ordinary direct-call old-field counterpart before unrelated `i32.store`; Binaryen preserves the call, intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md`](../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md)
