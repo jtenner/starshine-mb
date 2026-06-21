@@ -4315,6 +4315,45 @@ test "heap-store-optimization folds moved call when only the replaced old field 
 }
 
 ///|
+test "heap-store-optimization preserves old field data.drop when folding" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_data_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::data_drop(@lib.DataIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected old-field data.drop heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("data.drop"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization moves local-only set value before later trapping load" {
   let pair = @lib.TypeIdx::new(0U)
   let local_ref = @lib.LocalIdx::new(0U)
