@@ -6108,6 +6108,66 @@ test "optimize-instructions folds pure struct.get of struct.new field values" {
 }
 
 ///|
+test "optimize-instructions folds packed struct.get_s and struct.get_u of struct.new field values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field i32) (field i8) (field i16)))
+        #|  (func (export "gets8") (param $x i32) (result i32)
+        #|    i32.const 1
+        #|    local.get $x
+        #|    i32.const 2
+        #|    struct.new $s
+        #|    struct.get_s $s 1)
+        #|  (func (export "getu16") (param $x i32) (result i32)
+        #|    i32.const 1
+        #|    i32.const 2
+        #|    local.get $x
+        #|    struct.new $s
+        #|    struct.get_u $s 2)
+        #|  (func (export "const_s8") (result i32)
+        #|    i32.const 1
+        #|    i32.const 255
+        #|    i32.const 2
+        #|    struct.new $s
+        #|    struct.get_s $s 1)
+        #|  (func (export "const_u16") (result i32)
+        #|    i32.const 1
+        #|    i32.const 2
+        #|    i32.const 65535
+        #|    struct.new $s
+        #|    struct.get_u $s 2))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected packed struct.get(struct.new) optimize success, got \{err}",
+      )
+  }
+  let gets8 = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let getu16 = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let const_s8 = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let const_u16 = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(gets8.contains("struct.get"), msg=gets8)
+  assert_false(gets8.contains("struct.new"), msg=gets8)
+  assert_true(gets8.contains("i32.extend8s"), msg=gets8)
+  assert_false(getu16.contains("struct.get"), msg=getu16)
+  assert_false(getu16.contains("struct.new"), msg=getu16)
+  assert_true(getu16.contains("i32.and"), msg=getu16)
+  assert_true(getu16.contains("I32(65535)"), msg=getu16)
+  assert_false(const_s8.contains("struct.get"), msg=const_s8)
+  assert_false(const_s8.contains("struct.new"), msg=const_s8)
+  assert_true(const_s8.contains("I32(-1)"), msg=const_s8)
+  assert_false(const_u16.contains("struct.get"), msg=const_u16)
+  assert_false(const_u16.contains("struct.new"), msg=const_u16)
+  assert_true(const_u16.contains("I32(65535)"), msg=const_u16)
+}
+
+///|
 test "optimize-instructions intentionally keeps struct.get of struct.new with effectful sibling fields" {
   let optimized = match
     pass_test_run_pipeline(

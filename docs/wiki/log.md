@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Implement OI-K packed struct.get(struct.new)
+
+- Filed [`raw/research/0824-2026-06-20-optimize-instructions-oi-k-packed-struct-get-new.md`](raw/research/0824-2026-06-20-optimize-instructions-oi-k-packed-struct-get-new.md) for the second `[O4Z-AUDIT-OI-K]` GC constructor/field sub-slice. Binaryen `version_130` removes fresh `struct.new` allocations for pure packed `struct.get_s` / `struct.get_u` reads and preserves signedness through constants, sign-extension, or masks; Starshine now matches the pure sibling-field subset.
+- Evidence: Binaryen oracle `.tmp/oi-k-struct-get-packed-probe.wat` folded constants and rewrote nonconstant packed reads to `i32.extend8_s` or `i32.and`. Red-first focused `*packed struct.get*` failed before implementation and passed `1/1` after; final `*struct.get*` passed `3/3`, `*optimize-instructions*` passed `207/207`, `moon fmt`, `moon test src/passes` (`2737/2737`), native `src/cmd` build, and `moon info` passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Implement OI-K pure struct.get(struct.new)
 
 - Filed [`raw/research/0823-2026-06-20-optimize-instructions-oi-k-struct-get-new.md`](raw/research/0823-2026-06-20-optimize-instructions-oi-k-struct-get-new.md) for the first `[O4Z-AUDIT-OI-K]` GC constructor/field sub-slice. Binaryen `version_130` removes fresh `struct.new` allocations when a following `struct.get` selects a field; Starshine now matches the pure sibling-field subset and documents effectful sibling fields as a localizing boundary.

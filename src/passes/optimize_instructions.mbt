@@ -3241,6 +3241,94 @@ fn optimize_instructions_store_value_is_i64(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn optimize_instructions_packed_i32_const(
+  raw : Int,
+  bits : Int,
+  signed : Bool,
+) -> @lib.I32 {
+  let mask = (1 << bits) - 1
+  let truncated = raw & mask
+  if signed {
+    let sign = 1 << (bits - 1)
+    if (truncated & sign) != 0 {
+      @lib.I32(truncated - (1 << bits))
+    } else {
+      @lib.I32(truncated)
+    }
+  } else {
+    @lib.I32(truncated)
+  }
+}
+
+///|
+fn optimize_instructions_struct_field_pack_bits(
+  ctx : HotPassContext,
+  type_idx : @lib.TypeIdx,
+  field_idx : Int,
+) -> Int? {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let fields = match
+    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+    Some(fields) => fields
+    None => return None
+  }
+  if field_idx < 0 || field_idx >= fields.length() {
+    return None
+  }
+  match fields[field_idx].get_storage_type() {
+    @lib.PackTypeStorageType(@lib.I8PackType) => Some(8)
+    @lib.PackTypeStorageType(@lib.I16PackType) => Some(16)
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_replace_with_packed_struct_field(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  value_id : Int,
+  bits : Int,
+  signed : Bool,
+) -> Unit {
+  match optimize_instructions_i32_const(func, dead, value_id) {
+    Some(@lib.I32(raw)) =>
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        optimize_instructions_packed_i32_const(raw, bits, signed),
+      )
+    None =>
+      if signed {
+        let instr = if bits == 8 {
+          @lib.Instruction::i32_extend8s()
+        } else {
+          @lib.Instruction::i32_extend16s()
+        }
+        optimize_instructions_replace_with_exact_unary(
+          ctx, func, node_id, instr, value_id,
+        )
+      } else {
+        let mask = if bits == 8 { 255 } else { 65535 }
+        let replacement = optimize_instructions_build_i32_binary(
+          func,
+          @lib.Instruction::i32_and(),
+          value_id,
+          @ir.hot_build_const_i32(func, @lib.I32(mask)),
+        )
+        optimize_instructions_replace_with_node_id(
+          ctx, func, node_id, replacement,
+        )
+      }
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_struct_get_struct_new(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3251,9 +3339,14 @@ fn optimize_instructions_try_fold_struct_get_struct_new(
   if node.child_count != 1 {
     return false
   }
-  let (type_idx, field_idx) = match @ir.hot_node_exact_instr(func, node_id) {
+  let (type_idx, field_idx, packed_signed) = match
+    @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::StructGet(type_idx, @lib.U32(field_idx))) =>
-      (type_idx, field_idx.reinterpret_as_int())
+      (type_idx, field_idx.reinterpret_as_int(), None)
+    Some(@lib.Instruction::StructGetS(type_idx, @lib.U32(field_idx))) =>
+      (type_idx, field_idx.reinterpret_as_int(), Some(true))
+    Some(@lib.Instruction::StructGetU(type_idx, @lib.U32(field_idx))) =>
+      (type_idx, field_idx.reinterpret_as_int(), Some(false))
     _ => return false
   }
   let struct_id = @ir.hot_child_get(func, node_id, 0)
@@ -3280,12 +3373,21 @@ fn optimize_instructions_try_fold_struct_get_struct_new(
       return false
     }
   }
-  optimize_instructions_replace_with_node_id(
-    ctx,
-    func,
-    node_id,
-    @ir.hot_child_get(func, struct_id, field_idx),
-  )
+  let value_id = @ir.hot_child_get(func, struct_id, field_idx)
+  match packed_signed {
+    Some(signed) => {
+      let bits = match
+        optimize_instructions_struct_field_pack_bits(ctx, type_idx, field_idx) {
+        Some(bits) => bits
+        None => return false
+      }
+      optimize_instructions_replace_with_packed_struct_field(
+        ctx, func, dead, node_id, value_id, bits, signed,
+      )
+    }
+    None =>
+      optimize_instructions_replace_with_node_id(ctx, func, node_id, value_id)
+  }
   true
 }
 
