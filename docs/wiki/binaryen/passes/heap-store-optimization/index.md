@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md
   - ../../../raw/research/0854-2026-06-20-heap-store-optimization-target-local-write-negative.md
   - ../../../raw/research/0853-2026-06-20-heap-store-optimization-subsequent-old-field-negative.md
   - ../../../raw/research/0852-2026-06-20-heap-store-optimization-subsequent-old-field-effects.md
@@ -163,6 +164,8 @@ It is a narrow GC constructor/store cleanup pass.
 - Function-external exits are mostly safe for this pass's current goal, but in-function exits and catches can block the rewrite.
 - Current upstream `main` is unusually stable here.
   - A 2026-05-05 focused current-main source bridge found no teaching-relevant drift in `HeapStoreOptimization.cpp`, the dedicated `heap-store-optimization.wast` test file, and helper surfaces versus the `version_129` contract.
+- Target-local hazards are checked for each attempted chain movement.
+  - Follow-up `0855` confirmed Binaryen preserves a chain when an early moved value writes the target local, but still folds an earlier harmless store before preserving a later target-local-read store.
 
 ## Beginner warning: what the name hides
 

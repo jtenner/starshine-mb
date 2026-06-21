@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md
   - ../../../raw/research/0854-2026-06-20-heap-store-optimization-target-local-write-negative.md
   - ../../../raw/research/0853-2026-06-20-heap-store-optimization-subsequent-old-field-negative.md
   - ../../../raw/research/0852-2026-06-20-heap-store-optimization-subsequent-old-field-effects.md
@@ -231,6 +232,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md`](../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md)
+  - added target-local chain coverage: Binaryen preserves both stores when an early moved value writes the target local, but folds an earlier harmless store before a later target-local-read hazard; focused HSO tests passed `208/208`, and no implementation change was needed.
 - [`../../../raw/research/0854-2026-06-20-heap-store-optimization-target-local-write-negative.md`](../../../raw/research/0854-2026-06-20-heap-store-optimization-target-local-write-negative.md)
   - added coverage for the source-backed target-local write hazard where the moved set value overwrites the same fresh-struct local; focused HSO tests passed `206/206`, and no implementation change was needed.
 - [`../../../raw/research/0853-2026-06-20-heap-store-optimization-subsequent-old-field-negative.md`](../../../raw/research/0853-2026-06-20-heap-store-optimization-subsequent-old-field-negative.md)
