@@ -882,6 +882,36 @@ fn code_pushing_node_is_drop_const_window_separator(
 }
 
 ///|
+fn code_pushing_node_is_drop_local_get_window_separator(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, node_id) != 0 ||
+    @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  code_pushing_node_is_local_get(func, child_id)
+}
+
+///|
+fn code_pushing_node_is_safe_drop_window_separator(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  code_pushing_node_is_drop_const_window_separator(func, node_id) ||
+  code_pushing_node_is_drop_local_get_window_separator(func, node_id)
+}
+
+///|
 fn code_pushing_try_sink_local_get_set_after_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1039,11 +1069,11 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
           @ir.hot_node_result_arity(func, root_id) != 0 {
           return false
         }
-      @ir.HotOp::Drop if code_pushing_node_is_drop_const_window_separator(
+      @ir.HotOp::Drop if code_pushing_node_is_safe_drop_window_separator(
           func, root_id,
         ) =>
-        // A source-backed second non-adjacent slice admits only dead
-        // drop(const) roots as local-independent, non-effectful separators;
+        // Source-backed non-adjacent slices admit only dead drop(const) and
+        // drop(local.get) roots as local-independent, non-effectful separators;
         // other non-set roots still need orderedBefore/effect tests first.
         if set_ids.length() == 0 {
           return false
