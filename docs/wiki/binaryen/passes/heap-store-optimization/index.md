@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0878-2026-06-20-heap-store-optimization-later-field-block-br-if-pure-condition.md
   - ../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md
   - ../../../raw/research/0876-2026-06-20-heap-store-optimization-descriptor-block-br-if-call-condition.md
   - ../../../raw/research/0875-2026-06-20-heap-store-optimization-later-field-block-br-if-call-condition.md
@@ -199,6 +200,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0873` locked the matching effectful later-field select boundary: Binaryen preserves `struct.set` when a later constructor field is a typed `select` whose condition is a call, and Starshine already matched.
   - Coverage note `0874` locked the matching effectful later-field `if` boundary: Binaryen preserves `struct.set` when a later constructor field is an `if` whose condition is a call, and Starshine already matched.
   - Coverage note `0875` locked a branch-containing effectful later-field block boundary: Binaryen preserves `struct.set` when a later constructor field is a block with a value-carrying `br_if` whose condition is a call, and Starshine already matched.
+  - Coverage note `0878` locked the pure side of the branch-containing later-field block split: Binaryen folds a call-valued later store through a later-field block with a value-carrying `br_if` when the branch operands are pure, and Starshine already matched.
   - Follow-up `0877` fixed the pure side of the descriptor block `br_if` split: Binaryen folds a call-valued later store through a descriptor block with a value-carrying `br_if` when the branch operands are pure; Starshine now matches by summarizing branch/drop children through descriptor-specific effects.
   - Coverage note `0876` locked the matching branch-containing effectful descriptor block boundary: Binaryen preserves `struct.set` when the descriptor operand is a block with a value-carrying `br_if` whose condition is a call, and Starshine already matched.
   - Coverage note `0865` locked the descriptor `ref.as_non_null` trap boundary: Binaryen and Starshine both preserve `struct.set` when a nullable descriptor operand may trap before the later call-valued store is evaluated.
