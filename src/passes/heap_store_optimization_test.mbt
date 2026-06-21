@@ -7322,6 +7322,56 @@ test "heap-store-optimization keeps result try_table return_call set values" {
 }
 
 ///|
+test "heap-store-optimization keeps result try_table return_call_indirect old fields" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_table_test_run(
+      [
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::return_call_indirect(
+                  @lib.TypeIdx::new(1U),
+                  @lib.TableIdx::new(0U),
+                ),
+                @lib.Instruction::i32_const(@lib.I32(4)),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected result try_table return_call_indirect old-field heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps result try_table return_call_indirect set values" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
