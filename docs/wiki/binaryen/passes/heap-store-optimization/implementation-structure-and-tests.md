@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/1001-2026-06-21-heap-store-optimization-result-try-table-return-call-old-field-boundary.md
   - ../../../raw/research/1000-2026-06-21-heap-store-optimization-result-try-table-return-call-indirect-boundary.md
   - ../../../raw/research/0999-2026-06-21-heap-store-optimization-result-try-table-return-call-boundary.md
   - ../../../raw/research/0998-2026-06-21-heap-store-optimization-result-try-table-call-indirect-cross-store-boundary.md
@@ -517,6 +518,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/1001-2026-06-21-heap-store-optimization-result-try-table-return-call-old-field-boundary.md`](../../../raw/research/1001-2026-06-21-heap-store-optimization-result-try-table-return-call-old-field-boundary.md)
+  - added coverage-only HSO-D/F/G evidence for result-typed `try_table` direct `return_call` old-field boundaries; Binaryen preserves the overwritten constructor-field call, wrapper, tail call, and later `struct.set`, and Starshine already matches.
 - [`../../../raw/research/1000-2026-06-21-heap-store-optimization-result-try-table-return-call-indirect-boundary.md`](../../../raw/research/1000-2026-06-21-heap-store-optimization-result-try-table-return-call-indirect-boundary.md)
   - added coverage-only HSO-F/G evidence for result-typed `try_table` `return_call_indirect` set-value boundaries; Binaryen preserves the wrapper, indirect tail call, constructor, and later `struct.set`, and Starshine already matches.
 - [`../../../raw/research/0999-2026-06-21-heap-store-optimization-result-try-table-return-call-boundary.md`](../../../raw/research/0999-2026-06-21-heap-store-optimization-result-try-table-return-call-boundary.md)
