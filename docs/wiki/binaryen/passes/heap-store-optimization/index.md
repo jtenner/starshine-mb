@@ -3,6 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0967-2026-06-21-heap-store-optimization-branch-loop-call-indirect-constructor-growth-boundary.md
+  - ../../../raw/research/0966-2026-06-21-heap-store-optimization-branch-loop-call-indirect-constructor-store-boundary.md
   - ../../../raw/research/0965-2026-06-21-heap-store-optimization-branch-loop-call-constructor-growth-boundary.md
   - ../../../raw/research/0964-2026-06-21-heap-store-optimization-branch-loop-call-constructor-store-boundary.md
   - ../../../raw/research/0963-2026-06-21-heap-store-optimization-loop-call-ref-constructor-growth-boundary.md
@@ -355,6 +357,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0963` confirmed the branchless loop-wrapped `call_ref` constructor growth counterparts: Binaryen preserves the loop-wrapped typed-function-reference call constructor operand, the unrelated `memory.grow` or `table.grow`, and the later other-field `struct.set`; Starshine already matched.
   - Coverage note `0964` confirmed the branch-containing outer-block/inner-loop direct-call constructor store counterparts: Binaryen preserves the wrapped call, `br_if`, unrelated `i32.store` or `table.set`, and later other-field `struct.set`; Starshine already matched.
   - Coverage note `0965` confirmed the matching branch-containing outer-block/inner-loop direct-call constructor growth counterparts: Binaryen preserves the wrapped call, `br_if`, unrelated `memory.grow` or `table.grow`, and later other-field `struct.set`; Starshine already matched.
+  - Coverage note `0966` confirmed the branch-containing outer-block/inner-loop `call_indirect` constructor store counterparts: Binaryen preserves the wrapped indirect call, `br_if`, unrelated `i32.store` or `table.set`, and later other-field `struct.set`; Starshine already matched.
+  - Coverage note `0967` confirmed the matching branch-containing outer-block/inner-loop `call_indirect` constructor growth counterparts: Binaryen preserves the wrapped indirect call, `br_if`, unrelated `memory.grow` or `table.grow`, and later other-field `struct.set`; Starshine already matched.
   - Coverage note `0931` confirmed the ordinary direct-call constructor growth counterparts: Binaryen preserves the direct `call`, the unrelated `memory.grow` or `table.grow`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0929` confirmed the ordinary direct-call old-field / memory-store counterpart: Binaryen preserves the old-field direct `call`, the unrelated `i32.store`, and the later `struct.set`; Starshine already matched.
   - Coverage note `0935` confirmed the ordinary direct-call old-field growth counterparts: Binaryen preserves the old-field direct `call`, the unrelated `memory.grow` or `table.grow`, and the later `struct.set`; Starshine already matched.
