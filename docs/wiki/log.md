@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Cover OI-I i31/array local ref.eq miss
+
+- Filed [`raw/research/0812-2026-06-20-optimize-instructions-oi-i-i31-array-local-ref-eq.md`](raw/research/0812-2026-06-20-optimize-instructions-oi-i-i31-array-local-ref-eq.md) for the fifty-fifth `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding impossible equality between a declared non-null `i31` local and a nullable array local to `i32.const 0` in either operand order.
+- Evidence: Binaryen oracle folded pure and effect-prefix `(ref i31)` vs nullable `arrayref` `ref.eq` shapes. Red-first did not apply because this was coverage for existing behavior. Focused `*i31 array local*` passed immediately (`1/1`); final `*ref.eq*` passed `7/7`, `*ref*` passed `64/64`, final `*optimize-instructions*` passed `194/194`, `moon fmt`, `moon test src/passes` (`2724/2724`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference/call_ref operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Classify OI-H call-indexed table.get boundary
 
 - Filed [`raw/research/0811-2026-06-20-optimize-instructions-oi-h-call-indexed-table-get-boundary.md`](raw/research/0811-2026-06-20-optimize-instructions-oi-h-call-indexed-table-get-boundary.md) for the eighth `[O4Z-AUDIT-OI-H]` `call_ref` sub-slice. Binaryen directizes call-indexed `table.get` targets to `call_indirect` / `return_call_indirect` while preserving the table-index call; Starshine intentionally keeps the shape unchanged until a safe HOT/localizing lowering proves index-effect and argument-order preservation.
