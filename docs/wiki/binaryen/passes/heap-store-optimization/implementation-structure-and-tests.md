@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md
   - ../../../raw/research/0846-2026-06-20-heap-store-optimization-br-table-table-side-stores.md
   - ../../../raw/research/0845-2026-06-20-heap-store-optimization-br-table-swap-wrappers.md
   - ../../../raw/research/0844-2026-06-20-heap-store-optimization-cross-family-store-swap.md
@@ -221,6 +222,8 @@ Current local proof surfaces include:
   - focused CLI replay fixtures for `--heap-store-optimization`.
 - [`src/cmd/cmd_wbtest.mbt:6600-6634`](../../../../../src/cmd/cmd_wbtest.mbt)
   - debug-artifact replay coverage.
+- [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
+  - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
 
 ## What is not covered by this page
 

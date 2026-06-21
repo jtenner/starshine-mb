@@ -3,6 +3,7 @@ kind: research
 status: active
 created: 2026-06-20
 sources:
+  - ./0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md
   - ../../binaryen/passes/heap-store-optimization/index.md
   - ./0775-2026-06-20-heap-store-optimization-recursive-handoff-plan.md
   - ./0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
@@ -78,4 +79,4 @@ Continue HSO-B/HSO-D with focused source-backed tests that distinguish Binaryen 
 
 If focused tests reveal Starshine overblocking, implement the directional behavior test-first. If they reveal underblocking or semantic risk, preserve safety and document the narrower Binaryen difference until the exact HOT effect API can match `orderedBefore(...)`.
 
-Final closeout still needs the wider standard/final compare lanes and early/late O4z slot or neighborhood evidence from the recursive-handoff completion criteria.
+Follow-up `0847` refreshed the generated O4z early/late slot evidence for current `_build/wasm/debug/build/cmd/cmd.wasm`: the first top-level HSO neighborhoods still appear at slots `17` and `45`, and Starshine direct HSO replay on both Binaryen-produced predecessor artifacts was exact-equal and normalized-equal to Binaryen with raw-fast-skip. Final closeout still needs the wider standard/final compare lanes and the remaining source-backed behavior families, but the HSO-B saved-slot evidence blocker is now advanced with current artifacts.
