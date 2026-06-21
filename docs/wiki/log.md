@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-21] passes/optimize-instructions | Implement OI-K packed array.get(array.new_fixed)
+
+- Filed [`raw/research/0827-2026-06-21-optimize-instructions-oi-k-packed-array-get-new-fixed.md`](raw/research/0827-2026-06-21-optimize-instructions-oi-k-packed-array-get-new-fixed.md) for the fifth `[O4Z-AUDIT-OI-K]` GC constructor/field/array sub-slice. Binaryen `version_130` folds constant-index packed `array.get_s` / `array.get_u(array.new_fixed ...)` to signed/unsigned constants, rewrites nonconstant selected values through sign-extension or masks, folds constant out-of-bounds indexes to `unreachable`, keeps dynamic indexes, and localizes effectful non-selected element operands; Starshine now matches the pure/non-effectful-sibling subset and keeps the localization boundary explicit.
+- Evidence: Binaryen oracle `.tmp/oi-k-packed-array-get-probe.wat` produced packed constants/extensions/masks, folded out-of-bounds to `unreachable`, kept dynamic indexes, and preserved imported-call sibling effects with `drop`. Red-first focused `*packed array.get*` failed before implementation and passed `1/1` after; final `*array.get*` passed `2/2`, `*optimize-instructions*` passed `210/210`, `moon fmt`, `moon test src/passes` (`2740/2740`), native `src/cmd` build, and `moon info` passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw mismatch and no GC/bulk-memory/narrow-store operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Implement OI-K array.get(array.new_fixed)
 
 - Filed [`raw/research/0826-2026-06-20-optimize-instructions-oi-k-array-get-new-fixed.md`](raw/research/0826-2026-06-20-optimize-instructions-oi-k-array-get-new-fixed.md) for the fourth `[O4Z-AUDIT-OI-K]` GC constructor/field/array sub-slice. Binaryen `version_130` folds constant-index plain `array.get(array.new_fixed ...)` to the selected element, folds constant out-of-bounds indexes to `unreachable`, keeps dynamic indexes, and localizes effectful non-selected element operands; Starshine now matches the pure/non-effectful-sibling subset and keeps the localization boundary explicit.

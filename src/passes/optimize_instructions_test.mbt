@@ -6370,6 +6370,203 @@ test "optimize-instructions folds array.get of pure array.new_fixed elements" {
 }
 
 ///|
+test "optimize-instructions folds packed array.get_s and array.get_u of pure array.new_fixed elements" {
+  let array_i8_type = @lib.TypeIdx::new(0U)
+  let array_i16_type = @lib.TypeIdx::new(1U)
+  let effect_type = @lib.TypeIdx::new(2U)
+  let result_type = @lib.TypeIdx::new(3U)
+  let indexed_type = @lib.TypeIdx::new(4U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::pack_type(@lib.PackType::i8()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::pack_type(@lib.PackType::i16()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        effect_type, result_type, result_type, result_type, result_type, indexed_type,
+        indexed_type, indexed_type, result_type, result_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(99))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::i32_const(@lib.I32(128)),
+            @lib.Instruction::array_new_fixed(array_i8_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get_s(array_i8_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::i32_const(@lib.I32(128)),
+            @lib.Instruction::array_new_fixed(array_i8_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get_u(array_i8_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(65535)),
+            @lib.Instruction::i32_const(@lib.I32(32768)),
+            @lib.Instruction::array_new_fixed(array_i16_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get_s(array_i16_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(65535)),
+            @lib.Instruction::i32_const(@lib.I32(32768)),
+            @lib.Instruction::array_new_fixed(array_i16_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get_u(array_i16_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::array_new_fixed(array_i8_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get_s(array_i8_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::array_new_fixed(array_i16_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get_u(array_i16_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::i32_const(@lib.I32(128)),
+            @lib.Instruction::array_new_fixed(array_i8_type, @lib.U32(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::array_get_s(array_i8_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::i32_const(@lib.I32(128)),
+            @lib.Instruction::array_new_fixed(array_i8_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_get_s(array_i8_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::array_new_fixed(array_i8_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get_u(array_i8_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let s8_const = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let u8_const = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let s16_const = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let u16_const = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let s8_nonconst = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  let u16_nonconst = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  let dynidx = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  let oob = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
+  let effectful_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
+  assert_false(s8_const.contains("array.get"), msg=s8_const)
+  assert_false(s8_const.contains("array.new_fixed"), msg=s8_const)
+  assert_true(s8_const.contains("I32(-1)"), msg=s8_const)
+  assert_false(u8_const.contains("array.get"), msg=u8_const)
+  assert_true(u8_const.contains("I32(255)"), msg=u8_const)
+  assert_false(s16_const.contains("array.get"), msg=s16_const)
+  assert_true(s16_const.contains("I32(-32768)"), msg=s16_const)
+  assert_false(u16_const.contains("array.get"), msg=u16_const)
+  assert_true(u16_const.contains("I32(32768)"), msg=u16_const)
+  assert_false(s8_nonconst.contains("array.get"), msg=s8_nonconst)
+  assert_false(s8_nonconst.contains("array.new_fixed"), msg=s8_nonconst)
+  assert_true(s8_nonconst.contains("i32.extend8s"), msg=s8_nonconst)
+  assert_false(u16_nonconst.contains("array.get"), msg=u16_nonconst)
+  assert_false(u16_nonconst.contains("array.new_fixed"), msg=u16_nonconst)
+  assert_true(u16_nonconst.contains("i32.and"), msg=u16_nonconst)
+  assert_true(u16_nonconst.contains("I32(65535)"), msg=u16_nonconst)
+  assert_true(dynidx.contains("array.get_s"), msg=dynidx)
+  assert_true(dynidx.contains("array.new_fixed"), msg=dynidx)
+  assert_false(oob.contains("array.get"), msg=oob)
+  assert_false(oob.contains("array.new_fixed"), msg=oob)
+  assert_true(oob.contains("unreachable"), msg=oob)
+  // Boundary-only half of this OI-K slice: Binaryen can preserve the effectful
+  // sibling with a drop before forwarding, but Starshine keeps the stack form
+  // until a safe localizing lowering preserves element-evaluation effects.
+  assert_true(effectful_sibling.contains("array.get_u"), msg=effectful_sibling)
+  assert_true(
+    effectful_sibling.contains("array.new_fixed"),
+    msg=effectful_sibling,
+  )
+  assert_true(
+    effectful_sibling.contains("call (Func 0)"),
+    msg=effectful_sibling,
+  )
+}
+
+///|
 test "optimize-instructions intentionally keeps struct.get of struct.new with effectful sibling fields" {
   let optimized = match
     pass_test_run_pipeline(

@@ -3261,6 +3261,17 @@ fn optimize_instructions_packed_i32_const(
 }
 
 ///|
+fn optimize_instructions_packed_storage_bits(
+  storage_type : @lib.StorageType,
+) -> Int? {
+  match storage_type {
+    @lib.PackTypeStorageType(@lib.I8PackType) => Some(8)
+    @lib.PackTypeStorageType(@lib.I16PackType) => Some(16)
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_struct_field_pack_bits(
   ctx : HotPassContext,
   type_idx : @lib.TypeIdx,
@@ -3278,15 +3289,29 @@ fn optimize_instructions_struct_field_pack_bits(
   if field_idx < 0 || field_idx >= fields.length() {
     return None
   }
-  match fields[field_idx].get_storage_type() {
-    @lib.PackTypeStorageType(@lib.I8PackType) => Some(8)
-    @lib.PackTypeStorageType(@lib.I16PackType) => Some(16)
-    _ => None
-  }
+  optimize_instructions_packed_storage_bits(
+    fields[field_idx].get_storage_type(),
+  )
 }
 
 ///|
-fn optimize_instructions_replace_with_packed_struct_field(
+fn optimize_instructions_array_field_pack_bits(
+  ctx : HotPassContext,
+  type_idx : @lib.TypeIdx,
+) -> Int? {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
+    Some(field) => field
+    None => return None
+  }
+  optimize_instructions_packed_storage_bits(field.get_storage_type())
+}
+
+///|
+fn optimize_instructions_replace_with_packed_i32_value(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -3386,8 +3411,11 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
   if node.child_count != 2 {
     return false
   }
-  let type_idx = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::ArrayGet(type_idx)) => type_idx
+  let (type_idx, packed_signed) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::ArrayGet(type_idx)) => (type_idx, None)
+    Some(@lib.Instruction::ArrayGetS(type_idx)) => (type_idx, Some(true))
+    Some(@lib.Instruction::ArrayGetU(type_idx)) => (type_idx, Some(false))
     _ => return false
   }
   let array_id = @ir.hot_child_get(func, node_id, 0)
@@ -3425,12 +3453,21 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
     }
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
   } else {
-    optimize_instructions_replace_with_node_id(
-      ctx,
-      func,
-      node_id,
-      @ir.hot_child_get(func, array_id, index),
-    )
+    let value_id = @ir.hot_child_get(func, array_id, index)
+    match packed_signed {
+      Some(signed) => {
+        let bits = match
+          optimize_instructions_array_field_pack_bits(ctx, type_idx) {
+          Some(bits) => bits
+          None => return false
+        }
+        optimize_instructions_replace_with_packed_i32_value(
+          ctx, func, dead, node_id, value_id, bits, signed,
+        )
+      }
+      None =>
+        optimize_instructions_replace_with_node_id(ctx, func, node_id, value_id)
+    }
   }
   true
 }
@@ -3488,7 +3525,7 @@ fn optimize_instructions_try_fold_struct_get_struct_new(
         Some(bits) => bits
         None => return false
       }
-      optimize_instructions_replace_with_packed_struct_field(
+      optimize_instructions_replace_with_packed_i32_value(
         ctx, func, dead, node_id, value_id, bits, signed,
       )
     }
