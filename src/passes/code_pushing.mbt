@@ -854,6 +854,34 @@ fn code_pushing_value_is_ordered_set_movable(
 }
 
 ///|
+fn code_pushing_node_is_drop_const_window_separator(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, node_id) != 0 ||
+    @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, child_id).op {
+    @ir.HotOp::Const =>
+      @ir.effects_is_pure(@ir.effects_for_node(func, child_id))
+    _ => false
+  }
+}
+
+///|
 fn code_pushing_try_sink_local_get_set_after_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1006,11 +1034,18 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
       }
       @ir.HotOp::Nop =>
         // Binaryen's segment optimizer can carry harmless roots such as nops
-        // in the window while preserving the moved local.set order. Keep this
-        // first non-adjacent slice intentionally narrow: other non-set roots
-        // still need source-backed orderedBefore/effect tests before movement.
+        // in the window while preserving the moved local.set order.
         if set_ids.length() == 0 ||
           @ir.hot_node_result_arity(func, root_id) != 0 {
+          return false
+        }
+      @ir.HotOp::Drop if code_pushing_node_is_drop_const_window_separator(
+          func, root_id,
+        ) =>
+        // A source-backed second non-adjacent slice admits only dead
+        // drop(const) roots as local-independent, non-effectful separators;
+        // other non-set roots still need orderedBefore/effect tests first.
+        if set_ids.length() == 0 {
           return false
         }
       _ => return false

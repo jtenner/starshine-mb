@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-20
+last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
   - ../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md
   - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md
@@ -73,8 +74,8 @@ The current Starshine implementation is an accepted direct-pass subset under Sta
 - a narrow `br_if` segment movement slice that moves one SFA set after a void-block-target or void-loop-target `br_if` when the branch does not read the local and all reads are same-block / same-loop-body suffix reads;
 - ordered multi-set movement slices that move adjacent local-independent SFA sets after an ordinary void `if`, dropped value-`if`, or narrow void-block-target / void-loop-target `br_if` while preserving source order;
 - an ordered direct local-copy multi-set slice that preserves source order across the same three push-point families when copied source locals are not rewritten by the crossed push point;
-- an ordered `nop`-separated multi-set slice that preserves source order across the same three push-point families when only `nop` roots separate local-independent SFA sets;
-- a dedicated `code-pushing-all` GenValid profile covering the currently implemented `if`-arm, after-`if`, dropped-`if`, `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, `br_if` multi-set, local-copy multi-set, `nop`-window multi-set, and loop-target `br_if` positive families;
+- ordered separator-window multi-set slices that preserve source order across the same three push-point families when only `nop` or `drop(const)` roots separate local-independent SFA sets;
+- a dedicated `code-pushing-all` GenValid profile covering the currently implemented `if`-arm, after-`if`, dropped-`if`, `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, `br_if` multi-set, local-copy multi-set, `nop`-window multi-set, loop-target `br_if`, and `drop(const)`-window multi-set positive families;
 - guarded movement of selected `global.get` and local-copy setup shapes across safe intervening roots;
 - one Starshine-local typed/dead-block flattening helper near unreachable context.
 
@@ -124,7 +125,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 ### Current Starshine output shape
 
 - Narrow single-consuming-arm local-set sinks become `nop` at the original root plus a cloned `local.set` inside the target arm.
-- The first segment movement slices can replace original SFA sets with `nop` and insert cloned sets immediately after an ordinary void `if`, after a dropped value-`if` wrapper, or after a narrow void-block-target / void-loop-target `br_if` when all uses are later suffix reads. Multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow void-block-target / void-loop-target `br_if` push points, plus direct local-copy and `nop`-separated subcases with explicit source-local/order boundaries.
+- The first segment movement slices can replace original SFA sets with `nop` and insert cloned sets immediately after an ordinary void `if`, after a dropped value-`if` wrapper, or after a narrow void-block-target / void-loop-target `br_if` when all uses are later suffix reads. Multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow void-block-target / void-loop-target `br_if` push points, plus direct local-copy, `nop`-separated, and `drop(const)`-separated subcases with explicit source-local/order boundaries.
 - Some typed/dead block roots near unreachable context are spliced into the parent region.
 - Unmatched shapes stay unchanged.
 
@@ -172,7 +173,7 @@ For current `[O4Z-AUDIT-CP]` widening:
 
 1. add focused tests in `src/passes/code_pushing_test.mbt` before mutating behavior and whitebox tests in `src/passes/code_pushing_wbtest.mbt` for analyzer-only surfaces;
 2. build on the analyzer/segment-discovery slice from [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the ordinary-`if` movement slice from [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the dropped-`if` movement slice from [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), the narrow `br_if` movement slice from [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md), the ordinary-`if` ordered multi-set slice from [`../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md), the dropped-`if` ordered multi-set slice from [`../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md), and the `br_if` ordered multi-set slice from [`../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md), before broad mutation;
-3. include the loop-target `br_if` widening slice from [`../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md`](../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md) when reasoning about conditional-branch movement;
+3. include the loop-target `br_if` widening slice from [`../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md`](../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md) when reasoning about conditional-branch movement, and the `drop(const)` window slice from [`../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md) when reasoning about non-set separators;
 4. validate direct pass execution through registry and command surfaces;
 5. compare reduced WAT against Binaryen `wasm-opt --code-pushing` for each widened family;
 6. include the dedicated `code-pushing-all` GenValid lane, currently with `--normalize local-cleanup-debris` for bounded Starshine `nop`/empty-else cleanup drift;
@@ -199,6 +200,7 @@ For current `[O4Z-AUDIT-CP]` widening:
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md)
 - [`../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md`](../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md)
 - [`../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md)
 - [`../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md)
