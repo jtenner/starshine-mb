@@ -1468,6 +1468,19 @@ fn hso_desc_operand_effects_for_node(
       }
       return mask
     }
+    @ir.HotOp::Select => {
+      let mut mask = 0U
+      for idx = 0; idx < @ir.hot_child_count(func, node_id); idx = idx + 1 {
+        mask = mask |
+          hso_desc_operand_effects_for_node(
+            func,
+            module_ctx,
+            node_masks,
+            @ir.hot_child_get(func, node_id, idx),
+          )
+      }
+      return mask
+    }
     _ => ()
   }
   hso_effects_for_node(func, node_masks, node_id)
