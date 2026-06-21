@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0870-2026-06-20-heap-store-optimization-allocation-heavy-performance.md
   - ../../../raw/research/0869-2026-06-20-heap-store-optimization-exact-descriptor-cast-surface.md
   - ../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md
   - ../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md
@@ -197,6 +198,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0867` confirmed Binaryen `version_130` preserves repeated non-fresh-reference `struct.set` roots and a later `struct.get` after `struct.set`; Starshine now has matching boundary tests. Reopen only if Binaryen moves generic heap DSE/load forwarding into HSO or Starshine schedules a separate pass for those transforms.
 - Unreachable constructor/set-value pairs are an explicit no-fold boundary for HSO.
   - Follow-up `0868` confirmed Binaryen `version_130` preserves `struct.set` for direct-root unreachable constructor and set-value shapes, matching Starshine's existing `0792` boundary tests. The exact direct-root set-value fixture remains a local HOT/test-surface caveat, not an accepted semantic non-goal.
+- Allocation-heavy candidate performance is now measured but not closed.
+  - Follow-up `0870` generated a 2000-function, 6000-`struct.set` synthetic candidate module. Both tools removed all `StructSet` roots and emitted validating wasm, but Starshine's median traced HSO pass-local time was about `10.97ms` versus Binaryen's `1.31ms`, with coarse whole-command wall time about `0.074s` versus `0.030s`. Keep HSO-I open until this is improved, accepted with release-context rationale, or superseded by broader artifact/neighborhood evidence.
 
 ## Beginner warning: what the name hides
 

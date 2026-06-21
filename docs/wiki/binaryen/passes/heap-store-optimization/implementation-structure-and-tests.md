@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-20
 sources:
+  - ../../../raw/research/0870-2026-06-20-heap-store-optimization-allocation-heavy-performance.md
   - ../../../raw/research/0869-2026-06-20-heap-store-optimization-exact-descriptor-cast-surface.md
   - ../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md
   - ../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md
@@ -246,6 +247,8 @@ Current local proof surfaces include:
   - debug-artifact replay coverage.
 - [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
+- [`../../../raw/research/0870-2026-06-20-heap-store-optimization-allocation-heavy-performance.md`](../../../raw/research/0870-2026-06-20-heap-store-optimization-allocation-heavy-performance.md)
+  - added allocation-heavy candidate performance evidence using a 2000-function synthetic module with 6000 foldable `struct.set` roots. Both outputs validated and removed all `StructSet` roots, but Starshine remained slower than Binaryen on pass-local and whole-command timing, so HSO-I stays open.
 - [`../../../raw/research/0869-2026-06-20-heap-store-optimization-exact-descriptor-cast-surface.md`](../../../raw/research/0869-2026-06-20-heap-store-optimization-exact-descriptor-cast-surface.md)
   - refreshed the exact descriptor `ref.cast` surface blocker: Binaryen preserves `struct.set` for the exact descriptor-cast trap-order probe, while current Starshine still rejects the exact WAT during decode and the local `ref_cast_desc_eq` AST surface does not validate as an equivalent focused HSO fixture. This is not an accepted HSO non-goal.
 - [`../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md`](../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md)
