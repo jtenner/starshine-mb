@@ -6803,6 +6803,58 @@ test "heap-store-optimization keeps call_ref old fields before unrelated global.
 }
 
 ///|
+test "heap-store-optimization keeps call_ref old fields before unrelated table.set" {
+  let pair = @lib.TypeIdx::new(0U)
+  let callee_type_idx = @lib.TypeIdx::new(1U)
+  let local0 = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_test_run_module(
+      hso_call_ref_table_test_module([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::ref_as_non_null(),
+        @lib.Instruction::call_ref(callee_type_idx),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(local0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected call-ref-old-field/table-set heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+  let table_set_idx = match hso_test_index_of(pretty, "table.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected table.set in call-ref-old-field/table-set output: \{pretty}",
+      )
+  }
+  let struct_set_idx = match hso_test_index_of(pretty, "struct.set") {
+    Some(idx) => idx
+    None =>
+      fail(
+        "expected struct.set in call-ref-old-field/table-set output: \{pretty}",
+      )
+  }
+  assert_true(table_set_idx < struct_set_idx, msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps trapping constructor operands before unrelated global.set" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

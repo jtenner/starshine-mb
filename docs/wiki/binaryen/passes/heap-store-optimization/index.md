@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0917-2026-06-21-heap-store-optimization-call-ref-old-field-table-set-boundary.md
   - ../../../raw/research/0916-2026-06-21-heap-store-optimization-call-ref-table-set-boundary.md
   - ../../../raw/research/0915-2026-06-21-heap-store-optimization-call-ref-old-field-boundary.md
   - ../../../raw/research/0914-2026-06-21-heap-store-optimization-call-ref-constructor-boundary.md
@@ -273,6 +274,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0914` confirmed the typed-function-reference counterpart of the direct call roots: Binaryen preserves a `call_ref`-valued constructor operand before an unrelated mutable `global.set` and keeps the later `struct.set`; Starshine already matched. This extends the covered `call` / `call_indirect` no-swap family but does not close all reference-typed branch/catch roots.
   - Coverage note `0915` confirmed the matching old-field boundary: Binaryen preserves a `call_ref`-valued overwritten constructor field before an unrelated mutable `global.set` and keeps the later `struct.set`; Starshine already matched.
   - Coverage note `0916` confirmed the table-side constructor-operand boundary: Binaryen preserves a `call_ref`-valued constructor operand before an unrelated `table.set` and keeps the later `struct.set`; Starshine already matched.
+  - Coverage note `0917` confirmed the table-side old-field boundary: Binaryen preserves a `call_ref`-valued overwritten constructor field before an unrelated `table.set` and keeps the later `struct.set`; Starshine already matched.
 - Trapping old-field values must be preserved when a later store would overwrite them.
   - Follow-up `0892` fixed a Starshine parity gap where an overwritten constructor field using integer `div`/`rem` could be treated as pure and dropped. Binaryen preserves the trapping old-field evaluation and the later `struct.set` in the probed `i32.div_s` / `global.set` shape; Starshine now matches by marking exact integer div/rem nodes as trapping for HSO legality and old-field preservation.
   - Follow-up `0893` fixed the same parity gap for exact non-saturating float-to-int truncation old fields. Binaryen preserves `i32.trunc_f32_s` before an intervening mutable `global.set` and leaves the later `struct.set`; Starshine now marks exact `i32`/`i64.trunc_f32`/`trunc_f64` nodes as trapping for the same HSO legality and old-field preservation checks.
