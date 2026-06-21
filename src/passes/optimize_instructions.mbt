@@ -4407,6 +4407,23 @@ fn optimize_instructions_replace_with_ref_is_null(
 }
 
 ///|
+fn optimize_instructions_replace_with_ref_is_non_null_test(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operand_id : Int,
+) -> Unit {
+  let is_null = @ir.hot_build_unary(func, @lib.ValType::i32(), operand_id)
+  @ir.hot_node_exact_instr_set(func, is_null, @lib.Instruction::ref_is_null())
+  let non_null = @ir.hot_build_unary(func, @lib.ValType::i32(), is_null)
+  @ir.hot_node_exact_instr_set(func, non_null, @lib.Instruction::i32_eqz())
+  let replacement = @ir.hot_node_get(func, non_null)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_delete_node(func, non_null)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_ref_is_known_non_null(
   func : @ir.HotFunc,
   node_id : Int,
@@ -4740,6 +4757,31 @@ fn optimize_instructions_ref_operand_is_nullable_exact_heap(
 }
 
 ///|
+fn optimize_instructions_ref_operand_is_nullable_match_for_target(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] =>
+      ref_type.is_nullable() &&
+      (
+        ref_type.get_heap_type() == target ||
+        (
+          ref_type.get_heap_type() ==
+          @lib.HeapType::abs(@lib.AbsHeapType::i31()) &&
+          optimize_instructions_ref_i31_matches_target(target)
+        ) ||
+        optimize_instructions_abs_struct_array_matches_target(
+          ref_type.get_heap_type(),
+          target,
+        )
+      )
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_ref_operand_has_exact_heap(
   func : @ir.HotFunc,
   node_id : Int,
@@ -4844,6 +4886,15 @@ fn optimize_instructions_try_fold_ref_test_null(
         } else {
           @lib.I32(0)
         },
+      )
+      true
+    }
+    _ if not(nullable) &&
+      optimize_instructions_ref_operand_is_nullable_match_for_target(
+        func, operand_id, target,
+      ) => {
+      optimize_instructions_replace_with_ref_is_non_null_test(
+        ctx, func, node_id, operand_id,
       )
       true
     }

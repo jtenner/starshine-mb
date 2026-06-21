@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-20] passes/optimize-instructions | Implement OI-J success-only-if-non-null ref.test
+
+- Filed [`raw/research/0820-2026-06-20-optimize-instructions-oi-j-success-only-if-non-null-ref-test.md`](raw/research/0820-2026-06-20-optimize-instructions-oi-j-success-only-if-non-null-ref-test.md) for the third `[O4Z-AUDIT-OI-J]` sub-slice. Binaryen `version_130` rewrites nullable-source / non-null-target `ref.test` cases to `i32.eqz(ref.is_null(x))`; Starshine now matches for nullable result types whose heap is known to match the target, including effectful operands kept under the null check.
+- Evidence: Binaryen oracle probe `.tmp/oi-j-success-only-if-non-null-ref-test-probe.wat` rewrote `eqref`, nullable struct local, and imported-call nullable struct cases. Red-first `*nullable-source non-null-target ref.test*` failed before implementation and caught an intermediate local-only gap for the call case; final focused test passed `2/2`, `*ref.test*` passed `26/26`, `*ref*` passed `69/69`, `*optimize-instructions*` passed `202/202`, `moon fmt`, `moon test src/passes` (`2732/2732`), native `src/cmd` build, and `moon info` passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference/call_ref operations in failure artifacts.
+
 ## [2026-06-20] passes/optimize-instructions | Cover OI-J already-exact ref.cast cleanup
 
 - Filed [`raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md`](raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md) for the second `[O4Z-AUDIT-OI-J]` exactness sub-slice. Binaryen `version_130` removes exact `ref.cast` when the operand is already exact on the same heap, and rewrites nullable-exact to non-null-exact casts to `ref.as_non_null`; Starshine already matched this after the `0818` exactness guard and now has direct-core coverage for the three local shapes.

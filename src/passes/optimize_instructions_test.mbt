@@ -2315,6 +2315,95 @@ test "optimize-instructions folds non-null ref.test and ref.cast on known null r
 }
 
 ///|
+test "optimize-instructions rewrites nullable-source non-null-target ref.test to null check" {
+  // OI-J success-only-if-non-null boundary: Binaryen version_130 cannot fold
+  // these tests to a constant because null must still return false, but the
+  // runtime heap check is redundant when the nullable source heap already
+  // matches the non-null target. The safe spelling is eqz(ref.is_null(x)).
+  let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
+  let struct_heap = @lib.HeapType::abs(@lib.AbsHeapType::struct_())
+  let maybe_type = @lib.TypeIdx::new(0U)
+  let eq_test_type = @lib.TypeIdx::new(1U)
+  let struct_test_type = @lib.TypeIdx::new(2U)
+  let effect_test_type = @lib.TypeIdx::new(3U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_null(struct_heap)]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::ref_null(eq_heap)], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::ref_null(struct_heap)], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("maybe"),
+          @lib.ExternType::func(maybe_type),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([eq_test_type, struct_test_type, effect_test_type]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(false, eq_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(false, struct_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_test(false, struct_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  for func_idx in [1U, 2U, 3U] {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+    assert_false(pretty.contains("ref.test"), msg=pretty)
+    assert_true(pretty.contains("i32.eqz"), msg=pretty)
+  }
+  let effect_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(effect_pretty.contains("call (Func 0)"), msg=effect_pretty)
+}
+
+///|
 test "optimize-instructions folds successful ref.test and ref.cast on local i31 refs" {
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
