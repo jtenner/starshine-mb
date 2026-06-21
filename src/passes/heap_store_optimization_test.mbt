@@ -721,6 +721,66 @@ fn hso_call_ref_table_test_module(
 }
 
 ///|
+fn hso_return_call_ref_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let pair = @lib.TypeIdx::new(0U)
+  let callee_type_idx = @lib.TypeIdx::new(1U)
+  let tag_type_idx = @lib.TypeIdx::new(2U)
+  let caller_type_idx = @lib.TypeIdx::new(3U)
+  let callee_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(callee_type_idx), exact=true),
+  )
+  let struct_ref = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::struct_(hso_struct_fields(1))),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      ),
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([callee_ref], [@lib.ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(tag_type_idx)]))
+  .with_func_sec(@lib.FuncSec::new([callee_type_idx, caller_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::from_types([struct_ref]),
+        @lib.Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_return_call_ref_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_return_call_ref_test_module(body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid return-call-ref heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
 fn hso_global_test_module(
   field_count : Int,
   body : Array[@lib.Instruction],
@@ -5422,6 +5482,43 @@ test "heap-store-optimization folds return-call branches inside active catches" 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("try_table"), msg=pretty)
   assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds external return_call_ref branches into struct.new" {
+  let pair = @lib.TypeIdx::new(0U)
+  let callee_type_idx = @lib.TypeIdx::new(1U)
+  let local0 = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_return_call_ref_test_run([
+      @lib.Instruction::struct_new_default(pair),
+      @lib.Instruction::local_tee(local0),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        [
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::ref_as_non_null(),
+          @lib.Instruction::return_call_ref(callee_type_idx),
+        ],
+        Some([@lib.Instruction::i32_const(@lib.I32(42))]),
+      ),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected return-call-ref branch heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
 }
