@@ -8698,6 +8698,146 @@ test "heap-store-optimization keeps effectful call_indirect values after later-f
 }
 
 ///|
+test "heap-store-optimization keeps pure set values after later-field result try_table return_call constructors" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_call_catch_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::struct_new(pair),
+            @lib.Instruction::local_set(local0),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected later-field result try_table return_call set-value heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps pure set values after later-field result try_table return_call_indirect constructors" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_memory_table_call_catch_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::return_call_indirect(
+                  @lib.TypeIdx::new(1U),
+                  @lib.TableIdx::new(0U),
+                ),
+              ]),
+            ),
+            @lib.Instruction::struct_new(pair),
+            @lib.Instruction::local_set(local0),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected later-field result try_table return_call_indirect set-value heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("return_call_indirect"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps pure set values after later-field result try_table return_call_ref constructors" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local_s = @lib.LocalIdx::new(1U)
+  let callee_type = @lib.TypeIdx::new(1U)
+  let optimized = match
+    hso_test_run_module(
+      hso_call_ref_table_test_module([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::return_call_ref(callee_type),
+              ]),
+            ),
+            @lib.Instruction::struct_new(pair),
+            @lib.Instruction::local_set(local_s),
+            @lib.Instruction::local_get(local_s),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(local_s),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected later-field result try_table return_call_ref set-value heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds descriptor constructors across result try_table calls" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

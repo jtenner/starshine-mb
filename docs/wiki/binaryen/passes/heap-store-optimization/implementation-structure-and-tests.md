@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/1018-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-boundary.md
   - ../../../raw/research/1017-2026-06-21-heap-store-optimization-later-field-result-try-table-call-indirect-split.md
   - ../../../raw/research/1016-2026-06-21-heap-store-optimization-later-field-result-try-table-call-ref-split.md
   - ../../../raw/research/1015-2026-06-21-heap-store-optimization-later-field-result-try-table-call-split.md
@@ -534,6 +535,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/1018-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-boundary.md`](../../../raw/research/1018-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-boundary.md)
+  - fixed HSO-D/E/F/G later-field tail-call result-wrapper behavior: Binaryen preserves `struct.new`, the result-typed `try_table`, and later `struct.set` for `return_call`, `return_call_indirect`, and `return_call_ref` even with pure moved set values; Starshine now blocks folding across later-field tail/throw escapes while preserving non-tail pure folds.
 - [`../../../raw/research/1017-2026-06-21-heap-store-optimization-later-field-result-try-table-call-indirect-split.md`](../../../raw/research/1017-2026-06-21-heap-store-optimization-later-field-result-try-table-call-indirect-split.md)
   - added coverage-only HSO-D/E later-field evidence for indirect-call result-typed `try_table` constructor fields: Binaryen folds pure set values into `struct.new`, but preserves `call_indirect` moved values that would move before the later-field wrapper, and Starshine already matches.
 - [`../../../raw/research/1016-2026-06-21-heap-store-optimization-later-field-result-try-table-call-ref-split.md`](../../../raw/research/1016-2026-06-21-heap-store-optimization-later-field-result-try-table-call-ref-split.md)

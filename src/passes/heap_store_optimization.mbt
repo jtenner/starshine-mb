@@ -3173,6 +3173,9 @@ fn hso_try_fold_into_struct_new(
     } else {
       0U
     }
+    if later_id >= 0 && hso_subtree_has_tail_or_throw_escape(func, later_id) {
+      return None
+    }
     if !hso_nodes_can_reorder(
         cache, func, node_masks, later_id, later_mask, value_id, value_reorder_mask,
       ) {
