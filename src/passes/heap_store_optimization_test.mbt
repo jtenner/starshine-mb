@@ -8838,6 +8838,101 @@ test "heap-store-optimization keeps pure set values after later-field result try
 }
 
 ///|
+test "heap-store-optimization keeps old direct-call fields across later-field result try_table return_call constructors" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_call_catch_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::struct_new(pair),
+            @lib.Instruction::local_set(local0),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected later-field result try_table return_call old-field call heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization keeps old trapping fields across later-field result try_table return_call constructors" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_call_catch_test_run(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(4)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_div_s(),
+            @lib.Instruction::try_table(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::struct_new(pair),
+            @lib.Instruction::local_set(local0),
+            @lib.Instruction::local_get(local0),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(local0),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+      ],
+      2,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected later-field result try_table return_call old-field trap heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("return_call"), msg=pretty)
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+  assert_true(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization keeps pure set values after later-field result try_table return_call_indirect constructors" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
