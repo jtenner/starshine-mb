@@ -5720,6 +5720,80 @@ test "optimize-instructions drops masked low bits before narrow stores" {
 }
 
 ///|
+test "optimize-instructions widens narrow stores of i32.wrap_i64 to matching i64 stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $x i64)
+        #|    local.get $ptr
+        #|    local.get $x
+        #|    i32.wrap_i64
+        #|    i32.store8
+        #|    local.get $ptr
+        #|    local.get $x
+        #|    i32.wrap_i64
+        #|    i32.store16
+        #|    local.get $ptr
+        #|    local.get $x
+        #|    i32.wrap_i64
+        #|    i32.store))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected wrap-store optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Storing the low N bits of (i32.wrap_i64 x) is equivalent to storing the low
+  // N bits of x directly via the matching i64 narrow store, so the wrap is
+  // dropped and the store widens: i32.store8/16 -> i64.store8/16 and the full
+  // i32.store -> i64.store32.
+  assert_false(pretty.contains("wrap_i64"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "(local.get (Local 1))", "i64.store8", "(local.get (Local 0))",
+    "(local.get (Local 1))", "i64.store16", "(local.get (Local 0))", "(local.get (Local 1))",
+    "i64.store32",
+  ])
+}
+
+///|
+test "optimize-instructions keeps i64.extend_i32 before i64 narrow stores as a Binaryen OI parity boundary" {
+  // Boundary-only OI-G classification: Binaryen `version_130`
+  // `--optimize-instructions` does NOT fold `i64.store8` / `i64.store16` of an
+  // `i64.extend_i32_u` / `i64.extend_i32_s` operand (probe
+  // `.tmp/oi-g-wrap-store-probe.wat`). The reverse widening direction is
+  // therefore not an OI gap; Starshine keeping the extend is correct parity.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $x i32)
+        #|    local.get $ptr
+        #|    local.get $x
+        #|    i64.extend_i32_u
+        #|    i64.store8
+        #|    local.get $ptr
+        #|    local.get $x
+        #|    i64.extend_i32_s
+        #|    i64.store8))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected extend-store optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.extend_i32u"), msg=pretty)
+  assert_true(pretty.contains("i64.extend_i32s"), msg=pretty)
+  assert_true(pretty.contains("i64.store8"), msg=pretty)
+}
+
+///|
 test "optimize-instructions drops superset low-bit masks before narrow stores" {
   let optimized = match
     pass_test_run_pipeline(

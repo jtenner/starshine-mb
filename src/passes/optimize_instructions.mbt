@@ -4008,6 +4008,54 @@ fn optimize_instructions_try_drop_narrow_store_value_mask(
 }
 
 ///|
+fn optimize_instructions_try_widen_store_of_wrap_i64(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 2 {
+    return false
+  }
+  // Storing the low N bits of (i32.wrap_i64 x) is equivalent to storing the low
+  // N bits of x directly via the matching i64 narrow store, so a direct one-use
+  // wrap value child can be dropped by widening the store.
+  let new_instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Store8(ma)) => @lib.Instruction::i64_store8(ma)
+    Some(@lib.Instruction::I32Store16(ma)) => @lib.Instruction::i64_store16(ma)
+    Some(@lib.Instruction::I32Store(ma)) => @lib.Instruction::i64_store32(ma)
+    _ => return false
+  }
+  let value_id = @ir.hot_child_get(func, node_id, 1)
+  if !optimize_instructions_node_is_live(func, dead, value_id) {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, value_id) {
+    Some(@lib.Instruction::I32WrapI64) => ()
+    _ => return false
+  }
+  let value = @ir.hot_node_get(func, value_id)
+  if value.child_count != 1 {
+    return false
+  }
+  // Only drop the wrap when this store is its sole use, so the wrap node can be
+  // cleaned up instead of leaving a dangling i32 producer.
+  if pass_node_use_count(ctx, func, value_id) != 1 {
+    return false
+  }
+  let wide_value_id = @ir.hot_child_get(func, value_id, 0)
+  optimize_instructions_rewrite_exact_with_children(
+    ctx,
+    func,
+    node_id,
+    new_instr,
+    [@ir.hot_child_get(func, node_id, 0), wide_value_id],
+  )
+  true
+}
+
+///|
 fn optimize_instructions_try_expand_tiny_memory_copy(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6515,6 +6563,9 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_drop_narrow_store_value_mask(
+        ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_widen_store_of_wrap_i64(
         ctx, func, dead, node_id,
       )
     @ir.HotOp::MemoryCopy =>

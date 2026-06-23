@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-23] passes/optimize-instructions | Implement OI-G wrap-store widening
+
+- Filed [`raw/research/0837-2026-06-23-optimize-instructions-oi-g-wrap-store.md`](raw/research/0837-2026-06-23-optimize-instructions-oi-g-wrap-store.md) for the twenty-third `[O4Z-AUDIT-OI-G]` memory/store-value sub-slice. Binaryen `version_130` `--optimize-instructions` (direct and O4z-style) widens `i32.store8` / `i32.store16` / `i32.store` of a direct `i32.wrap_i64` operand to `i64.store8` / `i64.store16` / `i64.store32` of the original i64 operand, dropping the wrap; Starshine now matches that for the direct one-use wrap subset.
+- Evidence: Binaryen oracle probes `.tmp/oi-g-store-value-probe.wat` and `.tmp/oi-g-wrap-store-probe.wat` widened all three i32 store shapes under both lanes, kept the reverse `i64.extend_i32_*` direction, and kept multi-use wraps. Red-first `*widens narrow stores of i32.wrap_i64*` failed before implementation and passed `1/1` after; `*extend_i32 before i64*' passed `1/1` as a reverse-direction parity boundary; final `*optimize-instructions*` passed `223/223`, `moon fmt`, `moon test src/passes` (`2753/2753`), native `src/cmd` build, `moon info`, and diff checks passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw scalar mismatch and no `wrap_i64` / store occurrences in either output artifact. The reverse extend direction, multi-use wraps, f32/f64 and atomic stores, and broader `optimizeStoredValue` / `maxBits` recursive analysis remain open.
+
 ## [2026-06-23] passes/optimize-instructions | Classify OI-K array.fill / array.copy boundary
 
 - Filed [`raw/research/0836-2026-06-23-optimize-instructions-oi-k-array-fill-copy-boundary.md`](raw/research/0836-2026-06-23-optimize-instructions-oi-k-array-fill-copy-boundary.md) for a `[O4Z-AUDIT-OI-K]` boundary classification sub-slice. Binaryen `version_130` `--optimize-instructions` (direct and O4z-style `-O`) does not fold fresh-array `array.fill` or `array.copy` for any probed pure/effectful in-bounds or out-of-bounds shape; Starshine keeps them too, so this is correct OI parity rather than a gap. A named/commented direct-core boundary test locks the classification.
