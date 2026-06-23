@@ -7286,6 +7286,88 @@ test "optimize-instructions removes array.set to fresh pure array.new repeated-v
 }
 
 ///|
+test "optimize-instructions keeps array.fill and array.copy on fresh arrays as a Binaryen OI parity boundary" {
+  // Boundary-only OI-K classification: Binaryen `version_130`
+  // `--optimize-instructions` (both direct and O4z-style `-O`) does NOT fold
+  // `array.fill` or `array.copy` on fresh one-use pure arrays, even for pure
+  // in-bounds or out-of-bounds shapes (probe `.tmp/oi-k-array-fill-probe.wat`
+  // and `.tmp/oi-k-array-copy-probe.wat`). Starshine keeping these unchanged
+  // is therefore correct OI parity, not a gap. This test locks that boundary so
+  // any future OI folding of these bulk array ops forces a fresh Binaryen
+  // parity / Starshine-win review.
+  let array_type = @lib.TypeIdx::new(0U)
+  let void_type = @lib.TypeIdx::new(1U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([void_type, void_type, void_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        // array.fill over a fresh one-use array.new_fixed (pure, in-bounds).
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_fill(array_type),
+          ]),
+        ),
+        // array.fill over a fresh one-use array.new_default (pure, in-bounds).
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_fill(array_type),
+          ]),
+        ),
+        // array.copy between two fresh one-use array.new_default (pure, in-bounds).
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_copy(array_type, array_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let fill_fixed = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let fill_default = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let copy_fresh = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(fill_fixed.contains("array.fill"), msg=fill_fixed)
+  assert_true(fill_default.contains("array.fill"), msg=fill_default)
+  assert_true(copy_fresh.contains("array.copy"), msg=copy_fresh)
+}
+
+///|
 test "optimize-instructions folds array.get of constant-size array.new repeated values" {
   let array_i32_type = @lib.TypeIdx::new(0U)
   let array_i8_type = @lib.TypeIdx::new(1U)

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-23] passes/optimize-instructions | Classify OI-K array.fill / array.copy boundary
+
+- Filed [`raw/research/0836-2026-06-23-optimize-instructions-oi-k-array-fill-copy-boundary.md`](raw/research/0836-2026-06-23-optimize-instructions-oi-k-array-fill-copy-boundary.md) for a `[O4Z-AUDIT-OI-K]` boundary classification sub-slice. Binaryen `version_130` `--optimize-instructions` (direct and O4z-style `-O`) does not fold fresh-array `array.fill` or `array.copy` for any probed pure/effectful in-bounds or out-of-bounds shape; Starshine keeps them too, so this is correct OI parity rather than a gap. A named/commented direct-core boundary test locks the classification.
+- Evidence: probes `.tmp/oi-k-array-fill-probe.wat` and `.tmp/oi-k-array-copy-probe.wat` kept every shape under both Binaryen lanes; `*array.fill and array.copy*` passed `1/1`, `*optimize-instructions*` passed `221/221`, `moon fmt`, `moon test src/passes` (`2751/2751`), and diff checks passed. No optimizer source changed, so the native build / `moon info` / compare smoke were not rerun. Effectful/localizing and overlap-safe `array.fill`/`array.copy` rewrites stay open only as broader localizing work, not OI parity gaps; the remaining open OI-K items are blocked on safe localizing/HOT lowering or HOT descriptor-operand support, or are out of OI scope (shared/atomic).
+
 ## [2026-06-23] passes/optimize-instructions | Implement OI-K array.set(array.new)
 
 - Filed [`raw/research/0835-2026-06-23-optimize-instructions-oi-k-array-set-new.md`](raw/research/0835-2026-06-23-optimize-instructions-oi-k-array-set-new.md) for the twelfth `[O4Z-AUDIT-OI-K]` GC array-write sub-slice. Binaryen `version_130` under the O4z-style `-O --optimize-instructions` oracle removes pure constant-index `array.set` operations targeting fresh `array.new(value, len)` repeated-value arrays, folds pure out-of-bounds writes to `unreachable`, and localizes effectful repeated-value/set-value operands with `drop`; Starshine now matches the pure direct one-use `array.new` subset alongside the existing fixed/default arms while keeping effectful localization and dynamic/huge-length boundaries open.
