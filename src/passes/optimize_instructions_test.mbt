@@ -7132,6 +7132,160 @@ test "optimize-instructions removes array.set to fresh pure arrays with constant
 }
 
 ///|
+test "optimize-instructions removes array.set to fresh pure array.new repeated-value arrays with constant indexes" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let effect_type = @lib.TypeIdx::new(1U)
+  let void_type = @lib.TypeIdx::new(2U)
+  let indexed_void_type = @lib.TypeIdx::new(3U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("m"),
+          @lib.Name::from_string("effect"),
+          @lib.ExternType::func(effect_type),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        void_type, void_type, void_type, void_type, indexed_void_type, void_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        // set_new_inbounds_pure: array.set(array.new(7, 2), 1, 9) -> nop.
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        // set_new_oob_pure: array.set(array.new(7, 2), 2, 9) -> unreachable.
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        // set_new_effect_setval: effectful set value is preserved (boundary).
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        // set_new_effect_value: effectful repeated value is preserved (boundary).
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        // set_new_dynamic_len: dynamic length may trap on allocation (boundary).
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        // set_new_huge_len: huge length traps on allocation (boundary).
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(2147483647)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let new_inbounds = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let new_oob = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let effect_setval = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let effect_value = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let dynamic_len = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  assert_false(new_inbounds.contains("array.set"), msg=new_inbounds)
+  assert_false(new_inbounds.contains("array.new"), msg=new_inbounds)
+  assert_false(new_oob.contains("array.set"), msg=new_oob)
+  assert_false(new_oob.contains("array.new"), msg=new_oob)
+  assert_true(new_oob.contains("unreachable"), msg=new_oob)
+  // Boundary-only half of this OI-K slice: Binaryen localizes the effectful set
+  // value with a drop before removing the unused set, but Starshine keeps the
+  // stack form until a broader value-effect localizing proof is added.
+  assert_true(effect_setval.contains("array.set"), msg=effect_setval)
+  assert_true(effect_setval.contains("array.new"), msg=effect_setval)
+  assert_true(effect_setval.contains("call (Func 0)"), msg=effect_setval)
+  // Boundary-only half: effectful repeated-value constructor operand.
+  assert_true(effect_value.contains("array.set"), msg=effect_value)
+  assert_true(effect_value.contains("array.new"), msg=effect_value)
+  assert_true(effect_value.contains("call (Func 0)"), msg=effect_value)
+  // Boundary-only half: dynamic length may trap on allocation, so the fresh
+  // producer and its set must stay until a safe non-trapping length proof exists.
+  assert_true(dynamic_len.contains("array.set"), msg=dynamic_len)
+  assert_true(dynamic_len.contains("array.new"), msg=dynamic_len)
+  // Boundary-only half: huge constant length traps on allocation.
+  assert_true(huge_len.contains("array.set"), msg=huge_len)
+  assert_true(huge_len.contains("array.new"), msg=huge_len)
+}
+
+///|
 test "optimize-instructions folds array.get of constant-size array.new repeated values" {
   let array_i32_type = @lib.TypeIdx::new(0U)
   let array_i8_type = @lib.TypeIdx::new(1U)

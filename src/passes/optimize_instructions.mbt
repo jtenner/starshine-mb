@@ -3773,6 +3773,29 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
         _ => return false
       }
     }
+    Some(@lib.Instruction::ArrayNew(new_type_idx)) if new_type_idx == type_idx => {
+      if array_node.child_count != 2 {
+        return false
+      }
+      if !optimize_instructions_node_effects_are_pure(
+          ctx,
+          func,
+          @ir.hot_child_get(func, array_id, 0),
+        ) {
+        return false
+      }
+      match
+        optimize_instructions_i32_const(
+          func,
+          dead,
+          @ir.hot_child_get(func, array_id, 1),
+        ) {
+        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+            len,
+          ) => len
+        _ => return false
+      }
+    }
     _ => return false
   }
   if index < 0 || index >= len {
