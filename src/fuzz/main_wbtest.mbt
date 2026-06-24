@@ -2345,6 +2345,33 @@ test "emit_gen_valid_batch_artifacts_with_manifest returns deterministic diagnos
 }
 
 ///|
+test "emit gen-valid heap-store-optimization profile records GC store opportunities" {
+  let args = EmitGenValidBatchArgs::new(
+    2,
+    0x5eedUL,
+    "tmp/gen-valid-hso",
+    profile="heap-store-optimization",
+    max_attempts=16,
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(selection.manifest.length(), 2)
+  for item in selection.manifest {
+    @debug.assert_eq(item.config_label, "heap-store-optimization")
+    @debug.assert_eq(item.selected_profile, "heap-store-optimization")
+    assert_true(item.facts.has_gc_constructors)
+    assert_true(item.facts.has_gc_accessors)
+  }
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  assert_true(manifest.contains("\"config_label\":\"heap-store-optimization\""))
+  assert_true(
+    manifest.contains("\"selected_profile\":\"heap-store-optimization\""),
+  )
+}
+
+///|
 test "emit gen-valid composite profile records requested and selected profiles" {
   let args = EmitGenValidBatchArgs::new(
     4,

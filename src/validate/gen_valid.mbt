@@ -100,6 +100,7 @@ pub struct GenValidFeatureToggles {
   allow_name_custom_sections : Bool
   allow_typed_body_generator : Bool
   allow_ssa_nomerge_body_generator : Bool
+  allow_heap_store_optimization_body_generator : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -154,6 +155,8 @@ pub impl Show for GenValidFeatureToggles with fn output(self, logger) {
   self.allow_typed_body_generator.output(logger)
   logger.write_string(", allow_ssa_nomerge_body_generator:")
   self.allow_ssa_nomerge_body_generator.output(logger)
+  logger.write_string(", allow_heap_store_optimization_body_generator:")
+  self.allow_heap_store_optimization_body_generator.output(logger)
 }
 
 ///|
@@ -184,6 +187,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_name_custom_sections: true,
     allow_typed_body_generator: false,
     allow_ssa_nomerge_body_generator: false,
+    allow_heap_store_optimization_body_generator: false,
   }
 }
 
@@ -698,6 +702,7 @@ pub enum GenValidProfile {
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
+  HeapStoreOptimizationProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
@@ -800,6 +805,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingMultiSetGlobalGetWindowProfile =>
       "code-pushing-multi-set-global-get-window"
     CodePushingAllProfile => "code-pushing-all"
+    HeapStoreOptimizationProfile => "heap-store-optimization"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
@@ -1005,6 +1011,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingMultiSetLocalGetWindowProfile,
     CodePushingMultiSetGlobalGetWindowProfile,
     CodePushingAllProfile,
+    HeapStoreOptimizationProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
@@ -1071,6 +1078,7 @@ pub fn gen_valid_profile_by_name(
     "code-pushing" => Ok(CodePushingAllProfile)
     "code-pushing-closeout" => Ok(CodePushingAllProfile)
     "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
+    "hso" => Ok(HeapStoreOptimizationProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
     _ =>
@@ -1453,6 +1461,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
+    HeapStoreOptimizationProfile =>
+      gen_valid_heap_store_optimization_profile_config()
     SsaNomergeCoverageProfile
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
@@ -1828,6 +1838,45 @@ fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
   GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile) ||
   config ==
   GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile)
+}
+
+///|
+fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
+  let base = GenValidConfig::coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 8,
+    max_imports: 0,
+    max_defined_funcs: 4,
+    max_tables: 1,
+    max_mems: 1,
+    max_globals: 2,
+    max_tags: 0,
+    max_elems: 1,
+    max_datas: 1,
+    max_params: 2,
+    max_results: 1,
+    max_locals: 6,
+    max_body_statements: 8,
+    max_body_depth: 3,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tags: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: true,
+      allow_name_custom_sections: false,
+    },
+  }
 }
 
 ///|
@@ -11033,6 +11082,56 @@ fn gen_valid_append_return_value_instrs(
 }
 
 ///|
+fn gen_valid_append_heap_store_optimization_body_slice(
+  out : Array[Instruction],
+  env : GenValidBodyEnv,
+) -> Unit {
+  if env.gc_type_plan.struct_type_idxs.is_empty() {
+    return
+  }
+  let struct_idx = env.gc_type_plan.struct_type_idxs[0]
+  let struct_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(struct_idx)),
+  )
+  let local_idx = match gen_matching_local_idx(env.local_types, struct_ref) {
+    Some(idx) => idx
+    None => return
+  }
+
+  // Subsequent local-get store: the core Binaryen HSO block-local fold.
+  out.push(Instruction::i32_const(I32(11)))
+  out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+  out.push(Instruction::struct_new(struct_idx))
+  out.push(Instruction::local_set(local_idx))
+  out.push(Instruction::local_get(local_idx))
+  out.push(Instruction::i32_const(I32(22)))
+  out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
+  // Tee-root store: the immediate local.tee(struct.new) fold family.
+  out.push(Instruction::i32_const(I32(33)))
+  out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+  out.push(Instruction::struct_new(struct_idx))
+  out.push(Instruction::local_tee(local_idx))
+  out.push(Instruction::i32_const(I32(44)))
+  out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+  out.push(Instruction::local_get(local_idx))
+  out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
+  out.push(Instruction::drop())
+
+  // Repeated stores keep the final value and exercise same-chain cleanup.
+  out.push(Instruction::i32_const(I32(55)))
+  out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+  out.push(Instruction::struct_new(struct_idx))
+  out.push(Instruction::local_set(local_idx))
+  out.push(Instruction::local_get(local_idx))
+  out.push(Instruction::i32_const(I32(66)))
+  out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+  out.push(Instruction::local_get(local_idx))
+  out.push(Instruction::i32_const(I32(77)))
+  out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+}
+
+///|
 fn gen_valid_build_func(
   ctx : GenValidContext,
   accepts : Array[ValType],
@@ -11193,6 +11292,9 @@ fn gen_valid_build_func(
     append_void_stmt(body_instrs, ctx, env)
   }
   gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
+  if ctx.config.features.allow_heap_store_optimization_body_generator {
+    gen_valid_append_heap_store_optimization_body_slice(body_instrs, env)
+  }
   match current_func_idx {
     Some(idx) if gen_valid_is_ssa_nomerge_family_config(ctx.config) &&
       idx != FuncIdx::new(0U) => ()
