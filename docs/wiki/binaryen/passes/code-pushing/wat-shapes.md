@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-21
+last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
   - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
   - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
@@ -36,7 +37,7 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, no-branch-value `br_if`, first branch-value `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, `drop(local.get)`-window, bounded `drop(global.get)`-window, and atomics/GC segment-movement Starshine slices, and the earlier source corrections.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, no-branch-value `br_if`, branch-value `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, `drop(local.get)`-window, bounded `drop(global.get)`-window, and atomics/GC segment-movement Starshine slices, and the earlier source corrections.
 
 ## Mental model
 
@@ -183,7 +184,24 @@ Binaryen-backed after:
   (local.get $tmp))
 ```
 
-Starshine now implements this single-set branch-value `br_if` subset for one branch payload to a value block label. The branch payload and condition must not read the moved local; a payload such as `(local.get $tmp)` keeps the set stationary.
+Starshine implements this branch-value `br_if` subset for one branch payload to a value block label. The branch payload and condition must not read the moved local; a payload such as `(local.get $tmp)` keeps the set stationary.
+
+The adjacent local-independent multi-set variant is also source-backed:
+
+```wat
+(block $exit (result i32)
+  (local.set $a (i32.const 2))
+  (local.set $b (i32.const 3))
+  (drop
+    (br_if $exit
+      (i32.const 7)
+      (local.get $cond)))
+  (drop (local.get $a))
+  (drop (local.get $b))
+  (i32.const 0))
+```
+
+Binaryen moves both sets after the value-carrying branch while preserving `$a` before `$b`; Starshine now matches that bounded ordered family. A payload-read variant keeps the read local's set before the branch; broader partial-window branch-value splitting remains outside this slice.
 
 ## Shape 5: ordered multi-set movement after a void `if`
 
@@ -565,7 +583,7 @@ Binaryen's push-point concept is broader than plain `if`. Starshine has one narr
 (br_if $label (local.get $cond))
 ```
 
-and switch/br-table-like shapes, `br_on_*`, loop-target branches, and branch-value conditional branches where the local's later consumption and effect barriers can be proved.
+and switch/br-table-like shapes, `br_on_*`, loop-target branches, and branch-value conditional branches beyond the current single-/adjacent-multi-set `br_if` subset where the local's later consumption and effect barriers can be proved.
 
 The 2026-06-21 `br_table` boundary slice records a narrower fact: local Binaryen `version_130` did **not** move either a single pure SFA set or two adjacent pure SFA sets before a no-branch-value `br_table $exit $exit` to the enclosing void block label. Starshine keeps `BrTable` as diagnostic switch recognition only for that shape and protects the no-mutation boundary in `src/passes/code_pushing_test.mbt`. Future switch work must start from a different source-backed positive probe or a Binaryen source/lit change.
 
@@ -639,6 +657,7 @@ Before expecting a `code-pushing` rewrite, ask:
 
 ## Sources
 
+- [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
 - [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md)

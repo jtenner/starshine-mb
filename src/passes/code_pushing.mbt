@@ -1227,7 +1227,20 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
   } else if push_kind == "dropped-if" && @ir.hot_child_count(func, push_id) == 1 {
     if_id = @ir.hot_child_get(func, push_id, 0)
   } else if push_kind == "conditional-branch" &&
-    code_pushing_direct_br_if_push_point_supported(func, push_id) {
+    (
+      code_pushing_direct_br_if_push_point_supported(func, push_id) ||
+      code_pushing_single_set_br_if_push_point_supported(func, push_id)
+    ) {
+    // Value-carrying br_if may lower as a direct HOT BrIf with branch payload
+    // children even though the source WAT is `drop (br_if ...)`. Use the same
+    // shape gate as the single-set branch-value slice, then let whole-root
+    // local accounting below reject payloads/conditions that read moved locals.
+    if saw_drop_global_get_separator {
+      return false
+    }
+    branch_id = push_id
+  } else if push_kind == "dropped-conditional-branch" &&
+    code_pushing_single_set_br_if_push_point_supported(func, push_id) {
     if saw_drop_global_get_separator {
       return false
     }

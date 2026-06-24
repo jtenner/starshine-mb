@@ -1448,6 +1448,61 @@ test "code-pushing keeps pure SFA set before dropped br_if branch value that rea
 }
 
 ///|
+test "code-pushing preserves order moving multiple SFA sets after dropped br_if branch value" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32 i32)
+      #|    (block $exit (result i32)
+      #|      i32.const 2
+      #|      local.set 1
+      #|      i32.const 3
+      #|      local.set 2
+      #|      (drop
+      #|        (br_if $exit
+      #|          (i32.const 7)
+      #|          (local.get 0)))
+      #|      local.get 1
+      #|      drop
+      #|      local.get 2
+      #|      drop
+      #|      i32.const 0))
+      #|)
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "nop")
+  let mut branch_idx = -1
+  let first_moved = @ir.hot_region_get(func, body_ref, 3)
+  let second_moved = @ir.hot_region_get(func, body_ref, 4)
+  for idx = 0; idx < @ir.hot_region_root_count(func, body_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::BrIf => branch_idx = idx
+      @ir.HotOp::Drop if @ir.hot_child_count(func, root_id) == 1 => {
+        let child_id = @ir.hot_child_get(func, root_id, 0)
+        match @ir.hot_node_get(func, child_id).op {
+          @ir.HotOp::BrIf => branch_idx = idx
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(branch_idx == 2, msg="expected branch-value br_if after nops")
+  code_pushing_expect_op(func, first_moved, "local.set")
+  code_pushing_expect_op(func, second_moved, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_moved).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, second_moved).imm0, 2)
+}
+
+///|
 test "code-pushing boundary keeps pure SFA set before br_table switch push point" {
   let func = code_pushing_test_run_hot(
     (

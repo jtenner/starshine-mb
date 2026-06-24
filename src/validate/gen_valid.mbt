@@ -1722,7 +1722,7 @@ fn gen_valid_code_pushing_profile_config(
       CodePushingAfterIfProfile => 8
       CodePushingDroppedIfProfile => 9
       CodePushingBrIfProfile => 7
-      CodePushingBrIfValueProfile => 7
+      CodePushingBrIfValueProfile => 11
       CodePushingMultiSetProfile => 11
       CodePushingMultiSetDroppedIfProfile => 12
       CodePushingMultiSetBrIfProfile => 13
@@ -12484,11 +12484,15 @@ fn gen_valid_code_pushing_br_if_value_body() -> Array[Instruction] {
       Expr::new([
         Instruction::i32_const(I32(7)),
         Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
         Instruction::i32_const(I32(42)),
         Instruction::local_get(LocalIdx::new(0U)),
         Instruction::br_if(LabelIdx::new(0U)),
         Instruction::drop(),
         Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
       ]),
     ),
   ]
@@ -12737,7 +12741,8 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
       CodeSec::new([
         Func::new(
           Locals::from_types(
-            if kind == CodePushingMultiSetProfile ||
+            if kind == CodePushingBrIfValueProfile ||
+              kind == CodePushingMultiSetProfile ||
               kind == CodePushingMultiSetDroppedIfProfile ||
               kind == CodePushingMultiSetBrIfProfile ||
               kind == CodePushingMultiSetLocalCopyProfile ||

@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-21
+last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
   - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
   - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
@@ -75,11 +76,11 @@ The current Starshine implementation is an accepted direct-pass subset under Sta
 - safe movable-value `local.set` sinking into the single `if` arm that contains all reads of that local;
 - a first ordinary-void-`if` segment movement slice that moves one SFA set after the `if` when all reads are same-region suffix reads;
 - a dropped value-`if` segment movement slice that moves one SFA set after the dropped wrapper when all reads are same-region suffix reads;
-- a narrow `br_if` segment movement slice that moves one SFA set after a void-block-target or void-loop-target `br_if`, and a first single-set branch-value slice for value-block-target `br_if`, when the branch does not read the local and all reads are same-block / same-loop-body suffix reads;
-- ordered multi-set movement slices that move adjacent local-independent SFA sets after an ordinary void `if`, dropped value-`if`, or narrow void-block-target / void-loop-target `br_if` while preserving source order;
+- a narrow `br_if` segment movement slice that moves one SFA set after a void-block-target or void-loop-target `br_if`, and a branch-value slice for value-block-target `br_if`, when the branch does not read the local and all reads are same-block / same-loop-body suffix reads;
+- ordered multi-set movement slices that move adjacent local-independent SFA sets after an ordinary void `if`, dropped value-`if`, narrow void-block-target / void-loop-target `br_if`, or value-block-target `br_if` while preserving source order;
 - an ordered direct local-copy multi-set slice that preserves source order across the same three push-point families when copied source locals are not rewritten by the crossed push point;
 - ordered separator-window multi-set slices that preserve source order across the same three push-point families when only `nop`, `drop(const)`, or `drop(local.get)` roots separate local-independent SFA sets, plus a bounded `drop(global.get)` separator slice for ordinary void `if` and dropped value-`if` push points only;
-- a dedicated `code-pushing-all` GenValid profile covering the currently aggregate-safe `if`-arm, after-`if`, dropped-`if`, no-branch-value `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, no-branch-value `br_if` multi-set, local-copy multi-set, `nop`-window multi-set, loop-target `br_if`, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, and `drop(global.get)`-window ordinary-/dropped-`if` positive families, plus a targeted-only `code-pushing-br-if-value` leaf held out of the aggregate until the value-`br_if` lowering temp-local drift is fixed or normalized;
+- a dedicated `code-pushing-all` GenValid profile covering the currently aggregate-safe `if`-arm, after-`if`, dropped-`if`, no-branch-value `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, no-branch-value `br_if` multi-set, local-copy multi-set, `nop`-window multi-set, loop-target `br_if`, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, and `drop(global.get)`-window ordinary-/dropped-`if` positive families, plus a targeted-only `code-pushing-br-if-value` leaf for branch-value single-/multi-set `br_if` shapes held out of the aggregate until the value-`br_if` lowering temp-local drift is fixed or normalized;
 - guarded movement of selected `global.get`, local-copy setup shapes, and a narrow non-null `struct.get` heap-read shape across safe intervening roots;
 - a first atomics/GC slice matching Binaryen `code-pushing-atomics.wast`: the non-null `struct.get` may cross atomic loads but not atomic stores, both for into-`if` and segment movement;
 - one Starshine-local typed/dead-block flattening helper near unreachable context.
@@ -117,7 +118,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 ### Upstream Binaryen output shape
 
-- Some pushable `local.set` roots move later within the same block segment, including after supported `if`, dropped-`if`, narrow no-branch-value `br_if`, and first branch-value `br_if` push points.
+- Some pushable `local.set` roots move later within the same block segment, including after supported `if`, dropped-`if`, narrow no-branch-value `br_if`, and bounded branch-value `br_if` push points.
 - Some sets move into the only `if` arm that reads their local.
 - Moved sets keep order and should execute on the same or fewer paths as allowed by the proof.
 - Unproven shapes stay unchanged.
@@ -130,7 +131,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 ### Current Starshine output shape
 
 - Narrow single-consuming-arm local-set sinks become `nop` at the original root plus a cloned `local.set` inside the target arm.
-- The first segment movement slices can replace original SFA sets with `nop` and insert cloned sets immediately after an ordinary void `if`, after a dropped value-`if` wrapper, after a narrow void-block-target / void-loop-target `br_if`, or after a first value-block-target `br_if` with one branch payload when all uses are later suffix reads. Multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, and narrow no-branch-value void-block-target / void-loop-target `br_if` push points, plus direct local-copy, `nop`-separated, `drop(const)`-separated, `drop(local.get)`-separated, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated subcases with explicit source-local/order boundaries. Simple no-branch-value `br_table` block-exit windows are currently a protected no-mutation boundary, not a mutating switch implementation.
+- The first segment movement slices can replace original SFA sets with `nop` and insert cloned sets immediately after an ordinary void `if`, after a dropped value-`if` wrapper, after a narrow void-block-target / void-loop-target `br_if`, or after a value-block-target `br_if` with one branch payload when all uses are later suffix reads. Multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, narrow no-branch-value void-block-target / void-loop-target `br_if`, and value-block-target `br_if` push points, plus direct local-copy, `nop`-separated, `drop(const)`-separated, `drop(local.get)`-separated, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated subcases with explicit source-local/order boundaries. Simple no-branch-value `br_table` block-exit windows are currently a protected no-mutation boundary, not a mutating switch implementation.
 - Narrow non-null `struct.get` values sourced from `local.get` may move across atomic loads under the same local-use proof, but atomic stores remain a movement boundary, mirroring the shared-struct `version_130` atomics lit family through HOT fixtures until Starshine grows a shared-GC WAT surface.
 - Some typed/dead block roots near unreachable context are spliced into the parent region.
 - Unmatched shapes stay unchanged.
@@ -206,6 +207,7 @@ For current `[O4Z-AUDIT-CP]` widening:
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
 - [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
 - [`../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md`](../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md)
 - [`../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md`](../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md)

@@ -8888,7 +8888,7 @@ fn gen_valid_test_instrs_contain_code_pushing_br_if_value_candidate(
   for instr in instrs {
     match instr {
       Block(_, Expr(body)) =>
-        for i = 0; i + 6 < body.length(); i = i + 1 {
+        for i = 0; i + 10 < body.length(); i = i + 1 {
           match
             (
               body[i],
@@ -8898,16 +8898,28 @@ fn gen_valid_test_instrs_contain_code_pushing_br_if_value_candidate(
               body[i + 4],
               body[i + 5],
               body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+              body[i + 10],
             ) {
             (
               I32Const(_),
-              LocalSet(LocalIdx(set_idx)),
+              LocalSet(LocalIdx(first_set_idx)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set_idx)),
               I32Const(_),
               LocalGet(LocalIdx(cond_idx)),
               BrIf(_),
               Drop,
-              LocalGet(LocalIdx(use_idx)),
-            ) if set_idx == 1U && cond_idx == 0U && use_idx == 1U => return true
+              LocalGet(LocalIdx(first_use_idx)),
+              Drop,
+              LocalGet(LocalIdx(second_use_idx)),
+            ) if first_set_idx == 1U &&
+              second_set_idx == 2U &&
+              cond_idx == 0U &&
+              first_use_idx == 1U &&
+              second_use_idx == 2U => return true
             _ => ()
           }
         }
