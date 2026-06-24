@@ -9421,6 +9421,84 @@ test "optimize-instructions rewrites i32.mul by a power of two into shl" {
 }
 
 ///|
+test "optimize-instructions rewrites unsigned div and rem by a power of two" {
+  let div_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.div_u))",
+  )
+  let div_root = @ir.hot_root_get(div_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(div_func, div_root),
+    Some(@lib.Instruction::i32_shr_u()),
+  )
+  let div_rhs = @ir.hot_child_get(div_func, div_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(div_func, @ir.hot_node_get(div_func, div_rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(3)),
+  )
+  let rem_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.rem_u))",
+  )
+  let rem_root = @ir.hot_root_get(rem_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(rem_func, rem_root),
+    Some(@lib.Instruction::i32_and()),
+  )
+  let rem_rhs = @ir.hot_child_get(rem_func, rem_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(rem_func, @ir.hot_node_get(rem_func, rem_rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(7)),
+  )
+  let i64_div_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 16 i64.div_u))",
+  )
+  let i64_div_root = @ir.hot_root_get(i64_div_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_div_func, i64_div_root),
+    Some(@lib.Instruction::i64_shr_u()),
+  )
+  let i64_rem_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 16 i64.rem_u))",
+  )
+  let i64_rem_root = @ir.hot_root_get(i64_rem_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_rem_func, i64_rem_root),
+    Some(@lib.Instruction::i64_and()),
+  )
+  let i64_rem_rhs = @ir.hot_child_get(i64_rem_func, i64_rem_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_rem_func,
+      @ir.hot_node_get(i64_rem_func, i64_rem_rhs).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(15L)),
+  )
+  let non_pow2_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 6 i32.div_u))",
+  )
+  let non_pow2_root = @ir.hot_root_get(non_pow2_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(non_pow2_func, non_pow2_root),
+    Some(@lib.Instruction::i32_div_u()),
+  )
+  let signed_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.div_s))",
+  )
+  let signed_root = @ir.hot_root_get(signed_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(signed_func, signed_root),
+    Some(@lib.Instruction::i32_div_s()),
+  )
+  let lhs_const_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 4 local.get 0 i32.div_u))",
+  )
+  let lhs_const_root = @ir.hot_root_get(lhs_const_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(lhs_const_func, lhs_const_root),
+    Some(@lib.Instruction::i32_div_u()),
+  )
+}
+
+///|
 test "optimize-instructions keeps leading i64.mul const without commutative rewrite" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i64) (result i64) i64.const 4 local.get 0 i64.mul))",

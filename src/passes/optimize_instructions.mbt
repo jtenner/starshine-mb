@@ -5034,6 +5034,80 @@ fn optimize_instructions_try_rewrite_mul_shift(
 }
 
 ///|
+fn optimize_instructions_try_rewrite_div_rem_power_of_two(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match (instr, optimize_instructions_i32_const(func, dead, rhs_id)) {
+    (@lib.Instruction::I32DivU, Some(@lib.I32(raw))) =>
+      match optimize_instructions_i32_power_of_two_shift(raw) {
+        Some(shift) => {
+          optimize_instructions_rewrite_exact_with_children(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_shr_u(),
+            [lhs_id, @ir.hot_build_const_i32(func, @lib.I32(shift))],
+          )
+          true
+        }
+        None => false
+      }
+    (@lib.Instruction::I32RemU, Some(@lib.I32(raw))) =>
+      match optimize_instructions_i32_power_of_two_shift(raw) {
+        Some(_) => {
+          optimize_instructions_rewrite_exact_with_children(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_and(),
+            [lhs_id, @ir.hot_build_const_i32(func, @lib.I32(raw - 1))],
+          )
+          true
+        }
+        None => false
+      }
+    _ =>
+      match (instr, optimize_instructions_i64_const(func, dead, rhs_id)) {
+        (@lib.Instruction::I64DivU, Some(@lib.I64(raw))) =>
+          match optimize_instructions_i64_power_of_two_shift(raw) {
+            Some(shift) => {
+              optimize_instructions_rewrite_exact_with_children(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i64_shr_u(),
+                [lhs_id, @ir.hot_build_const_i64(func, @lib.I64(shift))],
+              )
+              true
+            }
+            None => false
+          }
+        (@lib.Instruction::I64RemU, Some(@lib.I64(raw))) =>
+          match optimize_instructions_i64_power_of_two_shift(raw) {
+            Some(_) => {
+              optimize_instructions_rewrite_exact_with_children(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i64_and(),
+                [lhs_id, @ir.hot_build_const_i64(func, @lib.I64(raw - 1L))],
+              )
+              true
+            }
+            None => false
+          }
+        _ => false
+      }
+  }
+}
+
+///|
 fn optimize_instructions_required_sign_ext_bits(
   instr : @lib.Instruction,
 ) -> Int {
@@ -6671,6 +6745,9 @@ fn optimize_instructions_visit_node(
           optimize_instructions_try_rewrite_mul_shift(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
+          optimize_instructions_try_rewrite_div_rem_power_of_two(
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
           optimize_instructions_try_rewrite_sign_ext_idiom(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
@@ -6709,6 +6786,9 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_mul_shift(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_rewrite_div_rem_power_of_two(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_sign_ext_idiom(
