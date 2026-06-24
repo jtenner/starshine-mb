@@ -8882,6 +8882,42 @@ fn gen_valid_test_instrs_contain_code_pushing_br_if_candidate(
 }
 
 ///|
+fn gen_valid_test_instrs_contain_code_pushing_br_if_value_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 6 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(set_idx)),
+              I32Const(_),
+              LocalGet(LocalIdx(cond_idx)),
+              BrIf(_),
+              Drop,
+              LocalGet(LocalIdx(use_idx)),
+            ) if set_idx == 1U && cond_idx == 0U && use_idx == 1U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_instrs_contain_code_pushing_multi_set_br_if_candidate(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -8994,6 +9030,10 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
   @debug.assert_eq(
     gen_valid_profile_name(CodePushingBrIfProfile),
     "code-pushing-br-if",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrIfValueProfile),
+    "code-pushing-br-if-value",
   )
   @debug.assert_eq(
     gen_valid_profile_name(CodePushingMultiSetProfile),
@@ -9212,6 +9252,26 @@ test "code-pushing gen-valid profiles emit pass-owned if movement candidates" {
   assert_true(
     gen_valid_test_instrs_contain_code_pushing_br_if_candidate(
       gen_valid_test_first_func_instrs(br_if.wasm_module),
+    ),
+  )
+
+  let br_if_value = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrIfValueProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(br_if_value.config_label, "code-pushing-br-if-value")
+  match validate_module(br_if_value.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_if_value.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_if_value_candidate(
+      gen_valid_test_first_func_instrs(br_if_value.wasm_module),
     ),
   )
 

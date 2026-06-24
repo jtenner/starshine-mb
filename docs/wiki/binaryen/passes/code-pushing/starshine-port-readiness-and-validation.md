@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
   - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
@@ -81,6 +82,8 @@ The fourteenth 2026-06-21 audit slice added `drop(const)`-separated ordered mult
 The fifteenth 2026-06-21 audit slice added `drop(local.get)`-separated ordered multi-set movement in [`0820`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md). The ordered helper now admits zero-result `drop` roots with exactly one `local.get` child as a second dead-drop separator family for the same ordinary void `if`, dropped value-`if`, and narrow block-/loop-target `br_if` push points. It leaves the dropped local read before the push point and inserts cloned sets after it in source order. The `code-pushing-all` profile now includes `code-pushing-multi-set-local-get-window`; a bounded native profile lane compared `1000/1000` with `412` normalized matches, `588` cleanup-normalized matches, and `0` raw mismatches/failures under `--normalize local-cleanup-debris`.
 
 The sixteenth 2026-06-21 audit slice added bounded ordinary-/dropped-`if` `drop(global.get)`-separated ordered multi-set movement in [`0821`](../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md). Binaryen v130 moved the window after ordinary void `if` and dropped value-`if` push points, but did not move the same window before no-branch-value block-/loop-target `br_if`; Starshine mirrors that boundary. The `code-pushing-all` profile now includes `code-pushing-multi-set-global-get-window`; a bounded native profile lane compared `1000/1000` with `375` normalized matches, `625` cleanup-normalized matches, and `0` raw mismatches/failures under `--normalize local-cleanup-debris`.
+
+The nineteenth 2026-06-24 audit slice added first branch-value `br_if` segment movement in [`0824`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md). The single-set helper now also accepts `candidate:dropped-conditional-branch` / value-block-target `br_if` shapes with one branch payload when the payload and condition do not read the moved local; ordered multi-set branch-value movement remains out of scope. The targeted `code-pushing-br-if-value` GenValid leaf exists but is held out of `code-pushing-all` until the value-`br_if` lowering temp-local drift is fixed or normalized.
 
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 

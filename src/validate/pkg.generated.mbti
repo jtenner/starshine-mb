@@ -1152,6 +1152,7 @@ pub enum GenValidProfile {
   CodePushingAfterIfProfile
   CodePushingDroppedIfProfile
   CodePushingBrIfProfile
+  CodePushingBrIfValueProfile
   CodePushingMultiSetProfile
   CodePushingMultiSetDroppedIfProfile
   CodePushingMultiSetBrIfProfile

@@ -109,7 +109,7 @@ fn code_pushing_expect_op(
     "local.get" =>
       match op {
         @ir.HotOp::LocalGet => ()
-        _ => abort("expected local.get")
+        _ => abort("expected local.get, got \{op}")
       }
     "const" =>
       match op {
@@ -1357,6 +1357,94 @@ test "code-pushing keeps global-get-separated multi-set window before br_if boun
   code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "br_if")
   code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 4), "drop")
   code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 5), "drop")
+}
+
+///|
+test "code-pushing moves pure SFA set after dropped br_if with branch value" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32)
+      #|    (block $exit (result i32)
+      #|      i32.const 7
+      #|      local.set 1
+      #|      (drop
+      #|        (br_if $exit
+      #|          (i32.const 42)
+      #|          (local.get 0)))
+      #|      local.get 1))
+      #|)
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  let mut branch_idx = -1
+  let mut moved_idx = -1
+  for idx = 0; idx < @ir.hot_region_root_count(func, body_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::BrIf => branch_idx = idx
+      @ir.HotOp::Drop if @ir.hot_child_count(func, root_id) == 1 => {
+        let child_id = @ir.hot_child_get(func, root_id, 0)
+        match @ir.hot_node_get(func, child_id).op {
+          @ir.HotOp::BrIf => branch_idx = idx
+          _ => ()
+        }
+      }
+      @ir.HotOp::LocalSet if @ir.hot_node_get(func, root_id).imm0 == 1 =>
+        moved_idx = idx
+      _ => ()
+    }
+  }
+  assert_true(branch_idx > 0, msg="expected branch after original nop")
+  assert_true(moved_idx > branch_idx, msg="expected local.set after br_if")
+}
+
+///|
+test "code-pushing keeps pure SFA set before dropped br_if branch value that reads it" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local i32)
+      #|    (block $exit (result i32)
+      #|      i32.const 7
+      #|      local.set 1
+      #|      (drop
+      #|        (br_if $exit
+      #|          (local.get 1)
+      #|          (local.get 0)))
+      #|      local.get 1))
+      #|)
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  let mut branch_idx = -1
+  let mut set_idx = -1
+  for idx = 0; idx < @ir.hot_region_root_count(func, body_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::BrIf => branch_idx = idx
+      @ir.HotOp::LocalSet if @ir.hot_node_get(func, root_id).imm0 == 1 =>
+        set_idx = idx
+      _ => ()
+    }
+  }
+  assert_true(set_idx >= 0 && branch_idx > set_idx)
 }
 
 ///|

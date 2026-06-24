@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
   - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
   - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
   - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
@@ -35,7 +36,7 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, `drop(local.get)`-window, bounded `drop(global.get)`-window, and atomics/GC segment-movement Starshine slices, and the earlier source corrections.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, no-branch-value `br_if`, first branch-value `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, `drop(local.get)`-window, bounded `drop(global.get)`-window, and atomics/GC segment-movement Starshine slices, and the earlier source corrections.
 
 ## Mental model
 
@@ -155,6 +156,34 @@ Binaryen-backed after:
 ```
 
 Starshine now implements this single-set `br_if` subset for no-branch-value branches to a void block or loop label, when the branch does not read the local and every read is a same-block / same-loop-body suffix read after the branch.
+
+## Shape 4b: segment movement after a branch-value `br_if` before later same-block use
+
+Binaryen-backed before:
+
+```wat
+(block $exit (result i32)
+  (local.set $tmp (i32.const 7))
+  (drop
+    (br_if $exit
+      (i32.const 42)
+      (local.get $cond)))
+  (local.get $tmp))
+```
+
+Binaryen-backed after:
+
+```wat
+(block $exit (result i32)
+  (drop
+    (br_if $exit
+      (i32.const 42)
+      (local.get $cond)))
+  (local.set $tmp (i32.const 7))
+  (local.get $tmp))
+```
+
+Starshine now implements this single-set branch-value `br_if` subset for one branch payload to a value block label. The branch payload and condition must not read the moved local; a payload such as `(local.get $tmp)` keeps the set stationary.
 
 ## Shape 5: ordered multi-set movement after a void `if`
 
@@ -610,6 +639,7 @@ Before expecting a `code-pushing` rewrite, ask:
 
 ## Sources
 
+- [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md)
 - [`../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md)
