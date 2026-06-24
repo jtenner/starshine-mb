@@ -5794,6 +5794,107 @@ test "optimize-instructions keeps i64.extend_i32 before i64 narrow stores as a B
 }
 
 ///|
+test "optimize-instructions folds identity binary operands" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $id (param $x i32) (param $y i64)
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.or
+        #|    drop
+        #|    local.get $x
+        #|    i32.const -1
+        #|    i32.and
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.xor
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 1
+        #|    i32.mul
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.shl
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.shr_u
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.shr_s
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.add
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.sub
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.or
+        #|    drop
+        #|    local.get $y
+        #|    i64.const -1
+        #|    i64.and
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.xor
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 1
+        #|    i64.mul
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.shl
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.shr_u
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.add
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.sub
+        #|    drop)
+        #|  (func $sub_zero_lhs (param $x i32) (result i32)
+        #|    i32.const 0
+        #|    local.get $x
+        #|    i32.sub))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected identity-fold optimize success, got \{err}")
+  }
+  let id_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Every identity binary op folds to its non-constant operand.
+  for
+    op in [
+      "i32.or", "i32.and", "i32.xor", "i32.mul", "i32.shl", "i32.shr_s", "i32.shr_u",
+      "i32.add", "i32.sub", "i64.or", "i64.and", "i64.xor", "i64.mul", "i64.shl",
+      "i64.shr_u", "i64.add", "i64.sub",
+    ] {
+    assert_false(id_pretty.contains(op), msg="\{op} not folded: \{id_pretty}")
+  }
+  // Boundary: sub(0, x) is -x, not x, so it must be kept.
+  let sub_lhs = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(sub_lhs.contains("i32.sub"), msg=sub_lhs)
+}
+
+///|
 test "optimize-instructions drops superset low-bit masks before narrow stores" {
   let optimized = match
     pass_test_run_pipeline(

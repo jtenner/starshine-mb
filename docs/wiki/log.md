@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-23] passes/optimize-instructions | Implement OI-D identity binary folds
+
+- Filed [`raw/research/0838-2026-06-23-optimize-instructions-oi-d-identity-binary.md`](raw/research/0838-2026-06-23-optimize-instructions-oi-d-identity-binary.md) extending the completed `[O4Z-AUDIT-OI-D]` default-scalar surface with identity binary-operand folding. Binaryen `version_130` direct `--optimize-instructions` folds `or`/`xor`/`add`/`shl`/`shr_u`/`shr_s` with a `0` operand, `and` with `-1`, `mul` with `1`, and `sub` with a `0` right operand (i32 and i64) to the other operand, and keeps `sub(0, x)`; Starshine now matches that.
+- Evidence: Binaryen oracle probes `.tmp/oi-g-identity-binary-probe.wat` and `.tmp/oi-g-add-sub-xor-probe.wat` folded every standalone identity and kept `sub(0, x)`. Red-first `*folds identity binary operands*` failed before implementation and passed `1/1` after; `*optimize-instructions*` passed `224/224`, `moon fmt`, `moon test src/passes` (`2754/2754`), native `src/cmd` build, `moon info`, and diff checks passed. Direct count-1 compare smoke compared `1/1` with one unrelated raw scalar mismatch and matching covered-binop counts (input 48 -> 33 on both Starshine and Binaryen), confirming identity-fold parity on the case. `div`/`rem`/`rotl`/`rotr` identities, float identities, and broader strength-reduction remain open.
+
 ## [2026-06-23] passes/optimize-instructions | Implement OI-G wrap-store widening
 
 - Filed [`raw/research/0837-2026-06-23-optimize-instructions-oi-g-wrap-store.md`](raw/research/0837-2026-06-23-optimize-instructions-oi-g-wrap-store.md) for the twenty-third `[O4Z-AUDIT-OI-G]` memory/store-value sub-slice. Binaryen `version_130` `--optimize-instructions` (direct and O4z-style) widens `i32.store8` / `i32.store16` / `i32.store` of a direct `i32.wrap_i64` operand to `i64.store8` / `i64.store16` / `i64.store32` of the original i64 operand, dropping the wrap; Starshine now matches that for the direct one-use wrap subset.

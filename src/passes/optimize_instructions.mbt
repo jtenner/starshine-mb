@@ -4442,6 +4442,103 @@ fn optimize_instructions_try_fold_exact_const_binary(
 }
 
 ///|
+fn optimize_instructions_i32_identity_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+  identity : Int,
+) -> Int? {
+  match
+    (
+      optimize_instructions_i32_const(func, dead, lhs_id),
+      optimize_instructions_i32_const(func, dead, rhs_id),
+    ) {
+    (Some(@lib.I32(raw)), _) if raw == identity => Some(rhs_id)
+    (_, Some(@lib.I32(raw))) if raw == identity => Some(lhs_id)
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_i64_identity_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+  identity : Int64,
+) -> Int? {
+  match
+    (
+      optimize_instructions_i64_const(func, dead, lhs_id),
+      optimize_instructions_i64_const(func, dead, rhs_id),
+    ) {
+    (Some(@lib.I64(raw)), _) if raw == identity => Some(rhs_id)
+    (_, Some(@lib.I64(raw))) if raw == identity => Some(lhs_id)
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_identity_binary(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  // A constant identity operand makes these binary ops a no-op. The symmetric
+  // cases allow the constant on either side; `sub` is asymmetric because
+  // `sub(0, x)` is `-x`, not `x`.
+  let keep_id = match instr {
+    @lib.Instruction::I32Or
+    | @lib.Instruction::I32Xor
+    | @lib.Instruction::I32Add
+    | @lib.Instruction::I32Shl
+    | @lib.Instruction::I32ShrU
+    | @lib.Instruction::I32ShrS =>
+      optimize_instructions_i32_identity_operand(func, dead, lhs_id, rhs_id, 0)
+    @lib.Instruction::I32And =>
+      optimize_instructions_i32_identity_operand(func, dead, lhs_id, rhs_id, -1)
+    @lib.Instruction::I32Mul =>
+      optimize_instructions_i32_identity_operand(func, dead, lhs_id, rhs_id, 1)
+    @lib.Instruction::I32Sub =>
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(0)) => Some(lhs_id)
+        _ => None
+      }
+    @lib.Instruction::I64Or
+    | @lib.Instruction::I64Xor
+    | @lib.Instruction::I64Add
+    | @lib.Instruction::I64Shl
+    | @lib.Instruction::I64ShrU
+    | @lib.Instruction::I64ShrS =>
+      optimize_instructions_i64_identity_operand(func, dead, lhs_id, rhs_id, 0L)
+    @lib.Instruction::I64And =>
+      optimize_instructions_i64_identity_operand(
+        func, dead, lhs_id, rhs_id, -1L,
+      )
+    @lib.Instruction::I64Mul =>
+      optimize_instructions_i64_identity_operand(func, dead, lhs_id, rhs_id, 1L)
+    @lib.Instruction::I64Sub =>
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(0L)) => Some(lhs_id)
+        _ => None
+      }
+    _ => None
+  }
+  match keep_id {
+    Some(id) => {
+      optimize_instructions_replace_with_node_id(ctx, func, node_id, id)
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_float_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6352,7 +6449,10 @@ fn optimize_instructions_visit_node(
         let initial_instr = func.instr_payloads[node.imm0].instr
         let initial_lhs = func.children[node.child_base]
         let initial_rhs = func.children[node.child_base + 1]
-        let changed = optimize_instructions_try_canonicalize_signed_const_unsigned(
+        let changed = optimize_instructions_try_fold_identity_binary(
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
+          optimize_instructions_try_canonicalize_signed_const_unsigned(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_fold_exact_const_binary(
