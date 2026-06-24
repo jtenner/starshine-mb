@@ -1854,9 +1854,9 @@ fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
     max_tags: 0,
     max_elems: 1,
     max_datas: 1,
-    max_params: 2,
-    max_results: 1,
-    max_locals: 6,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 0,
     max_body_statements: 8,
     max_body_depth: 3,
     features: GenValidFeatureToggles::{
@@ -11187,7 +11187,8 @@ fn gen_valid_build_func(
       is None {
       locals.push(ValType::v128())
     }
-    if ctx.config.features.allow_ref_types {
+    if ctx.config.features.allow_ref_types &&
+      !ctx.config.features.allow_heap_store_optimization_body_generator {
       match declared_ref_func_idx {
         Some(func_idx) =>
           match gen_valid_callable_by_idx(funcs, func_idx) {
@@ -11249,11 +11250,26 @@ fn gen_valid_build_func(
     }
   }
   if ctx.config.mode == CoverageForced {
-    for vt in gc_type_plan.concrete_ref_types {
-      locals.push(vt)
-    }
-    for vt in gc_type_plan.exact_ref_types {
-      locals.push(vt)
+    if ctx.config.features.allow_heap_store_optimization_body_generator {
+      if !gc_type_plan.struct_type_idxs.is_empty() {
+        let struct_ref = ValType::ref_type(
+          RefType::new(true, HeapType::new(gc_type_plan.struct_type_idxs[0])),
+        )
+        if gen_matching_local_idx(
+            gen_all_local_types(accepts, locals),
+            struct_ref,
+          )
+          is None {
+          locals.push(struct_ref)
+        }
+      }
+    } else {
+      for vt in gc_type_plan.concrete_ref_types {
+        locals.push(vt)
+      }
+      for vt in gc_type_plan.exact_ref_types {
+        locals.push(vt)
+      }
     }
   }
   let all_local_types = gen_all_local_types(accepts, locals)
@@ -11277,7 +11293,8 @@ fn gen_valid_build_func(
   }
   let body_instrs : Array[Instruction] = []
   if ctx.config.mode == CoverageForced &&
-    !ctx.config.features.allow_ssa_nomerge_body_generator {
+    !ctx.config.features.allow_ssa_nomerge_body_generator &&
+    !ctx.config.features.allow_heap_store_optimization_body_generator {
     gen_valid_append_coverage_prelude(body_instrs, ctx, env, returns)
   }
   let stmt_count = if ctx.config.mode == CoverageForced {
