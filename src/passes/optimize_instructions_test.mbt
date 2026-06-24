@@ -830,6 +830,60 @@ test "optimize-instructions keeps leading zero-sub add ordering" {
 }
 
 ///|
+/// Integer negation can be moved out of a product: `(-x) * (-y)` rewrites to
+/// `x * y`. The rewrite strips both `(0 - operand)` wrappers in place without
+/// reordering the operands, so it applies even when an operand carries effects
+/// (e.g. a `call`), as long as both factors are negated the same way.
+test "optimize-instructions normalizes integer mul negation" {
+  let mul_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 0 local.get 0 i32.sub i32.const 0 local.get 1 i32.sub i32.mul))",
+  )
+  let mul_root = @ir.hot_root_get(mul_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(mul_func, mul_root),
+    Some(@lib.Instruction::i32_mul()),
+  )
+  match
+    @ir.hot_node_get(mul_func, @ir.hot_child_get(mul_func, mul_root, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected (-x) * (-y) rewrite to x * y")
+  }
+  match
+    @ir.hot_node_get(mul_func, @ir.hot_child_get(mul_func, mul_root, 1)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected (-x) * (-y) rewrite to x * y")
+  }
+
+  let i64_mul_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64) (result i64) i64.const 0 local.get 0 i64.sub i64.const 0 local.get 1 i64.sub i64.mul))",
+  )
+  let i64_mul_root = @ir.hot_root_get(i64_mul_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_mul_func, i64_mul_root),
+    Some(@lib.Instruction::i64_mul()),
+  )
+
+  // Effectful operands still rewrite because the negation is stripped in place
+  // rather than reordered: `(0 - call) * (0 - y)` becomes `call * y`.
+  let effect_mul_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 0 call 1 i32.sub i32.const 0 local.get 0 i32.sub i32.mul) (func (result i32) i32.const 1))",
+  )
+  let effect_mul_root = @ir.hot_root_get(effect_mul_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(effect_mul_func, effect_mul_root),
+    Some(@lib.Instruction::i32_mul()),
+  )
+  match
+    @ir.hot_node_get(
+      effect_mul_func,
+      @ir.hot_child_get(effect_mul_func, effect_mul_root, 0),
+    ).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected effectful (-call) * (-y) to keep the call operand")
+  }
+}
+
+///|
 test "optimize-instructions folds exact integer constant subtraction" {
   let i32_func = optimize_instructions_test_run_hot(
     "(module (func (result i32) i32.const 84 i32.const 3 i32.sub))",

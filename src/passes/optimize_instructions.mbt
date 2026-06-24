@@ -5111,6 +5111,64 @@ fn optimize_instructions_try_fold_convert(
 }
 
 ///|
+fn optimize_instructions_i32_zero_sub_negated_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Int? {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 2 {
+    return None
+  }
+  match node.op {
+    @ir.HotOp::Binary if func.instr_payloads[node.imm0].instr ==
+      @lib.Instruction::i32_sub() => {
+      let zero_id = func.children[node.child_base]
+      let negated_id = func.children[node.child_base + 1]
+      if optimize_instructions_i32_const(func, dead, zero_id) ==
+        Some(@lib.I32(0)) {
+        Some(negated_id)
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_i64_zero_sub_negated_operand(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Int? {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 2 {
+    return None
+  }
+  match node.op {
+    @ir.HotOp::Binary if func.instr_payloads[node.imm0].instr ==
+      @lib.Instruction::i64_sub() => {
+      let zero_id = func.children[node.child_base]
+      let negated_id = func.children[node.child_base + 1]
+      if optimize_instructions_i64_const(func, dead, zero_id) ==
+        Some(@lib.I64(0L)) {
+        Some(negated_id)
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_add_sub(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5259,6 +5317,57 @@ fn optimize_instructions_try_rewrite_add_sub(
       )
       true
     }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_rewrite_mul_negation(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match instr {
+    @lib.Instruction::I32Mul =>
+      match
+        (
+          optimize_instructions_i32_zero_sub_negated_operand(func, dead, lhs_id),
+          optimize_instructions_i32_zero_sub_negated_operand(func, dead, rhs_id),
+        ) {
+        (Some(lhs_negated), Some(rhs_negated)) => {
+          optimize_instructions_rewrite_exact_with_children(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_mul(),
+            [lhs_negated, rhs_negated],
+          )
+          true
+        }
+        _ => false
+      }
+    @lib.Instruction::I64Mul =>
+      match
+        (
+          optimize_instructions_i64_zero_sub_negated_operand(func, dead, lhs_id),
+          optimize_instructions_i64_zero_sub_negated_operand(func, dead, rhs_id),
+        ) {
+        (Some(lhs_negated), Some(rhs_negated)) => {
+          optimize_instructions_rewrite_exact_with_children(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_mul(),
+            [lhs_negated, rhs_negated],
+          )
+          true
+        }
+        _ => false
+      }
     _ => false
   }
 }
@@ -7137,6 +7246,9 @@ fn optimize_instructions_visit_node(
           optimize_instructions_try_rewrite_add_sub(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
+          optimize_instructions_try_rewrite_mul_negation(
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
           optimize_instructions_try_rewrite_float_binary(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
@@ -7187,6 +7299,9 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_add_sub(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_rewrite_mul_negation(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_float_binary(
