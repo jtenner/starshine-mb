@@ -4598,6 +4598,148 @@ fn optimize_instructions_try_fold_identity_binary(
 }
 
 ///|
+fn optimize_instructions_try_fold_absorbing_zero_i32(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let zero_on_lhs = match optimize_instructions_i32_const(func, dead, lhs_id) {
+    Some(@lib.I32(0)) => true
+    _ => false
+  }
+  let zero_on_rhs = match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(0)) => true
+    _ => false
+  }
+  let pure_other = if zero_on_lhs && !zero_on_rhs {
+    optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id)
+  } else if zero_on_rhs && !zero_on_lhs {
+    optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id)
+  } else if zero_on_lhs && zero_on_rhs {
+    true
+  } else {
+    false
+  }
+  if pure_other {
+    optimize_instructions_replace_with_const_i32(
+      ctx,
+      func,
+      node_id,
+      @lib.I32(0),
+    )
+    true
+  } else {
+    false
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_absorbing_zero_i64(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let zero_on_lhs = match optimize_instructions_i64_const(func, dead, lhs_id) {
+    Some(@lib.I64(0L)) => true
+    _ => false
+  }
+  let zero_on_rhs = match optimize_instructions_i64_const(func, dead, rhs_id) {
+    Some(@lib.I64(0L)) => true
+    _ => false
+  }
+  let pure_other = if zero_on_lhs && !zero_on_rhs {
+    optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id)
+  } else if zero_on_rhs && !zero_on_lhs {
+    optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id)
+  } else if zero_on_lhs && zero_on_rhs {
+    true
+  } else {
+    false
+  }
+  if pure_other {
+    optimize_instructions_replace_with_const_i64(
+      ctx,
+      func,
+      node_id,
+      @lib.I64(0L),
+    )
+    true
+  } else {
+    false
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_absorbing_binary(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  // A zero-absorbing operand reduces these binops to `0` when the other operand
+  // is side-effect-free. Folding would otherwise drop a non-pure lhs/rhs effect
+  // (Binaryen keeps e.g. `mul(effect, 0)` and `rem(effect, -1)`).
+  match instr {
+    @lib.Instruction::I32Mul | @lib.Instruction::I32And =>
+      optimize_instructions_try_fold_absorbing_zero_i32(
+        ctx, func, dead, node_id, lhs_id, rhs_id,
+      )
+    @lib.Instruction::I64Mul | @lib.Instruction::I64And =>
+      optimize_instructions_try_fold_absorbing_zero_i64(
+        ctx, func, dead, node_id, lhs_id, rhs_id,
+      )
+    @lib.Instruction::I32RemS => {
+      let rhs_is_neg_one = match
+        optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(-1)) => true
+        _ => false
+      }
+      if rhs_is_neg_one &&
+        optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+        optimize_instructions_replace_with_const_i32(
+          ctx,
+          func,
+          node_id,
+          @lib.I32(0),
+        )
+        true
+      } else {
+        false
+      }
+    }
+    @lib.Instruction::I64RemS => {
+      let rhs_is_neg_one = match
+        optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(-1L)) => true
+        _ => false
+      }
+      if rhs_is_neg_one &&
+        optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+        optimize_instructions_replace_with_const_i64(
+          ctx,
+          func,
+          node_id,
+          @lib.I64(0L),
+        )
+        true
+      } else {
+        false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_float_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6509,6 +6651,9 @@ fn optimize_instructions_visit_node(
         let initial_lhs = func.children[node.child_base]
         let initial_rhs = func.children[node.child_base + 1]
         let changed = optimize_instructions_try_fold_identity_binary(
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
+          optimize_instructions_try_fold_absorbing_binary(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_canonicalize_signed_const_unsigned(

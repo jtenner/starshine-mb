@@ -5972,6 +5972,82 @@ test "optimize-instructions folds div/rem/rot identity operands" {
 }
 
 ///|
+test "optimize-instructions folds absorbing binary operands" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "effect" (func $effect (result i32)))
+        #|  (func $id (param $x i32) (param $y i64)
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.mul
+        #|    drop
+        #|    i32.const 0
+        #|    local.get $x
+        #|    i32.mul
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.and
+        #|    drop
+        #|    local.get $x
+        #|    i32.const -1
+        #|    i32.rem_s
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.mul
+        #|    drop
+        #|    i64.const 0
+        #|    local.get $y
+        #|    i64.mul
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.and
+        #|    drop
+        #|    local.get $y
+        #|    i64.const -1
+        #|    i64.rem_s
+        #|    drop)
+        #|  (func $mul_eff (result i32)
+        #|    call $effect
+        #|    i32.const 0
+        #|    i32.mul)
+        #|  (func $and_eff (result i32)
+        #|    call $effect
+        #|    i32.const 0
+        #|    i32.and)
+        #|  (func $rem_neg1_eff (result i32)
+        #|    call $effect
+        #|    i32.const -1
+        #|    i32.rem_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected absorbing-fold optimize success, got \{err}")
+  }
+  let id_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  for
+    op in ["i32.mul", "i32.and", "i32.rem_s", "i64.mul", "i64.and", "i64.rem_s"] {
+    assert_false(id_pretty.contains(op), msg="\{op} not folded: \{id_pretty}")
+  }
+  // Boundary: folding to zero would drop the effect, so effectful operands are kept.
+  let mul_eff = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(mul_eff.contains("i32.mul"), msg=mul_eff)
+  assert_true(mul_eff.contains("call"), msg=mul_eff)
+  let and_eff = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(and_eff.contains("i32.and"), msg=and_eff)
+  assert_true(and_eff.contains("call"), msg=and_eff)
+  let rem_neg1_eff = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(rem_neg1_eff.contains("i32.rem_s"), msg=rem_neg1_eff)
+  assert_true(rem_neg1_eff.contains("call"), msg=rem_neg1_eff)
+}
+
+///|
 test "optimize-instructions drops superset low-bit masks before narrow stores" {
   let optimized = match
     pass_test_run_pipeline(
