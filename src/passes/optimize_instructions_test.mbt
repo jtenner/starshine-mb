@@ -760,7 +760,7 @@ test "optimize-instructions preserves positive add immediates for parity" {
 }
 
 ///|
-test "optimize-instructions keeps leading positive const adds in add form" {
+test "optimize-instructions canonicalizes leading positive const adds" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 64 local.get 0 i32.add))",
   )
@@ -772,17 +772,18 @@ test "optimize-instructions keeps leading positive const adds in add form" {
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
   match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected non-constant positive add operand to move to the lhs")
+  }
+  let rhs_node = @ir.hot_node_get(func, rhs)
+  match rhs_node.op {
     @ir.HotOp::Const => ()
-    _ => fail("expected leading positive add const to stay on the lhs")
+    _ => fail("expected leading positive add const to move to the rhs")
   }
   @debug.assert_eq(
-    @ir.hot_const_get(func, @ir.hot_node_get(func, lhs).imm0),
+    @ir.hot_const_get(func, rhs_node.imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(64)),
   )
-  match @ir.hot_node_get(func, rhs).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected non-constant positive add operand to stay on the rhs")
-  }
 }
 
 ///|
@@ -9531,26 +9532,26 @@ test "optimize-instructions keeps unreachable sentinels after looped escaping if
 }
 
 ///|
-test "optimize-instructions keeps leading commutative constants in place" {
+test "optimize-instructions canonicalizes leading commutative constants" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) i32.const 7 local.get 0 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
-  let lhs_node = @ir.hot_node_get(func, lhs)
-  match lhs_node.op {
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected non-constant commutative operand to move to the lhs")
+  }
+  let rhs_node = @ir.hot_node_get(func, rhs)
+  match rhs_node.op {
     @ir.HotOp::Const => ()
-    _ => fail("expected leading commutative constant to stay on the lhs")
+    _ => fail("expected leading commutative constant to move to the rhs")
   }
   @debug.assert_eq(
-    @ir.hot_const_get(func, lhs_node.imm0),
+    @ir.hot_const_get(func, rhs_node.imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(7)),
   )
-  match @ir.hot_node_get(func, rhs).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected non-constant commutative operand to stay on the rhs")
-  }
 }
 
 ///|
@@ -9649,29 +9650,24 @@ test "optimize-instructions rewrites unsigned div and rem by a power of two" {
 }
 
 ///|
-test "optimize-instructions keeps leading i64.mul const without commutative rewrite" {
+test "optimize-instructions canonicalizes leading i64.mul const before shift rewrite" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i64) (result i64) i64.const 4 local.get 0 i64.mul))",
   )
   let root = @ir.hot_root_get(func, 0)
   @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i64_mul()),
+    Some(@lib.Instruction::i64_shl()),
   )
-  let lhs = @ir.hot_child_get(func, root, 0)
-  let rhs = @ir.hot_child_get(func, root, 1)
-  match @ir.hot_node_get(func, lhs).op {
-    @ir.HotOp::Const => ()
-    _ => fail("expected leading i64.mul const to stay on the lhs")
-  }
-  @debug.assert_eq(
-    @ir.hot_const_get(func, @ir.hot_node_get(func, lhs).imm0),
-    @ir.HotConstPayload::i64_const(@lib.I64(4L)),
-  )
-  match @ir.hot_node_get(func, rhs).op {
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, root, 0)).op {
     @ir.HotOp::LocalGet => ()
-    _ => fail("expected i64.mul local operand to stay on the rhs")
+    _ => fail("expected i64.mul local operand to move before shift amount")
   }
+  let rhs = @ir.hot_child_get(func, root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, rhs).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(2L)),
+  )
 }
 
 ///|
@@ -9763,22 +9759,22 @@ test "optimize-instructions keeps lhs local before shifted local state" {
 }
 
 ///|
-test "optimize-instructions keeps shifted lhs before rhs local get" {
+test "optimize-instructions canonicalizes shifted lhs after rhs local get" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) local.get 1 i32.const 1 i32.shl local.get 0 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected rhs local.get to move before shifted lhs")
+  }
+  @debug.assert_eq(@ir.hot_node_get(func, lhs).imm0, 0)
   @debug.assert_eq(
-    @ir.hot_node_exact_instr(func, lhs),
+    @ir.hot_node_exact_instr(func, rhs),
     Some(@lib.Instruction::i32_shl()),
   )
-  match @ir.hot_node_get(func, rhs).op {
-    @ir.HotOp::LocalGet => ()
-    _ => fail("expected rhs local.get to stay behind shifted lhs")
-  }
-  @debug.assert_eq(@ir.hot_node_get(func, rhs).imm0, 0)
 }
 
 ///|
@@ -9843,26 +9839,26 @@ test "optimize-instructions keeps local before shifted shared pure if leaves" {
 }
 
 ///|
-test "optimize-instructions keeps local tee before rhs local get" {
+test "optimize-instructions keeps local tee before same-local get" {
   let func = optimize_instructions_test_run_hot(
-    "(module (func (param i32) (result i32) (local i32 i32) local.get 0 local.tee 1 local.get 2 i32.eq))",
+    "(module (func (param i32) (result i32) (local i32) local.get 0 local.tee 1 local.get 1 i32.eq))",
   )
   let root = @ir.hot_root_get(func, 0)
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
   match @ir.hot_node_get(func, lhs).op {
     @ir.HotOp::LocalTee => ()
-    _ => fail("expected local.tee subtree to stay before rhs local.get")
+    _ => fail("expected local.tee subtree to stay before same-local get")
   }
   match @ir.hot_node_get(func, rhs).op {
     @ir.HotOp::LocalGet => ()
-    _ => fail("expected rhs local.get to stay behind local.tee")
+    _ => fail("expected same-local get to stay behind local.tee")
   }
-  @debug.assert_eq(@ir.hot_node_get(func, rhs).imm0, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, rhs).imm0, 1)
 }
 
 ///|
-test "optimize-instructions keeps commutative local get pair order" {
+test "optimize-instructions canonicalizes commutative local get pair order" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32 i32) (result i32) local.get 2 local.get 1 i32.add))",
   )
@@ -9879,8 +9875,8 @@ test "optimize-instructions keeps commutative local get pair order" {
     _ =>
       fail("expected rhs to stay a local.get after local-pair canonicalization")
   }
-  @debug.assert_eq(@ir.hot_node_get(func, lhs).imm0, 2)
-  @debug.assert_eq(@ir.hot_node_get(func, rhs).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, lhs).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, rhs).imm0, 2)
 }
 
 ///|

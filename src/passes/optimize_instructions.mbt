@@ -1386,18 +1386,23 @@ fn optimize_instructions_try_canonicalize_commutative(
   rhs_id : Int,
   scratch : OptimizeInstructionsScratch,
 ) -> Bool {
-  // Conservative O4z guard: the previous canonicalizer reordered address-like
-  // operands across locals/loads and corrupted StringBuilder/TLSF-style paths.
-  // Keep operand order until effect/use-def ordering can prove a swap safe.
-  ignore(ctx)
-  ignore(func)
-  ignore(dead)
-  ignore(node_id)
-  ignore(instr)
-  ignore(lhs_id)
-  ignore(rhs_id)
+  // The old O4z guard disabled this after address-like operand reordering bugs.
+  // Re-enable only when both the local kind-rank order wants a swap and the
+  // shared Binaryen-style effect/use-def proof says the operand subtrees can
+  // exchange positions without changing observable behavior.
   ignore(scratch)
-  false
+  if !optimize_instructions_should_swap_commutative_node_kinds(
+      func, dead, lhs_id, rhs_id,
+    ) {
+    return false
+  }
+  if !optimize_instructions_can_swap_leading_operands(ctx, func, lhs_id, rhs_id) {
+    return false
+  }
+  optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [
+    rhs_id, lhs_id,
+  ])
+  true
 }
 
 ///|

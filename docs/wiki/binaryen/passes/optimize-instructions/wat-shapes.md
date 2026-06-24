@@ -101,6 +101,41 @@ So the real rule is:
 - canonicalization is partly algebraic
 - and partly encoding-aware
 
+## Shape family 2b: commutative operand canonicalization
+
+Before:
+
+```wat
+(i32.add
+  (i32.const 7)
+  (local.get $x))
+```
+
+After when reordering is safe:
+
+```wat
+(i32.add
+  (local.get $x)
+  (i32.const 7))
+```
+
+What to remember:
+
+- Starshine's HOT canonicalizer now reorders ranked non-call value nodes for
+  commutative binary instructions (`add`, `mul`, `and`, `or`, `xor`, and related
+  commutative comparisons) only after `optimize_instructions_subtrees_can_swap`
+  proves the two operand subtrees can exchange positions safely
+- constants move behind local gets, higher-numbered local gets sort after
+  lower-numbered local gets, and nested expression nodes move behind simpler
+  local/global/load/constant forms when the effect proof allows it
+- unsafe reorder cases still stay in source order, including same-local
+  `local.tee`/`local.get` conflicts, memory write/read conflicts, may-trap past
+  side-effect hazards, and control-flow operands
+- call operands are intentionally still outside the commutative kind-rank table;
+  the leading zero-sub add/sub rewrite handles the source-backed `(0 - call) +
+  local.get` shape through its dedicated proof, while general call-operand
+  commutative ordering remains a follow-up slice
+
 ## Shape family 3: eliminate `0 - x` wrappers inside adds
 
 Before:
@@ -123,8 +158,52 @@ After when reordering is safe:
 
 What to remember:
 
-- this is only allowed when reordering the two value computations is safe
-- effect ordering is part of the rewrite contract
+- this leading form `(0 - x) + y -> y - x` actually reorders the two value
+  computations (`x` and `y` swap positions), so it is gated on a sound
+  operand-reorder proof, not on operand purity
+- the trailing form `y + (0 - x) -> y - x` keeps both computations in order and
+  needs no reorder check
+- the reorder is allowed only when the two operand subtrees can swap without
+  changing observable behavior. Starshine implements this as
+  `optimize_instructions_subtrees_can_swap`, mirroring Binaryen's reorder rule:
+  - no read-after-write / write-after-read / write-after-write conflict on
+    locals, globals, memory, or tables (read × read is fine, which is why
+    `local.get × local.get`, `load × load`, and `local.get × call` reorder)
+  - no may-trap-or-throw operand reordered past a side effect (which is why
+    `(0 - load) + local.tee` and `(0 - memory.grow) + load` stay put)
+  - control-flow operands never swap, because their region bodies are outside
+    the aggregated effect masks
+- a `call` is modeled as may-trap and opaque global/memory/table state, but it
+  never reads or writes the caller's locals; therefore a caller-local-only read
+  like `local.get` can swap past a `call`:
+  `(0 - call) + local.get -> local.get - call`
+
+## Shape family 3b: eliminate double `0 - x` wrappers inside a mul
+
+Before:
+
+```wat
+(i32.mul
+  (i32.sub (i32.const 0) (local.get $x))
+  (i32.sub (i32.const 0) (local.get $y)))
+```
+
+After:
+
+```wat
+(i32.mul (local.get $x) (local.get $y))
+```
+
+What to remember:
+
+- this is `-x * -y -> x * y` for both `i32` and `i64`, implemented as
+  `optimize_instructions_try_rewrite_mul_negation`
+- unlike the leading add form above, the mul negation is stripped in place on
+  both factors, so it does **not** reorder the operands and needs no
+  `subtrees_can_swap` proof
+- because there is no reorder, the rewrite applies even when a factor carries
+  effects, as long as both factors are negated the same way:
+  `(0 - call) * (0 - y) -> call * y`
 
 ## Shape family 4: shift-mask cleanup
 

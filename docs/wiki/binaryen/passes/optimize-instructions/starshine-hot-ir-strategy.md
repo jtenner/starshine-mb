@@ -286,6 +286,8 @@ The local file has explicit machinery for:
 
 That matches the *strategy* of upstream Binaryen — canonicalize first so later peepholes have fewer spellings to handle — but the proof substrate is very local-HOT-specific.
 
+Note: the *general* commutative canonicalizer (`optimize_instructions_try_canonicalize_commutative`) is now live for ranked non-call HOT value nodes and is gated by the same `optimize_instructions_subtrees_can_swap` Binaryen-style reorder proof used by the leading `(0 - x) + y -> y - x` rewrite (see section 3). `HotOp::Call`/`CallIndirect`/`CallRef` operands still carry no canonicalizer kind rank, so call-operand commutative ordering remains a separate TDD + compare-lane slice.
+
 ## 3. Add / sub / mul / shift rewrites
 
 The in-tree HOT pass includes helpers for:
@@ -295,6 +297,19 @@ The in-tree HOT pass includes helpers for:
 - redundant shift-mask removal
 - effective-zero shift cleanup
 - compare-to-zero reductions
+
+Two add/sub/mul negation rewrites carry their own soundness contracts:
+
+- the leading `(0 - x) + y -> y - x` and i64 twin reorder the two value
+  computations, so both i32/i64 leading branches are gated by
+  `optimize_instructions_can_swap_leading_operands`, which delegates to
+  `optimize_instructions_subtrees_can_swap` (no RAW/WAR/WAW region conflict on
+  locals/globals/memory/tables, no may-trap/throw operand past a side effect,
+  no control-flow operands). The trailing `y + (0 - x) -> y - x` keeps operands
+  in order and needs no guard.
+- `-x * -y -> x * y` (`optimize_instructions_try_rewrite_mul_negation`, i32 and
+  i64) strips both `(0 - x)` wrappers in place, so it needs no reorder proof
+  and applies even for effectful factors such as `(0 - call) * (0 - y)`.
 
 So Starshine already covers a meaningful subset of the classic arithmetic rewrite surface.
 

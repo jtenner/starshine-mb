@@ -84,7 +84,7 @@ The local file has explicit machinery for:
 - sorting local gets and some node kinds conservatively
 - refusing reordering across same-local writes, shared tee payloads, trapping loads, and loop-carried inputs
 
-That matches the upstream strategy of canonicalize-first, but the proof substrate is local-HOT-specific.
+That matches the upstream strategy of canonicalize-first, but the proof substrate is local-HOT-specific. The general commutative canonicalizer is live for ranked non-call HOT value nodes and uses the same sound reorder proof (`optimize_instructions_subtrees_can_swap`) exercised by the leading `(0 - x) + y -> y - x` rewrite (see section 3); call operands remain an explicit rank/wiring follow-up.
 
 ### 3. Add / sub / mul / shift rewrites
 
@@ -95,6 +95,8 @@ The in-tree HOT pass includes helpers for:
 - redundant shift-mask removal
 - effective-zero shift cleanup
 - compare-to-zero reductions
+
+The leading `(0 - x) + y -> y - x` rewrite (i32/i64) reorders the two operands and is therefore gated by the sound `subtrees_can_swap` reorder proof (no RAW/WAR/WAW region conflict, no may-trap/throw past a side effect, no control-flow operands); the trailing `y + (0 - x) -> y - x` needs no guard. The sibling `-x * -y -> x * y` (i32/i64) strips both negations in place, so it needs no reorder proof and applies even for effectful factors such as `(0 - call) * (0 - y)`.
 
 So Starshine already covers a meaningful subset of the arithmetic rewrite surface.
 

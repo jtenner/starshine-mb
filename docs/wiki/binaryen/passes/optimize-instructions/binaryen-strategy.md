@@ -199,12 +199,12 @@ The most important rewrite clusters are:
 
 Examples from the source:
 
-- `(0 - x) + y -> y - x` when reordering is safe
-- `y + (0 - x) -> y - x`
+- `(0 - x) + y -> y - x` when reordering is safe (this leading form reorders the two value computations, so it is gated on a sound operand-reorder proof, not on purity — see `optimize_instructions_subtrees_can_swap`)
+- `y + (0 - x) -> y - x` (trailing form; operands stay in order, no reorder needed)
+- `-x * -y -> x * y` (both `(0 - x)` wrappers stripped in place, so no reorder and applies even for effectful factors like `(0 - call) * (0 - y)`)
 - `x + (-C) -> x - C`
 - `-x + y -> y - x` for floats when safe
 - `x + (-y) -> x - y` and `x - (-y) -> x + y`
-- `-x * -y -> x * y`
 - `-x * y -> -(x * y)` for some integer cases
 
 ### Shift / rotate / mask cleanup
