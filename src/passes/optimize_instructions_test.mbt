@@ -808,24 +808,24 @@ test "optimize-instructions rewrites add with trailing zero-sub into sub" {
 }
 
 ///|
-test "optimize-instructions keeps leading zero-sub add ordering" {
+test "optimize-instructions rewrites add with leading zero-sub into sub" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) i32.const 0 local.get 0 i32.sub local.get 1 i32.add))",
   )
   let root = @ir.hot_root_get(func, 0)
   @debug.assert_eq(
     @ir.hot_node_exact_instr(func, root),
-    Some(@lib.Instruction::i32_add()),
+    Some(@lib.Instruction::i32_sub()),
   )
   let lhs = @ir.hot_child_get(func, root, 0)
   let rhs = @ir.hot_child_get(func, root, 1)
-  @debug.assert_eq(
-    @ir.hot_node_exact_instr(func, lhs),
-    Some(@lib.Instruction::i32_sub()),
-  )
+  match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected (0 - x) + y rewrite to y - x")
+  }
   match @ir.hot_node_get(func, rhs).op {
     @ir.HotOp::LocalGet => ()
-    _ => fail("expected trailing add local to stay on the rhs")
+    _ => fail("expected (0 - x) + y rewrite to y - x")
   }
 }
 
@@ -881,6 +881,75 @@ test "optimize-instructions normalizes integer mul negation" {
     @ir.HotOp::Call => ()
     _ => fail("expected effectful (-call) * (-y) to keep the call operand")
   }
+}
+
+///|
+/// With the sound reorder guard, a `(0 - x)` zero-sub operand whose only
+/// effects are reads (a `call` reads globals/memory/tables but never the
+/// caller's locals) can swap past a `local.get`, so the leading
+/// `(0 - x) + y => y - x` and trailing `x + (0 - y) => x - y` rewrites fire.
+/// The trailing path needs no reorder check (operands stay in order); the
+/// leading path is gated by the new guard.
+test "optimize-instructions rewrites add/sub with effectful zero-sub operand" {
+  // Leading: `(0 - call 1) + local.get 0`. The call reads opaque state but does
+  // not conflict with the local read, so it reorders to `local.get 0 - call 1`.
+  let leading_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 0 call 1 i32.sub local.get 0 i32.add) (func (result i32) i32.const 1))",
+  )
+  let leading_root = @ir.hot_root_get(leading_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(leading_func, leading_root),
+    Some(@lib.Instruction::i32_sub()),
+  )
+  // Trailing: `local.get 0 + (0 - call 1)`. No reorder is needed.
+  let trailing_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 0 call 1 i32.sub i32.add) (func (result i32) i32.const 1))",
+  )
+  let trailing_root = @ir.hot_root_get(trailing_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(trailing_func, trailing_root),
+    Some(@lib.Instruction::i32_sub()),
+  )
+}
+
+///|
+/// The leading `(0 - x) + y => y - x` rewrite reorders `x` and `y`, so it must
+/// be blocked whenever the reorder would change observable behavior. These
+/// cases pin the soundness guard that Binaryen matches: a same-region
+/// read/write conflict, a memory write vs read, and a may-trap read vs a
+/// side-effecting operand all keep the `add`.
+test "optimize-instructions keeps leading zero-sub add when reorder is unsafe" {
+  // `(0 - local.tee 0) + local.get 0`: the tee writes local 0, the get reads it.
+  let local_conflict = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 0 local.get 1 local.tee 0 i32.sub local.get 0 i32.add))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      local_conflict,
+      @ir.hot_root_get(local_conflict, 0),
+    ),
+    Some(@lib.Instruction::i32_add()),
+  )
+  // `(0 - memory.grow) + i32.load`: the grow writes memory, the load reads it.
+  let memory_conflict = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (param i32) (result i32) i32.const 0 i32.const 0 memory.grow i32.sub local.get 0 i32.load offset=0 i32.add))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      memory_conflict,
+      @ir.hot_root_get(memory_conflict, 0),
+    ),
+    Some(@lib.Instruction::i32_add()),
+  )
+  // `(0 - i32.load) + local.tee 0`: disjoint regions, but the load may trap and
+  // the tee has a side effect, so reordering could expose the tee before a trap.
+  let trap_conflict = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (param i32 i32) (result i32) i32.const 0 local.get 0 i32.load offset=0 i32.sub local.get 1 local.tee 0 i32.add))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(trap_conflict, @ir.hot_root_get(trap_conflict, 0)),
+    Some(@lib.Instruction::i32_add()),
+  )
 }
 
 ///|
