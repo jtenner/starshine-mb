@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-21
 sources:
+  - ../../../raw/research/1022-2026-06-21-heap-store-optimization-default-desc-catchable-later-field-result-try-table-store-boundary.md
   - ../../../raw/research/1021-2026-06-21-heap-store-optimization-later-field-result-try-table-descriptor-old-field-fold.md
   - ../../../raw/research/1020-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-old-field-boundary.md
   - ../../../raw/research/1019-2026-06-21-heap-store-optimization-later-field-result-try-table-old-field-fold.md
@@ -538,6 +539,8 @@ Current local proof surfaces include:
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
 - [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
+- [`../../../raw/research/1022-2026-06-21-heap-store-optimization-default-desc-catchable-later-field-result-try-table-store-boundary.md`](../../../raw/research/1022-2026-06-21-heap-store-optimization-default-desc-catchable-later-field-result-try-table-store-boundary.md)
+  - added HSO-D/E/G default-descriptor catchable result-wrapper store-value boundary: Binaryen preserves `struct.new_default_desc`, the intervening call store, the result-typed `try_table` / direct-call store, the descriptor read, and the later `struct.set`; Starshine now blocks folds whose moved value contains a catchable `try_table` escape.
 - [`../../../raw/research/1021-2026-06-21-heap-store-optimization-later-field-result-try-table-descriptor-old-field-fold.md`](../../../raw/research/1021-2026-06-21-heap-store-optimization-later-field-result-try-table-descriptor-old-field-fold.md)
   - added coverage-only HSO-D/G descriptor later-field old-field evidence: Binaryen folds pure same-field stores into immutable-descriptor `struct.new_desc` across a non-tail later-field result-typed `try_table`, preserving overwritten call or exact trapping `i32.div_s` old fields under `drop`; Starshine already matches.
 - [`../../../raw/research/1020-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-old-field-boundary.md`](../../../raw/research/1020-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-old-field-boundary.md)

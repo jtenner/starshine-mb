@@ -3122,6 +3122,9 @@ fn hso_try_fold_into_struct_new(
       }
     None => ()
   }
+  if hso_subtree_has_catchable_try_table_escape(func, value_id) {
+    return None
+  }
   ignore(hso_trim_unreachable_subtree(func, value_id))
   let lifted_prefix_roots = match
     hso_peel_reorderable_value_prefix_roots(
