@@ -5895,6 +5895,83 @@ test "optimize-instructions folds identity binary operands" {
 }
 
 ///|
+test "optimize-instructions folds div/rem/rot identity operands" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "effect" (func $effect (result i32)))
+        #|  (func $id (param $x i32) (param $y i64)
+        #|    local.get $x
+        #|    i32.const 1
+        #|    i32.div_s
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 1
+        #|    i32.div_u
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 1
+        #|    i32.rem_s
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 1
+        #|    i32.rem_u
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.rotl
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.rotr
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 1
+        #|    i64.div_s
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 1
+        #|    i64.rem_s
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.rotl
+        #|    drop)
+        #|  (func $div_lhs_one (param $x i32) (result i32)
+        #|    i32.const 1
+        #|    local.get $x
+        #|    i32.div_s)
+        #|  (func $rem_eff (result i32)
+        #|    call $effect
+        #|    i32.const 1
+        #|    i32.rem_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected div/rem/rot identity optimize success, got \{err}")
+  }
+  let id_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  for
+    op in [
+      "i32.div_s", "i32.div_u", "i32.rem_s", "i32.rem_u", "i32.rotl", "i32.rotr",
+      "i64.div_s", "i64.rem_s", "i64.rotl",
+    ] {
+    assert_false(id_pretty.contains(op), msg="\{op} not folded: \{id_pretty}")
+  }
+  // Boundary: div(1, x) is not x, so it must be kept.
+  let div_lhs = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(div_lhs.contains("i32.div_s"), msg=div_lhs)
+  // Boundary: rem(effect, 1) -> 0 would drop the effect, so it must be kept.
+  let rem_eff = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(rem_eff.contains("i32.rem_s"), msg=rem_eff)
+  assert_true(rem_eff.contains("call"), msg=rem_eff)
+}
+
+///|
 test "optimize-instructions drops superset low-bit masks before narrow stores" {
   let optimized = match
     pass_test_run_pipeline(

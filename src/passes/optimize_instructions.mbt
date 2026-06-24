@@ -4491,7 +4491,46 @@ fn optimize_instructions_try_fold_identity_binary(
 ) -> Bool {
   // A constant identity operand makes these binary ops a no-op. The symmetric
   // cases allow the constant on either side; `sub` is asymmetric because
-  // `sub(0, x)` is `-x`, not `x`.
+  // `sub(0, x)` is `-x`, not `x`. `rem(_, 1) -> 0` is asymmetric and requires a
+  // pure lhs operand, because folding to the constant would otherwise drop the
+  // lhs effect (Binaryen keeps `rem(effect, 1)`).
+  match instr {
+    @lib.Instruction::I32RemS | @lib.Instruction::I32RemU => {
+      let rhs_is_one = match
+        optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) => raw == 1
+        _ => false
+      }
+      if rhs_is_one &&
+        optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+        optimize_instructions_replace_with_const_i32(
+          ctx,
+          func,
+          node_id,
+          @lib.I32(0),
+        )
+        return true
+      }
+    }
+    @lib.Instruction::I64RemS | @lib.Instruction::I64RemU => {
+      let rhs_is_one = match
+        optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(raw)) => raw == 1L
+        _ => false
+      }
+      if rhs_is_one &&
+        optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+        optimize_instructions_replace_with_const_i64(
+          ctx,
+          func,
+          node_id,
+          @lib.I64(0L),
+        )
+        return true
+      }
+    }
+    _ => ()
+  }
   let keep_id = match instr {
     @lib.Instruction::I32Or
     | @lib.Instruction::I32Xor
@@ -4505,6 +4544,16 @@ fn optimize_instructions_try_fold_identity_binary(
     @lib.Instruction::I32Mul =>
       optimize_instructions_i32_identity_operand(func, dead, lhs_id, rhs_id, 1)
     @lib.Instruction::I32Sub =>
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(0)) => Some(lhs_id)
+        _ => None
+      }
+    @lib.Instruction::I32DivS | @lib.Instruction::I32DivU =>
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(1)) => Some(lhs_id)
+        _ => None
+      }
+    @lib.Instruction::I32Rotl | @lib.Instruction::I32Rotr =>
       match optimize_instructions_i32_const(func, dead, rhs_id) {
         Some(@lib.I32(0)) => Some(lhs_id)
         _ => None
@@ -4523,6 +4572,16 @@ fn optimize_instructions_try_fold_identity_binary(
     @lib.Instruction::I64Mul =>
       optimize_instructions_i64_identity_operand(func, dead, lhs_id, rhs_id, 1L)
     @lib.Instruction::I64Sub =>
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(0L)) => Some(lhs_id)
+        _ => None
+      }
+    @lib.Instruction::I64DivS | @lib.Instruction::I64DivU =>
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(1L)) => Some(lhs_id)
+        _ => None
+      }
+    @lib.Instruction::I64Rotl | @lib.Instruction::I64Rotr =>
       match optimize_instructions_i64_const(func, dead, rhs_id) {
         Some(@lib.I64(0L)) => Some(lhs_id)
         _ => None
