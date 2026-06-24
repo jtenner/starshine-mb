@@ -57,5 +57,5 @@ Final validation for this slice:
 ## Boundaries
 
 - Unsigned power-of-two divisors only; signed and arbitrary divisors remain open.
-- Nested shift/rotate cleanup, `or(x, -1) → -1` absorbing, and float zero/one families remain later OI-D candidates.
+- Nested shift/rotate cleanup, `or(x, -1) → -1` absorbing, and float zero/one families remain later OI-D candidates except where covered by `0841` (nested constant combine, `or(-1)`, float negation spellings).
 - This extends the OI-D scalar surface; it does not reopen OI-D as a release blocker.

@@ -917,6 +917,94 @@ fn optimize_instructions_shift_mask_bits(instr : @lib.Instruction) -> Int? {
 }
 
 ///|
+fn optimize_instructions_shift_rhs_i32_amount(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  rhs_id : Int,
+  mask_bits : Int,
+) -> Int? {
+  match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) => return Some(raw & mask_bits)
+    None => ()
+  }
+  if !optimize_instructions_node_is_live(func, dead, rhs_id) {
+    return None
+  }
+  let rhs = @ir.hot_node_get(func, rhs_id)
+  match rhs.op {
+    @ir.HotOp::Binary =>
+      match @ir.hot_node_exact_instr(func, rhs_id) {
+        Some(@lib.Instruction::I32And) =>
+          match
+            optimize_instructions_i32_const(
+              func,
+              dead,
+              func.children[rhs.child_base + 1],
+            ) {
+            Some(@lib.I32(raw)) if (raw & mask_bits) == mask_bits =>
+              match
+                optimize_instructions_i32_const(
+                  func,
+                  dead,
+                  func.children[rhs.child_base],
+                ) {
+                Some(@lib.I32(amount)) => Some(amount & mask_bits)
+                _ => None
+              }
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_shift_rhs_i64_amount(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  rhs_id : Int,
+  mask_bits : Int,
+) -> Int? {
+  match optimize_instructions_i64_const(func, dead, rhs_id) {
+    Some(@lib.I64(raw)) => return Some((raw & mask_bits.to_int64()).to_int())
+    None => ()
+  }
+  if !optimize_instructions_node_is_live(func, dead, rhs_id) {
+    return None
+  }
+  let rhs = @ir.hot_node_get(func, rhs_id)
+  match rhs.op {
+    @ir.HotOp::Binary =>
+      match @ir.hot_node_exact_instr(func, rhs_id) {
+        Some(@lib.Instruction::I64And) =>
+          match
+            optimize_instructions_i64_const(
+              func,
+              dead,
+              func.children[rhs.child_base + 1],
+            ) {
+            Some(@lib.I64(raw)) if (raw & mask_bits.to_int64()) ==
+              mask_bits.to_int64() =>
+              match
+                optimize_instructions_i64_const(
+                  func,
+                  dead,
+                  func.children[rhs.child_base],
+                ) {
+                Some(@lib.I64(amount)) =>
+                  Some((amount & mask_bits.to_int64()).to_int())
+                _ => None
+              }
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_i32_non_negative_const(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -4676,6 +4764,120 @@ fn optimize_instructions_try_fold_absorbing_zero_i64(
 }
 
 ///|
+fn optimize_instructions_try_fold_absorbing_neg_one_or_i32(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let neg_one_on_lhs = match
+    optimize_instructions_i32_const(func, dead, lhs_id) {
+    Some(@lib.I32(-1)) => true
+    _ => false
+  }
+  let neg_one_on_rhs = match
+    optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(-1)) => true
+    _ => false
+  }
+  if !neg_one_on_lhs && !neg_one_on_rhs {
+    return false
+  }
+  let effectful_id = if neg_one_on_lhs && !neg_one_on_rhs {
+    if optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id) {
+      None
+    } else {
+      Some(rhs_id)
+    }
+  } else if neg_one_on_rhs && !neg_one_on_lhs {
+    if optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+      None
+    } else {
+      Some(lhs_id)
+    }
+  } else {
+    None
+  }
+  match effectful_id {
+    Some(drop_id) =>
+      optimize_instructions_replace_with_drop_then_const_i32(
+        ctx,
+        func,
+        node_id,
+        drop_id,
+        @lib.I32(-1),
+      )
+    None =>
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(-1),
+      )
+  }
+  true
+}
+
+///|
+fn optimize_instructions_try_fold_absorbing_neg_one_or_i64(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let neg_one_on_lhs = match
+    optimize_instructions_i64_const(func, dead, lhs_id) {
+    Some(@lib.I64(-1L)) => true
+    _ => false
+  }
+  let neg_one_on_rhs = match
+    optimize_instructions_i64_const(func, dead, rhs_id) {
+    Some(@lib.I64(-1L)) => true
+    _ => false
+  }
+  if !neg_one_on_lhs && !neg_one_on_rhs {
+    return false
+  }
+  let effectful_id = if neg_one_on_lhs && !neg_one_on_rhs {
+    if optimize_instructions_is_side_effect_free_expr(func, dead, rhs_id) {
+      None
+    } else {
+      Some(rhs_id)
+    }
+  } else if neg_one_on_rhs && !neg_one_on_lhs {
+    if optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+      None
+    } else {
+      Some(lhs_id)
+    }
+  } else {
+    None
+  }
+  match effectful_id {
+    Some(drop_id) =>
+      optimize_instructions_replace_with_drop_then_const_i64(
+        ctx,
+        func,
+        node_id,
+        drop_id,
+        @lib.I64(-1L),
+      )
+    None =>
+      optimize_instructions_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(-1L),
+      )
+  }
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_absorbing_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4735,6 +4937,14 @@ fn optimize_instructions_try_fold_absorbing_binary(
         false
       }
     }
+    @lib.Instruction::I32Or =>
+      optimize_instructions_try_fold_absorbing_neg_one_or_i32(
+        ctx, func, dead, node_id, lhs_id, rhs_id,
+      )
+    @lib.Instruction::I64Or =>
+      optimize_instructions_try_fold_absorbing_neg_one_or_i64(
+        ctx, func, dead, node_id, lhs_id, rhs_id,
+      )
     _ => false
   }
 }
@@ -4772,6 +4982,39 @@ fn optimize_instructions_try_rewrite_float_binary(
       )
       return true
     }
+    (@lib.Instruction::F32Mul, Some(@lib.F32(raw))) if raw == -1.0 => {
+      let replacement_lhs = @ir.hot_build_const_f32(func, @lib.F32(-0.0))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::f32_sub(),
+        [replacement_lhs, lhs_id],
+      )
+      return true
+    }
+    (@lib.Instruction::F32Div, Some(@lib.F32(raw))) if raw == 1.0 => {
+      let replacement_rhs = @ir.hot_build_const_f32(func, @lib.F32(1.0))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::f32_mul(),
+        [lhs_id, replacement_rhs],
+      )
+      return true
+    }
+    (@lib.Instruction::F32Div, Some(@lib.F32(raw))) if raw == -1.0 => {
+      let replacement_lhs = @ir.hot_build_const_f32(func, @lib.F32(-0.0))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::f32_sub(),
+        [replacement_lhs, lhs_id],
+      )
+      return true
+    }
     _ => ()
   }
   match (instr, optimize_instructions_f64_const(func, dead, rhs_id)) {
@@ -4794,6 +5037,39 @@ fn optimize_instructions_try_rewrite_float_binary(
         node_id,
         @lib.Instruction::f64_mul(),
         [lhs_id, replacement_rhs],
+      )
+      return true
+    }
+    (@lib.Instruction::F64Mul, Some(@lib.F64(raw))) if raw == -1.0 => {
+      let replacement_lhs = @ir.hot_build_const_f64(func, @lib.F64(-0.0))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::f64_sub(),
+        [replacement_lhs, lhs_id],
+      )
+      return true
+    }
+    (@lib.Instruction::F64Div, Some(@lib.F64(raw))) if raw == 1.0 => {
+      let replacement_rhs = @ir.hot_build_const_f64(func, @lib.F64(1.0))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::f64_mul(),
+        [lhs_id, replacement_rhs],
+      )
+      return true
+    }
+    (@lib.Instruction::F64Div, Some(@lib.F64(raw))) if raw == -1.0 => {
+      let replacement_lhs = @ir.hot_build_const_f64(func, @lib.F64(-0.0))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::f64_sub(),
+        [replacement_lhs, lhs_id],
       )
       return true
     }
@@ -5326,6 +5602,104 @@ fn optimize_instructions_try_rewrite_shift(
       true
     }
     None => false
+  }
+}
+
+///|
+fn optimize_instructions_try_combine_nested_const_shift(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let mask_bits = match optimize_instructions_shift_mask_bits(instr) {
+    Some(bits) => bits
+    None => return false
+  }
+  if !optimize_instructions_node_is_live(func, dead, lhs_id) {
+    return false
+  }
+  let inner = @ir.hot_node_get(func, lhs_id)
+  match inner.op {
+    @ir.HotOp::Binary => ()
+    _ => return false
+  }
+  if inner.child_count != 2 {
+    return false
+  }
+  if @ir.hot_node_exact_instr(func, lhs_id) != Some(instr) {
+    return false
+  }
+  let inner_lhs = func.children[inner.child_base]
+  let inner_rhs = func.children[inner.child_base + 1]
+  match instr {
+    @lib.Instruction::I32Shl
+    | @lib.Instruction::I32ShrS
+    | @lib.Instruction::I32ShrU
+    | @lib.Instruction::I32Rotl
+    | @lib.Instruction::I32Rotr => {
+      let outer_amount = match
+        optimize_instructions_shift_rhs_i32_amount(
+          func, dead, rhs_id, mask_bits,
+        ) {
+        Some(amount) => amount
+        None => return false
+      }
+      let inner_amount = match
+        optimize_instructions_shift_rhs_i32_amount(
+          func, dead, inner_rhs, mask_bits,
+        ) {
+        Some(amount) => amount
+        None => return false
+      }
+      let combined = (outer_amount + inner_amount) & mask_bits
+      let replacement_rhs = @ir.hot_build_const_i32(func, @lib.I32(combined))
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        instr,
+        [inner_lhs, replacement_rhs],
+      )
+      true
+    }
+    @lib.Instruction::I64Shl
+    | @lib.Instruction::I64ShrS
+    | @lib.Instruction::I64ShrU
+    | @lib.Instruction::I64Rotl
+    | @lib.Instruction::I64Rotr => {
+      let outer_amount = match
+        optimize_instructions_shift_rhs_i64_amount(
+          func, dead, rhs_id, mask_bits,
+        ) {
+        Some(amount) => amount
+        None => return false
+      }
+      let inner_amount = match
+        optimize_instructions_shift_rhs_i64_amount(
+          func, dead, inner_rhs, mask_bits,
+        ) {
+        Some(amount) => amount
+        None => return false
+      }
+      let combined = (outer_amount + inner_amount) & mask_bits
+      let replacement_rhs = @ir.hot_build_const_i64(
+        func,
+        @lib.I64(combined.to_int64()),
+      )
+      optimize_instructions_rewrite_exact_with_children(
+        ctx,
+        func,
+        node_id,
+        instr,
+        [inner_lhs, replacement_rhs],
+      )
+      true
+    }
+    _ => false
   }
 }
 
@@ -6286,6 +6660,30 @@ fn optimize_instructions_replace_with_drop_then_const_i32(
 }
 
 ///|
+fn optimize_instructions_replace_with_drop_then_const_i64(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  drop_id : Int,
+  value : @lib.I64,
+) -> Unit {
+  let temp = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i64()),
+    [@ir.hot_build_drop(func, drop_id), @ir.hot_build_const_i64(func, value)],
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_replace_with_drop_then_unreachable(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6751,6 +7149,9 @@ fn optimize_instructions_visit_node(
           optimize_instructions_try_rewrite_sign_ext_idiom(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
+          optimize_instructions_try_combine_nested_const_shift(
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
           optimize_instructions_try_rewrite_shift(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           )
@@ -6776,6 +7177,12 @@ fn optimize_instructions_visit_node(
           let current_lhs = func.children[current.child_base]
           let current_rhs = func.children[current.child_base + 1]
           let current_instr = func.instr_payloads[current.imm0].instr
+          optimize_instructions_try_fold_identity_binary(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_fold_absorbing_binary(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
           optimize_instructions_try_fold_exact_const_binary(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
@@ -6792,6 +7199,9 @@ fn optimize_instructions_visit_node(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_sign_ext_idiom(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_combine_nested_const_shift(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_shift(

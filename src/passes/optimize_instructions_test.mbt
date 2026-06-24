@@ -911,6 +911,33 @@ test "optimize-instructions canonicalizes default scalar float spellings" {
     @ir.hot_const_get(f64_func, @ir.hot_node_get(f64_func, f64_rhs).imm0),
     @ir.HotConstPayload::f64_const(@lib.F64(0.5)),
   )
+
+  // Binaryen version_130 keeps add/mul with 0/1 but canonicalizes negation and
+  // divide-by-one spellings. Signed-zero boundaries stay out of scope here.
+  let f32_mul_neg = optimize_instructions_test_run_hot(
+    "(module (func (param f32) (result f32) local.get 0 f32.const -1 f32.mul))",
+  )
+  let f32_mul_neg_root = @ir.hot_root_get(f32_mul_neg, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f32_mul_neg, f32_mul_neg_root),
+    Some(@lib.Instruction::f32_sub()),
+  )
+  let f32_div_one = optimize_instructions_test_run_hot(
+    "(module (func (param f32) (result f32) local.get 0 f32.const 1 f32.div))",
+  )
+  let f32_div_one_root = @ir.hot_root_get(f32_div_one, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f32_div_one, f32_div_one_root),
+    Some(@lib.Instruction::f32_mul()),
+  )
+  let f64_div_neg = optimize_instructions_test_run_hot(
+    "(module (func (param f64) (result f64) local.get 0 f64.const -1 f64.div))",
+  )
+  let f64_div_neg_root = @ir.hot_root_get(f64_div_neg, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f64_div_neg, f64_div_neg_root),
+    Some(@lib.Instruction::f64_sub()),
+  )
 }
 
 ///|
@@ -10121,6 +10148,265 @@ test "optimize-instructions removes effective zero shifts" {
   match @ir.hot_node_get(func, root).op {
     @ir.HotOp::LocalGet => ()
     _ => fail("expected effective zero shift to become its lhs operand")
+  }
+}
+
+///|
+test "optimize-instructions combines nested constant shifts" {
+  let shl_i32 = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 3 i32.shl i32.const 5 i32.shl))",
+  )
+  let shl_i32_root = @ir.hot_root_get(shl_i32, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(shl_i32, shl_i32_root),
+    Some(@lib.Instruction::i32_shl()),
+  )
+  let shl_i32_rhs = @ir.hot_child_get(shl_i32, shl_i32_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(shl_i32, @ir.hot_node_get(shl_i32, shl_i32_rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(8)),
+  )
+
+  let shl_i64 = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 i64.const 3 i64.shl i64.const 5 i64.shl))",
+  )
+  let shl_i64_root = @ir.hot_root_get(shl_i64, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(shl_i64, shl_i64_root),
+    Some(@lib.Instruction::i64_shl()),
+  )
+  let shl_i64_rhs = @ir.hot_child_get(shl_i64, shl_i64_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(shl_i64, @ir.hot_node_get(shl_i64, shl_i64_rhs).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(8L)),
+  )
+
+  let shr_u_i32 = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 4 i32.shr_u i32.const 2 i32.shr_u))",
+  )
+  let shr_u_i32_root = @ir.hot_root_get(shr_u_i32, 0)
+  let shr_u_i32_rhs = @ir.hot_child_get(shr_u_i32, shr_u_i32_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      shr_u_i32,
+      @ir.hot_node_get(shr_u_i32, shr_u_i32_rhs).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(6)),
+  )
+
+  let shr_s_i32 = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 4 i32.shr_s i32.const 2 i32.shr_s))",
+  )
+  let shr_s_i32_root = @ir.hot_root_get(shr_s_i32, 0)
+  let shr_s_i32_rhs = @ir.hot_child_get(shr_s_i32, shr_s_i32_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      shr_s_i32,
+      @ir.hot_node_get(shr_s_i32, shr_s_i32_rhs).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(6)),
+  )
+
+  let rotl_i32 = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 3 i32.rotl i32.const 5 i32.rotl))",
+  )
+  let rotl_i32_root = @ir.hot_root_get(rotl_i32, 0)
+  let rotl_i32_rhs = @ir.hot_child_get(rotl_i32, rotl_i32_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(rotl_i32, @ir.hot_node_get(rotl_i32, rotl_i32_rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(8)),
+  )
+
+  let masked_shl_i32 = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 3 i32.shl i32.const 5 i32.const 31 i32.and i32.shl))",
+  )
+  let masked_shl_i32_root = @ir.hot_root_get(masked_shl_i32, 0)
+  let masked_shl_i32_rhs = @ir.hot_child_get(
+    masked_shl_i32, masked_shl_i32_root, 1,
+  )
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      masked_shl_i32,
+      @ir.hot_node_get(masked_shl_i32, masked_shl_i32_rhs).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(8)),
+  )
+
+  let wrap_shl_i32 = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 3 i32.shl i32.const 28 i32.shl))",
+  )
+  let wrap_shl_i32_root = @ir.hot_root_get(wrap_shl_i32, 0)
+  let wrap_shl_i32_rhs = @ir.hot_child_get(wrap_shl_i32, wrap_shl_i32_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      wrap_shl_i32,
+      @ir.hot_node_get(wrap_shl_i32, wrap_shl_i32_rhs).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(31)),
+  )
+}
+
+///|
+test "optimize-instructions folds or with all-ones absorbing operand" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "effect" (func $effect (result i32)))
+        #|  (func $id (param $x i32) (param $y i64)
+        #|    local.get $x
+        #|    i32.const -1
+        #|    i32.or
+        #|    drop
+        #|    i32.const -1
+        #|    local.get $x
+        #|    i32.or
+        #|    drop
+        #|    local.get $y
+        #|    i64.const -1
+        #|    i64.or
+        #|    drop
+        #|    i64.const -1
+        #|    local.get $y
+        #|    i64.or
+        #|    drop)
+        #|  (func $or_effect_rhs (result i32)
+        #|    call $effect
+        #|    i32.const -1
+        #|    i32.or)
+        #|  (func $or_effect_lhs (result i32)
+        #|    i32.const -1
+        #|    call $effect
+        #|    i32.or))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected or-all-ones absorbing optimize success, got \{err}")
+  }
+  let id_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(id_pretty.contains("i32.or"), msg=id_pretty)
+  assert_false(id_pretty.contains("i64.or"), msg=id_pretty)
+  assert_true(id_pretty.contains("I32(-1)"), msg=id_pretty)
+  assert_true(id_pretty.contains("I64(-1)"), msg=id_pretty)
+
+  let or_effect_rhs = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "effect" (func $effect (result i32)))
+        #|  (func (result i32)
+        #|    call $effect
+        #|    i32.const -1
+        #|    i32.or))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected or-effect-rhs optimize success, got \{err}")
+  }
+  let or_effect_rhs_trace = match
+    pass_test_capture_trace(
+      (
+        #|(module
+        #|  (import "m" "effect" (func $effect (result i32)))
+        #|  (func (result i32)
+        #|    call $effect
+        #|    i32.const -1
+        #|    i32.or))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(lines) => lines
+    Err(err) => fail("expected or-effect-rhs trace success, got \{err}")
+  }
+  assert_false(
+    or_effect_rhs_trace.any(fn(line) {
+      line.contains("optimize-instructions") && line.contains("skip")
+    }),
+    msg=or_effect_rhs_trace.to_string(),
+  )
+  let or_effect_rhs_pretty = or_effect_rhs.pretty_print_func(
+    @lib.FuncIdx::new(1U),
+  )
+  assert_false(
+    or_effect_rhs_pretty.contains("i32.or"),
+    msg=or_effect_rhs_pretty,
+  )
+  assert_true(or_effect_rhs_pretty.contains("call"), msg=or_effect_rhs_pretty)
+  assert_true(
+    or_effect_rhs_pretty.contains("I32(-1)"),
+    msg=or_effect_rhs_pretty,
+  )
+}
+
+///|
+test "optimize-instructions folds effectful or with all-ones on hot ir" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (import \"m\" \"effect\" (func $effect (result i32))) (func (result i32) call $effect i32.const -1 i32.or))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(1U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected effectful or-all-ones hot optimize success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => {
+      let body = @ir.hot_region_body_ref(func, root)
+      @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+      let first = @ir.hot_region_get(func, body, 0)
+      let second = @ir.hot_region_get(func, body, 1)
+      match @ir.hot_node_get(func, first).op {
+        @ir.HotOp::Drop => ()
+        _ => fail("expected drop before all-ones or fold")
+      }
+      match @ir.hot_node_get(func, second).op {
+        @ir.HotOp::Const => ()
+        _ => fail("expected const -1 after effectful or fold")
+      }
+    }
+    @ir.HotOp::Const => ()
+    _ => fail("expected effectful or with -1 to fold to block or const")
+  }
+}
+
+///|
+test "optimize-instructions folds effectful or with all-ones lhs on hot ir" {
+  let mod_ = pass_test_module_from_wat(
+    "(module (import \"m\" \"effect\" (func $effect (result i32))) (func (result i32) i32.const -1 call $effect i32.or))",
+  )
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(1U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected effectful lhs or-all-ones hot optimize success, got \{err}",
+      )
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block | @ir.HotOp::Const => ()
+    _ => fail("expected lhs effectful or with -1 to fold")
   }
 }
 
