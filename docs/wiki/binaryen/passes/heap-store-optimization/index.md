@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1093-2026-06-25-heap-store-optimization-post-simple-skip-compare.md
   - ../../../raw/research/1092-2026-06-25-heap-store-optimization-simple-skip-fast-path.md
   - ../../../raw/research/1091-2026-06-25-heap-store-optimization-non-goal-audit.md
   - ../../../raw/research/1090-2026-06-25-heap-store-optimization-post-context-skip-compare.md
@@ -490,7 +491,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Refresh `1072` reran the 2000-function fixture after the explicit native rebuild: Starshine HSO median `11.988ms`, Binaryen `2.110ms` (`~5.7x`). Scaling note `1084` showed the slowdown is roughly linear at 250/500/1000/2000 functions, so it is HSO-owned rather than fixed startup or no-candidate O4z overhead.
   - Follow-up `1085` skips the pre-rewrite recursive region descent for straight-line subtrees with no HOT control, leaving current-region candidate scans unchanged. That improved Starshine medians to `5.612ms` at 1000 functions and `11.199ms` at 2000 functions.
   - Follow-up `1088` also skips constructing nested-region suffix/external context for current-region roots whose effect masks have no HOT control. The 1000-function median improved slightly to `5.524ms`; the 2000-function median was statistically flat at `11.238ms` (`~5.3x` Binaryen).
-  - Follow-up `1092` skips skip-local-set predicate walks when moved values have no control effect. The 1000-function median improved slightly to `5.436ms`; the 2000-function median was still flat at `11.201ms` (`~5.3x` Binaryen). HSO-I stays open until this is improved further, accepted with release-context rationale, or superseded by broader artifact/neighborhood evidence.
+  - Follow-up `1092` skips skip-local-set predicate walks when moved values have no control effect. The 1000-function median improved slightly to `5.436ms`; the 2000-function median was still flat at `11.201ms` (`~5.3x` Binaryen). Post-change direct compare smoke `1093` compared `10000/10000` ordinary GenValid cases with `10000` normalized matches and `0` mismatches/failures. HSO-I stays open until this is improved further, accepted with release-context rationale, or superseded by broader artifact/neighborhood evidence.
 
 ## Beginner warning: what the name hides
 
