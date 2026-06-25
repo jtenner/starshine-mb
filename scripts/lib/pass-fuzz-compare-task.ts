@@ -1604,6 +1604,14 @@ function normalizeSingleUseLocalCopyDropsInFunction(funcText: string): string {
       return `${between}${indent}(drop\n${childIndent}(local.get ${source})\n${indent})`;
     },
   );
+  normalized = normalized.replace(
+    /^(\s*)\(local\.set\s+(\$[A-Za-z0-9_.$-]+)\s*\n((\s*)\(br_if\b[\s\S]*?^\4\))\s*\n\s*\)\s*\n([\s\S]*?)^\1\(drop\s*\n\s*\(local\.get\s+\2\s*\)\s*\n\s*\)/gm,
+    (full, indent: string, temp: string, brIfExpr: string, childIndent: string, between: string) => {
+      if (localRefCount.get(temp) !== 2) return full;
+      const cleanBetween = between.replace(/^\s*\n/, "").replace(/\s*$/, "");
+      return `${indent}(drop\n${brIfExpr}\n${indent})\n${cleanBetween}`;
+    },
+  );
   return normalized;
 }
 
