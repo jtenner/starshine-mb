@@ -11171,6 +11171,30 @@ fn gen_valid_append_heap_store_optimization_body_slice(
     _ => ()
   }
 
+  // True call-result old-field roots exercise preservation of an overwritten
+  // direct call whose result is the actual constructor field value, not the
+  // value-block approximation above.
+  let mut i32_result_call : GenValidFuncSig? = None
+  for func in env.funcs {
+    if i32_result_call is None &&
+      func.params.is_empty() &&
+      func.results == [ValType::i32()] {
+      i32_result_call = Some(func)
+    }
+  }
+  match i32_result_call {
+    Some(target) => {
+      out.push(Instruction::call(target.idx))
+      out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(140)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+    }
+    None => ()
+  }
+
   // Default constructors exercise HSO's materialization path, where a later
   // struct.set replaces one default field in the generated struct.new.
   out.push(Instruction::struct_new_default(struct_idx))
@@ -14150,6 +14174,11 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     func_type_count < 2 {
     func_type_count = 2
   }
+  if ctx.config.features.allow_heap_store_optimization_body_generator &&
+    func_type_cap > 1 &&
+    func_type_count < 2 {
+    func_type_count = 2
+  }
 
   let remaining_type_budget = max_type_defs - func_type_count
   let (gc_type_defs, gc_type_plan) = gen_valid_gc_type_defs(
@@ -14184,6 +14213,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   for i = 0; i < func_type_count; i = i + 1 {
     let params = if i == 0 && (has_start || total_tag_count > 0) {
       []
+    } else if ctx.config.features.allow_heap_store_optimization_body_generator &&
+      i == 1 {
+      []
     } else if ctx.config.features.allow_typed_body_generator && i == 1 {
       []
     } else if ctx.config.features.allow_typed_body_generator &&
@@ -14203,6 +14235,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       []
     } else if i == 0 && (has_start || total_tag_count > 0) {
       []
+    } else if ctx.config.features.allow_heap_store_optimization_body_generator &&
+      i == 1 {
+      [ValType::i32()]
     } else if ctx.config.features.allow_typed_body_generator && i == 1 {
       if ctx.config.features.allow_v128 {
         [ValType::i32(), ValType::i64(), ValType::v128()]
@@ -14532,6 +14567,10 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
         config.max_datas == 0 &&
         i == 1 {
         TypeIdx::new(0U)
+      } else if ctx.config.features.allow_heap_store_optimization_body_generator &&
+        i == 1 &&
+        func_type_count > 1 {
+        TypeIdx::new(1U)
       } else if ctx.config.features.allow_typed_body_generator &&
         i == 1 &&
         func_type_count > 1 {
@@ -15052,6 +15091,16 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       type_params[type_idx_i].is_empty() &&
       type_results[type_idx_i].is_empty() {
       funcs.push(Func::new(Locals::empty(), Expr::new([])))
+    } else if config.features.allow_heap_store_optimization_body_generator &&
+      i == 1 &&
+      type_params[type_idx_i].is_empty() &&
+      type_results[type_idx_i] == [ValType::i32()] {
+      funcs.push(
+        Func::new(
+          Locals::empty(),
+          Expr::new([Instruction::i32_const(I32(139))]),
+        ),
+      )
     } else if gen_valid_is_control_heavy_config(config) &&
       i == func_type_idxs.length() - 1 &&
       type_results[type_idx_i].length() > 1 {

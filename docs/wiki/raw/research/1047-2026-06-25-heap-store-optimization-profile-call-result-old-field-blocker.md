@@ -1,6 +1,6 @@
 ---
 kind: research
-status: active
+status: partially-superseded
 created: 2026-06-25
 sources:
   - ./1046-2026-06-25-heap-store-optimization-profile-call-old-field.md
@@ -11,11 +11,13 @@ sources:
 
 # HSO generated call-result old-field blocker
 
+Partial supersession: `1054` adds the direct-call-result generated floor with an HSO-only no-param `(result i32)` helper. The remaining blocker scope is generated `call_indirect` result, `call_ref` result, descriptor/mutable-descriptor, and tail-call old-field variants.
+
 Question: should the dedicated `heap-store-optimization` GenValid profile grow a true call-result old-field root now, instead of the `1046` value-block approximation?
 
 ## Answer
 
-Not in this bounded slice. The current profile can emit call-containing old-field roots, but it cannot yet emit a true call-result old field without changing the profile's function-signature contract.
+Not in the original bounded slice. As of `1054`, the profile can emit a true direct-call-result old field through an HSO-only no-param `(result i32)` helper. The remaining generated-profile blocker is the broader indirect/ref/descriptor/tail-call call-result old-field surface.
 
 The current deterministic root from `1046` is intentionally only an approximation:
 
@@ -59,11 +61,11 @@ This is a generated-profile coverage blocker, not a Starshine HSO behavior non-g
 
 ## Reopening criteria
 
-Reopen this blocker when one of these is acceptable:
+Remaining reopening criteria:
 
-- split the HSO profile into a second callable-result subprofile with at least one no-param result helper;
-- add an HSO-only imported helper and document that the dedicated profile is no longer import-free;
-- add deterministic helper functions outside the ordinary profile signature budget; or
-- safely raise `max_results` / call feature settings without destabilizing existing no-param/no-result roots and table/ref.func assumptions.
+- add generated true `call_indirect` result old fields without destabilizing the current table/ref.func assumptions;
+- add generated true `call_ref` result old fields;
+- add generated descriptor/mutable-descriptor true call-result old fields; or
+- add generated tail-call old-field siblings where the constructor field is not merely bottom/unreachable as classified in `1053`.
 
-Any reopening should add a feature-floor test that distinguishes a real call-result old field from `1046`'s value-block approximation, then rerun focused fuzz, a dedicated-profile smoke with `--normalize local-cleanup-debris`, and a direct compare smoke.
+Each reopening should add a feature-floor test that distinguishes the new real call-result old-field family from `1046`'s value-block approximation and from `1054`'s direct-call floor, then rerun focused fuzz, a dedicated-profile smoke with `--normalize local-cleanup-debris`, and a direct compare smoke.

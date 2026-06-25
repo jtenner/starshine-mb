@@ -2402,6 +2402,48 @@ test "emit gen-valid heap-store-optimization profile records GC store opportunit
   assert_true(wat.contains("call_indirect"), msg=wat)
   assert_true(wat.contains("call_ref"), msg=wat)
   assert_true(wat.contains("throw"), msg=wat)
+
+  let mut has_i32_result_func_type = false
+  match decoded.type_sec {
+    Some(@lib.TypeSec(types)) =>
+      for rec_type in types {
+        match rec_type {
+          @lib.SingleRecType(subtype) =>
+            match subtype {
+              @lib.CompTypeSubType(
+                _,
+                @lib.FuncCompType([], [@lib.NumTypeValType(@lib.I32NumType)])
+              ) => has_i32_result_func_type = true
+              @lib.SubType(
+                _,
+                _,
+                _,
+                @lib.FuncCompType([], [@lib.NumTypeValType(@lib.I32NumType)])
+              ) => has_i32_result_func_type = true
+              _ => ()
+            }
+          @lib.GroupRecType(subtypes) =>
+            for subtype in subtypes {
+              match subtype {
+                @lib.CompTypeSubType(
+                  _,
+                  @lib.FuncCompType([], [@lib.NumTypeValType(@lib.I32NumType)])
+                ) => has_i32_result_func_type = true
+                @lib.SubType(
+                  _,
+                  _,
+                  _,
+                  @lib.FuncCompType([], [@lib.NumTypeValType(@lib.I32NumType)])
+                ) => has_i32_result_func_type = true
+                _ => ()
+              }
+            }
+        }
+      }
+    None => ()
+  }
+  assert_true(has_i32_result_func_type)
+  assert_true(wat.contains("i32.const I32(140)"), msg=wat)
 }
 
 ///|
