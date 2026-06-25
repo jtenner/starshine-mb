@@ -11186,6 +11186,24 @@ fn gen_valid_append_heap_store_optimization_body_slice(
           out.push(Instruction::struct_get(described_idx, U32::new(0U)))
           out.push(Instruction::drop())
 
+          // Descriptor result-typed try_table set values exercise the dropped
+          // result-wrapper fold family without requiring the broader generated
+          // call surfaces. The wrapper produces the moved same-field value.
+          out.push(Instruction::i32_const(I32(110)))
+          out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+          out.push(Instruction::struct_new_default(descriptor_idx))
+          out.push(Instruction::struct_new_desc(described_idx))
+          out.push(Instruction::local_set(described_local_idx))
+          out.push(Instruction::local_get(described_local_idx))
+          out.push(
+            Instruction::try_table(
+              BlockType::val_type(ValType::i32()),
+              [],
+              Expr::new([Instruction::i32_const(I32(111))]),
+            ),
+          )
+          out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+
           // Descriptor old-field side-effect preservation: a later same-field
           // store can fold into struct.new_desc only if the overwritten
           // memory.grow field effect is preserved in order.
