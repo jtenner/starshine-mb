@@ -11427,6 +11427,49 @@ fn gen_valid_append_heap_store_optimization_body_slice(
       out.push(Instruction::i32_const(I32(122)))
       out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
 
+      // Result-typed cross-family growth roots cover HSO-G's growth positive
+      // split: memory.size may fold across table.grow, and table.size may
+      // fold across memory.grow, because the intervening growth touches the
+      // other resource family even when wrapped in a result-typed try_table.
+      out.push(Instruction::memory_size(MemIdx::new(0U)))
+      out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(
+        Instruction::try_table(
+          BlockType::val_type(ValType::i32()),
+          [],
+          Expr::new([
+            Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+            Instruction::i32_const(I32(1)),
+            Instruction::table_grow(TableIdx::new(0U)),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(123)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
+      out.push(Instruction::table_size(TableIdx::new(0U)))
+      out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(
+        Instruction::try_table(
+          BlockType::val_type(ValType::i32()),
+          [],
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::memory_grow(MemIdx::new(0U)),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(124)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
       out.push(Instruction::memory_size(MemIdx::new(0U)))
       out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
       out.push(Instruction::struct_new(struct_idx))
