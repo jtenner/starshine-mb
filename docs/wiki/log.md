@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover size-7 bulk-memory boundary
+
+- Added OI-G public-pipeline coverage proving size-7 `memory.copy` / `memory.fill` stay outside the exact tiny copy/fill lowering set.
+- Binaryen `version_130` keeps both bulk operations with `i32.const 7` lengths rather than synthesizing a mixed 4+2+1 load/store sequence; Starshine now locks the same keep-spelling behavior.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-copy-size7-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*size-7 bulk-memory*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple with two earlier and six later siblings
 
 - Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after two earlier effectful siblings and before six later effectful siblings.
