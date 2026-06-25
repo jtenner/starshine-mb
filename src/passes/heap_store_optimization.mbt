@@ -31,6 +31,7 @@ priv struct HsoPredicateCache {
 ///|
 priv struct HsoTypeCache {
   default_field_counts : Array[Int]
+  default_field_types : Array[Array[@lib.ValType]?]
 }
 
 ///|
@@ -45,7 +46,7 @@ fn hso_new_predicate_cache(func : @ir.HotFunc) -> HsoPredicateCache {
 
 ///|
 fn hso_new_type_cache() -> HsoTypeCache {
-  { default_field_counts: [] }
+  { default_field_counts: [], default_field_types: [] }
 }
 
 ///|
@@ -68,6 +69,7 @@ fn hso_ensure_type_cache_capacity(
 ) -> Unit {
   while cache.default_field_counts.length() <= type_slot {
     cache.default_field_counts.push(-2)
+    cache.default_field_types.push(None)
   }
 }
 
@@ -2303,17 +2305,21 @@ fn hso_build_default_value(func : @ir.HotFunc, vt : @lib.ValType) -> Int? {
 }
 
 ///|
-fn hso_type_has_defaultable_struct_fields(
+fn hso_type_defaultable_struct_field_types(
   type_cache : HsoTypeCache,
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
-) -> Int? {
+) -> Array[@lib.ValType]? {
   let type_slot = match type_idx {
     @lib.TypeIdx(raw_idx) | @lib.RecIdx(raw_idx) => raw_idx.reinterpret_as_int()
   }
   hso_ensure_type_cache_capacity(type_cache, type_slot)
   match type_cache.default_field_counts[type_slot] {
-    count if count >= 0 => return Some(count)
+    count if count >= 0 =>
+      match type_cache.default_field_types[type_slot] {
+        Some(field_types) => return Some(field_types)
+        None => ()
+      }
     -1 => return None
     _ => ()
   }
@@ -2322,23 +2328,42 @@ fn hso_type_has_defaultable_struct_fields(
     Some(fields) => fields
     None => return None
   }
+  let field_types : Array[@lib.ValType] = []
   for field in fields {
     let @lib.FieldType(stor, _) = field
-    match stor.unpack() {
+    let field_type = stor.unpack()
+    match field_type {
       @lib.RefTypeValType(ref_type) =>
         if !ref_type.is_nullable() {
           type_cache.default_field_counts[type_slot] = -1
+          type_cache.default_field_types[type_slot] = None
           return None
         }
       _ => ()
     }
+    field_types.push(field_type)
   }
-  type_cache.default_field_counts[type_slot] = fields.length()
-  Some(fields.length())
+  type_cache.default_field_counts[type_slot] = field_types.length()
+  type_cache.default_field_types[type_slot] = Some(field_types)
+  Some(field_types)
+}
+
+///|
+fn hso_type_has_defaultable_struct_fields(
+  type_cache : HsoTypeCache,
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+) -> Int? {
+  match
+    hso_type_defaultable_struct_field_types(type_cache, module_ctx, type_idx) {
+    Some(field_types) => Some(field_types.length())
+    None => None
+  }
 }
 
 ///|
 fn hso_build_default_struct_new_children(
+  type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
   type_idx : @lib.TypeIdx,
@@ -2346,19 +2371,18 @@ fn hso_build_default_struct_new_children(
   replacement_id : Int,
   desc_id : Int?,
 ) -> Array[Int]? {
-  let fields = match
-    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
-    Some(fields) => fields
+  let field_types = match
+    hso_type_defaultable_struct_field_types(type_cache, module_ctx, type_idx) {
+    Some(field_types) => field_types
     None => return None
   }
   let children : Array[Int] = []
-  for idx = 0; idx < fields.length(); idx = idx + 1 {
+  for idx = 0; idx < field_types.length(); idx = idx + 1 {
     if idx == field_idx {
       children.push(replacement_id)
       continue
     }
-    let @lib.FieldType(stor, _) = fields[idx]
-    match hso_build_default_value(func, stor.unpack()) {
+    match hso_build_default_value(func, field_types[idx]) {
       Some(value_id) => children.push(value_id)
       None => return None
     }
@@ -3269,7 +3293,7 @@ fn hso_try_fold_into_struct_new(
     }
     let children = match
       hso_build_default_struct_new_children(
-        func, module_ctx, type_idx, field_idx, value_id, desc_id,
+        type_cache, func, module_ctx, type_idx, field_idx, value_id, desc_id,
       ) {
       Some(children) => children
       None => return None
@@ -3620,6 +3644,89 @@ fn hso_region_roots(
 }
 
 ///|
+fn hso_try_fold_pure_default_struct_set_chain(
+  type_cache : HsoTypeCache,
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext?,
+  node_masks : Array[UInt],
+  roots : Array[Int],
+  idx : Int,
+  local_id : Int,
+  struct_new_id : Int,
+  type_idx : @lib.TypeIdx,
+) -> (Array[Int], Int)? {
+  let module_ctx = match module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let exact_type_idx = match @ir.hot_node_exact_instr(func, struct_new_id) {
+    Some(@lib.Instruction::StructNewDefault(exact_type_idx)) => exact_type_idx
+    _ => return None
+  }
+  if exact_type_idx != type_idx {
+    return None
+  }
+  let field_types = match
+    hso_type_defaultable_struct_field_types(type_cache, module_ctx, type_idx) {
+    Some(field_types) => field_types
+    None => return None
+  }
+  let field_count = field_types.length()
+  let replacements : Array[Int] = Array::make(field_count, -1)
+  let mut next_idx = idx + 1
+  let mut set_count = 0
+  while next_idx < roots.length() {
+    let (field_idx, _, value_id) = match
+      hso_struct_set_for_local(func, roots[next_idx], local_id, type_idx) {
+      Some(parts) => parts
+      None => break
+    }
+    if field_idx < 0 || field_idx >= field_count {
+      return None
+    }
+    if hso_effects_for_node(func, node_masks, value_id) != 0U ||
+      @ir.hot_child_count(func, value_id) != 0 {
+      return None
+    }
+    match @ir.hot_node_get(func, value_id).op {
+      @ir.HotOp::Const | @ir.HotOp::RefNull => ()
+      _ => return None
+    }
+    replacements[field_idx] = value_id
+    set_count = set_count + 1
+    next_idx = next_idx + 1
+  }
+  if set_count < 2 {
+    return None
+  }
+  let children : Array[Int] = []
+  for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
+    if replacements[field_idx] >= 0 {
+      children.push(replacements[field_idx])
+    } else {
+      match hso_build_default_value(func, field_types[field_idx]) {
+        Some(default_id) => children.push(default_id)
+        None => return None
+      }
+    }
+  }
+  let replacement_id = @ir.hot_build_heap(
+    func,
+    @ir.hot_type_results(func, @ir.hot_node_get(func, struct_new_id).ty),
+    @lib.Instruction::struct_new(type_idx),
+    children,
+  )
+  let replacement = @ir.hot_node_get(func, replacement_id)
+  @ir.hot_delete_node(func, replacement_id)
+  @ir.hot_replace_node(func, struct_new_id, replacement)
+  let segment_roots : Array[Int] = [roots[idx]]
+  for nop_idx = 0; nop_idx < set_count; nop_idx = nop_idx + 1 {
+    segment_roots.push(@ir.hot_build_nop(func))
+  }
+  Some((segment_roots, next_idx))
+}
+
+///|
 fn hso_process_local_set_chain(
   cache : HsoPredicateCache,
   type_cache : HsoTypeCache,
@@ -3636,6 +3743,14 @@ fn hso_process_local_set_chain(
   owner_id : Int?,
   external_roots : Array[Int],
 ) -> (Array[Int], Int, Bool) {
+  match
+    hso_try_fold_pure_default_struct_set_chain(
+      type_cache, func, module_ctx, node_masks, roots, idx, local_id, struct_new_id,
+      type_idx,
+    ) {
+    Some((segment_roots, next_idx)) => return (segment_roots, next_idx, true)
+    None => ()
+  }
   let segment_roots : Array[Int] = [root_id]
   let swapped_prefix_roots : Array[Int] = []
   let mut segment_local_set_idx = 0
