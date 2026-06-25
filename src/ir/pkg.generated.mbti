@@ -427,9 +427,13 @@ pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
 
 pub fn hot_module_context_from_module(@lib.Module) -> HotModuleContext
 
+pub fn hot_module_func_import_matches(HotModuleContext, @lib.FuncIdx, String, String) -> Bool
+
 pub fn hot_module_resolve_array_field(HotModuleContext, @lib.TypeIdx) -> @lib.FieldType?
 
 pub fn hot_module_resolve_block_results(HotModuleContext, @lib.BlockType) -> Array[@lib.ValType]?
+
+pub fn hot_module_resolve_func_import(HotModuleContext, @lib.FuncIdx) -> (@lib.Name, @lib.Name)?
 
 pub fn hot_module_resolve_func_type(HotModuleContext, @lib.FuncIdx) -> @lib.FuncType?
 
@@ -1220,6 +1224,7 @@ pub struct HotModuleContext {
   func_type_idxs : Array[@lib.TypeIdx]
   func_types : Array[@lib.FuncType]
   func_type_slots : Array[@lib.TypeIdx?]
+  func_imports : Array[(@lib.Name, @lib.Name)?]
   tables : Array[@lib.TableType]
   mems : Array[@lib.MemType]
   globals : Array[@lib.GlobalType]

@@ -122,6 +122,37 @@ test "hot module context preserves declared function type slots for ref.func typ
 }
 
 ///|
+test "hot module context preserves exact function import identity" {
+  let ctx = hot_test_module_context_fixture()
+
+  @debug.assert_eq(
+    hot_module_resolve_func_import(ctx, @lib.FuncIdx::new(0U)),
+    Some((@lib.Name::from_string("env"), @lib.Name::from_string("f"))),
+  )
+  @debug.assert_eq(
+    hot_module_resolve_func_import(ctx, @lib.FuncIdx::new(1U)),
+    None,
+  )
+  @debug.assert_eq(
+    hot_module_func_import_matches(ctx, @lib.FuncIdx::new(0U), "env", "f"),
+    true,
+  )
+  @debug.assert_eq(
+    hot_module_func_import_matches(
+      ctx,
+      @lib.FuncIdx::new(0U),
+      "binaryen-intrinsics",
+      "call.without.effects",
+    ),
+    false,
+  )
+  @debug.assert_eq(
+    hot_module_func_import_matches(ctx, @lib.FuncIdx::new(1U), "env", "f"),
+    false,
+  )
+}
+
+///|
 test "hot module context expands type-index block results and aggregate fields" {
   let ctx = hot_test_module_context_fixture()
 

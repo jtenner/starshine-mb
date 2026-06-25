@@ -719,6 +719,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] ir/code-pushing | Add import identity metadata
+
+- Filed [`raw/research/0904-2026-06-25-code-pushing-import-identity-metadata.md`](raw/research/0904-2026-06-25-code-pushing-import-identity-metadata.md) for the user-directed reopening of the `binaryen-intrinsics/call.without.effects` prerequisite blocker after the `0903` actionability audit.
+- `HotModuleContext` now preserves exact function import module/name identity and exposes `hot_module_resolve_func_import` plus `hot_module_func_import_matches`, enabling a future exact intrinsic predicate without type/arity heuristics.
+- No `code-pushing` movement changed in this slice; ordinary calls remain barriers until a red-first behavior slice uses the new metadata.
+- Validation: red-first focused import-identity test failed on missing accessors; final `moon fmt`, `moon info`, focused `hot_module_context_test.mbt`, and full native `src/ir` tests passed.
+
 ## [2026-06-25] passes/code-pushing | Post-IIT actionability audit
 
 - Filed [`raw/research/0903-2026-06-25-code-pushing-post-iit-actionability-audit.md`](raw/research/0903-2026-06-25-code-pushing-post-iit-actionability-audit.md) after the `0902` `--ignore-implicit-traps` / `-iit` implementation slice.
