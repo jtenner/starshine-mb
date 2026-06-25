@@ -49,6 +49,7 @@ sources:
   - ../../../raw/research/0882-2026-06-25-optimize-instructions-oi-g-call-backed-v128-memory-fill-boundary.md
   - ../../../raw/research/0884-2026-06-25-optimize-instructions-oi-g-local-v128-memory-fill-boundary.md
   - ../../../raw/research/0883-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-three-later.md
+  - ../../../raw/research/0885-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-four-later.md
   - ../../../raw/research/0862-2026-06-25-optimize-instructions-oi-g-multiparam-bulk-memory.md
   - ../../../raw/research/0863-2026-06-25-optimize-instructions-oi-m-earlier-later-neighbor.md
   - ../../../raw/research/0864-2026-06-25-optimize-instructions-oi-g-global-bulk-memory.md
