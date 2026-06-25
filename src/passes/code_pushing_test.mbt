@@ -3999,6 +3999,48 @@ test "code-pushing keeps SFA set before if across an ordered-before barrier" {
 }
 
 ///|
+test "code-pushing boundary keeps global.get value before global.set and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps a global-reading candidate value before a matching global mutation.
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $g (mut i32) (i32.const 9))
+        #|  (func (param $p i32) (local $tmp i32)
+        #|    (block $exit
+        #|      global.get $g
+        #|      local.set $tmp
+        #|      i32.const 11
+        #|      global.set $g
+        #|      local.get $p
+        #|      br_if $exit
+        #|      local.get $tmp
+        #|      drop)))
+        #|
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded code-pushing success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(global.get (Global 0))(local.set (Local 1))(i32.const I32(11))(global.set (Global 0))(local.get (Local 0))(br_if",
+    ),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-pushing flattens dead typed block before unreachable" {
   let func = code_pushing_test_run_hot(
     (
