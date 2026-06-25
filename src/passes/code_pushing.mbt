@@ -187,7 +187,10 @@ fn code_pushing_node_has_segment_order_barrier(
   }
   let op = @ir.hot_node_get(func, node_id).op
   match op {
-    @ir.HotOp::Throw | @ir.HotOp::Rethrow => true
+    @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
     _ => {
       let mask = @ir.effects_for_node(func, node_id)
       (mask & @ir.EFFECT_MASK_CALL) != 0U
