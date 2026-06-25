@@ -179,6 +179,8 @@ Result: compared `1000/1000`, normalized matches `375`, cleanup-normalized match
 
 2026-06-24 `br_on_cast_fail` slice: aggregate-safe leaf `code-pushing-br-on-cast-fail` was added to `code-pushing-all`, growing the aggregate to 17 leaves. The refreshed profile compare `.tmp/pass-fuzz-code-pushing-br-on-cast-fail-aggregate-1000` compared `1000/1000`, normalized `544`, cleanup-normalized `456`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, cache `wasm-smith 0 hits/0 misses`, Binaryen `999 hits/1 misses`, Binaryen failures `0 hits/0 misses`; selected subprofiles included `code-pushing-br-on-cast-fail: 49` and every other aggregate-safe leaf.
 
+2026-06-24 dedicated-profile refresh: `.tmp/pass-fuzz-code-pushing-all-10000-20260624` compared `10000/10000` with `5377` normalized matches, `4623` cleanup-normalized matches, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, cache `wasm-smith 0 hits/0 misses`, Binaryen `10000 hits/0 misses`, Binaryen failures `0 hits/0 misses`. All 17 aggregate-safe leaves were selected, including `code-pushing-br-on-cast-fail: 559`, `code-pushing-br-on-cast: 602`, `code-pushing-br-on-non-null: 601`, and `code-pushing-br-on-null: 589`.
+
 A raw lane without `--normalize local-cleanup-debris` stopped after `65` raw mismatches in `65` compared cases before the dropped-if slice. Inspected artifacts showed a bounded local-cleanup drift: Starshine removes standalone `nop`/empty-else debris around the movement while Binaryen leaves it. Treat the normalized lane as bounded slice evidence, not final raw-output parity or pass closeout.
 
 ## Final closeout lane
