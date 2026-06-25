@@ -141,6 +141,11 @@ fn code_pushing_expect_op(
         @ir.HotOp::BrIf => ()
         _ => abort("expected br_if")
       }
+    "br_on_null" =>
+      match op {
+        @ir.HotOp::BrOnNull => ()
+        _ => abort("expected br_on_null")
+      }
     "br_table" =>
       match op {
         @ir.HotOp::BrTable => ()
@@ -1500,6 +1505,162 @@ test "code-pushing preserves order moving multiple SFA sets after dropped br_if 
   code_pushing_expect_op(func, second_moved, "local.set")
   @debug.assert_eq(@ir.hot_node_get(func, first_moved).imm0, 1)
   @debug.assert_eq(@ir.hot_node_get(func, second_moved).imm0, 2)
+}
+
+///|
+fn code_pushing_br_on_null_fixture(
+  multi_set : Bool,
+  operand_reads_moved : Bool,
+) -> @ir.HotFunc {
+  let extern_ref = @lib.ValType::externref()
+  let func = if operand_reads_moved {
+    @ir.HotFunc::new(locals=@ir.HotLocals::new(locals=[extern_ref]))
+  } else {
+    @ir.HotFunc::new(
+      locals=@ir.HotLocals::new(
+        params=[extern_ref],
+        locals=if multi_set {
+          [@lib.ValType::i32(), @lib.ValType::i32()]
+        } else {
+          [@lib.ValType::i32()]
+        },
+      ),
+    )
+  }
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let target = @ir.hot_control_node_label(func, block_id)
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let nullable_extern = @lib.RefType::new(true, extern_heap)
+  let nonnull_extern = @lib.ValType::ref_type(
+    @lib.RefType::new(false, extern_heap),
+  )
+  let body : Array[Int] = []
+  if operand_reads_moved {
+    body.push(
+      @ir.hot_build_local_set(
+        func,
+        0,
+        @ir.hot_build_ref_null(func, nullable_extern),
+      ),
+    )
+  } else {
+    body.push(
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+      ),
+    )
+    if multi_set {
+      body.push(
+        @ir.hot_build_local_set(
+          func,
+          2,
+          @ir.hot_build_const_i32(func, @lib.I32(9)),
+        ),
+      )
+    }
+  }
+  let branch_input = @ir.hot_build_local_get(
+    func,
+    if operand_reads_moved {
+      0
+    } else {
+      0
+    },
+  )
+  let br_on_null = @ir.hot_build_node(
+    func,
+    @ir.HotOp::br_on_null(),
+    @ir.hot_type_intern_value(func, nonnull_extern),
+    imm0=target,
+    children=[branch_input],
+  )
+  body.push(@ir.hot_build_drop(func, br_on_null))
+  if operand_reads_moved {
+    body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 0)))
+  } else {
+    body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)))
+    if multi_set {
+      body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 2)))
+    }
+  }
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, block_id),
+    body,
+  )
+  @ir.hot_root_append(func, block_id)
+  code_pushing_test_run_hot_func(func)
+}
+
+///|
+test "code-pushing moves pure SFA set after dropped br_on_null before later same-block use" {
+  let func = code_pushing_br_on_null_fixture(false, false)
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  let branch_drop = @ir.hot_region_get(func, body_ref, 1)
+  code_pushing_expect_op(func, branch_drop, "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_null",
+  )
+  let moved_set = @ir.hot_region_get(func, body_ref, 2)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
+test "code-pushing preserves order moving multiple SFA sets after dropped br_on_null" {
+  let func = code_pushing_br_on_null_fixture(true, false)
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 7)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "nop")
+  let branch_drop = @ir.hot_region_get(func, body_ref, 2)
+  code_pushing_expect_op(func, branch_drop, "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_null",
+  )
+  let first_moved = @ir.hot_region_get(func, body_ref, 3)
+  let second_moved = @ir.hot_region_get(func, body_ref, 4)
+  code_pushing_expect_op(func, first_moved, "local.set")
+  code_pushing_expect_op(func, second_moved, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_moved).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, second_moved).imm0, 2)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 5), "drop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 6), "drop")
+}
+
+///|
+test "code-pushing keeps SFA set before dropped br_on_null operand that reads it" {
+  let func = code_pushing_br_on_null_fixture(false, true)
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  let branch_drop = @ir.hot_region_get(func, body_ref, 1)
+  code_pushing_expect_op(func, branch_drop, "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_null",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "drop")
 }
 
 ///|

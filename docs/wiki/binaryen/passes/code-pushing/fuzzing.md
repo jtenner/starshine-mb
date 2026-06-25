@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
   - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
   - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
   - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
@@ -36,7 +37,7 @@ Native-path note for this checkout: after `moon build --target native --release 
 
 ## Dedicated GenValid profile
 
-Use `code-pushing-all` for the pass-specific lane. It is a deterministic composite over thirteen currently aggregate-safe positive families. A targeted `code-pushing-br-if-value` leaf also exists for branch-value `br_if` movement slices, including the adjacent ordered multi-set branch-value shape, but it is intentionally excluded from the ordinary aggregate until the value-`br_if` HOT-lowering temporary-local representation gap is fixed or normalized:
+Use `code-pushing-all` for the pass-specific lane. It is a deterministic composite over fourteen currently aggregate-safe positive families. A targeted `code-pushing-br-if-value` leaf also exists for branch-value `br_if` movement slices, including the adjacent ordered multi-set branch-value shape, but it is intentionally excluded from the ordinary aggregate until the value-`br_if` HOT-lowering temporary-local representation gap is fixed or normalized:
 
 | Leaf profile | Shape |
 | --- | --- |
@@ -44,6 +45,7 @@ Use `code-pushing-all` for the pass-specific lane. It is a deterministic composi
 | `code-pushing-after-if` | A pure computed `local.set` before an ordinary void `if` that does not read the local, followed by same-region suffix reads after the `if`. |
 | `code-pushing-dropped-if` | A pure `local.set` before a dropped value `if` that does not read the local, followed by same-region suffix reads after the dropped wrapper. |
 | `code-pushing-br-if` | A pure `local.set` before a no-branch-value void-block-target `br_if` that does not read the local, followed by same-block suffix reads after the branch. |
+| `code-pushing-br-on-null` | Two adjacent local-independent pure `local.set` roots before a dropped zero-arity-label `br_on_null`, followed by same-block suffix reads after the branch, preserving source order. |
 | `code-pushing-br-if-value` | Targeted-only: adjacent local-independent pure `local.set` roots before a value-block-target `br_if` with one branch payload, followed by same-block suffix reads after the branch, preserving source order. Excluded from `code-pushing-all` pending value-`br_if` lowering normalization/fix. |
 | `code-pushing-multi-set` | Two local-independent pure `local.set` roots before an ordinary void `if`, followed by same-region suffix reads after the `if`, preserving source order. |
 | `code-pushing-multi-set-dropped-if` | Two local-independent pure `local.set` roots before a dropped value `if`, followed by same-region suffix reads after the dropped wrapper, preserving source order. |
@@ -55,7 +57,7 @@ Use `code-pushing-all` for the pass-specific lane. It is a deterministic composi
 | `code-pushing-multi-set-local-get-window` | Two local-independent pure SFA sets separated by `drop (local.get ...)` before an ordinary void `if`, followed by suffix reads after the `if`, preserving source order while leaving the drop before the push point. |
 | `code-pushing-multi-set-global-get-window` | Two local-independent pure SFA sets separated by `drop (global.get ...)` before an ordinary void `if`, followed by suffix reads after the `if`, preserving source order while leaving the drop before the push point. This leaf covers the positive ordinary-`if` family; focused pass tests also cover the dropped-`if` positive and `br_if` boundary. |
 
-The profile intentionally does **not** cover remaining audit gaps such as switch/`br_table`, `br_on_*`, broader branch-value conditional branches beyond the targeted adjacent `br_if` family, ordered multi-set movement outside the first ordinary-void-`if`, dropped-value-`if`, narrow no-branch-value block-/loop-target `br_if`, targeted value-block-target `br_if`, local-copy, `nop`-window, `drop(const)`-window, `drop(local.get)`-window, and bounded ordinary-/dropped-`if` `drop(global.get)`-window slices, broader atomics/GC/EH, or trap-option widening. The 2026-06-21 `br_table` work added focused no-mutation boundary tests only, so no GenValid leaf was added for it. The 2026-06-21 atomics/GC slice added focused HOT tests for the narrow non-null `struct.get` atomic-load/store family, also without a GenValid leaf. The 2026-06-24 branch-value `br_if` slices added and refreshed targeted leaf `code-pushing-br-if-value`, but it remains outside `code-pushing-all` because current compare output shows a value-`br_if` lowering temp-local representation/size gap. Add aggregate leaves when positive generated movement families are aggregate-safe.
+The profile intentionally does **not** cover remaining audit gaps such as switch/`br_table`, broader `br_on_*` forms beyond the narrow dropped zero-arity-label `br_on_null` leaf, broader branch-value conditional branches beyond the targeted adjacent `br_if` family, ordered multi-set movement outside the first ordinary-void-`if`, dropped-value-`if`, narrow no-branch-value block-/loop-target `br_if`, dropped `br_on_null`, targeted value-block-target `br_if`, local-copy, `nop`-window, `drop(const)`-window, `drop(local.get)`-window, and bounded ordinary-/dropped-`if` `drop(global.get)`-window slices, broader atomics/GC/EH, or trap-option widening. The 2026-06-21 `br_table` work added focused no-mutation boundary tests only, so no GenValid leaf was added for it. The 2026-06-21 atomics/GC slice added focused HOT tests for the narrow non-null `struct.get` atomic-load/store family, also without a GenValid leaf. The 2026-06-24 branch-value `br_if` slices added and refreshed targeted leaf `code-pushing-br-if-value`, but it remains outside `code-pushing-all` because current compare output shows a value-`br_if` lowering temp-local representation/size gap. Add aggregate leaves when positive generated movement families are aggregate-safe.
 
 Current bounded dedicated lane:
 
@@ -162,6 +164,8 @@ bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x5eed --pass code-pushing 
 Result: compared `1000/1000`, normalized matches `375`, cleanup-normalized matches `625`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, selected subprofiles `code-pushing-multi-set-local-copy: 75`, `code-pushing-multi-set: 77`, `code-pushing-multi-set-local-get-window: 89`, `code-pushing-multi-set-global-get-window: 67`, `code-pushing-multi-set-br-if: 69`, `code-pushing-if-arm: 90`, `code-pushing-br-if: 83`, `code-pushing-dropped-if: 83`, `code-pushing-multi-set-dropped-if: 64`, `code-pushing-multi-set-nop-window: 72`, `code-pushing-multi-set-drop-window: 73`, `code-pushing-after-if: 82`, `code-pushing-loop-br-if: 76`, cache `Binaryen 1000 hits/0 misses`.
 
 2026-06-24 branch-value multi-set slice: the targeted `code-pushing-br-if-value` leaf now emits the adjacent ordered multi-set branch-value shape and focused GenValid tests passed. The aggregate-safe profile was rerun with the branch-value leaf still excluded: `.tmp/pass-fuzz-code-pushing-branch-value-multiset-aggregate-1000` compared `1000/1000`, normalized `375`, cleanup-normalized `625`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, and Binaryen cache `1000 hits/0 misses`.
+
+2026-06-24 `br_on_null` slice: aggregate-safe leaf `code-pushing-br-on-null` was added to `code-pushing-all`. The refreshed profile compare `.tmp/pass-fuzz-code-pushing-br-on-null-aggregate-1000` compared `1000/1000`, normalized `424`, cleanup-normalized `576`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, cache `wasm-smith 0 hits/0 misses`, Binaryen `998 hits/2 misses`, Binaryen failures `0 hits/0 misses`; selected subprofiles included `code-pushing-br-on-null: 74` and every other aggregate-safe leaf.
 
 A raw lane without `--normalize local-cleanup-debris` stopped after `65` raw mismatches in `65` compared cases before the dropped-if slice. Inspected artifacts showed a bounded local-cleanup drift: Starshine removes standalone `nop`/empty-else debris around the movement while Binaryen leaves it. Treat the normalized lane as bounded slice evidence, not final raw-output parity or pass closeout.
 

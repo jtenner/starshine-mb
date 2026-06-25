@@ -678,7 +678,7 @@ fn code_pushing_direct_br_if_push_point_supported(
 }
 
 ///|
-fn code_pushing_single_set_br_if_push_point_supported(
+fn code_pushing_single_set_conditional_branch_push_point_supported(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
@@ -699,20 +699,26 @@ fn code_pushing_single_set_br_if_push_point_supported(
     return false
   }
   let branch = @ir.hot_node_get(func, branch_id)
-  match branch.op {
-    @ir.HotOp::BrIf => ()
-    _ => return false
-  }
   if branch.imm0 < 0 {
     return false
   }
   let branch_arity = @ir.hot_label_branch_arity(func, branch.imm0)
   let child_count = @ir.hot_child_count(func, branch_id)
-  match @ir.hot_label_kind(func, branch.imm0) {
-    @ir.HotLabelKind::BlockLabel =>
-      (branch_arity == 0 && child_count == 1) ||
-      (branch_arity == 1 && child_count == 2)
-    @ir.HotLabelKind::LoopLabel => branch_arity == 0 && child_count == 1
+  match branch.op {
+    @ir.HotOp::BrIf =>
+      match @ir.hot_label_kind(func, branch.imm0) {
+        @ir.HotLabelKind::BlockLabel =>
+          (branch_arity == 0 && child_count == 1) ||
+          (branch_arity == 1 && child_count == 2)
+        @ir.HotLabelKind::LoopLabel => branch_arity == 0 && child_count == 1
+        _ => false
+      }
+    @ir.HotOp::BrOnNull =>
+      match @ir.hot_label_kind(func, branch.imm0) {
+        @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::LoopLabel =>
+          branch_arity == 0 && child_count == 1
+        _ => false
+      }
     _ => false
   }
 }
@@ -1229,18 +1235,23 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
   } else if push_kind == "conditional-branch" &&
     (
       code_pushing_direct_br_if_push_point_supported(func, push_id) ||
-      code_pushing_single_set_br_if_push_point_supported(func, push_id)
+      code_pushing_single_set_conditional_branch_push_point_supported(
+        func, push_id,
+      )
     ) {
     // Value-carrying br_if may lower as a direct HOT BrIf with branch payload
     // children even though the source WAT is `drop (br_if ...)`. Use the same
-    // shape gate as the single-set branch-value slice, then let whole-root
-    // local accounting below reject payloads/conditions that read moved locals.
+    // shape gate as the single-set conditional-branch slice, then let whole-root
+    // local accounting below reject payloads/conditions/guards that read moved
+    // locals.
     if saw_drop_global_get_separator {
       return false
     }
     branch_id = push_id
   } else if push_kind == "dropped-conditional-branch" &&
-    code_pushing_single_set_br_if_push_point_supported(func, push_id) {
+    code_pushing_single_set_conditional_branch_push_point_supported(
+      func, push_id,
+    ) {
     if saw_drop_global_get_separator {
       return false
     }
@@ -1389,7 +1400,9 @@ fn code_pushing_try_sink_set_after_if_push_point(
       } else if (
           kind == "conditional-branch" || kind == "dropped-conditional-branch"
         ) &&
-        code_pushing_single_set_br_if_push_point_supported(func, candidate_id) {
+        code_pushing_single_set_conditional_branch_push_point_supported(
+          func, candidate_id,
+        ) {
         if saw_drop_global_get_separator ||
           (
             set_idx > 0 &&

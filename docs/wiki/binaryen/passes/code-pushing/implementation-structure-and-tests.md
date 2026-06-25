@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
   - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
   - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
   - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
@@ -87,8 +88,8 @@ Official `version_130` test URLs:
 
 | Local file | What it proves |
 | --- | --- |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) | Accepted direct HOT subset: safe single-arm `local.set` sinking, bounded segment movement after ordinary/dropped `if`, no-branch-value and branch-value `br_if`, guarded `global.get` / local-copy / non-null `struct.get` movement, and local dead-block flattening |
-| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Then/else positives, pure-value/global/local-copy movement positives, `br_if` branch-value single-/multi-set positives and payload-read boundary, both-arm and later-use negatives, nested-later-use negative, trap guard, dead-block flattening guards |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) | Accepted direct HOT subset: safe single-arm `local.set` sinking, bounded segment movement after ordinary/dropped `if`, no-branch-value and branch-value `br_if`, dropped void-label `br_on_null`, guarded `global.get` / local-copy / non-null `struct.get` movement, and local dead-block flattening |
+| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Then/else positives, pure-value/global/local-copy movement positives, `br_if` branch-value single-/multi-set positives and payload-read boundary, dropped `br_on_null` single-/multi-set positives and guard-read boundary, both-arm and later-use negatives, nested-later-use negative, trap guard, dead-block flattening guards |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Active registry entry and preset omission / tuple exact-slot gating |
 | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Registry classification for the direct pass |
 | [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) | Command-surface coverage for direct pass use |
@@ -107,6 +108,7 @@ The correct caveat is narrower: Binaryen has a `Pusher` / segment algorithm, but
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md)
 - [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
 - [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
 - [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)

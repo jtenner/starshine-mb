@@ -8882,6 +8882,54 @@ fn gen_valid_test_instrs_contain_code_pushing_br_if_candidate(
 }
 
 ///|
+fn gen_valid_test_instrs_contain_code_pushing_br_on_null_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 10 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+              body[i + 10],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set_idx)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set_idx)),
+              LocalGet(LocalIdx(cond_idx)),
+              BrOnNull(_),
+              Drop,
+              LocalGet(LocalIdx(first_use_idx)),
+              Drop,
+              LocalGet(LocalIdx(second_use_idx)),
+              Drop,
+            ) if first_set_idx == 1U &&
+              second_set_idx == 2U &&
+              cond_idx == 0U &&
+              first_use_idx == 1U &&
+              second_use_idx == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_instrs_contain_code_pushing_br_if_value_candidate(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -9044,6 +9092,10 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
     "code-pushing-br-if",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrOnNullProfile),
+    "code-pushing-br-on-null",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(CodePushingBrIfValueProfile),
     "code-pushing-br-if-value",
   )
@@ -9093,7 +9145,7 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       @debug.assert_eq(profile, CodePushingAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 13)
+      @debug.assert_eq(members.length(), 14)
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingIfArmProfile }),
       )
@@ -9105,6 +9157,9 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       )
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingBrIfProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingBrOnNullProfile }),
       )
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingMultiSetProfile }),
@@ -9173,6 +9228,7 @@ test "code-pushing aggregate profile samples every current code-pushing family" 
   assert_true(seen.contains(CodePushingAfterIfProfile))
   assert_true(seen.contains(CodePushingDroppedIfProfile))
   assert_true(seen.contains(CodePushingBrIfProfile))
+  assert_true(seen.contains(CodePushingBrOnNullProfile))
   assert_true(seen.contains(CodePushingMultiSetProfile))
   assert_true(seen.contains(CodePushingMultiSetDroppedIfProfile))
   assert_true(seen.contains(CodePushingMultiSetBrIfProfile))
@@ -9264,6 +9320,27 @@ test "code-pushing gen-valid profiles emit pass-owned if movement candidates" {
   assert_true(
     gen_valid_test_instrs_contain_code_pushing_br_if_candidate(
       gen_valid_test_first_func_instrs(br_if.wasm_module),
+    ),
+  )
+
+  let br_on_null = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrOnNullProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(br_on_null.config_label, "code-pushing-br-on-null")
+  match validate_module(br_on_null.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_on_null.facts.has_branch_heavy_control)
+  assert_true(br_on_null.facts.uses_ref_types)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_on_null_candidate(
+      gen_valid_test_first_func_instrs(br_on_null.wasm_module),
     ),
   )
 

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
   - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
   - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
   - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
@@ -37,7 +38,7 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, no-branch-value `br_if`, branch-value `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, `drop(local.get)`-window, bounded `drop(global.get)`-window, and atomics/GC segment-movement Starshine slices, and the earlier source corrections.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-06-20 `version_130` source/lit refresh, the post-use, ordinary-`if`, dropped-`if`, no-branch-value `br_if`, dropped `br_on_null`, branch-value `br_if`, ordered multi-set, local-copy, `nop`-window, loop-target `br_if`, `drop(const)`-window, `drop(local.get)`-window, bounded `drop(global.get)`-window, and atomics/GC segment-movement Starshine slices, and the earlier source corrections.
 
 ## Mental model
 
@@ -202,6 +203,32 @@ The adjacent local-independent multi-set variant is also source-backed:
 ```
 
 Binaryen moves both sets after the value-carrying branch while preserving `$a` before `$b`; Starshine now matches that bounded ordered family. A payload-read variant keeps the read local's set before the branch; broader partial-window branch-value splitting remains outside this slice.
+
+## Shape 4c: segment movement after dropped `br_on_null` before later same-block use
+
+Binaryen-backed before:
+
+```wat
+(block $exit
+  (local.set $tmp (i32.const 7))
+  (local.get $r)
+  (br_on_null $exit)
+  drop
+  (drop (local.get $tmp)))
+```
+
+Binaryen-backed after:
+
+```wat
+(block $exit
+  (drop
+    (br_on_null $exit
+      (local.get $r)))
+  (local.set $tmp (i32.const 7))
+  (drop (local.get $tmp)))
+```
+
+Starshine now implements this narrow dropped `br_on_null` subset for zero-arity block/loop labels when the guard operand does not read the moved local and every read is a same-region suffix read after the dropped branch. The adjacent local-independent multi-set variant is also source-backed and preserves source order. A guard-read variant such as `(local.get $tmp) (br_on_null $exit)` keeps the set stationary.
 
 ## Shape 5: ordered multi-set movement after a void `if`
 
@@ -657,6 +684,7 @@ Before expecting a `code-pushing` rewrite, ask:
 
 ## Sources
 
+- [`../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md)
 - [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
 - [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
