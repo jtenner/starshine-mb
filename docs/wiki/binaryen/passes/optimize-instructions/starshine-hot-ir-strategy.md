@@ -399,25 +399,21 @@ The local pass still does not cover broader upstream families like:
 - trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today
 - broader stored-value canonicalization for the general load/store surface; only the current redundant-mask subset is covered (either `and` operand order for `i32.store8` / `i32.store16` plus a local Starshine-win `i64.store8` / `i64.store16` / `i64.store32` generalization that Binaryen `version_130` does not perform), Binaryen-style constant stored-value truncation before narrow stores, direct `i32.wrap_i64` i32-store widening, and direct reinterpret-store representation rewrites. For offset canonicalization, Starshine covers the narrow Binaryen-style memory32 and memory64 constant-pointer static-offset folds; tested nonconstant pointer-add address forms are now a Binaryen `version_130` OI no-change boundary, and public-pipeline mixed load/call functions remain behind `load-call-optimize-instructions-noop`, so static-offset folds apply only when the raw gate lets the pass run
 
-## 4. No GC constructor / field / atomics surface
+## 4. Partial GC constructor / field surface; GC RMW/cmpxchg boundary
 
-The local pass does not yet model upstream visitors such as:
+The local pass now models several upstream non-atomic GC constructor/field/array visitors in narrow OI-K slices: pure one-use `struct.get(struct.new(...))`, defaultable non-descriptor `struct.get(struct.new_default(...))`, selected `array.len`, constant-index `array.get`, and fresh-array `array.set` families.
 
-- `StructNew`
-- `StructGet`
-- `StructSet`
+Important upstream behaviors are still absent locally, especially:
+
+- broader `StructSet` and effect/localizing field updates
+- descriptor-bearing constructor forms
+- dynamic-index or effectful-sibling array rewrites beyond the covered boundaries
 - `StructRMW`
 - `StructCmpxchg`
-- `ArrayNew`
-- `ArrayNewFixed`
-- `ArrayGet`
-- `ArraySet`
-- `ArrayLen`
-- `ArrayCopy`
 - `ArrayRMW`
 - `ArrayCmpxchg`
 
-So important upstream behaviors are still absent locally, including default-constructor cleanup and unshared GC atomic lowering.
+For OI-L specifically, Binaryen `version_130` optimizes non-mutating aggregate RMW/cmpxchg forms such as `struct.atomic.rmw.add 0`, `struct.atomic.rmw.and -1`, and `struct.atomic.rmw.cmpxchg` with equal expected/replacement values to `struct.get`-like reads for probed acqrel/acqrel forms. Starshine currently has text/core support for `struct.atomic.get*` only, not aggregate RMW/cmpxchg constructors, so these remain an explicit representation boundary rather than hidden parity.
 
 ## 5. No tuple extraction parity surface
 

@@ -5988,6 +5988,43 @@ test "optimize-instructions intentionally keeps call-indexed table.get call_ref 
 }
 
 ///|
+test "optimize-instructions intentionally rejects unsupported GC atomic RMW surface" {
+  // OI-L boundary: Binaryen version_130 optimizes struct.atomic.rmw.add(0),
+  // struct.atomic.rmw.and(-1), and struct.atomic.rmw.cmpxchg(expected ==
+  // replacement) to struct.get-like reads for the probed acqrel/acqrel forms.
+  // Starshine currently represents only struct.atomic.get* in its aggregate
+  // atomic text/core surface, so RMW/cmpxchg must stay an explicit unsupported
+  // boundary instead of being hidden as pass parity.
+  let rmw_src =
+    #|(module
+    #|  (type $S (struct (field (mut i32))))
+    #|  (func (param $s (ref $S)) (result i32)
+    #|    (struct.atomic.rmw.add acqrel acqrel $S 0
+    #|      (local.get $s)
+    #|      (i32.const 0))))
+    #|
+  match @wast.wast_to_binary_module(rmw_src) {
+    Ok(_) => fail("expected unsupported struct.atomic.rmw surface to reject")
+    Err(_) => ()
+  }
+
+  let cmpxchg_src =
+    #|(module
+    #|  (type $S (struct (field (mut i32))))
+    #|  (func (param $s (ref $S)) (result i32)
+    #|    (struct.atomic.rmw.cmpxchg acqrel acqrel $S 0
+    #|      (local.get $s)
+    #|      (i32.const 7)
+    #|      (i32.const 7))))
+    #|
+  match @wast.wast_to_binary_module(cmpxchg_src) {
+    Ok(_) =>
+      fail("expected unsupported struct.atomic.rmw.cmpxchg surface to reject")
+    Err(_) => ()
+  }
+}
+
+///|
 test "optimize-instructions expands one-byte memory.copy to load8/store8" {
   let optimized = match
     pass_test_run_pipeline(

@@ -348,6 +348,8 @@ Examples:
 - and by all-ones
 - cmpxchg where `expected` and `replacement` are known equal
 
+Starshine status as of 2026-06-24: this remains an explicit OI-L representation boundary. Local WAST/core support covers `struct.atomic.get*`, but not aggregate `struct.atomic.rmw.*`, `struct.atomic.rmw.cmpxchg`, array RMW, or array cmpxchg constructors. Binaryen `version_130` probes confirm the non-mutating acqrel/acqrel `struct.atomic.rmw.add 0`, `struct.atomic.rmw.and -1`, and equal expected/replacement cmpxchg shapes optimize to `struct.get`-like reads; Starshine records that as an unsupported surface, not parity.
+
 ## Unshared lowering
 
 For unshared heaps, Binaryen can lower `struct.rmw` and `struct.cmpxchg` to explicit get / set / if / local sequences.

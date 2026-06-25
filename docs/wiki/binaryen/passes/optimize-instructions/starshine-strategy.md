@@ -134,10 +134,11 @@ Those are local HOT-IR and writeback-survival rules, not a literal upstream phas
 
 The local pass does not yet model the upstream visitor families for:
 
-- broad reference-typed and GC rewrites
-- `call_ref` directization families
-- broader memory and bulk-memory lowering
-- tuple extraction parity
+- broad reference-typed and GC rewrites beyond the many narrow OI-I/OI-K subsets already covered
+- GC aggregate RMW/cmpxchg lowering: Starshine exposes `struct.atomic.get*` but not aggregate RMW/cmpxchg text/core constructors, while Binaryen optimizes source-backed non-mutating RMW/cmpxchg forms to `struct.get`-like reads
+- `call_ref` directization families beyond the covered direct/ref.func, table.get, select, and fallthrough subsets
+- broader memory and bulk-memory lowering beyond the covered tiny-copy/fill, stored-value, offset-fold, and narrow raw-gate escapes
+- tuple extraction parity beyond the one-use pure-sibling tuple.make subset
 - a whole-function local prescan equivalent
 - deferred `ReFinalize` / EH-pop repair inside this pass
 

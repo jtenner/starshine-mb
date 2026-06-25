@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Document GC atomic RMW boundary
+
+- Closed OI-L as an explicit representation boundary: Binaryen `version_130` optimizes probed non-mutating aggregate RMW/cmpxchg forms to `struct.get`-like reads, but Starshine currently exposes only `struct.atomic.get*`, not aggregate RMW/cmpxchg constructors.
+- Added focused OI boundary coverage that asserts `struct.atomic.rmw.add` and `struct.atomic.rmw.cmpxchg` WAT fixtures reject through the local WAST/core surface rather than being hidden as pass parity.
+- Evidence: Binaryen oracle probes `.tmp/oi-l-gc-atomic-rmw-probe.wat` and `.tmp/oi-l-gc-atomic-cmpxchg-probe.wat`; focused `*GC atomic RMW surface*` passed immediately as an intentional unsupported-surface boundary. Reopen when Starshine gains aggregate atomic RMW/cmpxchg representation/lowering support.
+
 ## [2026-06-24] passes/optimize-instructions | Admit load-call constant offsets through OI raw gate
 
 - Narrowed `load-call-optimize-instructions-noop` for the exact `i32.const; nonzero-offset scalar load; drop; call` shape, allowing direct OI's constant-pointer static-offset fold to run even when a direct call follows the dropped load.
