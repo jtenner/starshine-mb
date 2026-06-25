@@ -392,12 +392,13 @@ The local pass now covers no-mode-dependent upstream bulk-memory shapes in narro
 - local.get value size `2` `memory.fill` to `(value & 255) * 257` plus `i32.store16`
 - local.get value size `4` `memory.fill` to `(value & 255) * 16843009` plus `i32.store`
 - local.get value size `8` `memory.fill` to `i64.extend_i32_u(value & 255) * 72340172838076673` plus `i64.store`
+- explicit keep-spelling boundary coverage for non-local wider `memory.fill` values: Binaryen `version_130` keeps probed direct-call and computed `i32.add` fill values, so Starshine also keeps those forms instead of counting them as missing materialization
 
 The local pass still does not cover broader upstream families like:
 
 - non-`1`/`2`/`4`/`8` constant-size `memory.copy` sequences and any future multi-store copy shapes; size `16` is now an explicit fail-closed boundary until an overlap-safe multi-store proof exists
 - nonconstant-size `memory.copy`, because the size expression is not part of the exact tiny lowering proof
-- arbitrary or effectful nonconstant wider `memory.fill` value materialization
+- any future source-backed nonconstant wider `memory.fill` materialization beyond the covered direct `local.get` subset; call-backed and computed `i32.add` values are now explicit keep-spelling boundaries under Binaryen `version_130`
 - trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today
 - broader stored-value canonicalization for the general load/store surface; only the current redundant-mask subset is covered (either `and` operand order for `i32.store8` / `i32.store16` plus a local Starshine-win `i64.store8` / `i64.store16` / `i64.store32` generalization that Binaryen `version_130` does not perform), Binaryen-style constant stored-value truncation before narrow stores, direct `i32.wrap_i64` i32-store widening, and direct reinterpret-store representation rewrites. For offset canonicalization, Starshine covers the narrow Binaryen-style memory32 and memory64 constant-pointer static-offset folds; tested nonconstant pointer-add address forms are now a Binaryen `version_130` OI no-change boundary, and public-pipeline mixed load/call functions remain behind `load-call-optimize-instructions-noop`, so static-offset folds apply only when the raw gate lets the pass run
 

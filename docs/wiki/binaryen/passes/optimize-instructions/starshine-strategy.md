@@ -106,7 +106,7 @@ So Starshine already covers a meaningful subset of the arithmetic rewrite surfac
 
 The local pass covers the small Binaryen-style memory surface that has direct HOT support: tiny `memory.copy` / `memory.fill` lowering for selected constant sizes, including flat stack-carried tiny `memory.copy` forms with no-param direct-call/local/constant operands, constant-pointer static-offset folding (including the narrow public `i32.const; nonzero-offset scalar load; drop; call` raw-gate escape), narrow-store redundant-mask and constant truncation cleanup, direct `i32.wrap_i64` store widening, and direct reinterpret-store representation rewrites such as `f32.store(f32.reinterpret_i32 x)` to `i32.store x`.
 
-Broader memory work remains deliberately open or boundary-tested: zero-size bulk-memory cleanup needs trap-relaxed mode support, non-flat or parameterized/effect-control `memory.copy` localization remains open, and broader mixed load/call functions still stop at the public raw gate.
+Broader memory work remains deliberately open or boundary-tested: zero-size bulk-memory cleanup needs trap-relaxed mode support, non-flat or parameterized/effect-control `memory.copy` localization remains open, broader mixed load/call functions still stop at the public raw gate, and non-local wider `memory.fill` values such as calls or computed `i32.add` values are now source-backed keep-spelling boundaries rather than missing materialization.
 
 ### 5. Boolean and nested-`if` cleanup
 

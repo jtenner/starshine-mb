@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock non-local memory.fill boundary
+
+- Refined the OI-G wider `memory.fill` boundary: Binaryen `version_130` keeps probed direct-call values and computed `i32.add` values as `memory.fill`, so Starshine's positive lowering remains intentionally limited to constants and direct `local.get` values.
+- Updated focused coverage to name this as a source-backed keep-spelling boundary rather than an unimplemented arbitrary materialization gap.
+- Evidence: Binaryen oracle probes `.tmp/oi-g-effectful-fill-probe.wat` and `.tmp/oi-g-pure-fill-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*non-local wider memory.fill*'` passed immediately as boundary coverage.
+
 ## [2026-06-25] passes/optimize-instructions | Fold i32 sign-extension equality ranges
 
 - Added the first OI-D sign-extension range compare fold: direct `i32.extend8_s` / `i32.extend16_s` results compared with constants outside the signed lane range now fold for `i32.eq` / `i32.ne`.

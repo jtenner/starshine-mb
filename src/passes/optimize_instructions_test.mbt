@@ -6626,7 +6626,11 @@ test "optimize-instructions expands local eight-byte memory.fill to store" {
 }
 
 ///|
-test "optimize-instructions keeps wider effectful memory.fill values" {
+test "optimize-instructions intentionally keeps non-local wider memory.fill values" {
+  // Binaryen version_130 keeps both call-backed and computed non-local fill
+  // values here. The covered positive lowering remains limited to constants and
+  // direct local.get values so this boundary is not counted as a missing OI-G
+  // materialization gap.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -6637,6 +6641,13 @@ test "optimize-instructions keeps wider effectful memory.fill values" {
         #|    local.get $dst
         #|    call $get
         #|    i32.const 2
+        #|    memory.fill)
+        #|  (func (param $dst i32) (param $value i32)
+        #|    local.get $dst
+        #|    local.get $value
+        #|    i32.const 1
+        #|    i32.add
+        #|    i32.const 4
         #|    memory.fill))
         #|,
       ),
@@ -6644,10 +6655,14 @@ test "optimize-instructions keeps wider effectful memory.fill values" {
     ) {
     Ok(mod_) => mod_
     Err(err) =>
-      fail("expected effectful memory.fill boundary success, got \{err}")
+      fail("expected non-local memory.fill boundary success, got \{err}")
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  let effectful = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(effectful.contains("memory.fill"), msg=effectful)
+  assert_true(effectful.contains("call (Func 0)"), msg=effectful)
+  let computed = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(computed.contains("memory.fill"), msg=computed)
+  assert_true(computed.contains("i32.add"), msg=computed)
 }
 
 ///|

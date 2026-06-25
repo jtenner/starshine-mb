@@ -602,7 +602,7 @@ Likewise:
   (i32.const 4))
 ```
 
-may become a single `store` of a repeated-byte constant pattern.
+may become a single `store` of a repeated-byte constant pattern. Starshine also lowers direct `local.get` fill values for sizes `2`/`4`/`8` by building the repeated-byte pattern from the low byte. Non-local wider fill values such as direct calls or computed `i32.add` values are now explicit keep-spelling boundaries matching Binaryen `version_130`, not missing materialization.
 
 Effectful flat copy operands are also covered for the narrow no-param-call shape:
 
