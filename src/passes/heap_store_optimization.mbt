@@ -3459,6 +3459,14 @@ fn hso_process_node_regions(
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
+  // Nested HSO opportunities can only live below HOT control/region nodes.
+  // Avoid recursively walking straight-line value trees during the pre-pass
+  // region descent; the later root-chain scan still handles LocalSet/StructSet
+  // candidates in the current region.
+  if (hso_effects_for_node(func, node_masks, node_id) & @ir.EFFECT_MASK_CONTROL) ==
+    0U {
+    return false
+  }
   let node = @ir.hot_node_get(func, node_id)
   let mut child_changed = false
   if !hso_node_may_have_regions(node.op) {

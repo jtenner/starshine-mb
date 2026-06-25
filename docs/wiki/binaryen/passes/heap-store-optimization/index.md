@@ -1,8 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-21
+last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1085-2026-06-25-heap-store-optimization-control-scan-skip.md
+  - ../../../raw/research/1084-2026-06-25-heap-store-optimization-allocation-heavy-scaling.md
+  - ../../../raw/research/1072-2026-06-25-heap-store-optimization-allocation-heavy-performance-refresh.md
   - ../../../raw/research/1022-2026-06-21-heap-store-optimization-default-desc-catchable-later-field-result-try-table-store-boundary.md
   - ../../../raw/research/1021-2026-06-21-heap-store-optimization-later-field-result-try-table-descriptor-old-field-fold.md
   - ../../../raw/research/1020-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-old-field-boundary.md
@@ -472,8 +475,10 @@ It is a narrow GC constructor/store cleanup pass.
 - Plain and descriptor default double-store folding have narrow documented Starshine-win divergences.
   - Coverage note `0889` found Binaryen folds only the first call-valued store after `struct.new_default_desc`, leaving the second `struct.set`; Starshine folds both call-valued stores into the materialized `struct.new_desc` while preserving call order and only moving across an immutable descriptor `global.get`. This is recorded as a narrow better-than-Binaryen behavior, not a general license to cross mutable/effectful/trapping descriptor operands, target-local hazards, old-field side effects, or later-field effect barriers.
   - Coverage note `0890` found the same one-store-left Binaryen behavior after plain `struct.new_default`; Starshine folds both call-valued stores into the materialized `struct.new` while preserving call order. This is a narrow plain-default Starshine win, not a broader effect-order exception.
-- Allocation-heavy candidate performance is now measured but not closed.
-  - Follow-up `0870` generated a 2000-function, 6000-`struct.set` synthetic candidate module. Both tools removed all `StructSet` roots and emitted validating wasm, but Starshine's median traced HSO pass-local time was about `10.97ms` versus Binaryen's `1.31ms`, with coarse whole-command wall time about `0.074s` versus `0.030s`. Keep HSO-I open until this is improved, accepted with release-context rationale, or superseded by broader artifact/neighborhood evidence.
+- Allocation-heavy candidate performance is now measured and partially improved, but not closed.
+  - Follow-up `0870` generated a 2000-function, 6000-`struct.set` synthetic candidate module. Both tools removed all `StructSet` roots and emitted validating wasm, but Starshine's median traced HSO pass-local time was about `10.97ms` versus Binaryen's `1.31ms`, with coarse whole-command wall time about `0.074s` versus `0.030s`.
+  - Refresh `1072` reran the 2000-function fixture after the explicit native rebuild: Starshine HSO median `11.988ms`, Binaryen `2.110ms` (`~5.7x`). Scaling note `1084` showed the slowdown is roughly linear at 250/500/1000/2000 functions, so it is HSO-owned rather than fixed startup or no-candidate O4z overhead.
+  - Follow-up `1085` skips the pre-rewrite recursive region descent for straight-line subtrees with no HOT control, leaving current-region candidate scans unchanged. That improved Starshine medians to `5.612ms` at 1000 functions and `11.199ms` at 2000 functions, but HSO-I stays open because the 2000-function fixture remains about `5.3x` slower than Binaryen. Keep HSO-I open until this is improved further, accepted with release-context rationale, or superseded by broader artifact/neighborhood evidence.
 
 ## Beginner warning: what the name hides
 
