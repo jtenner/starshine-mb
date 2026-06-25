@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Refresh post-0889 regular GenValid 100000
+
+- Filed [`raw/research/0890-2026-06-25-code-pushing-regular-post-0889-100000.md`](raw/research/0890-2026-06-25-code-pushing-regular-post-0889-100000.md) after refreshing the regular GenValid lane with the current native binary.
+- `.tmp/pass-fuzz-code-pushing-regular-100000-20260625-post-0889` used seed `0x5eed`, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe`; it compared `100000/100000`, normalized `100000`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property/command failures `0`, Binaryen cache `100000 hits/0 misses`, and Binaryen failure cache `0 hits/0 misses`.
+- This satisfies the current regular GenValid final-closeout lane, but final `[O4Z-AUDIT-CP]` closeout still needs broad named `pass-fuzz-stress` 10000 and an explicit source-backed stop condition.
+
 ## [2026-06-25] passes/code-pushing | Refresh post-0888 wasm-smith 10000
 
 - Filed [`raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md`](raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md) after refreshing the explicit wasm-smith lane with the current native binary.
