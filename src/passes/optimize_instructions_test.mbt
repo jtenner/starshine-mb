@@ -6857,6 +6857,72 @@ test "optimize-instructions expands stack-carried multi-parameter bulk-memory ca
 }
 
 ///|
+test "optimize-instructions expands stack-carried global bulk-memory calls" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (global $d (mut i32) (i32.const 0))
+        #|  (global $s (mut i32) (i32.const 8))
+        #|  (global $v (mut i32) (i32.const 255))
+        #|  (func $dst (param i32) (result i32)
+        #|    local.get 0)
+        #|  (func $src (param i32) (result i32)
+        #|    local.get 0)
+        #|  (func $val (param i32) (result i32)
+        #|    local.get 0)
+        #|  (func
+        #|    global.get $d
+        #|    call $dst
+        #|    global.get $s
+        #|    call $src
+        #|    i32.const 1
+        #|    memory.copy
+        #|    global.get $d
+        #|    global.get $v
+        #|    call $val
+        #|    i32.const 1
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected global bulk-memory optimize success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
+      )
+    }),
+    msg="expected global bulk-memory raw escape, trace=\{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  // Binaryen version_130 lowers the same mutable-global operand shape
+  // (`.tmp/oi-g-global-bulk-memory-probe.wat`). This raw-gate escape is limited
+  // to tiny bulk-memory operands and does not generalize global.get to the
+  // commutative stack-call binop gate, where call/global reordering would be
+  // unsafe if a call mutates the global.
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "i32.store8"),
+    2,
+    msg=pretty,
+  )
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "global.get", "call (Func 0)", "global.get", "call (Func 1)", "i32.load8u", "i32.store8",
+    "global.get", "global.get", "call (Func 2)", "i32.store8",
+  ])
+}
+
+///|
 test "optimize-instructions truncates constant byte memory.fill values before store8" {
   let optimized = match
     pass_test_run_pipeline(

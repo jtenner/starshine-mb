@@ -184,10 +184,11 @@ What to remember:
   the narrow stack-style form `pure local.get/const; no-param direct call;
   commutative integer binop`, so simple `local.get + call` functions reach HOT
   and get the same call-first spelling. It also admits flat tiny `memory.copy`
-  sequences whose address operands may independently be local/constant operands,
-  no-param direct-call operands, or direct calls with pure local/constant
-  arguments, plus flat byte `memory.fill` sequences with local/constant,
-  no-param-call, or pure-argument direct-call destination/value operands; mixed
+  sequences whose address operands may independently be local/constant/global
+  operands, no-param direct-call operands, or direct calls with pure
+  local/constant/global arguments, plus flat byte `memory.fill` sequences with
+  local/constant/global, no-param-call, or pure-argument direct-call
+  destination/value operands; mixed
   flat tiny-copy/byte-fill functions are covered by the same raw gate; broader
   stack-carried call/effect shapes still remain behind
   `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT
@@ -633,7 +634,7 @@ Effectful flat copy operands and byte-fill values are also covered for narrow no
   (i32.const 8))
 ```
 
-becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. The tiny-copy raw-gate escape also covers pure-argument direct-call address forms, source-backed mixed combinations, and mixed straight-line functions that contain both tiny copy and byte fill:
+becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. The tiny-copy raw-gate escape also covers pure-argument direct-call address forms, `global.get` operands used directly or as call arguments, source-backed mixed combinations, and mixed straight-line functions that contain both tiny copy and byte fill:
 
 ```wat
 (memory.copy
@@ -654,14 +655,24 @@ becomes `i64.store(i64.load(call $src))` with the destination call emitted befor
   (call $dst2 (local.get $d) (local.get $v))
   (call $value2 (local.get $d) (local.get $v))
   (i32.const 1))
+
+(memory.copy
+  (call $dst (global.get $d))
+  (call $src (global.get $s))
+  (i32.const 1))
 ```
 
-Similarly, `local.get $dst; call $value; i32.const 1; memory.fill` and pure-argument byte-fill operands become `i32.store8`:
+Similarly, `local.get $dst; call $value; i32.const 1; memory.fill`, `global.get` byte-fill operands, and pure-argument byte-fill operands become `i32.store8`:
 
 ```wat
 (memory.fill
   (call $dst (local.get $d))
   (call $value (local.get $v))
+  (i32.const 1))
+
+(memory.fill
+  (global.get $d)
+  (call $value (global.get $v))
   (i32.const 1))
 ```
 

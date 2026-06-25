@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lower global bulk-memory operands
+
+- Added OI-G implementation and red-first coverage for stack-carried tiny bulk-memory sequences that use `global.get` directly or as a direct-call argument.
+- Binaryen `version_130` lowers the probed mutable-global size-1 `memory.copy` and byte `memory.fill` shapes to `i32.load8_u` / `i32.store8` while preserving global-read-before-call evaluation order; Starshine now admits the same flat bulk-memory shape through a bulk-memory-specific raw-gate operand predicate.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-global-bulk-memory-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*global bulk-memory*'` failed before implementation with `stack-carried-effect-optimize-instructions-noop` and passed after.
+
 ## [2026-06-25] passes/optimize-instructions | Cover earlier/later tuple neighbor
 
 - Added OI-M direct-HOT neighbor coverage for the covered single-result `tuple.extract(tuple.make(...))` localization when both earlier and later non-selected siblings have effects.

@@ -22589,6 +22589,19 @@ fn run_hot_pipeline_optimize_instructions_is_call_indexed_table_get_call_ref(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.GlobalGet(_) => true
+    _ =>
+      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        instr,
+      )
+  }
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -22616,12 +22629,12 @@ fn run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
     0 {
     return start + 1
   }
-  if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+  if run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
       instrs[start],
     ) {
     let mut call_pos = start + 1
     while call_pos < instrs.length() &&
-          run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+          run_hot_pipeline_optimize_instructions_instr_is_bulk_memory_stack_operand(
             instrs[call_pos - 1],
           ) {
       if run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
