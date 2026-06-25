@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Fold same-local integer binaries
+
+- Added direct OI-D same-local integer binary folding: identical direct `local.get` operands under `sub` and `xor` become zero, while identical direct `local.get` operands under `and` and `or` become the local value, for i32 and i64.
+- Kept the proof intentionally narrow to direct locals only; broader expression identity, effectful operands, and flow-sensitive equality facts remain open.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-same-local-binary-probe.wat`; red-first `*same-local integer binary operands*` failed before implementation and passed after.
+
 ## [2026-06-24] passes/optimize-instructions | Lower effectful tiny memory.copy
 
 - Narrowed the OI raw `stack-carried-effect` gate for flat tiny `memory.copy` sequences whose destination/source operands are no-param one-result direct calls or pure local/constant values and whose size is `1`/`2`/`4`/`8`.

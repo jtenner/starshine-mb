@@ -37,7 +37,7 @@ Current Starshine `src/passes/optimize_instructions.mbt` is a real HOT pass, but
 The implemented center of gravity is:
 
 - exact binary constant folding
-- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first pure/effect-preserving i32/i64 `shr_u` bounded unsigned-compare folds, and relational constant canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first pure/effect-preserving i32/i64 `shr_u` bounded unsigned-compare folds, and relational constant canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites
 - constant-`if` folding
@@ -71,7 +71,7 @@ The local file has dedicated helpers for:
 - exact constant folding of binary ops
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
-- same-local integer compare folding
+- same-local integer compare folding plus direct same-local integer binary folds for `sub`/`xor` to zero and `and`/`or` to the local value
 - pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask proves the value is below an out-of-range constant, plus first recursive i32/i64 `shr_u` bounded unsigned-compare folds for constant shift amounts `1..31` / `1..63`, carrying direct child `and`/`shr_u` maxBits facts and dropping effectful masked/shifted values before the replacement constant
 - relational operand canonicalization
 - relational-constant normalization

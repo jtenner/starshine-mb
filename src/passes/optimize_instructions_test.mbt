@@ -783,6 +783,55 @@ test "optimize-instructions folds same-local integer compares" {
 }
 
 ///|
+test "optimize-instructions folds same-local integer binary operands" {
+  let i32_sub = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 local.get 0 i32.sub))",
+  )
+  let i32_sub_root = @ir.hot_root_get(i32_sub, 0)
+  match @ir.hot_node_get(i32_sub, i32_sub_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected same-local i32.sub to fold to zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i32_sub, @ir.hot_node_get(i32_sub, i32_sub_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_xor = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 local.get 0 i64.xor))",
+  )
+  let i64_xor_root = @ir.hot_root_get(i64_xor, 0)
+  match @ir.hot_node_get(i64_xor, i64_xor_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected same-local i64.xor to fold to zero")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i64_xor, @ir.hot_node_get(i64_xor, i64_xor_root).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+
+  let i32_and = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 local.get 0 i32.and))",
+  )
+  let i32_and_root = @ir.hot_root_get(i32_and, 0)
+  match @ir.hot_node_get(i32_and, i32_and_root).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected same-local i32.and to fold to the local")
+  }
+  @debug.assert_eq(@ir.hot_node_get(i32_and, i32_and_root).imm0, 0)
+
+  let i64_or = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) local.get 0 local.get 0 i64.or))",
+  )
+  let i64_or_root = @ir.hot_root_get(i64_or, 0)
+  match @ir.hot_node_get(i64_or, i64_or_root).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected same-local i64.or to fold to the local")
+  }
+  @debug.assert_eq(@ir.hot_node_get(i64_or, i64_or_root).imm0, 0)
+}
+
+///|
 test "optimize-instructions folds i32 masked unsigned compares outside max" {
   let eq_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 255 i32.and i32.const 256 i32.eq))",

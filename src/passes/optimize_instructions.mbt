@@ -7348,6 +7348,54 @@ fn optimize_instructions_try_fold_same_local_integer_compare(
 }
 
 ///|
+fn optimize_instructions_try_fold_same_local_integer_binary(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match
+    (
+      optimize_instructions_local_get_id(func, dead, lhs_id),
+      optimize_instructions_local_get_id(func, dead, rhs_id),
+    ) {
+    (Some(lhs_local), Some(rhs_local)) if lhs_local == rhs_local => ()
+    _ => return false
+  }
+  match instr {
+    @lib.Instruction::I32Sub | @lib.Instruction::I32Xor => {
+      optimize_instructions_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(0),
+      )
+      true
+    }
+    @lib.Instruction::I64Sub | @lib.Instruction::I64Xor => {
+      optimize_instructions_replace_with_const_i64(
+        ctx,
+        func,
+        node_id,
+        @lib.I64(0L),
+      )
+      true
+    }
+    @lib.Instruction::I32And
+    | @lib.Instruction::I32Or
+    | @lib.Instruction::I64And
+    | @lib.Instruction::I64Or => {
+      optimize_instructions_replace_with_node_id(ctx, func, node_id, lhs_id)
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_i32_unsigned_max(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -7719,7 +7767,10 @@ fn optimize_instructions_visit_node(
         let initial_instr = func.instr_payloads[node.imm0].instr
         let initial_lhs = func.children[node.child_base]
         let initial_rhs = func.children[node.child_base + 1]
-        let changed = optimize_instructions_try_fold_identity_binary(
+        let changed = optimize_instructions_try_fold_same_local_integer_binary(
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
+          optimize_instructions_try_fold_identity_binary(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
           optimize_instructions_try_fold_absorbing_binary(
@@ -7777,6 +7828,9 @@ fn optimize_instructions_visit_node(
           let current_lhs = func.children[current.child_base]
           let current_rhs = func.children[current.child_base + 1]
           let current_instr = func.instr_payloads[current.imm0].instr
+          optimize_instructions_try_fold_same_local_integer_binary(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
           optimize_instructions_try_fold_identity_binary(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||

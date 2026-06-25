@@ -126,7 +126,7 @@ The in-tree implementation is still a real, useful hot pass.
 Its center of gravity is:
 
 - exact integer binary constant folding, including add and sub
-- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first recursive pure/effect-preserving i32/i64 `shr_u`/`and` bounded unsigned-compare folds, and relational constant plus guarded operand canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first recursive pure/effect-preserving i32/i64 `shr_u`/`and` bounded unsigned-compare folds, and relational constant plus guarded operand canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, scalar float spelling rewrites, and `i32.wrap_i64` constant folding
 - first local scanner-style sign-extension facts, redundant sign-extension removal, and shift-pair sign-extension idiom rewrites
@@ -272,7 +272,7 @@ The local file has dedicated helpers for:
 - first sign-extension facts and idiom rewrites from `[O4Z-AUDIT-OI-E]`: signed-load/default-local/fallthrough-local facts, redundant sign-extension removal, and `shl` + `shr_s` sign-extension synthesis
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
-- same-local integer compare folding
+- same-local integer compare folding, plus direct same-local integer binary folds for `sub`/`xor` to zero and `and`/`or` to the local value
 - pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask bounds the value below an out-of-range constant, plus first i32/i64 `shr_u` bounded unsigned-compare folds for constant shift amounts `1..31` / `1..63`, dropping evaluated masked/shifted values before the folded constant
 - guarded relational operand canonicalization
 - relational-constant normalization

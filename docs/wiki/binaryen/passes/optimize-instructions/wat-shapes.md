@@ -125,6 +125,26 @@ So the real rule is:
 - canonicalization is partly algebraic
 - and partly encoding-aware
 
+## Shape family 2a: direct same-local integer binary operands
+
+Before:
+
+```wat
+(i32.sub (local.get $x) (local.get $x))
+(i64.xor (local.get $y) (local.get $y))
+(i32.and (local.get $x) (local.get $x))
+```
+
+After:
+
+```wat
+i32.const 0
+i64.const 0
+local.get $x
+```
+
+Starshine covers this only for direct identical `local.get` operands: `sub` and `xor` fold to zero, while `and` and `or` fold to the local value for i32 and i64. Broader expression identity is not claimed.
+
 ## Shape family 2b: commutative operand canonicalization
 
 Before:
