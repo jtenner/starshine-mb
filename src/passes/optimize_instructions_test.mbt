@@ -11911,6 +11911,88 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
 }
 
 ///|
+test "optimize-instructions intentionally keeps tuple.extract with multi-result selected sixth lane boundary" {
+  // Boundary-only OI-M classification: Binaryen `version_130`
+  // `--optimize-instructions` localizes the sixth scalar result selected from a
+  // multi-result tuple child through tuple scratch plus scalar temps
+  // (`.tmp/oi-m-tuple-multiresult-selected-sixth-probe.wat`). Starshine's
+  // direct tuple.extract localizer currently proves only single-result selected
+  // children, so this fixture locks another wider selected-child variant of the
+  // same tuple-scratch boundary.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i64()),
+  )
+  let selected = @ir.hot_build_call(
+    func,
+    0,
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+    ],
+    [],
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::i64(),
+    ],
+    [selected, @ir.hot_build_const_i64(func, @lib.I64(9L))],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i64(), tuple, 5)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected multi-result selected sixth-lane tuple boundary success, got \{err}",
+      )
+  }
+
+  let result = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, result).op {
+    @ir.HotOp::TupleExtract => ()
+    _ =>
+      fail(
+        "expected multi-result selected sixth-lane tuple.extract to stay unchanged",
+      )
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
+  @debug.assert_eq(@ir.hot_node_get(func, result).imm0, 5)
+  match @ir.hot_node_get(func, tuple).op {
+    @ir.HotOp::TupleMake => ()
+    _ =>
+      fail(
+        "expected multi-result selected sixth-lane tuple.make to stay available",
+      )
+  }
+  match @ir.hot_node_get(func, selected).op {
+    @ir.HotOp::Call => ()
+    _ =>
+      fail("expected multi-result selected sixth-lane call to stay available")
+  }
+}
+
+///|
 test "optimize-instructions preserves earlier and later tuple.extract sibling effects" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
