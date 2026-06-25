@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lower multi-parameter bulk-memory calls
+
+- Added OI-G implementation and red-first coverage for stack-carried tiny bulk-memory sequences whose direct-call operands take multiple pure local/constant arguments.
+- Binaryen `version_130` lowers the probed mixed size-1 `memory.copy` plus byte `memory.fill` function to load/store and `i32.store8` forms; Starshine now admits the same flat pure-argument shape through the raw gate and no longer rejects a function just because covered tiny-copy and byte-fill operations are mixed.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-multiparam-bulk-memory-boundary-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*multi-parameter bulk-memory*'` failed before implementation with `stack-carried-effect-optimize-instructions-noop` and passed after.
+
 ## [2026-06-25] passes/optimize-instructions | Lower parameterized byte memory.fill
 
 - Added OI-G implementation and red-first coverage for stack-carried size-1 `memory.fill` sequences whose destination/value operands may be one-pure-argument direct calls.

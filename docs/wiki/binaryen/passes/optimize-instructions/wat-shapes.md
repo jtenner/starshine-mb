@@ -185,9 +185,10 @@ What to remember:
   commutative integer binop`, so simple `local.get + call` functions reach HOT
   and get the same call-first spelling. It also admits flat tiny `memory.copy`
   sequences whose address operands may independently be local/constant operands,
-  no-param direct-call operands, or the exact one-pure-argument direct-call form,
-  plus flat byte `memory.fill` sequences with local/constant/no-param-call or
-  exact one-pure-argument direct-call destination/value operands; broader
+  no-param direct-call operands, or direct calls with pure local/constant
+  arguments, plus flat byte `memory.fill` sequences with local/constant,
+  no-param-call, or pure-argument direct-call destination/value operands; mixed
+  flat tiny-copy/byte-fill functions are covered by the same raw gate; broader
   stack-carried call/effect shapes still remain behind
   `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT
   lowering slice proves them safe.
@@ -623,7 +624,7 @@ Likewise:
 
 may become a single `store` of a repeated-byte constant pattern. Starshine also lowers direct `local.get` fill values for sizes `2`/`4`/`8` by building the repeated-byte pattern from the low byte. For size `1`, flat local or no-param-call values also lower directly to `i32.store8`. Non-local wider fill values such as direct calls or computed `i32.add` values for sizes `2`/`4`/`8` are now explicit keep-spelling boundaries matching Binaryen `version_130`, not missing materialization.
 
-Effectful flat copy operands and byte-fill values are also covered for narrow no-param-call shapes:
+Effectful flat copy operands and byte-fill values are also covered for narrow no-param-call and pure-argument direct-call shapes:
 
 ```wat
 (memory.copy
@@ -632,7 +633,7 @@ Effectful flat copy operands and byte-fill values are also covered for narrow no
   (i32.const 8))
 ```
 
-becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. The tiny-copy raw-gate escape also covers the exact one-pure-argument direct-call address form and source-backed mixed combinations:
+becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. The tiny-copy raw-gate escape also covers pure-argument direct-call address forms, source-backed mixed combinations, and mixed straight-line functions that contain both tiny copy and byte fill:
 
 ```wat
 (memory.copy
@@ -644,9 +645,18 @@ becomes `i64.store(i64.load(call $src))` with the destination call emitted befor
   (call $dst (local.get $d))
   (call $src0)
   (i32.const 1))
+
+(memory.copy
+  (call $dst2 (local.get $d) (local.get $v))
+  (call $src2 (local.get $s) (local.get $d))
+  (i32.const 1))
+(memory.fill
+  (call $dst2 (local.get $d) (local.get $v))
+  (call $value2 (local.get $d) (local.get $v))
+  (i32.const 1))
 ```
 
-Similarly, `local.get $dst; call $value; i32.const 1; memory.fill` and exact one-pure-argument byte-fill operands become `i32.store8`:
+Similarly, `local.get $dst; call $value; i32.const 1; memory.fill` and pure-argument byte-fill operands become `i32.store8`:
 
 ```wat
 (memory.fill
@@ -658,7 +668,7 @@ Similarly, `local.get $dst; call $value; i32.const 1; memory.fill` and exact one
 Important negative shape:
 
 - zero-size or same-src/dst cases are not blindly dropped in default mode; trap assumptions matter.
-- non-flat, multi-parameter-call, nonconstant-size, and broader control/effect copy forms still need separate localization proof.
+- non-flat, non-pure call arguments, nonconstant-size, wider call-backed fill, and broader control/effect copy forms still need separate localization proof.
 
 ## Shape family 15: `call_ref` with known target
 

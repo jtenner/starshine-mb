@@ -6784,6 +6784,79 @@ test "optimize-instructions expands stack-carried parameterized byte memory.fill
 }
 
 ///|
+test "optimize-instructions expands stack-carried multi-parameter bulk-memory calls" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func $dst2 (param i32 i32) (result i32)
+        #|    local.get 0
+        #|    local.get 1
+        #|    i32.add)
+        #|  (func $src2 (param i32 i32) (result i32)
+        #|    local.get 0
+        #|    local.get 1
+        #|    i32.add)
+        #|  (func $value2 (param i32 i32) (result i32)
+        #|    local.get 0
+        #|    local.get 1
+        #|    i32.add)
+        #|  (func (param $a i32) (param $b i32) (param $v i32)
+        #|    local.get $a
+        #|    local.get $b
+        #|    call $dst2
+        #|    local.get $b
+        #|    local.get $a
+        #|    call $src2
+        #|    i32.const 1
+        #|    memory.copy
+        #|    local.get $a
+        #|    local.get $b
+        #|    call $dst2
+        #|    local.get $v
+        #|    i32.const 1
+        #|    memory.fill
+        #|    local.get $a
+        #|    local.get $b
+        #|    call $dst2
+        #|    local.get $a
+        #|    local.get $v
+        #|    call $value2
+        #|    i32.const 1
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multi-parameter bulk-memory optimize success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
+      )
+    }),
+    msg="expected multi-parameter bulk-memory raw escape, trace=\{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  // Binaryen version_130 lowers these pure-argument multi-parameter call
+  // operands (`.tmp/oi-g-multiparam-bulk-memory-boundary-probe.wat`).
+  // Broader non-pure/control-bearing call arguments remain open.
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "i32.store8"),
+    3,
+  )
+}
+
+///|
 test "optimize-instructions truncates constant byte memory.fill values before store8" {
   let optimized = match
     pass_test_run_pipeline(
