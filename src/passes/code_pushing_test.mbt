@@ -2823,6 +2823,56 @@ test "code-pushing boundary keeps SFA set before payload throw and br_if push po
 }
 
 ///|
+test "code-pushing boundary keeps SFA set before rethrowing legacy try and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps the pure set before a legacy try/catch root that can rethrow. The WAT
+  // lifter currently lowers legacy rethrow to unreachable, so this fixture uses
+  // direct HOT to keep the rethrow barrier visible to the pass.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let target = @ir.hot_control_node_label(func, block_id)
+  let rethrow_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let rethrow_id = @ir.hot_build_node(
+    func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_intern_void(func),
+    imm0=0,
+    children=[],
+  )
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, rethrow_block),
+    [rethrow_id],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+    @ir.hot_build_local_set(func, 1, @ir.hot_build_const_i32(func, @lib.I32(7))),
+    rethrow_block,
+    @ir.hot_build_br_if(func, target, @ir.hot_build_local_get(func, 0)),
+    @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
+  ])
+  @ir.hot_root_append(func, block_id)
+  let func = code_pushing_test_run_hot_func(func)
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "block")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
 test "code-pushing boundary keeps SFA set before try_table and br_if push point" {
   // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
   // keeps the pure set before an intervening try_table with a catch target.

@@ -178,6 +178,65 @@ fn code_pushing_effects_safe_to_cross_for_heap_read(mask : UInt) -> Bool {
 }
 
 ///|
+fn code_pushing_node_has_rethrow(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Rethrow => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if code_pushing_node_has_rethrow(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  let region_has_rethrow = fn(region_ref : @ir.HotRegionRef) -> Bool {
+    for idx = 0
+        idx < @ir.hot_region_root_count(func, region_ref)
+        idx = idx + 1 {
+      if code_pushing_node_has_rethrow(
+          func,
+          @ir.hot_region_get(func, region_ref, idx),
+        ) {
+        return true
+      }
+    }
+    false
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      region_has_rethrow(@ir.hot_region_body_ref(func, node_id))
+    @ir.HotOp::If => {
+      if region_has_rethrow(@ir.hot_region_then_ref(func, node_id)) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) => region_has_rethrow(else_ref)
+        None => false
+      }
+    }
+    @ir.HotOp::Try => {
+      if region_has_rethrow(@ir.hot_region_body_ref(func, node_id)) {
+        return true
+      }
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(catch_ref) => region_has_rethrow(catch_ref)
+        None => false
+      }
+    }
+    @ir.HotOp::TryTable =>
+      region_has_rethrow(@ir.hot_region_body_ref(func, node_id)) ||
+      region_has_rethrow(@ir.hot_region_catch_list_ref(func, node_id))
+    _ => false
+  }
+}
+
+///|
 fn code_pushing_node_has_segment_order_barrier(
   func : @ir.HotFunc,
   node_id : Int,
@@ -192,6 +251,9 @@ fn code_pushing_node_has_segment_order_barrier(
     | @ir.HotOp::Try
     | @ir.HotOp::TryTable => true
     _ => {
+      if code_pushing_node_has_rethrow(func, node_id) {
+        return true
+      }
       let mask = @ir.effects_for_node(func, node_id)
       (mask & @ir.EFFECT_MASK_CALL) != 0U
     }
@@ -205,6 +267,9 @@ fn code_pushing_node_safe_to_cross_for_value(
   value_id : Int,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if code_pushing_node_has_rethrow(func, node_id) {
     return false
   }
   if code_pushing_node_is_global_get(func, value_id) {
