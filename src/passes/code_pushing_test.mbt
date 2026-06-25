@@ -2794,6 +2794,46 @@ test "code-pushing moves pure SFA set past memory.store before br_if push point"
 }
 
 ///|
+test "code-pushing moves pure SFA set past memory.grow before br_if push point" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (local i32)
+      #|    (block $exit
+      #|      i32.const 7
+      #|      local.set 1
+      #|      i32.const 1
+      #|      memory.grow
+      #|      drop
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 5)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body_ref, 1)).op {
+    @ir.HotOp::Drop => ()
+    other => abort("expected drop(memory.grow), got \{other}")
+  }
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 3),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 4), "drop")
+}
+
+///|
 test "code-pushing boundary keeps SFA set before call barrier and br_if push point" {
   // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
   // keeps the pure set before an intervening call that may observe ordered-before
