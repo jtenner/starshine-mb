@@ -865,6 +865,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingBrIfProfile, 1),
         GenValidProfileMember::new(CodePushingBrOnNullProfile, 1),
         GenValidProfileMember::new(CodePushingBrOnNonNullProfile, 1),
+        GenValidProfileMember::new(CodePushingBrOnNonNullPrefixProfile, 1),
         GenValidProfileMember::new(CodePushingBrOnCastProfile, 1),
         GenValidProfileMember::new(CodePushingBrOnCastFailProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetProfile, 1),
