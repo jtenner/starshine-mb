@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1102-2026-06-25-heap-store-optimization-exact-ref-cast-blocker-audit.md
   - ../../../raw/research/1101-2026-06-25-heap-store-optimization-nontry-wrapper-swap-audit.md
   - ../../../raw/research/1100-2026-06-25-heap-store-optimization-result-wrapper-later-field-audit.md
   - ../../../raw/research/1099-2026-06-25-heap-store-optimization-trap-oldfield-audit.md
@@ -370,6 +371,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Micro-audit `1096` narrow-closes the enumerated descriptor/later-field barrier matrix by mapping the local/global split, mutable descriptor-global split, pure/effectful/trapping `select` / `if` / block-`br_if` condition families, descriptor `ref.as_non_null`, and old-field-plus-later-call barriers to source-backed tests. HSO-D/E stay open for exact descriptor `ref.cast`, arbitrary descriptor expressions beyond that list, broader default/old-field combinations, and result-wrapper interactions outside their own audits.
   - Probe note `0866` found Binaryen preserves `struct.set` when a descriptor block uses `br_on_non_null` to produce an exact descriptor and falls through to `unreachable`; a focused Starshine AST fixture currently hits a HOT CFG/verifier surface blocker, so this remains an open local-surface blocker rather than HSO parity evidence or an accepted non-goal.
   - Surface note `0869` refreshed the exact descriptor `ref.cast` blocker from `0789`: Binaryen preserves `struct.set`, Starshine still rejects the exact WAT during decode, and a direct-AST `ref_cast_desc_eq` attempt does not validate as an equivalent HSO fixture. This remains a local decode/instruction-surface blocker, not an HSO semantic non-goal.
+  - Recheck `1048` confirmed the same blocker with a refreshed native binary and `wasm-tools`-parsed wasm input. Micro-audit `1102` centralizes the exact descriptor `ref.cast` classification: it is the remaining narrow local-surface blocker for HSO-D/E/F/G/H, not broad descriptor-expression drift and not an approved non-goal; close it only once Starshine can run the exact probe and preserve `struct.set` like Binaryen.
   - Coverage note `0885` locked descriptor old-field side-effect preservation: Binaryen folds a call-valued later store into `struct.new_desc` while preserving the overwritten old field's call under `drop`; Starshine already matched.
   - Coverage note `0886` locked the matching descriptor old-field plus later-field barrier: Binaryen preserves `struct.set` when folding would move a call-valued later store before a later constructor-field call, even though the overwritten old field is also a call; Starshine already matched.
   - Coverage note `0887` locked the plain-constructor counterpart: Binaryen also preserves `struct.set` for plain `struct.new` when the overwritten old field and a later constructor field both call, because old-field side-effect preservation does not override the later-field call barrier; Starshine already matched.
