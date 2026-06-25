@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1091-2026-06-25-heap-store-optimization-non-goal-audit.md
   - ../../../raw/research/1090-2026-06-25-heap-store-optimization-post-context-skip-compare.md
   - ../../../raw/research/1089-2026-06-25-heap-store-optimization-target-local-hazard-audit.md
   - ../../../raw/research/1088-2026-06-25-heap-store-optimization-control-context-skip.md
@@ -367,6 +368,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0856` confirmed Binaryen folds `struct.new_default_desc` chain stores into `struct.new_desc` when safe, but preserves a descriptor `struct.set` when a later constructor field call orders before a moved call value.
 - Generic heap dead-store elimination and load forwarding remain explicit non-goals for direct HSO.
   - Follow-up `0867` confirmed Binaryen `version_130` preserves repeated non-fresh-reference `struct.set` roots and a later `struct.get` after `struct.set`; Starshine now has matching boundary tests. Reopen only if Binaryen moves generic heap DSE/load forwarding into HSO or Starshine schedules a separate pass for those transforms.
+- Explicit HSO-H non-goals are narrow-audited in `1091`.
+  - Array stores, generic non-fresh-reference DSE/load-forwarding, and direct unreachable constructor/set-value roots are the source-backed non-goals/boundaries currently covered by focused tests. Ordinary memory/table roots are not a non-goal because `0791` proved Binaryen folds through unrelated roots when resource ordering permits. Descriptor `br_on_non_null`, direct-root `return_call_ref`, and bottom-typed tail-call findings are no longer broad HSO-H blockers; exact descriptor `ref.cast` remains a local decode/instruction-surface blocker rather than an accepted semantic non-goal.
 - Unreachable constructor/set-value pairs are an explicit no-fold boundary for HSO.
   - Follow-up `0868` confirmed Binaryen `version_130` preserves `struct.set` for direct-root unreachable constructor and set-value shapes, matching Starshine's existing `0792` boundary tests. The exact direct-root set-value fixture remains a local HOT/test-surface caveat, not an accepted semantic non-goal.
 - Cross-family memory/table growth swap cases follow the same resource-sensitive directionality as the ordinary-store cross-family cases.
