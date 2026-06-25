@@ -7158,6 +7158,157 @@ fn run_hot_pipeline_hso_candidate_scan(
 }
 
 ///|
+fn run_hot_pipeline_hso_raw_struct_field_count(
+  mod_ : @lib.Module,
+  type_idx : @lib.TypeIdx,
+) -> Int? {
+  let target = match type_idx {
+    @lib.TypeIdx(raw) => raw.reinterpret_as_int()
+    @lib.RecIdx(_) => return None
+  }
+  let rec_types = match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) => rec_types
+    None => return None
+  }
+  let mut flat = 0
+  for rec_type in rec_types {
+    match rec_type {
+      @lib.SingleRecType(subtype) => {
+        if flat == target {
+          return match subtype.get_comptype() {
+            @lib.StructCompType(fields) => Some(fields.length())
+            _ => None
+          }
+        }
+        flat = flat + 1
+      }
+      @lib.GroupRecType(subtypes) =>
+        for subtype in subtypes {
+          if flat == target {
+            return match subtype.get_comptype() {
+              @lib.StructCompType(fields) => Some(fields.length())
+              _ => None
+            }
+          }
+          flat = flat + 1
+        }
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_hso_raw_simple_value(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_) => Some(instr)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_heap_store_optimization_complete_default_chain(
+  mod_ : @lib.Module,
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool)? {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut cursor = 0
+  let mut scan_idx = 0
+  let mut changed = false
+  while scan_idx + 1 < instrs.length() {
+    match (instrs[scan_idx], instrs[scan_idx + 1]) {
+      (
+        @lib.StructNewDefault(type_idx),
+        @lib.LocalSet(@lib.LocalIdx(local_raw)) as local_set,
+      ) => {
+        let field_count = match
+          run_hot_pipeline_hso_raw_struct_field_count(mod_, type_idx) {
+          Some(count) if count > 0 => count
+          _ => {
+            scan_idx = scan_idx + 1
+            continue
+          }
+        }
+        let values : Array[@lib.Instruction?] = Array::make(field_count, None)
+        let present : Array[Bool] = Array::make(field_count, false)
+        let mut missing = field_count
+        let mut chain_idx = scan_idx + 2
+        let mut consumed_sets = 0
+        while chain_idx + 2 < instrs.length() {
+          match
+            (instrs[chain_idx], instrs[chain_idx + 1], instrs[chain_idx + 2]) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(read_raw)),
+              value_instr,
+              @lib.StructSet(set_type_idx, @lib.U32(raw_field_idx)),
+            ) if read_raw == local_raw && set_type_idx == type_idx => {
+              let field_idx = raw_field_idx.reinterpret_as_int()
+              if field_idx < 0 || field_idx >= field_count {
+                break
+              }
+              match run_hot_pipeline_hso_raw_simple_value(value_instr) {
+                Some(value) => {
+                  if !present[field_idx] {
+                    present[field_idx] = true
+                    missing = missing - 1
+                  }
+                  values[field_idx] = Some(value)
+                  consumed_sets = consumed_sets + 1
+                  chain_idx = chain_idx + 3
+                  continue
+                }
+                None => break
+              }
+            }
+            _ => break
+          }
+        }
+        if consumed_sets > 0 && missing == 0 {
+          for idx = cursor; idx < scan_idx; idx = idx + 1 {
+            rewritten.push(instrs[idx])
+          }
+          for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
+            match values[field_idx] {
+              Some(value) => rewritten.push(value)
+              None => return None
+            }
+          }
+          rewritten.push(@lib.Instruction::struct_new(type_idx))
+          rewritten.push(local_set)
+          for _ in 0..<consumed_sets {
+            rewritten.push(@lib.Instruction::nop())
+          }
+          cursor = chain_idx
+          scan_idx = chain_idx
+          changed = true
+          continue
+        }
+      }
+      _ => ()
+    }
+    scan_idx = scan_idx + 1
+  }
+  if !changed {
+    return None
+  }
+  for idx = cursor; idx < instrs.length(); idx = idx + 1 {
+    rewritten.push(instrs[idx])
+  }
+  let (has_local_writes, has_struct_alloc, has_struct_set) = run_hot_pipeline_hso_candidate_scan(
+    rewritten,
+  )
+  if has_local_writes && has_struct_alloc && has_struct_set {
+    return None
+  }
+  Some((rewritten, true))
+}
+
+///|
 priv struct PlsCandidateScanState {
   mut has_candidate_producer : Bool
   mut has_local_get : Bool
@@ -22919,16 +23070,28 @@ fn run_hot_pipeline_raw_heap_store_optimization(
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  let @lib.Func(_, @lib.Expr(instrs)) = original
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  match
+    run_hot_pipeline_raw_heap_store_optimization_complete_default_chain(
+      mod_, instrs,
+    ) {
+    Some((rewritten, changed)) =>
+      return Some({
+        reason: "raw-complete-default-heap-store-chain",
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+        unchanged_original: !changed,
+        trace_skip_raw: true,
+      })
+    None => ()
+  }
   let (has_local_writes, has_struct_alloc, has_struct_set) = run_hot_pipeline_hso_candidate_scan(
     instrs,
   )
   if has_local_writes && has_struct_alloc && has_struct_set {
     return None
   }
-  let @lib.Func(locals, @lib.Expr(body)) = original
   let (cleaned_body, cleanup_changed) = pass_raw_remove_dropped_unreachable_debris(
-    body,
+    instrs,
   )
   Some({
     reason: "no-heap-store-candidates",

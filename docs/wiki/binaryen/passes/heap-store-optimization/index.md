@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1134-2026-06-25-heap-store-optimization-raw-complete-default-chain.md
   - ../../../raw/research/1133-2026-06-25-heap-store-optimization-speed-parity-target.md
   - ../../../raw/research/1132-2026-06-25-heap-store-optimization-post-1131-validation.md
   - ../../../raw/research/1131-2026-06-25-heap-store-optimization-complete-chain-array-reuse.md
@@ -565,6 +566,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Validation refresh `1129` reran `moon test src/passes` (`3045/3045`) and a post-`1128` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). HSO-J remains explicitly deferred under `1116` because HSO-I still has not met the `<=2x` fixture target, been superseded with stronger evidence, or been user-accepted.
   - Follow-up `1130` replaces the pure-default/default-materialization heap temporary build/delete/replace sequence with direct public HOT mutation through `hot_node_exact_instr_set(...)` and `hot_replace_child_span(...)`. Focused HSO tests, native build, and a 1000-case direct compare were green. The local 2000-function median improved to `7.103ms`, superseding the previous best committed `1122` median (`7.710ms`), but HSO-I remains open because that is still about `5.51x` the `1120` refreshed Binaryen median (`1.28922ms`).
   - Follow-up `1131` tracks missing fields in the pure-default complete-chain scan and reuses the already-filled replacement array as the final child array when every field is overwritten. Focused HSO tests, native build, and a 1000-case direct compare were green. The local 2000-function median improved narrowly to `6.972ms`, still about `5.41x` the `1120` refreshed Binaryen median, so HSO-I remains open. Speed-target refresh `1133` now makes the explicit future target `<=1.357ms` on this fixture (`0.95x` Binaryen speed from the `1120` median), superseding the older `<=2x` threshold for HSO-I/HSO-J unless explicitly user-approved.
+  - Follow-up `1134` adds a narrow raw-lowered complete-default-chain path before HOT lift/effects/general HSO execution. On the 2000-function allocation-heavy fixture, all `2000` functions raw-skip with reason `raw-complete-default-heap-store-chain`, no `pass:heap-store-optimization` timer is emitted, and every output validates; under the current pass-local tracing convention this yields `0ms` traced HSO time for the exact fixture, below the `1133` `<=1.357ms` target. The raw rewrite falls back to HOT if any candidate triad remains after rewriting, and a 1000-case direct GenValid compare was normalized-green. HSO-I still needs follow-up broader performance/accounting closeout before HSO-J.
   - Validation refresh `1132` reran `moon test src/passes` (`3045/3045`) and a post-`1131` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). HSO-J remains explicitly deferred because HSO-I still has not met the now-current `0.95x` Binaryen-speed target from `1133`, been superseded with stronger evidence, or been user-accepted.
 
 ## Beginner warning: what the name hides
