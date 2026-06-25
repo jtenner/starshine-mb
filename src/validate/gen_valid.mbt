@@ -11428,11 +11428,11 @@ fn gen_valid_append_heap_store_optimization_body_slice(
               out.push(Instruction::i32_const(I32(146)))
               out.push(Instruction::struct_set(described_idx, U32::new(0U)))
 
-              // Descriptor direct tail-call result-wrapper old-field roots keep
-              // the generated profile on the pure-descriptor sibling of the
-              // plain tail-call family: the overwritten field is a true helper
-              // call result, the descriptor operand is pure, and the later
-              // same-field store remains after the result-typed wrapper.
+              // Descriptor tail-call result-wrapper old-field roots keep the
+              // generated profile on the pure-descriptor siblings of the plain
+              // tail-call family: the overwritten field is a true helper call
+              // result, the descriptor operand is pure, and the later same-
+              // field store remains after the result-typed wrapper.
               match env.current_func_idx {
                 Some(tail_idx) =>
                   match gen_valid_callable_by_idx(env.funcs, tail_idx) {
@@ -11458,6 +11458,39 @@ fn gen_valid_append_heap_store_optimization_body_slice(
                       out.push(
                         Instruction::struct_set(described_idx, U32::new(0U)),
                       )
+
+                      if !env.tables.is_empty() {
+                        out.push(Instruction::call(target.idx))
+                        out.push(
+                          Instruction::ref_null(
+                            HeapType::abs(AbsHeapType::eq()),
+                          ),
+                        )
+                        out.push(
+                          Instruction::struct_new_default(descriptor_idx),
+                        )
+                        out.push(Instruction::struct_new_desc(described_idx))
+                        out.push(Instruction::local_set(described_local_idx))
+                        out.push(
+                          Instruction::try_table(
+                            BlockType::val_type(ValType::i32()),
+                            [],
+                            Expr::new([
+                              Instruction::i32_const(I32(0)),
+                              Instruction::return_call_indirect(
+                                tail_target.type_idx,
+                                TableIdx::new(0U),
+                              ),
+                            ]),
+                          ),
+                        )
+                        out.push(Instruction::drop())
+                        out.push(Instruction::local_get(described_local_idx))
+                        out.push(Instruction::i32_const(I32(151)))
+                        out.push(
+                          Instruction::struct_set(described_idx, U32::new(0U)),
+                        )
+                      }
                     }
                     _ => ()
                   }
