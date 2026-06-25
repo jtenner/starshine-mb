@@ -62,6 +62,7 @@ sources:
   - ../../../raw/research/0897-2026-06-25-optimize-instructions-oi-m-earlier-multiresult-sibling-boundary.md
   - ../../../raw/research/0899-2026-06-25-optimize-instructions-oi-m-selected-third-multiresult-boundary.md
   - ../../../raw/research/0900-2026-06-25-optimize-instructions-oi-d-maxbits-signed-spelling.md
+  - ../../../raw/research/0902-2026-06-25-optimize-instructions-oi-d-local-maxbits.md
   - ../../../raw/research/0901-2026-06-25-optimize-instructions-oi-m-selected-fourth-multiresult-boundary.md
   - ../../../raw/research/0862-2026-06-25-optimize-instructions-oi-g-multiparam-bulk-memory.md
   - ../../../raw/research/0863-2026-06-25-optimize-instructions-oi-m-earlier-later-neighbor.md
@@ -174,7 +175,7 @@ The in-tree implementation is still a real, useful hot pass.
 Its center of gravity is:
 
 - exact integer binary constant folding, including add and sub
-- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first recursive pure/effect-preserving i32/i64 `shr_u`/`and`/unsigned-load bounded unsigned-compare folds, first nonnegative signed-relational folds and signed-to-unsigned spelling rewrites, first i32 sign-extension equality folds plus a source-backed i64 sign-extension equality keep-spelling boundary, and relational constant plus guarded operand canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first recursive pure/effect-preserving i32/i64 `shr_u`/`and`/unsigned-load bounded unsigned-compare folds, first straight-line local-carried unsigned max facts, first nonnegative signed-relational folds and signed-to-unsigned spelling rewrites, first i32 sign-extension equality folds plus a source-backed i64 sign-extension equality keep-spelling boundary, and relational constant plus guarded operand canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, scalar float spelling rewrites, and `i32.wrap_i64` constant folding
 - first local scanner-style sign-extension facts, redundant sign-extension removal, and shift-pair sign-extension idiom rewrites

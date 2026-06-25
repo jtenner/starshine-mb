@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Carry local maxBits facts
+
+- Added OI-D focused coverage for Binaryen's straight-line local-carried unsigned max fact behavior.
+- Starshine now carries covered `and`, positive constant `shr_u`, unsigned-load, and nested unsigned max facts through direct `local.set` / `local.tee` roots to later `local.get` compares, folding out-of-range unsigned comparisons and rewriting in-range signed relational spellings to unsigned spellings.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-maxbits-local-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*local unsigned maxBits compares*'` passed `1/1` after implementation.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected-fourth multi-result tuple boundary
 
 - Added OI-M direct-HOT boundary coverage for selecting the fourth scalar lane from a multi-result tuple child.
