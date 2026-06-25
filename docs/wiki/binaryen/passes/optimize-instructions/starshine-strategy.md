@@ -72,7 +72,7 @@ The local file has dedicated helpers for:
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
 - same-local integer compare folding plus direct same-local integer binary folds for `sub`/`xor` to zero and `and`/`or` to the local value
-- pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask proves the value is below an out-of-range constant, plus first recursive i32/i64 `shr_u` bounded unsigned-compare folds for constant shift amounts `1..31` / `1..63`, carrying direct child `and`/`shr_u` maxBits facts and dropping effectful masked/shifted values before the replacement constant
+- pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask proves the value is below an out-of-range constant, first recursive i32/i64 `shr_u` bounded unsigned-compare folds for constant shift amounts `1..31` / `1..63`, carrying direct child `and`/`shr_u` maxBits facts and dropping effectful masked/shifted values before the replacement constant, plus first direct i32 sign-extension equality range folds for `i32.extend8_s` / `i32.extend16_s`
 - relational operand canonicalization
 - relational-constant normalization
 
@@ -139,7 +139,7 @@ The local pass does not yet model the upstream visitor families for:
 - `call_ref` directization families beyond the covered direct/ref.func, constant-index and call-indexed table.get, select, and fallthrough-known subsets with zero arguments or localized single-result arguments
 - broader memory and bulk-memory lowering beyond the covered tiny-copy/fill, stored-value, offset-fold, and narrow raw-gate escapes
 - tuple extraction parity beyond the one-use tuple.make subset with pure siblings or covered single-result effectful sibling drop/localization
-- a whole-function local prescan equivalent
+- a whole-function local prescan equivalent beyond the narrow fallthrough sign facts and direct sign-extension equality range folds
 - deferred `ReFinalize` / EH-pop repair inside this pass
 
 The 2026-06-19 `version_130` matrix routes those gaps to `[O4Z-AUDIT-OI-D]` through `[O4Z-AUDIT-OI-M]`, with `[O4Z-AUDIT-OI-N]` reserved for final direct/O4z closeout. That gap is intentional and documented so readers do not mistake the current local pass for a full upstream port.

@@ -955,6 +955,67 @@ test "optimize-instructions folds i32 unsigned-shift bounded compares" {
 }
 
 ///|
+test "optimize-instructions folds i32 sign-extension equality outside range" {
+  let eq8_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.extend8_s i32.const 128 i32.eq))",
+  )
+  let eq8_root = @ir.hot_root_get(eq8_func, 0)
+  match @ir.hot_node_get(eq8_func, eq8_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32.extend8_s equality above range to fold to const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(eq8_func, @ir.hot_node_get(eq8_func, eq8_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let ne16_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.extend16_s i32.const -32769 i32.ne))",
+  )
+  let ne16_root = @ir.hot_root_get(ne16_func, 0)
+  match @ir.hot_node_get(ne16_func, ne16_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32.extend16_s inequality below range to fold to const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(ne16_func, @ir.hot_node_get(ne16_func, ne16_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let effect_source =
+    #|(module
+    #|  (func $test (result i32)
+    #|    call $effect
+    #|    i32.extend8_s
+    #|    i32.const 128
+    #|    i32.eq)
+    #|  (func $effect (result i32) i32.const 7))
+    #|
+  let effect_func = optimize_instructions_test_run_hot(effect_source)
+  let effect_root = @ir.hot_root_get(effect_func, 0)
+  match @ir.hot_node_get(effect_func, effect_root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected effectful sign-extension equality to preserve effects")
+  }
+  let body = @ir.hot_region_body_ref(effect_func, effect_root)
+  @debug.assert_eq(@ir.hot_region_root_count(effect_func, body), 2)
+  let dropped = @ir.hot_region_get(effect_func, body, 0)
+  match @ir.hot_node_get(effect_func, dropped).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected folded sign-extension equality to drop effectful input")
+  }
+  let result = @ir.hot_region_get(effect_func, body, 1)
+  match @ir.hot_node_get(effect_func, result).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected folded sign-extension equality result to be const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(effect_func, @ir.hot_node_get(effect_func, result).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions preserves i32 masked unsigned compare effects" {
   let source =
     #|(module

@@ -83,7 +83,7 @@ Same-local integer compares also collapse when both operands are the same `local
 
 Starshine now covers this direct local subset for integer `eq`/`ne` and signed/unsigned `lt`/`le`/`gt`/`ge`; it does not claim a broader expression-identity proof for effectful or trapping operands.
 
-A first `maxBits`-style unsigned subset folds when an `and` mask bounds the left operand below the compared constant. Starshine now preserves effectful i32 and i64 masked operands by dropping the evaluated masked value before the folded constant. First recursive-width facts also handle direct i32/i64 unsigned-right-shift results with constant shift amounts `1..31` / `1..63`, including direct child `and`/`shr_u` facts such as `(x & 1023) >>> 4`.
+A first `maxBits`-style unsigned subset folds when an `and` mask bounds the left operand below the compared constant. Starshine now preserves effectful i32 and i64 masked operands by dropping the evaluated masked value before the folded constant. First recursive-width facts also handle direct i32/i64 unsigned-right-shift results with constant shift amounts `1..31` / `1..63`, including direct child `and`/`shr_u` facts such as `(x & 1023) >>> 4`. Starshine also covers the first direct i32 sign-extension equality range facts for `i32.extend8_s` / `i32.extend16_s` compared with constants outside the signed lane range.
 
 ```wat
 (i32.eq (i32.and (local.get $x) (i32.const 255)) (i32.const 256)) ;; -> i32.const 0

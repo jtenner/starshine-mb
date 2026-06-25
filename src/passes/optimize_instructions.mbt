@@ -7460,6 +7460,83 @@ fn optimize_instructions_try_fold_same_local_integer_binary(
 }
 
 ///|
+fn optimize_instructions_i32_sign_extension_range(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> (Int, Int, Int)? {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Unary if node.child_count == 1 => ()
+    _ => return None
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Extend8S) => Some((-128, 127, child_id))
+    Some(@lib.Instruction::I32Extend16S) => Some((-32768, 32767, child_id))
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_i32_sign_extension_equality_result(
+  instr : @lib.Instruction,
+  min_value : Int,
+  max_value : Int,
+  rhs : Int,
+) -> @lib.I32? {
+  if rhs >= min_value && rhs <= max_value {
+    return None
+  }
+  match instr {
+    @lib.Instruction::I32Eq => Some(@lib.I32(0))
+    @lib.Instruction::I32Ne => Some(@lib.I32(1))
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_i32_sign_extension_equality_compare(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let (min_value, max_value, drop_id) = match
+    optimize_instructions_i32_sign_extension_range(func, dead, lhs_id) {
+    Some(range) => range
+    None => return false
+  }
+  let rhs = match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) => raw
+    _ => return false
+  }
+  match
+    optimize_instructions_i32_sign_extension_equality_result(
+      instr, min_value, max_value, rhs,
+    ) {
+    Some(result) => {
+      if optimize_instructions_is_side_effect_free_expr(func, dead, drop_id) ||
+        optimize_instructions_node_effects_are_pure(ctx, func, drop_id) {
+        optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+      } else {
+        optimize_instructions_replace_with_drop_then_const_i32(
+          ctx, func, node_id, drop_id, result,
+        )
+      }
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_i32_unsigned_max(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -8000,14 +8077,21 @@ fn optimize_instructions_visit_node(
             current_lhs = func.children[current.child_base]
             current_rhs = func.children[current.child_base + 1]
           }
-          let masked_unsigned_folded = optimize_instructions_try_fold_i32_masked_unsigned_compare(
+          let range_folded = optimize_instructions_try_fold_i32_sign_extension_equality_compare(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          )
+          let masked_unsigned_folded = if range_folded {
+            false
+          } else {
+            optimize_instructions_try_fold_i32_masked_unsigned_compare(
               ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
             ) ||
             optimize_instructions_try_fold_i64_masked_unsigned_compare(
               ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
             )
-          changed = masked_unsigned_folded || changed
-          let zero_folded = if masked_unsigned_folded {
+          }
+          changed = range_folded || masked_unsigned_folded || changed
+          let zero_folded = if masked_unsigned_folded || range_folded {
             false
           } else {
             optimize_instructions_try_fold_compare_zero(
@@ -8015,7 +8099,7 @@ fn optimize_instructions_visit_node(
             )
           }
           changed = zero_folded || changed
-          if zero_folded || masked_unsigned_folded {
+          if zero_folded || masked_unsigned_folded || range_folded {
             changed
           } else {
             let canonicalized = if optimize_instructions_is_commutative_instr(
@@ -8034,6 +8118,9 @@ fn optimize_instructions_visit_node(
               let next_lhs = func.children[current.child_base]
               let next_rhs = func.children[current.child_base + 1]
               optimize_instructions_try_canonicalize_compare_const(
+                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+              ) ||
+              optimize_instructions_try_fold_i32_sign_extension_equality_compare(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_i32_masked_unsigned_compare(

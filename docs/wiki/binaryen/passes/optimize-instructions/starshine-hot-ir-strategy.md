@@ -434,7 +434,7 @@ Upstream Binaryen runs a whole-function `LocalScanner` to infer:
 
 As of `[O4Z-AUDIT-OI-E]`, Starshine has a first conservative HOT-local sign-extension fact scan. It initializes params pessimistically, treats non-param scalar locals as default-zero until writes update or invalidate them, records straight-line `local.set` fallthrough facts, recognizes signed loads and explicit sign-extension ops, removes redundant sign extensions, and rewrites the first shift-pair sign-extension idioms.
 
-This is still narrower than Binaryen's full scanner. Starshine does not yet model `maxBits`, CFG joins, loop-carried fact merging, mask proofs, or compare proofs through this substrate.
+This is still narrower than Binaryen's full scanner. Starshine now has narrow direct unsigned `maxBits` compare facts and direct i32 sign-extension equality range facts, but it does not yet model CFG joins, loop-carried fact merging, i64 sign-extension equality, signed relational range folds, or broad compare proofs through this substrate.
 
 ## 7. No deferred `ReFinalize` / EH-pop-fixup equivalent inside this pass
 

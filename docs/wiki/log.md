@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Fold i32 sign-extension equality ranges
+
+- Added the first OI-D sign-extension range compare fold: direct `i32.extend8_s` / `i32.extend16_s` results compared with constants outside the signed lane range now fold for `i32.eq` / `i32.ne`.
+- Effectful inputs are preserved before the folded constant with `drop(input); i32.const result`. This keeps broader signed range facts narrow: i64 sign-extension equality and signed relational range folds remain open because the observed Binaryen `version_130` probe kept those forms.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-signext-compare-probe.wat`; red-first `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*sign-extension equality*'` failed before implementation and passed after.
+
 ## [2026-06-24] passes/optimize-instructions | Localize argument fallthrough call_ref targets
 
 - Extended OI-H fallthrough-known block target directization beyond zero-argument calls: Starshine now stores single-result already-evaluated call arguments to fresh locals, drops the target block for effects, then reloads the arguments for direct `call` / `return_call`.
