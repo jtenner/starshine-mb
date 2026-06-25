@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover i64 dynamic shift maxBits boundary
+
+- Added OI-D boundary coverage for a dynamic `i64.shr_u` amount over a masked value feeding an unsigned maxBits compare.
+- Binaryen `version_130` keeps the i64 dynamic-shift compare while folding the constant-zero shift variant; Starshine now locks the same keep-spelling behavior until dynamic-shift range reasoning is deliberately sourced.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-i64-dynamic-shr-maxbits-boundary-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*i64 dynamic unsigned-shift masked maxBits boundary*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected-seventh multi-result tuple boundary
 
 - Added OI-M direct-HOT boundary coverage for selecting the seventh scalar lane from a multi-result tuple child.
