@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple with two earlier and six later siblings
+
+- Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after two earlier effectful siblings and before six later effectful siblings.
+- Binaryen `version_130` uses tuple scratch: drop both earlier calls, store/drop the selected `i32.load`, drop all six later calls, then reload the selected temp. Starshine preserves the same order with its direct-HOT localizer.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-selected-trapping-two-earlier-six-later-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*two earlier and six later siblings*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover global dynamic bulk-memory
 
 - Added OI-G public-pipeline coverage proving `memory.copy` / `memory.fill` with nonconstant `global.get` size operands stay outside the exact tiny lowering set.
