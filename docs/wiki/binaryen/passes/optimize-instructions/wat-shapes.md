@@ -121,20 +121,25 @@ After when reordering is safe:
 
 What to remember:
 
-- Starshine's HOT canonicalizer now reorders ranked non-call value nodes for
-  commutative binary instructions (`add`, `mul`, `and`, `or`, `xor`, and related
+- Starshine's HOT canonicalizer now reorders ranked value nodes for commutative
+  binary instructions (`add`, `mul`, `and`, `or`, `xor`, and related
   commutative comparisons) only after `optimize_instructions_subtrees_can_swap`
   proves the two operand subtrees can exchange positions safely
+- calls (`call`, `call_indirect`, and value-producing `call_ref`) rank before
+  locals/constants to match Binaryen's call-first commutative spelling, so
+  `local.get + call` and `const * call` become `call + local.get` and
+  `call * const` when the proof allows the swap
 - constants move behind local gets, higher-numbered local gets sort after
   lower-numbered local gets, and nested expression nodes move behind simpler
   local/global/load/constant forms when the effect proof allows it
 - unsafe reorder cases still stay in source order, including same-local
-  `local.tee`/`local.get` conflicts, memory write/read conflicts, may-trap past
-  side-effect hazards, and control-flow operands
-- call operands are intentionally still outside the commutative kind-rank table;
-  the leading zero-sub add/sub rewrite handles the source-backed `(0 - call) +
-  local.get` shape through its dedicated proof, while general call-operand
-  commutative ordering remains a follow-up slice
+  `local.tee`/`local.get` conflicts, memory write/read conflicts such as
+  `load + call`, may-trap past side-effect hazards such as `local.tee + call`,
+  and control-flow operands
+- this is HOT canonicalizer behavior; the public/raw pipeline can still skip
+  stack-style call-operand functions behind the existing
+  `stack-carried-effect-optimize-instructions-noop` gate until a separate raw
+  gate/localization slice proves those functions safe to lift and rewrite
 
 ## Shape family 3: eliminate `0 - x` wrappers inside adds
 

@@ -885,6 +885,194 @@ test "optimize-instructions normalizes integer mul negation" {
 }
 
 ///|
+test "optimize-instructions canonicalizes commutative call operands when safe" {
+  let local_call_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 call 1 i32.add) (func (result i32) i32.const 1))",
+  )
+  let local_call_root = @ir.hot_root_get(local_call_func, 0)
+  match
+    @ir.hot_node_get(
+      local_call_func,
+      @ir.hot_child_get(local_call_func, local_call_root, 0),
+    ).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected safe local.get + call to canonicalize with call first")
+  }
+  match
+    @ir.hot_node_get(
+      local_call_func,
+      @ir.hot_child_get(local_call_func, local_call_root, 1),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected local.get to move behind call")
+  }
+
+  let const_call_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 5 call 1 i32.mul) (func (result i32) i32.const 1))",
+  )
+  let const_call_root = @ir.hot_root_get(const_call_func, 0)
+  match
+    @ir.hot_node_get(
+      const_call_func,
+      @ir.hot_child_get(const_call_func, const_call_root, 0),
+    ).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected safe const + call to canonicalize with call first")
+  }
+
+  let neg_mul_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 0 local.get 0 i32.sub i32.const 0 call 1 i32.sub i32.mul) (func (result i32) i32.const 1))",
+  )
+  let neg_mul_root = @ir.hot_root_get(neg_mul_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(neg_mul_func, neg_mul_root),
+    Some(@lib.Instruction::i32_mul()),
+  )
+  match
+    @ir.hot_node_get(
+      neg_mul_func,
+      @ir.hot_child_get(neg_mul_func, neg_mul_root, 0),
+    ).op {
+    @ir.HotOp::Call => ()
+    _ =>
+      fail("expected post-negation mul factors to canonicalize with call first")
+  }
+
+  let call_indirect_func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[]),
+  )
+  let call_indirect = @ir.hot_build_call_indirect(
+    call_indirect_func,
+    @lib.TypeIdx::new(0U),
+    @lib.TableIdx::new(0U),
+    [@lib.ValType::i32()],
+    [],
+    @ir.hot_build_const_i32(call_indirect_func, @lib.I32(0)),
+  )
+  let indirect_add = @ir.hot_build_binary(
+    call_indirect_func,
+    @lib.ValType::i32(),
+    @ir.hot_build_local_get(call_indirect_func, 0),
+    call_indirect,
+  )
+  @ir.hot_node_exact_instr_set(
+    call_indirect_func,
+    indirect_add,
+    @lib.Instruction::i32_add(),
+  )
+  @ir.hot_root_append(call_indirect_func, indirect_add)
+  let indirect_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(indirect_ctx, call_indirect_func) {
+    Ok(_) => ()
+    Err(err) => fail("expected call_indirect commutative success, got \{err}")
+  }
+  match
+    @ir.hot_node_get(
+      call_indirect_func,
+      @ir.hot_child_get(call_indirect_func, indirect_add, 0),
+    ).op {
+    @ir.HotOp::CallIndirect => ()
+    _ => fail("expected safe local.get + call_indirect to canonicalize first")
+  }
+
+  let call_ref_func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(
+      params=[@lib.ValType::i32(), @lib.ValType::funcref()],
+      locals=[],
+    ),
+  )
+  let call_ref = @ir.hot_build_call_ref(
+    call_ref_func,
+    @lib.TypeIdx::new(0U),
+    [@lib.ValType::i32()],
+    [],
+    @ir.hot_build_local_get(call_ref_func, 1),
+  )
+  let call_ref_add = @ir.hot_build_binary(
+    call_ref_func,
+    @lib.ValType::i32(),
+    @ir.hot_build_local_get(call_ref_func, 0),
+    call_ref,
+  )
+  @ir.hot_node_exact_instr_set(
+    call_ref_func,
+    call_ref_add,
+    @lib.Instruction::i32_add(),
+  )
+  @ir.hot_root_append(call_ref_func, call_ref_add)
+  let call_ref_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(call_ref_ctx, call_ref_func) {
+    Ok(_) => ()
+    Err(err) => fail("expected call_ref commutative success, got \{err}")
+  }
+  match
+    @ir.hot_node_get(
+      call_ref_func,
+      @ir.hot_child_get(call_ref_func, call_ref_add, 0),
+    ).op {
+    @ir.HotOp::CallRef => ()
+    _ => fail("expected safe local.get + call_ref to canonicalize first")
+  }
+}
+
+///|
+test "optimize-instructions keeps commutative call operands when reorder is unsafe" {
+  let load_call_func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (param i32) (result i32) local.get 0 i32.load call 1 i32.add) (func (result i32) i32.const 1))",
+  )
+  let load_call_root = @ir.hot_root_get(load_call_func, 0)
+  match
+    @ir.hot_node_get(
+      load_call_func,
+      @ir.hot_child_get(load_call_func, load_call_root, 0),
+    ).op {
+    @ir.HotOp::Load => ()
+    _ => fail("expected load to stay before call across memory conflict")
+  }
+  match
+    @ir.hot_node_get(
+      load_call_func,
+      @ir.hot_child_get(load_call_func, load_call_root, 1),
+    ).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected call to stay behind load across memory conflict")
+  }
+
+  let tee_call_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (local i32) local.get 0 local.tee 1 call 1 i32.add) (func (result i32) i32.const 1))",
+  )
+  let tee_call_root = @ir.hot_root_get(tee_call_func, 0)
+  match
+    @ir.hot_node_get(
+      tee_call_func,
+      @ir.hot_child_get(tee_call_func, tee_call_root, 0),
+    ).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected local.tee to stay before may-trapping call")
+  }
+  match
+    @ir.hot_node_get(
+      tee_call_func,
+      @ir.hot_child_get(tee_call_func, tee_call_root, 1),
+    ).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected call to stay behind side-effecting local.tee")
+  }
+}
+
+///|
 /// With the sound reorder guard, a `(0 - x)` zero-sub operand whose only
 /// effects are reads (a `call` reads globals/memory/tables but never the
 /// caller's locals) can swap past a `local.get`, so the leading

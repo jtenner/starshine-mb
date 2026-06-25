@@ -1325,6 +1325,7 @@ fn optimize_instructions_can_cross_local_get(
 ///|
 fn optimize_instructions_commutative_node_kind_rank(op : @ir.HotOp) -> Int? {
   match op {
+    @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef => Some(-1)
     @ir.HotOp::LocalGet => Some(0)
     @ir.HotOp::LocalTee => Some(1)
     @ir.HotOp::GlobalGet => Some(2)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Add guarded call ranks to commutative canonicalization
+
+- Added `HotOp::Call`, `HotOp::CallIndirect`, and `HotOp::CallRef` to the optimize-instructions commutative kind-rank table ahead of locals/constants, matching Binaryen's call-first commutative spelling for safe shapes such as `local.get + call` and `const * call`.
+- Kept call reordering guarded by `optimize_instructions_subtrees_can_swap`: `load + call` remains in source order because the call may write memory observed by the load, and `local.tee + call` remains in source order because the call may trap after a side-effecting tee. Post-mul-negation `local * call` factors now canonicalize to `call * local` when the negation rewrite strips wrappers in place.
+- Updated `src/passes/optimize_instructions.mbt`, `src/passes/optimize_instructions_test.mbt`, `agent-todo.md`, and the optimize-instructions wiki strategy/WAT-shape pages. Evidence: red-first `*commutative call operands*` failed before the rank change and passed after implementation, including direct HOT coverage for `call_indirect` and `call_ref` ranks; a local Binaryen `version_130` WAT probe in `.tmp/oi-call-commutative-probe.wat` showed call-first safe shapes and unchanged load/call conflict shapes. A public Starshine replay of that binary fixture still hit the existing `stack-carried-effect-optimize-instructions-noop` raw gate for stack-style call-operand functions, so this slice closes the HOT canonicalizer rank gap but not the raw-gate escape/signoff problem.
+
 ## [2026-06-24] passes/optimize-instructions | Re-enable guarded commutative canonicalization and document reorder contracts
 
 - Made the leading-rewrite soundness contract precise across the optimize-instructions wiki: the leading `(0 - x) + y -> y - x` rewrite reorders the two value computations and is gated by `optimize_instructions_subtrees_can_swap` (no RAW/WAR/WAW region conflict on locals/globals/memory/tables; no may-trap/throw operand past a side effect; no control-flow operands), mirroring Binaryen's reorder rule. The trailing `y + (0 - x) -> y - x` needs no guard. The sibling `-x * -y -> x * y` strips both `(0 - x)` wrappers in place, so it needs no reorder proof and applies even for effectful factors such as `(0 - call) * (0 - y)`.

@@ -286,7 +286,7 @@ The local file has explicit machinery for:
 
 That matches the *strategy* of upstream Binaryen — canonicalize first so later peepholes have fewer spellings to handle — but the proof substrate is very local-HOT-specific.
 
-Note: the *general* commutative canonicalizer (`optimize_instructions_try_canonicalize_commutative`) is now live for ranked non-call HOT value nodes and is gated by the same `optimize_instructions_subtrees_can_swap` Binaryen-style reorder proof used by the leading `(0 - x) + y -> y - x` rewrite (see section 3). `HotOp::Call`/`CallIndirect`/`CallRef` operands still carry no canonicalizer kind rank, so call-operand commutative ordering remains a separate TDD + compare-lane slice.
+Note: the *general* commutative canonicalizer (`optimize_instructions_try_canonicalize_commutative`) is now live for ranked HOT value nodes, including `HotOp::Call`, `HotOp::CallIndirect`, and `HotOp::CallRef`, and is gated by the same `optimize_instructions_subtrees_can_swap` Binaryen-style reorder proof used by the leading `(0 - x) + y -> y - x` rewrite (see section 3). Calls rank before locals/constants to match Binaryen's call-first commutative spelling, but they still swap only when the proof finds no memory/table/global/local conflict and no may-trap-past-side-effect hazard. This is a HOT-pass capability; public stack-style call-operand functions may still be skipped earlier by the existing `stack-carried-effect-optimize-instructions-noop` raw gate until a separate localization/gate slice proves they can enter HOT safely.
 
 ## 3. Add / sub / mul / shift rewrites
 
