@@ -34,6 +34,7 @@ sources:
   - ../../../raw/research/0856-2026-06-25-optimize-instructions-oi-g-nonconst-load-call-boundary.md
   - ../../../raw/research/0853-2026-06-25-optimize-instructions-oi-m-multiresult-selected-boundary.md
   - ../../../raw/research/0855-2026-06-25-optimize-instructions-oi-m-selected-second-lane-boundary.md
+  - ../../../raw/research/0899-2026-06-25-optimize-instructions-oi-m-selected-third-multiresult-boundary.md
   - ../../../raw/research/0857-2026-06-25-optimize-instructions-oi-m-full-simplify-boundary.md
   - ../../../raw/research/0858-2026-06-25-optimize-instructions-oi-g-parameterized-memory-copy.md
   - ../../../raw/research/0859-2026-06-25-optimize-instructions-oi-m-tuple-optimization-boundary.md
@@ -58,6 +59,7 @@ sources:
   - ../../../raw/research/0893-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-seven-later.md
   - ../../../raw/research/0895-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-eight-later.md
   - ../../../raw/research/0897-2026-06-25-optimize-instructions-oi-m-earlier-multiresult-sibling-boundary.md
+  - ../../../raw/research/0899-2026-06-25-optimize-instructions-oi-m-selected-third-multiresult-boundary.md
   - ../../../raw/research/0862-2026-06-25-optimize-instructions-oi-g-multiparam-bulk-memory.md
   - ../../../raw/research/0863-2026-06-25-optimize-instructions-oi-m-earlier-later-neighbor.md
   - ../../../raw/research/0864-2026-06-25-optimize-instructions-oi-g-global-bulk-memory.md
@@ -472,7 +474,7 @@ The local file now models the first `visitTupleExtract(...)` family for one-use 
 - when non-selected siblings have effects or traps and produce at most one value, Starshine preserves/drops earlier effects before the selected lane, localizes the selected lane to a temp local when later effects exist, preserves/drops later effects or trapping loads, then reloads the selected value; the combined selected-trapping earlier-plus-later sibling fixture locks the `drop(Call); LocalSet(i32.load); drop(Call); LocalGet` order, the two-later-sibling fixture extends that coverage to `drop(Call); LocalSet(i32.load); drop(Call); drop(Call); LocalGet`, the two-earlier-sibling fixture locks `drop(Call); drop(Call); i32.load` when no later effect requires a temp, and the two-earlier-plus-one-later fixture locks `drop(Call); drop(Call); LocalSet(i32.load); drop(Call); LocalGet` against Binaryen's tuple-scratch oracle;
 - local-carried/multi-use tuple extraction is now an explicit Binaryen-matching keep-spelling boundary for the probed shape;
 - multi-result non-selected siblings are a current tuple-scratch localization boundary: Binaryen `version_130` materializes tuple scratch and scalar drops for the probed shapes, including both later and earlier multi-result siblings, while Starshine keeps the direct-HOT tuple spelling until a safe multi-result sibling localizer exists;
-- multi-result selected children are also a current tuple-scratch localization boundary: Binaryen materializes tuple scratch, drops non-selected lanes, stores the chosen scalar, and reloads it for both covered selected-first and selected-second probes, while Starshine keeps the direct-HOT tuple spelling until a safe selected-child localizer exists;
+- multi-result selected children are also a current tuple-scratch localization boundary: Binaryen materializes tuple scratch, drops non-selected lanes, stores the chosen scalar, and reloads it for both covered selected-first, selected-second, and selected-third probes, while Starshine keeps the direct-HOT tuple spelling until a safe selected-child localizer exists;
 - broader tee/drop reconstruction, any future safe multi-use tuple proof, public text-surface coverage, tuple-scratch localization, and broader tuple-neighbor signoff remain open under `[O4Z-AUDIT-OI-M]`; current `simplify-locals-nostructure` neighbor replays cover only the existing single-result effectful-sibling localization subset, including the earlier+later effectful-sibling direct-HOT fixture, and the public full-`simplify-locals` plus `tuple-optimization` multivalue-block probes are boundary coverage rather than parity.
 
 ## 6. First local sign-extension facts, but not full Binaryen `LocalScanner`
