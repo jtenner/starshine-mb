@@ -11241,6 +11241,60 @@ fn gen_valid_append_heap_store_optimization_body_slice(
             out.push(Instruction::struct_set(described_idx, U32::new(0U)))
           }
 
+          // Mutable-descriptor result-wrapper old-field roots exercise the
+          // conservative boundary where a value-producing old field and a
+          // mutable descriptor read must stay before a catchable call wrapper;
+          // the later same-field store remains rather than folding.
+          let descriptor_ref = ValType::ref_type(
+            RefType::new(true, HeapType::new(descriptor_idx), exact=true),
+          )
+          match
+            (
+              gen_matching_global_idx(
+                env.globals,
+                descriptor_ref,
+                mutable_only=true,
+              ),
+              env.current_func_idx,
+            ) {
+            (Some(desc_global_idx), Some(call_idx)) if !env.tags.is_empty() &&
+              !env.mems.is_empty() =>
+              match gen_valid_callable_by_idx(env.funcs, call_idx) {
+                Some(target) if target.params.is_empty() &&
+                  target.results.is_empty() => {
+                  out.push(Instruction::i32_const(I32(1)))
+                  out.push(Instruction::memory_grow(MemIdx::new(0U)))
+                  out.push(
+                    Instruction::ref_null(HeapType::abs(AbsHeapType::eq())),
+                  )
+                  out.push(Instruction::global_get(desc_global_idx))
+                  out.push(Instruction::struct_new_desc(described_idx))
+                  out.push(Instruction::local_set(described_local_idx))
+                  out.push(
+                    Instruction::block(
+                      BlockType::void_(),
+                      Expr::new([
+                        Instruction::try_table(
+                          BlockType::val_type(ValType::i32()),
+                          [Catch::all(LabelIdx::new(0U))],
+                          Expr::new([
+                            Instruction::call(call_idx),
+                            Instruction::i32_const(I32(135)),
+                          ]),
+                        ),
+                        Instruction::drop(),
+                      ]),
+                    ),
+                  )
+                  out.push(Instruction::local_get(described_local_idx))
+                  out.push(Instruction::i32_const(I32(136)))
+                  out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+                }
+                _ => ()
+              }
+            _ => ()
+          }
+
           // Descriptor catch/throw skip-local-set hazards mirror the ordinary
           // catchable root below while keeping descriptor materialization in
           // the generated profile. The throw sibling can skip the constructor
@@ -14324,7 +14378,17 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let globals : Array[Global] = []
   let global_types_for_inits = imported_global_types.copy()
   for i = 0; i < defined_global_count; i = i + 1 {
-    let vt = if ctx.config.features.allow_const_expr_variants &&
+    let vt = if ctx.config.features.allow_heap_store_optimization_body_generator &&
+      ctx.config.mode == CoverageForced &&
+      i == 1 {
+      match gc_type_plan.descriptor_type_idx {
+        Some(descriptor_idx) =>
+          ValType::ref_type(
+            RefType::new(true, HeapType::new(descriptor_idx), exact=true),
+          )
+        None => ValType::i32()
+      }
+    } else if ctx.config.features.allow_const_expr_variants &&
       ctx.config.mode == CoverageForced &&
       i <= 1 {
       ValType::i32()
@@ -14385,7 +14449,12 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
         global_ref_types,
       )
     }
-    let is_mut = if ctx.config.features.allow_const_expr_variants &&
+    let is_mut = if ctx.config.features.allow_heap_store_optimization_body_generator &&
+      ctx.config.mode == CoverageForced &&
+      i == 1 &&
+      gc_type_plan.descriptor_type_idx is Some(_) {
+      true
+    } else if ctx.config.features.allow_const_expr_variants &&
       ctx.config.mode == CoverageForced &&
       i <= 1 {
       false
@@ -14393,7 +14462,18 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       ctx.config.mode == CoverageForced || ctx.random_bool_from(GlobalStream)
     }
     let global_type = GlobalType::new(vt, is_mut)
-    let init_expr = if ctx.config.features.allow_const_expr_variants &&
+    let init_expr = if ctx.config.features.allow_heap_store_optimization_body_generator &&
+      ctx.config.mode == CoverageForced &&
+      i == 1 {
+      match gc_type_plan.descriptor_type_idx {
+        Some(descriptor_idx) =>
+          Expr::new([Instruction::struct_new_default(descriptor_idx)])
+        None =>
+          gen_valid_const_expr_for_global(
+            ctx, vt, global_types_for_inits, first_defined_func_idx, gc_type_plan,
+          )
+      }
+    } else if ctx.config.features.allow_const_expr_variants &&
       ctx.config.mode == CoverageForced &&
       i == 0 &&
       vt == ValType::i32() {

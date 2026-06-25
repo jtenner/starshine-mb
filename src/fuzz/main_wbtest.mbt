@@ -2391,6 +2391,7 @@ test "emit gen-valid heap-store-optimization profile records GC store opportunit
   assert_true(wat.contains("table.set"), msg=wat)
   assert_true(wat.contains("memory.fill"), msg=wat)
   assert_true(wat.contains("memory.grow"), msg=wat)
+  assert_true(wat.contains("global.get"), msg=wat)
   assert_true(wat.contains("table.grow"), msg=wat)
   assert_true(wat.contains("table.fill"), msg=wat)
   assert_true(wat.contains("br_if"), msg=wat)
