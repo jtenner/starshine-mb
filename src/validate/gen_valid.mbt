@@ -11469,6 +11469,49 @@ fn gen_valid_append_heap_store_optimization_body_slice(
         _ => ()
       }
 
+      // Indirect-call wrappers cover the call_indirect sibling of the
+      // catchable result-typed call surface. The profile uses the current
+      // no-param/no-result function type and table slot zero so validation can
+      // exercise HSO's conservative indirect-call barrier without relying on
+      // the random body generator.
+      match env.current_func_idx {
+        Some(call_idx) if !env.tags.is_empty() =>
+          match gen_valid_callable_by_idx(env.funcs, call_idx) {
+            Some(target) if target.params.is_empty() &&
+              target.results.is_empty() => {
+              out.push(Instruction::memory_size(MemIdx::new(0U)))
+              out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+              out.push(Instruction::struct_new(struct_idx))
+              out.push(Instruction::local_set(local_idx))
+              out.push(
+                Instruction::block(
+                  BlockType::void_(),
+                  Expr::new([
+                    Instruction::try_table(
+                      BlockType::val_type(ValType::i32()),
+                      [Catch::all(LabelIdx::new(0U))],
+                      Expr::new([
+                        Instruction::i32_const(I32(0)),
+                        Instruction::call_indirect(
+                          target.type_idx,
+                          TableIdx::new(0U),
+                        ),
+                        Instruction::i32_const(I32(131)),
+                      ]),
+                    ),
+                    Instruction::drop(),
+                  ]),
+                ),
+              )
+              out.push(Instruction::local_get(local_idx))
+              out.push(Instruction::i32_const(I32(132)))
+              out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+            }
+            _ => ()
+          }
+        _ => ()
+      }
+
       // Typed-function-reference call wrappers cover the matching call_ref
       // surface when the module has a declared ref.func target.
       match env.declared_ref_func_idx {
@@ -11490,7 +11533,7 @@ fn gen_valid_append_heap_store_optimization_body_slice(
                       Expr::new([
                         Instruction::ref_func(target.idx),
                         Instruction::call_ref(target.type_idx),
-                        Instruction::i32_const(I32(131)),
+                        Instruction::i32_const(I32(133)),
                       ]),
                     ),
                     Instruction::drop(),
@@ -11498,7 +11541,7 @@ fn gen_valid_append_heap_store_optimization_body_slice(
                 ),
               )
               out.push(Instruction::local_get(local_idx))
-              out.push(Instruction::i32_const(I32(132)))
+              out.push(Instruction::i32_const(I32(134)))
               out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
             }
             _ => ()
