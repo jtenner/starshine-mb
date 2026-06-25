@@ -4259,6 +4259,53 @@ test "code-pushing boundary keeps global.get before nested block with matching g
 }
 
 ///|
+test "code-pushing boundary keeps global.get before nested disjoint global.set call value" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps a global-reading candidate before a nested disjoint global.set whose
+  // value contains a call, because the call remains ordered even inside the block.
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $g0 (mut i32) (i32.const 1))
+        #|  (global $g1 (mut i32) (i32.const 2))
+        #|  (func $callee (result i32)
+        #|    i32.const 3)
+        #|  (func (param i32) (local i32)
+        #|    (block $exit
+        #|      global.get $g0
+        #|      local.set 1
+        #|      (block
+        #|        call $callee
+        #|        global.set $g1)
+        #|      local.get 0
+        #|      br_if $exit
+        #|      local.get 1
+        #|      drop)))
+        #|
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded code-pushing success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains(
+      "(global.get (Global 0))(local.set (Local 1))(block (Void) (call (Func 0))(global.set (Global 1))",
+    ),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-pushing boundary keeps global.get value before disjoint global.set call value" {
   // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
   // keeps a global-reading candidate before a disjoint global.set whose value
