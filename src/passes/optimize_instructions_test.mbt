@@ -8678,6 +8678,98 @@ test "optimize-instructions preserves selected trapping tuple.extract lane" {
 }
 
 ///|
+test "optimize-instructions preserves selected trapping tuple.extract lane with effectful sibling" {
+  // OI-M selected-lane/effect-order coverage: Binaryen `version_130`
+  // `--optimize-instructions` preserves a selected trapping `i32.load` through
+  // tuple scratch before dropping a later effectful sibling in
+  // `.tmp/oi-m-tuple-selected-trapping-with-sibling-probe.wat`. Starshine's
+  // direct-HOT localizer may use a smaller block, but the selected load must be
+  // evaluated before the sibling effect and reloaded as the final value.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
+  let selected_load = @ir.hot_build_load(
+    func,
+    @lib.ValType::i32(),
+    memarg,
+    @ir.hot_build_local_get(func, 0),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    selected_load,
+    @lib.Instruction::i32_load(memarg),
+  )
+  let sibling_call = @ir.hot_build_call(func, 0, [@lib.ValType::i64()], [])
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64(), @lib.ValType::i32()],
+    [selected_load, sibling_call, @ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected selected trapping tuple sibling localization success, got \{err}",
+      )
+  }
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail("expected selected trapping sibling tuple.extract to become a block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  let selected_set = @ir.hot_region_get(func, body, 0)
+  let sibling_drop = @ir.hot_region_get(func, body, 1)
+  let selected_get = @ir.hot_region_get(func, body, 2)
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected selected trapping lane to be stored before sibling")
+  }
+  let stored_load = @ir.hot_child_get(func, selected_set, 0)
+  match @ir.hot_node_exact_instr(func, stored_load) {
+    Some(@lib.Instruction::I32Load(_)) => ()
+    _ => fail("expected localized selected lane to keep exact i32.load")
+  }
+  match @ir.hot_node_get(func, sibling_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected effectful sibling to be dropped after selected load")
+  }
+  let dropped_call = @ir.hot_child_get(func, sibling_drop, 0)
+  match @ir.hot_node_get(func, dropped_call).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected effectful tuple sibling call to stay available")
+  }
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected trapping lane to reload after sibling")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, selected_get).imm0,
+    @ir.hot_node_get(func, selected_set).imm0,
+  )
+}
+
+///|
 test "optimize-instructions localizes tuple.extract of tuple.make with effectful siblings" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[

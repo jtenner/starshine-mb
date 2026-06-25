@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple lane with sibling
+
+- Added OI-M direct-HOT coverage proving one-use `tuple.extract(tuple.make(...))` localization preserves a selected trapping `i32.load` before a later effectful sibling call.
+- Binaryen `version_130` preserves the selected load and sibling call through tuple scratch; Starshine's direct-HOT localizer preserves the same order by storing the exact selected load, dropping the sibling call, and reloading the selected temp.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-selected-trapping-with-sibling-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected trapping tuple.extract lane with effectful sibling*'` passed `1/1` immediately as coverage/status evidence.
+
 ## [2026-06-25] passes/optimize-instructions | Lower size-16 zero memory.fill
 
 - Extended OI-G exact constant-size `memory.fill` lowering to the size-16 zero-fill subset, matching Binaryen `version_130` with `v128.const 0` plus `v128.store`.
