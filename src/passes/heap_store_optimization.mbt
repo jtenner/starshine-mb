@@ -2033,10 +2033,7 @@ fn hso_region_has_tail_or_throw_escape(
 }
 
 ///|
-fn hso_result_try_table_allows_drop_swap(
-  func : @ir.HotFunc,
-  try_id : Int,
-) -> Bool {
+fn hso_try_table_allows_swap(func : @ir.HotFunc, try_id : Int) -> Bool {
   if try_id < 0 || !@ir.hot_node_is_live(func, try_id) {
     return false
   }
@@ -2044,11 +2041,43 @@ fn hso_result_try_table_allows_drop_swap(
     @ir.HotOp::TryTable => ()
     _ => return false
   }
-  hso_sequence_result_type(func, try_id) != None &&
   !hso_region_has_tail_or_throw_escape(
     func,
     @ir.hot_region_body_ref(func, try_id),
   )
+}
+
+///|
+fn hso_result_try_table_allows_drop_swap(
+  func : @ir.HotFunc,
+  try_id : Int,
+) -> Bool {
+  hso_try_table_allows_swap(func, try_id) &&
+  hso_sequence_result_type(func, try_id) != None
+}
+
+///|
+fn hso_is_void_try_table_block(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if hso_sequence_result_type(func, node_id) != None {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let try_id = @ir.hot_region_get(func, body_ref, 0)
+  if hso_sequence_result_type(func, try_id) != None {
+    return false
+  }
+  hso_try_table_allows_swap(func, try_id)
 }
 
 ///|
@@ -2108,7 +2137,7 @@ fn hso_is_dropped_result_try_table_block(
 }
 
 ///|
-fn hso_dropped_result_try_table_swap_allowed(
+fn hso_wrapped_try_table_swap_allowed(
   cache : HsoPredicateCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
@@ -2117,12 +2146,15 @@ fn hso_dropped_result_try_table_swap_allowed(
   blocker_id : Int,
   target_local_id : Int,
 ) -> Bool {
-  if !hso_is_dropped_result_try_table_block(func, blocker_id) {
+  if !hso_is_dropped_result_try_table_block(func, blocker_id) &&
+    !hso_is_void_try_table_block(func, blocker_id) {
     return false
   }
-  let blocker_mask = hso_reorder_effect_mask(
+  let raw_blocker_mask = hso_reorder_effect_mask(
     cache, func, node_masks, blocker_id,
   )
+  let blocker_mask = raw_blocker_mask ^
+    (raw_blocker_mask & @ir.EFFECT_MASK_CONTROL)
   let moved_mask = hso_struct_new_operand_effect_mask(
     func, module_ctx, node_masks, moved_struct_new_id,
   )
@@ -2175,14 +2207,14 @@ fn hso_root_can_swap_before_local_struct_new(
       }
     _ => ()
   }
-  let dropped_result_try_table_swap = hso_dropped_result_try_table_swap_allowed(
+  let wrapped_try_table_swap = hso_wrapped_try_table_swap_allowed(
     cache, func, module_ctx, node_masks, moved_struct_new_id, blocker_id, target_local_id,
   )
   if hso_subtree_may_escape_to_active_catch(func, blocker_id) &&
-    !dropped_result_try_table_swap {
+    !wrapped_try_table_swap {
     return false
   }
-  if dropped_result_try_table_swap {
+  if wrapped_try_table_swap {
     return true
   }
   let blocker_mask = hso_reorder_effect_mask(
