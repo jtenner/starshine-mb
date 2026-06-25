@@ -8315,6 +8315,96 @@ test "optimize-instructions preserves earlier and later tuple.extract sibling ef
 }
 
 ///|
+test "optimize-instructions tuple.extract localization survives simplify-locals-nostructure neighbor" {
+  // Boundary/status OI-M neighbor coverage: Binaryen `version_130`
+  // `--optimize-instructions --simplify-locals-nostructure` keeps the probed
+  // effect-preserving tuple.extract localization as temp-local traffic around
+  // the non-selected effect (`.tmp/oi-m-tuple-probe.wat`). Starshine's direct
+  // HOT neighbor replay should not collapse the temp across the intervening
+  // effect or claim broader tuple/simplify-locals parity.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i64(),
+    ]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [
+      @ir.hot_build_local_get(func, 0),
+      @ir.hot_build_local_tee(
+        func,
+        1,
+        @ir.hot_build_const_i64(func, @lib.I64(9L)),
+      ),
+    ],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  let oi_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(oi_ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected tuple.extract OI success, got \{err}")
+  }
+  let sln_ctx = HotPassContext::new(
+    simplify_locals_nostructure_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(sln_ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple.extract simplify-locals-nostructure neighbor success, got \{err}",
+      )
+  }
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected tuple localization to remain effect-preserving block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  let selected_set = @ir.hot_region_get(func, body, 0)
+  let sibling_drop = @ir.hot_region_get(func, body, 1)
+  let selected_get = @ir.hot_region_get(func, body, 2)
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected selected lane temp local.set to survive neighbor")
+  }
+  match @ir.hot_node_get(func, sibling_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected non-selected effect drop to survive neighbor")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, sibling_drop, 0)).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected non-selected local.tee effect to survive neighbor")
+  }
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected lane temp local.get to survive neighbor")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, selected_get).imm0,
+    @ir.hot_node_get(func, selected_set).imm0,
+  )
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)

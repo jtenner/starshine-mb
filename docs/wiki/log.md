@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover tuple localization local-cleanup neighbor
+
+- Added OI-M neighbor coverage proving Starshine's covered single-result effectful-sibling `tuple.extract(tuple.make(...))` localization remains an explicit temp-local/effect-drop block after `simplify-locals-nostructure`.
+- Binaryen `version_130` keeps the same probed temp-local/effect-drop spelling after `--optimize-instructions --simplify-locals-nostructure`; this narrows neighbor-interaction risk without claiming tuple-scratch or broader tuple parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*tuple.extract localization survives*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Lock local-carried representation-load boundary
 
 - Added OI-G boundary coverage for local-carried/shared representation-load spellings.
