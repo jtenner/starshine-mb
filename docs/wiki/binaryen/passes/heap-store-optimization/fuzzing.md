@@ -44,6 +44,7 @@ sources:
   - ../../../raw/research/1068-2026-06-25-heap-store-optimization-profile-mutable-descriptor-return-call-oldfield.md
   - ../../../raw/research/1069-2026-06-25-heap-store-optimization-profile-mutable-descriptor-return-call-indirect-oldfield.md
   - ../../../raw/research/1070-2026-06-25-heap-store-optimization-profile-mutable-descriptor-return-call-ref-oldfield.md
+  - ../../../raw/research/1073-2026-06-25-heap-store-optimization-dedicated-profile-refresh.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
@@ -109,7 +110,7 @@ Recommended dedicated-profile smoke lane:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap-store-optimization --gen-valid-profile heap-store-optimization --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-heap-store-optimization-genvalid-profile-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
 ```
 
-Use `--normalize local-cleanup-debris` for this profile while Starshine removes folded-store `nop` roots that Binaryen retains. Research note `1023` classified the initial 20-case raw mismatch family as a Starshine-win cleanup drift: Binaryen output kept `(nop)` placeholders after HSO folds, while Starshine emitted smaller validated output without those dead roots.
+Use `--normalize local-cleanup-debris` for this profile while Starshine removes folded-store `nop` roots that Binaryen retains. Research note `1023` classified the initial 20-case raw mismatch family as a Starshine-win cleanup drift: Binaryen output kept `(nop)` placeholders after HSO folds, while Starshine emitted smaller validated output without those dead roots. The refreshed 2026-06-25 10000-case dedicated-profile lane in research note `1073` compared `10000/10000` cases with `0` raw mismatches/failures and `10000` cleanup-normalized matches under this normalizer; `cases.jsonl` selected `heap-store-optimization` for all `10000` cases.
 
 Manifest triage fields:
 
