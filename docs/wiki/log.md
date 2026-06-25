@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Refresh regular GenValid 100000 lane
+
+- Filed [`raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md`](raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md) after running the required large regular GenValid lane for direct `code-pushing` with `--normalize local-cleanup-debris`.
+- `.tmp/pass-fuzz-code-pushing-regular-100000-20260625` compared `100000/100000`, normalized `100000`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, and Binaryen cache `10356 hits/89644 misses`.
+- This is closeout-progress evidence for the regular lane, not final `[O4Z-AUDIT-CP]` closeout; source-backed gaps/accepted boundaries, remaining matrix lanes, and an explicit stop condition must still be then-current.
+
 ## [2026-06-25] passes/code-pushing | Document br_on_cast prefix boundaries
 
 - Filed [`raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md`](raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md) after local Binaryen v130 validated two-result block-label `br_on_cast` and `br_on_cast_fail` prefix-payload probes but kept the pure SFA `local.set` before each branch.

@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md
   - ../../../raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md
   - ../../../raw/research/0843-2026-06-25-code-pushing-value-br-table-boundary.md
   - ../../../raw/research/0842-2026-06-25-code-pushing-all-10000-current.md
@@ -183,6 +184,8 @@ For docs maintenance:
 - search for stale “no `Pusher`,” “no segment selection,” or “no local profitability” wording in this folder;
 - keep the no-two-live-arm-duplication warning, but do not erase Binaryen's real `Pusher` model.
 
+The 2026-06-25 regular GenValid 100000 closeout-progress lane in [`../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md`](../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md) compared `100000/100000` with `100000` normalized matches and no mismatches or failures under `--normalize local-cleanup-debris`. This satisfies the large regular-lane evidence requirement as of that source state, but `[O4Z-AUDIT-CP]` remains open until remaining source gaps are resolved or narrowly accepted and the final matrix/stop condition are then-current.
+
 For current `[O4Z-AUDIT-CP]` widening:
 
 1. add focused tests in `src/passes/code_pushing_test.mbt` before mutating behavior and whitebox tests in `src/passes/code_pushing_wbtest.mbt` for analyzer-only surfaces;
@@ -214,6 +217,7 @@ For current `[O4Z-AUDIT-CP]` widening:
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md`](../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md)
 - [`../../../raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md`](../../../raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md)
 - [`../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md`](../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md)
 - [`../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md`](../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md)
