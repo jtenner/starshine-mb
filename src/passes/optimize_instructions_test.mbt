@@ -5621,11 +5621,12 @@ test "optimize-instructions localizes argument select call_ref targets before di
 test "optimize-instructions intentionally keeps multi-result argument select call_ref boundary" {
   // Boundary-only OI-H classification: Binaryen `version_130`
   // localizes a multi-result argument producer through tuple scratch plus scalar
-  // temps before lowering select-of-`ref.func` call_ref to a direct-call if
-  // (`.tmp/oi-h-multivalue-arg-select-probe.wat`). Starshine's current
+  // temps before lowering select-of-`ref.func` call_ref / return_call_ref to a
+  // direct-call if (`.tmp/oi-h-multivalue-arg-select-probe.wat` and
+  // `.tmp/oi-h-multivalue-arg-select-return-probe.wat`). Starshine's current
   // call_ref localizer only proves scalar single-result call arguments, so this
-  // public fixture keeps the call_ref instead of hiding the broader multivalue
-  // localization gap as parity.
+  // public fixture keeps call_ref forms instead of hiding the broader
+  // multivalue localization gap as parity.
   let target_type_idx = @lib.TypeIdx::new(0U)
   let pair_type_idx = @lib.TypeIdx::new(1U)
   let caller_type_idx = @lib.TypeIdx::new(2U)
@@ -5654,7 +5655,7 @@ test "optimize-instructions intentionally keeps multi-result argument select cal
     .with_type_sec(@lib.TypeSec::new([target_type, pair_type, caller_type]))
     .with_func_sec(
       @lib.FuncSec::new([
-        target_type_idx, target_type_idx, pair_type_idx, caller_type_idx,
+        target_type_idx, target_type_idx, pair_type_idx, caller_type_idx, caller_type_idx,
       ]),
     )
     .with_elem_sec(
@@ -5693,6 +5694,17 @@ test "optimize-instructions intentionally keeps multi-result argument select cal
             @lib.Instruction::call_ref(target_type_idx),
           ]),
         ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([typed_func_ref])),
+            @lib.Instruction::return_call_ref(target_type_idx),
+          ]),
+        ),
       ]),
     ),
   )
@@ -5703,6 +5715,13 @@ test "optimize-instructions intentionally keeps multi-result argument select cal
   assert_true(caller.contains("call (Func 2)"), msg=caller)
   assert_false(caller.contains("call (Func 0)"), msg=caller)
   assert_false(caller.contains("call (Func 1)"), msg=caller)
+  let tail = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(tail.contains("return_call_ref"), msg=tail)
+  assert_true(tail.contains("select"), msg=tail)
+  assert_true(tail.contains("ref.func"), msg=tail)
+  assert_true(tail.contains("call (Func 2)"), msg=tail)
+  assert_false(tail.contains("return_call (Func 0)"), msg=tail)
+  assert_false(tail.contains("return_call (Func 1)"), msg=tail)
 }
 
 ///|

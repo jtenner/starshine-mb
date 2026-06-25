@@ -372,7 +372,7 @@ The local HOT implementation now models seven upstream `visitCallRef(...)` known
 - fallthrough-known block targets lower to a dropped target expression followed by direct `call` / `return_call`, preserving target-side effects; argument-bearing forms localize covered single-result call arguments before dropping the target and reload them for the direct call
 - the older argument-bearing select, argument-bearing fallthrough, and call-indexed `table.get` fail-closed notes remain as superseded boundary history for why localization/raw-gate escape proof was required
 - current fail-closed boundary coverage keeps select targets unchanged when an arm is not a direct `ref.func`
-- current fail-closed boundary coverage keeps multi-result argument select-of-`ref.func` `call_ref` unchanged; Binaryen localizes the probed `call $pair` through tuple scratch plus scalar locals, but Starshine's localizer currently proves only scalar single-result argument children
+- current fail-closed boundary coverage keeps multi-result argument select-of-`ref.func` `call_ref` / `return_call_ref` unchanged; Binaryen localizes the probed `call $pair` through tuple scratch plus scalar locals before direct call or tail-call `if` arms, but Starshine's localizer currently proves only scalar single-result argument children
 
 The remaining upstream `visitCallRef(...)` surface is still open for `[O4Z-AUDIT-OI-H]` when future source/oracle work identifies more locally representable known-target shapes.
 
