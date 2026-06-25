@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Cover try_table catch_all_ref boundary
+
+- Filed [`raw/research/0862-2026-06-25-code-pushing-try-table-catch-all-ref-boundary.md`](raw/research/0862-2026-06-25-code-pushing-try-table-catch-all-ref-boundary.md) after local Binaryen v130 kept a pure SFA `local.set` before a reference-carrying `try_table (catch_all_ref ...)` root and later `br_if`.
+- Added intentionally unsupported/Binaryen-stationary focused coverage in `src/passes/code_pushing_test.mbt`; existing `HotOp::TryTable` barriers already preserved the shape, so no implementation or GenValid leaf changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*catch_all_ref try_table*'` passed `1/1`. This characterization-only slice does not supersede the post-`0861` final matrix refresh requirement.
+
 ## [2026-06-25] passes/code-pushing | Keep rethrowing legacy try stationary
 
 - Filed [`raw/research/0861-2026-06-25-code-pushing-rethrow-boundary.md`](raw/research/0861-2026-06-25-code-pushing-rethrow-boundary.md) after local Binaryen v130 validated a legacy `try`/`catch` shape with `rethrow` and kept the pure SFA `local.set` before the EH root and later `br_if`.
