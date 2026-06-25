@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lower nonzero size-16 memory.fill
+
+- Extended OI-G exact constant-size `memory.fill` lowering from the previous zero-only size-16 subset to arbitrary constant low bytes.
+- Starshine now materializes repeated-byte `v128.const` values through a HOT builder and emits one `v128.store`, matching Binaryen `version_130` for the probed `i32.const 171` fill.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-fill-16-nonzero-probe.wat`; red-first focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*sixteen-byte memory.fill*'` failed with the nonzero `memory.fill` still present before implementation and passed after.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple lane with sibling
 
 - Added OI-M direct-HOT coverage proving one-use `tuple.extract(tuple.make(...))` localization preserves a selected trapping `i32.load` before a later effectful sibling call.

@@ -3076,6 +3076,15 @@ fn optimize_instructions_repeated_fill_i64(raw : Int) -> @lib.I64 {
 }
 
 ///|
+fn optimize_instructions_build_repeated_fill_v128_const(
+  func : @ir.HotFunc,
+  raw : Int,
+) -> Int {
+  let byte = (raw.reinterpret_as_uint() & 0xff).to_byte()
+  @ir.hot_build_const_v128_splat(func, byte)
+}
+
+///|
 fn optimize_instructions_build_i32_binary(
   func : @ir.HotFunc,
   instr : @lib.Instruction,
@@ -4558,8 +4567,8 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
     16 => {
       let repeated_id = match
         optimize_instructions_i32_const(func, dead, value_id) {
-        Some(@lib.I32(raw)) if (raw.reinterpret_as_uint() & 0xff) == 0 =>
-          @ir.hot_build_const_v128_zero(func)
+        Some(@lib.I32(raw)) =>
+          optimize_instructions_build_repeated_fill_v128_const(func, raw)
         _ => return false
       }
       optimize_instructions_replace_with_store_exact(

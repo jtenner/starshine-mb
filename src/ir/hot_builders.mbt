@@ -231,13 +231,13 @@ pub fn hot_build_const_f64(func : HotFunc, value : F64) -> NodeId {
 }
 
 ///|
-pub fn hot_build_const_v128_zero(func : HotFunc) -> NodeId {
+pub fn hot_build_const_v128_splat(func : HotFunc, byte : Byte) -> NodeId {
   let payload_id = hot_alloc_instr_payload(
     func,
     HotInstrPayload::new(
       @lib.Instruction::v128_const(
-        b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
-        b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+        byte, byte, byte, byte, byte, byte, byte, byte, byte, byte, byte, byte, byte,
+        byte, byte, byte,
       ),
     ),
   )
@@ -247,6 +247,11 @@ pub fn hot_build_const_v128_zero(func : HotFunc) -> NodeId {
     hot_type_intern_value(func, @lib.ValType::v128()),
     imm0=payload_id,
   )
+}
+
+///|
+pub fn hot_build_const_v128_zero(func : HotFunc) -> NodeId {
+  hot_build_const_v128_splat(func, b'\x00')
 }
 
 ///|

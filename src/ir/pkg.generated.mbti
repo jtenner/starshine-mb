@@ -245,6 +245,8 @@ pub fn hot_build_const_i32(HotFunc, @lib.I32) -> Int
 
 pub fn hot_build_const_i64(HotFunc, @lib.I64) -> Int
 
+pub fn hot_build_const_v128_splat(HotFunc, Byte) -> Int
+
 pub fn hot_build_const_v128_zero(HotFunc) -> Int
 
 pub fn hot_build_convert(HotFunc, @lib.ValType, Int) -> Int

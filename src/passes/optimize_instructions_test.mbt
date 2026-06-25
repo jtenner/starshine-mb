@@ -7050,6 +7050,11 @@ test "optimize-instructions expands constant sixteen-byte memory.fill to v128.st
         #|    local.get $dst
         #|    i32.const 0
         #|    i32.const 16
+        #|    memory.fill)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    i32.const 171
+        #|    i32.const 16
         #|    memory.fill))
         #|,
       ),
@@ -7059,10 +7064,15 @@ test "optimize-instructions expands constant sixteen-byte memory.fill to v128.st
     Err(err) =>
       fail("expected sixteen-byte memory.fill optimize success, got \{err}")
   }
-  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("memory.fill"), msg=pretty)
-  assert_true(pretty.contains("v128.const"), msg=pretty)
-  assert_true(pretty.contains("v128.store"), msg=pretty)
+  let zero = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(zero.contains("memory.fill"), msg=zero)
+  assert_true(zero.contains("v128.const"), msg=zero)
+  assert_true(zero.contains("v128.store"), msg=zero)
+  let nonzero = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(nonzero.contains("memory.fill"), msg=nonzero)
+  assert_true(nonzero.contains("v128.const"), msg=nonzero)
+  assert_true(nonzero.contains("v128.store"), msg=nonzero)
+  assert_true(nonzero.contains("abab"), msg=nonzero)
 }
 
 ///|
