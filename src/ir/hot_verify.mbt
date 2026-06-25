@@ -96,21 +96,17 @@ fn hot_verify_branch_payload_arity(func : HotFunc, node_id : NodeId) -> Int? {
   let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::Br | HotOp::Delegate => Some(node.child_count)
-    HotOp::BrOnNonNull =>
+    HotOp::BrOnNonNull | HotOp::BrOnCast =>
       if node.child_count == 0 {
         None
       } else {
-        // `br_on_non_null` carries the tested non-null reference as the final
-        // taken-edge branch payload. Any explicit payload children are prefix
-        // values, and the guard child itself accounts for the final label
-        // result.
+        // `br_on_non_null` and successful `br_on_cast` carry the tested
+        // reference as the final taken-edge branch payload. Any explicit
+        // payload children are prefix values, and the guard child itself
+        // accounts for the final label result.
         Some(node.child_count)
       }
-    HotOp::BrIf
-    | HotOp::BrTable
-    | HotOp::BrOnNull
-    | HotOp::BrOnCast
-    | HotOp::BrOnCastFail =>
+    HotOp::BrIf | HotOp::BrTable | HotOp::BrOnNull | HotOp::BrOnCastFail =>
       if node.child_count == 0 {
         None
       } else {

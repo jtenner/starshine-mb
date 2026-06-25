@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md
   - ../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md
   - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
   - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
@@ -78,11 +79,11 @@ The current Starshine implementation is an accepted direct-pass subset under Sta
 - safe movable-value `local.set` sinking into the single `if` arm that contains all reads of that local;
 - a first ordinary-void-`if` segment movement slice that moves one SFA set after the `if` when all reads are same-region suffix reads;
 - a dropped value-`if` segment movement slice that moves one SFA set after the dropped wrapper when all reads are same-region suffix reads;
-- narrow conditional-branch segment movement slices that move one SFA set after a void-block-target or void-loop-target `br_if`, a dropped void-label `br_on_null`, a one-result-block `br_on_non_null`, and a branch-value slice for value-block-target `br_if`, when the branch/guard/payload does not read the local and all reads are same-block / same-loop-body suffix reads;
-- ordered multi-set movement slices that move adjacent local-independent SFA sets after an ordinary void `if`, dropped value-`if`, narrow void-block-target / void-loop-target `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, or value-block-target `br_if` while preserving source order;
+- narrow conditional-branch segment movement slices that move one SFA set after a void-block-target or void-loop-target `br_if`, a dropped void-label `br_on_null`, a one-result-block `br_on_non_null`, a dropped one-result-block `br_on_cast`, and a branch-value slice for value-block-target `br_if`, when the branch/guard/payload does not read the local and all reads are same-block / same-loop-body suffix reads;
+- ordered multi-set movement slices that move adjacent local-independent SFA sets after an ordinary void `if`, dropped value-`if`, narrow void-block-target / void-loop-target `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, or value-block-target `br_if` while preserving source order;
 - an ordered direct local-copy multi-set slice that preserves source order across the same three push-point families when copied source locals are not rewritten by the crossed push point;
 - ordered separator-window multi-set slices that preserve source order across the same three push-point families when only `nop`, `drop(const)`, or `drop(local.get)` roots separate local-independent SFA sets, plus a bounded `drop(global.get)` separator slice for ordinary void `if` and dropped value-`if` push points only;
-- a dedicated `code-pushing-all` GenValid profile covering the currently aggregate-safe `if`-arm, after-`if`, dropped-`if`, no-branch-value `br_if`, dropped `br_on_null`, one-result-block `br_on_non_null`, ordinary-`if` multi-set, dropped-`if` multi-set, no-branch-value `br_if` multi-set, local-copy multi-set, `nop`-window multi-set, loop-target `br_if`, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, and `drop(global.get)`-window ordinary-/dropped-`if` positive families, plus a targeted-only `code-pushing-br-if-value` leaf for branch-value single-/multi-set `br_if` shapes held out of the aggregate until the value-`br_if` lowering temp-local drift is fixed or normalized;
+- a dedicated `code-pushing-all` GenValid profile covering the currently aggregate-safe `if`-arm, after-`if`, dropped-`if`, no-branch-value `br_if`, dropped `br_on_null`, one-result-block `br_on_non_null`, ordinary-`if` multi-set, dropped-`if` multi-set, no-branch-value `br_if` multi-set, local-copy multi-set, `nop`-window multi-set, loop-target `br_if`, dropped one-result-block `br_on_cast`, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, and `drop(global.get)`-window ordinary-/dropped-`if` positive families, plus a targeted-only `code-pushing-br-if-value` leaf for branch-value single-/multi-set `br_if` shapes held out of the aggregate until the value-`br_if` lowering temp-local drift is fixed or normalized;
 - guarded movement of selected `global.get`, local-copy setup shapes, and a narrow non-null `struct.get` heap-read shape across safe intervening roots;
 - a first atomics/GC slice matching Binaryen `code-pushing-atomics.wast`: the non-null `struct.get` may cross atomic loads but not atomic stores, both for into-`if` and segment movement;
 - one Starshine-local typed/dead-block flattening helper near unreachable context.
@@ -155,7 +156,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 - One `if` arm consumes the local and the other does not.
 - Post-if reads where the non-consuming arm is unreachable.
-- `switch` and conditional `br` push points, including the current simple `br_table` no-mutation boundary and the bounded Binaryen-positive one-result-block `br_on_non_null` family.
+- `switch` and conditional `br` push points, including the current simple `br_table` no-mutation boundary and the bounded Binaryen-positive one-result-block `br_on_non_null` and dropped one-result-block `br_on_cast` families.
 - Trap-capable expressions under default, ignore-implicit-traps, and TNH options.
 - GC/reference operations such as `ref.func`, casts, null checks, and the `version_130` atomics/GC ordering family.
 - EH control where movement can change exceptional observability.
@@ -209,6 +210,7 @@ For current `[O4Z-AUDIT-CP]` widening:
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md`](../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md)
 - [`../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md`](../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md)
 - [`../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md)
 - [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)

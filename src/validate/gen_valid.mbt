@@ -684,6 +684,7 @@ pub enum GenValidProfile {
   CodePushingBrIfProfile
   CodePushingBrOnNullProfile
   CodePushingBrOnNonNullProfile
+  CodePushingBrOnCastProfile
   CodePushingBrIfValueProfile
   CodePushingMultiSetProfile
   CodePushingMultiSetDroppedIfProfile
@@ -781,6 +782,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingBrIfProfile => "code-pushing-br-if"
     CodePushingBrOnNullProfile => "code-pushing-br-on-null"
     CodePushingBrOnNonNullProfile => "code-pushing-br-on-non-null"
+    CodePushingBrOnCastProfile => "code-pushing-br-on-cast"
     CodePushingBrIfValueProfile => "code-pushing-br-if-value"
     CodePushingMultiSetProfile => "code-pushing-multi-set"
     CodePushingMultiSetDroppedIfProfile => "code-pushing-multi-set-dropped-if"
@@ -859,6 +861,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingBrIfProfile, 1),
         GenValidProfileMember::new(CodePushingBrOnNullProfile, 1),
         GenValidProfileMember::new(CodePushingBrOnNonNullProfile, 1),
+        GenValidProfileMember::new(CodePushingBrOnCastProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetDroppedIfProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetBrIfProfile, 1),
@@ -981,6 +984,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingBrIfProfile,
     CodePushingBrOnNullProfile,
     CodePushingBrOnNonNullProfile,
+    CodePushingBrOnCastProfile,
     CodePushingBrIfValueProfile,
     CodePushingMultiSetProfile,
     CodePushingMultiSetDroppedIfProfile,
@@ -1424,6 +1428,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | CodePushingBrIfProfile
     | CodePushingBrOnNullProfile
     | CodePushingBrOnNonNullProfile
+    | CodePushingBrOnCastProfile
     | CodePushingBrIfValueProfile
     | CodePushingMultiSetProfile
     | CodePushingMultiSetDroppedIfProfile
@@ -1711,7 +1716,8 @@ fn gen_valid_code_pushing_profile_config(
     },
     max_results: if profile == CodePushingAfterIfProfile ||
       profile == CodePushingBrIfValueProfile ||
-      profile == CodePushingBrOnNonNullProfile {
+      profile == CodePushingBrOnNonNullProfile ||
+      profile == CodePushingBrOnCastProfile {
       1
     } else {
       0
@@ -1721,6 +1727,7 @@ fn gen_valid_code_pushing_profile_config(
       profile == CodePushingMultiSetBrIfProfile ||
       profile == CodePushingBrOnNullProfile ||
       profile == CodePushingBrOnNonNullProfile ||
+      profile == CodePushingBrOnCastProfile ||
       profile == CodePushingMultiSetLocalCopyProfile ||
       profile == CodePushingMultiSetNopWindowProfile ||
       profile == CodePushingLoopBrIfProfile ||
@@ -1738,6 +1745,7 @@ fn gen_valid_code_pushing_profile_config(
       CodePushingBrIfValueProfile => 11
       CodePushingBrOnNullProfile => 11
       CodePushingBrOnNonNullProfile => 10
+      CodePushingBrOnCastProfile => 12
       CodePushingMultiSetProfile => 11
       CodePushingMultiSetDroppedIfProfile => 12
       CodePushingMultiSetBrIfProfile => 13
@@ -1768,7 +1776,8 @@ fn gen_valid_code_pushing_profile_config(
       allow_memory64: false,
       allow_atomics: false,
       allow_ref_types: profile == CodePushingBrOnNullProfile ||
-      profile == CodePushingBrOnNonNullProfile,
+      profile == CodePushingBrOnNonNullProfile ||
+      profile == CodePushingBrOnCastProfile,
       allow_v128: false,
       allow_relaxed_simd: false,
       allow_subtyping_topology: false,
@@ -1786,6 +1795,7 @@ fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(CodePushingBrIfProfile) ||
   config == GenValidConfig::for_profile(CodePushingBrOnNullProfile) ||
   config == GenValidConfig::for_profile(CodePushingBrOnNonNullProfile) ||
+  config == GenValidConfig::for_profile(CodePushingBrOnCastProfile) ||
   config == GenValidConfig::for_profile(CodePushingBrIfValueProfile) ||
   config == GenValidConfig::for_profile(CodePushingMultiSetProfile) ||
   config == GenValidConfig::for_profile(CodePushingMultiSetDroppedIfProfile) ||
@@ -12401,6 +12411,8 @@ fn gen_valid_code_pushing_profile_kind(
     CodePushingBrOnNullProfile
   } else if config == GenValidConfig::for_profile(CodePushingBrOnNonNullProfile) {
     CodePushingBrOnNonNullProfile
+  } else if config == GenValidConfig::for_profile(CodePushingBrOnCastProfile) {
+    CodePushingBrOnCastProfile
   } else if config == GenValidConfig::for_profile(CodePushingBrIfValueProfile) {
     CodePushingBrIfValueProfile
   } else if config == GenValidConfig::for_profile(CodePushingMultiSetProfile) {
@@ -12538,6 +12550,37 @@ fn gen_valid_code_pushing_br_on_non_null_body() -> Array[Instruction] {
         Instruction::local_get(LocalIdx::new(2U)),
         Instruction::drop(),
         Instruction::ref_null(extern_heap),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_br_on_cast_body() -> Array[Instruction] {
+  let any_heap = HeapType::abs(AbsHeapType::any())
+  let i31_heap = HeapType::abs(AbsHeapType::i31())
+  [
+    Instruction::block(
+      BlockType::val_type(ValType::i31ref_nullable()),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_on_cast(
+          LabelIdx::new(0U),
+          true,
+          any_heap,
+          true,
+          i31_heap,
+        ),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+        Instruction::ref_null(i31_heap),
       ]),
     ),
   ]
@@ -12767,6 +12810,8 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
     [ValType::i32()]
   } else if kind == CodePushingBrOnNonNullProfile {
     [ValType::externref()]
+  } else if kind == CodePushingBrOnCastProfile {
+    [ValType::i31ref_nullable()]
   } else {
     []
   }
@@ -12777,6 +12822,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
     CodePushingBrOnNullProfile => gen_valid_code_pushing_br_on_null_body()
     CodePushingBrOnNonNullProfile =>
       gen_valid_code_pushing_br_on_non_null_body()
+    CodePushingBrOnCastProfile => gen_valid_code_pushing_br_on_cast_body()
     CodePushingBrIfValueProfile => gen_valid_code_pushing_br_if_value_body()
     CodePushingMultiSetProfile => gen_valid_code_pushing_multi_set_body()
     CodePushingMultiSetDroppedIfProfile =>
@@ -12803,6 +12849,8 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
   } else if kind == CodePushingBrOnNullProfile ||
     kind == CodePushingBrOnNonNullProfile {
     [ValType::externref()]
+  } else if kind == CodePushingBrOnCastProfile {
+    [ValType::anyref()]
   } else {
     [ValType::i32()]
   }
@@ -12822,6 +12870,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
               kind == CodePushingMultiSetBrIfProfile ||
               kind == CodePushingBrOnNullProfile ||
               kind == CodePushingBrOnNonNullProfile ||
+              kind == CodePushingBrOnCastProfile ||
               kind == CodePushingMultiSetLocalCopyProfile ||
               kind == CodePushingMultiSetNopWindowProfile ||
               kind == CodePushingLoopBrIfProfile ||
