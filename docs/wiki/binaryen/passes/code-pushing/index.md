@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0883-2026-06-25-code-pushing-all-post-0881-smoke.md
   - ../../../raw/research/0882-2026-06-25-code-pushing-multitable-read-write-boundary.md
   - ../../../raw/research/0881-2026-06-25-code-pushing-nested-disjoint-global-set-movement.md
   - ../../../raw/research/0880-2026-06-25-code-pushing-nonmatching-state-read-write-boundaries.md
