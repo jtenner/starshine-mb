@@ -631,7 +631,7 @@ Likewise:
   (i32.const 4))
 ```
 
-may become a single `store` of a repeated-byte constant pattern. Starshine also lowers direct `local.get` fill values for sizes `2`/`4`/`8` by building the repeated-byte pattern from the low byte. For size `1`, flat local or no-param-call values also lower directly to `i32.store8`. Non-local wider fill values such as direct calls or computed `i32.add` values for sizes `2`/`4`/`8` are now explicit keep-spelling boundaries matching Binaryen `version_130`, not missing materialization.
+may become a single `store` of a repeated-byte constant pattern. Starshine also lowers direct `local.get` fill values for sizes `2`/`4`/`8` by building the repeated-byte pattern from the low byte. For size `16` zero fills, Starshine now matches Binaryen's one-store SIMD shape with `v128.const 0` plus `v128.store`; nonzero repeated-byte SIMD fills remain open pending arbitrary repeated-byte `v128.const` materialization. For size `1`, flat local or no-param-call values also lower directly to `i32.store8`. Non-local wider fill values such as direct calls or computed `i32.add` values for sizes `2`/`4`/`8` are now explicit keep-spelling boundaries matching Binaryen `version_130`, not missing materialization.
 
 Effectful flat copy operands and byte-fill values are also covered for narrow no-param-call and pure-argument direct-call shapes:
 

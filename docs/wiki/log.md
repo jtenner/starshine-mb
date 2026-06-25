@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lower size-16 zero memory.fill
+
+- Extended OI-G exact constant-size `memory.fill` lowering to the size-16 zero-fill subset, matching Binaryen `version_130` with `v128.const 0` plus `v128.store`.
+- Kept nonzero repeated-byte SIMD fills open pending arbitrary repeated-byte `v128.const` materialization, so this is a narrow SIMD fill implementation rather than broad size-16 fill parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-fill-16-zero-probe.wat`; red-first focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*sixteen-byte memory.fill*'` failed with `memory.fill` still present before implementation and passed after.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple lane
 
 - Added OI-M direct-HOT coverage proving one-use `tuple.extract(tuple.make(...))` forwarding preserves a selected trapping `i32.load` lane.

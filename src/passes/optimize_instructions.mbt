@@ -4555,6 +4555,23 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
         @lib.Instruction::i64_store,
       )
     }
+    16 => {
+      let repeated_id = match
+        optimize_instructions_i32_const(func, dead, value_id) {
+        Some(@lib.I32(raw)) if (raw.reinterpret_as_uint() & 0xff) == 0 =>
+          @ir.hot_build_const_v128_zero(func)
+        _ => return false
+      }
+      optimize_instructions_replace_with_store_exact(
+        ctx,
+        func,
+        node_id,
+        node.imm0,
+        dst_id,
+        repeated_id,
+        @lib.Instruction::v128_store,
+      )
+    }
     _ => return false
   }
   true

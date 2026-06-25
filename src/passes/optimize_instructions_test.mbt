@@ -7040,6 +7040,32 @@ test "optimize-instructions expands constant eight-byte memory.fill to store" {
 }
 
 ///|
+test "optimize-instructions expands constant sixteen-byte memory.fill to v128.store" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    i32.const 0
+        #|    i32.const 16
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected sixteen-byte memory.fill optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  assert_true(pretty.contains("v128.const"), msg=pretty)
+  assert_true(pretty.contains("v128.store"), msg=pretty)
+}
+
+///|
 test "optimize-instructions expands local two-byte memory.fill to store16" {
   let optimized = match
     pass_test_run_pipeline(
