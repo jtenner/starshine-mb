@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1126-2026-06-25-heap-store-optimization-post-1125-rebuild-validation.md
   - ../../../raw/research/1125-2026-06-25-heap-store-optimization-timer-instrumentation-disposition.md
   - ../../../raw/research/1124-2026-06-25-heap-store-optimization-region-fast-path-rejections.md
   - ../../../raw/research/1123-2026-06-25-heap-store-optimization-post-1122-validation.md
@@ -551,6 +552,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Validation refresh `1123` ran `moon test src/passes` (`3045/3045`) and a post-`1122` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). A root-control-index pre-scan trial was rejected after it regressed the 2000-function median to `8.208ms`. HSO-I remains open at `7.710ms` best current median, and HSO-J remains deferred.
   - Rejection note `1124` tested two additional root-copy/allocation-churn ideas without keeping source changes: a no-control region preflight plus in-place pure-default rewrite regressed the 2000-function median to `8.620ms`, and a direct complete-chain return/array-reuse path regressed it to `8.542ms`. Do not revive those exact shapes without fresh profiling; HSO-I remains open at the committed `1122` best median.
   - Timer disposition `1125` tested per-function HSO detail timers for `pass_require_effects` and root-region processing. The attribution sample showed `detail:hso:process-root-region` at `2.951ms`, but adding two timer lines per function inflated the traced pass total to `16.922ms`, so the instrumentation was reverted and should not be used for the HSO-I timing lane without aggregate-only tracing.
+  - Rebuild validation `1126` reran `moon fmt`, focused HSO tests (`417/417`), native `src/cmd` build, and a 1000-case direct compare (`1000/1000` normalized, `0` mismatches/failures) after reverting the experiments. A local timing refresh measured `8.372ms` on the 2000-function fixture, which does not improve on the committed `1122` best `7.710ms`; HSO-J remains deferred on HSO-I.
 
 ## Beginner warning: what the name hides
 
