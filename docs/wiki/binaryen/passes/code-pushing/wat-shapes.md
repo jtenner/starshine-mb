@@ -231,7 +231,7 @@ Binaryen-backed after:
 
 Starshine now implements this narrow dropped `br_on_null` subset for zero-arity block/loop labels when the guard operand does not read the moved local and every read is a same-region suffix read after the dropped branch. The adjacent local-independent multi-set variant is also source-backed and preserves source order. A guard-read variant such as `(local.get $tmp) (br_on_null $exit)` keeps the set stationary.
 
-## Shape 4d: `br_on_non_null` is Binaryen-positive but Starshine-blocked
+## Shape 4d: bounded `br_on_non_null` movement
 
 Binaryen-backed before:
 
@@ -255,7 +255,7 @@ Binaryen-backed after:
   (ref.null noextern))
 ```
 
-Binaryen also moves adjacent local-independent SFA sets after this push point while preserving source order, and keeps a set stationary when the `br_on_non_null` guard reads that moved local. Starshine does not implement this family yet because `br_on_non_null`'s taken edge implicitly carries the non-null guard reference to a one-result label; HOT branch-payload verification/lowering must be proved or fixed before code-pushing can safely mutate it.
+Binaryen also moves adjacent local-independent SFA sets after this push point while preserving source order, and keeps a set stationary when the `br_on_non_null` guard reads that moved local. Starshine now implements the bounded one-result block-label subset after fixing HOT `BrOnNonNull` branch-payload arity: the guard child itself accounts for the implicit final taken-edge non-null payload. Broader loop-label, prefix-payload, and other `br_on_*` forms remain open.
 
 ## Shape 5: ordered multi-set movement after a void `if`
 

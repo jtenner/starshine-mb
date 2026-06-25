@@ -7,21 +7,23 @@ sources:
   - ../../binaryen/passes/code-pushing/index.md
   - ../../binaryen/passes/code-pushing/starshine-port-readiness-and-validation.md
   - ../../../../src/passes/code_pushing.mbt
-  - ../../../../src/ir/hot_lift.mbt
+  - ../../../../src/passes/code_pushing_test.mbt
   - ../../../../src/ir/hot_verify.mbt
+  - ../../../../src/validate/gen_valid.mbt
+  - ../../../../src/validate/gen_valid_tests.mbt
 ---
 
-# Code-pushing `br_on_non_null` inventory
+# Code-pushing `br_on_non_null` movement
 
 ## Question
 
-Can the next `[O4Z-AUDIT-CP]` slice safely mirror the just-landed dropped `br_on_null` movement for `br_on_non_null`?
+Can `[O4Z-AUDIT-CP]` mirror Binaryen `version_130` movement after `br_on_non_null` without losing the implicit taken-edge reference payload?
 
 ## Short answer
 
-Binaryen `wasm-opt version 130` does move pure SFA sets after a `br_on_non_null` push point when the value is only used on the fallthrough suffix, and it preserves adjacent multi-set order. A guard-read probe remains stationary.
+Yes, for a bounded one-result block-label subset. Binaryen `wasm-opt version 130` moves pure SFA sets after a `br_on_non_null` push point when the moved locals are only used on the fallthrough suffix, and it preserves adjacent multi-set order. A guard-read probe remains stationary.
 
-Starshine should **not** implement this by simply adding `HotOp::BrOnNonNull` to the current code-pushing conditional-branch gate. `br_on_non_null` is branch-payload-carrying even when it has only a guard child: the target label receives the non-null reference on the taken edge. The current HOT verifier computes branch payload arity for `BrOnNonNull` as `child_count - 1`, so a one-child `BrOnNonNull` targeting a one-result block is a broader HOT representation/verification surface than the code-pushing gate alone. Treat this as a prerequisite IR/HOT branch-payload slice or a carefully tested pass+IR slice, not as a code-pushing-only one-line widening.
+Starshine now implements the same bounded subset after fixing HOT branch payload arity for `BrOnNonNull`: the guard child itself accounts for the implicit final taken-edge non-null reference payload. The code-pushing mutating gate admits only `BrOnNonNull` with one guard child targeting a one-result block label; broader loop labels, explicit prefix payloads, `br_on_cast`, and other reference-carrying branch forms remain open.
 
 ## Binaryen probes
 
@@ -91,29 +93,34 @@ Guard-read probe:
     drop))
 ```
 
-Observed shape keeps the `local.set $tmp` before the `br_on_non_null`, so guard reads must remain a movement boundary.
+Observed shape keeps the `local.set $tmp` before the `br_on_non_null`, so guard reads remain a movement boundary.
 
-## Starshine implications
+## Starshine implementation
 
-Current `src/passes/code_pushing.mbt` already recognizes `BrOnNonNull` as a diagnostic conditional-branch kind, and branch-bearing helpers include it. The mutating conditional-branch support gate currently admits:
+The enabling IR fix is in `src/ir/hot_verify.mbt`: `hot_verify_branch_payload_arity(...)` now treats `BrOnNonNull` specially. For conditional branches in general, the last child is a guard and not a branch payload. For `BrOnNonNull`, the last child is both the tested guard and the implicit final taken-edge payload, so the actual branch arity is `child_count`, not `child_count - 1`.
 
-- `BrIf` to void block/loop labels with no branch values;
-- `BrIf` to one-result block labels with one explicit branch payload;
-- dropped `BrOnNull` to zero-arity block/loop labels with one guard child.
+The code-pushing widening is in `src/passes/code_pushing.mbt`: `code_pushing_single_set_conditional_branch_push_point_supported(...)` now accepts `BrOnNonNull` only when it targets a block label with branch arity `1` and exactly one child. Existing whole-root local accounting rejects guard operands that read moved locals, and the ordered multi-set helper reuses the same gate to preserve source order.
 
-A correct `br_on_non_null` slice needs additional HOT/IR proof because the branch-carried reference is implicit in the guard, not an extra payload child. Relevant local surfaces:
+Focused HOT tests were added because the WAT parser surface still cannot cover the comparable `br_on_*` shapes reliably in the pass tests:
 
-- `src/ir/hot_lift.mbt` lowers `Instruction::BrOnNonNull` by computing `payload_count = branch_arity - 1`, popping the guard, and storing children as explicit payload prefix plus guard.
-- `src/ir/hot_verify.mbt` currently verifies `BrOnNonNull` using the generic conditional-branch payload rule `actual_arity = child_count - 1` against the target label branch arity.
-- Therefore a one-child `BrOnNonNull` targeting a one-result block is not equivalent to a one-child zero-arity `BrOnNull` in HOT verification/accounting.
+- single pure SFA set moves after one-result-block `BrOnNonNull`;
+- two adjacent local-independent SFA sets move after it in source order;
+- guard-read boundary remains stationary.
 
-## Decision for this slice
+The dedicated GenValid profile now includes aggregate-safe `code-pushing-br-on-non-null`, and `code-pushing-all` grows from 14 to 15 leaves.
 
-Do not widen `code_pushing_single_set_conditional_branch_push_point_supported(...)` to `BrOnNonNull` in isolation. Keep `[O4Z-AUDIT-CP]` active with a new explicit blocker: `br_on_non_null` is Binaryen-positive but requires a source-backed HOT branch-payload representation/verification slice before code-pushing mutation and GenValid aggregation.
+## Retained boundaries
 
-## Suggested next implementation path
+- `BrOnNonNull` loop labels are not widened in this slice.
+- Prefix payload variants for labels with more than one result are not widened.
+- `br_on_cast`, `br_on_cast_fail`, and other reference-carrying conditional branch forms remain open.
+- WAT parser coverage for these pass fixtures remains a future improvement; the committed pass tests use direct HOT construction.
+- The separate value-`br_if` HOT-lowering temporary-local representation gap remains open, so `code-pushing-br-if-value` stays targeted-only and excluded from `code-pushing-all`.
 
-1. Add an IR/HOT red-first fixture that lifts or manually builds the `br_on_non_null` one-result-block shape and proves the intended branch arity/accounting.
-2. Fix HOT verification/lowering if needed so `br_on_non_null`'s implicit taken-edge non-null payload is modeled correctly.
-3. Add code-pushing red-first tests for single-set, adjacent multi-set, and guard-read boundary movement.
-4. Only then consider a targeted GenValid leaf; keep it out of `code-pushing-all` until compare output is aggregate-safe.
+## Evidence
+
+- Red-first focused `moon test src/passes/code_pushing_test.mbt --target native -f '*br_on_non_null*'` failed before implementation with `InvalidBranchArity(... actual 0, expected 1)`, proving the HOT payload accounting gap.
+- After the HOT verifier and code-pushing gate changes, focused `*br_on_non_null*` passed `3/3`.
+- Focused `moon test src/validate/gen_valid_tests.mbt --target native -f '*code-pushing*'` passed `3/3` after adding the GenValid leaf.
+- `moon fmt`, `moon info --target native`, full focused `moon test src/passes/code_pushing_test.mbt --target native`, and `moon build --target native --release src/cmd` passed with pre-existing warnings.
+- Aggregate-safe `code-pushing-all` compare with `--normalize local-cleanup-debris` in `.tmp/pass-fuzz-code-pushing-br-on-non-null-aggregate-1000` compared `1000/1000`, normalized `473`, cleanup-normalized `527`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, and selected `code-pushing-br-on-non-null: 59` plus every other aggregate-safe leaf.
