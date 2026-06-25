@@ -83,7 +83,7 @@ Same-local integer compares also collapse when both operands are the same `local
 
 Starshine now covers this direct local subset for integer `eq`/`ne` and signed/unsigned `lt`/`le`/`gt`/`ge`; it does not claim a broader expression-identity proof for effectful or trapping operands.
 
-A first `maxBits`-style masked unsigned subset also folds when an `and` mask bounds the left operand below the compared constant. Starshine now preserves effectful i32 masked operands by dropping the evaluated masked value before the folded constant; the i64 effect-preserving variant remains a follow-up until covered by a dedicated slice.
+A first `maxBits`-style masked unsigned subset also folds when an `and` mask bounds the left operand below the compared constant. Starshine now preserves effectful i32 and i64 masked operands by dropping the evaluated masked value before the folded constant.
 
 ```wat
 (i32.eq (i32.and (local.get $x) (i32.const 255)) (i32.const 256)) ;; -> i32.const 0
@@ -92,7 +92,7 @@ A first `maxBits`-style masked unsigned subset also folds when an `and` mask bou
 (i64.eq (i64.and (local.get $y) (i64.const 255)) (i64.const 256)) ;; -> i32.const 0
 ```
 
-For i32, effectful direct masked operands are preserved with an explicit drop before the folded `i32.const`; for example, `((call $effect) & 255) == 256` becomes `drop(i32.and(call $effect, 255)); i32.const 0`. The remaining boundaries are effect-preserving i64 masked operands, recursive `maxBits` proofs beyond nonnegative `and` masks, signed range proofs, and non-mask width facts unless covered by later slices.
+For i32 and i64, effectful direct masked operands are preserved with an explicit drop before the folded `i32.const`; for example, `((call $effect) & 255) == 256` becomes `drop(i32.and(call $effect, 255)); i32.const 0`, and the i64 spelling uses `i64.and` under the same drop. The remaining boundaries are recursive `maxBits` proofs beyond nonnegative `and` masks, signed range proofs, and non-mask width facts unless covered by later slices.
 
 ## Shape family 2: negative-add and subtraction spelling
 
