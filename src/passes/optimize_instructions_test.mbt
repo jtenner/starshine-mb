@@ -6946,6 +6946,53 @@ test "optimize-instructions keeps local dynamic-size bulk-memory" {
 }
 
 ///|
+test "optimize-instructions keeps global dynamic-size bulk-memory" {
+  // Boundary-only OI-G classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps `memory.copy` and `memory.fill` when the
+  // size is a nonconstant global (`.tmp/oi-g-global-dynamic-bulk-probe.wat`).
+  // Starshine likewise keeps the dynamic bulk-memory operations instead of
+  // treating global-backed sizes as exact constant tiny lowerings.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (global $n (mut i32) (i32.const 9))
+        #|  (func (param $dst i32) (param $src i32) (param $val i32)
+        #|    local.get $dst
+        #|    local.get $src
+        #|    global.get $n
+        #|    memory.copy
+        #|    local.get $dst
+        #|    local.get $val
+        #|    global.get $n
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected global dynamic bulk-memory boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.get (Local 0)", "local.get (Local 1)", "global.get (Global 0)", "memory.copy",
+    "local.get (Local 0)", "local.get (Local 2)", "global.get (Global 0)", "memory.fill",
+  ])
+  assert_false(pretty.contains("i32.load8u"), msg=pretty)
+  assert_false(pretty.contains("i32.store8"), msg=pretty)
+  assert_false(pretty.contains("i32.load16u"), msg=pretty)
+  assert_false(pretty.contains("i32.store16"), msg=pretty)
+  assert_false(pretty.contains("i64.load"), msg=pretty)
+  assert_false(pretty.contains("i64.store"), msg=pretty)
+  assert_false(pretty.contains("v128.load"), msg=pretty)
+  assert_false(pretty.contains("v128.store"), msg=pretty)
+}
+
+///|
 test "optimize-instructions expands tiny constant memory.fill to store" {
   let optimized = match
     pass_test_run_pipeline(

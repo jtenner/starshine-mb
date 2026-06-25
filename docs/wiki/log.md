@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover global dynamic bulk-memory
+
+- Added OI-G public-pipeline coverage proving `memory.copy` / `memory.fill` with nonconstant `global.get` size operands stay outside the exact tiny lowering set.
+- Binaryen `version_130` keeps both dynamic bulk-memory operations and preserves the local/global operand order; Starshine now locks the same keep-spelling behavior.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-global-dynamic-bulk-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*global dynamic-size bulk-memory*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover i32 sign-extension relational boundary
 
 - Added OI-D public-pipeline boundary coverage proving signed relational comparisons over out-of-range direct i32 sign-extension results remain outside the equality-only range fold.
