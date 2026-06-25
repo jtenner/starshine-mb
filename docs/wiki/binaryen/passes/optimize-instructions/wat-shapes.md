@@ -8,6 +8,7 @@ sources:
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0876-2026-06-25-optimize-instructions-oi-g-local-dynamic-bulk.md
   - ../../../raw/research/0877-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-siblings.md
+  - ../../../raw/research/0878-2026-06-25-optimize-instructions-oi-d-i64-signext-equality-boundary.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -85,7 +86,7 @@ Same-local integer compares also collapse when both operands are the same `local
 
 Starshine now covers this direct local subset for integer `eq`/`ne` and signed/unsigned `lt`/`le`/`gt`/`ge`; it does not claim a broader expression-identity proof for effectful or trapping operands.
 
-A first `maxBits`-style unsigned subset folds when an `and` mask bounds the left operand below the compared constant. Starshine now preserves effectful i32 and i64 masked operands by dropping the evaluated masked value before the folded constant. First recursive-width facts also handle direct i32/i64 unsigned-right-shift results with constant shift amounts `1..31` / `1..63`, including direct child `and`/`shr_u` facts such as `(x & 1023) >>> 4`. Starshine also covers the first direct i32 sign-extension equality range facts for `i32.extend8_s` / `i32.extend16_s` compared with constants outside the signed lane range.
+A first `maxBits`-style unsigned subset folds when an `and` mask bounds the left operand below the compared constant. Starshine now preserves effectful i32 and i64 masked operands by dropping the evaluated masked value before the folded constant. First recursive-width facts also handle direct i32/i64 unsigned-right-shift results with constant shift amounts `1..31` / `1..63`, including direct child `and`/`shr_u` facts such as `(x & 1023) >>> 4`. Starshine also covers the first direct i32 sign-extension equality range facts for `i32.extend8_s` / `i32.extend16_s` compared with constants outside the signed lane range. The corresponding i64 `extend8_s` / `extend16_s` / `extend32_s` equality spellings are a source-backed keep-spelling boundary because Binaryen `version_130` kept the probed out-of-range comparisons.
 
 ```wat
 (i32.eq (i32.and (local.get $x) (i32.const 255)) (i32.const 256)) ;; -> i32.const 0
@@ -98,7 +99,7 @@ A first `maxBits`-style unsigned subset folds when an `and` mask bounds the left
 (i64.eq (i64.shr_u (i64.and (local.get $y) (i64.const 1023)) (i64.const 4)) (i64.const 64)) ;; -> i32.const 0
 ```
 
-For i32 and i64, effectful direct masked operands are preserved with an explicit drop before the folded `i32.const`; for example, `((call $effect) & 255) == 256` becomes `drop(i32.and(call $effect, 255)); i32.const 0`, and the i64 spelling uses `i64.and` under the same drop. Effectful direct i32/i64 `shr_u` bounded operands likewise become `drop(i32.shr_u(...)); i32.const result` or `drop(i64.shr_u(...)); i32.const result`, including a direct nested mask child under the dropped shift. The remaining boundaries are dynamic/zero shift amounts, signed range proofs, local-scanner facts, select/phi/load/extension width facts, and broader recursive `maxBits` expressions unless covered by later slices.
+For i32 and i64, effectful direct masked operands are preserved with an explicit drop before the folded `i32.const`; for example, `((call $effect) & 255) == 256` becomes `drop(i32.and(call $effect, 255)); i32.const 0`, and the i64 spelling uses `i64.and` under the same drop. Effectful direct i32/i64 `shr_u` bounded operands likewise become `drop(i32.shr_u(...)); i32.const result` or `drop(i64.shr_u(...)); i32.const result`, including a direct nested mask child under the dropped shift. The remaining boundaries are dynamic/zero shift amounts, signed range proofs, local-scanner facts, select/phi/load/extension width facts, and broader recursive `maxBits` expressions unless covered by later slices; i64 sign-extension equality is explicitly source-backed as keep-spelling for the probed out-of-range forms.
 
 ## Shape family 2: negative-add and subtraction spelling
 

@@ -1063,6 +1063,54 @@ test "optimize-instructions folds i32 sign-extension equality outside range" {
 }
 
 ///|
+test "optimize-instructions keeps i64 sign-extension equality outside range" {
+  // Boundary-only OI-D classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps i64 sign-extension equality/inequality
+  // comparisons even when the constant is outside the signed lane range
+  // (`.tmp/oi-d-i64-signext-equality-probe.wat`). Starshine likewise keeps
+  // these forms rather than generalizing the covered i32 range fold.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (export "eq8") (param i64) (result i32)
+        #|    local.get 0
+        #|    i64.extend8_s
+        #|    i64.const 128
+        #|    i64.eq)
+        #|  (func (export "ne16") (param i64) (result i32)
+        #|    local.get 0
+        #|    i64.extend16_s
+        #|    i64.const -32769
+        #|    i64.ne)
+        #|  (func (export "eq32") (param i64) (result i32)
+        #|    local.get 0
+        #|    i64.extend32_s
+        #|    i64.const 2147483648
+        #|    i64.eq))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected i64 sign-extension equality boundary success, got \{err}")
+  }
+  let eq8_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(eq8_pretty.contains("i64.eq"), msg=eq8_pretty)
+  assert_true(eq8_pretty.contains("i64.extend8s"), msg=eq8_pretty)
+  assert_true(eq8_pretty.contains("I64(128)"), msg=eq8_pretty)
+  let ne16_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(ne16_pretty.contains("i64.ne"), msg=ne16_pretty)
+  assert_true(ne16_pretty.contains("i64.extend16s"), msg=ne16_pretty)
+  assert_true(ne16_pretty.contains("I64(-32769)"), msg=ne16_pretty)
+  let eq32_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(eq32_pretty.contains("i64.eq"), msg=eq32_pretty)
+  assert_true(eq32_pretty.contains("i64.extend32s"), msg=eq32_pretty)
+  assert_true(eq32_pretty.contains("I64(2147483648)"), msg=eq32_pretty)
+}
+
+///|
 test "optimize-instructions preserves i32 masked unsigned compare effects" {
   let source =
     #|(module

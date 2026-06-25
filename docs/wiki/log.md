@@ -17029,3 +17029,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Starshine now folds a narrow impossible `ref.eq` family to `i32.const 0` when one operand is a definitely non-null `i31` value and the other is a local whose declared heap cannot be `i31`, such as `(ref null $struct)`.
 - Updated the optimize-instructions dossier, Starshine HOT strategy, wiki index, and active backlog to keep remaining OI-I work scoped to broader equality/cast/test/drop-child and trap/effect-sensitive families.
 - 2026-06-20: Filed `raw/research/0773-2026-06-20-optimize-instructions-oi-i-struct-array-supertype-test-cast.md` for the seventeenth OI-I reference sub-slice, covering declared non-null absolute `struct` / `array` local successful `ref.test` / `ref.cast` folds to absolute `eq` / `any` targets, and refreshed the optimize-instructions wiki/backlog pointers.
+
+## 2026-06-25 optimize-instructions OI-D i64 sign-extension equality boundary
+
+- Recorded `docs/wiki/raw/research/0878-2026-06-25-optimize-instructions-oi-d-i64-signext-equality-boundary.md` as a boundary/status slice for out-of-range `i64.extend8_s` / `i64.extend16_s` / `i64.extend32_s` equality and inequality comparisons.
+- Binaryen `version_130` kept the probed i64 sign-extension comparisons, so Starshine now has public-pipeline coverage proving it also keeps those forms instead of generalizing the covered i32 sign-extension equality fold.
+- Updated the optimize-instructions source index, WAT shapes, Starshine strategy/HOT strategy, and active backlog with the narrowed OI-D boundary.
