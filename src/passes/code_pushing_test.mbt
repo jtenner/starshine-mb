@@ -4084,6 +4084,49 @@ test "code-pushing keeps SFA set before if across an ordered-before barrier" {
 }
 
 ///|
+test "code-pushing moves global.get value past other global.set before br_if push point" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $g0 (mut i32) (i32.const 1))
+        #|  (global $g1 (mut i32) (i32.const 2))
+        #|  (func (param i32) (local i32)
+        #|    (block $exit
+        #|      global.get $g0
+        #|      local.set 1
+        #|      i32.const 3
+        #|      global.set $g1
+        #|      local.get 0
+        #|      br_if $exit
+        #|      local.get 1
+        #|      drop)))
+        #|
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected code-pushing success, got \{err}; trace=\{trace}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(i32.const I32(3))(global.set (Global 1))(local.get (Local 0))(br_if",
+    ),
+    msg=pretty,
+  )
+  assert_true(
+    pretty.contains(
+      "(br_if (Label 0))(global.get (Global 0))(local.set (Local 1))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "code-pushing boundary keeps global.get value before global.set and br_if push point" {
   // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
   // keeps a global-reading candidate value before a matching global mutation.

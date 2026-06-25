@@ -115,6 +115,25 @@ fn code_pushing_node_is_global_get(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn code_pushing_node_is_disjoint_global_set_for_global_get(
+  func : @ir.HotFunc,
+  node_id : Int,
+  value_id : Int,
+) -> Bool {
+  if !code_pushing_node_is_global_get(func, value_id) ||
+    node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let value = @ir.hot_node_get(func, value_id)
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::GlobalSet => node.imm0 != value.imm0
+    _ => false
+  }
+}
+
+///|
 fn code_pushing_node_is_local_get(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -275,6 +294,9 @@ fn code_pushing_node_safe_to_cross_for_value(
   if code_pushing_node_is_global_get(func, value_id) {
     code_pushing_effects_safe_to_cross_for_value(
       @ir.effects_for_node(func, node_id),
+    ) ||
+    code_pushing_node_is_disjoint_global_set_for_global_get(
+      func, node_id, value_id,
     )
   } else if code_pushing_node_is_local_get(func, value_id) {
     let (_, writes) = code_pushing_count_local_gets_writes_in_node_bounded(
