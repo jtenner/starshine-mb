@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1103-2026-06-25-heap-store-optimization-catch-control-audit.md
   - ../../../raw/research/1102-2026-06-25-heap-store-optimization-exact-ref-cast-blocker-audit.md
   - ../../../raw/research/1101-2026-06-25-heap-store-optimization-nontry-wrapper-swap-audit.md
   - ../../../raw/research/1100-2026-06-25-heap-store-optimization-result-wrapper-later-field-audit.md
@@ -379,6 +380,7 @@ It is a narrow GC constructor/store cleanup pass.
 - Control-flow skip-local-set hazards include loop backedges that can re-enter target-local reads.
   - Follow-up `0863` confirmed Binaryen preserves `struct.set` when a branch-valued store can `br_if` to a loop header that reads the fresh-struct target local before the next `local.set`; Starshine already matched this HSO-F negative.
   - Micro-audit `1094` narrow-closes the direct skip-local-set control matrix by mapping safe function-external exits, locally caught call/throw negatives, nested control-sequence traversal, the one-disappearing-bad-get exception, direct-root `return_call_ref` Starshine wins, loop-backedge local-read hazards, and generated catch/branch skip-local-set roots to source-backed tests or profile evidence. HSO-F stays open for broader branch/catch review, arbitrary descriptor control, exact descriptor `ref.cast`, and result-wrapper/tail-call families outside that matrix.
+  - Micro-audit `1103` narrows that broader branch/catch wording further: locally caught call/throw negatives, external-exit positives, nested control, `br_table`/loop-backedge hazards, catchable `try_table` boundaries, descriptor catchable-call boundaries, result-wrapper tail-call boundaries, and generated descriptor catch/branch roots are all mapped to source-backed tests or profile evidence. Remaining HSO-F work is exact descriptor `ref.cast`, unlisted control instructions, arbitrary descriptor/later-field combinations with catch/control roots, and future exception-control surface drift.
 - Descriptor/default old-field combinations follow the same directional effect rules.
   - Follow-up `0856` confirmed Binaryen folds `struct.new_default_desc` chain stores into `struct.new_desc` when safe, but preserves a descriptor `struct.set` when a later constructor field call orders before a moved call value.
 - Generic heap dead-store elimination and load forwarding remain explicit non-goals for direct HSO.
