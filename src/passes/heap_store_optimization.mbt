@@ -35,12 +35,12 @@ priv struct HsoTypeCache {
 }
 
 ///|
-fn hso_new_predicate_cache(func : @ir.HotFunc) -> HsoPredicateCache {
+fn hso_new_predicate_cache() -> HsoPredicateCache {
   {
-    readonly_revision: Array::make(@ir.hot_node_count(func), -1),
-    readonly_result: @bitset.BitSet::new(@ir.hot_node_count(func)),
-    skip_revision: Array::make(@ir.hot_node_count(func), -1),
-    skip_result: @bitset.BitSet::new(@ir.hot_node_count(func)),
+    readonly_revision: [],
+    readonly_result: @bitset.BitSet::new(0),
+    skip_revision: [],
+    skip_result: @bitset.BitSet::new(0),
   }
 }
 
@@ -4014,7 +4014,7 @@ fn heap_store_optimization_run(
   func : @ir.HotFunc,
 ) -> HotPassResult {
   let effects = pass_require_effects(ctx, func)
-  let predicate_cache = hso_new_predicate_cache(func)
+  let predicate_cache = hso_new_predicate_cache()
   let type_cache = hso_new_type_cache()
   if hso_process_region(
       predicate_cache,
