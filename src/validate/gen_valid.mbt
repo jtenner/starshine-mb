@@ -11365,6 +11365,45 @@ fn gen_valid_append_heap_store_optimization_body_slice(
       out.push(Instruction::i32_const(I32(117)))
       out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
 
+      // Catchable result-typed same-resource roots keep the generated profile
+      // honest for wrappers whose memory.fill touches the constructor's
+      // memory-size resource and whose body can branch to a local catch.
+      if !env.tags.is_empty() {
+        let tag_idx = TagIdx::new(0U)
+        out.push(Instruction::memory_size(MemIdx::new(0U)))
+        out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+        out.push(Instruction::struct_new(struct_idx))
+        out.push(Instruction::local_set(local_idx))
+        out.push(
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::try_table(
+                BlockType::val_type(ValType::i32()),
+                [Catch::all(LabelIdx::new(0U))],
+                Expr::new([
+                  Instruction::i32_const(I32(0)),
+                  Instruction::i32_const(I32(8)),
+                  Instruction::i32_const(I32(1)),
+                  Instruction::memory_fill(MemIdx::new(0U)),
+                  Instruction::memory_size(MemIdx::new(0U)),
+                  Instruction::if_(
+                    BlockType::void_(),
+                    [Instruction::throw_(tag_idx)],
+                    Some([]),
+                  ),
+                  Instruction::i32_const(I32(118)),
+                ]),
+              ),
+              Instruction::drop(),
+            ]),
+          ),
+        )
+        out.push(Instruction::local_get(local_idx))
+        out.push(Instruction::i32_const(I32(119)))
+        out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      }
+
       out.push(Instruction::memory_size(MemIdx::new(0U)))
       out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
       out.push(Instruction::struct_new(struct_idx))
