@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Rewrite maxBits signed compare spellings
+
+- Added OI-D red-first coverage for signed relational comparisons whose operand is proven nonnegative and bounded but whose constant remains in range.
+- Extended Starshine's narrow direct `maxBits` compare proof to rewrite those signed spellings to unsigned relational opcodes for i32/i64 direct masks, shifts, and unsigned-load facts.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-maxbits-signed-spelling-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*unsigned maxBits signed compare spelling*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected-third multi-result tuple boundary
 
 - Added OI-M direct-HOT boundary coverage for selecting the third scalar lane from a multi-result tuple child.

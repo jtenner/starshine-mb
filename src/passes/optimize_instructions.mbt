@@ -7786,6 +7786,19 @@ fn optimize_instructions_i32_masked_unsigned_compare_result(
 }
 
 ///|
+fn optimize_instructions_i32_signed_to_unsigned_compare_instr(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Instruction::I32LtS => Some(@lib.Instruction::i32_lt_u())
+    @lib.Instruction::I32LeS => Some(@lib.Instruction::i32_le_u())
+    @lib.Instruction::I32GtS => Some(@lib.Instruction::i32_gt_u())
+    @lib.Instruction::I32GeS => Some(@lib.Instruction::i32_ge_u())
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_i32_masked_unsigned_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7819,7 +7832,16 @@ fn optimize_instructions_try_fold_i32_masked_unsigned_compare(
       }
       true
     }
-    None => false
+    None =>
+      match optimize_instructions_i32_signed_to_unsigned_compare_instr(instr) {
+        Some(replacement) if rhs >= 0 => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx, func, node_id, replacement, lhs_id, rhs_id,
+          )
+          true
+        }
+        _ => false
+      }
   }
 }
 
@@ -7928,6 +7950,19 @@ fn optimize_instructions_i64_masked_unsigned_compare_result(
 }
 
 ///|
+fn optimize_instructions_i64_signed_to_unsigned_compare_instr(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Instruction::I64LtS => Some(@lib.Instruction::i64_lt_u())
+    @lib.Instruction::I64LeS => Some(@lib.Instruction::i64_le_u())
+    @lib.Instruction::I64GtS => Some(@lib.Instruction::i64_gt_u())
+    @lib.Instruction::I64GeS => Some(@lib.Instruction::i64_ge_u())
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_i64_masked_unsigned_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7961,7 +7996,16 @@ fn optimize_instructions_try_fold_i64_masked_unsigned_compare(
       }
       true
     }
-    None => false
+    None =>
+      match optimize_instructions_i64_signed_to_unsigned_compare_instr(instr) {
+        Some(replacement) if rhs >= 0L => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx, func, node_id, replacement, lhs_id, rhs_id,
+          )
+          true
+        }
+        _ => false
+      }
   }
 }
 

@@ -1492,6 +1492,49 @@ test "optimize-instructions folds unsigned load maxBits compares" {
 }
 
 ///|
+test "optimize-instructions rewrites unsigned maxBits signed compare spelling" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i32.const 255
+        #|    i32.and
+        #|    i32.const 128
+        #|    i32.lt_s)
+        #|  (func (param $x i64) (result i32)
+        #|    local.get $x
+        #|    i64.const 8
+        #|    i64.shr_u
+        #|    i64.const 42
+        #|    i64.ge_s)
+        #|  (func (param $p i32) (result i32)
+        #|    local.get $p
+        #|    i32.load8_u
+        #|    i32.const 128
+        #|    i32.lt_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected unsigned maxBits spelling optimize success, got \{err}")
+  }
+  let i32_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(i32_pretty.contains("i32.lt_u"), msg=i32_pretty)
+  assert_false(i32_pretty.contains("i32.lt_s"), msg=i32_pretty)
+  let i64_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(i64_pretty.contains("i64.ge_u"), msg=i64_pretty)
+  assert_false(i64_pretty.contains("i64.ge_s"), msg=i64_pretty)
+  let load_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(load_pretty.contains("i32.lt_u"), msg=load_pretty)
+  assert_false(load_pretty.contains("i32.lt_s"), msg=load_pretty)
+}
+
+///|
 test "optimize-instructions folds unsigned maxBits signed compares" {
   let pure_source =
     #|(module
