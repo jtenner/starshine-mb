@@ -4126,6 +4126,84 @@ test "code-pushing boundary keeps global.get value before global.set and br_if p
 }
 
 ///|
+test "code-pushing boundary keeps load value before memory.store and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps a memory-reading candidate value before a matching memory write.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (local i32)
+      #|    (block $exit
+      #|      i32.const 0
+      #|      i32.load
+      #|      local.set 1
+      #|      i32.const 0
+      #|      i32.const 42
+      #|      i32.store
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
+test "code-pushing boundary keeps table.get value before table.set and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps a table-reading candidate value before a matching table write.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (table 1 funcref)
+      #|  (func (param i32) (local funcref)
+      #|    (block $exit
+      #|      i32.const 0
+      #|      table.get 0
+      #|      local.set 1
+      #|      i32.const 0
+      #|      ref.func $f
+      #|      table.set 0
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop))
+      #|  (func $f)
+      #|  (elem declare func $f))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
 test "code-pushing flattens dead typed block before unreachable" {
   let func = code_pushing_test_run_hot(
     (
