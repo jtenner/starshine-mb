@@ -2445,6 +2445,7 @@ test "emit gen-valid heap-store-optimization profile records GC store opportunit
   assert_true(has_i32_result_func_type)
   assert_true(wat.contains("i32.const I32(140)"), msg=wat)
   assert_true(wat.contains("i32.const I32(141)"), msg=wat)
+  assert_true(wat.contains("i32.const I32(142)"), msg=wat)
 }
 
 ///|
