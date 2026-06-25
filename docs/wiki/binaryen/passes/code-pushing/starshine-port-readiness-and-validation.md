@@ -3,6 +3,13 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md
+  - ../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md
+  - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
+  - ../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md
+  - ../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md
+  - ../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md
+  - ../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md
   - ../../../raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md
   - ../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md
   - ../../../raw/research/0854-2026-06-25-code-pushing-regular-100000-post-call-barrier-refresh.md
@@ -264,7 +271,7 @@ Do not widen without explicit tests for:
 
 ## Bottom line
 
-Starshine's older direct `code-pushing` subset remains supported by its 2026-05 evidence, but `[O4Z-AUDIT-CP]` is active and not closed under the current release-gating standard. The analyzer/segment inventory, ordinary-void-`if` segment movement, dropped value-`if` segment movement, narrow block-/loop-target `br_if` movement, ordered ordinary-`if` multi-set movement, dropped-`if` multi-set movement, `br_if` multi-set movement, direct local-copy multi-set movement, `nop`-window multi-set movement, `drop(const)`-window multi-set movement, `drop(local.get)`-window multi-set movement, bounded ordinary-/dropped-`if` `drop(global.get)`-window multi-set movement, simple `br_table` no-mutation boundary tests, the first atomics/GC non-null `struct.get` load/store boundary slice, and dedicated GenValid profile are now in-tree, so the next useful work is another source-backed push-point or movement family while keeping ordered-before / atomics boundaries carried forward from the `version_130` refresh. Public preset scheduling remains separate ordered-neighborhood work.
+Starshine `code-pushing` is closed for the current user-directed CP audit. The original `[O4Z-AUDIT-CP]` final closeout is [`0892`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md); the replacement-oriented follow-up is [`0901`](../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md); the reopened IIT, intrinsic, refinalization, and public preset blockers are closed by [`0902`](../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md), [`0905`](../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md), [`0906`](../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md), and [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md). [`0910`](../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md) is the explicit closeout marker and reopening checklist. No active useful user-directed CP gap remains known.
 
 ## Sources
 

@@ -719,6 +719,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Mark audit explicitly closed
+
+- Filed [`raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md`](raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md) as the explicit user-approved CP closeout marker after the reopened IIT, intrinsic, refinalization, and preset blockers were closed.
+- Updated the `code-pushing` living docs and backlog to treat `[O4Z-AUDIT-CP]` as closed, not merely actionability-paused.
+- Reopening criteria are now limited to new source-backed CP behavior, a generated mismatch classified as a real CP behavior/validity issue, a CP validation failure, a shared-GC fixture requirement for an actual CP behavior surface, or preset-neighborhood drift.
+- Validation: docs/status-only change; no Moon tests required.
+
 ## [2026-06-25] passes/strip-debug | Schedule final preset slot
 
 - Filed [`raw/research/0909-2026-06-25-strip-debug-preset-placement.md`](raw/research/0909-2026-06-25-strip-debug-preset-placement.md) for the `[JSON-AS]008` preset-placement slice.

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md
   - ../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md
   - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
   - ../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md
@@ -105,7 +106,7 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - A block next to an `unreachable` parent context can be flattened when branch and multivalue guards prove the splice safe.
    - This is local cleanup bundled in the current pass, not a source-confirmed upstream Binaryen `code-pushing` family.
 
-The pass is in the public `optimize` and `shrink` presets in the focused Binaryen-shaped neighborhood `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`. [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md) records the ordered-neighborhood proof and focused tests; broader preset parity remains governed by the repo-wide preset audit rules.
+The pass is in the public `optimize` and `shrink` presets in the focused Binaryen-shaped neighborhood `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`. [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md) records the ordered-neighborhood proof and focused tests; broader preset parity remains governed by the repo-wide preset audit rules. [`0910`](../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md) is the explicit user-approved CP closeout marker after the reopened IIT, intrinsic, refinalization, and preset blockers were closed.
 
 The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The debug-artifact replay reached `Normalized WAT equal: yes` and `Canonical function compare equal: yes`; raw wasm/text drift is accepted representation drift. Pass-local timing was about 1658ms for Starshine versus about 1311ms for Binaryen, clearing the 50%-of-Binaryen floor. See [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md).
 
@@ -342,34 +343,17 @@ This family helps current artifact and validation hygiene, but the wiki should k
 
 ## Preset and tuple-slot status
 
-`src/passes/optimize.mbt` registers `code-pushing` as active, but public presets still omit it.
+`src/passes/optimize.mbt` registers `code-pushing` as active, and public `optimize` / `shrink` presets schedule it in the focused Binaryen-shaped neighborhood `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`.
 
-Reason:
-
-- the canonical Binaryen no-DWARF slot places `code-pushing` before `tuple-optimization`;
-- `tuple_optimization_exact_slot_prereqs_ready()` still requires both `code-pushing` and `simplify-locals-no-structure` to be active before claiming the exact slot;
-- `simplify-locals-nostructure` is now active locally; the remaining question is ordered preset replay, not implementation availability.
-- and current `code-pushing` is still only a conservative subset.
-
-So the honest local status is:
+Current local status:
 
 - direct pass flag: active;
 - focused HOT subset: accepted complete under semantic / validity / 50%-speed criteria;
-- exact Binaryen preset slot: not claimed;
-- broader source-level `Pusher` coverage: old `[O4Z-AUDIT-CP]` is closed by `0892`; active replacement follow-up remains under `[O4Z-AUDIT-CP-BINREP]`.
+- exact Binaryen-shaped CP tuple-neighborhood: proven by [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md);
+- old `[O4Z-AUDIT-CP]`: closed by [`0892`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md);
+- old replacement-oriented `[O4Z-AUDIT-CP-BINREP]` plus reopened blockers: closed by [`0901`](../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md), [`0902`](../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md), [`0905`](../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md), [`0906`](../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md), [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md), and explicit marker [`0910`](../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md).
 
-## Current audit widening
-
-Read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the detailed first-slice ladder.
-
-The short version:
-
-1. build on the initial analyzer/segment-window diagnostic inventory from [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the first ordinary-void-`if` movement slice from [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the first dropped-`if` movement slice from [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), the first narrow `br_if` movement slice from [`0812`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md), the ordinary-`if` ordered multi-set slice from [`0813`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md), the dropped-`if` ordered multi-set slice from [`0814`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md), the `br_if` ordered multi-set slice from [`0815`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md), the local-copy slice from [`0816`](../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md), the `nop`-window slice from [`0817`](../../../raw/research/0817-2026-06-20-code-pushing-nop-window-multi-set-movement.md), the loop-target `br_if` slice from [`0818`](../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md), the `drop(const)` window slice from [`0819`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md), the `drop(local.get)` window slice from [`0820`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md), and the atomics/GC boundary slice from [`0823`](../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md);
-2. expand remaining safe segment movement before widening value effects;
-3. preserve the first unreachable-arm post-use support and broaden it only with source-backed control-flow proof;
-4. only then widen to Binaryen's broader effect-checked / ordered-before value movement;
-5. test GC, atomics, EH, trap-option, switch, and conditional-branch families explicitly;
-6. revisit public preset placement only with ordered-neighborhood proof.
+No active useful user-directed CP gap remains known. Future work should start from the reopening criteria in [`0910`](../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md), not from the older audit-widening checklist.
 
 ## Related local dossiers
 
@@ -384,7 +368,7 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by `0892`, and replacement-oriented `[O4Z-AUDIT-CP-BINREP]` is closed by `0901`. The binrep follow-up resolved dependency-chain into-if sinking (`0893`), TNH exact integer div/rem into-if movement (`0895`), independent into-if multi-set source order (`0896`), the historical Binaryen `--ignore-implicit-traps` / `-iit` boundary (`0897`, later implemented by `0902`), low-priority branch/switch no-new-positive boundary (`0898`), no-effects intrinsic call import-metadata boundary (`0899`), and broader GC/ref implemented-subset/refinalization boundary (`0900`). The post-IIT actionability audit in `0903` found no remaining source-backed/generated `code-pushing` replacement work currently actionable. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active and closed for the current user-directed CP audit. `[O4Z-AUDIT-CP]` closed by `0892`; replacement-oriented `[O4Z-AUDIT-CP-BINREP]` closed by `0901`; the reopened IIT, intrinsic, refinalization, and preset blockers closed in `0902`, `0905`, `0906`, and `0907`; and `0910` is the explicit closeout marker. Reopen only for new source-backed CP behavior, a generated mismatch classified as a real CP behavior/validity issue, a CP validation failure, a shared-GC fixture requirement for an actual CP behavior surface, or preset-neighborhood drift.
 
 ## Sources
 
