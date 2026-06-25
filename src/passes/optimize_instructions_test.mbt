@@ -6808,6 +6808,66 @@ test "optimize-instructions rewrites reinterpret stores to representation stores
 }
 
 ///|
+test "optimize-instructions rewrites reinterpret loads to representation loads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (result f32)
+        #|    local.get $ptr
+        #|    i32.load
+        #|    f32.reinterpret_i32)
+        #|  (func (param $ptr i32) (result f64)
+        #|    local.get $ptr
+        #|    i64.load
+        #|    f64.reinterpret_i64)
+        #|  (func (param $ptr i32) (result i32)
+        #|    local.get $ptr
+        #|    f32.load
+        #|    i32.reinterpret_f32)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    f64.load
+        #|    i64.reinterpret_f64))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected reinterpret-load optimize success, got \{err}")
+  }
+  for idx = 0U; idx < 4U; idx = idx + 1U {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(idx))
+    for
+      op in [
+        "f32.reinterpret_i32", "f64.reinterpret_i64", "i32.reinterpret_f32", "i64.reinterpret_f64",
+      ] {
+      assert_false(
+        pretty.contains(op),
+        msg="\{op} not folded in func \{idx}: \{pretty}",
+      )
+    }
+  }
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+    ["(local.get (Local 0))", "f32.load"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U)),
+    ["(local.get (Local 0))", "f64.load"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+    ["(local.get (Local 0))", "i32.load"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(3U)),
+    ["(local.get (Local 0))", "i64.load"],
+  )
+}
+
+///|
 test "optimize-instructions keeps i64.extend_i32 before i64 narrow stores as a Binaryen OI parity boundary" {
   // Boundary-only OI-G classification: Binaryen `version_130`
   // `--optimize-instructions` does NOT fold `i64.store8` / `i64.store16` of an

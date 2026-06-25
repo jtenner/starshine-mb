@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Rewrite reinterpret loads
+
+- Added the OI-G direct load-result cleanup for full-width load plus reinterpret pairs: `f32.reinterpret_i32(i32.load p)` becomes `f32.load p`, `f64.reinterpret_i64(i64.load p)` becomes `f64.load p`, and the inverse integer-result forms become `i32.load` / `i64.load`.
+- The rewrite is deliberately limited to one-use full-width load children so the original load effect is not duplicated when a HOT node is shared.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-reinterpret-load-probe.wat`; red-first `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*reinterpret loads*'` failed before implementation and passed after.
+
 ## [2026-06-25] passes/optimize-instructions | Lock non-local memory.fill boundary
 
 - Refined the OI-G wider `memory.fill` boundary: Binaryen `version_130` keeps probed direct-call values and computed `i32.add` values as `memory.fill`, so Starshine's positive lowering remains intentionally limited to constants and direct `local.get` values.

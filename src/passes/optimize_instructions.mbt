@@ -4218,6 +4218,59 @@ fn optimize_instructions_try_rewrite_reinterpret_store_value(
 }
 
 ///|
+fn optimize_instructions_try_rewrite_reinterpret_load_result(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 1 {
+    return false
+  }
+  let load_id = @ir.hot_child_get(func, node_id, 0)
+  if !optimize_instructions_node_is_live(func, dead, load_id) ||
+    pass_node_use_count(ctx, func, load_id) != 1 {
+    return false
+  }
+  let load = @ir.hot_node_get(func, load_id)
+  if load.child_count != 1 {
+    return false
+  }
+  let new_instr = match
+    (
+      @ir.hot_node_exact_instr(func, load_id),
+      @ir.hot_node_exact_instr(func, node_id),
+    ) {
+    (
+      Some(@lib.Instruction::I32Load(memarg)),
+      Some(@lib.Instruction::F32ReinterpretI32),
+    ) => @lib.Instruction::f32_load(memarg)
+    (
+      Some(@lib.Instruction::I64Load(memarg)),
+      Some(@lib.Instruction::F64ReinterpretI64),
+    ) => @lib.Instruction::f64_load(memarg)
+    (
+      Some(@lib.Instruction::F32Load(memarg)),
+      Some(@lib.Instruction::I32ReinterpretF32),
+    ) => @lib.Instruction::i32_load(memarg)
+    (
+      Some(@lib.Instruction::F64Load(memarg)),
+      Some(@lib.Instruction::I64ReinterpretF64),
+    ) => @lib.Instruction::i64_load(memarg)
+    _ => return false
+  }
+  optimize_instructions_rewrite_exact_with_children(
+    ctx,
+    func,
+    node_id,
+    new_instr,
+    [@ir.hot_child_get(func, load_id, 0)],
+  )
+  true
+}
+
+///|
 fn optimize_instructions_try_widen_store_of_wrap_i64(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -8014,6 +8067,9 @@ fn optimize_instructions_visit_node(
       if node.child_count != 1 {
         false
       } else {
+        optimize_instructions_try_rewrite_reinterpret_load_result(
+          ctx, func, dead, node_id,
+        ) ||
         optimize_instructions_try_fold_convert(
           ctx,
           func,

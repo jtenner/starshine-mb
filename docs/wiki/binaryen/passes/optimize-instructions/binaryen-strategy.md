@@ -347,14 +347,15 @@ This pass directly owns several memory-shape simplifications.
 
 `optimizeMemoryAccess(...)` can fold constants from the pointer into the offset when doing so is safe, and it distinguishes memory32 vs memory64 overflow boundaries.
 
-### Store-value cleanup
+### Store-value and load-result cleanup
 
-`optimizeStoredValue(...)` can:
+`optimizeStoredValue(...)` and adjacent load-result rewrites can:
 
 - truncate stored integer constants to the actual stored byte width
 - remove redundant `and` masks on narrower stores
 - drop sign-extension work that the store width will discard anyway
 - replace some reinterpret-store combinations with a store of the original representation type
+- replace full-width load plus reinterpret-result combinations with a load of the final representation type
 
 ### Bulk memory
 

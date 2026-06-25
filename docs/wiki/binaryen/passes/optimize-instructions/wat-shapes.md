@@ -553,14 +553,19 @@ Related store families:
 - truncate stored constants to the store width
 - remove sign-extension work that the store width discards
 - rewrite reinterpret-store pairs into stores of the original representation type when possible
+- rewrite full-width load plus reinterpret-result pairs into loads of the final result type when the load is one-use
 
-Starshine now covers the direct reinterpret-store subset observed in Binaryen `version_130`:
+Starshine now covers the direct reinterpret-store and one-use reinterpret-load subsets observed in Binaryen `version_130`:
 
 ```wat
 (f32.store (local.get $p) (f32.reinterpret_i32 (local.get $x))) ;; -> i32.store
 (f64.store (local.get $p) (f64.reinterpret_i64 (local.get $y))) ;; -> i64.store
 (i32.store (local.get $p) (i32.reinterpret_f32 (local.get $f))) ;; -> f32.store
 (i64.store (local.get $p) (i64.reinterpret_f64 (local.get $g))) ;; -> f64.store
+(f32.reinterpret_i32 (i32.load (local.get $p))) ;; -> f32.load
+(f64.reinterpret_i64 (i64.load (local.get $p))) ;; -> f64.load
+(i32.reinterpret_f32 (f32.load (local.get $p))) ;; -> i32.load
+(i64.reinterpret_f64 (f64.load (local.get $p))) ;; -> i64.load
 ```
 
 ## Shape family 14: tiny `memory.copy` and `memory.fill`
