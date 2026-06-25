@@ -48,9 +48,12 @@ The exact-HOT movement fix changes the representative mismatch family: the gener
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 20 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-br-on-non-null-prefix --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-exact-20-20260625 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 10 --keep-going-after-command-failures
 # compared 20/20; normalized 0; cleanup-normalized 0; raw mismatches 20; no validation/generator/property/command failures
+
+bun scripts/pass-fuzz-compare.ts --count 200 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-br-on-non-null-prefix --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-exact-200-20260625 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 50 --keep-going-after-command-failures
+# compared 65/200 before the mismatch cap; normalized 0; cleanup-normalized 0; raw mismatches 65; no validation/generator/property/command failures
 ```
 
-Representative post-fix mismatch: `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-exact-20-20260625/failures/case-000001-gen-valid`.
+Representative post-fix mismatch: `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-exact-20-20260625/failures/case-000001-gen-valid`. The 200-case refresh confirms this is not just a small-sample artifact: all compared selected cases still raw-mismatch after the exact-HOT movement fix.
 
 Agent classification: the original generated prefix movement gap is narrowed, but the lane remains blocked by a lowerer/local-cleanup output-shape gap around the explicit prefix payload value. Binaryen emits the post-branch payload drop as `drop (local.get $3)` after the moved user locals. Starshine sinks the user locals, but lowering materializes the prefix drop through an extra temporary local (`local.set $5 (local.get $3)` then `drop (local.get $5)`). This is not yet measured as a Starshine win and should remain a parity/normalization blocker.
 
