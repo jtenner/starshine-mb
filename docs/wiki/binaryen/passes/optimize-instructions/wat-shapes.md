@@ -184,7 +184,8 @@ What to remember:
   the narrow stack-style form `pure local.get/const; no-param direct call;
   commutative integer binop`, so simple `local.get + call` functions reach HOT
   and get the same call-first spelling. It also admits flat tiny `memory.copy`
-  sequences with no-param direct-call/local/constant operands and flat byte
+  sequences with local/constant operands, no-param direct-call operands, and the
+  exact one-pure-argument direct-call address subset, plus flat byte
   `memory.fill` sequences with local/constant/no-param-call destination/value
   operands; broader stack-carried call/effect shapes still remain behind
   `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT
@@ -630,12 +631,21 @@ Effectful flat copy operands and byte-fill values are also covered for narrow no
   (i32.const 8))
 ```
 
-becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. Similarly, `local.get $dst; call $value; i32.const 1; memory.fill` becomes `i32.store8(local.get $dst, call $value)`.
+becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. The tiny-copy raw-gate escape also covers the exact one-pure-argument direct-call address form:
+
+```wat
+(memory.copy
+  (call $dst (local.get $d))
+  (call $src (local.get $s))
+  (i32.const 8))
+```
+
+Similarly, `local.get $dst; call $value; i32.const 1; memory.fill` becomes `i32.store8(local.get $dst, call $value)`.
 
 Important negative shape:
 
 - zero-size or same-src/dst cases are not blindly dropped in default mode; trap assumptions matter.
-- non-flat, parameterized-call, nonconstant-size, and broader control/effect copy forms still need separate localization proof.
+- non-flat, multi-parameter-call, nonconstant-size, and broader control/effect copy forms still need separate localization proof.
 
 ## Shape family 15: `call_ref` with known target
 

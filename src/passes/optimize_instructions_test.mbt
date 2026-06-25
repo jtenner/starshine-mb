@@ -6315,6 +6315,58 @@ test "optimize-instructions expands stack-carried effectful tiny memory.copy" {
 }
 
 ///|
+test "optimize-instructions expands stack-carried parameterized tiny memory.copy" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func $dst (param i32) (result i32) local.get 0)
+        #|  (func $src (param i32) (result i32) local.get 0)
+        #|  (func (param $d i32) (param $s i32)
+        #|    local.get $d
+        #|    call $dst
+        #|    local.get $s
+        #|    call $src
+        #|    i32.const 1
+        #|    memory.copy
+        #|    local.get $d
+        #|    call $dst
+        #|    local.get $s
+        #|    call $src
+        #|    i32.const 8
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected parameterized memory.copy optimize success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
+      )
+    }),
+    msg="expected parameterized stack memory.copy raw escape, trace=\{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  // Binaryen version_130 lowers the same parameterized-call shape
+  // (`.tmp/oi-g-parameterized-memory-copy-probe.wat`), so this is a narrow raw
+  // gate escape rather than a broad stack-carried/localizing claim.
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "call (Func 0)", "(local.get (Local 1))", "call (Func 1)",
+    "i32.load8u", "i32.store8", "(local.get (Local 0))", "call (Func 0)", "(local.get (Local 1))",
+    "call (Func 1)", "i64.load", "i64.store",
+  ])
+}
+
+///|
 test "optimize-instructions expands wider tiny memory.copy to exact load/store" {
   let optimized = match
     pass_test_run_pipeline(

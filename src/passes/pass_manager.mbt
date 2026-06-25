@@ -22515,6 +22515,34 @@ fn run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_call_has_one_param_one_result(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instr {
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          params.length() == 1 && results.length() == 1
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_is_pure_arg_unary_call_operand(
+  arg : @lib.Instruction,
+  call : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(arg) &&
+  run_hot_pipeline_optimize_instructions_call_has_one_param_one_result(
+    call, module_ctx,
+  )
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -22596,6 +22624,11 @@ fn run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
 ) -> Bool {
+  if run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy_with_unary_calls(
+      instrs, module_ctx,
+    ) {
+    return true
+  }
   if instrs.length() == 0 || instrs.length() % 4 != 0 {
     return false
   }
@@ -22624,6 +22657,38 @@ fn run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy(
     }
   }
   saw_call
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy_with_unary_calls(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  if instrs.length() == 0 || instrs.length() % 6 != 0 {
+    return false
+  }
+  for i = 0; i < instrs.length(); i = i + 6 {
+    if !run_hot_pipeline_optimize_instructions_is_pure_arg_unary_call_operand(
+        instrs[i],
+        instrs[i + 1],
+        module_ctx,
+      ) ||
+      !run_hot_pipeline_optimize_instructions_is_pure_arg_unary_call_operand(
+        instrs[i + 2],
+        instrs[i + 3],
+        module_ctx,
+      ) ||
+      !run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
+        instrs[i + 4],
+      ) {
+      return false
+    }
+    match instrs[i + 5] {
+      @lib.MemoryCopy(_, _) => ()
+      _ => return false
+    }
+  }
+  true
 }
 
 ///|
