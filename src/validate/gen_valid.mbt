@@ -11143,6 +11143,34 @@ fn gen_valid_append_heap_store_optimization_body_slice(
   out.push(Instruction::i32_const(I32(77)))
   out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
 
+  // Call-containing old-field roots exercise preservation of overwritten
+  // field side effects while still allowing the later same-field store to be
+  // folded when the call itself is kept before the rewritten constructor.
+  match env.current_func_idx {
+    Some(call_idx) =>
+      match gen_valid_callable_by_idx(env.funcs, call_idx) {
+        Some(target) if target.params.is_empty() && target.results.is_empty() => {
+          out.push(
+            Instruction::block(
+              BlockType::val_type(ValType::i32()),
+              Expr::new([
+                Instruction::call(call_idx),
+                Instruction::i32_const(I32(137)),
+              ]),
+            ),
+          )
+          out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+          out.push(Instruction::struct_new(struct_idx))
+          out.push(Instruction::local_set(local_idx))
+          out.push(Instruction::local_get(local_idx))
+          out.push(Instruction::i32_const(I32(138)))
+          out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+
   // Default constructors exercise HSO's materialization path, where a later
   // struct.set replaces one default field in the generated struct.new.
   out.push(Instruction::struct_new_default(struct_idx))
