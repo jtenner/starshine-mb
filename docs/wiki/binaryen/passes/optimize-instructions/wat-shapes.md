@@ -21,6 +21,7 @@ sources:
   - ../../../raw/research/0886-2026-06-25-optimize-instructions-oi-g-memory-copy-size3-boundary.md
   - ../../../raw/research/0887-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-five-later.md
   - ../../../raw/research/0891-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-six-later.md
+  - ../../../raw/research/0893-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-seven-later.md
   - ../../../raw/research/0888-2026-06-25-optimize-instructions-oi-g-memory-fill-size3-boundary.md
   - ../../../raw/research/0889-2026-06-25-optimize-instructions-oi-d-i32-signext-rel-boundary.md
 related:

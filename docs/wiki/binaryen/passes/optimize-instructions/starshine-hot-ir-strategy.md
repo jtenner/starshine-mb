@@ -55,6 +55,7 @@ sources:
   - ../../../raw/research/0886-2026-06-25-optimize-instructions-oi-g-memory-copy-size3-boundary.md
   - ../../../raw/research/0887-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-five-later.md
   - ../../../raw/research/0891-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-six-later.md
+  - ../../../raw/research/0893-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-seven-later.md
   - ../../../raw/research/0862-2026-06-25-optimize-instructions-oi-g-multiparam-bulk-memory.md
   - ../../../raw/research/0863-2026-06-25-optimize-instructions-oi-m-earlier-later-neighbor.md
   - ../../../raw/research/0864-2026-06-25-optimize-instructions-oi-g-global-bulk-memory.md
