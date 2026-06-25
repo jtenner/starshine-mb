@@ -1845,7 +1845,7 @@ fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
   let base = GenValidConfig::coverage_forced_default()
   GenValidConfig::{
     ..base,
-    max_type_defs: 8,
+    max_type_defs: 16,
     max_imports: 0,
     max_defined_funcs: 4,
     max_tables: 1,
@@ -5384,6 +5384,19 @@ fn gen_valid_gc_type_defs(
     let descriptor_idx = TypeIdx::new(
       (type_idx_cursor + 1).reinterpret_as_uint(),
     )
+    let described_struct_comp_type = if ctx.config.features.allow_heap_store_optimization_body_generator {
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Var),
+        FieldType::new(
+          StorageType::val_type(
+            ValType::ref_type(RefType::abs(AbsHeapType::eq())),
+          ),
+          Const,
+        ),
+      ])
+    } else {
+      CompType::struct_([])
+    }
     if remaining_type_budget - (type_idx_cursor - next_type_idx) >= 4 {
       let leaf_described_idx = TypeIdx::new(
         (type_idx_cursor + 2).reinterpret_as_uint(),
@@ -5396,7 +5409,7 @@ fn gen_valid_gc_type_defs(
           SubType::new(
             false,
             [],
-            CompType::struct_([]),
+            described_struct_comp_type,
             metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
           ),
           SubType::new(
@@ -5408,7 +5421,7 @@ fn gen_valid_gc_type_defs(
           SubType::new(
             true,
             [described_idx],
-            CompType::struct_([]),
+            described_struct_comp_type,
             metadata=TypeMetadata::new(descriptor=Some(leaf_descriptor_idx)),
           ),
           SubType::new(
@@ -5444,7 +5457,7 @@ fn gen_valid_gc_type_defs(
       defs.push(
         RecType::group([
           SubType::comp_type(
-            CompType::struct_([]),
+            described_struct_comp_type,
             metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
           ),
           SubType::comp_type(
@@ -11141,6 +11154,44 @@ fn gen_valid_append_heap_store_optimization_body_slice(
   out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
   out.push(Instruction::drop())
 
+  // Descriptor-bearing constructors exercise the custom-descriptor siblings of
+  // HSO's default and explicit-field materialization paths.
+  match
+    (
+      env.gc_type_plan.descriptor_struct_idx,
+      env.gc_type_plan.descriptor_type_idx,
+    ) {
+    (Some(described_idx), Some(descriptor_idx)) => {
+      let described_ref = ValType::ref_type(
+        RefType::new(true, HeapType::new(described_idx), exact=true),
+      )
+      match gen_matching_local_idx(env.local_types, described_ref) {
+        Some(described_local_idx) => {
+          out.push(Instruction::struct_new_default(descriptor_idx))
+          out.push(Instruction::struct_new_default_desc(described_idx))
+          out.push(Instruction::local_set(described_local_idx))
+          out.push(Instruction::local_get(described_local_idx))
+          out.push(Instruction::i32_const(I32(89)))
+          out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+
+          out.push(Instruction::i32_const(I32(90)))
+          out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+          out.push(Instruction::struct_new_default(descriptor_idx))
+          out.push(Instruction::struct_new_desc(described_idx))
+          out.push(Instruction::local_set(described_local_idx))
+          out.push(Instruction::local_get(described_local_idx))
+          out.push(Instruction::i32_const(I32(91)))
+          out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+          out.push(Instruction::local_get(described_local_idx))
+          out.push(Instruction::struct_get(described_idx, U32::new(0U)))
+          out.push(Instruction::drop())
+        }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+
   // Void try_table/table.set roots exercise the wrapped trySwap path. The
   // table root is deliberately non-throwing and does not touch the target
   // local, so Binaryen folds the later same-local struct.set into the fresh
@@ -11368,6 +11419,21 @@ fn gen_valid_build_func(
           is None {
           locals.push(struct_ref)
         }
+      }
+      match gc_type_plan.descriptor_struct_idx {
+        Some(described_idx) => {
+          let described_ref = ValType::ref_type(
+            RefType::new(true, HeapType::new(described_idx), exact=true),
+          )
+          if gen_matching_local_idx(
+              gen_all_local_types(accepts, locals),
+              described_ref,
+            )
+            is None {
+            locals.push(described_ref)
+          }
+        }
+        None => ()
       }
     } else {
       for vt in gc_type_plan.concrete_ref_types {
