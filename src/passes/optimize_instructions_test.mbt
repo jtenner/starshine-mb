@@ -6439,6 +6439,10 @@ test "optimize-instructions expands wider tiny memory.copy to exact load/store" 
         #|    local.get $dst
         #|    local.get $src
         #|    i32.const 8
+        #|    memory.copy
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 16
         #|    memory.copy))
         #|,
       ),
@@ -6451,6 +6455,7 @@ test "optimize-instructions expands wider tiny memory.copy to exact load/store" 
   assert_false(pretty.contains("memory.copy"), msg=pretty)
   optimize_instructions_assert_strings_in_order(pretty, [
     "i32.load16u", "i32.store16", "i32.load", "i32.store", "i64.load", "i64.store",
+    "v128.load", "v128.store",
   ])
 }
 
@@ -6631,7 +6636,7 @@ test "optimize-instructions keeps memory.copy outside exact tiny lowering bounda
         #|    memory.copy
         #|    local.get $dst
         #|    local.get $src
-        #|    i32.const 16
+        #|    i32.const 32
         #|    memory.copy
         #|    local.get $dst
         #|    local.get $src
@@ -6647,8 +6652,8 @@ test "optimize-instructions keeps memory.copy outside exact tiny lowering bounda
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   // Intentional fail-closed boundary: without trap-relaxed mode support, a
-  // zero-size memory.copy is kept; without multi-store overlap proof and a
-  // side-effect-free constant size, larger/nonconstant copies are kept too.
+  // zero-size memory.copy is kept; without a broader multi-store overlap proof
+  // and exact constant-size support, larger/nonconstant copies are kept too.
   @debug.assert_eq(
     optimize_instructions_test_count_substring(pretty, "memory.copy"),
     3,
@@ -6660,6 +6665,8 @@ test "optimize-instructions keeps memory.copy outside exact tiny lowering bounda
   assert_false(pretty.contains("i32.store16"), msg=pretty)
   assert_false(pretty.contains("i64.load"), msg=pretty)
   assert_false(pretty.contains("i64.store"), msg=pretty)
+  assert_false(pretty.contains("v128.load"), msg=pretty)
+  assert_false(pretty.contains("v128.store"), msg=pretty)
 }
 
 ///|

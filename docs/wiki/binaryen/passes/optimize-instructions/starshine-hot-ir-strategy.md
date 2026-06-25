@@ -43,6 +43,7 @@ sources:
   - ../../../raw/research/0863-2026-06-25-optimize-instructions-oi-m-earlier-later-neighbor.md
   - ../../../raw/research/0864-2026-06-25-optimize-instructions-oi-g-global-bulk-memory.md
   - ../../../raw/research/0865-2026-06-25-optimize-instructions-oi-m-trapping-sibling.md
+  - ../../../raw/research/0866-2026-06-25-optimize-instructions-oi-g-v128-memory-copy.md
   - ../../../raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md
   - ../../../raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md
   - ../../../raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md
@@ -149,7 +150,7 @@ Its center of gravity is:
 - constant-`if` folding
 - nested boolean-`if` normalization and `eqz` wrapping
 - constant-condition `select` cleanup when the dropped arm is side-effect-free
-- tiny `memory.copy` lowering for constant sizes `1`/`2`/`4`/`8`, including direct-core memory64 copy fixtures for `i64` address preservation and flat stack-carried raw-gate escapes whose address operands may independently be local/constant/global operands, no-param direct-call operands, or direct calls with pure local/constant/global arguments, preserving destination-before-source evaluation order; mixed flat tiny-copy/byte-fill functions are admitted by the same tiny bulk-memory gate
+- tiny `memory.copy` lowering for constant sizes `1`/`2`/`4`/`8`/`16`, including the size-16 `v128.load` / `v128.store` shape, direct-core memory64 copy fixtures for `i64` address preservation, and flat stack-carried raw-gate escapes whose address operands may independently be local/constant/global operands, no-param direct-call operands, or direct calls with pure local/constant/global arguments, preserving destination-before-source evaluation order; mixed flat tiny-copy/byte-fill functions are admitted by the same tiny bulk-memory gate
 - constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`), including size-1 constant low-byte canonicalization, a flat stack-carried byte-fill raw-gate escape for local/global/no-param-call values and direct-call destination/value forms with pure local/constant/global arguments, and direct-core memory64 fill fixtures after the local typechecker length fix
 - stored-value/load-result cleanup for redundant masks in either `and` operand order plus constant stored-value truncation before `i32.store8` / `i32.store16` and, as documented, `i64.store8` / `i64.store16` / `i64.store32`, direct `i32.wrap_i64` i32-store widening with source memargs preserved, direct reinterpret-store representation rewrites (`f32.store(f32.reinterpret_i32 x)` -> `i32.store x`, etc.) with source memargs preserved, direct one-use full-width reinterpret-load result rewrites (`f32.reinterpret_i32(i32.load p)` -> `f32.load p`, etc.), and one-use i32-load plus `i64.extend_i32_*` rewrites to matching i64 loads (`i64.load32_*`, `i64.load8_*`, `i64.load16_*`) where the loaded value semantics are identical; representation-load rewrites preserve the original load memarg offset and alignment, while local-carried/shared load-result, reinterpret-store, and `i32.wrap_i64` store-value spellings are now documented keep-spelling boundaries
 - constant-pointer static-offset folding for scalar loads/stores: memory32 uses Binaryen's nonnegative `i32` range guard and memory64 uses Binaryen's unsigned `u64` no-wrap guard; the public/raw pipeline now admits the narrow `i32.const; nonzero-offset scalar load; drop; call` load/call shape so direct OI can fold Binaryen's observed call-followed offset case
@@ -399,7 +400,7 @@ So `call_ref` is no longer entirely missing, but full upstream directization par
 The local pass now covers no-mode-dependent upstream bulk-memory shapes in narrow slices:
 
 - constant-size `1` `memory.copy` to `i32.load8u` + `i32.store8`
-- constant-size `2`/`4`/`8` `memory.copy` to exact `i32.load16u`/`i32.load`/`i64.load` plus matching stores
+- constant-size `2`/`4`/`8`/`16` `memory.copy` to exact `i32.load16u`/`i32.load`/`i64.load`/`v128.load` plus matching stores
 - flat stack-carried tiny `memory.copy` sequences whose destination/source operands independently use local/constant/global operands, no-param direct-call operands, or `pure local/constant/global...; direct call` operands with matching parameter count and one result now escape the raw stack-effect gate and lower to the same load/store pairs while preserving destination-before-source evaluation order; mixed tiny-copy/byte-fill straight-line functions are covered when every bulk operation matches its narrow size rules
 - direct-core memory64 `memory.copy` fixtures proving the same size-`1` and size-`8` lowering preserves `i64` destination/source address operands
 - direct-core memory64 `memory.fill` fixtures proving size-`1` and size-`8` lowering preserves `i64` destination operands after the validator/typechecker accepts `i64` lengths
@@ -414,7 +415,7 @@ The local pass now covers no-mode-dependent upstream bulk-memory shapes in narro
 
 The local pass still does not cover broader upstream families like:
 
-- non-`1`/`2`/`4`/`8` constant-size `memory.copy` sequences and any future multi-store copy shapes; size `16` is now an explicit fail-closed boundary until an overlap-safe multi-store proof exists
+- non-`1`/`2`/`4`/`8`/`16` constant-size `memory.copy` sequences and any future multi-store copy shapes; size `16` is covered by the one-load/one-store SIMD proof
 - nonconstant-size `memory.copy`, because the size expression is not part of the exact tiny lowering proof
 - any future source-backed nonconstant wider `memory.fill` materialization beyond the covered direct `local.get` subset; call-backed and computed `i32.add` values for sizes `2`/`4`/`8` are now explicit keep-spelling boundaries under Binaryen `version_130`, while size-1 local/no-param-call and pure-argument direct-call values are covered
 - trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today

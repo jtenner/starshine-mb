@@ -22606,9 +22606,10 @@ fn run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
   instr : @lib.Instruction,
 ) -> Bool {
   match instr {
-    @lib.I32Const(@lib.I32(raw)) => raw == 1 || raw == 2 || raw == 4 || raw == 8
+    @lib.I32Const(@lib.I32(raw)) =>
+      raw == 1 || raw == 2 || raw == 4 || raw == 8 || raw == 16
     @lib.I64Const(@lib.I64(raw)) =>
-      raw == 1L || raw == 2L || raw == 4L || raw == 8L
+      raw == 1L || raw == 2L || raw == 4L || raw == 8L || raw == 16L
     _ => false
   }
 }

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lower size-16 memory.copy
+
+- Extended OI-G exact constant-size `memory.copy` lowering to size `16`, matching Binaryen `version_130` with a one-load/one-store `v128.load` / `v128.store` rewrite.
+- Updated the tiny bulk-memory raw-gate size predicate so flat stack-carried size-16 copies can reach HOT.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-copy-16-probe.wat`; red-first focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*wider tiny memory.copy*'` failed with `memory.copy` still present before implementation and passed after.
+
 ## [2026-06-25] passes/optimize-instructions | Cover trapping tuple siblings
 
 - Added OI-M direct-HOT coverage proving the covered one-use `tuple.extract(tuple.make(...))` localizer preserves trapping non-selected siblings.

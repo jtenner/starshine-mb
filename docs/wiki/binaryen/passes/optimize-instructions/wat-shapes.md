@@ -603,6 +603,14 @@ Possible after:
   (i32.load (local.get $src)))
 ```
 
+For size `16`, Binaryen and Starshine use the same one-load/one-store shape with SIMD:
+
+```wat
+(v128.store
+  (local.get $dst)
+  (v128.load (local.get $src)))
+```
+
 And under IIT / TNH:
 
 ```wat
@@ -634,7 +642,7 @@ Effectful flat copy operands and byte-fill values are also covered for narrow no
   (i32.const 8))
 ```
 
-becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. The tiny-copy raw-gate escape also covers pure-argument direct-call address forms, `global.get` operands used directly or as call arguments, source-backed mixed combinations, and mixed straight-line functions that contain both tiny copy and byte fill:
+becomes `i64.store(i64.load(call $src))` for size `8`, or the corresponding `v128.store(v128.load(...))` for size `16`, with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. The tiny-copy raw-gate escape also covers pure-argument direct-call address forms, `global.get` operands used directly or as call arguments, source-backed mixed combinations, and mixed straight-line functions that contain both tiny copy and byte fill:
 
 ```wat
 (memory.copy

@@ -4424,6 +4424,12 @@ fn optimize_instructions_try_expand_tiny_memory_copy(
         @lib.Instruction::i64_load,
         @lib.Instruction::i64_store,
       )
+    16 =>
+      (
+        @lib.ValType::v128(),
+        @lib.Instruction::v128_load,
+        @lib.Instruction::v128_store,
+      )
     _ => return false
   }
   let load = @ir.hot_build_load(func, load_ty, src_memarg, src_id)
