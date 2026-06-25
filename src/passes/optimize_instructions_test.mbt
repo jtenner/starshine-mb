@@ -5906,7 +5906,7 @@ test "optimize-instructions lowers table.get call_ref targets to indirect calls"
 }
 
 ///|
-test "optimize-instructions intentionally keeps call-indexed table.get call_ref targets" {
+test "optimize-instructions directizes call-indexed table.get call_ref targets" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let index_type_idx = @lib.TypeIdx::new(1U)
   let callee_type = @lib.RecType::new(
@@ -5973,18 +5973,17 @@ test "optimize-instructions intentionally keeps call-indexed table.get call_ref 
   )
   let caller = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   let tail = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  // Boundary: Binaryen directizes these to indirect calls while preserving the
-  // index call, but Starshine's current HOT shape does not expose the
-  // effectful table.get index as a directizable call_ref target. Keep this
-  // fail-closed until a localizing/HOT-lowering slice can prove the rewrite.
-  assert_true(caller.contains("call_ref"), msg=caller)
+  assert_true(caller.contains("call_indirect (Type 0) (Table 0)"), msg=caller)
   assert_true(caller.contains("call (Func 0)"), msg=caller)
-  assert_true(caller.contains("table.get"), msg=caller)
-  assert_false(caller.contains("call_indirect"), msg=caller)
-  assert_true(tail.contains("return_call_ref"), msg=tail)
+  assert_false(caller.contains("call_ref"), msg=caller)
+  assert_false(caller.contains("table.get"), msg=caller)
+  assert_true(
+    tail.contains("return_call_indirect (Type 0) (Table 0)"),
+    msg=tail,
+  )
   assert_true(tail.contains("call (Func 0)"), msg=tail)
-  assert_true(tail.contains("table.get"), msg=tail)
-  assert_false(tail.contains("return_call_indirect"), msg=tail)
+  assert_false(tail.contains("return_call_ref"), msg=tail)
+  assert_false(tail.contains("table.get"), msg=tail)
 }
 
 ///|

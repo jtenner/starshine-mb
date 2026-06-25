@@ -249,6 +249,8 @@ into:
 (call_indirect $t ... index)
 ```
 
+Starshine covers both constant-index table targets and the narrow call-indexed table target shape where the table index is a no-param one-result direct call and any already-evaluated call arguments are pure locals/constants. The older call-indexed boundary is superseded for that exact shape; broader effectful/localizing table-index forms still need separate proof.
+
 ## Fallthrough-known direct target
 
 This is more subtle.

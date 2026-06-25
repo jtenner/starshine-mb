@@ -22535,6 +22535,40 @@ fn run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_is_call_indexed_table_get_call_ref(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  if instrs.length() < 3 {
+    return false
+  }
+  let index_call = instrs[instrs.length() - 3]
+  let table_get = instrs[instrs.length() - 2]
+  let ref_call = instrs[instrs.length() - 1]
+  if !run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
+      index_call, module_ctx,
+    ) {
+    return false
+  }
+  match table_get {
+    @lib.TableGet(_) => ()
+    _ => return false
+  }
+  match ref_call {
+    @lib.CallRef(_) | @lib.ReturnCallRef(_) => ()
+    _ => return false
+  }
+  for i = 0; i < instrs.length() - 3; i = i + 1 {
+    if !run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        instrs[i],
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -22702,6 +22736,9 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       body, module_ctx,
     ) &&
     !run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy(
+      body, module_ctx,
+    ) &&
+    !run_hot_pipeline_optimize_instructions_is_call_indexed_table_get_call_ref(
       body, module_ctx,
     ) {
     return Some({

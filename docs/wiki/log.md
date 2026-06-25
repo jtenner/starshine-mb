@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Directize call-indexed table.get call_ref targets
+
+- Narrowed the OI raw `stack-carried-effect` gate for `call_ref` / `return_call_ref` whose target is `call $index; table.get`, where `$index` is a no-param one-result direct call and any already-evaluated call arguments are pure locals/constants.
+- The existing HOT `table.get` directizer now rewrites the public-pipeline fixture to `call_indirect` / `return_call_indirect`, preserving the index call as the indirect-call table index and matching Binaryen `version_130` for the source-backed shape.
+- Evidence: Binaryen oracle probe `.tmp/oi-h-table-get-effectful-index-probe.wat`; red-first `*call-indexed table.get*` failed before implementation with retained `call_ref` and passed after. Broader effectful/localizing table-index forms remain open.
+
 ## [2026-06-24] passes/optimize-instructions | Document GC atomic RMW boundary
 
 - Closed OI-L as an explicit representation boundary: Binaryen `version_130` optimizes probed non-mutating aggregate RMW/cmpxchg forms to `struct.get`-like reads, but Starshine currently exposes only `struct.atomic.get*`, not aggregate RMW/cmpxchg constructors.

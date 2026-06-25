@@ -639,7 +639,7 @@ After:
 
 Other positive families:
 
-- `call_ref(table.get ...) -> call_indirect`
+- `call_ref(table.get ...) -> call_indirect`, including the covered call-indexed table case where the index-producing direct call is preserved as the indirect-call table index
 - if the target's fallthrough is a `ref.func`, directize while preserving target-side effects and operand order
 - select-of-known-direct-targets can become an `if` over direct calls or return-calls
 
