@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1097-2026-06-25-heap-store-optimization-default-oldfield-audit.md
   - ../../../raw/research/1096-2026-06-25-heap-store-optimization-descriptor-later-field-barrier-audit.md
   - ../../../raw/research/1095-2026-06-25-heap-store-optimization-try-table-swap-audit.md
   - ../../../raw/research/1094-2026-06-25-heap-store-optimization-skip-local-control-audit.md
@@ -368,6 +369,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0885` locked descriptor old-field side-effect preservation: Binaryen folds a call-valued later store into `struct.new_desc` while preserving the overwritten old field's call under `drop`; Starshine already matched.
   - Coverage note `0886` locked the matching descriptor old-field plus later-field barrier: Binaryen preserves `struct.set` when folding would move a call-valued later store before a later constructor-field call, even though the overwritten old field is also a call; Starshine already matched.
   - Coverage note `0887` locked the plain-constructor counterpart: Binaryen also preserves `struct.set` for plain `struct.new` when the overwritten old field and a later constructor field both call, because old-field side-effect preservation does not override the later-field call barrier; Starshine already matched.
+  - Micro-audit `1097` narrow-closes the default/descriptor old-field matrix by mapping plain/default shallow-effect handling, `struct.new_default_desc` materialization, descriptor old-field call preservation, old-field-plus-later-call barriers, the documented default double-call Starshine wins, default/descriptor generated profile floors, and the default-descriptor catchable result-wrapper boundary to source-backed notes. HSO-D stays open for exact descriptor `ref.cast`, arbitrary descriptor/later-field expressions, broad non-call old-field combinations outside the listed notes, and future Binaryen changes to default-chain continuation.
 - Control-flow skip-local-set hazards include loop backedges that can re-enter target-local reads.
   - Follow-up `0863` confirmed Binaryen preserves `struct.set` when a branch-valued store can `br_if` to a loop header that reads the fresh-struct target local before the next `local.set`; Starshine already matched this HSO-F negative.
   - Micro-audit `1094` narrow-closes the direct skip-local-set control matrix by mapping safe function-external exits, locally caught call/throw negatives, nested control-sequence traversal, the one-disappearing-bad-get exception, direct-root `return_call_ref` Starshine wins, loop-backedge local-read hazards, and generated catch/branch skip-local-set roots to source-backed tests or profile evidence. HSO-F stays open for broader branch/catch review, arbitrary descriptor control, exact descriptor `ref.cast`, and result-wrapper/tail-call families outside that matrix.
