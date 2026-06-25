@@ -27,6 +27,7 @@ sources:
   - ../../../raw/research/0889-2026-06-25-optimize-instructions-oi-d-i32-signext-rel-boundary.md
   - ../../../raw/research/0900-2026-06-25-optimize-instructions-oi-d-maxbits-signed-spelling.md
   - ../../../raw/research/0902-2026-06-25-optimize-instructions-oi-d-local-maxbits.md
+  - ../../../raw/research/0904-2026-06-25-optimize-instructions-oi-d-wrap-maxbits.md
   - ../../../raw/research/0901-2026-06-25-optimize-instructions-oi-m-selected-fourth-multiresult-boundary.md
   - ../../../raw/research/0903-2026-06-25-optimize-instructions-oi-m-selected-fifth-multiresult-boundary.md
 related:

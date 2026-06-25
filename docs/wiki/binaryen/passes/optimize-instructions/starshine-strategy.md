@@ -38,6 +38,7 @@ sources:
   - ../../../raw/research/0895-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-eight-later.md
   - ../../../raw/research/0900-2026-06-25-optimize-instructions-oi-d-maxbits-signed-spelling.md
   - ../../../raw/research/0902-2026-06-25-optimize-instructions-oi-d-local-maxbits.md
+  - ../../../raw/research/0904-2026-06-25-optimize-instructions-oi-d-wrap-maxbits.md
   - ../../../raw/research/0901-2026-06-25-optimize-instructions-oi-m-selected-fourth-multiresult-boundary.md
   - ../../../raw/research/0903-2026-06-25-optimize-instructions-oi-m-selected-fifth-multiresult-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
@@ -69,7 +70,7 @@ Current Starshine `src/passes/optimize_instructions.mbt` is a real HOT pass, but
 The implemented center of gravity is:
 
 - exact binary constant folding
-- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first pure/effect-preserving i32/i64 `shr_u` bounded unsigned-compare folds, first straight-line local-carried unsigned max facts, first direct nonnegative signed-relational folds and signed-to-unsigned compare spellings, and relational constant canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first pure/effect-preserving i32/i64 `shr_u` bounded unsigned-compare folds, first straight-line local-carried and `i32.wrap_i64` unsigned max facts, first direct nonnegative signed-relational folds and signed-to-unsigned compare spellings, and relational constant canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites
 - constant-`if` folding
@@ -171,7 +172,7 @@ The local pass does not yet model the upstream visitor families for:
 - `call_ref` directization families beyond the covered direct/ref.func, constant-index and call-indexed table.get, select, and fallthrough-known subsets with zero arguments or localized single-result arguments; multi-result argument select-of-`ref.func` directization is now a documented tuple-scratch localization boundary for both `call_ref` and `return_call_ref`
 - broader memory and bulk-memory lowering beyond the covered tiny-copy/fill, stored-value, load-result, offset-fold, and narrow raw-gate escapes
 - tuple extraction parity beyond the one-use tuple.make subset with pure siblings or covered selected trapping lanes (including earlier/later, two-later, two-earlier, and two-earlier-plus-one/two/three/four/five/six/seven/eight-later effectful sibling coverage) and single-result effectful/trapping sibling drop/localization; the covered single-result sibling localization now has explicit trapping-load preservation coverage, first `simplify-locals-nostructure` neighbor coverage for the first later-effect subset, and direct-HOT earlier+later, two-later, two-earlier, and two-earlier-plus-one/two/three/four/five/six/seven/eight-later effectful-sibling coverage, while full `simplify-locals` and dedicated `tuple-optimization` on the public multivalue-block probe are documented boundaries because Binaryen uses tuple scratch and Starshine keeps the block/drop spelling, direct-HOT replay of the full-simplify shape currently hits `InvalidChildRef`, local-carried / multi-use tuple extraction is a documented keep-spelling boundary for the probed Binaryen `version_130` shape, and multi-result non-selected siblings (including the earlier-sibling variant) plus multi-result selected children, including the selected-second, selected-third, selected-fourth, and selected-fifth lanes, remain documented tuple-scratch localization boundaries
-- a whole-function local prescan equivalent beyond the narrow fallthrough sign facts, direct and straight-line-local `maxBits` compare folds/spelling rewrites, direct sign-extension equality range folds, and source-backed sign-extension relational keep-spelling boundary
+- a whole-function local prescan equivalent beyond the narrow fallthrough sign facts, direct, straight-line-local, and `i32.wrap_i64` `maxBits` compare folds/spelling rewrites, direct sign-extension equality range folds, and source-backed sign-extension relational keep-spelling boundary
 - deferred `ReFinalize` / EH-pop repair inside this pass
 
 The 2026-06-19 `version_130` matrix routes those gaps to `[O4Z-AUDIT-OI-D]` through `[O4Z-AUDIT-OI-M]`, with `[O4Z-AUDIT-OI-N]` reserved for final direct/O4z closeout. That gap is intentional and documented so readers do not mistake the current local pass for a full upstream port.

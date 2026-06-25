@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Carry wrap maxBits facts
+
+- Added OI-D red-first coverage for `i32.wrap_i64` over a bounded i64 producer feeding direct and local-carried maxBits comparisons.
+- Starshine now inherits an i32 unsigned max fact from `i32.wrap_i64` only when the wrapped i64 producer has a proven nonnegative maximum no larger than `i32::MAX`, enabling direct out-of-range folds and local-carried signed-to-unsigned spelling rewrites.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-wrap-maxbits-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*i32.wrap_i64 unsigned maxBits*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected-fifth multi-result tuple boundary
 
 - Added OI-M direct-HOT boundary coverage for selecting the fifth scalar lane from a multi-result tuple child.

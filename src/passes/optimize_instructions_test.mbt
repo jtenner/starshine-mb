@@ -1531,6 +1531,45 @@ test "optimize-instructions folds local unsigned maxBits compares" {
 }
 
 ///|
+test "optimize-instructions folds i32.wrap_i64 unsigned maxBits compares" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i64) (result i32)
+        #|    local.get $x
+        #|    i64.const 255
+        #|    i64.and
+        #|    i32.wrap_i64
+        #|    i32.const 256
+        #|    i32.lt_u)
+        #|  (func (param $x i64) (result i32)
+        #|    (local $n i32)
+        #|    local.get $x
+        #|    i64.const 255
+        #|    i64.and
+        #|    i32.wrap_i64
+        #|    local.set $n
+        #|    local.get $n
+        #|    i32.const 128
+        #|    i32.lt_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected i32.wrap_i64 maxBits optimize success, got \{err}")
+  }
+  let folded_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(folded_pretty.contains("i32.const I32(1)"), msg=folded_pretty)
+  assert_false(folded_pretty.contains("i32.lt_u"), msg=folded_pretty)
+  let local_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(local_pretty.contains("i32.lt_u"), msg=local_pretty)
+  assert_false(local_pretty.contains("i32.lt_s"), msg=local_pretty)
+}
+
+///|
 test "optimize-instructions rewrites unsigned maxBits signed compare spelling" {
   let optimized = match
     pass_test_run_pipeline(
