@@ -1075,6 +1075,80 @@ test "optimize-instructions folds i64 unsigned-shift bounded compares" {
 }
 
 ///|
+test "optimize-instructions folds recursive unsigned maxBits compares" {
+  let i32_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 1023 i32.and i32.const 4 i32.shr_u i32.const 64 i32.eq))",
+  )
+  let i32_root = @ir.hot_root_get(i32_func, 0)
+  match @ir.hot_node_get(i32_func, i32_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected nested i32 and/shr_u maxBits eq to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i32_func, @ir.hot_node_get(i32_func, i32_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.const 1023 i64.and i64.const 4 i64.shr_u i64.const 64 i64.eq))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  match @ir.hot_node_get(i64_func, i64_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected nested i64 and/shr_u maxBits eq to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i64_func, @ir.hot_node_get(i64_func, i64_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let source =
+    #|(module
+    #|  (func $test (result i32)
+    #|    call $effect
+    #|    i32.const 1023
+    #|    i32.and
+    #|    i32.const 4
+    #|    i32.shr_u
+    #|    i32.const 64
+    #|    i32.eq)
+    #|  (func $effect (result i32) i32.const 7))
+    #|
+  let effect_func = optimize_instructions_test_run_hot(source)
+  let root = @ir.hot_root_get(effect_func, 0)
+  match @ir.hot_node_get(effect_func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected recursive maxBits compare to become drop+const block")
+  }
+  let body = @ir.hot_region_body_ref(effect_func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(effect_func, body), 2)
+  let dropped = @ir.hot_region_get(effect_func, body, 0)
+  match @ir.hot_node_get(effect_func, dropped).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected recursive maxBits fold to preserve lhs with a drop")
+  }
+  let shifted = @ir.hot_child_get(effect_func, dropped, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(effect_func, shifted),
+    Some(@lib.Instruction::i32_shr_u()),
+  )
+  let masked = @ir.hot_child_get(effect_func, shifted, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(effect_func, masked),
+    Some(@lib.Instruction::i32_and()),
+  )
+  let result = @ir.hot_region_get(effect_func, body, 1)
+  match @ir.hot_node_get(effect_func, result).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected recursive maxBits folded result to be const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(effect_func, @ir.hot_node_get(effect_func, result).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions preserves i64 masked unsigned compare effects" {
   let source =
     #|(module

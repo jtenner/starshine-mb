@@ -72,7 +72,7 @@ The local file has dedicated helpers for:
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
 - same-local integer compare folding
-- pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask proves the value is below an out-of-range constant, plus first i32/i64 `shr_u` bounded unsigned-compare folds for constant shift amounts `1..31` / `1..63`, dropping effectful masked/shifted values before the replacement constant
+- pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask proves the value is below an out-of-range constant, plus first recursive i32/i64 `shr_u` bounded unsigned-compare folds for constant shift amounts `1..31` / `1..63`, carrying direct child `and`/`shr_u` maxBits facts and dropping effectful masked/shifted values before the replacement constant
 - relational operand canonicalization
 - relational-constant normalization
 

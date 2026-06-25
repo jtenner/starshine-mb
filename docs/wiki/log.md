@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Recurse direct maxBits compare facts
+
+- Extended the OI-D `maxBits`-style unsigned compare helper so direct `and` and constant `shr_u` facts can feed each other recursively for i32 and i64.
+- Starshine now folds nested shapes such as `((x & 1023) >>> 4) == 64` to `i32.const 0`, and preserves effectful nested shifted operands as `drop(i32.shr_u(i32.and(call, 1023), 4)); i32.const 0`, matching the observed Binaryen `version_130` shape.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-recursive-maxbits-probe.wat`; red-first `*recursive unsigned maxBits compares*` failed before implementation and passed after. Dynamic/zero shifts, signed range proofs, local-scanner facts, select/phi/load/extension facts, and broader recursive expressions remain open.
+
 ## [2026-06-24] passes/optimize-instructions | Fold i64 unsigned-shift bounded compares
 
 - Extended the OI-D `maxBits`-style unsigned shift compare fold to i64: direct `i64.shr_u(x, const)` with shift amount `1..63` bounds the result below the compared out-of-range constant.

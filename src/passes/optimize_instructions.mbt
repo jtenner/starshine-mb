@@ -7313,25 +7313,35 @@ fn optimize_instructions_i32_unsigned_max(
   let rhs_id = func.children[node.child_base + 1]
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I32And) => {
-      let mask = match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(raw)) => raw
+      let (mask, value_id) = match
+        optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) => (raw, lhs_id)
         _ =>
           match optimize_instructions_i32_const(func, dead, lhs_id) {
-            Some(@lib.I32(raw)) => raw
+            Some(@lib.I32(raw)) => (raw, rhs_id)
             _ => return None
           }
       }
+      let child_max = optimize_instructions_i32_unsigned_max(
+        func, dead, value_id,
+      )
       if mask < 0 {
         None
       } else {
-        Some(mask)
+        match child_max {
+          Some(value) if value < mask => Some(value)
+          _ => Some(mask)
+        }
       }
     }
     Some(@lib.Instruction::I32ShrU) =>
       match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(1)) => Some(2147483647)
-        Some(@lib.I32(raw)) if raw > 1 && raw < 32 =>
-          Some((1 << (32 - raw)) - 1)
+        Some(@lib.I32(raw)) if raw > 0 && raw < 32 =>
+          match optimize_instructions_i32_unsigned_max(func, dead, lhs_id) {
+            Some(value) => Some(value >> raw)
+            None if raw == 1 => Some(2147483647)
+            None => Some((1 << (32 - raw)) - 1)
+          }
         _ => None
       }
     _ => None
@@ -7415,25 +7425,35 @@ fn optimize_instructions_i64_unsigned_max(
   let rhs_id = func.children[node.child_base + 1]
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::I64And) => {
-      let mask = match optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(raw)) => raw
+      let (mask, value_id) = match
+        optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(raw)) => (raw, lhs_id)
         _ =>
           match optimize_instructions_i64_const(func, dead, lhs_id) {
-            Some(@lib.I64(raw)) => raw
+            Some(@lib.I64(raw)) => (raw, rhs_id)
             _ => return None
           }
       }
+      let child_max = optimize_instructions_i64_unsigned_max(
+        func, dead, value_id,
+      )
       if mask < 0L {
         None
       } else {
-        Some(mask)
+        match child_max {
+          Some(value) if value < mask => Some(value)
+          _ => Some(mask)
+        }
       }
     }
     Some(@lib.Instruction::I64ShrU) =>
       match optimize_instructions_i64_const(func, dead, rhs_id) {
-        Some(@lib.I64(1L)) => Some(9223372036854775807L)
-        Some(@lib.I64(raw)) if raw > 1L && raw < 64L =>
-          Some((1L << (64 - raw.to_int())) - 1L)
+        Some(@lib.I64(raw)) if raw > 0L && raw < 64L =>
+          match optimize_instructions_i64_unsigned_max(func, dead, lhs_id) {
+            Some(value) => Some(value >> raw.to_int())
+            None if raw == 1L => Some(9223372036854775807L)
+            None => Some((1L << (64 - raw.to_int())) - 1L)
+          }
         _ => None
       }
     _ => None
