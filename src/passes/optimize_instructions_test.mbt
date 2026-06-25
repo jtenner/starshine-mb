@@ -6908,6 +6908,41 @@ test "optimize-instructions widens narrow stores of i32.wrap_i64 to matching i64
 }
 
 ///|
+test "optimize-instructions preserves memargs when widening i32.wrap_i64 stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $x i64)
+        #|    local.get $ptr
+        #|    local.get $x
+        #|    i32.wrap_i64
+        #|    i32.store8 offset=4 align=1
+        #|    local.get $ptr
+        #|    local.get $x
+        #|    i32.wrap_i64
+        #|    i32.store16 offset=8 align=1
+        #|    local.get $ptr
+        #|    local.get $x
+        #|    i32.wrap_i64
+        #|    i32.store offset=12 align=1))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected wrap-store memarg optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("wrap_i64"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "i64.store8 align=U32(0) offset=U64(4)", "i64.store16 align=U32(0) offset=U64(8)",
+    "i64.store32 align=U32(0) offset=U64(12)",
+  ])
+}
+
+///|
 test "optimize-instructions rewrites reinterpret stores to representation stores" {
   let optimized = match
     pass_test_run_pipeline(

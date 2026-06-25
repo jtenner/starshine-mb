@@ -552,6 +552,7 @@ Why it folds:
 Related store families:
 
 - truncate stored constants to the store width
+- widen direct `i32.wrap_i64` values under `i32.store8` / `i32.store16` / `i32.store` to matching `i64.store8` / `i64.store16` / `i64.store32`, preserving source store memargs
 - classify sign-extension-before-store spellings carefully; Binaryen `version_130` keeps the probed explicit sign-extension opcodes before narrow stores, so Starshine treats those as parity boundaries today
 - rewrite reinterpret-store pairs into stores of the original representation type when possible, preserving the source store memargs
 - keep the probed local-carried/shared reinterpret-store forms where `local.tee(f32.reinterpret_i32(...))` or `local.set`/`local.get` feeds `f32.store`
@@ -559,9 +560,10 @@ Related store families:
 - rewrite one-use i32 loads under `i64.extend_i32_u` / `i64.extend_i32_s` into matching i64 loads when the intermediate i32 load semantics are preserved
 - keep the probed local-carried/shared load-result forms where `local.tee(i32.load)` feeds reinterpret or `i64.extend_i32_*`
 
-Starshine now covers the direct reinterpret-store, one-use reinterpret-load, and one-use i64 extend-load subsets observed in Binaryen `version_130`. Replacement stores and loads preserve the source memarg offset and alignment. Local-carried/shared load-result and reinterpret-store spellings are now explicit keep-spelling boundaries rather than hidden one-use parity claims:
+Starshine now covers the direct `i32.wrap_i64` store-widening, direct reinterpret-store, one-use reinterpret-load, and one-use i64 extend-load subsets observed in Binaryen `version_130`. Replacement stores and loads preserve the source memarg offset and alignment. Local-carried/shared load-result and reinterpret-store spellings are now explicit keep-spelling boundaries rather than hidden one-use parity claims:
 
 ```wat
+(i32.store8 offset=4 (local.get $p) (i32.wrap_i64 (local.get $x))) ;; -> i64.store8 offset=4
 (f32.store (local.get $p) (f32.reinterpret_i32 (local.get $x))) ;; -> i32.store
 (f32.store (local.get $p) (local.tee $tmp (f32.reinterpret_i32 (local.get $x)))) ;; kept
 (f64.store (local.get $p) (f64.reinterpret_i64 (local.get $y))) ;; -> i64.store

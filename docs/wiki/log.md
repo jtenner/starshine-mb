@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock wrap-store memarg preservation
+
+- Added OI-G coverage proving direct `i32.wrap_i64` store widening preserves source store offset/alignment metadata.
+- Binaryen `version_130` rewrites probed `i32.store8`, `i32.store16`, and full `i32.store` values fed by `i32.wrap_i64` to `i64.store8`, `i64.store16`, and `i64.store32` while retaining memargs; Starshine's existing implementation already matched and is now protected.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-wrap-store-memarg-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*memargs when widening i32.wrap_i64 stores*'` passed `1/1` immediately as coverage evidence.
+
 ## [2026-06-25] passes/optimize-instructions | Lock reinterpret-store memarg preservation
 
 - Added OI-G coverage proving representation-store rewrites preserve source store offset/alignment metadata.
