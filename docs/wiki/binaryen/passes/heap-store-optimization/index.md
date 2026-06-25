@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1125-2026-06-25-heap-store-optimization-timer-instrumentation-disposition.md
   - ../../../raw/research/1124-2026-06-25-heap-store-optimization-region-fast-path-rejections.md
   - ../../../raw/research/1123-2026-06-25-heap-store-optimization-post-1122-validation.md
   - ../../../raw/research/1122-2026-06-25-heap-store-optimization-complete-default-chain-count.md
@@ -549,6 +550,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `1122` separates struct field-count caching from defaultable field-type caching so complete pure-default overwrite chains build `struct.new` without materializing default field types. Focused HSO tests, native build, `moon fmt`, and a 1000-case direct compare were green. Starshine medians improved to `3.861ms` at 1000 functions and `7.710ms` at 2000 functions, still about `5.98x` the `1120` refreshed Binaryen median.
   - Validation refresh `1123` ran `moon test src/passes` (`3045/3045`) and a post-`1122` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). A root-control-index pre-scan trial was rejected after it regressed the 2000-function median to `8.208ms`. HSO-I remains open at `7.710ms` best current median, and HSO-J remains deferred.
   - Rejection note `1124` tested two additional root-copy/allocation-churn ideas without keeping source changes: a no-control region preflight plus in-place pure-default rewrite regressed the 2000-function median to `8.620ms`, and a direct complete-chain return/array-reuse path regressed it to `8.542ms`. Do not revive those exact shapes without fresh profiling; HSO-I remains open at the committed `1122` best median.
+  - Timer disposition `1125` tested per-function HSO detail timers for `pass_require_effects` and root-region processing. The attribution sample showed `detail:hso:process-root-region` at `2.951ms`, but adding two timer lines per function inflated the traced pass total to `16.922ms`, so the instrumentation was reverted and should not be used for the HSO-I timing lane without aggregate-only tracing.
 
 ## Beginner warning: what the name hides
 
