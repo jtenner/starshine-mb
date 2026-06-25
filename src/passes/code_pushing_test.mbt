@@ -2978,6 +2978,129 @@ test "code-pushing boundary keeps SFA set before catch_all_ref try_table and br_
 }
 
 ///|
+test "code-pushing boundary keeps SFA set before payload catch try_table and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps the pure set before an intervening try_table catch target that carries
+  // a tag payload to its handler.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (tag $e (param i32))
+      #|  (func (param i32) (local i32)
+      #|    (block $done
+      #|      (block $handler (result i32)
+      #|        (block $exit
+      #|          i32.const 7
+      #|          local.set 1
+      #|          try_table (catch $e $handler)
+      #|            i32.const 0
+      #|            drop
+      #|          end
+      #|          local.get 0
+      #|          br_if $exit
+      #|          local.get 1
+      #|          drop)
+      #|        i32.const 0)
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let done_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, done_id, "block")
+  let done_body_ref = @ir.hot_region_body_ref(func, done_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, done_body_ref), 1)
+  let drop_id = @ir.hot_region_get(func, done_body_ref, 0)
+  code_pushing_expect_op(func, drop_id, "drop")
+  let handler_id = @ir.hot_child_get(func, drop_id, 0)
+  code_pushing_expect_op(func, handler_id, "block")
+  let handler_body_ref = @ir.hot_region_body_ref(func, handler_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, handler_body_ref), 2)
+  let block_id = @ir.hot_region_get(func, handler_body_ref, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 1),
+    "try_table",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
+test "code-pushing boundary keeps SFA set before catch_ref try_table and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps the pure set before an intervening try_table catch_ref target that
+  // carries both the tag payload and exception reference to its handler.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (tag $e (param i32))
+      #|  (func (param i32) (local i32)
+      #|    (block $done
+      #|      (block $handler (result i32 exnref)
+      #|        (block $exit
+      #|          i32.const 7
+      #|          local.set 1
+      #|          try_table (catch_ref $e $handler)
+      #|            i32.const 0
+      #|            drop
+      #|          end
+      #|          local.get 0
+      #|          br_if $exit
+      #|          local.get 1
+      #|          drop)
+      #|        i32.const 0
+      #|        ref.null exn)
+      #|      drop
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let done_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, done_id, "block")
+  let done_body_ref = @ir.hot_region_body_ref(func, done_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, done_body_ref), 2)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, done_body_ref, 0),
+    "drop",
+  )
+  let outer_drop_id = @ir.hot_region_get(func, done_body_ref, 1)
+  code_pushing_expect_op(func, outer_drop_id, "drop")
+  let handler_id = @ir.hot_child_get(func, outer_drop_id, 0)
+  code_pushing_expect_op(func, handler_id, "block")
+  let handler_body_ref = @ir.hot_region_body_ref(func, handler_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, handler_body_ref), 3)
+  let block_id = @ir.hot_region_get(func, handler_body_ref, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 1),
+    "try_table",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
 test "code-pushing moves pure SFA set after legacy try-lowered block before later br_if" {
   // Binaryen-positive movement: local Binaryen v130 moves the pure set after
   // a legacy try/catch root and the later br_if push point. The local WAT
