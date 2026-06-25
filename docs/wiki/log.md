@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Document TNH context blocker
+
+- Filed [`raw/research/0894-2026-06-25-code-pushing-tnh-context-blocker.md`](raw/research/0894-2026-06-25-code-pushing-tnh-context-blocker.md) for `[CP-BINREP-002]` after inspecting the local trap-mode plumbing.
+- Finding: `HotPipelineOptions` and CLI config carry `traps_never_happen`, but `HotPassContext` does not expose trap mode to hot function passes, while `code_pushing_node_is_movable_value(...)` currently rejects exact trapping integer div/rem opcodes unconditionally.
+- This is a blocker, not an accepted non-goal: `[CP-BINREP-002]` remains open and should add red default-vs-TNH tests plus explicit hot-pass context plumbing/API snapshot review before relaxing code-pushing trap gates.
+
 ## [2026-06-25] passes/code-pushing | Add dependency-chain into-if sinking
 
 - Filed [`raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md`](raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md) for `[CP-BINREP-001]`, the first replacement-oriented follow-up after the v0.1.0 direct-pass closeout.
