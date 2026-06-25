@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1083-2026-06-25-heap-store-optimization-br-table-micro-audit.md
   - ../../../raw/research/1075-2026-06-25-heap-store-optimization-fgh-boundary-audit.md
   - ../../../raw/research/1041-2026-06-25-heap-store-optimization-profile-descriptor-br-on-non-null.md
   - ../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md
@@ -213,6 +214,8 @@ And these are more dangerous than beginners expect:
 A 2026-06-20 loop-backedge probe confirmed the local-use point: Binaryen preserves `struct.set` when a branch-valued store can jump back to a loop header that reads the fresh-struct target local before the next assignment, and Starshine now has matching coverage.
 
 A separate 2026-06-20 Starshine probe documents one narrow better-than-Binaryen extension: Starshine folds a `br_table` branch-valued store when the only target-local read that would become unsafe disappears and no later code observes the fresh-struct local. It still preserves `struct.set` for the corresponding escaping-local `br_table` negative that Binaryen also preserves.
+
+The 2026-06-25 `1083` micro-audit narrow-closes the explicit `br_table` branch/wrapper family by mapping source-backed probes to focused tests: escaping-local branch values, the disappearing-local-read Starshine win with reopening criteria, cross-family ordinary-store wrappers, and same-effect/growth wrapper barriers. This does not close broader branch/catch, descriptor-control, `try_table`, or arbitrary `trySwap(...)` families.
 
 2026-06-25 status: the older descriptor `br_on_non_null` generated-profile blocker from `1040` is superseded by `1041`. The exact descriptor branch-result profile root now runs through direct Starshine HSO, preserves exact `ref.null` metadata, validates, and compare-smokes green. This is generated coverage, not a broad closeout for every descriptor branch/control expression.
 
