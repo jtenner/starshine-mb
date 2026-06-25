@@ -11211,6 +11211,36 @@ fn gen_valid_append_heap_store_optimization_body_slice(
       out.push(Instruction::local_get(local_idx))
       out.push(Instruction::i32_const(I32(142)))
       out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
+      // Result-typed direct tail-call wrappers keep generated coverage on the
+      // source-backed tail-call old-field boundary: the constructor old field
+      // is a true call result, and the later store remains after a
+      // result-typed wrapper whose body exits through return_call.
+      match env.current_func_idx {
+        Some(tail_idx) =>
+          match gen_valid_callable_by_idx(env.funcs, tail_idx) {
+            Some(tail_target) if tail_target.params.is_empty() &&
+              tail_target.results.is_empty() => {
+              out.push(Instruction::call(target.idx))
+              out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+              out.push(Instruction::struct_new(struct_idx))
+              out.push(Instruction::local_set(local_idx))
+              out.push(
+                Instruction::try_table(
+                  BlockType::val_type(ValType::i32()),
+                  [],
+                  Expr::new([Instruction::return_call(tail_target.idx)]),
+                ),
+              )
+              out.push(Instruction::drop())
+              out.push(Instruction::local_get(local_idx))
+              out.push(Instruction::i32_const(I32(147)))
+              out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+            }
+            _ => ()
+          }
+        None => ()
+      }
     }
     None => ()
   }
