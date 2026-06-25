@@ -1111,6 +1111,47 @@ test "optimize-instructions keeps i64 sign-extension equality outside range" {
 }
 
 ///|
+test "optimize-instructions keeps i32 sign-extension relational compares outside range" {
+  // Boundary-only OI-D classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps signed relational comparisons over direct
+  // i32 sign-extension results even when the constant lies outside the signed
+  // lane range (`.tmp/oi-d-i32-signext-rel-boundary-probe.wat`). Starshine
+  // only claims equality/inequality folds for this source-backed subset.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (export "lt8") (param i32) (result i32)
+        #|    local.get 0
+        #|    i32.extend8_s
+        #|    i32.const 128
+        #|    i32.lt_s)
+        #|  (func (export "gt16") (param i32) (result i32)
+        #|    local.get 0
+        #|    i32.extend16_s
+        #|    i32.const -32769
+        #|    i32.gt_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected i32 sign-extension relational boundary success, got \{err}",
+      )
+  }
+  let lt8_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(lt8_pretty.contains("i32.lt_s"), msg=lt8_pretty)
+  assert_true(lt8_pretty.contains("i32.extend8s"), msg=lt8_pretty)
+  assert_true(lt8_pretty.contains("I32(128)"), msg=lt8_pretty)
+  let gt16_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(gt16_pretty.contains("i32.gt_s"), msg=gt16_pretty)
+  assert_true(gt16_pretty.contains("i32.extend16s"), msg=gt16_pretty)
+  assert_true(gt16_pretty.contains("I32(-32769)"), msg=gt16_pretty)
+}
+
+///|
 test "optimize-instructions preserves i32 masked unsigned compare effects" {
   let source =
     #|(module

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover i32 sign-extension relational boundary
+
+- Added OI-D public-pipeline boundary coverage proving signed relational comparisons over out-of-range direct i32 sign-extension results remain outside the equality-only range fold.
+- Binaryen `version_130` keeps `i32.lt_s(i32.extend8_s(...), 128)` and `i32.gt_s(i32.extend16_s(...), -32769)`; Starshine now locks the same keep-spelling behavior.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-i32-signext-rel-boundary-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*i32 sign-extension relational*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover size-3 memory.fill boundary
 
 - Added OI-G public-pipeline coverage proving non-power-of-two size-3 `memory.fill` stays outside the exact fill lowering set.
