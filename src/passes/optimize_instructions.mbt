@@ -7757,6 +7757,30 @@ fn optimize_instructions_i32_masked_unsigned_compare_result(
     @lib.Instruction::I32Ne
     | @lib.Instruction::I32LtU
     | @lib.Instruction::I32LeU => Some(@lib.I32(1))
+    @lib.Instruction::I32LtS =>
+      if rhs <= 0 {
+        Some(@lib.I32(0))
+      } else {
+        Some(@lib.I32(1))
+      }
+    @lib.Instruction::I32LeS =>
+      if rhs < 0 {
+        Some(@lib.I32(0))
+      } else {
+        Some(@lib.I32(1))
+      }
+    @lib.Instruction::I32GtS =>
+      if rhs < 0 {
+        Some(@lib.I32(1))
+      } else {
+        Some(@lib.I32(0))
+      }
+    @lib.Instruction::I32GeS =>
+      if rhs <= 0 {
+        Some(@lib.I32(1))
+      } else {
+        Some(@lib.I32(0))
+      }
     _ => None
   }
 }
@@ -7875,6 +7899,30 @@ fn optimize_instructions_i64_masked_unsigned_compare_result(
     @lib.Instruction::I64Ne
     | @lib.Instruction::I64LtU
     | @lib.Instruction::I64LeU => Some(@lib.I32(1))
+    @lib.Instruction::I64LtS =>
+      if rhs <= 0L {
+        Some(@lib.I32(0))
+      } else {
+        Some(@lib.I32(1))
+      }
+    @lib.Instruction::I64LeS =>
+      if rhs < 0L {
+        Some(@lib.I32(0))
+      } else {
+        Some(@lib.I32(1))
+      }
+    @lib.Instruction::I64GtS =>
+      if rhs < 0L {
+        Some(@lib.I32(1))
+      } else {
+        Some(@lib.I32(0))
+      }
+    @lib.Instruction::I64GeS =>
+      if rhs <= 0L {
+        Some(@lib.I32(1))
+      } else {
+        Some(@lib.I32(0))
+      }
     _ => None
   }
 }

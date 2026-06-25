@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Fold maxBits signed relational compares
+
+- Added OI-D red-first coverage for signed relational comparisons whose operand is proven nonnegative and bounded by the existing direct `maxBits` subset.
+- Extended Starshine's narrow `maxBits` compare folder to fold signed relational out-of-range constants for i32/i64 direct masks, shifts, and unsigned-load facts, preserving effectful/trapping operands as drops before the replacement constant.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-maxbits-signed-rel-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*unsigned maxBits signed compares*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-25] passes/optimize-instructions | Cover earlier multi-result tuple sibling boundary
 
 - Added OI-M direct-HOT boundary coverage for a selected scalar tuple lane with an earlier multi-result sibling.

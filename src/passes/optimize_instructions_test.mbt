@@ -1492,6 +1492,72 @@ test "optimize-instructions folds unsigned load maxBits compares" {
 }
 
 ///|
+test "optimize-instructions folds unsigned maxBits signed compares" {
+  let pure_source =
+    #|(module
+    #|  (func $test (param $x i32) (result i32)
+    #|    local.get $x
+    #|    i32.const 255
+    #|    i32.and
+    #|    i32.const 300
+    #|    i32.gt_s))
+    #|
+  let pure_func = optimize_instructions_test_run_hot(pure_source)
+  let pure_root = @ir.hot_root_get(pure_func, 0)
+  match @ir.hot_node_get(pure_func, pure_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected pure unsigned maxBits signed compare to fold to const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(pure_func, @ir.hot_node_get(pure_func, pure_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let effect_source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $test (param $ptr i32) (result i32)
+    #|    local.get $ptr
+    #|    i32.load8_u
+    #|    i32.const 300
+    #|    i32.le_s))
+    #|
+  let effect_func = optimize_instructions_test_run_hot(effect_source)
+  let effect_root = @ir.hot_root_get(effect_func, 0)
+  match @ir.hot_node_get(effect_func, effect_root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected effectful load maxBits signed compare to preserve load")
+  }
+  let body = @ir.hot_region_body_ref(effect_func, effect_root)
+  @debug.assert_eq(@ir.hot_region_root_count(effect_func, body), 2)
+  let dropped = @ir.hot_region_get(effect_func, body, 0)
+  match @ir.hot_node_get(effect_func, dropped).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected folded load signed compare to keep load under drop")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      effect_func,
+      @ir.hot_child_get(effect_func, dropped, 0),
+    ),
+    Some(
+      @lib.Instruction::i32_load8u(
+        @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0)),
+      ),
+    ),
+  )
+  let result = @ir.hot_region_get(effect_func, body, 1)
+  match @ir.hot_node_get(effect_func, result).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected folded load signed compare result const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(effect_func, @ir.hot_node_get(effect_func, result).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+}
+
+///|
 test "optimize-instructions preserves i64 masked unsigned compare effects" {
   let source =
     #|(module
