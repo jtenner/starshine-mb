@@ -156,6 +156,7 @@ fn code_pushing_wbtest_expect_op(
 fn code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
   prefix_reads_moved : Bool,
   guard_reads_moved : Bool,
+  second_set? : Bool = false,
 ) -> @ir.HotFunc {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::externref()
@@ -165,6 +166,8 @@ fn code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
       params=[extern_ref],
       locals=if guard_reads_moved {
         [extern_ref]
+      } else if second_set {
+        [@lib.ValType::i32(), @lib.ValType::i32()]
       } else {
         [@lib.ValType::i32()]
       },
@@ -194,6 +197,15 @@ fn code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
       },
     ),
   )
+  if second_set {
+    body.push(
+      @ir.hot_build_local_set(
+        func,
+        2,
+        @ir.hot_build_const_i32(func, @lib.I32(9)),
+      ),
+    )
+  }
   let prefix_payload = if prefix_reads_moved {
     @ir.hot_build_local_get(func, 1)
   } else {
@@ -213,6 +225,9 @@ fn code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
   )
   body.push(@ir.hot_build_drop(func, branch))
   body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)))
+  if second_set {
+    body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 2)))
+  }
   body.push(@ir.hot_build_const_i32(func, @lib.I32(13)))
   body.push(@ir.hot_build_ref_null(func, nullable_extern))
   @ir.hot_region_replace_body(
@@ -286,6 +301,47 @@ test "code-pushing moves pure SFA set after br_on_non_null prefix payload before
   code_pushing_wbtest_expect_op(
     func,
     @ir.hot_region_get(func, body_ref, 3),
+    "drop",
+  )
+}
+
+///|
+test "code-pushing moves adjacent pure SFA sets after br_on_non_null prefix payload in source order" {
+  let func = code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
+    false,
+    false,
+    second_set=true,
+  )
+
+  let block_id = code_pushing_wbtest_root_block(func)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 9)
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "nop",
+  )
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 1),
+    "nop",
+  )
+  let branch_drop = @ir.hot_region_get(func, body_ref, 2)
+  code_pushing_wbtest_expect_op(func, branch_drop, "drop")
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_non_null",
+  )
+  let first_moved_set = @ir.hot_region_get(func, body_ref, 3)
+  code_pushing_wbtest_expect_op(func, first_moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_moved_set).imm0, 1)
+  let second_moved_set = @ir.hot_region_get(func, body_ref, 4)
+  code_pushing_wbtest_expect_op(func, second_moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, second_moved_set).imm0, 2)
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 5),
     "drop",
   )
 }

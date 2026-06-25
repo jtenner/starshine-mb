@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0835-2026-06-25-code-pushing-br-on-non-null-prefix-multiset.md
   - ../../../raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md
   - ../../../raw/research/0833-2026-06-25-code-pushing-br-if-value-lowering-blocker.md
   - ../../../raw/research/0832-2026-06-25-code-pushing-br-on-cast-fail-loop-boundary.md
@@ -114,6 +115,8 @@ The next boundary slice [`0832`](../../../raw/research/0832-2026-06-25-code-push
 The targeted value-`br_if` blocker refresh in [`0833`](../../../raw/research/0833-2026-06-25-code-pushing-br-if-value-lowering-blocker.md) confirms that `code-pushing-br-if-value` still cannot join `code-pushing-all`: the targeted compare hit `35` raw mismatches in `35` compared cases before the mismatch cap, with no validation/generator/property/command failures. Agent classification is a size-losing lowering/normalization blocker rather than a missing code-pushing movement proof: both outputs sink the local sets after the value-branch `br_if`, but Starshine materializes the fallthrough value through an extra temporary local and drops it, while Binaryen emits `drop (br_if ...)` directly.
 
 The prefix-payload `br_on_non_null` follow-up for [`0834`](../../../raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md) closed the first positive gap: Starshine now moves a single pure SFA `local.set` after a two-result block-label `br_on_non_null` carrying an explicit prefix payload plus the implicit non-null reference payload, with focused coverage for prefix-payload and guard reads that keep the set stationary. A post-change `code-pushing-all` 1000-case aggregate smoke compared `1000/1000` with `544` normalized, `456` cleanup-normalized, and `0` raw mismatches/failures. The implementation is still intentionally narrow: it covers block labels only, keeps loop-label boundaries untouched, and does not yet add aggregate GenValid coverage or broader prefix-payload/reference-carrying variants.
+
+The adjacent multi-set prefix-payload follow-up in [`0835`](../../../raw/research/0835-2026-06-25-code-pushing-br-on-non-null-prefix-multiset.md) probed Binaryen v130 and found the same two-result block-label `br_on_non_null` prefix-payload shape moves two adjacent local-independent pure SFA sets after the branch while preserving source order. Starshine's existing ordered multi-set helper already inherited this support from the narrowed block-label `BrOnNonNull` gate; focused HOT coverage now protects the exact adjacent two-set prefix-payload shape. This remains focused-test/probe evidence only, not aggregate GenValid coverage for prefix-payload variants.
 
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 
