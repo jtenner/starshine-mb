@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1090-2026-06-25-heap-store-optimization-post-context-skip-compare.md
   - ../../../raw/research/1089-2026-06-25-heap-store-optimization-target-local-hazard-audit.md
   - ../../../raw/research/1088-2026-06-25-heap-store-optimization-control-context-skip.md
   - ../../../raw/research/1086-2026-06-25-heap-store-optimization-result-wrapper-oldfield-audit.md
