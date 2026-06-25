@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Fold pure i64 masked unsigned compares
+
+- Extended the OI-D `maxBits`-style masked unsigned compare slice to i64: a side-effect-free direct `i64.and` with a nonnegative constant mask can now fold `eq`/`ne` and unsigned relational compares when the compared constant is outside the masked range.
+- Kept the same narrow boundary as the i32 slice: effectful masked operands, recursive maxBits facts beyond direct nonnegative `and` masks, signed range proofs, and non-mask width facts remain open.
+- Evidence: Binaryen `version_130` oracle probe `.tmp/oi-d-i64-mask-compare-probe.wat`; red-first `*i64 masked unsigned compares*` failed before implementation and passed after.
+
 ## [2026-06-24] passes/optimize-instructions | Fold pure i32 masked unsigned compares
 
 - Added a first OI-D `maxBits`-style scalar compare slice for pure i32 `and` masks: when a nonnegative constant mask bounds the left operand below an out-of-range constant, Starshine folds `eq`/`ne` and unsigned relational compares to `i32.const 0` or `i32.const 1`.

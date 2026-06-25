@@ -83,15 +83,16 @@ Same-local integer compares also collapse when both operands are the same `local
 
 Starshine now covers this direct local subset for integer `eq`/`ne` and signed/unsigned `lt`/`le`/`gt`/`ge`; it does not claim a broader expression-identity proof for effectful or trapping operands.
 
-A first `maxBits`-style masked unsigned subset also folds when a pure i32 `and` mask bounds the left operand below the compared constant:
+A first `maxBits`-style masked unsigned subset also folds when a pure i32 or i64 `and` mask bounds the left operand below the compared constant:
 
 ```wat
 (i32.eq (i32.and (local.get $x) (i32.const 255)) (i32.const 256)) ;; -> i32.const 0
 (i32.lt_u (i32.and (local.get $x) (i32.const 255)) (i32.const 256)) ;; -> i32.const 1
 (i32.ge_u (i32.and (local.get $x) (i32.const 255)) (i32.const -1)) ;; -> i32.const 0
+(i64.eq (i64.and (local.get $y) (i64.const 255)) (i64.const 256)) ;; -> i32.const 0
 ```
 
-Starshine intentionally keeps this first subset pure and direct: effectful masked operands, recursive `maxBits` proofs beyond nonnegative `and` masks, and i64 masked values are separate follow-up surfaces unless covered by later slices.
+Starshine intentionally keeps this first subset pure and direct: effectful masked operands, recursive `maxBits` proofs beyond nonnegative `and` masks, signed range proofs, and non-mask width facts are separate follow-up surfaces unless covered by later slices.
 
 ## Shape family 2: negative-add and subtraction spelling
 

@@ -838,6 +838,61 @@ test "optimize-instructions folds i32 masked unsigned compares outside max" {
 }
 
 ///|
+test "optimize-instructions folds i64 masked unsigned compares outside max" {
+  let eq_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.const 255 i64.and i64.const 256 i64.eq))",
+  )
+  let eq_root = @ir.hot_root_get(eq_func, 0)
+  match @ir.hot_node_get(eq_func, eq_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i64 masked impossible eq to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(eq_func, @ir.hot_node_get(eq_func, eq_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let ne_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.const 255 i64.and i64.const 256 i64.ne))",
+  )
+  let ne_root = @ir.hot_root_get(ne_func, 0)
+  match @ir.hot_node_get(ne_func, ne_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i64 masked impossible ne to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(ne_func, @ir.hot_node_get(ne_func, ne_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let lt_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.const 255 i64.and i64.const 256 i64.lt_u))",
+  )
+  let lt_root = @ir.hot_root_get(lt_func, 0)
+  match @ir.hot_node_get(lt_func, lt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i64 masked lt_u above max to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(lt_func, @ir.hot_node_get(lt_func, lt_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let ge_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.const 255 i64.and i64.const -1 i64.ge_u))",
+  )
+  let ge_root = @ir.hot_root_get(ge_func, 0)
+  match @ir.hot_node_get(ge_func, ge_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i64 masked ge_u above max to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(ge_func, @ir.hot_node_get(ge_func, ge_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions keeps i32.rem zero compares in eq form" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 64 i32.rem_s i32.const 0 i32.eq))",
