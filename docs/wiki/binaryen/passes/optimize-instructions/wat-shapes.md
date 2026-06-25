@@ -163,9 +163,11 @@ What to remember:
 - this is HOT canonicalizer behavior, but the public/raw pipeline now admits
   the narrow stack-style form `pure local.get/const; no-param direct call;
   commutative integer binop`, so simple `local.get + call` functions reach HOT
-  and get the same call-first spelling; broader stack-carried call/effect
-  shapes still remain behind `stack-carried-effect-optimize-instructions-noop`
-  until a localizing/HOT-lowering slice proves them safe
+  and get the same call-first spelling. It also admits flat tiny `memory.copy`
+  sequences with no-param direct-call/local/constant operands; broader
+  stack-carried call/effect shapes still remain behind
+  `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT
+  lowering slice proves them safe.
 
 ## Shape family 3: eliminate `0 - x` wrappers inside adds
 
@@ -581,9 +583,21 @@ Likewise:
 
 may become a single `store` of a repeated-byte constant pattern.
 
+Effectful flat copy operands are also covered for the narrow no-param-call shape:
+
+```wat
+(memory.copy
+  (call $dst)
+  (call $src)
+  (i32.const 8))
+```
+
+becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order.
+
 Important negative shape:
 
 - zero-size or same-src/dst cases are not blindly dropped in default mode; trap assumptions matter.
+- non-flat, parameterized-call, nonconstant-size, and broader control/effect copy forms still need separate localization proof.
 
 ## Shape family 15: `call_ref` with known target
 

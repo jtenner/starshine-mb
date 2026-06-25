@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Lower effectful tiny memory.copy
+
+- Narrowed the OI raw `stack-carried-effect` gate for flat tiny `memory.copy` sequences whose destination/source operands are no-param one-result direct calls or pure local/constant values and whose size is `1`/`2`/`4`/`8`.
+- The existing HOT tiny-copy lowering now rewrites those public-pipeline shapes to load/store pairs while preserving destination-before-source operand evaluation order, matching Binaryen-observed size-1 and size-8 call-backed copies.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-effectful-memory-copy-next-probe.wat`; red-first `*effectful tiny memory.copy*` failed before implementation with `stack-carried-effect-optimize-instructions-noop` and passed after. Non-flat, parameterized-call, nonconstant-size, zero-size, and broader control/effect memory-copy localization remains open.
+
 ## [2026-06-24] passes/optimize-instructions | Rewrite reinterpret stores
 
 - Added the OI-G direct stored-value cleanup for reinterpret-store pairs: `f32.store(f32.reinterpret_i32 x)` becomes `i32.store x`, `f64.store(f64.reinterpret_i64 x)` becomes `i64.store x`, and the integer-store inverse forms become `f32.store` / `f64.store`.

@@ -22499,6 +22499,64 @@ fn run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(@lib.I32(raw)) => raw == 1 || raw == 2 || raw == 4 || raw == 8
+    @lib.I64Const(@lib.I64(raw)) =>
+      raw == 1L || raw == 2L || raw == 4L || raw == 8L
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(instr) ||
+  run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
+    instr, module_ctx,
+  )
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  if instrs.length() == 0 || instrs.length() % 4 != 0 {
+    return false
+  }
+  let mut saw_call = false
+  for i = 0; i < instrs.length(); i = i + 4 {
+    if !run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
+        instrs[i],
+        module_ctx,
+      ) ||
+      !run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
+        instrs[i + 1],
+        module_ctx,
+      ) ||
+      !run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
+        instrs[i + 2],
+      ) {
+      return false
+    }
+    match instrs[i + 3] {
+      @lib.MemoryCopy(_, _) => ()
+      _ => return false
+    }
+    if run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i]) ||
+      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i + 1]) {
+      saw_call = true
+    }
+  }
+  saw_call
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_prefix_has_stack_carried_effect(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -22605,6 +22663,9 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       body, env, module_ctx,
     ) &&
     !run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
+      body, module_ctx,
+    ) &&
+    !run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy(
       body, module_ctx,
     ) {
     return Some({

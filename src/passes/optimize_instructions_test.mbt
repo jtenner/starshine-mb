@@ -5964,7 +5964,7 @@ test "optimize-instructions expands one-byte memory.copy to load8/store8" {
 }
 
 ///|
-test "optimize-instructions intentionally keeps stack-carried effectful tiny memory.copy" {
+test "optimize-instructions expands stack-carried effectful tiny memory.copy" {
   let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
@@ -5989,9 +5989,9 @@ test "optimize-instructions intentionally keeps stack-carried effectful tiny mem
     ) {
     Ok(mod_) => mod_
     Err(err) =>
-      fail("expected effectful memory.copy boundary success, got \{err}")
+      fail("expected effectful memory.copy optimize success, got \{err}")
   }
-  assert_true(
+  assert_false(
     trace.any(fn(line) {
       line.contains(
         "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
@@ -6001,13 +6001,13 @@ test "optimize-instructions intentionally keeps stack-carried effectful tiny mem
   )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   // Binaryen version_130 lowers these size-1/8 copies to load/store despite the
-  // call operands, but Starshine keeps them until a localizing/HOT lowering can
-  // prove the stack-carried call results are preserved without reordering.
-  @debug.assert_eq(
-    optimize_instructions_test_count_substring(pretty, "memory.copy"),
-    2,
-    msg=pretty,
-  )
+  // call operands; the store address child is emitted before the nested load,
+  // preserving the original dst-call then src-call evaluation order.
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "call (Func 1)", "i32.load8u", "i32.store8", "call (Func 0)",
+    "call (Func 1)", "i64.load", "i64.store",
+  ])
 }
 
 ///|
