@@ -4102,6 +4102,58 @@ fn optimize_instructions_try_drop_narrow_store_value_mask(
 }
 
 ///|
+fn optimize_instructions_try_rewrite_reinterpret_store_value(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 2 {
+    return false
+  }
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return false
+  }
+  let value_id = @ir.hot_child_get(func, node_id, 1)
+  if !optimize_instructions_node_is_live(func, dead, value_id) {
+    return false
+  }
+  let value = @ir.hot_node_get(func, value_id)
+  if value.child_count != 1 {
+    return false
+  }
+  let new_instr = match (instr, @ir.hot_node_exact_instr(func, value_id)) {
+    (
+      @lib.Instruction::F32Store(memarg),
+      Some(@lib.Instruction::F32ReinterpretI32),
+    ) => @lib.Instruction::i32_store(memarg)
+    (
+      @lib.Instruction::F64Store(memarg),
+      Some(@lib.Instruction::F64ReinterpretI64),
+    ) => @lib.Instruction::i64_store(memarg)
+    (
+      @lib.Instruction::I32Store(memarg),
+      Some(@lib.Instruction::I32ReinterpretF32),
+    ) => @lib.Instruction::f32_store(memarg)
+    (
+      @lib.Instruction::I64Store(memarg),
+      Some(@lib.Instruction::I64ReinterpretF64),
+    ) => @lib.Instruction::f64_store(memarg)
+    _ => return false
+  }
+  optimize_instructions_rewrite_exact_with_children(
+    ctx,
+    func,
+    node_id,
+    new_instr,
+    [@ir.hot_child_get(func, node_id, 0), @ir.hot_child_get(func, value_id, 0)],
+  )
+  true
+}
+
+///|
 fn optimize_instructions_try_widen_store_of_wrap_i64(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7928,6 +7980,9 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_drop_narrow_store_value_mask(
+        ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_rewrite_reinterpret_store_value(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_widen_store_of_wrap_i64(

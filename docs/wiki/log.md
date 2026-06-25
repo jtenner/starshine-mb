@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Rewrite reinterpret stores
+
+- Added the OI-G direct stored-value cleanup for reinterpret-store pairs: `f32.store(f32.reinterpret_i32 x)` becomes `i32.store x`, `f64.store(f64.reinterpret_i64 x)` becomes `i64.store x`, and the integer-store inverse forms become `f32.store` / `f64.store`.
+- The rewrite preserves the original address and memarg while storing the same bit representation through the source value's representation type.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-reinterpret-store-probe.wat`; red-first `*reinterpret stores*` failed before implementation and passed after. Broader stored-value canonicalization, effectful memory-copy localization, and load/call raw-gate escapes remain open.
+
 ## [2026-06-24] passes/optimize-instructions | Recurse direct maxBits compare facts
 
 - Extended the OI-D `maxBits`-style unsigned compare helper so direct `and` and constant `shr_u` facts can feed each other recursively for i32 and i64.

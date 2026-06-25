@@ -6598,6 +6598,51 @@ test "optimize-instructions widens narrow stores of i32.wrap_i64 to matching i64
 }
 
 ///|
+test "optimize-instructions rewrites reinterpret stores to representation stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $i32 i32) (param $i64 i64) (param $f32 f32) (param $f64 f64)
+        #|    local.get $ptr
+        #|    local.get $i32
+        #|    f32.reinterpret_i32
+        #|    f32.store
+        #|    local.get $ptr
+        #|    local.get $i64
+        #|    f64.reinterpret_i64
+        #|    f64.store
+        #|    local.get $ptr
+        #|    local.get $f32
+        #|    i32.reinterpret_f32
+        #|    i32.store
+        #|    local.get $ptr
+        #|    local.get $f64
+        #|    i64.reinterpret_f64
+        #|    i64.store))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected reinterpret-store optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  for
+    op in [
+      "f32.reinterpret_i32", "f64.reinterpret_i64", "i32.reinterpret_f32", "i64.reinterpret_f64",
+    ] {
+    assert_false(pretty.contains(op), msg="\{op} not folded: \{pretty}")
+  }
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "(local.get (Local 1))", "i32.store", "(local.get (Local 0))",
+    "(local.get (Local 2))", "i64.store", "(local.get (Local 0))", "(local.get (Local 3))",
+    "f32.store", "(local.get (Local 0))", "(local.get (Local 4))", "f64.store",
+  ])
+}
+
+///|
 test "optimize-instructions keeps i64.extend_i32 before i64 narrow stores as a Binaryen OI parity boundary" {
   // Boundary-only OI-G classification: Binaryen `version_130`
   // `--optimize-instructions` does NOT fold `i64.store8` / `i64.store16` of an

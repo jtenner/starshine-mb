@@ -135,7 +135,7 @@ Its center of gravity is:
 - constant-condition `select` cleanup when the dropped arm is side-effect-free
 - tiny `memory.copy` lowering for constant sizes `1`/`2`/`4`/`8`, including direct-core memory64 copy fixtures for `i64` address preservation
 - constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, and local.get `2`/`4`/`8`), including size-1 constant low-byte canonicalization and direct-core memory64 fill fixtures after the local typechecker length fix
-- narrow stored-value cleanup for redundant masks in either `and` operand order plus constant stored-value truncation before `i32.store8` / `i32.store16` and, as documented, `i64.store8` / `i64.store16` / `i64.store32`
+- stored-value cleanup for redundant masks in either `and` operand order plus constant stored-value truncation before `i32.store8` / `i32.store16` and, as documented, `i64.store8` / `i64.store16` / `i64.store32`, direct `i32.wrap_i64` i32-store widening, and direct reinterpret-store representation rewrites (`f32.store(f32.reinterpret_i32 x)` -> `i32.store x`, etc.)
 - constant-pointer static-offset folding for scalar loads/stores: memory32 uses Binaryen's nonnegative `i32` range guard and memory64 uses Binaryen's unsigned `u64` no-wrap guard
 - an explicit nonconstant pointer-add offset boundary: Binaryen `version_130` `optimize-instructions` keeps tested `local.get + const` memory addresses as arithmetic plus the original static offset, so Starshine does not claim that shape as OI-owned load/store canonicalization
 - an explicit sign-extension-before-narrow-store boundary: Binaryen `version_130` canonicalizes shift-pair sign extensions to extension opcodes before narrow stores but keeps those extension opcodes, so Starshine also keeps `i32.extend8_s` / `i32.extend16_s` / `i64.extend16_s` before matching narrow stores instead of claiming a stored-value cleanup gap
@@ -224,6 +224,7 @@ The fastest read-along path is:
   - `optimize_instructions_store_value_is_i64(...)`
   - `optimize_instructions_try_truncate_narrow_store_const_value(...)`
   - `optimize_instructions_try_drop_narrow_store_value_mask(...)`
+  - `optimize_instructions_try_rewrite_reinterpret_store_value(...)`
   - `optimize_instructions_try_collapse_duplicate_then_branch(...)`
   - `optimize_instructions_try_collapse_dead_region_suffix(...)`
 - canonicalization helpers
@@ -395,7 +396,7 @@ The local pass still does not cover broader upstream families like:
 - nonconstant-size `memory.copy`, because the size expression is not part of the exact tiny lowering proof
 - arbitrary or effectful nonconstant wider `memory.fill` value materialization
 - trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today
-- broader stored-value canonicalization for the general load/store surface; only the current redundant-mask subset is covered (either `and` operand order for `i32.store8` / `i32.store16` plus a local Starshine-win `i64.store8` / `i64.store16` / `i64.store32` generalization that Binaryen `version_130` does not perform) plus Binaryen-style constant stored-value truncation before narrow stores. For offset canonicalization, Starshine covers the narrow Binaryen-style memory32 and memory64 constant-pointer static-offset folds; tested nonconstant pointer-add address forms are now a Binaryen `version_130` OI no-change boundary, and public-pipeline mixed load/call functions remain behind `load-call-optimize-instructions-noop`, so static-offset folds apply only when the raw gate lets the pass run
+- broader stored-value canonicalization for the general load/store surface; only the current redundant-mask subset is covered (either `and` operand order for `i32.store8` / `i32.store16` plus a local Starshine-win `i64.store8` / `i64.store16` / `i64.store32` generalization that Binaryen `version_130` does not perform), Binaryen-style constant stored-value truncation before narrow stores, direct `i32.wrap_i64` i32-store widening, and direct reinterpret-store representation rewrites. For offset canonicalization, Starshine covers the narrow Binaryen-style memory32 and memory64 constant-pointer static-offset folds; tested nonconstant pointer-add address forms are now a Binaryen `version_130` OI no-change boundary, and public-pipeline mixed load/call functions remain behind `load-call-optimize-instructions-noop`, so static-offset folds apply only when the raw gate lets the pass run
 
 ## 4. No GC constructor / field / atomics surface
 

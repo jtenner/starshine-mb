@@ -102,7 +102,13 @@ The leading `(0 - x) + y -> y - x` rewrite (i32/i64) reorders the two operands a
 
 So Starshine already covers a meaningful subset of the arithmetic rewrite surface.
 
-### 4. Boolean and nested-`if` cleanup
+### 4. Memory and stored-value cleanup
+
+The local pass covers the small Binaryen-style memory surface that has direct HOT support: tiny `memory.copy` / `memory.fill` lowering for selected constant sizes, constant-pointer static-offset folding, narrow-store redundant-mask and constant truncation cleanup, direct `i32.wrap_i64` store widening, and direct reinterpret-store representation rewrites such as `f32.store(f32.reinterpret_i32 x)` to `i32.store x`.
+
+Broader memory work remains deliberately open or boundary-tested: zero-size bulk-memory cleanup needs trap-relaxed mode support, effectful stack-carried `memory.copy` needs localizing proof, and mixed load/call functions still stop at the public raw gate.
+
+### 5. Boolean and nested-`if` cleanup
 
 The local file goes fairly deep on HOT-IR boolean and control patterns.
 It can:
@@ -114,7 +120,7 @@ It can:
 - flip some nested conditions when the tree is unshared
 - collapse duplicate then-branch `if`s into a direct branch
 
-### 5. Artifact-backed dead-suffix and fallback-branch cleanup
+### 6. Artifact-backed dead-suffix and fallback-branch cleanup
 
 The current local pass includes logic for:
 
