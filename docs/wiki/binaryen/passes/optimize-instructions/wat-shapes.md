@@ -656,6 +656,7 @@ Important negative shapes:
 
 - if the target type would no longer match the call's expected heap type, Binaryen must not directize
 - if the target or operand ordering would be wrong, Binaryen uses locals / block wrappers instead of a naive replacement
+- Starshine currently keeps multi-result argument select-of-`ref.func` `call_ref` unchanged even though Binaryen localizes the probed `call $pair` through a tuple scratch and scalar locals before direct-call `if` arms; this remains an explicit OI-H tuple-scratch localization boundary
 
 ## Shape family 16: null-trapping GC operations remove earlier non-null checks
 

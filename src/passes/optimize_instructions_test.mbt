@@ -5618,6 +5618,94 @@ test "optimize-instructions localizes argument select call_ref targets before di
 }
 
 ///|
+test "optimize-instructions intentionally keeps multi-result argument select call_ref boundary" {
+  // Boundary-only OI-H classification: Binaryen `version_130`
+  // localizes a multi-result argument producer through tuple scratch plus scalar
+  // temps before lowering select-of-`ref.func` call_ref to a direct-call if
+  // (`.tmp/oi-h-multivalue-arg-select-probe.wat`). Starshine's current
+  // call_ref localizer only proves scalar single-result call arguments, so this
+  // public fixture keeps the call_ref instead of hiding the broader multivalue
+  // localization gap as parity.
+  let target_type_idx = @lib.TypeIdx::new(0U)
+  let pair_type_idx = @lib.TypeIdx::new(1U)
+  let caller_type_idx = @lib.TypeIdx::new(2U)
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+        @lib.ValType::i32(),
+      ]),
+    ),
+  )
+  let pair_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([], [@lib.ValType::i32(), @lib.ValType::i32()]),
+    ),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(target_type_idx)),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([target_type, pair_type, caller_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        target_type_idx, target_type_idx, pair_type_idx, caller_type_idx,
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U), @lib.FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::select(types=Some([typed_func_ref])),
+            @lib.Instruction::call_ref(target_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let caller = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(caller.contains("call_ref"), msg=caller)
+  assert_true(caller.contains("select"), msg=caller)
+  assert_true(caller.contains("ref.func"), msg=caller)
+  assert_true(caller.contains("call (Func 2)"), msg=caller)
+  assert_false(caller.contains("call (Func 0)"), msg=caller)
+  assert_false(caller.contains("call (Func 1)"), msg=caller)
+}
+
+///|
 test "optimize-instructions intentionally keeps select call_ref when an arm is not direct ref.func" {
   let target_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)

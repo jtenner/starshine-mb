@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock multivalue call_ref boundary
+
+- Added OI-H boundary coverage for select-of-`ref.func` `call_ref` whose already-evaluated arguments are produced by a multi-result call.
+- Binaryen `version_130` localizes the probed `call $pair` through tuple scratch plus scalar locals before direct-call `if` arms; Starshine currently keeps the `call_ref` / `select` / `ref.func` shape because its call_ref localizer only proves scalar single-result argument children.
+- Evidence: Binaryen oracle probe `.tmp/oi-h-multivalue-arg-select-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*multi-result argument select call_ref*'` passed immediately as boundary coverage.
+
 ## [2026-06-25] passes/optimize-instructions | Rewrite i64 extend loads
 
 - Added OI-G direct load-result cleanup for one-use i32 loads under `i64.extend_i32_u` / `i64.extend_i32_s`, rewriting them to matching i64 representation loads when the loaded-value semantics are identical.
