@@ -1002,6 +1002,33 @@ test "optimize-instructions folds i32 unsigned-shift bounded compares" {
 }
 
 ///|
+test "optimize-instructions keeps dynamic unsigned-shift masked maxBits boundary" {
+  // Boundary-only OI-D classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps this exact dynamic-shift shape
+  // (`.tmp/oi-d-dynamic-shr-maxbits-probe.wat`) even though the constant-zero
+  // shift variant folds through the normal identity path. Starshine matches
+  // Binaryen here until dynamic-shift range reasoning is deliberately sourced
+  // and implemented.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) local.get 0 i32.const 255 i32.and local.get 1 i32.shr_u i32.const 256 i32.lt_u))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected dynamic-shift masked maxBits compare to stay compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::i32_lt_u()),
+  )
+  let shifted = @ir.hot_child_get(func, root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, shifted),
+    Some(@lib.Instruction::i32_shr_u()),
+  )
+}
+
+///|
 test "optimize-instructions folds i32 sign-extension equality outside range" {
   let eq8_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.extend8_s i32.const 128 i32.eq))",
