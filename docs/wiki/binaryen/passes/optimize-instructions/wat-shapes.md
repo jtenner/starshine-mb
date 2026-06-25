@@ -551,12 +551,12 @@ Why it folds:
 Related store families:
 
 - truncate stored constants to the store width
-- remove sign-extension work that the store width discards
+- classify sign-extension-before-store spellings carefully; Binaryen `version_130` keeps the probed explicit sign-extension opcodes before narrow stores, so Starshine treats those as parity boundaries today
 - rewrite reinterpret-store pairs into stores of the original representation type when possible
 - rewrite full-width load plus reinterpret-result pairs into loads of the final result type when the load is one-use
 - rewrite one-use i32 loads under `i64.extend_i32_u` / `i64.extend_i32_s` into matching i64 loads when the intermediate i32 load semantics are preserved
 
-Starshine now covers the direct reinterpret-store, one-use reinterpret-load, and one-use i64 extend-load subsets observed in Binaryen `version_130`:
+Starshine now covers the direct reinterpret-store, one-use reinterpret-load, and one-use i64 extend-load subsets observed in Binaryen `version_130`. Replacement loads preserve the source load memarg offset and alignment:
 
 ```wat
 (f32.store (local.get $p) (f32.reinterpret_i32 (local.get $x))) ;; -> i32.store

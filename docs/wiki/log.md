@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock load-result memarg preservation
+
+- Added OI-G coverage proving representation-load rewrites preserve source load offset/alignment metadata.
+- Binaryen `version_130` rewrites the probed reinterpret and `i64.extend_i32_*` load-result shapes to `f32.load`, `i64.load32_u`, and `i64.load16_s` while retaining the original memargs; Starshine's existing implementation already matched.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-load-memarg-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*memargs*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Lock multivalue call_ref boundary
 
 - Added OI-H boundary coverage for select-of-`ref.func` `call_ref` whose already-evaluated arguments are produced by a multi-result call.

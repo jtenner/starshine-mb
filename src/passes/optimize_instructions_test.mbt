@@ -6956,6 +6956,49 @@ test "optimize-instructions rewrites reinterpret loads to representation loads" 
 }
 
 ///|
+test "optimize-instructions preserves memargs when rewriting representation loads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (result f32)
+        #|    local.get $ptr
+        #|    i32.load offset=4 align=1
+        #|    f32.reinterpret_i32)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load offset=8 align=2
+        #|    i64.extend_i32_u)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load16_s offset=12 align=1
+        #|    i64.extend_i32_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected load memarg rewrite success, got \{err}")
+  }
+  let reinterpret = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(reinterpret.contains("f32.reinterpret_i32"), msg=reinterpret)
+  optimize_instructions_assert_strings_in_order(reinterpret, [
+    "(local.get (Local 0))", "f32.load", "align=U32(0)", "offset=U64(4)",
+  ])
+  let extend_full = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(extend_full.contains("i64.extend_i32"), msg=extend_full)
+  optimize_instructions_assert_strings_in_order(extend_full, [
+    "(local.get (Local 0))", "i64.load32u", "align=U32(1)", "offset=U64(8)",
+  ])
+  let extend_narrow = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(extend_narrow.contains("i64.extend_i32"), msg=extend_narrow)
+  optimize_instructions_assert_strings_in_order(extend_narrow, [
+    "(local.get (Local 0))", "i64.load16s", "align=U32(0)", "offset=U64(12)",
+  ])
+}
+
+///|
 test "optimize-instructions rewrites i64.extend_i32 loads to representation loads" {
   let optimized = match
     pass_test_run_pipeline(
