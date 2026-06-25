@@ -157,3 +157,7 @@ wc -c \
 Both validations passed; both raw outputs are 79 bytes, but `cmp` confirms the raw bytes differ.
 
 Agent classification: semantic-equivalent unreachable cleanup drift, but not a Starshine win and not acceptable final output-shape drift under the current pass policy. Treat as an open cleanup parity gap unless a future slice fixes it or explicitly approves an HSO closeout normalizer with reopening criteria.
+
+## Follow-up
+
+Research note `1077` fixed this specific mismatch by applying the shared dropped-unreachable cleanup in the HSO no-candidate raw fast path. The saved `case-009332-wasm-smith` replay is now normalized-green without an HSO-wide cleanup normalizer. The original 10000-case lane in this note remains historical evidence, not a green final wasm-smith signoff lane; rerun the full explicit wasm-smith lane for HSO-J closeout.
