@@ -1836,6 +1836,56 @@ test "code-pushing keeps SFA set before br_on_non_null operand that reads it" {
 }
 
 ///|
+fn code_pushing_br_on_non_null_loop_boundary_fixture() -> @ir.HotFunc {
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let extern_ref = @lib.ValType::externref()
+  let nullable_extern = @lib.RefType::new(true, extern_heap)
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[extern_ref], locals=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, extern_ref),
+  )
+  let loop_id = @ir.hot_build_loop(func, @lib.BlockType::val_type(extern_ref), [])
+  let target = @ir.hot_control_node_label(func, loop_id)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, loop_id), [
+    @ir.hot_build_local_set(func, 1, @ir.hot_build_const_i32(func, @lib.I32(7))),
+    @ir.hot_build_node(
+      func,
+      @ir.HotOp::br_on_non_null(),
+      @ir.hot_type_void(func),
+      imm0=target,
+      children=[@ir.hot_build_local_get(func, 0)],
+    ),
+    @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
+    @ir.hot_build_ref_null(func, nullable_extern),
+  ])
+  @ir.hot_root_append(func, loop_id)
+  code_pushing_test_run_hot_func(func)
+}
+
+///|
+test "code-pushing keeps loop-label br_on_non_null window stationary" {
+  let func = code_pushing_br_on_non_null_loop_boundary_fixture()
+
+  let loop_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 1),
+    "br_on_non_null",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "drop")
+}
+
+///|
 fn code_pushing_br_on_cast_fixture(
   multi_set : Bool,
   operand_reads_moved : Bool,
