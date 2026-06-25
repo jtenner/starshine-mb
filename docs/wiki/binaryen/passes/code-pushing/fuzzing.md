@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md
   - ../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md
   - ../../../raw/research/0854-2026-06-25-code-pushing-regular-100000-post-call-barrier-refresh.md
   - ../../../raw/research/0853-2026-06-25-code-pushing-pass-fuzz-stress-post-call-barrier-refresh.md
@@ -95,7 +96,7 @@ Current bounded dedicated lane:
 bun scripts/pass-fuzz-compare.ts --count 200 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-profile-200-local-cleanup --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 50 --keep-going-after-command-failures
 ```
 
-Current post-call-barrier 10000-case dedicated lane: [`0851`](../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md) refreshed the 19-leaf `code-pushing-all` profile after the call-barrier fix. `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-yy` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected all 19 aggregate leaves. After the later `throw_ref` behavior refinement in [`0855`](../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md), a bounded post-change smoke `.tmp/pass-fuzz-code-pushing-all-throw-ref-1000-20260625` compared `1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`, and command failures `0`; rerun the 10000 dedicated lane before final closeout.
+Current post-`throw_ref` 10000-case dedicated lane: [`0856`](../../../raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md) refreshed the 19-leaf `code-pushing-all` profile after the behavior refinement in [`0855`](../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md). `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-throw-ref` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected all 19 aggregate leaves. This supersedes the post-call-barrier dedicated lane in [`0851`](../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md) for current dedicated-profile closeout-progress evidence.
 
 2026-06-20 initial profile result before the dropped-if leaf: compared `200/200`, cleanup-normalized matches `200`, raw mismatches `0`, validation/generator/property/command failures `0`, selected subprofiles `code-pushing-if-arm: 100` and `code-pushing-after-if: 100`, cache `wasm-smith 0 hits/0 misses`, `Binaryen 200 hits/0 misses`, `Binaryen failures 0 hits/0 misses`.
 

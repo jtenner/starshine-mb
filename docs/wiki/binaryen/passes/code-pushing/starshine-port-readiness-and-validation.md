@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md
   - ../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md
   - ../../../raw/research/0854-2026-06-25-code-pushing-regular-100000-post-call-barrier-refresh.md
   - ../../../raw/research/0853-2026-06-25-code-pushing-pass-fuzz-stress-post-call-barrier-refresh.md
@@ -148,7 +149,7 @@ The prefix aggregate inclusion follow-up in [`0839`](../../../raw/research/0839-
 
 The call-barrier slice in [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md) fixed an over-broad Starshine movement: local Binaryen v130 kept a pure SFA set before an intervening call and later `br_if`, while the first focused Starshine test moved it after the branch. Starshine now blocks single-set segment sinking across call roots. The same focused pass also restored the generated-prefix `br_on_non_null` helper to block-label targets only, preserving the documented loop-label stationary boundary.
 
-The post-call-barrier dedicated refresh in [`0851`](../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md) reran `code-pushing-all` at 10000 cases with the rebuilt native CLI: compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, and all 19 aggregate leaves selected. This restores current dedicated-profile closeout-progress evidence after the behavior fix, but not final audit closeout.
+The post-call-barrier dedicated refresh in [`0851`](../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md) reran `code-pushing-all` at 10000 cases with the rebuilt native CLI: compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, and all 19 aggregate leaves selected. It was superseded for current dedicated-profile closeout-progress by the post-`throw_ref` refresh in [`0856`](../../../raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md).
 
 The explicit wasm-smith refresh in [`0852`](../../../raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md) reran 10000 requested external-generator cases after the call-barrier fix: compared `9956/10000`, normalized `9956`, raw mismatches/failures `0`, command failures `44` all classified as Binaryen/tool failures, and no Starshine validation/generator/property failures.
 
@@ -156,7 +157,7 @@ The broad named-profile refresh in [`0853`](../../../raw/research/0853-2026-06-2
 
 The large regular GenValid refresh in [`0854`](../../../raw/research/0854-2026-06-25-code-pushing-regular-100000-post-call-barrier-refresh.md) reran the 100000-case non-profile lane after the call-barrier fix: compared `100000/100000`, normalized `100000`, raw mismatches/failures `0`, command failures `0`, and selected `binaryen-oracle-portable: 100000`. This supersedes the pre-call-barrier [`0845`](../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md) regular lane for current closeout-progress evidence.
 
-The `throw_ref` refinement in [`0855`](../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md) narrowed the earlier EH barrier wording: local Binaryen v130 moves a pure SFA set after a later `br_if` when the intervening root is non-fallthrough `throw_ref`, while the call boundary from [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md) remains protected. Starshine added red-first focused coverage and changed only the hard segment-order barrier; focused `*code-pushing*` passed `80/80`, and a bounded post-change `code-pushing-all` smoke compared `1000/1000` with no raw mismatches or failures.
+The `throw_ref` refinement in [`0855`](../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md) narrowed the earlier EH barrier wording: local Binaryen v130 moves a pure SFA set after a later `br_if` when the intervening root is non-fallthrough `throw_ref`, while the call boundary from [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md) remains protected. Starshine added red-first focused coverage and changed only the hard segment-order barrier; focused `*code-pushing*` passed `80/80`, and the post-change dedicated refresh in [`0856`](../../../raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md) compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, and had no raw mismatches or failures with all 19 aggregate leaves selected.
 
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 

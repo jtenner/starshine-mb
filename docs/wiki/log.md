@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Refresh code-pushing-all after throw_ref
+
+- Filed [`raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md`](raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md) after rerunning the 19-leaf `code-pushing-all` dedicated profile with the post-`throw_ref` native CLI.
+- `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-throw-ref` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected all 19 aggregate leaves.
+- This supersedes the post-call-barrier dedicated lane in `0851` for current dedicated-profile closeout-progress evidence. Final `[O4Z-AUDIT-CP]` closeout still needs remaining source-gap work plus then-current regular, wasm-smith, and broad named lanes.
+
 ## [2026-06-25] passes/code-pushing | Move across throw_ref before br_if
 
 - Filed [`raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md`](raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md) after local Binaryen v130 moved a pure SFA `local.set` after a later `br_if` despite an intervening non-fallthrough `throw_ref` root.
