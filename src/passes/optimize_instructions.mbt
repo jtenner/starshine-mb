@@ -7244,6 +7244,58 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
 }
 
 ///|
+fn optimize_instructions_same_local_integer_compare_result(
+  instr : @lib.Instruction,
+) -> @lib.I32? {
+  match instr {
+    @lib.Instruction::I32Eq | @lib.Instruction::I64Eq => Some(@lib.I32(1))
+    @lib.Instruction::I32Ne
+    | @lib.Instruction::I64Ne
+    | @lib.Instruction::I32LtS
+    | @lib.Instruction::I32LtU
+    | @lib.Instruction::I64LtS
+    | @lib.Instruction::I64LtU
+    | @lib.Instruction::I32GtS
+    | @lib.Instruction::I32GtU
+    | @lib.Instruction::I64GtS
+    | @lib.Instruction::I64GtU => Some(@lib.I32(0))
+    @lib.Instruction::I32LeS
+    | @lib.Instruction::I32LeU
+    | @lib.Instruction::I64LeS
+    | @lib.Instruction::I64LeU
+    | @lib.Instruction::I32GeS
+    | @lib.Instruction::I32GeU
+    | @lib.Instruction::I64GeS
+    | @lib.Instruction::I64GeU => Some(@lib.I32(1))
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_same_local_integer_compare(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match
+    (
+      optimize_instructions_local_get_id(func, dead, lhs_id),
+      optimize_instructions_local_get_id(func, dead, rhs_id),
+      optimize_instructions_same_local_integer_compare_result(instr),
+    ) {
+    (Some(lhs_local), Some(rhs_local), Some(result)) if lhs_local == rhs_local => {
+      optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_compare_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7508,7 +7560,10 @@ fn optimize_instructions_visit_node(
         let mut current_lhs = func.children[node.child_base]
         let mut current_rhs = func.children[node.child_base + 1]
         let mut changed = false
-        if optimize_instructions_try_rewrite_compare_eqz(
+        if optimize_instructions_try_fold_same_local_integer_compare(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_rewrite_compare_eqz(
             ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
           ) {
           true

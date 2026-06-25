@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Fold same-local integer compares
+
+- Added an OI-D scalar compare slice for identical integer local operands: `eq`/`le`/`ge` fold to `i32.const 1`, while `ne`/`lt`/`gt` fold to `i32.const 0`, for i32 and i64 signed/unsigned compare opcodes.
+- Kept the proof deliberately narrow: the fold requires both operands to be direct `local.get` of the same local, so no effectful, trapping, float/NaN-sensitive, or broader expression identity is claimed.
+- Evidence: Binaryen `version_130` oracle probe `.tmp/oi-d-same-local-integer-compare-probe.wat` folds the covered shapes to constants; red-first `*same-local integer compares*` failed before implementation and passed after.
+
 ## [2026-06-24] passes/optimize-instructions | Admit simple stack-carried call operands through OI raw gate
 
 - Narrowed `stack-carried-effect-optimize-instructions-noop` for the exact straight-line `pure local.get/const; no-param direct call; commutative integer binop` subset, allowing public `local.get + call` fixtures to reach HOT and use the call-first commutative canonicalizer added earlier.

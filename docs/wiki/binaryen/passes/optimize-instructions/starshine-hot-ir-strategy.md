@@ -126,7 +126,7 @@ The in-tree implementation is still a real, useful hot pass.
 Its center of gravity is:
 
 - exact integer binary constant folding, including add and sub
-- non-constant `eqz` / compare-to-zero rewrites plus relational constant and guarded operand canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare folding, and relational constant plus guarded operand canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, scalar float spelling rewrites, and `i32.wrap_i64` constant folding
 - first local scanner-style sign-extension facts, redundant sign-extension removal, and shift-pair sign-extension idiom rewrites
@@ -271,6 +271,7 @@ The local file has dedicated helpers for:
 - first sign-extension facts and idiom rewrites from `[O4Z-AUDIT-OI-E]`: signed-load/default-local/fallthrough-local facts, redundant sign-extension removal, and `shl` + `shr_s` sign-extension synthesis
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
+- same-local integer compare folding
 - guarded relational operand canonicalization
 - relational-constant normalization
 

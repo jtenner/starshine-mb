@@ -74,6 +74,15 @@ Why Binaryen likes this:
 - the zero form is simpler
 - later boolean and ternary helpers understand `eqz` very well
 
+Same-local integer compares also collapse when both operands are the same `local.get`:
+
+```wat
+(i32.eq (local.get $x) (local.get $x)) ;; -> i32.const 1
+(i64.lt_s (local.get $y) (local.get $y)) ;; -> i32.const 0
+```
+
+Starshine now covers this direct local subset for integer `eq`/`ne` and signed/unsigned `lt`/`le`/`gt`/`ge`; it does not claim a broader expression-identity proof for effectful or trapping operands.
+
 ## Shape family 2: negative-add and subtraction spelling
 
 Before:
