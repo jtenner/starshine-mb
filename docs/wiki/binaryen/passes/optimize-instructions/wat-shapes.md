@@ -10,6 +10,7 @@ sources:
   - ../../../raw/research/0877-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-siblings.md
   - ../../../raw/research/0878-2026-06-25-optimize-instructions-oi-d-i64-signext-equality-boundary.md
   - ../../../raw/research/0879-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-one-later.md
+  - ../../../raw/research/0880-2026-06-25-optimize-instructions-oi-g-stack-v128-memory-copy.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -192,7 +193,8 @@ What to remember:
   operands, no-param direct-call operands, or direct calls with pure
   local/constant/global arguments, plus flat byte `memory.fill` sequences with
   local/constant/global, no-param-call, or pure-argument direct-call
-  destination/value operands; mixed
+  destination/value operands. The size-16 stack-call `memory.copy` lane is
+  covered explicitly by a `v128.load` / `v128.store` public-pipeline fixture; mixed
   flat tiny-copy/byte-fill functions are covered by the same raw gate; broader
   stack-carried call/effect shapes still remain behind
   `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT

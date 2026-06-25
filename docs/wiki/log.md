@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover stack-carried v128 memory.copy
+
+- Added OI-G public-pipeline coverage proving the exact flat call-backed size-16 `memory.copy` lane reaches the existing `v128.load` / `v128.store` lowering without the stack-carried-effect raw skip.
+- Binaryen `version_130` lowers `call $dst; call $src; i32.const 16; memory.copy` to one SIMD load and store while preserving destination-call-before-source-call order; Starshine now locks the same order.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-stack-call-memory-copy-16-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*effectful v128 memory.copy*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple with two earlier siblings
 
 - Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after two earlier effectful siblings.

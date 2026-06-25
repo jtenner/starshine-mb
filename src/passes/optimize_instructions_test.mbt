@@ -6363,6 +6363,51 @@ test "optimize-instructions expands stack-carried effectful tiny memory.copy" {
 }
 
 ///|
+test "optimize-instructions expands stack-carried effectful v128 memory.copy" {
+  // Coverage/status OI-G classification: Binaryen `version_130`
+  // `--optimize-instructions` lowers the exact flat call-backed size-16
+  // `memory.copy` shape to one `v128.load` plus one `v128.store`
+  // (`.tmp/oi-g-stack-call-memory-copy-16-probe.wat`). Starshine's raw-gate
+  // escape already admits this size-16 shape; this test locks the v128 lane and
+  // call-order evidence without claiming broader stack-carried localization.
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "env" "dst" (func $dst (result i32)))
+        #|  (import "env" "src" (func $src (result i32)))
+        #|  (memory 1)
+        #|  (func
+        #|    call $dst
+        #|    call $src
+        #|    i32.const 16
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful v128 memory.copy optimize success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
+      )
+    }),
+    msg="expected size-16 stack memory.copy raw escape, trace=\{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "call (Func 1)", "v128.load", "v128.store",
+  ])
+}
+
+///|
 test "optimize-instructions expands stack-carried parameterized tiny memory.copy" {
   let trace : Array[String] = []
   let optimized = match
