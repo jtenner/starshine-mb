@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover selected-fifth multi-result tuple boundary
+
+- Added OI-M direct-HOT boundary coverage for selecting the fifth scalar lane from a multi-result tuple child.
+- Binaryen `version_130` localizes the selected fifth result through tuple scratch plus scalar temps; Starshine intentionally keeps the direct-HOT tuple spelling until selected-child tuple-scratch localization exists.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiresult-selected-fifth-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected fifth lane*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Carry local maxBits facts
 
 - Added OI-D focused coverage for Binaryen's straight-line local-carried unsigned max fact behavior.
