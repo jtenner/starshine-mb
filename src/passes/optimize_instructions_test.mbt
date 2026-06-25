@@ -1395,6 +1395,103 @@ test "optimize-instructions folds recursive unsigned maxBits compares" {
 }
 
 ///|
+test "optimize-instructions folds unsigned load maxBits compares" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $load8 (param $ptr i32) (result i32)
+    #|    local.get $ptr
+    #|    i32.load8_u
+    #|    i32.const 256
+    #|    i32.eq)
+    #|  (func $load16 (result i32)
+    #|    call $effect
+    #|    i32.load16_u
+    #|    i32.const 65536
+    #|    i32.eq)
+    #|  (func $effect (result i32) i32.const 0))
+    #|
+  let load8_func = optimize_instructions_test_run_hot(source)
+  let load8_root = @ir.hot_root_get(load8_func, 0)
+  match @ir.hot_node_get(load8_func, load8_root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected load8_u maxBits compare to preserve load as drop+const")
+  }
+  let load8_body = @ir.hot_region_body_ref(load8_func, load8_root)
+  @debug.assert_eq(@ir.hot_region_root_count(load8_func, load8_body), 2)
+  let load8_drop = @ir.hot_region_get(load8_func, load8_body, 0)
+  match @ir.hot_node_get(load8_func, load8_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected load8_u maxBits fold to preserve load with a drop")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      load8_func,
+      @ir.hot_child_get(load8_func, load8_drop, 0),
+    ),
+    Some(
+      @lib.Instruction::i32_load8u(
+        @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0)),
+      ),
+    ),
+  )
+  let load8_result = @ir.hot_region_get(load8_func, load8_body, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      load8_func,
+      @ir.hot_node_get(load8_func, load8_result).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let load16_source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $test (result i32)
+    #|    call $effect
+    #|    i32.load16_u
+    #|    i32.const 65536
+    #|    i32.eq)
+    #|  (func $effect (result i32) i32.const 0))
+    #|
+  let load16_func = optimize_instructions_test_run_hot(load16_source)
+  let load16_root = @ir.hot_root_get(load16_func, 0)
+  match @ir.hot_node_get(load16_func, load16_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected load16_u maxBits compare to preserve effectful load as drop+const",
+      )
+  }
+  let load16_body = @ir.hot_region_body_ref(load16_func, load16_root)
+  @debug.assert_eq(@ir.hot_region_root_count(load16_func, load16_body), 2)
+  let load16_drop = @ir.hot_region_get(load16_func, load16_body, 0)
+  match @ir.hot_node_get(load16_func, load16_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected load16_u maxBits fold to preserve load with a drop")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      load16_func,
+      @ir.hot_child_get(load16_func, load16_drop, 0),
+    ),
+    Some(
+      @lib.Instruction::i32_load16u(
+        @lib.MemArg::new(@lib.U32(1), None, @lib.U64(0)),
+      ),
+    ),
+  )
+  let load16_result = @ir.hot_region_get(load16_func, load16_body, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      load16_func,
+      @ir.hot_node_get(load16_func, load16_result).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions preserves i64 masked unsigned compare effects" {
   let source =
     #|(module

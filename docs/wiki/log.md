@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Fold unsigned-load maxBits compares
+
+- Added OI-D red-first coverage for out-of-range compares over `i32.load8_u` / `i32.load16_u`, matching Binaryen's width-based `maxBits` fold while preserving loads as dropped trapping operands.
+- Extended Starshine's narrow direct `maxBits` helper to unsigned load result widths for i32 and i64 (`load8_u`, `load16_u`, and i64 `load32_u`).
+- Evidence: Binaryen oracle probe `.tmp/oi-d-load8u-maxbits-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*unsigned load maxBits*'` failed before implementation and passed after.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple with two earlier and eight later siblings
 
 - Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after two earlier effectful siblings and before eight later effectful siblings.

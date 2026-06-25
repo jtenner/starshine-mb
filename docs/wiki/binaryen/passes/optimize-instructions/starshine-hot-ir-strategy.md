@@ -168,7 +168,7 @@ The in-tree implementation is still a real, useful hot pass.
 Its center of gravity is:
 
 - exact integer binary constant folding, including add and sub
-- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first recursive pure/effect-preserving i32/i64 `shr_u`/`and` bounded unsigned-compare folds, first i32 sign-extension equality folds plus a source-backed i64 sign-extension equality keep-spelling boundary, and relational constant plus guarded operand canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first recursive pure/effect-preserving i32/i64 `shr_u`/`and`/unsigned-load bounded unsigned-compare folds, first i32 sign-extension equality folds plus a source-backed i64 sign-extension equality keep-spelling boundary, and relational constant plus guarded operand canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, scalar float spelling rewrites, and `i32.wrap_i64` constant folding
 - first local scanner-style sign-extension facts, redundant sign-extension removal, and shift-pair sign-extension idiom rewrites
@@ -483,7 +483,7 @@ Upstream Binaryen runs a whole-function `LocalScanner` to infer:
 
 As of `[O4Z-AUDIT-OI-E]`, Starshine has a first conservative HOT-local sign-extension fact scan. It initializes params pessimistically, treats non-param scalar locals as default-zero until writes update or invalidate them, records straight-line `local.set` fallthrough facts, recognizes signed loads and explicit sign-extension ops, removes redundant sign extensions, and rewrites the first shift-pair sign-extension idioms.
 
-This is still narrower than Binaryen's full scanner. Starshine now has narrow direct unsigned `maxBits` compare facts and direct i32 sign-extension equality range facts, but it does not yet model CFG joins, loop-carried fact merging, i64 sign-extension equality, signed relational range folds, or broad compare proofs through this substrate.
+This is still narrower than Binaryen's full scanner. Starshine now has narrow direct unsigned `maxBits` compare facts, including direct `and` / `shr_u` expressions and unsigned load result widths, plus direct i32 sign-extension equality range facts, but it does not yet model CFG joins, loop-carried fact merging, i64 sign-extension equality, signed relational range folds, or broad compare proofs through this substrate.
 
 ## 7. No deferred `ReFinalize` / EH-pop-fixup equivalent inside this pass
 

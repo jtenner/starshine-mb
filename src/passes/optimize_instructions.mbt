@@ -7692,6 +7692,11 @@ fn optimize_instructions_i32_unsigned_max(
     return None
   }
   let node = @ir.hot_node_get(func, node_id)
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Load8U(_)) => return Some(255)
+    Some(@lib.Instruction::I32Load16U(_)) => return Some(65535)
+    _ => ()
+  }
   match node.op {
     @ir.HotOp::Binary => ()
     _ => return None
@@ -7804,6 +7809,12 @@ fn optimize_instructions_i64_unsigned_max(
     return None
   }
   let node = @ir.hot_node_get(func, node_id)
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I64Load8U(_)) => return Some(255L)
+    Some(@lib.Instruction::I64Load16U(_)) => return Some(65535L)
+    Some(@lib.Instruction::I64Load32U(_)) => return Some(4294967295L)
+    _ => ()
+  }
   match node.op {
     @ir.HotOp::Binary => ()
     _ => return None
