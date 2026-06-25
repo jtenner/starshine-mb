@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple earlier sibling
+
+- Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after an earlier effectful sibling.
+- Binaryen `version_130` drops the earlier call, stores the selected load through tuple scratch, and reloads it; Starshine keeps the smaller behavior-preserving block `drop(call); i32.load` because there is no later sibling effect requiring a temp.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-earlier-sibling-selected-trapping-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected trapping tuple.extract lane with earlier effectful sibling*'` passed `1/1` as coverage/status evidence after narrowing the expectation to Starshine's smaller direct-HOT shape.
+
 ## [2026-06-25] passes/optimize-instructions | Lower nonzero size-16 memory.fill
 
 - Extended OI-G exact constant-size `memory.fill` lowering from the previous zero-only size-16 subset to arbitrary constant low bytes.
