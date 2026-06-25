@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Document value br_table boundary
+
+- Filed [`raw/research/0843-2026-06-25-code-pushing-value-br-table-boundary.md`](raw/research/0843-2026-06-25-code-pushing-value-br-table-boundary.md) after a local Binaryen v130 probe kept a pure SFA `local.set` before a value-carrying `br_table` to a result block.
+- Added focused boundary coverage in `src/passes/code_pushing_test.mbt`; `moon test --target native src/passes/code_pushing_test.mbt --filter '*value br_table*'` passed `1/1`, and the broader `*br_table*` filter passed `3/3`.
+- This is an intentionally narrow unsupported/Binaryen-stationary boundary. It does not add switch mutation or a `code-pushing-all` GenValid leaf, and broader `br_table` surfaces remain open under `[O4Z-AUDIT-CP]`.
+
 ## [2026-06-25] passes/code-pushing | Refresh current code-pushing-all 10000 lane
 
 - Filed [`raw/research/0842-2026-06-25-code-pushing-all-10000-current.md`](raw/research/0842-2026-06-25-code-pushing-all-10000-current.md) after rerunning the then-current 19-leaf `code-pushing-all` dedicated profile with `--normalize local-cleanup-debris`.
