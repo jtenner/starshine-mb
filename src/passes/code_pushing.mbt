@@ -133,6 +133,32 @@ fn code_pushing_node_has_call_or_nonglobal_write_effect(
 }
 
 ///|
+fn code_pushing_node_is_pure_nop_or_drop_const(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Nop => true
+    @ir.HotOp::Drop if @ir.hot_child_count(func, node_id) == 1 => {
+      let child_id = @ir.hot_child_get(func, node_id, 0)
+      if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+        return false
+      }
+      match @ir.hot_node_get(func, child_id).op {
+        @ir.HotOp::Const =>
+          @ir.effects_is_pure(@ir.effects_for_node(func, node_id))
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
 fn code_pushing_direct_global_set_disjoint_from_global_get(
   func : @ir.HotFunc,
   node_id : Int,
@@ -188,11 +214,11 @@ fn code_pushing_node_is_disjoint_global_set_for_global_get(
       for idx = 0
           idx < @ir.hot_region_root_count(func, body_ref)
           idx = idx + 1 {
+        let root_id = @ir.hot_region_get(func, body_ref, idx)
         if !code_pushing_direct_global_set_disjoint_from_global_get(
-            func,
-            @ir.hot_region_get(func, body_ref, idx),
-            value_global_id,
-          ) {
+            func, root_id, value_global_id,
+          ) &&
+          !code_pushing_node_is_pure_nop_or_drop_const(func, root_id) {
           return false
         }
       }
