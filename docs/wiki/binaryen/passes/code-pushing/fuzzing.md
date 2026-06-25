@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-06-24
+last_reviewed: 2026-06-25
 sources:
   - ../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md
   - ../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md
@@ -183,13 +183,15 @@ Result: compared `1000/1000`, normalized matches `375`, cleanup-normalized match
 
 2026-06-25 regular GenValid refresh: `.tmp/pass-fuzz-code-pushing-regular-10000-20260625` used the current native binary with `--normalize local-cleanup-debris` and no dedicated profile. It compared `10000/10000`, normalized `10000`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, cache `wasm-smith 0 hits/0 misses`, Binaryen `102 hits/9898 misses`, Binaryen failures `0 hits/0 misses`, and selected ordinary `binaryen-oracle-portable: 10000` GenValid inputs. This is a closeout-progress lane, not final closeout by itself; the final matrix still needs the 100000 regular lane plus wasm-smith, dedicated `code-pushing-all`, and broad named-profile lanes.
 
-2026-06-25 explicit wasm-smith refresh: `.tmp/pass-fuzz-code-pushing-wasm-smith-10000-20260625` used the current native binary with `--wasm-smith`, seed `0x5eed`, and `--normalize local-cleanup-debris`. It compared `9956/10000`, normalized `9956`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property failures `0`, command failures `44`, command-failure classes `binaryen-rec-group-zero: 39`, `binaryen-invalid-tag-index: 1`, `binaryen-table-index-out-of-range: 1`, and `binaryen-bad-section-size: 3`, cache `wasm-smith 10000 hits/0 misses`, Binaryen `106 hits/9850 misses`, Binaryen failures `0 hits/44 misses`, and generator counts `wasmSmith: 9956`. This is closeout-progress evidence for the explicit external-generator lane, not final closeout by itself; final closeout still needs the required 100000 regular GenValid lane, a then-current dedicated `code-pushing-all` lane, and a broad named-profile lane.
+2026-06-25 explicit wasm-smith refresh: `.tmp/pass-fuzz-code-pushing-wasm-smith-10000-20260625` used the current native binary with `--wasm-smith`, seed `0x5eed`, and `--normalize local-cleanup-debris`. It compared `9956/10000`, normalized `9956`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property failures `0`, command failures `44`, command-failure classes `binaryen-rec-group-zero: 39`, `binaryen-invalid-tag-index: 1`, `binaryen-table-index-out-of-range: 1`, and `binaryen-bad-section-size: 3`, cache `wasm-smith 10000 hits/0 misses`, Binaryen `106 hits/9850 misses`, Binaryen failures `0 hits/44 misses`, and generator counts `wasmSmith: 9956`. This is closeout-progress evidence for the explicit external-generator lane, not final closeout by itself.
+
+2026-06-25 broad named-profile refresh: `.tmp/pass-fuzz-code-pushing-pass-fuzz-stress-10000-20260625` used the current native binary with `--gen-valid-profile pass-fuzz-stress`, seed `0x5555`, and `--normalize local-cleanup-debris`. It compared `10000/10000`, normalized `10000`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property/command failures `0`, cache `wasm-smith 0 hits/0 misses`, Binaryen `14 hits/9986 misses`, Binaryen failures `0 hits/0 misses`, and selected profile counts `pass-fuzz-stress: 10000`. This is closeout-progress evidence for the broad named GenValid lane; final closeout still needs the required 100000 regular GenValid lane and a then-current dedicated `code-pushing-all` lane after remaining source gaps are resolved or accepted.
 
 A raw lane without `--normalize local-cleanup-debris` stopped after `65` raw mismatches in `65` compared cases before the dropped-if slice. Inspected artifacts showed a bounded local-cleanup drift: Starshine removes standalone `nop`/empty-else debris around the movement while Binaryen leaves it. Treat the normalized lane as bounded slice evidence, not final raw-output parity or pass closeout.
 
 ## Final closeout lane
 
-Before final `[O4Z-AUDIT-CP]` closeout, run the repo-standard four-lane pass matrix. The dedicated lane should use:
+Before final `[O4Z-AUDIT-CP]` closeout, run the repo-standard four-lane pass matrix. The current broad named lane is `pass-fuzz-stress` unless a literal random all-profiles profile is added later. The dedicated lane should use:
 
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-genvalid-code-pushing-all-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
