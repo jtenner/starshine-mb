@@ -156,6 +156,11 @@ fn code_pushing_expect_op(
         @ir.HotOp::BrOnCast => ()
         _ => abort("expected br_on_cast")
       }
+    "br_on_cast_fail" =>
+      match op {
+        @ir.HotOp::BrOnCastFail => ()
+        _ => abort("expected br_on_cast_fail")
+      }
     "br_table" =>
       match op {
         @ir.HotOp::BrTable => ()
@@ -2003,6 +2008,166 @@ test "code-pushing keeps SFA set before br_on_cast operand that reads it" {
     func,
     @ir.hot_child_get(func, branch_drop, 0),
     "br_on_cast",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "drop")
+}
+
+///|
+fn code_pushing_br_on_cast_fail_fixture(
+  multi_set : Bool,
+  operand_reads_moved : Bool,
+) -> @ir.HotFunc {
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let nullable_i31 = @lib.RefType::new(true, i31_heap)
+  let nullable_i31_val = @lib.ValType::ref_type(nullable_i31)
+  let func = if operand_reads_moved {
+    @ir.HotFunc::new(locals=@ir.HotLocals::new(locals=[any_ref]))
+  } else {
+    @ir.HotFunc::new(
+      locals=@ir.HotLocals::new(
+        params=[any_ref],
+        locals=if multi_set {
+          [@lib.ValType::i32(), @lib.ValType::i32()]
+        } else {
+          [@lib.ValType::i32()]
+        },
+      ),
+    )
+  }
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, any_ref))
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::val_type(any_ref), [])
+  let target = @ir.hot_control_node_label(func, block_id)
+  let body : Array[Int] = []
+  if operand_reads_moved {
+    body.push(
+      @ir.hot_build_local_set(
+        func,
+        0,
+        @ir.hot_build_ref_null(func, @lib.RefType::new(true, any_heap)),
+      ),
+    )
+  } else {
+    body.push(
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+      ),
+    )
+    if multi_set {
+      body.push(
+        @ir.hot_build_local_set(
+          func,
+          2,
+          @ir.hot_build_const_i32(func, @lib.I32(9)),
+        ),
+      )
+    }
+  }
+  let branch_input = @ir.hot_build_local_get(func, 0)
+  let branch_payload = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(
+      @lib.Instruction::br_on_cast_fail(
+        @lib.LabelIdx::new(0U),
+        true,
+        any_heap,
+        true,
+        i31_heap,
+      ),
+    ),
+  )
+  let br_on_cast_fail = @ir.hot_build_node(
+    func,
+    @ir.HotOp::br_on_cast_fail(),
+    @ir.hot_type_intern_value(func, nullable_i31_val),
+    imm0=target,
+    imm1=branch_payload,
+    children=[branch_input],
+  )
+  body.push(@ir.hot_build_drop(func, br_on_cast_fail))
+  if operand_reads_moved {
+    body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 0)))
+  } else {
+    body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)))
+    if multi_set {
+      body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 2)))
+    }
+  }
+  body.push(@ir.hot_build_ref_null(func, @lib.RefType::new(true, any_heap)))
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, block_id),
+    body,
+  )
+  @ir.hot_root_append(func, block_id)
+  code_pushing_test_run_hot_func(func)
+}
+
+///|
+test "code-pushing moves pure SFA set after br_on_cast_fail before later same-block use" {
+  let func = code_pushing_br_on_cast_fail_fixture(false, false)
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 5)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  let branch_drop = @ir.hot_region_get(func, body_ref, 1)
+  code_pushing_expect_op(func, branch_drop, "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_cast_fail",
+  )
+  let moved_set = @ir.hot_region_get(func, body_ref, 2)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+}
+
+///|
+test "code-pushing preserves order moving multiple SFA sets after br_on_cast_fail" {
+  let func = code_pushing_br_on_cast_fail_fixture(true, false)
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 8)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "nop")
+  let branch_drop = @ir.hot_region_get(func, body_ref, 2)
+  code_pushing_expect_op(func, branch_drop, "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_cast_fail",
+  )
+  let first_moved = @ir.hot_region_get(func, body_ref, 3)
+  let second_moved = @ir.hot_region_get(func, body_ref, 4)
+  code_pushing_expect_op(func, first_moved, "local.set")
+  code_pushing_expect_op(func, second_moved, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_moved).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, second_moved).imm0, 2)
+}
+
+///|
+test "code-pushing keeps SFA set before br_on_cast_fail operand that reads it" {
+  let func = code_pushing_br_on_cast_fail_fixture(false, true)
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  let branch_drop = @ir.hot_region_get(func, body_ref, 1)
+  code_pushing_expect_op(func, branch_drop, "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_cast_fail",
   )
   code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "drop")
 }
