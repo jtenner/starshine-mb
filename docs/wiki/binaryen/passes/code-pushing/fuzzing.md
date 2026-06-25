@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md
   - ../../../raw/research/0858-2026-06-25-code-pushing-try-table-boundary.md
   - ../../../raw/research/0857-2026-06-25-code-pushing-plain-throw-boundary.md
   - ../../../raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md
@@ -98,7 +99,7 @@ Current bounded dedicated lane:
 bun scripts/pass-fuzz-compare.ts --count 200 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-profile-200-local-cleanup --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 50 --keep-going-after-command-failures
 ```
 
-Latest 10000-case dedicated lane: [`0856`](../../../raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md) refreshed the 19-leaf `code-pushing-all` profile after the behavior refinement in [`0855`](../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md). `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-throw-ref` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected all 19 aggregate leaves. This superseded the post-call-barrier dedicated lane in [`0851`](../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md), but the later plain-`throw` barrier fix in [`0857`](../../../raw/research/0857-2026-06-25-code-pushing-plain-throw-boundary.md) and `try_table` barrier fix in [`0858`](../../../raw/research/0858-2026-06-25-code-pushing-try-table-boundary.md) mean final closeout now needs a post-`0858` dedicated refresh.
+Latest 10000-case dedicated lane: [`0888`](../../../raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md) refreshed the 19-leaf `code-pushing-all` profile after the post-`0884` behavior changes and post-`0887` coverage refinements. `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-0887` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, validation/generator/property/command failures `0`, Binaryen cache `10000 hits/0 misses`, Binaryen failure cache `0 hits/0 misses`, and selected all 19 aggregate leaves. This satisfies the current dedicated aggregate final-closeout lane; regular 100000, explicit wasm-smith 10000, broad named `pass-fuzz-stress` 10000, and stop-condition docs remain open.
 
 2026-06-20 initial profile result before the dropped-if leaf: compared `200/200`, cleanup-normalized matches `200`, raw mismatches `0`, validation/generator/property/command failures `0`, selected subprofiles `code-pushing-if-arm: 100` and `code-pushing-after-if: 100`, cache `wasm-smith 0 hits/0 misses`, `Binaryen 200 hits/0 misses`, `Binaryen failures 0 hits/0 misses`.
 
