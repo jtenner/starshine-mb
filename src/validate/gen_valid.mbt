@@ -11326,6 +11326,35 @@ fn gen_valid_append_heap_store_optimization_body_slice(
               out.push(Instruction::local_get(described_local_idx))
               out.push(Instruction::i32_const(I32(143)))
               out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+
+              // Mutable-descriptor direct-call result roots keep the generated
+              // surface distinct from pure descriptor calls and from the older
+              // result-wrapper barrier roots: the overwritten field is the
+              // helper call result while the constructor descriptor is read
+              // from a mutable descriptor global.
+              let descriptor_ref = ValType::ref_type(
+                RefType::new(true, HeapType::new(descriptor_idx), exact=true),
+              )
+              match
+                gen_matching_global_idx(
+                  env.globals,
+                  descriptor_ref,
+                  mutable_only=true,
+                ) {
+                Some(desc_global_idx) => {
+                  out.push(Instruction::call(target.idx))
+                  out.push(
+                    Instruction::ref_null(HeapType::abs(AbsHeapType::eq())),
+                  )
+                  out.push(Instruction::global_get(desc_global_idx))
+                  out.push(Instruction::struct_new_desc(described_idx))
+                  out.push(Instruction::local_set(described_local_idx))
+                  out.push(Instruction::local_get(described_local_idx))
+                  out.push(Instruction::i32_const(I32(144)))
+                  out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+                }
+                None => ()
+              }
             }
             None => ()
           }
