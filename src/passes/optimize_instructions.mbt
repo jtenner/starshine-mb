@@ -7296,6 +7296,96 @@ fn optimize_instructions_try_fold_same_local_integer_compare(
 }
 
 ///|
+fn optimize_instructions_i32_and_unsigned_max(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Int? {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Binary => ()
+    _ => return None
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32And) => ()
+    _ => return None
+  }
+  let lhs_id = func.children[node.child_base]
+  let rhs_id = func.children[node.child_base + 1]
+  let mask = match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) => raw
+    _ =>
+      match optimize_instructions_i32_const(func, dead, lhs_id) {
+        Some(@lib.I32(raw)) => raw
+        _ => return None
+      }
+  }
+  if mask < 0 {
+    None
+  } else {
+    Some(mask)
+  }
+}
+
+///|
+fn optimize_instructions_i32_masked_unsigned_compare_result(
+  instr : @lib.Instruction,
+  max_value : Int,
+  rhs : Int,
+) -> @lib.I32? {
+  let rhs_outside = rhs < 0 || rhs > max_value
+  if !rhs_outside {
+    return None
+  }
+  match instr {
+    @lib.Instruction::I32Eq
+    | @lib.Instruction::I32GeU
+    | @lib.Instruction::I32GtU => Some(@lib.I32(0))
+    @lib.Instruction::I32Ne
+    | @lib.Instruction::I32LtU
+    | @lib.Instruction::I32LeU => Some(@lib.I32(1))
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_i32_masked_unsigned_compare(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+    return false
+  }
+  let max_value = match
+    optimize_instructions_i32_and_unsigned_max(func, dead, lhs_id) {
+    Some(value) => value
+    None => return false
+  }
+  let rhs = match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) => raw
+    _ => return false
+  }
+  match
+    optimize_instructions_i32_masked_unsigned_compare_result(
+      instr, max_value, rhs,
+    ) {
+    Some(result) => {
+      optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_compare_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7606,11 +7696,19 @@ fn optimize_instructions_visit_node(
             current_lhs = func.children[current.child_base]
             current_rhs = func.children[current.child_base + 1]
           }
-          let zero_folded = optimize_instructions_try_fold_compare_zero(
+          let masked_unsigned_folded = optimize_instructions_try_fold_i32_masked_unsigned_compare(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           )
+          changed = masked_unsigned_folded || changed
+          let zero_folded = if masked_unsigned_folded {
+            false
+          } else {
+            optimize_instructions_try_fold_compare_zero(
+              ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            )
+          }
           changed = zero_folded || changed
-          if zero_folded {
+          if zero_folded || masked_unsigned_folded {
             changed
           } else {
             let canonicalized = if optimize_instructions_is_commutative_instr(
@@ -7629,6 +7727,9 @@ fn optimize_instructions_visit_node(
               let next_lhs = func.children[current.child_base]
               let next_rhs = func.children[current.child_base + 1]
               optimize_instructions_try_canonicalize_compare_const(
+                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+              ) ||
+              optimize_instructions_try_fold_i32_masked_unsigned_compare(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_compare_zero(

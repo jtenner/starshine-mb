@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Fold pure i32 masked unsigned compares
+
+- Added a first OI-D `maxBits`-style scalar compare slice for pure i32 `and` masks: when a nonnegative constant mask bounds the left operand below an out-of-range constant, Starshine folds `eq`/`ne` and unsigned relational compares to `i32.const 0` or `i32.const 1`.
+- Kept the proof deliberately narrow: it requires a side-effect-free direct `i32.and` mask and a constant RHS; effectful masked operands, recursive maxBits facts, signed range proofs, and i64 masked values remain open for separate slices.
+- Evidence: Binaryen `version_130` oracle probes `.tmp/oi-d-mask-compare-probe.wat` and `.tmp/oi-d-mask-compare-probe2.wat`; red-first `*i32 masked unsigned compares*` failed before implementation and passed after.
+
 ## [2026-06-24] passes/optimize-instructions | Fold same-local integer compares
 
 - Added an OI-D scalar compare slice for identical integer local operands: `eq`/`le`/`ge` fold to `i32.const 1`, while `ne`/`lt`/`gt` fold to `i32.const 0`, for i32 and i64 signed/unsigned compare opcodes.
