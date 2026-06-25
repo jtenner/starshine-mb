@@ -22926,10 +22926,18 @@ fn run_hot_pipeline_raw_heap_store_optimization(
   if has_local_writes && has_struct_alloc && has_struct_set {
     return None
   }
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  let (cleaned_body, cleanup_changed) = pass_raw_remove_dropped_unreachable_debris(
+    body,
+  )
   Some({
     reason: "no-heap-store-candidates",
-    func: original,
-    unchanged_original: true,
+    func: if cleanup_changed {
+      @lib.Func::new(locals, @lib.Expr::new(cleaned_body))
+    } else {
+      original
+    },
+    unchanged_original: !cleanup_changed,
     trace_skip_raw: true,
   })
 }

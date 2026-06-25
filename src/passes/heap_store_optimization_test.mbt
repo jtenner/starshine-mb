@@ -114,6 +114,62 @@ fn hso_test_count_occurrences(text : String, needle : String) -> Int {
 }
 
 ///|
+fn hso_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func raise {
+  match mod_.code_sec {
+    Some(@lib.CodeSec([func, ..])) => func
+    _ => fail("expected at least one defined function")
+  }
+}
+
+///|
+fn hso_test_count_drop(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::Drop => count += 1
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += hso_test_count_drop(body)
+      @lib.Instruction::If(_, then_body, else_body) => {
+        count += hso_test_count_drop(then_body)
+        match else_body {
+          Some(body) => count += hso_test_count_drop(body)
+          None => ()
+        }
+      }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += hso_test_count_drop(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn hso_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::Unreachable => count += 1
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += hso_test_count_unreachable(body)
+      @lib.Instruction::If(_, then_body, else_body) => {
+        count += hso_test_count_unreachable(then_body)
+        match else_body {
+          Some(body) => count += hso_test_count_unreachable(body)
+          None => ()
+        }
+      }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += hso_test_count_unreachable(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn hso_test_block_wrap(
   body : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
@@ -1537,6 +1593,31 @@ fn hso_test_run_module(mod_ : @lib.Module) -> Result[@lib.Module, String] {
       abort("unexpected invalid heap-store-optimization module fixture: \{err}")
   }
   run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+test "heap-store-optimization removes dropped unreachable debris on no-candidate raw skip" {
+  let optimized = match
+    hso_test_run(
+      [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::f64_const(@lib.F64(2.0)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::unreachable_(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::unreachable_(),
+      ],
+      1,
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected heap-store-optimization success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = try! hso_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(hso_test_count_drop(instrs), 2)
+  @debug.assert_eq(hso_test_count_unreachable(instrs), 1)
 }
 
 ///|
