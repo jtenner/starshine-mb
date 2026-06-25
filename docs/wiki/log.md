@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Move pure value across memory.copy
+
+- Filed [`raw/research/0870-2026-06-25-code-pushing-memory-copy-movement.md`](raw/research/0870-2026-06-25-code-pushing-memory-copy-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after an intervening `memory.copy` and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched the Binaryen-positive shape, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*memory.copy before br_if*'` passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement.
+
 ## [2026-06-25] passes/code-pushing | Move pure value across table.grow
 
 - Filed [`raw/research/0869-2026-06-25-code-pushing-table-grow-movement.md`](raw/research/0869-2026-06-25-code-pushing-table-grow-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after an intervening dropped `table.grow` and later `br_if`.
