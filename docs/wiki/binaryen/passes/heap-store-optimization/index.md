@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1120-2026-06-25-heap-store-optimization-post-1119-validation.md
   - ../../../raw/research/1119-2026-06-25-heap-store-optimization-const-value-effect-skip.md
   - ../../../raw/research/1118-2026-06-25-heap-store-optimization-default-chain-splice-trim.md
   - ../../../raw/research/1117-2026-06-25-heap-store-optimization-closeout-deferral.md
@@ -539,6 +540,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Disposition note `1116` keeps HSO-I open rather than accepting the gap: close only by meeting `<=2x` on the current fixture, superseding it with stronger artifact/neighborhood timing and reopening criteria, or getting explicit user approval to carry the measured gap. Closeout deferral `1117` adds post-`1115` broader Moon validation (`moon test src/passes` `3045/3045`, full `moon test` `6362/6362`) but keeps HSO-J deferred until HSO-I is resolved or explicitly accepted.
   - Follow-up `1118` removes generated `nop` roots from the consumed pure-default stores in the `1115` fast path instead of replacing each consumed store with a fresh `nop`. Focused HSO tests, native build, `moon fmt`, and a 1000-case direct compare were green. Starshine medians improved to `4.069ms` at 1000 functions and `8.384ms` at 2000 functions, but HSO-I stays open at about `4.1x` the `1111` Binaryen median (`2.028ms`).
   - Follow-up `1119` skips generic effect-mask lookup for childless `Const`/`RefNull` values inside that same pure-default fast path. Focused HSO tests, native build, `moon fmt`, and a 1000-case direct compare were green. Starshine medians moved to `4.062ms` at 1000 functions and `8.108ms` at 2000 functions; HSO-I stays open at about `4.0x` Binaryen. A broader op-shape nested-region shortcut was rejected because it broke the disappearing-bad-get safety tests.
+  - Validation refresh `1120` ran `moon test src/passes` (`3045/3045`), full `moon test` (`6362/6362`), and a post-`1119` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). A fresh 2000-function timing refresh measured Starshine median `8.186ms` and Binaryen median `1.28922ms`, so HSO-I remains open at about `6.35x` that refreshed Binaryen run and HSO-J remains deferred.
 
 ## Beginner warning: what the name hides
 
