@@ -11304,6 +11304,73 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
 }
 
 ///|
+test "optimize-instructions intentionally keeps tuple.extract with earlier multi-result sibling boundary" {
+  // Boundary-only OI-M classification: Binaryen `version_130`
+  // `--optimize-instructions` localizes the earlier multi-result sibling through
+  // tuple scratch before returning the selected scalar lane
+  // (`.tmp/oi-m-tuple-multiresult-earlier-sibling-probe.wat`). Starshine's
+  // direct tuple.extract localizer currently proves only single-result effectful
+  // non-selected siblings, so this fixture keeps the direct-HOT tuple spelling
+  // explicit instead of claiming tuple-scratch parity.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let sibling = @ir.hot_build_call(
+    func,
+    0,
+    [@lib.ValType::i64(), @lib.ValType::i32()],
+    [],
+  )
+  let selected = @ir.hot_build_local_get(func, 0)
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i64(), @lib.ValType::i32(), @lib.ValType::i32()],
+    [sibling, selected],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 2)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected earlier multi-result tuple sibling boundary success, got \{err}",
+      )
+  }
+
+  let result = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, result).op {
+    @ir.HotOp::TupleExtract => ()
+    _ =>
+      fail(
+        "expected earlier multi-result sibling tuple.extract to stay unchanged",
+      )
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
+  @debug.assert_eq(@ir.hot_node_get(func, result).imm0, 2)
+  match @ir.hot_node_get(func, tuple).op {
+    @ir.HotOp::TupleMake => ()
+    _ =>
+      fail("expected earlier multi-result sibling tuple.make to stay available")
+  }
+  match @ir.hot_node_get(func, sibling).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected earlier multi-result sibling call to stay available")
+  }
+}
+
+///|
 test "optimize-instructions intentionally keeps tuple.extract with multi-result selected lane boundary" {
   // Boundary-only OI-M classification: Binaryen `version_130`
   // `--optimize-instructions` localizes selected values produced by a

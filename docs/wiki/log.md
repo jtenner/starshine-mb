@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover earlier multi-result tuple sibling boundary
+
+- Added OI-M direct-HOT boundary coverage for a selected scalar tuple lane with an earlier multi-result sibling.
+- Binaryen `version_130` localizes the earlier `$pair` child through tuple scratch plus scalar drops before returning the selected scalar lane; Starshine intentionally keeps the tuple spelling until multi-result tuple-scratch localization exists.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiresult-earlier-sibling-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*earlier multi-result sibling*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Fold unsigned-load maxBits compares
 
 - Added OI-D red-first coverage for out-of-range compares over `i32.load8_u` / `i32.load16_u`, matching Binaryen's width-based `maxBits` fold while preserving loads as dropped trapping operands.
