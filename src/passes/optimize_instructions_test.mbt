@@ -838,6 +838,74 @@ test "optimize-instructions folds i32 masked unsigned compares outside max" {
 }
 
 ///|
+test "optimize-instructions folds i32 unsigned-shift bounded compares" {
+  let eq_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.shr_u i32.const 16777216 i32.eq))",
+  )
+  let eq_root = @ir.hot_root_get(eq_func, 0)
+  match @ir.hot_node_get(eq_func, eq_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32 shr_u bounded impossible eq to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(eq_func, @ir.hot_node_get(eq_func, eq_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let lt_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 8 i32.shr_u i32.const 16777216 i32.lt_u))",
+  )
+  let lt_root = @ir.hot_root_get(lt_func, 0)
+  match @ir.hot_node_get(lt_func, lt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32 shr_u bounded lt_u above max to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(lt_func, @ir.hot_node_get(lt_func, lt_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let source =
+    #|(module
+    #|  (func $test (result i32)
+    #|    call $effect
+    #|    i32.const 8
+    #|    i32.shr_u
+    #|    i32.const 16777216
+    #|    i32.eq)
+    #|  (func $effect (result i32) i32.const 7))
+    #|
+  let effect_func = optimize_instructions_test_run_hot(source)
+  let root = @ir.hot_root_get(effect_func, 0)
+  match @ir.hot_node_get(effect_func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected effectful i32 shr_u compare to become drop+const block")
+  }
+  let body = @ir.hot_region_body_ref(effect_func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(effect_func, body), 2)
+  let dropped = @ir.hot_region_get(effect_func, body, 0)
+  match @ir.hot_node_get(effect_func, dropped).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected first folded i32 shr_u compare root to preserve lhs")
+  }
+  @debug.assert_eq(@ir.hot_child_count(effect_func, dropped), 1)
+  let shifted = @ir.hot_child_get(effect_func, dropped, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(effect_func, shifted),
+    Some(@lib.Instruction::i32_shr_u()),
+  )
+  let result = @ir.hot_region_get(effect_func, body, 1)
+  match @ir.hot_node_get(effect_func, result).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected second folded i32 shr_u compare root to be const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(effect_func, @ir.hot_node_get(effect_func, result).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions preserves i32 masked unsigned compare effects" {
   let source =
     #|(module

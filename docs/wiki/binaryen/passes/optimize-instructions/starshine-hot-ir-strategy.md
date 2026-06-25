@@ -126,7 +126,7 @@ The in-tree implementation is still a real, useful hot pass.
 Its center of gravity is:
 
 - exact integer binary constant folding, including add and sub
-- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare folding, pure and effect-preserving i32/i64 masked unsigned-compare folds, and relational constant plus guarded operand canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus a first pure/effect-preserving i32 `shr_u` bounded unsigned-compare fold, and relational constant plus guarded operand canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, scalar float spelling rewrites, and `i32.wrap_i64` constant folding
 - first local scanner-style sign-extension facts, redundant sign-extension removal, and shift-pair sign-extension idiom rewrites
@@ -272,7 +272,7 @@ The local file has dedicated helpers for:
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
 - same-local integer compare folding
-- pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask bounds the value below an out-of-range constant, dropping evaluated masked values before the folded constant
+- pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask bounds the value below an out-of-range constant, plus the first i32 `shr_u` bounded unsigned-compare fold for constant shift amounts `1..31`, dropping evaluated masked/shifted values before the folded constant
 - guarded relational operand canonicalization
 - relational-constant normalization
 

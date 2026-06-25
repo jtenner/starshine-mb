@@ -7296,7 +7296,7 @@ fn optimize_instructions_try_fold_same_local_integer_compare(
 }
 
 ///|
-fn optimize_instructions_i32_and_unsigned_max(
+fn optimize_instructions_i32_unsigned_max(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   node_id : Int,
@@ -7309,24 +7309,32 @@ fn optimize_instructions_i32_and_unsigned_max(
     @ir.HotOp::Binary => ()
     _ => return None
   }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::I32And) => ()
-    _ => return None
-  }
   let lhs_id = func.children[node.child_base]
   let rhs_id = func.children[node.child_base + 1]
-  let mask = match optimize_instructions_i32_const(func, dead, rhs_id) {
-    Some(@lib.I32(raw)) => raw
-    _ =>
-      match optimize_instructions_i32_const(func, dead, lhs_id) {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32And) => {
+      let mask = match optimize_instructions_i32_const(func, dead, rhs_id) {
         Some(@lib.I32(raw)) => raw
-        _ => return None
+        _ =>
+          match optimize_instructions_i32_const(func, dead, lhs_id) {
+            Some(@lib.I32(raw)) => raw
+            _ => return None
+          }
       }
-  }
-  if mask < 0 {
-    None
-  } else {
-    Some(mask)
+      if mask < 0 {
+        None
+      } else {
+        Some(mask)
+      }
+    }
+    Some(@lib.Instruction::I32ShrU) =>
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(1)) => Some(2147483647)
+        Some(@lib.I32(raw)) if raw > 1 && raw < 32 =>
+          Some((1 << (32 - raw)) - 1)
+        _ => None
+      }
+    _ => None
   }
 }
 
@@ -7362,7 +7370,7 @@ fn optimize_instructions_try_fold_i32_masked_unsigned_compare(
   rhs_id : Int,
 ) -> Bool {
   let max_value = match
-    optimize_instructions_i32_and_unsigned_max(func, dead, lhs_id) {
+    optimize_instructions_i32_unsigned_max(func, dead, lhs_id) {
     Some(value) => value
     None => return false
   }

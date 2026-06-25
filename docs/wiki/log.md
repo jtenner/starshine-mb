@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Fold i32 unsigned-shift bounded compares
+
+- Extended the OI-D `maxBits`-style unsigned compare fold beyond direct `and` masks for a first recursive scalar fact: direct `i32.shr_u(x, const)` with shift amount `1..31` bounds the result below the compared out-of-range constant.
+- Pure shifted operands fold directly to `i32.const`; effectful/trapping shifted operands are preserved with `drop(i32.shr_u(...)); i32.const result`, matching Binaryen's observed `version_130` shape for a call-backed shift.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-shr-maxbits-probe.wat`; red-first `*i32 unsigned-shift bounded compares*` failed before implementation and passed after. The proof remains narrow: no shift-by-zero/full-u32 proof, dynamic shift amount, signed range, or broader recursive `maxBits` lattice is claimed.
+
 ## [2026-06-24] passes/optimize-instructions | Preserve i64 masked unsigned compare effects
 
 - Extended the OI-D `maxBits`-style i64 masked unsigned compare fold to preserve effectful/trapping direct masked operands: when the compared constant is outside the nonnegative `i64.and` mask range, Starshine now replaces the compare with `drop(masked-value); i32.const result` instead of skipping the fold.
