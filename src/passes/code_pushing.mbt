@@ -521,6 +521,80 @@ fn code_pushing_count_total_local_gets_writes_bounded(
 }
 
 ///|
+fn code_pushing_count_unique_local_gets_writes_in_node_bounded(
+  func : @ir.HotFunc,
+  node_id : Int,
+  local_id : Int,
+  max_gets : Int,
+  max_writes : Int,
+  visited : Array[Int],
+) -> (Int, Int) {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return (0, 0)
+  }
+  if visited.any(fn(existing) { existing == node_id }) {
+    return (0, 0)
+  }
+  visited.push(node_id)
+  let node = @ir.hot_node_get(func, node_id)
+  let mut gets = 0
+  let mut writes = 0
+  match node.op {
+    @ir.HotOp::LocalGet if node.imm0 == local_id => gets += 1
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee if node.imm0 == local_id =>
+      writes += 1
+    _ => ()
+  }
+  if gets > max_gets || writes > max_writes {
+    return (gets, writes)
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let (child_gets, child_writes) = code_pushing_count_unique_local_gets_writes_in_node_bounded(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      local_id,
+      max_gets - gets,
+      max_writes - writes,
+      visited,
+    )
+    gets += child_gets
+    writes += child_writes
+    if gets > max_gets || writes > max_writes {
+      return (gets, writes)
+    }
+  }
+  (gets, writes)
+}
+
+///|
+fn code_pushing_count_unique_total_local_gets_writes_bounded(
+  func : @ir.HotFunc,
+  local_id : Int,
+  max_gets : Int,
+  max_writes : Int,
+) -> (Int, Int) {
+  let visited : Array[Int] = []
+  let mut gets = 0
+  let mut writes = 0
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    let (root_gets, root_writes) = code_pushing_count_unique_local_gets_writes_in_node_bounded(
+      func,
+      @ir.hot_root_get(func, idx),
+      local_id,
+      max_gets - gets,
+      max_writes - writes,
+      visited,
+    )
+    gets += root_gets
+    writes += root_writes
+    if gets > max_gets || writes > max_writes {
+      return (gets, writes)
+    }
+  }
+  (gets, writes)
+}
+
+///|
 fn code_pushing_make_local_set_clone(
   func : @ir.HotFunc,
   local_id : Int,
@@ -1178,7 +1252,7 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
   }
   let branch_id = @ir.hot_region_get(func, region_ref, branch_idx)
   let branch = @ir.hot_node_get(func, branch_id)
-  if branch.imm0 < 0 || @ir.hot_child_count(func, branch_id) != 1 {
+  if branch.imm0 < 0 || @ir.hot_child_count(func, branch_id) < 1 {
     return false
   }
   let set_ids : Array[Int] = []
@@ -1227,7 +1301,7 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
         if !safe_to_branch {
           continue
         }
-        let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
+        let (total_gets, total_writes) = code_pushing_count_unique_total_local_gets_writes_bounded(
           func, local_id, 1_000_000, 1,
         )
         if total_writes != 1 || total_gets == 0 {
