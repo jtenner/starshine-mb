@@ -242,6 +242,81 @@ test "code-pushing sinks const local.set into the only using else arm" {
 }
 
 ///|
+test "code-pushing sinks local-copy dependency chain into the only using if arm" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32 i32) (local i32 i32)
+      #|    local.get 1
+      #|    local.set 2
+      #|    local.get 2
+      #|    local.set 3
+      #|    local.get 0
+      #|    if
+      #|      local.get 3
+      #|      drop
+      #|    end))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "nop")
+  let if_id = @ir.hot_root_get(func, 2)
+  code_pushing_expect_op(func, if_id, "if")
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 3)
+  let source_set = @ir.hot_region_get(func, then_ref, 0)
+  let dependent_set = @ir.hot_region_get(func, then_ref, 1)
+  code_pushing_expect_op(func, source_set, "local.set")
+  code_pushing_expect_op(func, dependent_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, source_set).imm0, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, dependent_set).imm0, 3)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, source_set, 0),
+    "local.get",
+  )
+  let dependent_value = @ir.hot_child_get(func, dependent_set, 0)
+  code_pushing_expect_op(func, dependent_value, "local.get")
+  @debug.assert_eq(@ir.hot_node_get(func, dependent_value).imm0, 2)
+  let kept_use = @ir.hot_region_get(func, then_ref, 2)
+  code_pushing_expect_op(func, kept_use, "drop")
+}
+
+///|
+test "code-pushing keeps local-copy chain before if when the source local is rewritten in the arm" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32 i32) (local i32 i32)
+      #|    local.get 1
+      #|    local.set 2
+      #|    local.get 2
+      #|    local.set 3
+      #|    local.get 0
+      #|    if
+      #|      i32.const 9
+      #|      local.set 2
+      #|      local.get 3
+      #|      drop
+      #|    end))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  let first_set = @ir.hot_root_get(func, 0)
+  let second_set = @ir.hot_root_get(func, 1)
+  code_pushing_expect_op(func, first_set, "local.set")
+  code_pushing_expect_op(func, second_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_set).imm0, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, second_set).imm0, 3)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "if")
+}
+
+///|
 test "code-pushing sinks pure computed local.set into the only using if arm" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 3 i32.const 4 i32.add local.set 1 local.get 0 if local.get 1 drop end))",
