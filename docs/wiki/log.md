@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover size-3 memory.fill boundary
+
+- Added OI-G public-pipeline coverage proving non-power-of-two size-3 `memory.fill` stays outside the exact fill lowering set.
+- Binaryen `version_130` keeps `local.get $dst; local.get $value; i32.const 3; memory.fill`; Starshine now locks that it also keeps `memory.fill` and does not introduce a partial-store sequence.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-fill-size3-boundary-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*size-3 memory.fill*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple with two earlier and five later siblings
 
 - Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after two earlier effectful siblings and before five later effectful siblings.

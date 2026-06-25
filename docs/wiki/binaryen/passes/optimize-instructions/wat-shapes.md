@@ -18,6 +18,7 @@ sources:
   - ../../../raw/research/0885-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-four-later.md
   - ../../../raw/research/0886-2026-06-25-optimize-instructions-oi-g-memory-copy-size3-boundary.md
   - ../../../raw/research/0887-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-five-later.md
+  - ../../../raw/research/0888-2026-06-25-optimize-instructions-oi-g-memory-fill-size3-boundary.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -699,7 +700,7 @@ Similarly, `local.get $dst; call $value; i32.const 1; memory.fill`, `global.get`
 
 Important negative shape:
 
-- zero-size or same-src/dst cases are not blindly dropped in default mode; trap assumptions matter. Starshine now has explicit coverage that Binaryen and Starshine both keep zero-size `memory.copy` / `memory.fill` even when the operands are calls. Non-power-of-two size-3 `memory.copy` is also a source-backed keep-spelling boundary rather than a multi-store lowering candidate.
+- zero-size or same-src/dst cases are not blindly dropped in default mode; trap assumptions matter. Starshine now has explicit coverage that Binaryen and Starshine both keep zero-size `memory.copy` / `memory.fill` even when the operands are calls. Non-power-of-two size-3 `memory.copy` and `memory.fill` are also source-backed keep-spelling boundaries rather than multi-store lowering candidates.
 - dynamic call-backed and local size operands are explicit keep-spelling boundaries. Binaryen keeps `memory.copy` / `memory.fill` when the destination/source/value and size operands are calls, and also when the size is a nonconstant local; Starshine has matching public-pipeline coverage for both boundaries.
 - non-flat, non-pure call arguments, wider call-backed fill, and broader control/effect copy forms still need separate localization proof. Binaryen `version_130` keeps the probed call-backed size-16 `memory.fill`, so that SIMD-width call value is a keep-spelling boundary rather than a missed `v128.store` lowering.
 

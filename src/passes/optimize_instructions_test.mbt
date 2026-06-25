@@ -7340,6 +7340,39 @@ test "optimize-instructions expands local two-byte memory.fill to store16" {
 }
 
 ///|
+test "optimize-instructions keeps size-3 memory.fill outside exact lowering boundary" {
+  // Boundary-only OI-G classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps non-power-of-two size-3 `memory.fill`
+  // (`.tmp/oi-g-memory-fill-size3-boundary-probe.wat`). Starshine likewise
+  // avoids inventing a partial-store sequence beyond the exact 1/2/4/8/16
+  // lowering set.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $value i32)
+        #|    local.get $dst
+        #|    local.get $value
+        #|    i32.const 3
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected size-3 memory.fill boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  assert_false(pretty.contains("i32.store8"), msg=pretty)
+  assert_false(pretty.contains("i32.store16"), msg=pretty)
+  assert_false(pretty.contains("i32.store"), msg=pretty)
+  assert_false(pretty.contains("i64.store"), msg=pretty)
+  assert_false(pretty.contains("v128.store"), msg=pretty)
+}
+
+///|
 test "optimize-instructions expands local four-byte memory.fill to store" {
   let optimized = match
     pass_test_run_pipeline(
