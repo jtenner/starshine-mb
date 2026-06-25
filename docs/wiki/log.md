@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Probe br_on_null prefix boundary
+
+- Filed [`raw/research/0846-2026-06-25-code-pushing-br-on-null-prefix-boundary.md`](raw/research/0846-2026-06-25-code-pushing-br-on-null-prefix-boundary.md) after local Binaryen v130 validated a result-block `br_on_null` with an explicit prefix payload and kept the pure SFA `local.set` before the branch rewrite.
+- Commands passed: `wasm-tools parse`, `wasm-tools validate --features all`, `wasm-opt --version` (`version_130`), and `wasm-opt --all-features --code-pushing -S`.
+- Classification: narrow Binaryen-stationary boundary. No movement implementation or GenValid leaf was added; focused Starshine boundary coverage remains blocked until the local WAT/HOT surface can represent this exact multi-value branch/fallthrough stack shape.
+
 ## [2026-06-25] passes/code-pushing | Refresh regular GenValid 100000 lane
 
 - Filed [`raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md`](raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md) after running the required large regular GenValid lane for direct `code-pushing` with `--normalize local-cleanup-debris`.
