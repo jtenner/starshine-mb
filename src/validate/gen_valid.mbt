@@ -11546,6 +11546,46 @@ fn gen_valid_append_heap_store_optimization_body_slice(
                   out.push(Instruction::local_get(described_local_idx))
                   out.push(Instruction::i32_const(I32(144)))
                   out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+
+                  // Mutable-descriptor direct tail-call result-wrapper roots
+                  // add the tail-call sibling of marker 144: the overwritten
+                  // field is the helper call result, the descriptor operand is
+                  // a mutable exact-descriptor global read, and the result
+                  // wrapper exits through return_call before the later store.
+                  match env.current_func_idx {
+                    Some(tail_idx) =>
+                      match gen_valid_callable_by_idx(env.funcs, tail_idx) {
+                        Some(tail_target) if tail_target.params.is_empty() &&
+                          tail_target.results.is_empty() => {
+                          out.push(Instruction::call(target.idx))
+                          out.push(
+                            Instruction::ref_null(
+                              HeapType::abs(AbsHeapType::eq()),
+                            ),
+                          )
+                          out.push(Instruction::global_get(desc_global_idx))
+                          out.push(Instruction::struct_new_desc(described_idx))
+                          out.push(Instruction::local_set(described_local_idx))
+                          out.push(
+                            Instruction::try_table(
+                              BlockType::val_type(ValType::i32()),
+                              [],
+                              Expr::new([
+                                Instruction::return_call(tail_target.idx),
+                              ]),
+                            ),
+                          )
+                          out.push(Instruction::drop())
+                          out.push(Instruction::local_get(described_local_idx))
+                          out.push(Instruction::i32_const(I32(153)))
+                          out.push(
+                            Instruction::struct_set(described_idx, U32::new(0U)),
+                          )
+                        }
+                        _ => ()
+                      }
+                    None => ()
+                  }
                 }
                 None => ()
               }
