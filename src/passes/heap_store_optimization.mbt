@@ -3648,7 +3648,6 @@ fn hso_try_fold_pure_default_struct_set_chain(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
-  node_masks : Array[UInt],
   roots : Array[Int],
   idx : Int,
   local_id : Int,
@@ -3684,8 +3683,7 @@ fn hso_try_fold_pure_default_struct_set_chain(
     if field_idx < 0 || field_idx >= field_count {
       return None
     }
-    if hso_effects_for_node(func, node_masks, value_id) != 0U ||
-      @ir.hot_child_count(func, value_id) != 0 {
+    if @ir.hot_child_count(func, value_id) != 0 {
       return None
     }
     match @ir.hot_node_get(func, value_id).op {
@@ -3741,8 +3739,7 @@ fn hso_process_local_set_chain(
 ) -> (Array[Int], Int, Bool) {
   match
     hso_try_fold_pure_default_struct_set_chain(
-      type_cache, func, module_ctx, node_masks, roots, idx, local_id, struct_new_id,
-      type_idx,
+      type_cache, func, module_ctx, roots, idx, local_id, struct_new_id, type_idx,
     ) {
     Some((segment_roots, next_idx)) => return (segment_roots, next_idx, true)
     None => ()
