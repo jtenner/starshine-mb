@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Fold i64 unsigned-shift bounded compares
+
+- Extended the OI-D `maxBits`-style unsigned shift compare fold to i64: direct `i64.shr_u(x, const)` with shift amount `1..63` bounds the result below the compared out-of-range constant.
+- Pure shifted operands fold directly to `i32.const`; effectful/trapping shifted operands are preserved with `drop(i64.shr_u(...)); i32.const result`, matching Binaryen's observed `version_130` shape for a call-backed shift.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-i64-shr-maxbits-probe.wat`; red-first `*i64 unsigned-shift bounded compares*` failed before implementation and passed after. Dynamic/zero shift amounts, signed range facts, and broader recursive `maxBits` lattice proofs remain open.
+
 ## [2026-06-24] passes/optimize-instructions | Fold i32 unsigned-shift bounded compares
 
 - Extended the OI-D `maxBits`-style unsigned compare fold beyond direct `and` masks for a first recursive scalar fact: direct `i32.shr_u(x, const)` with shift amount `1..31` bounds the result below the compared out-of-range constant.
