@@ -426,7 +426,9 @@ The local file now models the first `visitTupleExtract(...)` family for one-use 
 
 - when every non-selected tuple child is pure, the extract forwards the selected lane directly;
 - when non-selected siblings have effects and produce at most one value, Starshine preserves/drops earlier effects before the selected lane, localizes the selected lane to a temp local when later effects exist, preserves/drops later effects, then reloads the selected value;
-- local-carried/multi-use tuple extraction is now an explicit Binaryen-matching keep-spelling boundary for the probed shape; broader tee/drop reconstruction, any future safe multi-use tuple proof, multi-value selected lanes or siblings, and public text-surface coverage remain open under `[O4Z-AUDIT-OI-M]`.
+- local-carried/multi-use tuple extraction is now an explicit Binaryen-matching keep-spelling boundary for the probed shape;
+- multi-result non-selected siblings are a current tuple-scratch localization boundary: Binaryen `version_130` materializes tuple scratch and scalar drops for the probed shape, while Starshine keeps the direct-HOT tuple spelling until a safe multi-result sibling localizer exists;
+- broader tee/drop reconstruction, any future safe multi-use tuple proof, multi-value selected lanes, public text-surface coverage, and tuple-neighbor interaction signoff remain open under `[O4Z-AUDIT-OI-M]`.
 
 ## 6. First local sign-extension facts, but not full Binaryen `LocalScanner`
 
@@ -516,7 +518,7 @@ Treat the current local implementation as:
 - a real implemented HOT pass
 - strongest today on integer / boolean / control canonicalization
 - intentionally carrying extra writeback-safety logic for local artifact history
-- still missing any further source-backed `call_ref` known-target shapes beyond the covered select/table/fallthrough subset, multi-result argument localization beyond the documented tuple-scratch boundary, broader load/store canonicalization, GC, broader tuple/multivalue reconstruction, and helper-substrate surface
+- still missing any further source-backed `call_ref` known-target shapes beyond the covered select/table/fallthrough subset, multi-result argument localization beyond the documented tuple-scratch boundary, broader load/store canonicalization, GC, broader tuple/multivalue reconstruction including tuple-scratch handling for multi-result siblings, and helper-substrate surface
 
 For this pass, "what Starshine does today" and "what Binaryen `version_130` expects for release-gating O4z parity" are not the same thing.
 The wiki should keep that difference explicit and use `[O4Z-AUDIT-OI-*]` slice owners from the 2026-06-19 matrix when expanding coverage.

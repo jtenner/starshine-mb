@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock multi-result tuple sibling boundary
+
+- Added OI-M boundary coverage for `tuple.extract(tuple.make(...))` when a non-selected sibling produces multiple results.
+- Binaryen `version_130` localizes the probed sibling through tuple scratch plus scalar drops; Starshine keeps the direct-HOT `TupleExtract` / `TupleMake` / multi-result `Call` shape until a safe tuple-scratch localizer exists.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiresult-sibling-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*multi-result sibling*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Lock multivalue return_call_ref boundary
 
 - Extended the OI-H multi-result argument select-of-`ref.func` boundary coverage to `return_call_ref`.

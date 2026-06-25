@@ -8102,6 +8102,65 @@ test "optimize-instructions intentionally keeps multi-use tuple.make boundary" {
 }
 
 ///|
+test "optimize-instructions intentionally keeps tuple.extract with multi-result sibling boundary" {
+  // Boundary-only OI-M classification: Binaryen `version_130`
+  // `--optimize-instructions` localizes the probed multi-result sibling
+  // through tuple scratch plus scalar drops (`.tmp/oi-m-tuple-multiresult-sibling-probe.wat`).
+  // Starshine's direct tuple.extract localizer currently proves only
+  // single-result effectful non-selected siblings, so this fixture keeps the
+  // direct-HOT tuple spelling explicit instead of hiding tuple-scratch parity.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let selected = @ir.hot_build_local_get(func, 0)
+  let sibling = @ir.hot_build_call(
+    func,
+    0,
+    [@lib.ValType::i64(), @lib.ValType::i32()],
+    [],
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64(), @lib.ValType::i32()],
+    [selected, sibling],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected multi-result tuple sibling boundary success, got \{err}")
+  }
+
+  let result = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, result).op {
+    @ir.HotOp::TupleExtract => ()
+    _ => fail("expected multi-result sibling tuple.extract to stay unchanged")
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
+  match @ir.hot_node_get(func, tuple).op {
+    @ir.HotOp::TupleMake => ()
+    _ => fail("expected multi-result sibling tuple.make to stay available")
+  }
+  match @ir.hot_node_get(func, sibling).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected multi-result effectful sibling call to stay available")
+  }
+}
+
+///|
 test "optimize-instructions preserves earlier and later tuple.extract sibling effects" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
