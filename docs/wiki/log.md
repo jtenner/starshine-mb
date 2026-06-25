@@ -719,6 +719,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Close preset neighborhood blocker
+
+- Filed [`raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md`](raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md) after the user-directed direct `code-pushing` blockers were closed.
+- Decision: the public `optimize` and `shrink` presets already schedule `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`, and focused ordered-neighborhood tests lock that shape.
+- Validation: focused `optimize_test.mbt`, `simplify_locals_nostructure_test.mbt`, and `registry_test.mbt` preset/order tests all passed `1/1`.
+- Remaining status: no useful user-directed `code-pushing` gap is currently known; reopen only for new source-backed CP behavior, generated mismatch, validation failure, shared-GC fixture requirement, or preset-neighborhood drift.
+
 ## [2026-06-25] passes/code-pushing | Implement ref-into-if refinalization
 
 - Filed [`raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md`](raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md) for the user-directed GC/refinalization follow-up.

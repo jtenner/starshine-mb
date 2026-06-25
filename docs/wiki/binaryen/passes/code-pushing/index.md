@@ -3,6 +3,7 @@ kind: entity
 status: strong
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md
   - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
   - ../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md
   - ../../../raw/research/0903-2026-06-25-code-pushing-post-iit-actionability-audit.md
@@ -172,7 +173,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 - Binaryen schedules `code-pushing` in the canonical no-DWARF function pipeline between `precompute` and the tuple/local-cleanup neighborhood.
 - The saved generated-artifact `-O4z` audit recorded it as top-level skipped slot `20` before Starshine grew the current direct subset.
-- Starshine's `tuple-optimization` exact-slot story still depends on this pass and the now-active `simplify-locals-nostructure` neighbor being represented honestly in the scheduler and preset replay.
+- Starshine's `tuple-optimization` exact-slot story depends on this pass and `simplify-locals-nostructure` being represented honestly in the scheduler and preset replay; [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md) records that the public `optimize` / `shrink` presets now have focused proof for `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`.
 - The pass is easy to over-broaden. Correctness depends on SFA local proofs, effect ordering/invalidation, trap policy, GC/reference behavior, atomics, EH, and post-if read rules.
 
 ## Inputs and outputs
@@ -215,7 +216,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 - Preserve order among multiple pushed sets, including consecutive multi-set windows sunk into a sole consuming `if` arm.
 - Preserve function validity after structural mutation.
 - Keep Starshine-local dead-block flattening documented separately from upstream Binaryen behavior.
-- Do not claim public preset parity until the exact scheduler neighborhood is implemented and validated.
+- Public preset CP placement is claimed only for the focused Binaryen-shaped neighborhood validated in [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md); broader preset parity still follows the repo's normal preset-audit rules.
 - Do not treat raw wasm/text drift as a blocker when normalized/canonical semantic comparison is green.
 
 ## Notable edge cases
@@ -256,7 +257,7 @@ For future source-backed `code-pushing` widening after the closed `[O4Z-AUDIT-CP
 5. compare reduced WAT against Binaryen `wasm-opt --code-pushing` for each widened family;
 6. include the dedicated `code-pushing-all` GenValid lane, currently with `--normalize local-cleanup-debris` for bounded Starshine `nop`/empty-else cleanup drift;
 7. then run pass-fuzz / artifact comparisons under the standard pass signoff criteria;
-8. only after ordered-neighborhood proof revisit public preset placement.
+8. if a future widening changes direct behavior or the local-cleanup neighborhood, refresh the public preset proof from [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md).
 
 ## Page map
 

@@ -3,6 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md
+  - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
+  - ../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md
   - ../../../raw/research/0903-2026-06-25-code-pushing-post-iit-actionability-audit.md
   - ../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md
   - ../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md
@@ -80,7 +83,7 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - A cloned `local.set` is inserted into the one `if` arm that contains all in-arm reads of that local.
    - Same-region suffix reads after the `if` are allowed only when the opposite arm cannot fall through under the current conservative root proof.
    - Consecutive multi-set windows that feed one arm are sunk in source order, covering both dependency chains and independent pure sets.
-   - Values are limited to pure nontrapping HOT values plus guarded `global.get`, local-copy setup, narrow non-null `struct.get` heap-read shapes, exact integer div/rem values only when `HotPassContext.traps_never_happen` is true, and ordinary memory loads only for the `--ignore-implicit-traps` / `-iit` policy added in `0902`.
+   - Values are limited to pure nontrapping HOT values plus guarded `global.get`, direct `local.get` setup, local-copy setup, exact `binaryen-intrinsics` / `call.without.effects` calls with pure/nontrapping arguments, narrow non-null `struct.get` heap-read shapes, exact integer div/rem values only when `HotPassContext.traps_never_happen` is true, and ordinary memory loads only for the `--ignore-implicit-traps` / `-iit` policy added in `0902`.
 2. **Ordinary `if`, dropped `if`, and narrow `br_if` segment movement**
    - The first mutating segment-window consumer moves one SFA `local.set` after an ordinary void `if` when the `if` itself does not read the local and every read is a same-region suffix read after the `if`.
    - The dropped-wrapper extension moves the same single-set family after a dropped value `if` when the dropped push point does not read the local and every read is a same-region suffix read after the wrapper.
@@ -90,6 +93,7 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - Separator-window extensions cover the same push-point family when local-independent SFA sets are separated only by `nop`, `drop(const)`, or `drop(local.get)` roots, leaving those separators before the push point while moving sets after it in source order. A bounded `drop(global.get)` extension covers ordinary void `if` and dropped value-`if` push points only; the same window remains stationary before the current `br_if` push-point family to match Binaryen v130 probes.
    - The single-set helper requires the non-mutating diagnostic to classify the window as `candidate:if`, `candidate:dropped-if`, `candidate:conditional-branch`, or `candidate:dropped-conditional-branch` before rewriting; the ordered multi-set helper is currently limited to ordinary-void-`if`, dropped-value-`if`, no-branch-value `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, and adjacent local-independent value-block-target `br_if` push points.
    - The first atomics/GC slice admits a non-null `struct.get` from a `local.get` source across atomic loads for these into-`if` and segment-movement paths, while keeping atomic stores as memory-write boundaries.
+   - The `ref-into-if` slice weakens a moved non-null body-local ref type to the corresponding nullable ref when sinking changes dominance enough that the output would otherwise fail Wasm local validation.
 3. **Non-mutating segment-window inventory**
    - Whitebox-only helpers now classify block-local `local.set` candidate windows and push-point kinds before mutation.
    - Covered labels include ordinary `if`, dropped `if`, locally representable conditional branches, SFA rejections, and coarse ordered-before barriers.
@@ -101,7 +105,7 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - A block next to an `unreachable` parent context can be flattened when branch and multivalue guards prove the splice safe.
    - This is local cleanup bundled in the current pass, not a source-confirmed upstream Binaryen `code-pushing` family.
 
-The pass is **not** in the public `optimize` / `shrink` presets yet. That is intentional: public preset placement requires ordered-neighborhood proof around `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`, and is no longer a direct `code-pushing` completion blocker.
+The pass is in the public `optimize` and `shrink` presets in the focused Binaryen-shaped neighborhood `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`. [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md) records the ordered-neighborhood proof and focused tests; broader preset parity remains governed by the repo-wide preset audit rules.
 
 The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The debug-artifact replay reached `Normalized WAT equal: yes` and `Canonical function compare equal: yes`; raw wasm/text drift is accepted representation drift. Pass-local timing was about 1658ms for Starshine versus about 1311ms for Binaryen, clearing the 50%-of-Binaryen floor. See [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md).
 
@@ -123,7 +127,7 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Focused positives and negatives for current mutating behavior |
 | [`src/passes/code_pushing_wbtest.mbt`](../../../../../src/passes/code_pushing_wbtest.mbt) | Whitebox segment-window inventory and rejection-reason tests |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 212-220 | Registry entry as `HotPass` |
-| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 382-419 | Tuple exact-slot prerequisite and preset omission |
+| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Public `optimize` / `shrink` preset placement and tuple exact-slot neighborhood helpers |
 | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Registry classification and descriptor coverage |
 | [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) | Native / command-surface regression coverage for direct pass behavior |
 | [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) | Canonical scheduler context: `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure` neighborhood |
@@ -140,8 +144,8 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm, plus same-region suffix reads when the opposite arm cannot fall through |
 | Unreachable-arm post-use allowance | First conservative slice implemented for roots ending in `unreachable`, `return`, or tail-return roots |
 | `version_130` ordered-before / atomics source surfaces | First `code-pushing-atomics.wast` heap-read slice implemented for non-null `struct.get` across atomic loads and store boundaries; general `orderedBefore` remains an audit gap |
-| Broader GC/EH/trap-option source surfaces | Narrow `struct.get`/atomics family, TNH exact integer div/rem into-if movement, and `ignore_implicit_traps` memory-load `br_if` movement are implemented; broader GC/EH/trap-option surfaces are guarded out or not modeled broadly |
-| Refinalization / later optimizer cycles | Starshine relies on HOT verification, lowering, and final validation; future broader ports need equivalent local retyping discipline |
+| Broader GC/EH/trap-option source surfaces | Narrow `struct.get`/atomics family, exact intrinsic no-effects calls, `ref-into-if` local weakening, TNH exact integer div/rem into-if movement, and `ignore_implicit_traps` memory-load `br_if` movement are implemented; broader GC/EH/trap-option surfaces are guarded out or not modeled broadly |
+| Refinalization / later optimizer cycles | `ref-into-if` now performs narrow moved-local ref nullability weakening; future broader ports need equivalent local retyping discipline plus HOT verification, lowering, and final validation |
 
 ## Current local positive family
 

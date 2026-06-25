@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md
   - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
   - ../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md
   - ../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md
@@ -99,8 +100,8 @@ Official `version_130` test URLs:
 | --- | --- |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) | Accepted direct HOT subset: safe single-arm `local.set` sinking, bounded segment movement after ordinary/dropped `if`, no-branch-value and branch-value `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, guarded `global.get` / local-copy / non-null `struct.get` movement, `ignore_implicit_traps`-only memory-load movement, and local dead-block flattening |
 | [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Then/else positives, pure-value/global/local-copy movement positives, into-if dependency-chain and independent source-order positives, `br_if` branch-value single-/multi-set positives and payload-read boundary, dropped `br_on_null`, one-result-block `br_on_non_null`, dropped `br_on_cast`, and dropped `br_on_cast_fail` single-/multi-set positives plus guard-read boundaries, both-arm and later-use negatives, nested-later-use negative, default trap guard, TNH exact-div into-if positive, ignore-implicit-traps memory-load positive and store/call boundary negatives, dead-block flattening guards |
-| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Active registry entry and preset omission / tuple exact-slot gating |
-| [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Registry classification for the direct pass |
+| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Active registry entry, public `optimize` / `shrink` preset placement, and tuple exact-slot neighborhood helpers |
+| [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Registry classification plus active-name preset expansion coverage |
 | [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) | Command-surface coverage for direct pass use |
 
 ## Explicit stale claims
