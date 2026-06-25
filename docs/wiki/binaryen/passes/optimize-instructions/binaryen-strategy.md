@@ -357,6 +357,7 @@ This pass directly owns several memory-shape simplifications.
 - replace some reinterpret-store combinations with a store of the original representation type
 - replace full-width load plus reinterpret-result combinations with a load of the final representation type
 - replace some i32-load plus `i64.extend_i32_*` combinations with matching i64 loads such as `i64.load32_u`, `i64.load32_s`, or narrow `i64.load8/16_*` when the intermediate value semantics match, preserving the original load memarg offset and alignment
+- keep probed local-carried/shared load-result forms such as `local.tee(i32.load)` feeding reinterpret or `i64.extend_i32_*`; the 2026-06-25 `version_130` oracle does not rewrite those into representation loads
 
 ### Bulk memory
 

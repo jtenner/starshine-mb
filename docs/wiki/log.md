@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock local-carried representation-load boundary
+
+- Added OI-G boundary coverage for local-carried/shared representation-load spellings.
+- Binaryen `version_130` keeps the probed `local.tee(i32.load)` plus `f32.reinterpret_i32` and `i64.extend_i32_*` forms; Starshine's representation-load rewrites remain direct one-use load-child rewrites rather than hidden shared-load parity.
+- Evidence: Binaryen oracle probes `.tmp/oi-g-shared-reinterpret-load-probe.wat` and `.tmp/oi-g-local-carried-extend-load-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*local-carried representation-load*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Lock multi-result tuple sibling boundary
 
 - Added OI-M boundary coverage for `tuple.extract(tuple.make(...))` when a non-selected sibling produces multiple results.

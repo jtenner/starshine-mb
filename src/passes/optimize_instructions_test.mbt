@@ -7018,6 +7018,57 @@ test "optimize-instructions preserves memargs when rewriting representation load
 }
 
 ///|
+test "optimize-instructions intentionally keeps local-carried representation-load boundary" {
+  // Boundary-only OI-G classification: Binaryen `version_130`
+  // keeps local-carried/shared load-result spellings for the probed
+  // reinterpret and i64.extend_i32 forms (`.tmp/oi-g-shared-reinterpret-load-probe.wat`
+  // and `.tmp/oi-g-local-carried-extend-load-probe.wat`). Starshine's
+  // representation-load rewrites remain limited to direct one-use load children.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (result f32) (local $tmp i32)
+        #|    local.get $ptr
+        #|    i32.load
+        #|    local.tee $tmp
+        #|    f32.reinterpret_i32
+        #|    drop
+        #|    local.get $tmp
+        #|    f32.reinterpret_i32)
+        #|  (func (param $ptr i32) (result i64) (local $tmp i32)
+        #|    local.get $ptr
+        #|    i32.load
+        #|    local.tee $tmp
+        #|    i64.extend_i32_u
+        #|    drop
+        #|    local.get $tmp
+        #|    i64.extend_i32_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected local-carried representation-load boundary success, got \{err}",
+      )
+  }
+  let reinterpret = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(reinterpret.contains("local.tee"), msg=reinterpret)
+  assert_true(reinterpret.contains("f32.reinterpret_i32"), msg=reinterpret)
+  assert_true(reinterpret.contains("i32.load"), msg=reinterpret)
+  assert_false(reinterpret.contains("f32.load"), msg=reinterpret)
+  let extend = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(extend.contains("local.tee"), msg=extend)
+  assert_true(extend.contains("i64.extend_i32u"), msg=extend)
+  assert_true(extend.contains("i64.extend_i32s"), msg=extend)
+  assert_true(extend.contains("i32.load"), msg=extend)
+  assert_false(extend.contains("i64.load32"), msg=extend)
+}
+
+///|
 test "optimize-instructions rewrites i64.extend_i32 loads to representation loads" {
   let optimized = match
     pass_test_run_pipeline(
