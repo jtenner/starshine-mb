@@ -11404,6 +11404,29 @@ fn gen_valid_append_heap_store_optimization_body_slice(
         out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
       }
 
+      // Table-side result-typed cross-family roots cover the counterpart where
+      // a table-size constructor can fold across an unrelated memory store.
+      out.push(Instruction::table_size(TableIdx::new(0U)))
+      out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(
+        Instruction::try_table(
+          BlockType::val_type(ValType::i32()),
+          [],
+          Expr::new([
+            Instruction::i32_const(I32(0)),
+            Instruction::i32_const(I32(120)),
+            Instruction::i32_store(gen_valid_memarg()),
+            Instruction::i32_const(I32(121)),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(122)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
       out.push(Instruction::memory_size(MemIdx::new(0U)))
       out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
       out.push(Instruction::struct_new(struct_idx))
