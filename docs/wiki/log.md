@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover trapping tuple siblings
+
+- Added OI-M direct-HOT coverage proving the covered one-use `tuple.extract(tuple.make(...))` localizer preserves trapping non-selected siblings.
+- Binaryen `version_130` drops both sibling `i32.load` operations while selecting the middle scalar lane; Starshine now has focused coverage for the same effect-preserving shape: `drop(earlier load); local.set(selected); drop(later load); local.get(selected)`.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-trapping-sibling-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*trapping tuple.extract sibling loads*'` passed `1/1` immediately as coverage/status evidence.
+
 ## [2026-06-25] passes/optimize-instructions | Lower global bulk-memory operands
 
 - Added OI-G implementation and red-first coverage for stack-carried tiny bulk-memory sequences that use `global.get` directly or as a direct-call argument.

@@ -8989,6 +8989,113 @@ test "optimize-instructions preserves earlier and later tuple.extract sibling ef
 }
 
 ///|
+test "optimize-instructions preserves trapping tuple.extract sibling loads" {
+  // OI-M trap-preservation coverage: Binaryen `version_130`
+  // `--optimize-instructions` drops trapping load siblings while selecting the
+  // middle scalar lane (`.tmp/oi-m-tuple-trapping-sibling-probe.wat`). Starshine
+  // must treat those load siblings as non-pure and keep them as dropped effects,
+  // not silently omit them as pure tuple debris.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
+  let earlier_load = @ir.hot_build_load(
+    func,
+    @lib.ValType::i32(),
+    memarg,
+    @ir.hot_build_local_get(func, 0),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    earlier_load,
+    @lib.Instruction::i32_load(memarg),
+  )
+  let later_addr = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(4)),
+  )
+  @ir.hot_node_exact_instr_set(func, later_addr, @lib.Instruction::i32_add())
+  let later_load = @ir.hot_build_load(
+    func,
+    @lib.ValType::i32(),
+    memarg,
+    later_addr,
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    later_load,
+    @lib.Instruction::i32_load(memarg),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+    [earlier_load, @ir.hot_build_local_get(func, 1), later_load],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 1)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected trapping tuple sibling localization success, got \{err}")
+  }
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected trapping tuple sibling localization to become a block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 4)
+  let earlier_drop = @ir.hot_region_get(func, body, 0)
+  let selected_set = @ir.hot_region_get(func, body, 1)
+  let later_drop = @ir.hot_region_get(func, body, 2)
+  let selected_get = @ir.hot_region_get(func, body, 3)
+  match @ir.hot_node_get(func, earlier_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected earlier trapping sibling to be dropped")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, earlier_drop, 0)).op {
+    @ir.HotOp::Load => ()
+    _ => fail("expected earlier dropped sibling to remain a load")
+  }
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ =>
+      fail("expected selected lane to localize before later trapping sibling")
+  }
+  match @ir.hot_node_get(func, later_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected later trapping sibling to be dropped")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, later_drop, 0)).op {
+    @ir.HotOp::Load => ()
+    _ => fail("expected later dropped sibling to remain a load")
+  }
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected lane to reload after later trapping sibling")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, selected_get).imm0,
+    @ir.hot_node_get(func, selected_set).imm0,
+  )
+}
+
+///|
 test "optimize-instructions tuple.extract localization survives simplify-locals-nostructure neighbor" {
   // Boundary/status OI-M neighbor coverage: Binaryen `version_130`
   // `--optimize-instructions --simplify-locals-nostructure` keeps the probed
