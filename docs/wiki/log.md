@@ -1575,9 +1575,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0782-2026-06-20-optimize-instructions-oi-i-nullable-target-miss-test-cast.md`](raw/research/0782-2026-06-20-optimize-instructions-oi-i-nullable-target-miss-test-cast.md) for the twenty-sixth `[O4Z-AUDIT-OI-I]` sub-slice. This is coverage for existing behavior: Starshine folds `ref.test (ref null array)` on a declared non-null `(ref struct)` local to `i32.const 0` and rewrites matching nullable-target `ref.cast` to `unreachable`, while keeping nullable-source failed cast/test, indexed/defined heap disjointness, and descriptor/exactness/TNH/IIT behavior out of scope.
 - Evidence: Binaryen oracle folded the same nullable-target disjoint local shapes. Red-first did not apply because this was a coverage/type-surface audit slice; focused `*nullable-target ref.test*` passed `1/1`, final `*ref*` passed `33/33`, and `*optimize-instructions*` passed `163/163`. Broader validation and direct compare are recorded in the research note.
+## [2026-06-25] passes/heap-store-optimization | Refresh HSO speed parity target
+
+- Filed [`raw/research/1133-2026-06-25-heap-store-optimization-speed-parity-target.md`](raw/research/1133-2026-06-25-heap-store-optimization-speed-parity-target.md). Recorded the user's stricter HSO-I performance goal: target at least `0.95x` Binaryen speed, interpreted as Starshine pass-local time no slower than `1 / 0.95 ~= 1.0526x` Binaryen. With the `1120` Binaryen median `1.28922ms`, the current 2000-function fixture target is about `<=1.357ms`; the best committed Starshine median `6.972ms` remains about `5.41x` Binaryen, so HSO-I and HSO-J stay open. Docs/status-only; no tests were required.
+
 ## [2026-06-25] passes/heap-store-optimization | Validate HSO after complete-chain arrays
 
-- Filed [`raw/research/1132-2026-06-25-heap-store-optimization-post-1131-validation.md`](raw/research/1132-2026-06-25-heap-store-optimization-post-1131-validation.md). Reran `moon test src/passes` (`3045/3045`) and a post-`1131` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). HSO-J remains explicitly deferred under `1116` because HSO-I still has not met the `<=2x` allocation-heavy fixture target, been superseded with stronger evidence, or been user-accepted.
+- Filed [`raw/research/1132-2026-06-25-heap-store-optimization-post-1131-validation.md`](raw/research/1132-2026-06-25-heap-store-optimization-post-1131-validation.md). Reran `moon test src/passes` (`3045/3045`) and a post-`1131` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). HSO-J remains explicitly deferred because HSO-I still has not met the now-current `0.95x` Binaryen-speed target from `1133`, been superseded with stronger evidence, or been user-accepted.
 
 ## [2026-06-25] passes/heap-store-optimization | Reuse HSO complete-chain arrays
 
@@ -1589,7 +1593,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-06-25] passes/heap-store-optimization | Validate HSO after known-length arrays
 
-- Filed [`raw/research/1129-2026-06-25-heap-store-optimization-post-1128-validation.md`](raw/research/1129-2026-06-25-heap-store-optimization-post-1128-validation.md). Reran `moon test src/passes` (`3045/3045`) and a post-`1128` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). HSO-J remains explicitly deferred under `1116` because HSO-I still has not met the `<=2x` allocation-heavy fixture target, been superseded with stronger evidence, or been user-accepted.
+- Filed [`raw/research/1129-2026-06-25-heap-store-optimization-post-1128-validation.md`](raw/research/1129-2026-06-25-heap-store-optimization-post-1128-validation.md). Reran `moon test src/passes` (`3045/3045`) and a post-`1128` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). HSO-J remains explicitly deferred because HSO-I still has not met the now-current `0.95x` Binaryen-speed target from `1133`, been superseded with stronger evidence, or been user-accepted.
 
 ## [2026-06-25] passes/heap-store-optimization | Use HSO known-length arrays
 

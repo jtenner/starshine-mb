@@ -19,7 +19,7 @@ After the `1130` in-place heap mutation and `1131` complete-chain child-array re
 
 Yes. The current direct HSO implementation remains green on `moon test src/passes` and a 10000-case direct GenValid compare with no cleanup normalizers.
 
-This is validation evidence for the performance changes, not final HSO-J closeout. HSO-J remains explicitly deferred under `1116` because HSO-I still has not met the `<=2x` allocation-heavy fixture target, been superseded with stronger artifact/neighborhood evidence plus reopening criteria, or been user-accepted.
+This is validation evidence for the performance changes, not final HSO-J closeout. Speed-target refresh `1133` now supersedes the older `1116` `<=2x` fixture threshold: HSO-J remains explicitly deferred because HSO-I still has not met the `0.95x` Binaryen-speed target, been superseded with stronger artifact/neighborhood evidence plus reopening criteria, or been user-accepted.
 
 ## Evidence
 
@@ -59,4 +59,4 @@ Result:
 
 ## Interpretation
 
-The two performance changes do not introduce direct-compare drift in the ordinary GenValid lane. The current best committed HSO-I timing remains `1131`'s `6.972ms` 2000-function Starshine median, still above the `<=2.57844ms` target derived from the `1120` Binaryen median. Therefore final closeout remains blocked on the HSO-I decision.
+The two performance changes do not introduce direct-compare drift in the ordinary GenValid lane. The current best committed HSO-I timing remains `1131`'s `6.972ms` 2000-function Starshine median, still above the now-current `<=1.357ms` target derived from `0.95x` Binaryen speed and the `1120` Binaryen median. Therefore final closeout remains blocked on the HSO-I decision.
