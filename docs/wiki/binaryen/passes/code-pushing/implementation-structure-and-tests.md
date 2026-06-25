@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md
   - ../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md
   - ../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md
   - ../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md
@@ -71,10 +72,10 @@ Important source regions by owner name:
 | Test file | What it proves |
 | --- | --- |
 | `code-pushing-atomics.wast` | `version_130` atomics/GC ordering: non-null GC `struct.get` reads may move past shared atomic loads but not shared atomic stores, both into `if` arms and across segment push points; Starshine mirrors this narrow family with HOT tests until shared-GC WAT parsing is available |
-| `code-pushing_into_if.wast` | One-arm `if` sinking plus post-if-read, unreachable-arm subtleties, and the `binaryen-intrinsics/call.without.effects` family now documented as a Starshine import-metadata boundary in [`0899`](../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md) |
+| `code-pushing_into_if.wast` | One-arm `if` sinking plus post-if-read, unreachable-arm subtleties, the `binaryen-intrinsics/call.without.effects` family now documented as a Starshine import-metadata boundary in [`0899`](../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md), and the `ref-into-if` local-refinalization boundary in [`0900`](../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md) |
 | `code-pushing_ignore-implicit-traps.wast` | Option-sensitive relaxation around implicit traps; Starshine currently documents this as an accepted boundary in [`0897`](../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md), because there is no distinct `--ignore-implicit-traps` / `-iit` flag or hot-pass context policy and TNH must not be treated as an alias |
 | `code-pushing_tnh.wast` | Traps-never-happen behavior; Starshine now covers the reduced exact integer div/rem into-if family from `0895` |
-| `code-pushing-gc.wast` | GC/reference-typed families under the same movement-safety rules |
+| `code-pushing-gc.wast` | GC/reference-typed families under the same movement-safety rules; Starshine keeps the already implemented `br_on_*` subset but documents broader official-GC/refinalization parity as a boundary in [`0900`](../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md) |
 | `code-pushing-eh.wast` | Exception-handling-sensitive no-op and movement boundaries |
 | `code-pushing-eh-legacy.wast` | Legacy EH-sensitive coverage retained in the `version_130` lit surface |
 
