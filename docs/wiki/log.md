@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock nonconstant load-call boundary
+
+- Added OI-G boundary coverage for the mixed load/call shape beyond the exact constant-address offset-fold escape.
+- Binaryen `version_130` keeps `local.get; i32.load offset=4; drop; call`; Starshine continues to report `load-call-optimize-instructions-noop`, so the constant-address raw-gate escape is not hidden as broad mixed load/call parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-load-call-nonconst-offset-boundary-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*nonconstant load-call offset boundary*'` passed `1/1` immediately as boundary coverage.
+
 ## [2026-06-25] passes/optimize-instructions | Lock multi-result selected second-lane boundary
 
 - Added OI-M boundary coverage for `tuple.extract(tuple.make(...))` when extracting the second scalar lane from a selected multi-result tuple child.

@@ -522,7 +522,7 @@ Important caveat:
 
 - Binaryen does this only when folding the offset into the pointer cannot overflow the effective address representation.
 - memory32 and memory64 have different safe ranges here.
-- Starshine's public/raw pipeline now admits the exact load/call escape `i32.const; nonzero-offset scalar load; drop; call`, so the direct HOT offset fold also runs when a direct call follows the dropped load. Broader mixed load/call functions remain behind `load-call-optimize-instructions-noop`.
+- Starshine's public/raw pipeline now admits the exact load/call escape `i32.const; nonzero-offset scalar load; drop; call`, so the direct HOT offset fold also runs when a direct call follows the dropped load. Nonconstant-pointer load/drop/call shapes such as `local.get; i32.load offset=4; drop; call` are source-backed keep-spelling boundaries, and broader mixed load/call functions remain behind `load-call-optimize-instructions-noop`.
 
 ## Shape family 13: narrow-store cleanup
 

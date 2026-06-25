@@ -131,6 +131,7 @@ sources:
   - ../../../raw/research/0851-2026-06-25-optimize-instructions-oi-g-reinterpret-store-memargs.md
   - ../../../raw/research/0852-2026-06-25-optimize-instructions-oi-g-wrap-store-memargs.md
   - ../../../raw/research/0854-2026-06-25-optimize-instructions-oi-g-wrap-store-multiuse-boundary.md
+  - ../../../raw/research/0856-2026-06-25-optimize-instructions-oi-g-nonconst-load-call-boundary.md
   - ../../../raw/research/0853-2026-06-25-optimize-instructions-oi-m-multiresult-selected-boundary.md
   - ../../../raw/research/0855-2026-06-25-optimize-instructions-oi-m-selected-second-lane-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt

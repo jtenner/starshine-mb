@@ -298,6 +298,53 @@ test "optimize-instructions folds load-call constant memory offsets through narr
 }
 
 ///|
+test "optimize-instructions intentionally keeps nonconstant load-call offset boundary" {
+  // Boundary-only OI-G classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps the probed nonconstant pointer load plus
+  // following call spelling (`.tmp/oi-g-load-call-nonconst-offset-boundary-probe.wat`).
+  // Starshine's raw-gate escape remains intentionally limited to the exact
+  // constant-address load/drop/call shape, so this fixture prevents that narrow
+  // implementation from being reported as broader mixed load/call parity.
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "touch" (func $touch))
+        #|  (memory 1)
+        #|  (func (param $ptr i32)
+        #|    local.get $ptr
+        #|    i32.load offset=4
+        #|    drop
+        #|    call $touch))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nonconstant load-call offset boundary success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=load-call-optimize-instructions-noop",
+      )
+    }),
+    msg="expected load-call raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(
+    pretty.contains("i32.load align=U32(2) offset=U64(4)"),
+    msg=pretty,
+  )
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_false(pretty.contains("i32.const I32(4)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions skips call-local-write functions" {
   let trace : Array[String] = []
   match
