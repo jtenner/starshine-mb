@@ -687,7 +687,8 @@ Similarly, `local.get $dst; call $value; i32.const 1; memory.fill`, `global.get`
 Important negative shape:
 
 - zero-size or same-src/dst cases are not blindly dropped in default mode; trap assumptions matter. Starshine now has explicit coverage that Binaryen and Starshine both keep zero-size `memory.copy` / `memory.fill` even when the operands are calls.
-- non-flat, non-pure call arguments, nonconstant-size, wider call-backed fill, and broader control/effect copy forms still need separate localization proof.
+- dynamic call-backed size operands are explicit keep-spelling boundaries. Binaryen keeps `memory.copy` / `memory.fill` when the destination/source/value and size operands are calls, and Starshine has matching public-pipeline coverage.
+- non-flat, non-pure call arguments, wider call-backed fill, and broader control/effect copy forms still need separate localization proof.
 
 ## Shape family 15: `call_ref` with known target
 

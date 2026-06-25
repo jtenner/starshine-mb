@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover dynamic bulk-memory effects
+
+- Added OI-G public-pipeline coverage proving dynamic-size `memory.copy` / `memory.fill` keep call-backed destination/source/value/size operands and original call order.
+- Binaryen `version_130` keeps the same dynamic-size bulk-memory operations, so this is a boundary/status slice rather than a red-first implementation change.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-nonconstant-bulk-effects-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*nonconstant bulk-memory*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple between siblings
 
 - Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered between earlier and later effectful siblings.
