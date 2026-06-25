@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0903-2026-06-25-code-pushing-post-iit-actionability-audit.md
   - ../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md
   - ../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md
   - ../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md
@@ -379,7 +380,7 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by `0892`, and replacement-oriented `[O4Z-AUDIT-CP-BINREP]` is closed by `0901`. The binrep follow-up resolved dependency-chain into-if sinking (`0893`), TNH exact integer div/rem into-if movement (`0895`), independent into-if multi-set source order (`0896`), Binaryen `--ignore-implicit-traps` / `-iit` as a distinct accepted boundary (`0897`), low-priority branch/switch no-new-positive boundary (`0898`), no-effects intrinsic call import-metadata boundary (`0899`), and broader GC/ref implemented-subset/refinalization boundary (`0900`). The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active, `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by `0892`, and replacement-oriented `[O4Z-AUDIT-CP-BINREP]` is closed by `0901`. The binrep follow-up resolved dependency-chain into-if sinking (`0893`), TNH exact integer div/rem into-if movement (`0895`), independent into-if multi-set source order (`0896`), the historical Binaryen `--ignore-implicit-traps` / `-iit` boundary (`0897`, later implemented by `0902`), low-priority branch/switch no-new-positive boundary (`0898`), no-effects intrinsic call import-metadata boundary (`0899`), and broader GC/ref implemented-subset/refinalization boundary (`0900`). The post-IIT actionability audit in `0903` found no remaining source-backed/generated `code-pushing` replacement work currently actionable. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 
