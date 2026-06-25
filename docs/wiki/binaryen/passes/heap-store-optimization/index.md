@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1099-2026-06-25-heap-store-optimization-trap-oldfield-audit.md
   - ../../../raw/research/1098-2026-06-25-heap-store-optimization-call-root-barrier-audit.md
   - ../../../raw/research/1097-2026-06-25-heap-store-optimization-default-oldfield-audit.md
   - ../../../raw/research/1096-2026-06-25-heap-store-optimization-descriptor-later-field-barrier-audit.md
@@ -493,6 +494,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0907` locked the table-copy old-field boundary: Binaryen preserves an overwritten value-producing `table.copy` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so this is behavior-parity coverage rather than an implementation change.
   - Coverage note `0908` locked the memory-init old-field boundary: Binaryen preserves an overwritten value-producing `memory.init` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so this is behavior-parity coverage rather than an implementation change.
   - Coverage note `0909` locked the table-init old-field boundary: Binaryen preserves an overwritten value-producing `table.init` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so this is behavior-parity coverage rather than an implementation change.
+  - Micro-audit `1099` narrow-closes the trapping and side-effectful old-field matrix for exact integer div/rem, non-saturating truncation, `ref.as_non_null`, memory/table reads, growth/global-write old-field preservation, passive data/element folds, memory/table store/fill/copy/init boundaries, and the `0978` pure contained-control old-field fold. HSO-D/G stay open for exact descriptor `ref.cast`, result-wrapper/catchable old-field interactions outside their own audits, arbitrary effectful descriptor/later-field expressions, and unlisted operations without direct Binaryen probes.
 - Plain and descriptor default double-store folding have narrow documented Starshine-win divergences.
   - Coverage note `0889` found Binaryen folds only the first call-valued store after `struct.new_default_desc`, leaving the second `struct.set`; Starshine folds both call-valued stores into the materialized `struct.new_desc` while preserving call order and only moving across an immutable descriptor `global.get`. This is recorded as a narrow better-than-Binaryen behavior, not a general license to cross mutable/effectful/trapping descriptor operands, target-local hazards, old-field side effects, or later-field effect barriers.
   - Coverage note `0890` found the same one-store-left Binaryen behavior after plain `struct.new_default`; Starshine folds both call-valued stores into the materialized `struct.new` while preserving call order. This is a narrow plain-default Starshine win, not a broader effect-order exception.
