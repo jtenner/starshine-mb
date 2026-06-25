@@ -499,8 +499,10 @@ fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
   callee_ref_id : Int,
   args : Array[Int],
 ) -> Int? {
-  if args.length() != 0 {
-    return None
+  let (prefix, local_ids) = match
+    optimize_instructions_call_ref_localize_args(func, args) {
+    Some(localized) => localized
+    None => return None
   }
   let callee_ref = @ir.hot_node_get(func, callee_ref_id)
   match callee_ref.op {
@@ -521,7 +523,8 @@ fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
     @ir.HotOp::RefFunc => ()
     _ => return None
   }
-  let replacement_body : Array[Int] = [@ir.hot_build_drop(func, callee_ref_id)]
+  let replacement_body = prefix.copy()
+  replacement_body.push(@ir.hot_build_drop(func, callee_ref_id))
   match node.op {
     @ir.HotOp::CallRef => {
       let block_type = match
@@ -534,13 +537,19 @@ fn optimize_instructions_try_directize_fallthrough_ref_func_call_ref(
           func,
           target.imm0,
           @ir.hot_type_results(func, node.ty),
-          [],
+          optimize_instructions_call_ref_local_gets(func, local_ids),
         ),
       )
       Some(@ir.hot_build_block(func, block_type, replacement_body))
     }
     @ir.HotOp::ReturnCallRef => {
-      replacement_body.push(@ir.hot_build_return_call(func, target.imm0, []))
+      replacement_body.push(
+        @ir.hot_build_return_call(
+          func,
+          target.imm0,
+          optimize_instructions_call_ref_local_gets(func, local_ids),
+        ),
+      )
       Some(@ir.hot_build_block(func, @lib.BlockType::void_(), replacement_body))
     }
     _ => None

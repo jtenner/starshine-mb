@@ -5645,7 +5645,7 @@ test "optimize-instructions intentionally keeps select call_ref when an arm is n
 }
 
 ///|
-test "optimize-instructions intentionally keeps argument fallthrough call_ref targets" {
+test "optimize-instructions localizes argument fallthrough call_ref targets" {
   let target_type_idx = @lib.TypeIdx::new(0U)
   let arg_effect_type_idx = @lib.TypeIdx::new(1U)
   let target_effect_type_idx = @lib.TypeIdx::new(2U)
@@ -5729,13 +5729,17 @@ test "optimize-instructions intentionally keeps argument fallthrough call_ref ta
   )
   let caller = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   let tail = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
-  assert_true(caller.contains("call_ref"), msg=caller)
+  assert_true(caller.contains("local.set"), msg=caller)
+  assert_true(caller.contains("call (Func 0)"), msg=caller)
   assert_true(caller.contains("call (Func 1)"), msg=caller)
   assert_true(caller.contains("call (Func 2)"), msg=caller)
+  assert_false(caller.contains("call_ref"), msg=caller)
   assert_true(caller.contains("ref.func"), msg=caller)
-  assert_true(tail.contains("return_call_ref"), msg=tail)
+  assert_true(tail.contains("local.set"), msg=tail)
+  assert_true(tail.contains("return_call (Func 0)"), msg=tail)
   assert_true(tail.contains("call (Func 1)"), msg=tail)
   assert_true(tail.contains("call (Func 2)"), msg=tail)
+  assert_false(tail.contains("return_call_ref"), msg=tail)
   assert_true(tail.contains("ref.func"), msg=tail)
 }
 

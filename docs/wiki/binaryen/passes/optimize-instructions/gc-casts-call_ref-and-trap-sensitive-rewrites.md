@@ -268,6 +268,8 @@ So the implementation may:
 - emit a `drop` of the target when there are no operands, or
 - interpose a temp local around the last operand so the target-side work still happens in the correct relative order before the final call
 
+Starshine now covers the zero-argument fallthrough shape and the localized single-result argument subset for `call_ref` / `return_call_ref`: already-evaluated arguments are stored to temps, the target expression is dropped for effects, and the direct call reloads those temps. Multi-result arguments and any broader target-localization forms remain open.
+
 This is a good example of why `ChildLocalizer`, locals, and effect ordering matter to this pass.
 
 ## Select of known direct targets

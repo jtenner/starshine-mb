@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Localize argument fallthrough call_ref targets
+
+- Extended OI-H fallthrough-known block target directization beyond zero-argument calls: Starshine now stores single-result already-evaluated call arguments to fresh locals, drops the target block for effects, then reloads the arguments for direct `call` / `return_call`.
+- This matches Binaryen `version_130` for the probed `call $arg; block(call $side; ref.func); call_ref` and tail-call forms while keeping multi-result argument localization and any broader known-target shapes open.
+- Evidence: `wasm-opt --all-features -S --optimize-instructions .tmp/oi-h-argument-fallthrough-call-ref-probe.wat -o -`; red-first `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*argument fallthrough call_ref*'` failed with retained `call_ref`, then passed after implementation.
+
 ## [2026-06-24] passes/optimize-instructions | Cover ordered tuple.extract sibling effects
 
 - Added focused OI-M coverage for one-use `tuple.extract(tuple.make(...))` with an earlier effectful sibling, a pure omitted sibling, and a later effectful sibling.
