@@ -128,6 +128,9 @@ fn hso_reorder_effect_mask(
   node_id : Int,
 ) -> UInt {
   let mask = hso_effects_for_node(func, node_masks, node_id)
+  if (mask & @ir.EFFECT_MASK_CONTROL) == 0U {
+    return mask
+  }
   if hso_subtree_may_skip_local_set(cache, func, node_id) {
     mask
   } else {
@@ -3174,7 +3177,8 @@ fn hso_try_fold_into_struct_new(
     hso_subtree_touches_local(func, value_id, local_id) {
     return None
   }
-  if hso_subtree_may_skip_local_set(cache, func, value_id) {
+  if (value_mask & @ir.EFFECT_MASK_CONTROL) != 0U &&
+    hso_subtree_may_skip_local_set(cache, func, value_id) {
     let skip_is_safe = match skip_owner_id {
       Some(_) =>
         !hso_roots_touch_local(func, external_roots, local_id) &&

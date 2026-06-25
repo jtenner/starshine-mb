@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1092-2026-06-25-heap-store-optimization-simple-skip-fast-path.md
   - ../../../raw/research/1091-2026-06-25-heap-store-optimization-non-goal-audit.md
   - ../../../raw/research/1090-2026-06-25-heap-store-optimization-post-context-skip-compare.md
   - ../../../raw/research/1089-2026-06-25-heap-store-optimization-target-local-hazard-audit.md
@@ -488,7 +489,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0870` generated a 2000-function, 6000-`struct.set` synthetic candidate module. Both tools removed all `StructSet` roots and emitted validating wasm, but Starshine's median traced HSO pass-local time was about `10.97ms` versus Binaryen's `1.31ms`, with coarse whole-command wall time about `0.074s` versus `0.030s`.
   - Refresh `1072` reran the 2000-function fixture after the explicit native rebuild: Starshine HSO median `11.988ms`, Binaryen `2.110ms` (`~5.7x`). Scaling note `1084` showed the slowdown is roughly linear at 250/500/1000/2000 functions, so it is HSO-owned rather than fixed startup or no-candidate O4z overhead.
   - Follow-up `1085` skips the pre-rewrite recursive region descent for straight-line subtrees with no HOT control, leaving current-region candidate scans unchanged. That improved Starshine medians to `5.612ms` at 1000 functions and `11.199ms` at 2000 functions.
-  - Follow-up `1088` also skips constructing nested-region suffix/external context for current-region roots whose effect masks have no HOT control. The 1000-function median improved slightly to `5.524ms`; the 2000-function median was statistically flat at `11.238ms` (`~5.3x` Binaryen). HSO-I stays open until this is improved further, accepted with release-context rationale, or superseded by broader artifact/neighborhood evidence.
+  - Follow-up `1088` also skips constructing nested-region suffix/external context for current-region roots whose effect masks have no HOT control. The 1000-function median improved slightly to `5.524ms`; the 2000-function median was statistically flat at `11.238ms` (`~5.3x` Binaryen).
+  - Follow-up `1092` skips skip-local-set predicate walks when moved values have no control effect. The 1000-function median improved slightly to `5.436ms`; the 2000-function median was still flat at `11.201ms` (`~5.3x` Binaryen). HSO-I stays open until this is improved further, accepted with release-context rationale, or superseded by broader artifact/neighborhood evidence.
 
 ## Beginner warning: what the name hides
 
