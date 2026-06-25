@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1096-2026-06-25-heap-store-optimization-descriptor-later-field-barrier-audit.md
   - ../../../raw/research/1095-2026-06-25-heap-store-optimization-try-table-swap-audit.md
   - ../../../raw/research/1094-2026-06-25-heap-store-optimization-skip-local-control-audit.md
   - ../../../raw/research/1093-2026-06-25-heap-store-optimization-post-simple-skip-compare.md
@@ -361,6 +362,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0877` fixed the pure side of the descriptor block `br_if` split: Binaryen folds a call-valued later store through a descriptor block with a value-carrying `br_if` when the branch operands are pure; Starshine now matches by summarizing branch/drop children through descriptor-specific effects.
   - Coverage note `0876` locked the matching branch-containing effectful descriptor block boundary: Binaryen preserves `struct.set` when the descriptor operand is a block with a value-carrying `br_if` whose condition is a call, and Starshine already matched.
   - Coverage note `0865` locked the descriptor `ref.as_non_null` trap boundary: Binaryen and Starshine both preserve `struct.set` when a nullable descriptor operand may trap before the later call-valued store is evaluated.
+  - Micro-audit `1096` narrow-closes the enumerated descriptor/later-field barrier matrix by mapping the local/global split, mutable descriptor-global split, pure/effectful/trapping `select` / `if` / block-`br_if` condition families, descriptor `ref.as_non_null`, and old-field-plus-later-call barriers to source-backed tests. HSO-D/E stay open for exact descriptor `ref.cast`, arbitrary descriptor expressions beyond that list, broader default/old-field combinations, and result-wrapper interactions outside their own audits.
   - Probe note `0866` found Binaryen preserves `struct.set` when a descriptor block uses `br_on_non_null` to produce an exact descriptor and falls through to `unreachable`; a focused Starshine AST fixture currently hits a HOT CFG/verifier surface blocker, so this remains an open local-surface blocker rather than HSO parity evidence or an accepted non-goal.
   - Surface note `0869` refreshed the exact descriptor `ref.cast` blocker from `0789`: Binaryen preserves `struct.set`, Starshine still rejects the exact WAT during decode, and a direct-AST `ref_cast_desc_eq` attempt does not validate as an equivalent HSO fixture. This remains a local decode/instruction-surface blocker, not an HSO semantic non-goal.
   - Coverage note `0885` locked descriptor old-field side-effect preservation: Binaryen folds a call-valued later store into `struct.new_desc` while preserving the overwritten old field's call under `drop`; Starshine already matched.
