@@ -17113,3 +17113,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded `docs/wiki/raw/research/0879-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-one-later.md` for the eighteenth OI-M tuple/multivalue sub-slice.
 - Binaryen `version_130` preserves two earlier calls, a selected trapping `i32.load`, one later call, and the selected reload order through tuple scratch; Starshine direct-HOT coverage now proves the same order with two earlier drops, a selected temp, a later drop, and final reload.
 - Updated the optimize-instructions source index, WAT shapes, Starshine strategy/HOT strategy, and active backlog so remaining OI-M work stays focused on multi-result tuple-scratch localization, public tuple text coverage, and tuple-neighbor boundaries.
+
+## 2026-06-25 optimize-instructions OI-G size-5 bulk-memory boundary
+
+- Recorded `docs/wiki/raw/research/0892-2026-06-25-optimize-instructions-oi-g-size5-bulk-boundary.md` for the fifty-first OI-G memory/load-store sub-slice.
+- Binaryen `version_130` keeps size-5 `memory.copy` and `memory.fill` as bulk operations rather than synthesizing mixed 4+1 load/store sequences; Starshine now has public-pipeline boundary coverage proving it keeps the same spelling.
+- Updated the optimize-instructions source index, WAT shapes, Starshine strategy/HOT strategy, and active backlog so remaining OI-G work stays focused on broader stored-value, localization, raw-gate, load/store, and zero-size trap-relaxed surfaces.
