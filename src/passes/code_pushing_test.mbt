@@ -476,6 +476,200 @@ test "code-pushing sinks trapping div into sole using if arm when traps never ha
 }
 
 ///|
+test "code-pushing sinks exact binaryen no-effects intrinsic call into only using if arm" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $intrinsic_t (func (param i32) (result i32)))
+        #|  (import "binaryen-intrinsics" "call.without.effects" (func $intrinsic (type $intrinsic_t)))
+        #|  (func (param i32) (local i32)
+        #|    (local.set 1 (call $intrinsic (i32.const 7)))
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (drop (local.get 1))))))
+      ),
+      ["code-pushing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected intrinsic code-pushing success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 0))(if (Void) (i32.const I32(7)) (call (Func 0)) (local.set (Local 1)) (local.get (Local 1)) drop",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
+test "code-pushing sinks exact no-effects intrinsic when later roots do not use local" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $intrinsic_t (func (param i32) (result i32)))
+        #|  (import "binaryen-intrinsics" "call.without.effects" (func $intrinsic (type $intrinsic_t)))
+        #|  (func (param i32) (local i32)
+        #|    (local.set 1 (call $intrinsic (i32.const 7)))
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (drop (local.get 1))))
+        #|    (drop (i32.const 99))))
+      ),
+      ["code-pushing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected intrinsic sink-call-3 success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 0))(if (Void) (i32.const I32(7)) (call (Func 0)) (local.set (Local 1)) (local.get (Local 1)) drop",
+    ),
+    msg=pretty,
+  )
+  assert_true(pretty.contains("(i32.const I32(99))drop"), msg=pretty)
+}
+
+///|
+test "code-pushing keeps ordinary imported call before if despite matching signature" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $intrinsic_t (func (param i32) (result i32)))
+        #|  (import "env" "call.without.effects" (func $ordinary (type $intrinsic_t)))
+        #|  (func (param i32) (local i32)
+        #|    (local.set 1 (call $ordinary (i32.const 7)))
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (drop (local.get 1))))))
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ordinary call guarded success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains("(i32.const I32(7))(call (Func 0))(local.set (Local 1))"),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing keeps defined call before if despite matching signature" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $ordinary (param i32) (result i32) (local.get 0))
+        #|  (func (param i32) (local i32)
+        #|    (local.set 1 (call $ordinary (i32.const 7)))
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (drop (local.get 1))))))
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected defined call guarded success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains("(i32.const I32(7))(call (Func 0))(local.set (Local 1))"),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing keeps exact no-effects intrinsic before if when local is used after if" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $intrinsic_t (func (param i32) (result i32)))
+        #|  (import "binaryen-intrinsics" "call.without.effects" (func $intrinsic (type $intrinsic_t)))
+        #|  (func (param i32) (local i32)
+        #|    (local.set 1 (call $intrinsic (i32.const 7)))
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (drop (local.get 1))))
+        #|    (drop (local.get 1))))
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected post-if use guarded success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains("(i32.const I32(7))(call (Func 0))(local.set (Local 1))"),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing keeps no-effects intrinsic before if when argument has local tee effect" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $intrinsic_t (func (param i32) (result i32)))
+        #|  (import "binaryen-intrinsics" "call.without.effects" (func $intrinsic (type $intrinsic_t)))
+        #|  (func (param i32) (local i32 i32)
+        #|    (local.set 1 (call $intrinsic (local.tee 2 (i32.const 7))))
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (drop (local.get 1))))))
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected tee-argument guarded success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains(
+      "(i32.const I32(7))(local.tee (Local 2))(call (Func 0))(local.set (Local 1))",
+    ),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-pushing keeps local.set before if when the local is used after the if" {
   let trace : Array[String] = []
   let optimized = match

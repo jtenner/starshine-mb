@@ -93,11 +93,52 @@ fn code_pushing_node_is_memory_load(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn code_pushing_node_is_exact_no_effects_intrinsic_call(
+  func : @ir.HotFunc,
+  node_id : Int,
+  module_ctx : @ir.HotModuleContext?,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Call => ()
+    _ => return false
+  }
+  let matches_intrinsic = match module_ctx {
+    Some(ctx) =>
+      @ir.hot_module_func_import_matches(
+        ctx,
+        @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
+        "binaryen-intrinsics",
+        "call.without.effects",
+      )
+    None => false
+  }
+  if !matches_intrinsic {
+    return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      return false
+    }
+    if !@ir.effects_is_pure(@ir.effects_for_node(func, child_id)) ||
+      @ir.hot_may_trap(func, child_id) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn code_pushing_node_is_movable_value(
   func : @ir.HotFunc,
   node_id : Int,
   traps_never_happen? : Bool = false,
   ignore_implicit_traps? : Bool = false,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -125,6 +166,10 @@ fn code_pushing_node_is_movable_value(
     @ir.HotOp::GlobalGet => true
     @ir.HotOp::Load =>
       ignore_implicit_traps && code_pushing_node_is_memory_load(func, node_id)
+    @ir.HotOp::Call =>
+      code_pushing_node_is_exact_no_effects_intrinsic_call(
+        func, node_id, module_ctx,
+      )
     @ir.HotOp::Heap =>
       code_pushing_node_is_nontrapping_struct_get_from_local_get(func, node_id)
     _ => false
@@ -1241,6 +1286,7 @@ fn code_pushing_try_sink_set_before_later_barrier(
       value_id,
       traps_never_happen=ctx.traps_never_happen,
       ignore_implicit_traps=ctx.ignore_implicit_traps,
+      module_ctx=ctx.module_ctx,
     ) {
     return false
   }
@@ -1294,12 +1340,14 @@ fn code_pushing_value_is_ordered_set_movable(
   value_id : Int,
   traps_never_happen? : Bool = false,
   ignore_implicit_traps? : Bool = false,
+  module_ctx? : @ir.HotModuleContext? = None,
 ) -> Bool {
   code_pushing_node_is_movable_value(
     func,
     value_id,
     traps_never_happen~,
     ignore_implicit_traps~,
+    module_ctx~,
   ) ||
   code_pushing_node_is_local_get(func, value_id)
 }
@@ -1539,6 +1587,7 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
             value_id,
             traps_never_happen=ctx.traps_never_happen,
             ignore_implicit_traps=ctx.ignore_implicit_traps,
+            module_ctx=ctx.module_ctx,
           ) ||
           code_pushing_node_has_any_local_get(func, value_id) {
           continue
@@ -1656,6 +1705,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
             value_id,
             traps_never_happen=ctx.traps_never_happen,
             ignore_implicit_traps=ctx.ignore_implicit_traps,
+            module_ctx=ctx.module_ctx,
           ) {
           return false
         }
@@ -1881,6 +1931,7 @@ fn code_pushing_try_sink_set_after_if_push_point(
       value_id,
       traps_never_happen=ctx.traps_never_happen,
       ignore_implicit_traps=ctx.ignore_implicit_traps,
+      module_ctx=ctx.module_ctx,
     ) {
     return false
   }
@@ -2014,6 +2065,7 @@ fn code_pushing_try_sink_consecutive_sets_into_if_arm(
             value_id,
             traps_never_happen=ctx.traps_never_happen,
             ignore_implicit_traps=ctx.ignore_implicit_traps,
+            module_ctx=ctx.module_ctx,
           ) {
           return false
         }
@@ -2199,6 +2251,7 @@ fn code_pushing_try_sink_set_into_if_then(
       value_id,
       traps_never_happen=ctx.traps_never_happen,
       ignore_implicit_traps=ctx.ignore_implicit_traps,
+      module_ctx=ctx.module_ctx,
     ) {
     return false
   }

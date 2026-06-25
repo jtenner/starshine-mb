@@ -719,6 +719,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Implement exact intrinsic no-effects calls
+
+- Filed [`raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md`](raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md) after the `0904` import-identity prerequisite.
+- `code-pushing` now sinks only exact imported `binaryen-intrinsics` / `call.without.effects` call values with pure/nontrapping arguments into the sole using `if` arm.
+- Ordinary imports, defined calls with matching signatures, post-`if` local uses, and exact intrinsic calls with `local.tee` arguments remain stationary.
+- Validation: red-first intrinsic positive failed before implementation; final focused intrinsic positives/negatives, `code_pushing_test.mbt` (`137/137`), native `src/cmd` build, and bounded `code-pushing-all` compare smoke (`200/200`, `0` mismatches/failures) passed. Full `src/passes` was blocked by missing local `tests/node/dist/starshine-debug-wasi.wasm` in unrelated pass-manager artifact tests.
+
 ## [2026-06-25] ir/code-pushing | Add import identity metadata
 
 - Filed [`raw/research/0904-2026-06-25-code-pushing-import-identity-metadata.md`](raw/research/0904-2026-06-25-code-pushing-import-identity-metadata.md) for the user-directed reopening of the `binaryen-intrinsics/call.without.effects` prerequisite blocker after the `0903` actionability audit.
