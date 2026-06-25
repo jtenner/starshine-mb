@@ -10,6 +10,7 @@ sources:
   - ../../../raw/research/1027-2026-06-24-heap-store-optimization-profile-descriptor-constructors.md
   - ../../../raw/research/1028-2026-06-24-heap-store-optimization-profile-catch-throw-skip-local-set.md
   - ../../../raw/research/1029-2026-06-24-heap-store-optimization-profile-descriptor-catch-throw.md
+  - ../../../raw/research/1030-2026-06-24-heap-store-optimization-profile-descriptor-branch-skip.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
@@ -35,7 +36,8 @@ Dedicated GenValid profile: `heap-store-optimization` (alias: `hso`). It emits v
 - same-resource non-throwing void `try_table` / `memory.fill` barriers where the later `struct.set` should remain;
 - contained-control non-throwing void `try_table` / `br_if` / `table.set` wrappers where the branch stays inside the root wrapper; and
 - catchable `try_table` / `throw` skip-local-set hazards where exception control can skip the fresh-constructor `local.set` before a later same-local `struct.set`; and
-- descriptor-bearing catchable `try_table` / `throw` skip-local-set hazards where the skipped local assignment materializes through `struct.new_desc`.
+- descriptor-bearing catchable `try_table` / `throw` skip-local-set hazards where the skipped local assignment materializes through `struct.new_desc`; and
+- descriptor-bearing branch skip-local-set hazards where a `br_if` can skip the `struct.new_desc` local assignment.
 
 Recommended dedicated-profile smoke lane:
 
@@ -51,4 +53,4 @@ Manifest triage fields:
 - `selected_profile`: `heap-store-optimization` because this is currently a leaf profile;
 - `facts.has_gc_constructors` and `facts.has_gc_accessors`: expected true for emitted profile cases.
 
-Broader generated descriptor barriers and broader control-flow/store-barrier generators beyond the current non-throwing void `try_table` / `table.set`, same-resource `memory.fill`, contained-control `br_if`, ordinary and descriptor catchable `throw` skip-local-set roots remain future work. Research note `1025` re-enabled the `1024` generated try-table family after focused mixed-field tests and a rebuilt 20-case dedicated-profile smoke lane were compare-normalized green. Research note `1026` added the `memory.fill` no-fold barrier and contained-branch table-store profile roots with a rebuilt 20-case dedicated-profile smoke and a 1000-case direct smoke, both green. Research note `1027` added descriptor `struct.new_default_desc` and `struct.new_desc` fold opportunities with a rebuilt 20-case dedicated-profile smoke and a 1000-case direct smoke, both green. Research note `1028` added an ordinary catchable `try_table` / `throw` skip-local-set hazard with a rebuilt 20-case dedicated-profile smoke and a 1000-case direct smoke, both green. Research note `1029` added the descriptor `struct.new_desc` catch/throw skip-local-set counterpart with the same smoke shape, both green.
+Broader generated descriptor barriers and broader control-flow/store-barrier generators beyond the current non-throwing void `try_table` / `table.set`, same-resource `memory.fill`, contained-control `br_if`, ordinary and descriptor catchable `throw`, and descriptor branch skip-local-set roots remain future work. Research note `1025` re-enabled the `1024` generated try-table family after focused mixed-field tests and a rebuilt 20-case dedicated-profile smoke lane were compare-normalized green. Research note `1026` added the `memory.fill` no-fold barrier and contained-branch table-store profile roots with a rebuilt 20-case dedicated-profile smoke and a 1000-case direct smoke, both green. Research note `1027` added descriptor `struct.new_default_desc` and `struct.new_desc` fold opportunities with a rebuilt 20-case dedicated-profile smoke and a 1000-case direct smoke, both green. Research note `1028` added an ordinary catchable `try_table` / `throw` skip-local-set hazard with a rebuilt 20-case dedicated-profile smoke and a 1000-case direct smoke, both green. Research note `1029` added the descriptor `struct.new_desc` catch/throw skip-local-set counterpart with the same smoke shape, both green. Research note `1030` added the descriptor `struct.new_desc` branch skip-local-set counterpart with the same smoke shape, both green.

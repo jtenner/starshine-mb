@@ -11224,6 +11224,28 @@ fn gen_valid_append_heap_store_optimization_body_slice(
             out.push(Instruction::i32_const(I32(106)))
             out.push(Instruction::struct_set(described_idx, U32::new(0U)))
           }
+
+          // Descriptor branch skip-local-set hazards cover the non-exceptional
+          // sibling of the catch/throw root: a branch inside the constructor
+          // wrapper can skip the local.set, so the later local.get/struct.set
+          // must not be assumed to use this fresh descriptor constructor.
+          out.push(
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::i32_const(I32(0)),
+                Instruction::br_if(LabelIdx::new(0U)),
+                Instruction::i32_const(I32(107)),
+                Instruction::ref_null(HeapType::abs(AbsHeapType::eq())),
+                Instruction::struct_new_default(descriptor_idx),
+                Instruction::struct_new_desc(described_idx),
+                Instruction::local_set(described_local_idx),
+              ]),
+            ),
+          )
+          out.push(Instruction::local_get(described_local_idx))
+          out.push(Instruction::i32_const(I32(108)))
+          out.push(Instruction::struct_set(described_idx, U32::new(0U)))
         }
         None => ()
       }
