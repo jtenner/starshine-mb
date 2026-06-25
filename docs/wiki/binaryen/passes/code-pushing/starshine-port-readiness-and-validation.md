@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0853-2026-06-25-code-pushing-pass-fuzz-stress-post-call-barrier-refresh.md
   - ../../../raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md
   - ../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md
   - ../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md
@@ -148,6 +149,8 @@ The call-barrier slice in [`0850`](../../../raw/research/0850-2026-06-25-code-pu
 The post-call-barrier dedicated refresh in [`0851`](../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md) reran `code-pushing-all` at 10000 cases with the rebuilt native CLI: compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, and all 19 aggregate leaves selected. This restores current dedicated-profile closeout-progress evidence after the behavior fix, but not final audit closeout.
 
 The explicit wasm-smith refresh in [`0852`](../../../raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md) reran 10000 requested external-generator cases after the call-barrier fix: compared `9956/10000`, normalized `9956`, raw mismatches/failures `0`, command failures `44` all classified as Binaryen/tool failures, and no Starshine validation/generator/property failures.
+
+The broad named-profile refresh in [`0853`](../../../raw/research/0853-2026-06-25-code-pushing-pass-fuzz-stress-post-call-barrier-refresh.md) reran `pass-fuzz-stress` after the call-barrier fix: compared `10000/10000`, normalized `10000`, raw mismatches/failures `0`, command failures `0`, and selected `pass-fuzz-stress: 10000`. This supersedes the pre-call-barrier [`0849`](../../../raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md) broad named lane for current closeout-progress evidence.
 
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 
