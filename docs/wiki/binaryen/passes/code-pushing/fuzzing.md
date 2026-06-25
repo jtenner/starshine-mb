@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0836-2026-06-25-code-pushing-br-on-non-null-prefix-lowered-followup.md
   - ../../../raw/research/0835-2026-06-25-code-pushing-br-on-non-null-prefix-multiset.md
   - ../../../raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md
   - ../../../raw/research/0833-2026-06-25-code-pushing-br-if-value-lowering-blocker.md
@@ -196,6 +197,8 @@ Result: compared `1000/1000`, normalized matches `375`, cleanup-normalized match
 2026-06-25 post-prefix-payload focused implementation aggregate smoke: `.tmp/pass-fuzz-code-pushing-all-prefix-refresh-1000-20260625` used the current native binary after the focused two-result block-label `br_on_non_null` prefix-payload movement change, seed `0x5eed`, `--gen-valid-profile code-pushing-all`, and `--normalize local-cleanup-debris`. It compared `1000/1000`, normalized `544`, cleanup-normalized `456`, raw mismatches `0`, validation/generator/property/command failures `0`, cache `wasm-smith 0 hits/0 misses`, Binaryen `1000 hits/0 misses`, Binaryen failures `0 hits/0 misses`, and all 17 aggregate-safe leaves selected. The focused prefix-payload shape is still not an aggregate leaf.
 
 2026-06-25 targeted prefix-payload GenValid blocker: `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-200-20260625` used the current native binary with `--gen-valid-profile code-pushing-br-on-non-null-prefix`, seed `0x5eed`, and `--normalize local-cleanup-debris`. It compared `65/200` before hitting the mismatch cap, with `0` normalized, `0` cleanup-normalized, `65` raw mismatches, `0` validation/generator/property/command failures, cache `wasm-smith 0 hits/0 misses`, Binaryen `49 hits/16 misses`, Binaryen failures `0 hits/0 misses`, and selected `code-pushing-br-on-non-null-prefix: 65`. Agent classification: targeted lowering/HOT-representation blocker for generated multivalue-prefix shapes; Binaryen sinks the local sets after the rewritten `br_on_non_null`, while Starshine currently leaves the generated WAT-lowered local sets before the branch. Keep this targeted leaf out of `code-pushing-all` until fixed or narrowly normalized.
+
+2026-06-25 lowered-prefix follow-up: [`0836`](../../../raw/research/0836-2026-06-25-code-pushing-br-on-non-null-prefix-lowered-followup.md) added a focused nested-HOT regression for generated-like `br_on_non_null` prefix movement and a narrow recursive/control-child scan. The focused test now passes, but the real targeted generated lane is still blocked: `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-fix-200-20260625` compared `65/200` before the cap with `65` raw mismatches, and `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-fix2-20-20260625` compared `20/20` with `20` raw mismatches, both with no validation/generator/property/command failures. This narrows the implementation attempt but does not make the targeted leaf aggregate-safe.
 
 A raw lane without `--normalize local-cleanup-debris` stopped after `65` raw mismatches in `65` compared cases before the dropped-if slice. Inspected artifacts showed a bounded local-cleanup drift: Starshine removes standalone `nop`/empty-else debris around the movement while Binaryen leaves it. Treat the normalized lane as bounded slice evidence, not final raw-output parity or pass closeout.
 

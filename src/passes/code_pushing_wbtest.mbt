@@ -375,6 +375,94 @@ test "code-pushing keeps SFA set before br_on_non_null prefix payload that reads
 }
 
 ///|
+test "code-pushing moves lowered generated br_on_non_null prefix payload sets after branch" {
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let extern_ref = @lib.ValType::externref()
+  let nullable_extern = @lib.RefType::new(true, extern_heap)
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[extern_ref], locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      extern_ref,
+    ]),
+  )
+  let block_id = @ir.hot_build_resolved_block(
+    func,
+    @lib.BlockType::val_type(extern_ref),
+    [],
+    [extern_ref],
+    [],
+  )
+  let target = @ir.hot_control_node_label(func, block_id)
+  let body : Array[Int] = []
+  body.push(
+    @ir.hot_build_local_set(func, 1, @ir.hot_build_const_i32(func, @lib.I32(7))),
+  )
+  body.push(
+    @ir.hot_build_local_set(func, 2, @ir.hot_build_const_i32(func, @lib.I32(9))),
+  )
+  body.push(
+    @ir.hot_build_local_set(
+      func,
+      3,
+      @ir.hot_build_const_i32(func, @lib.I32(42)),
+    ),
+  )
+  body.push(@ir.hot_build_local_set(func, 5, @ir.hot_build_local_get(func, 0)))
+  body.push(@ir.hot_build_local_set(func, 4, @ir.hot_build_local_get(func, 3)))
+  body.push(
+    @ir.hot_build_node(
+      func,
+      @ir.HotOp::br_on_non_null(),
+      @ir.hot_type_intern_value(func, extern_ref),
+      imm0=target,
+      children=[@ir.hot_build_local_get(func, 5)],
+    ),
+  )
+  body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 4)))
+  body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)))
+  body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 2)))
+  body.push(@ir.hot_build_ref_null(func, nullable_extern))
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, block_id),
+    body,
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, block_id))
+  ignore(code_pushing_wbtest_run_hot_func(func))
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let mut branch_idx = -1
+  let mut first_set_idx = -1
+  let mut second_set_idx = -1
+  for idx = 0; idx < @ir.hot_region_root_count(func, body_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
+    if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
+      let root = @ir.hot_node_get(func, root_id)
+      match root.op {
+        @ir.HotOp::BrOnNonNull => branch_idx = idx
+        @ir.HotOp::LocalSet =>
+          if root.imm0 == 1 {
+            first_set_idx = idx
+          } else if root.imm0 == 2 {
+            second_set_idx = idx
+          }
+        _ => ()
+      }
+    }
+  }
+  if branch_idx < 0 || first_set_idx < 0 || second_set_idx < 0 {
+    abort("expected branch and generated prefix local.set roots")
+  }
+  if !(branch_idx < first_set_idx && first_set_idx < second_set_idx) {
+    abort(
+      "expected generated prefix sets after br_on_non_null in source order; got branch=\{branch_idx}, first=\{first_set_idx}, second=\{second_set_idx}",
+    )
+  }
+}
+
+///|
 test "code-pushing keeps SFA set before br_on_non_null guard that reads it" {
   let func = code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
     false, true,
