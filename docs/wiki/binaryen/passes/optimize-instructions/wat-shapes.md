@@ -553,13 +553,13 @@ Related store families:
 
 - truncate stored constants to the store width
 - classify sign-extension-before-store spellings carefully; Binaryen `version_130` keeps the probed explicit sign-extension opcodes before narrow stores, so Starshine treats those as parity boundaries today
-- rewrite reinterpret-store pairs into stores of the original representation type when possible
+- rewrite reinterpret-store pairs into stores of the original representation type when possible, preserving the source store memargs
 - keep the probed local-carried/shared reinterpret-store forms where `local.tee(f32.reinterpret_i32(...))` or `local.set`/`local.get` feeds `f32.store`
 - rewrite full-width load plus reinterpret-result pairs into loads of the final result type when the load is one-use
 - rewrite one-use i32 loads under `i64.extend_i32_u` / `i64.extend_i32_s` into matching i64 loads when the intermediate i32 load semantics are preserved
 - keep the probed local-carried/shared load-result forms where `local.tee(i32.load)` feeds reinterpret or `i64.extend_i32_*`
 
-Starshine now covers the direct reinterpret-store, one-use reinterpret-load, and one-use i64 extend-load subsets observed in Binaryen `version_130`. Replacement loads preserve the source load memarg offset and alignment. Local-carried/shared load-result and reinterpret-store spellings are now explicit keep-spelling boundaries rather than hidden one-use parity claims:
+Starshine now covers the direct reinterpret-store, one-use reinterpret-load, and one-use i64 extend-load subsets observed in Binaryen `version_130`. Replacement stores and loads preserve the source memarg offset and alignment. Local-carried/shared load-result and reinterpret-store spellings are now explicit keep-spelling boundaries rather than hidden one-use parity claims:
 
 ```wat
 (f32.store (local.get $p) (f32.reinterpret_i32 (local.get $x))) ;; -> i32.store

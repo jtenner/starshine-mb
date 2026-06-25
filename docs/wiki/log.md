@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock reinterpret-store memarg preservation
+
+- Added OI-G coverage proving representation-store rewrites preserve source store offset/alignment metadata.
+- Binaryen `version_130` rewrites the probed reinterpret stored-value shapes to `i32.store`, `i64.store`, `f32.store`, and `f64.store` while retaining memargs; Starshine's existing implementation already matched and is now protected.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-reinterpret-store-memarg-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*memargs when rewriting reinterpret stores*'` passed `1/1` after correcting the assertion to Starshine's pretty-printer memarg format.
+
 ## [2026-06-25] passes/optimize-instructions | Lower stack-carried byte memory.fill
 
 - Added OI-G implementation and coverage for flat stack-carried size-1 `memory.fill` forms whose destination/value operands are local/constant or no-param direct calls.

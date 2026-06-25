@@ -354,7 +354,7 @@ This pass directly owns several memory-shape simplifications.
 - truncate stored integer constants to the actual stored byte width
 - remove redundant `and` masks on narrower stores
 - classify sign-extension-before-store spellings with current oracle evidence; Binaryen `version_130` keeps the probed explicit sign-extension opcodes before narrow stores, so Starshine treats those exact spellings as parity boundaries today
-- replace some reinterpret-store combinations with a store of the original representation type
+- replace some reinterpret-store combinations with a store of the original representation type, preserving the original store memarg offset and alignment
 - keep probed local-carried/shared reinterpret-store forms such as `local.tee(f32.reinterpret_i32(...))` or `local.set`/`local.get` before `f32.store`; the 2026-06-25 `version_130` oracle does not rewrite those into representation stores
 - replace full-width load plus reinterpret-result combinations with a load of the final representation type
 - replace some i32-load plus `i64.extend_i32_*` combinations with matching i64 loads such as `i64.load32_u`, `i64.load32_s`, or narrow `i64.load8/16_*` when the intermediate value semantics match, preserving the original load memarg offset and alignment

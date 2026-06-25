@@ -128,6 +128,7 @@ sources:
   - ../../../raw/research/0848-2026-06-25-optimize-instructions-oi-m-simplify-locals-neighbor.md
   - ../../../raw/research/0849-2026-06-25-optimize-instructions-oi-g-local-carried-store-boundary.md
   - ../../../raw/research/0850-2026-06-25-optimize-instructions-oi-g-byte-fill-call-raw-gate.md
+  - ../../../raw/research/0851-2026-06-25-optimize-instructions-oi-g-reinterpret-store-memargs.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt

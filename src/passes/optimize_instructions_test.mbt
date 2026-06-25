@@ -6953,6 +6953,50 @@ test "optimize-instructions rewrites reinterpret stores to representation stores
 }
 
 ///|
+test "optimize-instructions preserves memargs when rewriting reinterpret stores" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $i32 i32) (param $i64 i64) (param $f32 f32) (param $f64 f64)
+        #|    local.get $ptr
+        #|    local.get $i32
+        #|    f32.reinterpret_i32
+        #|    f32.store offset=4 align=1
+        #|    local.get $ptr
+        #|    local.get $i64
+        #|    f64.reinterpret_i64
+        #|    f64.store offset=8 align=2
+        #|    local.get $ptr
+        #|    local.get $f32
+        #|    i32.reinterpret_f32
+        #|    i32.store offset=12 align=1
+        #|    local.get $ptr
+        #|    local.get $f64
+        #|    i64.reinterpret_f64
+        #|    i64.store offset=16 align=4))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected reinterpret-store memarg success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  for
+    op in [
+      "f32.reinterpret_i32", "f64.reinterpret_i64", "i32.reinterpret_f32", "i64.reinterpret_f64",
+    ] {
+    assert_false(pretty.contains(op), msg="\{op} not folded: \{pretty}")
+  }
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "i32.store align=U32(0) offset=U64(4)", "i64.store align=U32(1) offset=U64(8)",
+    "f32.store align=U32(0) offset=U64(12)", "f64.store align=U32(2) offset=U64(16)",
+  ])
+}
+
+///|
 test "optimize-instructions intentionally keeps local-carried reinterpret-store boundary" {
   // Boundary-only OI-G classification: Binaryen `version_130`
   // `--optimize-instructions` keeps local-carried/shared reinterpret-store
