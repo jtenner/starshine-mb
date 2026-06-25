@@ -115,6 +115,50 @@ fn code_pushing_node_is_global_get(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn code_pushing_node_has_call_or_nonglobal_write_effect(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let mask = @ir.effects_for_node(func, node_id)
+  (
+    mask &
+    (
+      @ir.EFFECT_MASK_CALL |
+      @ir.EFFECT_MASK_THROW |
+      @ir.EFFECT_MASK_MEMORY_WRITE |
+      @ir.EFFECT_MASK_TABLE_WRITE
+    )
+  ) !=
+  0U
+}
+
+///|
+fn code_pushing_direct_global_set_disjoint_from_global_get(
+  func : @ir.HotFunc,
+  node_id : Int,
+  value_global_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::GlobalSet if node.imm0 != value_global_id => {
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        if code_pushing_node_has_call_or_nonglobal_write_effect(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn code_pushing_node_is_disjoint_global_set_for_global_get(
   func : @ir.HotFunc,
   node_id : Int,
@@ -125,10 +169,35 @@ fn code_pushing_node_is_disjoint_global_set_for_global_get(
     !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  let value = @ir.hot_node_get(func, value_id)
+  let value_global_id = @ir.hot_node_get(func, value_id).imm0
+  if code_pushing_direct_global_set_disjoint_from_global_get(
+      func, node_id, value_global_id,
+    ) {
+    return true
+  }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::GlobalSet => node.imm0 != value.imm0
+    @ir.HotOp::Block => {
+      if code_pushing_node_has_call_or_nonglobal_write_effect(func, node_id) {
+        return false
+      }
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      if @ir.hot_region_root_count(func, body_ref) == 0 {
+        return false
+      }
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        if !code_pushing_direct_global_set_disjoint_from_global_get(
+            func,
+            @ir.hot_region_get(func, body_ref, idx),
+            value_global_id,
+          ) {
+          return false
+        }
+      }
+      true
+    }
     _ => false
   }
 }
