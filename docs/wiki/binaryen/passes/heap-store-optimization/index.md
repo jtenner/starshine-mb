@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1128-2026-06-25-heap-store-optimization-array-make-known-length.md
   - ../../../raw/research/1127-2026-06-25-heap-store-optimization-local-attribution.md
   - ../../../raw/research/1126-2026-06-25-heap-store-optimization-post-1125-rebuild-validation.md
   - ../../../raw/research/1125-2026-06-25-heap-store-optimization-timer-instrumentation-disposition.md
@@ -555,6 +556,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Timer disposition `1125` tested per-function HSO detail timers for `pass_require_effects` and root-region processing. The attribution sample showed `detail:hso:process-root-region` at `2.951ms`, but adding two timer lines per function inflated the traced pass total to `16.922ms`, so the instrumentation was reverted and should not be used for the HSO-I timing lane without aggregate-only tracing.
   - Rebuild validation `1126` reran `moon fmt`, focused HSO tests (`417/417`), native `src/cmd` build, and a 1000-case direct compare (`1000/1000` normalized, `0` mismatches/failures) after reverting the experiments. A local timing refresh measured `8.372ms` on the 2000-function fixture, which does not improve on the committed `1122` best `7.710ms`; HSO-J remains deferred on HSO-I.
   - Local attribution note `1127` tested temporary non-comparable variants and restored the source afterward. Effects-only (`0.355ms` median) and no-chain (`1.699ms`) runs were much smaller than the restored local baseline (`9.605ms`), while scan/consume-only (`8.668ms`) and no-final-splice (`9.252ms`) stayed near baseline. The next target should reduce root-copy/chain-bookkeeping/HOT mutation work without extra preflight or per-function trace lines.
+  - Follow-up `1128` replaces capacity-plus-push with `Array::make(..., 0)` plus indexed writes for known-length HSO buffers. Focused HSO tests, native build, and a 1000-case direct compare were green. The local 2000-function median was `8.814ms`, an improvement over this thread's restored baseline (`9.605ms`) but not over the best committed `1122` median (`7.710ms`), so HSO-I remains open.
 
 ## Beginner warning: what the name hides
 

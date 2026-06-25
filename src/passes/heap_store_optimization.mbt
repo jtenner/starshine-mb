@@ -3072,9 +3072,10 @@ fn hso_array_insert_prefix_roots(
   if count <= 0 {
     return
   }
-  let suffix : Array[Int] = []
-  for suffix_idx = idx; suffix_idx < roots.length(); suffix_idx = suffix_idx + 1 {
-    suffix.push(roots[suffix_idx])
+  let suffix_count = roots.length() - idx
+  let suffix : Array[Int] = Array::make(suffix_count, 0)
+  for suffix_idx = 0; suffix_idx < suffix_count; suffix_idx = suffix_idx + 1 {
+    suffix[suffix_idx] = roots[idx + suffix_idx]
   }
   while roots.length() > idx {
     ignore(roots.pop())
@@ -3156,7 +3157,7 @@ fn hso_peel_reorderable_value_prefix_roots(
   if hso_sequence_result_type(func, final_root_id) != Some(block_type) {
     return Some([])
   }
-  let prefix_roots : Array[Int] = []
+  let prefix_roots : Array[Int] = Array::new(capacity=roots.length() - 1)
   for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
     let root_id = roots[idx]
     if !hso_root_can_swap_before_local_struct_new(
@@ -3405,11 +3406,12 @@ fn hso_try_fold_tee_wrapped_struct_set(
     None => return None
   }
   let local_set_id = @ir.hot_build_local_set(func, ref_node.imm0, struct_new_id)
-  let replacement_roots : Array[Int] = []
-  for root_id in lifted_prefix_roots {
-    replacement_roots.push(root_id)
+  let replacement_count = lifted_prefix_roots.length() + 1
+  let replacement_roots : Array[Int] = Array::make(replacement_count, 0)
+  for idx = 0; idx < lifted_prefix_roots.length(); idx = idx + 1 {
+    replacement_roots[idx] = lifted_prefix_roots[idx]
   }
-  replacement_roots.push(local_set_id)
+  replacement_roots[replacement_count - 1] = local_set_id
   Some(replacement_roots)
 }
 
@@ -3669,9 +3671,10 @@ fn hso_region_roots(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Array[Int] {
-  let roots : Array[Int] = []
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    roots.push(@ir.hot_region_get(func, region_ref, idx))
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let roots : Array[Int] = Array::make(root_count, 0)
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    roots[idx] = @ir.hot_region_get(func, region_ref, idx)
   }
   roots
 }
@@ -3729,7 +3732,7 @@ fn hso_try_fold_pure_default_struct_set_chain(
   if set_count < 2 {
     return None
   }
-  let children : Array[Int] = []
+  let children : Array[Int] = Array::make(field_count, 0)
   let mut needs_defaults = false
   for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
     if replacements[field_idx] < 0 {
@@ -3748,12 +3751,12 @@ fn hso_try_fold_pure_default_struct_set_chain(
   }
   for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
     if replacements[field_idx] >= 0 {
-      children.push(replacements[field_idx])
+      children[field_idx] = replacements[field_idx]
     } else {
       match field_types {
         Some(field_types) =>
           match hso_build_default_value(func, field_types[field_idx]) {
-            Some(default_id) => children.push(default_id)
+            Some(default_id) => children[field_idx] = default_id
             None => return None
           }
         None => return None
@@ -3796,8 +3799,11 @@ fn hso_process_local_set_chain(
     Some((segment_roots, next_idx)) => return (segment_roots, next_idx, true)
     None => ()
   }
-  let segment_roots : Array[Int] = [root_id]
-  let swapped_prefix_roots : Array[Int] = []
+  let segment_roots : Array[Int] = Array::new(capacity=roots.length() - idx)
+  segment_roots.push(root_id)
+  let swapped_prefix_roots : Array[Int] = Array::new(
+    capacity=roots.length() - idx,
+  )
   let mut segment_local_set_idx = 0
   let mut segment_has_swapped_prefix = false
   let mut changed = false
@@ -3954,14 +3960,23 @@ fn hso_process_region(
         @ir.EFFECT_MASK_CONTROL
       ) !=
       0U {
-      let child_external_roots : Array[Int] = []
+      let child_external_count = roots.length() -
+        idx -
+        1 +
+        external_roots.length()
+      let child_external_roots : Array[Int] = Array::make(
+        child_external_count, 0,
+      )
+      let mut child_external_idx = 0
       for suffix_idx = idx + 1
           suffix_idx < roots.length()
           suffix_idx = suffix_idx + 1 {
-        child_external_roots.push(roots[suffix_idx])
+        child_external_roots[child_external_idx] = roots[suffix_idx]
+        child_external_idx = child_external_idx + 1
       }
       for external_root_id in external_roots {
-        child_external_roots.push(external_root_id)
+        child_external_roots[child_external_idx] = external_root_id
+        child_external_idx = child_external_idx + 1
       }
       changed = hso_process_node_regions(
           cache, type_cache, func, module_ctx, node_masks, root_id, active_catch_depth,
@@ -3971,7 +3986,7 @@ fn hso_process_region(
     }
   }
 
-  let next_roots : Array[Int] = []
+  let next_roots : Array[Int] = Array::new(capacity=roots.length())
   let mut idx = 0
   while idx < roots.length() {
     let root_id = roots[idx]
