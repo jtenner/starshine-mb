@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1139-2026-06-25-heap-store-optimization-hot-candidate-benchmark.md
   - ../../../raw/research/1138-2026-06-25-heap-store-optimization-final-closeout.md
   - ../../../raw/research/1137-2026-06-25-heap-store-optimization-final-compare-matrix.md
   - ../../../raw/research/1136-2026-06-25-heap-store-optimization-final-closeout-moon-validation.md
@@ -353,9 +354,9 @@ It is a narrow GC constructor/store cleanup pass.
 
 ## Current closeout status
 
-- Direct `heap-store-optimization` behavior parity is closed for the current Binaryen `version_130` audit scope by final closeout `1138`.
-- Older per-family bullets below preserve audit history; their interim "stays open" wording is superseded where `1109`, `1113`, `1135`, `1136`, `1137`, and `1138` explicitly close the corresponding exact-cast, safety-family, speed, validation, compare, and O4z closeout gates.
-- Reopen only under the criteria in `1138`: upstream Binaryen HSO drift, new non-normalized direct/profile/wasm-smith/all-profiles/source-backed mismatches, HSO-owned artifact slowdown, raw-path validation/accounting regressions, new allocation-heavy families that miss `0.95x` Binaryen speed, or new HOT wrapper/control/descriptor surfaces outside the audited set.
+- Direct `heap-store-optimization` closeout is reopened by `1139`. The `1138` closeout is retained as historical validation/compare/O4z evidence, but its speed conclusion was too narrow because it relied on raw complete-default-chain skip behavior.
+- Proper HOT-path candidate benchmarking in `1139` uses a 2000-function plain `struct.new` fixture that does not raw-skip. Starshine pass-local median was `10.738ms` versus Binaryen `1.036ms`, about `10.365x` slower and only `0.096x` Binaryen speed. The user's `0.95x` speed target would require about `<=1.091ms` Starshine median on this fixture.
+- Behavior-parity and validation evidence from `1109`, `1113`, `1136`, and `1137` remains useful, but HSO-I/HOT-path performance and HSO-J final closeout are active again until a proper candidate-running benchmark meets the speed target or the user explicitly accepts a narrower speed scope.
 
 ## Why this pass matters
 
@@ -580,8 +581,9 @@ It is a narrow GC constructor/store cleanup pass.
   - Validation/accounting refresh `1135` ran `moon test src/passes` (`3045/3045`), a 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures), and no-tracing whole-command timing on the 2000-function fixture. Starshine's local wall median was `28.271ms` versus Binaryen `30.112ms`, so the raw rewrite is not hiding a slower path outside pass-local tracing on this fixture. HSO-I is resolved for the current allocation-heavy speed target with reopening criteria in `1135`; HSO-J remains open for final validation/compare/O4z/docs/backlog closeout.
   - Final-closeout validation refresh `1136` reran `moon info`, `moon fmt`, focused HSO tests (`417/417`), `moon test src/passes` (`3045/3045`), full `moon test` (`6362/6362`), and the explicit native release `src/cmd` build. `moon info` completed with `0` errors and the three pre-existing unused-value/function warnings recorded in `1136`. This satisfies the Moon/build portion of HSO-J closeout, but O4z slot/neighborhood refresh, final docs/log updates, and backlog cleanup remain open.
   - Final compare refresh `1137` reran the full required direct pass matrix with the explicit native binary: regular GenValid `100000/100000` normalized; explicit wasm-smith `9956/10000` compared, `9956` normalized, and `44` Binaryen/oracle command failures; dedicated HSO profile `10000/10000` cleanup-normalized under the documented `local-cleanup-debris` normalizer; and random all-profiles `10000/10000` normalized with selected leaf counts recorded in `1137`. All lanes had `0` mismatches, `0` validation failures, `0` property failures, and `0` generator failures.
-  - Final closeout `1138` closes direct HSO behavior parity for the current Binaryen `version_130` audit scope. It rebuilds and validates the current generated `cmd.wasm`, refreshes the Binaryen `-O4z` debug log, regenerates the early and late top-level HSO predecessor artifacts, and replays direct HSO at both slots. Both slots are canonical and normalized-WAT equal, Starshine raw-skips HSO at `0.000ms` pass-local time, and Starshine/Binaryen outputs validate. The HSO audit is closed with reopening criteria in `1138`; completed backlog was pruned from `agent-todo.md`.
-  - Validation refresh `1132` reran `moon test src/passes` (`3045/3045`) and a post-`1131` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). Its temporary HSO-J deferral on HSO-I is superseded by the `1135` speed disposition and final closeout `1138`.
+  - Final closeout `1138` was rescinded by the proper hot-candidate benchmark in `1139`. `1138` still records useful O4z evidence: it rebuilt and validated the current generated `cmd.wasm`, refreshed the Binaryen `-O4z` debug log, regenerated the early and late top-level HSO predecessor artifacts, and replayed direct HSO at both slots. Both slots were canonical and normalized-WAT equal, Starshine raw-skipped HSO at `0.000ms` pass-local time, and Starshine/Binaryen outputs validated.
+  - Hot-candidate benchmark `1139` reopens HSO-I and HSO-J. The benchmark used a 2000-function plain `struct.new` fixture with two same-local `struct.set` folds per function, intentionally bypassing the raw complete-default-chain path. Across seven `self-optimize-compare` runs, Starshine never raw-skipped and normalized output matched Binaryen, but Starshine pass-local median was `10.738ms` versus Binaryen `1.036ms`, missing the `0.95x` speed target by a wide margin.
+  - Validation refresh `1132` reran `moon test src/passes` (`3045/3045`) and a post-`1131` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). Its temporary HSO-J deferral on HSO-I is superseded by the stronger `1139` HOT-path performance reopening.
 
 ## Beginner warning: what the name hides
 

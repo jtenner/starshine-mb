@@ -1,7 +1,9 @@
 ---
 kind: research
-status: current
+status: superseded
 last_reviewed: 2026-06-25
+superseded_by:
+  - ./1139-2026-06-25-heap-store-optimization-hot-candidate-benchmark.md
 sources:
   - ./1137-2026-06-25-heap-store-optimization-final-compare-matrix.md
   - ./1136-2026-06-25-heap-store-optimization-final-closeout-moon-validation.md
@@ -15,13 +17,15 @@ sources:
 
 # HSO final behavior-parity closeout
 
+> Supersession note (2026-06-25): this closeout was rescinded by `1139`. The raw complete-default-chain speed evidence was too narrow; a plain `struct.new` HOT-path candidate benchmark missed the user's `0.95x` Binaryen speed target by a wide margin. Keep this note as historical validation/compare/O4z evidence, not as current closeout.
+
 ## Question
 
 Can the `heap-store-optimization` deep audit be closed after the final validation, compare matrix, speed-parity disposition, and O4z slot replay?
 
 ## Answer
 
-Yes. Direct `heap-store-optimization` behavior parity is closed for the current Binaryen `version_130` audit scope. The source/lit behavior matrix was refreshed in `0776`; exact descriptor `ref.cast` became runnable and source-backed in `1109`; the post-refcast safety audit `1113` found no remaining broad named source-backed HSO safety family unmapped; the speed-parity target was met for the current allocation-heavy fixture in `1135`; the required Moon/native validation ladder passed in `1136`; and the full required direct compare matrix was green in `1137`.
+Superseded by `1139`; do not treat this as the current status. At the time this note was written, the answer was believed to be yes: direct `heap-store-optimization` behavior parity was considered closed for the current Binaryen `version_130` audit scope. The source/lit behavior matrix was refreshed in `0776`; exact descriptor `ref.cast` became runnable and source-backed in `1109`; the post-refcast safety audit `1113` found no remaining broad named source-backed HSO safety family unmapped; the speed-parity target was met for the current allocation-heavy fixture in `1135`; the required Moon/native validation ladder passed in `1136`; and the full required direct compare matrix was green in `1137`.
 
 This note adds the final O4z top-level slot replay against the current generated `cmd.wasm` input and records backlog cleanup. No broad Binaryen behavior family remains hidden behind a green fuzz lane. Remaining caveats are narrow reopening criteria rather than active HSO blockers.
 
