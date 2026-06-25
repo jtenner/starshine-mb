@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock multi-result selected tuple boundary
+
+- Added OI-M boundary coverage for `tuple.extract(tuple.make(...))` when the selected tuple child produces multiple results.
+- Binaryen `version_130` localizes the probed selected multi-result child through tuple scratch plus scalar temps; Starshine keeps the direct-HOT `TupleExtract` / `TupleMake` / multi-result `Call` shape until a safe tuple-scratch localizer exists.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiresult-selected-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*multi-result selected lane*'` passed `1/1` immediately as boundary coverage.
+
 ## [2026-06-25] passes/optimize-instructions | Lock wrap-store memarg preservation
 
 - Added OI-G coverage proving direct `i32.wrap_i64` store widening preserves source store offset/alignment metadata.
