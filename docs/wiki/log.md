@@ -17574,3 +17574,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded `docs/wiki/raw/research/0859-2026-06-25-code-pushing-legacy-try-lowered-movement.md` for `[O4Z-AUDIT-CP-HHH]`.
 - Binaryen `wasm-opt version 130` moves a pure SFA set after a reduced legacy `try`/`catch` before a later `br_if`, unlike the stationary `try_table` catch-target boundary in `0858`.
 - Added focused Starshine coverage for the observable movement through the current WAT-to-HOT path, noting that the fixture lowers legacy `try` to a HOT block and does not prove native `HotOp::Try` segment-barrier behavior.
+
+## 2026-06-25 code-pushing payload throw boundary
+
+- Recorded `docs/wiki/raw/research/0860-2026-06-25-code-pushing-payload-throw-boundary.md` for `[O4Z-AUDIT-CP-III]`.
+- Binaryen `wasm-opt version 130` keeps a pure SFA set before a payload-bearing tag-based `throw` and later `br_if`, extending the no-payload stationary boundary from `0857`.
+- Added focused intentionally stationary Starshine coverage and kept broader rethrow/native-try/richer EH forms open.
