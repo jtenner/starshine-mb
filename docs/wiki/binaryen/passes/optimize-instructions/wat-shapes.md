@@ -13,6 +13,7 @@ sources:
   - ../../../raw/research/0880-2026-06-25-optimize-instructions-oi-g-stack-v128-memory-copy.md
   - ../../../raw/research/0881-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-two-later.md
   - ../../../raw/research/0882-2026-06-25-optimize-instructions-oi-g-call-backed-v128-memory-fill-boundary.md
+  - ../../../raw/research/0884-2026-06-25-optimize-instructions-oi-g-local-v128-memory-fill-boundary.md
   - ../../../raw/research/0883-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-three-later.md
 related:
   - ./index.md

@@ -7396,10 +7396,12 @@ test "optimize-instructions expands local eight-byte memory.fill to store" {
 ///|
 test "optimize-instructions intentionally keeps non-local wider memory.fill values" {
   // Binaryen version_130 keeps call-backed and computed non-local fill values
-  // here, including a call-backed size-16 SIMD-width fill in
-  // `.tmp/oi-g-stack-call-memory-fill-16-probe.wat`. The covered positive
-  // lowering remains limited to constants and direct local.get values so this
-  // boundary is not counted as a missing OI-G materialization gap.
+  // here, including call-backed and local.get-backed size-16 SIMD-width fills
+  // in `.tmp/oi-g-stack-call-memory-fill-16-probe.wat` and
+  // `.tmp/oi-g-local-v128-memory-fill-boundary-probe.wat`. The covered
+  // positive lowering remains limited to constants and direct local.get values
+  // below SIMD width, so this boundary is not counted as a missing OI-G
+  // materialization gap.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -7422,6 +7424,11 @@ test "optimize-instructions intentionally keeps non-local wider memory.fill valu
         #|    local.get $dst
         #|    call $get
         #|    i32.const 16
+        #|    memory.fill)
+        #|  (func (param $dst i32) (param $value i32)
+        #|    local.get $dst
+        #|    local.get $value
+        #|    i32.const 16
         #|    memory.fill))
         #|,
       ),
@@ -7441,6 +7448,13 @@ test "optimize-instructions intentionally keeps non-local wider memory.fill valu
   assert_true(simd_width.contains("memory.fill"), msg=simd_width)
   assert_true(simd_width.contains("call (Func 0)"), msg=simd_width)
   assert_false(simd_width.contains("v128.store"), msg=simd_width)
+  let local_simd_width = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(local_simd_width.contains("memory.fill"), msg=local_simd_width)
+  assert_true(
+    local_simd_width.contains("local.get (Local 1)"),
+    msg=local_simd_width,
+  )
+  assert_false(local_simd_width.contains("v128.store"), msg=local_simd_width)
 }
 
 ///|

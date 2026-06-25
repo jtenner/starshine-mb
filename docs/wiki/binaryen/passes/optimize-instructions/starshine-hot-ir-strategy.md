@@ -47,6 +47,7 @@ sources:
   - ../../../raw/research/0880-2026-06-25-optimize-instructions-oi-g-stack-v128-memory-copy.md
   - ../../../raw/research/0881-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-two-later.md
   - ../../../raw/research/0882-2026-06-25-optimize-instructions-oi-g-call-backed-v128-memory-fill-boundary.md
+  - ../../../raw/research/0884-2026-06-25-optimize-instructions-oi-g-local-v128-memory-fill-boundary.md
   - ../../../raw/research/0883-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-three-later.md
   - ../../../raw/research/0862-2026-06-25-optimize-instructions-oi-g-multiparam-bulk-memory.md
   - ../../../raw/research/0863-2026-06-25-optimize-instructions-oi-m-earlier-later-neighbor.md
@@ -428,7 +429,7 @@ The local pass now covers no-mode-dependent upstream bulk-memory shapes in narro
 - local.get value size `2` `memory.fill` to `(value & 255) * 257` plus `i32.store16`
 - local.get value size `4` `memory.fill` to `(value & 255) * 16843009` plus `i32.store`
 - local.get value size `8` `memory.fill` to `i64.extend_i32_u(value & 255) * 72340172838076673` plus `i64.store`
-- explicit keep-spelling boundary coverage for non-local wider `memory.fill` values: Binaryen `version_130` keeps probed direct-call and computed `i32.add` fill values for sizes `2`/`4`/`8`, plus a call-backed size-`16` SIMD-width fill, so Starshine also keeps those forms instead of counting them as missing materialization; size-1 byte fills and constant-value size-16 fills are the covered store/SIMD exceptions
+- explicit keep-spelling boundary coverage for non-local wider `memory.fill` values: Binaryen `version_130` keeps probed direct-call and computed `i32.add` fill values for sizes `2`/`4`/`8`, plus call-backed and local.get-backed size-`16` SIMD-width fills, so Starshine also keeps those forms instead of counting them as missing materialization; size-1 byte fills and constant-value size-16 fills are the covered store/SIMD exceptions
 
 The local pass still does not cover broader upstream families like:
 
