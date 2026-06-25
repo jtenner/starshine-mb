@@ -1,6 +1,6 @@
 ///|
 pub fn strip_debug_summary() -> String {
-  "Remove non-semantic debug custom sections, including the structured/raw name section payload."
+  "Remove the structured/raw name section payload while preserving other custom sections."
 }
 
 ///|
@@ -10,5 +10,5 @@ pub fn strip_debug_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     mod_.raw_name_sec_payload is None {
     return mod_
   }
-  mod_.without_name_sec().with_custom_secs([])
+  mod_.without_name_sec()
 }

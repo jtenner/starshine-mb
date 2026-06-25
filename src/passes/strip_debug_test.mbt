@@ -6,11 +6,7 @@ fn strip_debug_test_fixture() -> @lib.Module {
         @lib.Name::from_string("producers"),
         b"producer-metadata",
       ),
-      @lib.CustomSec::new(
-        @lib.Name::from_string("sourceMappingURL"),
-        b"source.map",
-      ),
-      @lib.CustomSec::new(@lib.Name::from_string("debug_info"), b"dwarf"),
+      @lib.CustomSec::new(@lib.Name::from_string("profile"), b"keep-me"),
     ],
     type_sec=Some(
       @lib.TypeSec::new([
@@ -46,6 +42,17 @@ fn strip_debug_test_fixture() -> @lib.Module {
 }
 
 ///|
+fn input_custom_secs() -> Array[@lib.CustomSec] {
+  [
+    @lib.CustomSec::new(
+      @lib.Name::from_string("producers"),
+      b"producer-metadata",
+    ),
+    @lib.CustomSec::new(@lib.Name::from_string("profile"), b"keep-me"),
+  ]
+}
+
+///|
 test "strip-debug registers as a module pass" {
   @debug.assert_eq(
     pass_registry_category("strip-debug"),
@@ -54,7 +61,7 @@ test "strip-debug registers as a module pass" {
 }
 
 ///|
-test "strip-debug drops debug custom sections and names but preserves semantics" {
+test "strip-debug drops names but preserves non-name custom sections and semantics" {
   let optimized = match
     run_hot_pipeline(strip_debug_test_fixture(), HotPipelineOptions::new(), [
       "strip-debug",
@@ -63,7 +70,7 @@ test "strip-debug drops debug custom sections and names but preserves semantics"
     Err(err) => fail("expected strip-debug pipeline success, got \{err}")
   }
 
-  @debug.assert_eq(optimized.custom_secs.length(), 0)
+  @debug.assert_eq(optimized.custom_secs, input_custom_secs())
   @debug.assert_eq(optimized.name_sec, None)
   @debug.assert_eq(optimized.raw_name_sec_payload, None)
   assert_true(optimized.type_sec is Some(_))

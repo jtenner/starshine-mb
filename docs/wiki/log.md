@@ -719,6 +719,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/strip-debug | Preserve non-name custom sections
+
+- Filed [`raw/research/0908-2026-06-25-strip-debug-custom-section-preservation.md`](raw/research/0908-2026-06-25-strip-debug-custom-section-preservation.md) for the `[JSON-AS]008` direct `strip-debug` evidence refresh.
+- `strip-debug` now removes Starshine's structured/raw name-section payload while preserving non-name custom sections, matching the reduced Binaryen oracle probe for an arbitrary `foo` custom section. Raw custom-section placement still differs because Binaryen rewrites the preserved custom section after code while Starshine preserves the input placement; this is classified as custom-section placement drift, not a semantic-section mismatch.
+- Validation: red-first focused test failed before implementation; final `moon fmt`, `moon info`, focused `strip_debug_test.mbt` (`3/3`), native `src/cmd` build, manual Binaryen custom-section oracle validation, and a 1000-case `strip-debug` semantic-section compare smoke passed with `0` mismatches/failures.
+- Remaining `[JSON-AS]008` work: preset placement and json-as artifact custom-section size measurement.
+
 ## [2026-06-25] passes/code-pushing | Close preset neighborhood blocker
 
 - Filed [`raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md`](raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md) after the user-directed direct `code-pushing` blockers were closed.
