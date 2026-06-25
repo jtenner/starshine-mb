@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1131-2026-06-25-heap-store-optimization-complete-chain-array-reuse.md
   - ../../../raw/research/1130-2026-06-25-heap-store-optimization-inplace-heap-mutation.md
   - ../../../raw/research/1129-2026-06-25-heap-store-optimization-post-1128-validation.md
   - ../../../raw/research/1128-2026-06-25-heap-store-optimization-array-make-known-length.md
@@ -561,6 +562,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `1128` replaces capacity-plus-push with `Array::make(..., 0)` plus indexed writes for known-length HSO buffers. Focused HSO tests, native build, and a 1000-case direct compare were green. The local 2000-function median was `8.814ms`, an improvement over this thread's restored baseline (`9.605ms`) but not over the best committed `1122` median (`7.710ms`), so HSO-I remains open.
   - Validation refresh `1129` reran `moon test src/passes` (`3045/3045`) and a post-`1128` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). HSO-J remains explicitly deferred under `1116` because HSO-I still has not met the `<=2x` fixture target, been superseded with stronger evidence, or been user-accepted.
   - Follow-up `1130` replaces the pure-default/default-materialization heap temporary build/delete/replace sequence with direct public HOT mutation through `hot_node_exact_instr_set(...)` and `hot_replace_child_span(...)`. Focused HSO tests, native build, and a 1000-case direct compare were green. The local 2000-function median improved to `7.103ms`, superseding the previous best committed `1122` median (`7.710ms`), but HSO-I remains open because that is still about `5.51x` the `1120` refreshed Binaryen median (`1.28922ms`).
+  - Follow-up `1131` tracks missing fields in the pure-default complete-chain scan and reuses the already-filled replacement array as the final child array when every field is overwritten. Focused HSO tests, native build, and a 1000-case direct compare were green. The local 2000-function median improved narrowly to `6.972ms`, still about `5.41x` the `1120` refreshed Binaryen median, so HSO-I remains open.
 
 ## Beginner warning: what the name hides
 

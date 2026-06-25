@@ -3702,6 +3702,7 @@ fn hso_try_fold_pure_default_struct_set_chain(
   let replacements : Array[Int] = Array::make(field_count, -1)
   let mut next_idx = idx + 1
   let mut set_count = 0
+  let mut missing_count = field_count
   while next_idx < roots.length() {
     let (field_idx, _, value_id) = match
       hso_struct_set_for_local(func, roots[next_idx], local_id, type_idx) {
@@ -3718,6 +3719,9 @@ fn hso_try_fold_pure_default_struct_set_chain(
       @ir.HotOp::Const | @ir.HotOp::RefNull => ()
       _ => return None
     }
+    if replacements[field_idx] < 0 {
+      missing_count = missing_count - 1
+    }
     replacements[field_idx] = value_id
     set_count = set_count + 1
     next_idx = next_idx + 1
@@ -3725,36 +3729,26 @@ fn hso_try_fold_pure_default_struct_set_chain(
   if set_count < 2 {
     return None
   }
-  let children : Array[Int] = Array::make(field_count, 0)
-  let mut needs_defaults = false
-  for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
-    if replacements[field_idx] < 0 {
-      needs_defaults = true
-      break
-    }
-  }
-  let field_types = if needs_defaults {
-    match
+  let children : Array[Int] = if missing_count == 0 {
+    replacements
+  } else {
+    let field_types = match
       hso_type_defaultable_struct_field_types(type_cache, module_ctx, type_idx) {
-      Some(field_types) => Some(field_types)
+      Some(field_types) => field_types
       None => return None
     }
-  } else {
-    None
-  }
-  for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
-    if replacements[field_idx] >= 0 {
-      children[field_idx] = replacements[field_idx]
-    } else {
-      match field_types {
-        Some(field_types) =>
-          match hso_build_default_value(func, field_types[field_idx]) {
-            Some(default_id) => children[field_idx] = default_id
-            None => return None
-          }
-        None => return None
+    let children : Array[Int] = Array::make(field_count, 0)
+    for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
+      if replacements[field_idx] >= 0 {
+        children[field_idx] = replacements[field_idx]
+      } else {
+        match hso_build_default_value(func, field_types[field_idx]) {
+          Some(default_id) => children[field_idx] = default_id
+          None => return None
+        }
       }
     }
+    children
   }
   @ir.hot_node_exact_instr_set(
     func,
