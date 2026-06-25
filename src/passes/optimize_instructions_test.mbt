@@ -7395,10 +7395,11 @@ test "optimize-instructions expands local eight-byte memory.fill to store" {
 
 ///|
 test "optimize-instructions intentionally keeps non-local wider memory.fill values" {
-  // Binaryen version_130 keeps both call-backed and computed non-local fill
-  // values here. The covered positive lowering remains limited to constants and
-  // direct local.get values so this boundary is not counted as a missing OI-G
-  // materialization gap.
+  // Binaryen version_130 keeps call-backed and computed non-local fill values
+  // here, including a call-backed size-16 SIMD-width fill in
+  // `.tmp/oi-g-stack-call-memory-fill-16-probe.wat`. The covered positive
+  // lowering remains limited to constants and direct local.get values so this
+  // boundary is not counted as a missing OI-G materialization gap.
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -7416,6 +7417,11 @@ test "optimize-instructions intentionally keeps non-local wider memory.fill valu
         #|    i32.const 1
         #|    i32.add
         #|    i32.const 4
+        #|    memory.fill)
+        #|  (func (param $dst i32)
+        #|    local.get $dst
+        #|    call $get
+        #|    i32.const 16
         #|    memory.fill))
         #|,
       ),
@@ -7431,6 +7437,10 @@ test "optimize-instructions intentionally keeps non-local wider memory.fill valu
   let computed = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(computed.contains("memory.fill"), msg=computed)
   assert_true(computed.contains("i32.add"), msg=computed)
+  let simd_width = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(simd_width.contains("memory.fill"), msg=simd_width)
+  assert_true(simd_width.contains("call (Func 0)"), msg=simd_width)
+  assert_false(simd_width.contains("v128.store"), msg=simd_width)
 }
 
 ///|

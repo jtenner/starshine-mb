@@ -695,7 +695,7 @@ Important negative shape:
 
 - zero-size or same-src/dst cases are not blindly dropped in default mode; trap assumptions matter. Starshine now has explicit coverage that Binaryen and Starshine both keep zero-size `memory.copy` / `memory.fill` even when the operands are calls.
 - dynamic call-backed and local size operands are explicit keep-spelling boundaries. Binaryen keeps `memory.copy` / `memory.fill` when the destination/source/value and size operands are calls, and also when the size is a nonconstant local; Starshine has matching public-pipeline coverage for both boundaries.
-- non-flat, non-pure call arguments, wider call-backed fill, and broader control/effect copy forms still need separate localization proof.
+- non-flat, non-pure call arguments, wider call-backed fill, and broader control/effect copy forms still need separate localization proof. Binaryen `version_130` keeps the probed call-backed size-16 `memory.fill`, so that SIMD-width call value is a keep-spelling boundary rather than a missed `v128.store` lowering.
 
 ## Shape family 15: `call_ref` with known target
 

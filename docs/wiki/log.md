@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover call-backed v128 memory.fill boundary
+
+- Added OI-G public-pipeline coverage proving the non-local wider `memory.fill` keep-spelling boundary includes the call-backed size-16 SIMD-width lane.
+- Binaryen `version_130` keeps `call $dst; call $val; i32.const 16; memory.fill`; Starshine now locks that it also keeps `memory.fill` and does not introduce `v128.store` for the call-backed value.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-stack-call-memory-fill-16-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*non-local wider memory.fill values*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple with two earlier and two later siblings
 
 - Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after two earlier effectful siblings and before two later effectful siblings.
