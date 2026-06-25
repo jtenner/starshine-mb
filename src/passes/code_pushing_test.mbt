@@ -2702,6 +2702,42 @@ test "code-pushing boundary keeps SFA set before call barrier and br_if push poi
 }
 
 ///|
+test "code-pushing moves pure SFA set after throw_ref before later br_if push point" {
+  // Binaryen-positive movement: local Binaryen v130 moves the pure set after
+  // the later br_if even when an intervening throw_ref root cannot fall through.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (local i32)
+      #|    (block $exit
+      #|      i32.const 7
+      #|      local.set 0
+      #|      ref.null exn
+      #|      throw_ref
+      #|      i32.const 1
+      #|      drop
+      #|      i32.const 2
+      #|      br_if $exit
+      #|      local.get 0
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 6)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "br_if")
+  let moved_set = @ir.hot_region_get(func, body_ref, 4)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 0)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 5), "drop")
+}
+
+///|
 test "code-pushing preserves order when moving multiple local-copy SFA sets after br_if" {
   let func = code_pushing_test_run_hot(
     (

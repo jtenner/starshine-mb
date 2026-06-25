@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md
   - ../../../raw/research/0854-2026-06-25-code-pushing-regular-100000-post-call-barrier-refresh.md
   - ../../../raw/research/0853-2026-06-25-code-pushing-pass-fuzz-stress-post-call-barrier-refresh.md
   - ../../../raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md
@@ -98,7 +99,7 @@ The current Starshine implementation is an accepted direct-pass subset under Sta
 - an ordered direct local-copy multi-set slice that preserves source order across the same three push-point families when copied source locals are not rewritten by the crossed push point;
 - ordered separator-window multi-set slices that preserve source order across the same three push-point families when only `nop`, `drop(const)`, or `drop(local.get)` roots separate local-independent SFA sets, plus a bounded `drop(global.get)` separator slice for ordinary void `if` and dropped value-`if` push points only;
 - a dedicated `code-pushing-all` GenValid profile covering the currently aggregate-safe `if`-arm, after-`if`, dropped-`if`, no-branch-value `br_if`, value-block-target `br_if`, dropped `br_on_null`, one-result-block `br_on_non_null`, two-result block-label `br_on_non_null` prefix-payload, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, ordinary-`if` multi-set, dropped-`if` multi-set, no-branch-value `br_if` multi-set, local-copy multi-set, `nop`-window multi-set, loop-target `br_if`, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, and `drop(global.get)`-window ordinary-/dropped-`if` positive families;
-- guarded movement of selected `global.get`, local-copy setup shapes, and a narrow non-null `struct.get` heap-read shape across safe intervening roots, with call/throw roots preserved as segment-order barriers before later push points;
+- guarded movement of selected `global.get`, local-copy setup shapes, and a narrow non-null `struct.get` heap-read shape across safe intervening roots, with call roots preserved as segment-order barriers before later push points and a source-backed pure-value `throw_ref` / later-`br_if` movement refinement;
 - a first atomics/GC slice matching Binaryen `code-pushing-atomics.wast`: the non-null `struct.get` may cross atomic loads but not atomic stores, both for into-`if` and segment movement;
 - one Starshine-local typed/dead-block flattening helper near unreachable context.
 
@@ -138,7 +139,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 - Some pushable `local.set` roots move later within the same block segment, including after supported `if`, dropped-`if`, narrow no-branch-value `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, and bounded branch-value `br_if` push points.
 - Some sets move into the only `if` arm that reads their local.
 - Moved sets keep order and should execute on the same or fewer paths as allowed by the proof.
-- Unproven shapes stay unchanged; local Binaryen v130 kept a pure SFA set before an intervening call and later `br_if`, now mirrored by Starshine as a call/throw segment barrier in [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md).
+- Unproven shapes stay unchanged; local Binaryen v130 kept a pure SFA set before an intervening call and later `br_if`, now mirrored by Starshine as a call segment barrier in [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md), while [`0855`](../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md) narrows the EH distinction by moving the same pure set after a later `br_if` when the intervening root is non-fallthrough `throw_ref`.
 
 ### Current Starshine input shape
 

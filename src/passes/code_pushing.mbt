@@ -186,7 +186,7 @@ fn code_pushing_node_has_segment_order_barrier(
     return true
   }
   let mask = @ir.effects_for_node(func, node_id)
-  (mask & (@ir.EFFECT_MASK_CALL | @ir.EFFECT_MASK_THROW)) != 0U
+  (mask & @ir.EFFECT_MASK_CALL) != 0U
 }
 
 ///|
