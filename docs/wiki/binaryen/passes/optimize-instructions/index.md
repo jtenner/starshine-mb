@@ -130,6 +130,7 @@ sources:
   - ../../../raw/research/0850-2026-06-25-optimize-instructions-oi-g-byte-fill-call-raw-gate.md
   - ../../../raw/research/0851-2026-06-25-optimize-instructions-oi-g-reinterpret-store-memargs.md
   - ../../../raw/research/0852-2026-06-25-optimize-instructions-oi-g-wrap-store-memargs.md
+  - ../../../raw/research/0854-2026-06-25-optimize-instructions-oi-g-wrap-store-multiuse-boundary.md
   - ../../../raw/research/0853-2026-06-25-optimize-instructions-oi-m-multiresult-selected-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt

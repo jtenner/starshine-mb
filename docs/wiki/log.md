@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock multi-use wrap-store boundary
+
+- Added OI-G boundary coverage for local-carried/shared `i32.wrap_i64` stored values before narrow i32 stores.
+- Binaryen `version_130` keeps the probed `local.tee(i32.wrap_i64(...))` feeding `i32.store8` so the wrapped i32 value remains available for a later local read; Starshine's store-widening helper remains direct one-use-only and keeps the same shape.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-wrap-store-multiuse-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*multi-use i32.wrap_i64 store boundary*'` passed `1/1` immediately as boundary coverage.
+
 ## [2026-06-25] passes/optimize-instructions | Lock multi-result selected tuple boundary
 
 - Added OI-M boundary coverage for `tuple.extract(tuple.make(...))` when the selected tuple child produces multiple results.

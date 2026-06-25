@@ -6943,6 +6943,41 @@ test "optimize-instructions preserves memargs when widening i32.wrap_i64 stores"
 }
 
 ///|
+test "optimize-instructions intentionally keeps multi-use i32.wrap_i64 store boundary" {
+  // Boundary-only OI-G classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps a local-carried/shared `i32.wrap_i64`
+  // value before a narrow store (`.tmp/oi-g-wrap-store-multiuse-probe.wat`).
+  // Starshine's widening helper is deliberately one-use-only, so this public
+  // fixture prevents the covered direct-store rewrite from being reported as
+  // broader localizing store-value parity.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $x i64) (result i32) (local $w i32)
+        #|    local.get $ptr
+        #|    local.get $x
+        #|    i32.wrap_i64
+        #|    local.tee $w
+        #|    i32.store8
+        #|    local.get $w))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multi-use wrap-store boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("wrap_i64"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+  assert_false(pretty.contains("i64.store8"), msg=pretty)
+}
+
+///|
 test "optimize-instructions rewrites reinterpret stores to representation stores" {
   let optimized = match
     pass_test_run_pipeline(
