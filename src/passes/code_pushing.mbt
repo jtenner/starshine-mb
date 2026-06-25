@@ -185,8 +185,14 @@ fn code_pushing_node_has_segment_order_barrier(
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
   }
-  let mask = @ir.effects_for_node(func, node_id)
-  (mask & @ir.EFFECT_MASK_CALL) != 0U
+  let op = @ir.hot_node_get(func, node_id).op
+  match op {
+    @ir.HotOp::Throw | @ir.HotOp::Rethrow => true
+    _ => {
+      let mask = @ir.effects_for_node(func, node_id)
+      (mask & @ir.EFFECT_MASK_CALL) != 0U
+    }
+  }
 }
 
 ///|
