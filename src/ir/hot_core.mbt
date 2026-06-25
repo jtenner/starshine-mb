@@ -95,6 +95,11 @@ pub impl Show for HotOp with fn output(self, logger) {
 }
 
 ///|
+pub fn HotOp::br_on_null() -> HotOp {
+  BrOnNull
+}
+
+///|
 pub fn HotOp::br_on_non_null() -> HotOp {
   BrOnNonNull
 }
@@ -127,6 +132,11 @@ pub fn HotOp::catch_() -> HotOp {
 ///|
 pub fn HotOp::catch_all() -> HotOp {
   CatchAll
+}
+
+///|
+pub fn HotOp::atomic_op() -> HotOp {
+  Atomic
 }
 
 ///|

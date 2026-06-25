@@ -1148,6 +1148,26 @@ pub enum GenValidProfile {
   PickLoadSignsImportedMemoryProfile
   PickLoadSignsI64WatchProfile
   PickLoadSignsAllProfile
+  CodePushingIfArmProfile
+  CodePushingAfterIfProfile
+  CodePushingDroppedIfProfile
+  CodePushingBrIfProfile
+  CodePushingBrOnNullProfile
+  CodePushingBrOnNonNullProfile
+  CodePushingBrOnNonNullPrefixProfile
+  CodePushingBrOnCastProfile
+  CodePushingBrOnCastFailProfile
+  CodePushingBrIfValueProfile
+  CodePushingMultiSetProfile
+  CodePushingMultiSetDroppedIfProfile
+  CodePushingMultiSetBrIfProfile
+  CodePushingMultiSetLocalCopyProfile
+  CodePushingMultiSetNopWindowProfile
+  CodePushingLoopBrIfProfile
+  CodePushingMultiSetDropWindowProfile
+  CodePushingMultiSetLocalGetWindowProfile
+  CodePushingMultiSetGlobalGetWindowProfile
+  CodePushingAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile

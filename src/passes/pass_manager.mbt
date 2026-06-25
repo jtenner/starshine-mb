@@ -25,6 +25,7 @@ pub struct HotPipelineOptions {
   validate_final_module : Bool
   closed_world : Bool
   traps_never_happen : Bool
+  ignore_implicit_traps : Bool
   zero_filled_memory : Bool
   optimize_level : Int
   shrink_level : Int
@@ -40,6 +41,7 @@ pub fn HotPipelineOptions::new(
   validate_final_module? : Bool = true,
   closed_world? : Bool = false,
   traps_never_happen? : Bool = false,
+  ignore_implicit_traps? : Bool = false,
   zero_filled_memory? : Bool = false,
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
@@ -52,6 +54,7 @@ pub fn HotPipelineOptions::new(
     validate_final_module,
     closed_world,
     traps_never_happen,
+    ignore_implicit_traps,
     zero_filled_memory,
     optimize_level,
     shrink_level,
@@ -71,6 +74,8 @@ pub struct HotPassContext {
   cache : @ir.HotAnalysisCache
   verify_policy : HotPipelineVerifyPolicy
   closed_world : Bool
+  traps_never_happen : Bool
+  ignore_implicit_traps : Bool
   optimize_level : Int
   shrink_level : Int
   trace : (String) -> Unit
@@ -85,6 +90,8 @@ pub fn HotPassContext::new(
   verify_policy : HotPipelineVerifyPolicy,
   closed_world : Bool,
   trace : (String) -> Unit,
+  traps_never_happen? : Bool = false,
+  ignore_implicit_traps? : Bool = false,
   perf? : HotPerfSession? = None,
   module_ctx? : @ir.HotModuleContext? = None,
   optimize_level? : Int = 0,
@@ -95,6 +102,8 @@ pub fn HotPassContext::new(
     cache,
     verify_policy,
     closed_world,
+    traps_never_happen,
+    ignore_implicit_traps,
     optimize_level,
     shrink_level,
     trace,
@@ -25320,6 +25329,8 @@ fn run_hot_pipeline_func(
     options.verify_policy,
     options.closed_world,
     options.trace,
+    traps_never_happen=options.traps_never_happen,
+    ignore_implicit_traps=options.ignore_implicit_traps,
     perf=options.perf,
     module_ctx=Some(module_ctx),
     optimize_level=options.optimize_level,
@@ -26295,6 +26306,8 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             options.verify_policy,
             options.closed_world,
             options.trace,
+            traps_never_happen=options.traps_never_happen,
+            ignore_implicit_traps=options.ignore_implicit_traps,
             perf=options.perf,
             module_ctx=Some(module_ctx),
             optimize_level=options.optimize_level,

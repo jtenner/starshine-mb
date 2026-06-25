@@ -739,6 +739,29 @@ pub fn hot_build_block(
 }
 
 ///|
+pub fn hot_build_resolved_block(
+  func : HotFunc,
+  block_type : BlockType,
+  params : Array[ValType],
+  results : Array[ValType],
+  body : Array[NodeId],
+) -> NodeId {
+  let ty = hot_type_intern_resolved_block_result(
+    func, block_type, params, results,
+  )
+  let id = hot_build_node(func, HotOp::Block, ty, children=body)
+  let label_id = hot_label_alloc(
+    func,
+    HotLabelKind::BlockLabel,
+    ty,
+    id,
+    results.length(),
+  )
+  hot_node_set(func, id, { ..hot_node_get(func, id), imm0: label_id })
+  id
+}
+
+///|
 pub fn hot_build_loop(
   func : HotFunc,
   block_type : BlockType,

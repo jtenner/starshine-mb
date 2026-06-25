@@ -1,8 +1,71 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
+  - ../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md
+  - ../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md
+  - ../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md
+  - ../../../raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md
+  - ../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md
+  - ../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md
+  - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
+  - ../../../raw/research/0894-2026-06-25-code-pushing-tnh-context-blocker.md
+  - ../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md
+  - ../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md
+  - ../../../raw/research/0887-2026-06-25-code-pushing-nested-global-set-root-refinements.md
+  - ../../../raw/research/0885-2026-06-25-code-pushing-nested-disjoint-global-set-call-boundary.md
+  - ../../../raw/research/0884-2026-06-25-code-pushing-nested-disjoint-global-set-pure-root-window.md
+  - ../../../raw/research/0882-2026-06-25-code-pushing-multitable-read-write-boundary.md
+  - ../../../raw/research/0881-2026-06-25-code-pushing-nested-disjoint-global-set-movement.md
+  - ../../../raw/research/0880-2026-06-25-code-pushing-nonmatching-state-read-write-boundaries.md
+  - ../../../raw/research/0879-2026-06-25-code-pushing-disjoint-global-set-movement.md
+  - ../../../raw/research/0878-2026-06-25-code-pushing-state-read-mutation-boundary.md
+  - ../../../raw/research/0877-2026-06-25-code-pushing-size-read-mutation-boundary.md
+  - ../../../raw/research/0876-2026-06-25-code-pushing-global-read-mutation-boundary.md
+  - ../../../raw/research/0875-2026-06-25-code-pushing-table-segment-root-movement.md
+  - ../../../raw/research/0874-2026-06-25-code-pushing-memory-segment-root-movement.md
+  - ../../../raw/research/0873-2026-06-25-code-pushing-size-read-root-movement.md
+  - ../../../raw/research/0872-2026-06-25-code-pushing-table-bulk-movement.md
+  - ../../../raw/research/0871-2026-06-25-code-pushing-memory-fill-movement.md
+  - ../../../raw/research/0870-2026-06-25-code-pushing-memory-copy-movement.md
+  - ../../../raw/research/0869-2026-06-25-code-pushing-table-grow-movement.md
+  - ../../../raw/research/0868-2026-06-25-code-pushing-memory-grow-movement.md
+  - ../../../raw/research/0867-2026-06-25-code-pushing-memory-store-movement.md
+  - ../../../raw/research/0866-2026-06-25-code-pushing-table-set-movement.md
+  - ../../../raw/research/0865-2026-06-25-code-pushing-global-set-movement.md
+  - ../../../raw/research/0864-2026-06-25-code-pushing-try-table-multi-catch-boundary.md
+  - ../../../raw/research/0863-2026-06-25-code-pushing-try-table-catch-payload-boundaries.md
+  - ../../../raw/research/0862-2026-06-25-code-pushing-try-table-catch-all-ref-boundary.md
+  - ../../../raw/research/0861-2026-06-25-code-pushing-rethrow-boundary.md
+  - ../../../raw/research/0860-2026-06-25-code-pushing-payload-throw-boundary.md
+  - ../../../raw/research/0859-2026-06-25-code-pushing-legacy-try-lowered-movement.md
+  - ../../../raw/research/0858-2026-06-25-code-pushing-try-table-boundary.md
+  - ../../../raw/research/0857-2026-06-25-code-pushing-plain-throw-boundary.md
+  - ../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md
+  - ../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md
+  - ../../../raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md
+  - ../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md
+  - ../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md
+  - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
+  - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
+  - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
+  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
+  - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
+  - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
+  - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
+  - ../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md
+  - ../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md
+  - ../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md
+  - ../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md
+  - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md
+  - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
+  - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
+  - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
+  - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
+  - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
+  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
   - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
@@ -21,7 +84,9 @@ related:
 
 ## Corrected framing
 
-The current source-backed Binaryen frame after the 2026-05-05 recheck is:
+The v0.1.0 release-gating closeout for `[O4Z-AUDIT-CP]` is recorded in [`../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md). This page remains the movement/barrier guide and reopening checklist: future `code-pushing` work should start here if a new Binaryen-positive probe, generated mismatch, validation failure, source drift, or preset-neighborhood requirement appears.
+
+The current source-backed Binaryen frame after the 2026-06-20 `version_130` refresh is:
 
 - `LocalAnalyzer` finds single-first-assignment locals;
 - `Pusher` scans block-root segments;
@@ -50,15 +115,15 @@ Starshine currently approximates a tiny part of this with whole-root get/write c
 
 `isPushable(...)` checks the set's value effects. Values with unremovable side effects do not move. Values with removable side effects may move only when the segment proof keeps behavior valid.
 
-Current Starshine is stricter than Binaryen's full `isPushable(...)` model: it moves pure nontrapping values plus guarded `global.get` and local-copy setup shapes only when local/effect barriers prove the delayed computation safe.
+Current Starshine is stricter than Binaryen's full `isPushable(...)` model: it moves pure nontrapping values plus guarded `global.get`, local-copy setup, and a narrow non-null `struct.get` heap-read shape only when local/effect barriers prove the delayed computation safe; [`0876`](../../../raw/research/0876-2026-06-25-code-pushing-global-read-mutation-boundary.md) confirms `global.get` candidate values stay before matching `global.set` mutation, [`0879`](../../../raw/research/0879-2026-06-25-code-pushing-disjoint-global-set-movement.md) confirms the direct-root disjoint case `global.get G0` across `global.set G1` moves when `G0 != G1`, [`0881`](../../../raw/research/0881-2026-06-25-code-pushing-nested-disjoint-global-set-movement.md) extends that to a nested block containing only direct disjoint global writes, [`0884`](../../../raw/research/0884-2026-06-25-code-pushing-nested-disjoint-global-set-pure-root-window.md) admits trivial `nop` / dead `drop(const)` roots inside that nested block while keeping nested matching global writes stationary, [`0887`](../../../raw/research/0887-2026-06-25-code-pushing-nested-global-set-root-refinements.md) confirms multiple direct disjoint writes move but live `drop(local.get)` separators and sub-block-contained writes stay stationary, and direct or nested disjoint writes whose value contains a call stay stationary, [`0877`](../../../raw/research/0877-2026-06-25-code-pushing-size-read-mutation-boundary.md) confirms `memory.size` / `table.size` candidate values stay before matching growth, [`0878`](../../../raw/research/0878-2026-06-25-code-pushing-state-read-mutation-boundary.md) confirms memory/table-reading candidate values stay before matching writes, and [`0880`](../../../raw/research/0880-2026-06-25-code-pushing-nonmatching-state-read-write-boundaries.md) keeps reduced memory/table reads stationary even before unrelated table/memory writes, [`0882`](../../../raw/research/0882-2026-06-25-code-pushing-multitable-read-write-boundary.md) keeps the first multitable `table.get T0` / `table.set T1` boundary stationary, while [`0865`](../../../raw/research/0865-2026-06-25-code-pushing-global-set-movement.md), [`0866`](../../../raw/research/0866-2026-06-25-code-pushing-table-set-movement.md), [`0867`](../../../raw/research/0867-2026-06-25-code-pushing-memory-store-movement.md), [`0868`](../../../raw/research/0868-2026-06-25-code-pushing-memory-grow-movement.md), [`0869`](../../../raw/research/0869-2026-06-25-code-pushing-table-grow-movement.md), [`0870`](../../../raw/research/0870-2026-06-25-code-pushing-memory-copy-movement.md), [`0871`](../../../raw/research/0871-2026-06-25-code-pushing-memory-fill-movement.md), [`0872`](../../../raw/research/0872-2026-06-25-code-pushing-table-bulk-movement.md), [`0873`](../../../raw/research/0873-2026-06-25-code-pushing-size-read-root-movement.md), [`0874`](../../../raw/research/0874-2026-06-25-code-pushing-memory-segment-root-movement.md), and [`0875`](../../../raw/research/0875-2026-06-25-code-pushing-table-segment-root-movement.md) record that pure non-global/table/memory-reading SFA values move across intervening `global.set`, `table.set`, `memory.store`, dropped `memory.grow`, dropped `memory.size`, dropped `table.size`, dropped `table.grow`, `table.copy`, `table.fill`, `memory.copy`, `memory.fill`, `memory.init`, `data.drop`, `table.init`, and `elem.drop` roots before a later `br_if`, while guarded `global.get`, table-reading values, memory-size-/table-size-dependent candidate values, and heap reads remain state-sensitive; as of [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md), single-set segment movement treats intervening calls as hard ordered barriers before a later push point, [`0855`](../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md) shows a non-fallthrough `throw_ref` root is a Binaryen-positive pure-value movement case before a later `br_if`, [`0857`](../../../raw/research/0857-2026-06-25-code-pushing-plain-throw-boundary.md) keeps no-payload tag-based `throw` roots as Binaryen-stationary segment-order barriers, [`0860`](../../../raw/research/0860-2026-06-25-code-pushing-payload-throw-boundary.md) extends that stationary boundary to a payload-bearing tag-based `throw`, [`0858`](../../../raw/research/0858-2026-06-25-code-pushing-try-table-boundary.md) keeps reduced `try_table` roots as Binaryen-stationary EH barriers, [`0862`](../../../raw/research/0862-2026-06-25-code-pushing-try-table-catch-all-ref-boundary.md) extends that stationary boundary to a reference-carrying `catch_all_ref` target, [`0863`](../../../raw/research/0863-2026-06-25-code-pushing-try-table-catch-payload-boundaries.md) keeps tag-payload `catch` and payload-plus-reference `catch_ref` handlers stationary, [`0864`](../../../raw/research/0864-2026-06-25-code-pushing-try-table-multi-catch-boundary.md) keeps a reduced multi-catch `try_table` stationary, [`0859`](../../../raw/research/0859-2026-06-25-code-pushing-legacy-try-lowered-movement.md) records that local Binaryen v130 moves a pure set after no-rethrow legacy `try`/`catch` before a later `br_if` while Starshine's WAT fixture currently observes that movement through a try-lowered HOT block rather than native `HotOp::Try` coverage, and [`0861`](../../../raw/research/0861-2026-06-25-code-pushing-rethrow-boundary.md) keeps rethrow-containing HOT regions stationary before a later push point. The first segment-movement consumers keep this strict gate: single-set movement covers ordinary void `if`, dropped value-`if`, narrow no-branch-value block-/loop-target `br_if`, dropped void-label `br_on_null`, and value-block-target `br_if` with one branch payload, while ordered multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, narrow no-branch-value void-block-target / void-loop-target `br_if`, dropped void-label `br_on_null`, and value-block-target `br_if` push points, direct local-copy sets whose source locals are not rewritten by the crossed push point, local-independent sets separated only by `nop`, `drop(const)`, or `drop(local.get)` roots, and a bounded `drop(global.get)` separator family for ordinary void `if` / dropped value-`if` only.
 
-## Barrier 3: intervening effects must not invalidate the value
+## Barrier 3: intervening effects must not invalidate or order before the value
 
-`optimizeSegment(...)` accumulates effects between source and destination and refuses movement when those effects invalidate the candidate value's effects.
+`optimizeSegment(...)` accumulates effects between source and destination and refuses movement when the candidate value's effects are ordered before the cumulative intervening effects. This is the current `version_130` source wording; older notes that describe only invalidation are now incomplete.
 
-Beginner rule: even if the value looks simple, it cannot cross a sibling that can make computing it later observe a different world.
+Beginner rule: even if the value looks simple, it cannot cross a sibling that can make computing it later observe a different world or violate ordered-before constraints.
 
-Advanced rule: future Starshine widening should keep extending the local effect-invalidation predicate before admitting broader value families.
+Advanced rule: future Starshine widening should keep extending the local effect-ordering / effect-invalidation predicate before admitting broader value families.
 
 ## Barrier 4: push points are specific
 
@@ -69,11 +134,11 @@ Binaryen's push points include:
 - conditional branch forms,
 - and dropped wrappers around push points.
 
-A random later expression is not automatically a destination. This is why the first future Starshine segment slice should discover push points without rewriting.
+A random later expression is not automatically a destination. The first Starshine segment inventory discovers selected push points: ordinary `if`, dropped `if`, locally representable conditional branch roots, and switch/`br_table` roots. Current mutating consumers accept ordinary void `if`, dropped value-`if` wrappers, a narrow no-branch-value `br_if` to a void block or loop label, a dropped `br_on_null` to a void block/loop label, a `br_on_non_null` to a one-result block label, a dropped `br_on_cast` to a one-result block label, a dropped `br_on_cast_fail` to a one-result block label, and a branch-value `br_if` to a value block label, moving the set after the push-point root when all local reads are same-region / same-loop-body suffix reads and the branch guard/payload does not read the moved local. The ordinary void-`if`, dropped value-`if`, narrow no-branch-value `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, and adjacent local-independent value-block-target `br_if` paths also have bounded ordered multi-set subcases preserving source order. A `drop(global.get)` separator is currently admitted only for ordinary void `if` and dropped value-`if`; Binaryen v130 probes kept the same window stationary before block-/loop-target `br_if`, and Starshine now has a boundary test for that shape. Simple no-branch-value `br_table` block-exit windows, one value-carrying result-block `br_table`, and one nested-block multi-label `br_table` are now protected as Binaryen-stationary no-mutation boundaries; [`0898`](../../../raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md) closes the low-priority replacement follow-up for branch/switch work until a new Binaryen-positive switch case or generated mismatch appears. Pure values that do not read the mutated state can cross intervening `global.set`, `table.set`, `memory.store`, dropped `memory.grow`, dropped `memory.size`, dropped `table.size`, dropped `table.grow`, `table.copy`, `table.fill`, `memory.copy`, `memory.fill`, `memory.init`, `data.drop`, `table.init`, and `elem.drop` roots before a later `br_if`, and the direct-root disjoint global-read case can move `global.get G0` across `global.set G1` when `G0 != G1`, and a nested block containing direct disjoint writes plus trivial `nop` / dead `drop(const)` roots can also be crossed while matching global writes, live `drop(local.get)` separators, sub-block-contained writes, and direct/nested disjoint writes whose value contains a call remain barriers, after [`0865`](../../../raw/research/0865-2026-06-25-code-pushing-global-set-movement.md), [`0866`](../../../raw/research/0866-2026-06-25-code-pushing-table-set-movement.md), [`0867`](../../../raw/research/0867-2026-06-25-code-pushing-memory-store-movement.md), [`0868`](../../../raw/research/0868-2026-06-25-code-pushing-memory-grow-movement.md), [`0869`](../../../raw/research/0869-2026-06-25-code-pushing-table-grow-movement.md), [`0870`](../../../raw/research/0870-2026-06-25-code-pushing-memory-copy-movement.md), [`0871`](../../../raw/research/0871-2026-06-25-code-pushing-memory-fill-movement.md), [`0872`](../../../raw/research/0872-2026-06-25-code-pushing-table-bulk-movement.md), [`0873`](../../../raw/research/0873-2026-06-25-code-pushing-size-read-root-movement.md), [`0874`](../../../raw/research/0874-2026-06-25-code-pushing-memory-segment-root-movement.md), and [`0875`](../../../raw/research/0875-2026-06-25-code-pushing-table-segment-root-movement.md); these are positive movement cases, not a license for values that read global/table/memory state, memory size, or table size to cross matching mutation; [`0876`](../../../raw/research/0876-2026-06-25-code-pushing-global-read-mutation-boundary.md) protects the reduced `global.get`-candidate / `global.set` boundary explicitly, [`0877`](../../../raw/research/0877-2026-06-25-code-pushing-size-read-mutation-boundary.md) protects the reduced `memory.size` / `table.size` candidate growth boundaries, [`0878`](../../../raw/research/0878-2026-06-25-code-pushing-state-read-mutation-boundary.md) protects reduced `i32.load` / `table.get` matching read-before-write boundaries, and [`0880`](../../../raw/research/0880-2026-06-25-code-pushing-nonmatching-state-read-write-boundaries.md) protects reduced `i32.load` before unrelated `table.set` plus `table.get` before unrelated `i32.store` boundaries, and [`0882`](../../../raw/research/0882-2026-06-25-code-pushing-multitable-read-write-boundary.md) protects reduced `table.get T0` before `table.set T1` when `T0 != T1`. Intervening ordinary calls before later push points are also protected as Binaryen-stationary ordered barriers. Binaryen's `binaryen-intrinsics/call.without.effects` exception was blocked by missing pass-visible import-name metadata in [`0899`](../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md); [`0904`](../../../raw/research/0904-2026-06-25-code-pushing-import-identity-metadata.md) provides exact function import identity in `HotModuleContext`, and [`0905`](../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md) uses that metadata to admit only exact imported intrinsic calls whose arguments are pure and nontrapping. Ordinary imports, defined calls, post-if-use cases, and effectful intrinsic arguments remain stationary. The reduced pure-value `throw_ref` / later-`br_if` shape moves after [`0855`](../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md), tag-based `throw` before a later `br_if` remains stationary for both no-payload [`0857`](../../../raw/research/0857-2026-06-25-code-pushing-plain-throw-boundary.md) and payload-bearing [`0860`](../../../raw/research/0860-2026-06-25-code-pushing-payload-throw-boundary.md) probes, a reduced `try_table` before later `br_if` remains stationary after [`0858`](../../../raw/research/0858-2026-06-25-code-pushing-try-table-boundary.md), reference-carrying `catch_all_ref`, tag-payload `catch`, payload-plus-reference `catch_ref`, and reduced multi-catch `try_table` forms remain stationary after [`0862`](../../../raw/research/0862-2026-06-25-code-pushing-try-table-catch-all-ref-boundary.md), [`0863`](../../../raw/research/0863-2026-06-25-code-pushing-try-table-catch-payload-boundaries.md), and [`0864`](../../../raw/research/0864-2026-06-25-code-pushing-try-table-multi-catch-boundary.md), a no-rethrow legacy `try`/`catch` WAT fixture moves through Starshine's current try-lowered block path after [`0859`](../../../raw/research/0859-2026-06-25-code-pushing-legacy-try-lowered-movement.md), and a rethrow-containing HOT region remains stationary after [`0861`](../../../raw/research/0861-2026-06-25-code-pushing-rethrow-boundary.md). Other switch/`br_table` shapes, broader EH forms, broader `br_on_*` forms (`br_on_non_null`, `br_on_cast`, `br_on_cast_fail`, branch-value/reference-payload variants), broader branch-value conditional branches, arbitrary non-adjacent windows beyond `nop` / `drop(const)` / `drop(local.get)` / bounded ordinary-/dropped-`if` `drop(global.get)`, dependency chains outside the consecutive sole-consuming-`if`-arm family added in [`0893`](../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md), and broader multi-set movement outside those narrow subcases remain discovery-only or unimplemented.
 
 ## Barrier 5: `if` arm sinking needs one consuming arm
 
-For `if` sinking, the moved set goes into the arm that reads the local. The other arm must not need the local. Reads after the `if` are only safe when control-flow facts, such as an unreachable non-consuming arm, preserve availability.
+For `if` sinking, the moved set goes into the arm that reads the local. The other arm must not need the local. As of [`0893`](../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md) and [`0896`](../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md), this includes consecutive multi-set windows when only one arm consumes the moved locals: dependency chains where earlier moved sets feed later moved sets, plus independent pure sets whose source order must be preserved. The implementation rejects source/moved-local writes in the arm. Reads after the `if` are only safe when control-flow facts, such as an unreachable non-consuming arm, preserve availability.
 
 This is the important distinction from stale two-live-arm duplication examples:
 
@@ -85,11 +150,13 @@ This is the important distinction from stale two-live-arm duplication examples:
 
 Trap timing and exceptional control are correctness boundaries.
 
-- Default trap policy is stricter than ignore-implicit-traps / TNH modes.
-- GC/reference expressions are allowed only when the same effect and use proof succeeds.
-- EH can make movement observable through exceptional paths.
+- Default trap policy is stricter than ignore-implicit-traps / TNH modes. As of [`0895`](../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md), Starshine plumbs `HotPipelineOptions.traps_never_happen` into `HotPassContext` and `code-pushing` uses it to sink exact integer div/rem values, such as the reduced `i32.div_s` into-if probe, only when TNH is enabled. The default trap-timing boundary remains protected. [`0897`](../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md) documented Binaryen's separate `--ignore-implicit-traps` / `-iit` surface as a boundary at the time; [`0902`](../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md) supersedes that implementation status. Starshine now exposes a distinct `ignore_implicit_traps` policy and uses it only for the lit-derived memory-load `br_if` movement, while preserving the `value-interferes`, accumulation, and effectful-pushpoint stationary boundaries.
+- GC/reference expressions are allowed only when the same effect and use proof succeeds. As of [`0906`](../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md), Starshine implements the Binaryen `ref-into-if` local-type weakening/refinalization fixture by weakening moved non-null body-local ref types to nullable refs after the sink. Broader official shared-GC WAT parity remains separate, while existing `RefFunc`, `br_on_*`, and atomics/GC non-null `struct.get` families remain covered.
+- `code-pushing-atomics.wast` proves non-null GC `struct.get` reads can move past shared atomic loads but not shared atomic stores, both into the sole consuming `if` arm and across a segment push point for suffix use.
+- Starshine now mirrors that atomics/GC family with HOT fixtures because its WAT surface does not yet parse the official shared-GC syntax; the implementation admits only non-null `struct.get` from a `local.get` source and blocks intervening memory writes.
+- EH can make movement observable through exceptional paths. The first reduced EH refinements are narrow: Binaryen v130 moves a pure SFA set after a later `br_if` when the intervening root is non-fallthrough `throw_ref`; keeps the set before both no-payload and payload-bearing tag-based `throw` probes, before a `try_table` with a catch target, before reference-carrying `catch_all_ref`, tag-payload `catch`, payload-plus-reference `catch_ref`, and reduced multi-catch `try_table` forms, and before a rethrow-containing legacy try/catch; and moves the set after a no-rethrow legacy `try`/`catch` in the reduced WAT probe, which Starshine currently covers only through try-lowered block movement. Native HOT `Try`, richer `try_table` forms beyond the current catch-all/catch-all-ref probes, caught payload/reference forms, and richer legacy try surfaces remain open.
 
-Use the official `code-pushing_ignore-implicit-traps.wast`, `code-pushing_tnh.wast`, `code-pushing-gc.wast`, and `code-pushing-eh.wast` files as the proof surface for these families.
+Use the official `version_130` `code-pushing_ignore-implicit-traps.wast`, `code-pushing_tnh.wast`, `code-pushing-gc.wast`, `code-pushing-atomics.wast`, `code-pushing-eh.wast`, and `code-pushing-eh-legacy.wast` files as the proof surface for these families.
 
 ## Starshine-local extra boundary
 
@@ -107,20 +174,37 @@ Do not confuse that with upstream Binaryen's `CodePushing.cpp` strategy. It is a
 
 A future broader Starshine port should preserve these rules before widening motion:
 
-1. implement or test an SFA-local classifier;
-2. discover block-local candidate segments and push points;
-3. keep one-arm `if` sinking separate from generic segment movement;
-4. preserve order among multiple moved sets;
-5. extend effect-invalidation before moving broader value families;
-6. keep trap options explicit;
-7. test GC and EH as first-class boundaries;
-8. document Starshine-local helper families separately from upstream Binaryen behavior.
+1. build on the initial SFA and segment-window diagnostic inventory in [`0808`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the first ordinary-void-`if` movement slice in [`0809`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the first dropped-`if` movement slice in [`0811`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), the first narrow `br_if` movement slice in [`0812`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md), the first ordinary-`if` ordered multi-set slice in [`0813`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md), the dropped-`if` ordered multi-set slice in [`0814`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md), the `br_if` ordered multi-set slice in [`0815`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md), the direct local-copy multi-set slice in [`0816`](../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md), the `nop`-separated multi-set slice in [`0817`](../../../raw/research/0817-2026-06-20-code-pushing-nop-window-multi-set-movement.md), the loop-target `br_if` slice in [`0818`](../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md), the `drop(const)` separator slice in [`0819`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md), and the `drop(local.get)` separator slice in [`0820`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md);
+2. keep one-arm `if` sinking separate from generic segment movement;
+3. preserve order among multiple moved sets; the first Starshine slices cover adjacent local-independent sets before ordinary void `if`, dropped value-`if`, narrow void-block-target `br_if`, and dropped void-label `br_on_null`, one-result-block `br_on_non_null`, and dropped one-result-block `br_on_cast`, and dropped one-result-block `br_on_cast_fail` push points, plus direct local-copy, `nop`-separated, `drop(const)`-separated, `drop(local.get)`-separated, bounded ordinary-/dropped-`if` `drop(global.get)`-separated subcases, and consecutive sole-consuming-`if`-arm dependency chains with explicit boundaries;
+4. extend effect-ordering / effect-invalidation before moving broader value families;
+5. keep trap options explicit;
+6. test GC, atomics, and EH as first-class boundaries;
+7. document Starshine-local helper families separately from upstream Binaryen behavior.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md`](../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md)
+- [`../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md`](../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md)
+- [`../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md)
+- [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
+- [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
+- [`../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md)
+- [`../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md)
+- [`../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md`](../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md)
+- [`../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md)
+- [`../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md)
+- [`../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md)
+- [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md)
+- [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md)
+- [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
+- [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
+- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
 - [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
+- Binaryen `version_130` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/CodePushing.cpp>
 - Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
 - Current Starshine owner: [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)

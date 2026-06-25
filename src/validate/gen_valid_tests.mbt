@@ -8305,6 +8305,1595 @@ test "precompute boundary gen-valid profiles emit trap effect gc atomic and dire
 }
 
 ///|
+fn gen_valid_test_instrs_contain_code_pushing_if_arm_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 3 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(set_idx)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, _),
+      ) if set_idx == 1U && cond_idx == 0U =>
+        for instr in then_body {
+          match instr {
+            LocalGet(LocalIdx(use_idx)) if use_idx == 1U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_after_if_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 5 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+      ) {
+      (
+        I32Const(_),
+        I32Const(_),
+        I32Add,
+        LocalSet(LocalIdx(set_idx)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+      ) if set_idx == 1U && cond_idx == 0U => {
+        let then_reads = then_body.any(fn(instr) {
+          match instr {
+            LocalGet(LocalIdx(idx)) => idx == 1U
+            _ => false
+          }
+        })
+        let else_reads = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                LocalGet(LocalIdx(idx)) => idx == 1U
+                _ => false
+              }
+            })
+          None => false
+        }
+        if !then_reads && !else_reads {
+          for j = i + 6; j < instrs.length(); j = j + 1 {
+            match instrs[j] {
+              LocalGet(LocalIdx(use_idx)) if use_idx == 1U => return true
+              _ => ()
+            }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 9 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+      ) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(first_set)),
+        I32Const(_),
+        LocalSet(LocalIdx(second_set)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+        LocalGet(LocalIdx(first_use)),
+        Drop,
+        LocalGet(LocalIdx(second_use)),
+        Drop,
+      ) if first_set == 1U &&
+        second_set == 2U &&
+        cond_idx == 0U &&
+        first_use == 1U &&
+        second_use == 2U => {
+        let then_reads = then_body.any(fn(instr) {
+          match instr {
+            LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+            _ => false
+          }
+        })
+        let else_reads = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+                _ => false
+              }
+            })
+          None => false
+        }
+        if !then_reads && !else_reads {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_nop_window_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 10 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+        instrs[i + 10],
+      ) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(first_set)),
+        Nop,
+        I32Const(_),
+        LocalSet(LocalIdx(second_set)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+        LocalGet(LocalIdx(first_use)),
+        Drop,
+        LocalGet(LocalIdx(second_use)),
+        Drop,
+      ) if first_set == 1U &&
+        second_set == 2U &&
+        cond_idx == 0U &&
+        first_use == 1U &&
+        second_use == 2U => {
+        let then_reads = then_body.any(fn(instr) {
+          match instr {
+            LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+            _ => false
+          }
+        })
+        let else_reads = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+                _ => false
+              }
+            })
+          None => false
+        }
+        if !then_reads && !else_reads {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_drop_window_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 11 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+        instrs[i + 10],
+        instrs[i + 11],
+      ) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(first_set)),
+        I32Const(_),
+        Drop,
+        I32Const(_),
+        LocalSet(LocalIdx(second_set)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+        LocalGet(LocalIdx(first_use)),
+        Drop,
+        LocalGet(LocalIdx(second_use)),
+        Drop,
+      ) if first_set == 1U &&
+        second_set == 2U &&
+        cond_idx == 0U &&
+        first_use == 1U &&
+        second_use == 2U => {
+        let then_reads = then_body.any(fn(instr) {
+          match instr {
+            LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+            _ => false
+          }
+        })
+        let else_reads = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+                _ => false
+              }
+            })
+          None => false
+        }
+        if !then_reads && !else_reads {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_local_get_window_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 11 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+        instrs[i + 10],
+        instrs[i + 11],
+      ) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(first_set)),
+        LocalGet(LocalIdx(separator_get)),
+        Drop,
+        I32Const(_),
+        LocalSet(LocalIdx(second_set)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+        LocalGet(LocalIdx(first_use)),
+        Drop,
+        LocalGet(LocalIdx(second_use)),
+        Drop,
+      ) if first_set == 2U &&
+        separator_get == 0U &&
+        second_set == 3U &&
+        cond_idx == 1U &&
+        first_use == 2U &&
+        second_use == 3U => {
+        let then_reads = then_body.any(fn(instr) {
+          match instr {
+            LocalGet(LocalIdx(idx)) => idx == 2U || idx == 3U
+            _ => false
+          }
+        })
+        let else_reads = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                LocalGet(LocalIdx(idx)) => idx == 2U || idx == 3U
+                _ => false
+              }
+            })
+          None => false
+        }
+        if !then_reads && !else_reads {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_global_get_window_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 11 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+        instrs[i + 10],
+        instrs[i + 11],
+      ) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(first_set)),
+        GlobalGet(GlobalIdx(separator_get)),
+        Drop,
+        I32Const(_),
+        LocalSet(LocalIdx(second_set)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+        LocalGet(LocalIdx(first_use)),
+        Drop,
+        LocalGet(LocalIdx(second_use)),
+        Drop,
+      ) if first_set == 1U &&
+        separator_get == 0U &&
+        second_set == 2U &&
+        cond_idx == 0U &&
+        first_use == 1U &&
+        second_use == 2U => {
+        let then_reads = then_body.any(fn(instr) {
+          match instr {
+            LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+            _ => false
+          }
+        })
+        let else_reads = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+                _ => false
+              }
+            })
+          None => false
+        }
+        if !then_reads && !else_reads {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_local_copy_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 9 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+      ) {
+      (
+        LocalGet(LocalIdx(first_source)),
+        LocalSet(LocalIdx(first_set)),
+        LocalGet(LocalIdx(second_source)),
+        LocalSet(LocalIdx(second_set)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, _, _),
+        LocalGet(LocalIdx(first_use)),
+        Drop,
+        LocalGet(LocalIdx(second_use)),
+        Drop,
+      ) if first_source == 1U &&
+        first_set == 3U &&
+        second_source == 2U &&
+        second_set == 4U &&
+        cond_idx == 0U &&
+        first_use == 3U &&
+        second_use == 4U => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_dropped_if_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 10 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+        instrs[i + 10],
+      ) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(first_set)),
+        I32Const(_),
+        LocalSet(LocalIdx(second_set)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+        Drop,
+        LocalGet(LocalIdx(first_use)),
+        Drop,
+        LocalGet(LocalIdx(second_use)),
+        Drop,
+      ) if first_set == 1U &&
+        second_set == 2U &&
+        cond_idx == 0U &&
+        first_use == 1U &&
+        second_use == 2U => {
+        let then_reads = then_body.any(fn(instr) {
+          match instr {
+            LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+            _ => false
+          }
+        })
+        let else_reads = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                LocalGet(LocalIdx(idx)) => idx == 1U || idx == 2U
+                _ => false
+              }
+            })
+          None => false
+        }
+        if !then_reads && !else_reads {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_loop_br_if_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Loop(_, Expr(body)) =>
+        for i = 0; i + 9 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set)),
+              LocalGet(LocalIdx(cond_idx)),
+              BrIf(_),
+              LocalGet(LocalIdx(first_use)),
+              Drop,
+              LocalGet(LocalIdx(second_use)),
+              Drop,
+            ) if first_set == 1U &&
+              second_set == 2U &&
+              cond_idx == 0U &&
+              first_use == 1U &&
+              second_use == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_br_if_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 5 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(set_idx)),
+              LocalGet(LocalIdx(cond_idx)),
+              BrIf(_),
+              LocalGet(LocalIdx(use_idx)),
+              Drop,
+            ) if set_idx == 1U && cond_idx == 0U && use_idx == 1U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_br_on_null_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 10 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+              body[i + 10],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set_idx)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set_idx)),
+              LocalGet(LocalIdx(cond_idx)),
+              BrOnNull(_),
+              Drop,
+              LocalGet(LocalIdx(first_use_idx)),
+              Drop,
+              LocalGet(LocalIdx(second_use_idx)),
+              Drop,
+            ) if first_set_idx == 1U &&
+              second_set_idx == 2U &&
+              cond_idx == 0U &&
+              first_use_idx == 1U &&
+              second_use_idx == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_br_on_non_null_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 10 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+              body[i + 10],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set_idx)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set_idx)),
+              LocalGet(LocalIdx(cond_idx)),
+              BrOnNonNull(_),
+              LocalGet(LocalIdx(first_use_idx)),
+              Drop,
+              LocalGet(LocalIdx(second_use_idx)),
+              Drop,
+              RefNull(_),
+            ) if first_set_idx == 1U &&
+              second_set_idx == 2U &&
+              cond_idx == 0U &&
+              first_use_idx == 1U &&
+              second_use_idx == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_br_on_non_null_prefix_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 13 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+              body[i + 10],
+              body[i + 11],
+              body[i + 12],
+              body[i + 13],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set_idx)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set_idx)),
+              I32Const(_),
+              LocalGet(LocalIdx(cond_idx)),
+              BrOnNonNull(_),
+              Drop,
+              LocalGet(LocalIdx(first_use_idx)),
+              Drop,
+              LocalGet(LocalIdx(second_use_idx)),
+              Drop,
+              I32Const(_),
+              RefNull(_),
+            ) if first_set_idx == 1U &&
+              second_set_idx == 2U &&
+              cond_idx == 0U &&
+              first_use_idx == 1U &&
+              second_use_idx == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_br_on_cast_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 11 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+              body[i + 10],
+              body[i + 11],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set_idx)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set_idx)),
+              LocalGet(LocalIdx(cond_idx)),
+              BrOnCast(_, _, _, _),
+              Drop,
+              LocalGet(LocalIdx(first_use_idx)),
+              Drop,
+              LocalGet(LocalIdx(second_use_idx)),
+              Drop,
+              RefNull(_),
+            ) if first_set_idx == 1U &&
+              second_set_idx == 2U &&
+              cond_idx == 0U &&
+              first_use_idx == 1U &&
+              second_use_idx == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_br_on_cast_fail_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 11 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+              body[i + 10],
+              body[i + 11],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set_idx)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set_idx)),
+              LocalGet(LocalIdx(cond_idx)),
+              BrOnCastFail(_, _, _, _),
+              Drop,
+              LocalGet(LocalIdx(first_use_idx)),
+              Drop,
+              LocalGet(LocalIdx(second_use_idx)),
+              Drop,
+              RefNull(_),
+            ) if first_set_idx == 1U &&
+              second_set_idx == 2U &&
+              cond_idx == 0U &&
+              first_use_idx == 1U &&
+              second_use_idx == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_br_if_value_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 10 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+              body[i + 10],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set_idx)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set_idx)),
+              I32Const(_),
+              LocalGet(LocalIdx(cond_idx)),
+              BrIf(_),
+              Drop,
+              LocalGet(LocalIdx(first_use_idx)),
+              Drop,
+              LocalGet(LocalIdx(second_use_idx)),
+            ) if first_set_idx == 1U &&
+              second_set_idx == 2U &&
+              cond_idx == 0U &&
+              first_use_idx == 1U &&
+              second_use_idx == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_multi_set_br_if_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 9 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set)),
+              LocalGet(LocalIdx(cond_idx)),
+              BrIf(_),
+              LocalGet(LocalIdx(first_use)),
+              Drop,
+              LocalGet(LocalIdx(second_use)),
+              Drop,
+            ) if first_set == 1U &&
+              second_set == 2U &&
+              cond_idx == 0U &&
+              first_use == 1U &&
+              second_use == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_code_pushing_dropped_if_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 6 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+      ) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(set_idx)),
+        LocalGet(LocalIdx(cond_idx)),
+        If(_, then_body, else_body),
+        Drop,
+        LocalGet(LocalIdx(use_idx)),
+        Drop,
+      ) if set_idx == 1U && cond_idx == 0U && use_idx == 1U => {
+        let then_has_value = then_body.any(fn(instr) {
+          match instr {
+            I32Const(_) => true
+            _ => false
+          }
+        })
+        let else_has_value = match else_body {
+          Some(body) =>
+            body.any(fn(instr) {
+              match instr {
+                I32Const(_) => true
+                _ => false
+              }
+            })
+          None => false
+        }
+        if then_has_value && else_has_value {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingIfArmProfile),
+    "code-pushing-if-arm",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingAfterIfProfile),
+    "code-pushing-after-if",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingDroppedIfProfile),
+    "code-pushing-dropped-if",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrIfProfile),
+    "code-pushing-br-if",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrOnNullProfile),
+    "code-pushing-br-on-null",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrOnNonNullProfile),
+    "code-pushing-br-on-non-null",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrOnNonNullPrefixProfile),
+    "code-pushing-br-on-non-null-prefix",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrOnCastProfile),
+    "code-pushing-br-on-cast",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrOnCastFailProfile),
+    "code-pushing-br-on-cast-fail",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrIfValueProfile),
+    "code-pushing-br-if-value",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetProfile),
+    "code-pushing-multi-set",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetDroppedIfProfile),
+    "code-pushing-multi-set-dropped-if",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetBrIfProfile),
+    "code-pushing-multi-set-br-if",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetLocalCopyProfile),
+    "code-pushing-multi-set-local-copy",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetNopWindowProfile),
+    "code-pushing-multi-set-nop-window",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingLoopBrIfProfile),
+    "code-pushing-loop-br-if",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetDropWindowProfile),
+    "code-pushing-multi-set-drop-window",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetLocalGetWindowProfile),
+    "code-pushing-multi-set-local-get-window",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingMultiSetGlobalGetWindowProfile),
+    "code-pushing-multi-set-global-get-window",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(CodePushingAllProfile),
+    "code-pushing-all",
+  )
+  assert_true(gen_valid_profile_names().contains("code-pushing-all"))
+  match gen_valid_profile_by_name("code-pushing") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, CodePushingAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      @debug.assert_eq(members.length(), 19)
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingIfArmProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingAfterIfProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingDroppedIfProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingBrIfProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingBrOnNullProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingBrOnNonNullProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingBrOnNonNullPrefixProfile
+        }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingBrOnCastProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingBrOnCastFailProfile
+        }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingBrIfValueProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingMultiSetProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingMultiSetDroppedIfProfile
+        }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingMultiSetBrIfProfile
+        }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingMultiSetLocalCopyProfile
+        }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingMultiSetNopWindowProfile
+        }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingLoopBrIfProfile }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingMultiSetDropWindowProfile
+        }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingMultiSetLocalGetWindowProfile
+        }),
+      )
+      assert_true(
+        members.any(fn(entry) {
+          entry.profile == CodePushingMultiSetGlobalGetWindowProfile
+        }),
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+  let leaf = gen_valid_profile_leaf_for_case(CodePushingAllProfile, 0x5eedUL, 1)
+  assert_true(!gen_valid_profile_is_composite(leaf))
+}
+
+///|
+test "code-pushing aggregate profile samples every current code-pushing family" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 128 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      CodePushingAllProfile,
+      0x5eedUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(CodePushingIfArmProfile))
+  assert_true(seen.contains(CodePushingAfterIfProfile))
+  assert_true(seen.contains(CodePushingDroppedIfProfile))
+  assert_true(seen.contains(CodePushingBrIfProfile))
+  assert_true(seen.contains(CodePushingBrOnNullProfile))
+  assert_true(seen.contains(CodePushingBrOnNonNullProfile))
+  assert_true(seen.contains(CodePushingBrOnNonNullPrefixProfile))
+  assert_true(seen.contains(CodePushingBrOnCastProfile))
+  assert_true(seen.contains(CodePushingBrOnCastFailProfile))
+  assert_true(seen.contains(CodePushingBrIfValueProfile))
+  assert_true(seen.contains(CodePushingMultiSetProfile))
+  assert_true(seen.contains(CodePushingMultiSetDroppedIfProfile))
+  assert_true(seen.contains(CodePushingMultiSetBrIfProfile))
+  assert_true(seen.contains(CodePushingMultiSetLocalCopyProfile))
+  assert_true(seen.contains(CodePushingMultiSetNopWindowProfile))
+  assert_true(seen.contains(CodePushingLoopBrIfProfile))
+  assert_true(seen.contains(CodePushingMultiSetDropWindowProfile))
+  assert_true(seen.contains(CodePushingMultiSetLocalGetWindowProfile))
+  assert_true(seen.contains(CodePushingMultiSetGlobalGetWindowProfile))
+}
+
+///|
+test "code-pushing gen-valid profiles emit pass-owned if movement candidates" {
+  let into_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingIfArmProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(into_if.config_label, "code-pushing-if-arm")
+  match validate_module(into_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(into_if.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_if_arm_candidate(
+      gen_valid_test_first_func_instrs(into_if.wasm_module),
+    ),
+  )
+
+  let after_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingAfterIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(after_if.config_label, "code-pushing-after-if")
+  match validate_module(after_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(after_if.facts.has_branch_heavy_control)
+  assert_true(after_if.facts.exact_opcode_counts.i32_add > 0)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_after_if_candidate(
+      gen_valid_test_first_func_instrs(after_if.wasm_module),
+    ),
+  )
+
+  let dropped_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingDroppedIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(dropped_if.config_label, "code-pushing-dropped-if")
+  match validate_module(dropped_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(dropped_if.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_dropped_if_candidate(
+      gen_valid_test_first_func_instrs(dropped_if.wasm_module),
+    ),
+  )
+
+  let br_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(br_if.config_label, "code-pushing-br-if")
+  match validate_module(br_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_if.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_if_candidate(
+      gen_valid_test_first_func_instrs(br_if.wasm_module),
+    ),
+  )
+
+  let br_on_null = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrOnNullProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(br_on_null.config_label, "code-pushing-br-on-null")
+  match validate_module(br_on_null.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_on_null.facts.has_branch_heavy_control)
+  assert_true(br_on_null.facts.uses_ref_types)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_on_null_candidate(
+      gen_valid_test_first_func_instrs(br_on_null.wasm_module),
+    ),
+  )
+
+  let br_on_non_null = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrOnNonNullProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(br_on_non_null.config_label, "code-pushing-br-on-non-null")
+  match validate_module(br_on_non_null.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_on_non_null.facts.has_branch_heavy_control)
+  assert_true(br_on_non_null.facts.uses_ref_types)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_on_non_null_candidate(
+      gen_valid_test_first_func_instrs(br_on_non_null.wasm_module),
+    ),
+  )
+
+  let br_on_non_null_prefix = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrOnNonNullPrefixProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    br_on_non_null_prefix.config_label,
+    "code-pushing-br-on-non-null-prefix",
+  )
+  match validate_module(br_on_non_null_prefix.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_on_non_null_prefix.facts.has_branch_heavy_control)
+  assert_true(br_on_non_null_prefix.facts.uses_ref_types)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_on_non_null_prefix_candidate(
+      gen_valid_test_first_func_instrs(br_on_non_null_prefix.wasm_module),
+    ),
+  )
+
+  let br_on_cast = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrOnCastProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(br_on_cast.config_label, "code-pushing-br-on-cast")
+  match validate_module(br_on_cast.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_on_cast.facts.has_branch_heavy_control)
+  assert_true(br_on_cast.facts.uses_ref_types)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_on_cast_candidate(
+      gen_valid_test_first_func_instrs(br_on_cast.wasm_module),
+    ),
+  )
+
+  let br_on_cast_fail = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrOnCastFailProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(br_on_cast_fail.config_label, "code-pushing-br-on-cast-fail")
+  match validate_module(br_on_cast_fail.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_on_cast_fail.facts.has_branch_heavy_control)
+  assert_true(br_on_cast_fail.facts.uses_ref_types)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_on_cast_fail_candidate(
+      gen_valid_test_first_func_instrs(br_on_cast_fail.wasm_module),
+    ),
+  )
+
+  let br_if_value = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrIfValueProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(br_if_value.config_label, "code-pushing-br-if-value")
+  match validate_module(br_if_value.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_if_value.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_if_value_candidate(
+      gen_valid_test_first_func_instrs(br_if_value.wasm_module),
+    ),
+  )
+
+  let multi_set = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(multi_set.config_label, "code-pushing-multi-set")
+  match validate_module(multi_set.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_candidate(
+      gen_valid_test_first_func_instrs(multi_set.wasm_module),
+    ),
+  )
+
+  let multi_set_dropped_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetDroppedIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    multi_set_dropped_if.config_label,
+    "code-pushing-multi-set-dropped-if",
+  )
+  match validate_module(multi_set_dropped_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set_dropped_if.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_dropped_if_candidate(
+      gen_valid_test_first_func_instrs(multi_set_dropped_if.wasm_module),
+    ),
+  )
+
+  let multi_set_br_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetBrIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(multi_set_br_if.config_label, "code-pushing-multi-set-br-if")
+  match validate_module(multi_set_br_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set_br_if.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_br_if_candidate(
+      gen_valid_test_first_func_instrs(multi_set_br_if.wasm_module),
+    ),
+  )
+
+  let multi_set_local_copy = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetLocalCopyProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    multi_set_local_copy.config_label,
+    "code-pushing-multi-set-local-copy",
+  )
+  match validate_module(multi_set_local_copy.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set_local_copy.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_local_copy_candidate(
+      gen_valid_test_first_func_instrs(multi_set_local_copy.wasm_module),
+    ),
+  )
+
+  let multi_set_nop_window = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetNopWindowProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    multi_set_nop_window.config_label,
+    "code-pushing-multi-set-nop-window",
+  )
+  match validate_module(multi_set_nop_window.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set_nop_window.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_nop_window_candidate(
+      gen_valid_test_first_func_instrs(multi_set_nop_window.wasm_module),
+    ),
+  )
+
+  let multi_set_drop_window = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetDropWindowProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    multi_set_drop_window.config_label,
+    "code-pushing-multi-set-drop-window",
+  )
+  match validate_module(multi_set_drop_window.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set_drop_window.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_drop_window_candidate(
+      gen_valid_test_first_func_instrs(multi_set_drop_window.wasm_module),
+    ),
+  )
+
+  let multi_set_local_get_window = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    multi_set_local_get_window.config_label,
+    "code-pushing-multi-set-local-get-window",
+  )
+  match validate_module(multi_set_local_get_window.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set_local_get_window.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_local_get_window_candidate(
+      gen_valid_test_first_func_instrs(multi_set_local_get_window.wasm_module),
+    ),
+  )
+
+  let multi_set_global_get_window = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    multi_set_global_get_window.config_label,
+    "code-pushing-multi-set-global-get-window",
+  )
+  match validate_module(multi_set_global_get_window.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(multi_set_global_get_window.facts.has_globals)
+  assert_true(multi_set_global_get_window.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_multi_set_global_get_window_candidate(
+      gen_valid_test_first_func_instrs(multi_set_global_get_window.wasm_module),
+    ),
+  )
+
+  let loop_br_if = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingLoopBrIfProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(loop_br_if.config_label, "code-pushing-loop-br-if")
+  match validate_module(loop_br_if.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(loop_br_if.facts.has_branch_heavy_control)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_loop_br_if_candidate(
+      gen_valid_test_first_func_instrs(loop_br_if.wasm_module),
+    ),
+  )
+}
+
+///|
 fn gen_valid_test_instrs_contain_pick_load_signs_candidate(
   instrs : Array[Instruction],
 ) -> Bool {

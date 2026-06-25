@@ -251,6 +251,7 @@ pub struct CliParseResult {
   pass_flags : Array[String]
   optimize_flags : Array[CliOptimizationFlag]
   mut trap_mode : TrapMode?
+  mut ignore_implicit_traps : Bool
   mut monomorphize_min_benefit : Int?
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
@@ -272,6 +273,7 @@ pub fn CliParseResult::new(
   pass_flags? : Array[String] = [],
   optimize_flags? : Array[CliOptimizationFlag] = [],
   trap_mode? : TrapMode? = None,
+  ignore_implicit_traps? : Bool = false,
   monomorphize_min_benefit? : Int? = None,
   low_memory_unused? : Bool? = None,
   low_memory_bound? : UInt64? = None,
@@ -291,6 +293,7 @@ pub fn CliParseResult::new(
     pass_flags,
     optimize_flags,
     trap_mode,
+    ignore_implicit_traps,
     monomorphize_min_benefit,
     low_memory_unused,
     low_memory_bound,
@@ -593,6 +596,13 @@ fn parse_short_option_cluster(
   while i < token.length() {
     let flag = token[i]
     match flag {
+      'i' => {
+        if token.sub(start=i).to_owned() == "iit" {
+          parsed.ignore_implicit_traps = true
+          return Ok(index + 1)
+        }
+        return Err(CliParseError::unknown_short_flag(flag.unsafe_to_char()))
+      }
       'h' => {
         parsed.help_requested = true
         i += 1
@@ -728,6 +738,7 @@ pub fn cli_config_schema_json() -> String {
     #|  },
     #|  "options": {
     #|    "trapsNeverHappen": false,
+    #|    "ignoreImplicitTraps": false,
     #|    "monomorphizeMinBenefit": 5,
     #|    "lowMemoryUnused": false,
     #|    "lowMemoryBound": 1024,
@@ -1124,6 +1135,15 @@ pub fn parse_cli_args(
             parsed.trap_mode = Some(TrapMode::allow())
             index += 1
           }
+          "ignore-implicit-traps" => {
+            if inline_value is Some(_) {
+              return Err(
+                CliParseError::unexpected_flag_value("--ignore-implicit-traps"),
+              )
+            }
+            parsed.ignore_implicit_traps = true
+            index += 1
+          }
           "tracing" => {
             let (value, consumed_next) = match inline_value {
               Some(v) if v.length() > 0 => (v, false)
@@ -1251,6 +1271,11 @@ pub fn resolve_traps_never_happen(
     Some(Allow) => false
     None => default
   }
+}
+
+///|
+pub fn resolve_ignore_implicit_traps(parsed : CliParseResult) -> Bool {
+  parsed.ignore_implicit_traps
 }
 
 ///|

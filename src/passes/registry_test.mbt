@@ -268,7 +268,7 @@ test "preset expansion stays on implemented active pass names" {
     "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute", "optimize-instructions",
     "heap-store-optimization", "dae-optimizing", "inlining-optimizing", "duplicate-function-elimination",
     "duplicate-import-elimination", "simplify-globals-optimizing", "remove-unused-module-elements",
-    "string-gathering", "reorder-globals", "directize",
+    "string-gathering", "reorder-globals", "directize", "strip-debug",
   ]
   @debug.assert_eq(optimize, expected)
   @debug.assert_eq(shrink, expected)

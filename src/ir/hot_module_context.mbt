@@ -4,6 +4,7 @@ pub struct HotModuleContext {
   func_type_idxs : Array[TypeIdx]
   func_types : Array[FuncType]
   func_type_slots : Array[TypeIdx?]
+  func_imports : Array[(@lib.Name, @lib.Name)?]
   tables : Array[TableType]
   mems : Array[@lib.MemType]
   globals : Array[GlobalType]
@@ -122,6 +123,7 @@ fn hot_module_context_eval_global_const_init(
 ///|
 pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
   let func_type_idxs : Array[TypeIdx] = []
+  let func_imports : Array[(@lib.Name, @lib.Name)?] = []
   let tables : Array[TableType] = []
   let mems : Array[@lib.MemType] = []
   let globals : Array[GlobalType] = []
@@ -134,8 +136,10 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     Some(@lib.ImportSec(imports)) =>
       for import_ in imports {
         match import_ {
-          @lib.Import(_, _, @lib.FuncExternType(type_idx)) =>
+          @lib.Import(module_name, base_name, @lib.FuncExternType(type_idx)) => {
             func_type_idxs.push(type_idx)
+            func_imports.push(Some((module_name, base_name)))
+          }
           @lib.Import(_, _, @lib.TableExternType(table_type)) =>
             tables.push(table_type)
           @lib.Import(_, _, @lib.MemExternType(mem_type)) => mems.push(mem_type)
@@ -153,6 +157,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     Some(@lib.FuncSec(type_idxs)) =>
       for type_idx in type_idxs {
         func_type_idxs.push(type_idx)
+        func_imports.push(None)
       }
     None => ()
   }
@@ -213,6 +218,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     func_type_idxs,
     func_types: hot_module_context_resolve_func_types(subtypes, func_type_idxs),
     func_type_slots: hot_module_context_func_type_slots(func_type_idxs),
+    func_imports,
     tables,
     mems,
     globals,
@@ -266,6 +272,33 @@ pub fn hot_module_resolve_func_type(
 ) -> FuncType? {
   let @lib.FuncIdx(raw) = func_idx
   ctx.func_types.get(raw.reinterpret_as_int())
+}
+
+///|
+pub fn hot_module_resolve_func_import(
+  ctx : HotModuleContext,
+  func_idx : @lib.FuncIdx,
+) -> (@lib.Name, @lib.Name)? {
+  let @lib.FuncIdx(raw) = func_idx
+  match ctx.func_imports.get(raw.reinterpret_as_int()) {
+    Some(import_) => import_
+    None => None
+  }
+}
+
+///|
+pub fn hot_module_func_import_matches(
+  ctx : HotModuleContext,
+  func_idx : @lib.FuncIdx,
+  module_name : String,
+  base_name : String,
+) -> Bool {
+  match hot_module_resolve_func_import(ctx, func_idx) {
+    Some((actual_module, actual_base)) =>
+      actual_module == @lib.Name::from_string(module_name) &&
+      actual_base == @lib.Name::from_string(base_name)
+    None => false
+  }
 }
 
 ///|

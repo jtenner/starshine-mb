@@ -1542,7 +1542,7 @@ function normalizeStandaloneNops(wat: string): string {
 function normalizeUnusedLocalDeclarationsInFunction(funcText: string): string {
   if (/\blocal\.(?:get|set|tee)\s+\d+\b/.test(funcText)) return funcText;
   const lines = funcText.split("\n");
-  const localDeclPattern = /^\s*\(local\s+(\$[A-Za-z0-9_.$-]+)\s+[A-Za-z0-9_.]+\)\s*$/;
+  const localDeclPattern = /^\s*\(local\s+(\$[A-Za-z0-9_.$-]+)\s+[^\n]+\)\s*$/;
   return lines
     .filter((line) => {
       const match = line.match(localDeclPattern);
@@ -1560,7 +1560,7 @@ function normalizeLocalNamesInFunction(funcText: string): string {
   for (const match of funcText.matchAll(/\(param\s+(\$[A-Za-z0-9_.$-]+)\s+[A-Za-z0-9_.]+/g)) {
     if (!localNames.includes(match[1])) localNames.push(match[1]);
   }
-  for (const match of funcText.matchAll(/^\s*\(local\s+(\$[A-Za-z0-9_.$-]+)\s+[A-Za-z0-9_.]+\)\s*$/gm)) {
+  for (const match of funcText.matchAll(/^\s*\(local\s+(\$[A-Za-z0-9_.$-]+)\s+[^\n]+\)\s*$/gm)) {
     if (!localNames.includes(match[1])) localNames.push(match[1]);
   }
   if (localNames.length === 0) return funcText;
@@ -1579,6 +1579,42 @@ function normalizeLocalNamesInFunction(funcText: string): string {
     .join("\n");
 }
 
+function normalizeSingleUseLocalCopyDropsInFunction(funcText: string): string {
+  if (/\blocal\.(?:get|set|tee)\s+\d+\b/.test(funcText)) return funcText;
+  const localRefCount = new Map<string, number>();
+  for (const match of funcText.matchAll(/\blocal\.(?:get|set|tee)\s+(\$[A-Za-z0-9_.$-]+)\b/g)) {
+    localRefCount.set(match[1], (localRefCount.get(match[1]) ?? 0) + 1);
+  }
+  let normalized = funcText.replace(
+    /^(\s*)\(local\.set\s+(\$[A-Za-z0-9_.$-]+)\s*\n(\s*)\(local\.get\s+(\$[A-Za-z0-9_.$-]+)\s*\)\s*\n\s*\)\s*\n([\s\S]*?)^\1\(drop\s*\n\s*\(local\.get\s+\2\s*\)\s*\n\s*\)/gm,
+    (full, indent: string, temp: string, childIndent: string, source: string, between: string) => {
+      if (temp === source || localRefCount.get(temp) !== 2) return full;
+      const sourceWritePattern = new RegExp(`\\blocal\\.(?:set|tee)\\s+${escapeRegExp(source)}\\b`);
+      if (sourceWritePattern.test(between)) return full;
+      return `${between}${indent}(drop\n${childIndent}(local.get ${source})\n${indent})`;
+    },
+  );
+  normalized = normalized.replace(
+    /^(\s*)\(local\.set\s+(\$[A-Za-z0-9_.$-]+)\s*\n(\s*)\(local\.tee\s+(\$[A-Za-z0-9_.$-]+)\s*\n\s*\(local\.get\s+(\$[A-Za-z0-9_.$-]+)\s*\)\s*\n\s*\)\s*\n\s*\)\s*\n([\s\S]*?)^\1\(drop\s*\n\s*\(local\.get\s+\2\s*\)\s*\n\s*\)/gm,
+    (full, indent: string, temp: string, childIndent: string, teeTemp: string, source: string, between: string) => {
+      if (temp === source || teeTemp === source || temp === teeTemp) return full;
+      if (localRefCount.get(temp) !== 2 || localRefCount.get(teeTemp) !== 1) return full;
+      const sourceWritePattern = new RegExp(`\\blocal\\.(?:set|tee)\\s+${escapeRegExp(source)}\\b`);
+      if (sourceWritePattern.test(between)) return full;
+      return `${between}${indent}(drop\n${childIndent}(local.get ${source})\n${indent})`;
+    },
+  );
+  normalized = normalized.replace(
+    /^(\s*)\(local\.set\s+(\$[A-Za-z0-9_.$-]+)\s*\n((\s*)\(br_if\b[\s\S]*?^\4\))\s*\n\s*\)\s*\n([\s\S]*?)^\1\(drop\s*\n\s*\(local\.get\s+\2\s*\)\s*\n\s*\)/gm,
+    (full, indent: string, temp: string, brIfExpr: string, childIndent: string, between: string) => {
+      if (localRefCount.get(temp) !== 2) return full;
+      const cleanBetween = between.replace(/^\s*\n/, "").replace(/\s*$/, "");
+      return `${indent}(drop\n${brIfExpr}\n${indent})\n${cleanBetween}`;
+    },
+  );
+  return normalized;
+}
+
 function normalizeUnusedLocalDeclarations(wat: string): string {
   const lines = wat.split("\n");
   const output: string[] = [];
@@ -1595,7 +1631,8 @@ function normalizeUnusedLocalDeclarations(wat: string): string {
       funcLines.push(lines[index]);
       balance += parenDelta(lines[index]);
     }
-    output.push(...normalizeLocalNamesInFunction(normalizeUnusedLocalDeclarationsInFunction(funcLines.join("\n"))).split("\n"));
+    const normalizedCopies = normalizeSingleUseLocalCopyDropsInFunction(funcLines.join("\n"));
+    output.push(...normalizeLocalNamesInFunction(normalizeUnusedLocalDeclarationsInFunction(normalizedCopies)).split("\n"));
   }
   return output.join("\n");
 }

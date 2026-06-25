@@ -725,6 +725,632 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Mark audit explicitly closed
+
+- Filed [`raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md`](raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md) as the explicit user-approved CP closeout marker after the reopened IIT, intrinsic, refinalization, and preset blockers were closed.
+- Updated the `code-pushing` living docs and backlog to treat `[O4Z-AUDIT-CP]` as closed, not merely actionability-paused.
+- Reopening criteria are now limited to new source-backed CP behavior, a generated mismatch classified as a real CP behavior/validity issue, a CP validation failure, a shared-GC fixture requirement for an actual CP behavior surface, or preset-neighborhood drift.
+- Validation: docs/status-only change; no Moon tests required.
+
+## [2026-06-25] passes/strip-debug | Schedule final preset slot
+
+- Filed [`raw/research/0909-2026-06-25-strip-debug-preset-placement.md`](raw/research/0909-2026-06-25-strip-debug-preset-placement.md) for the `[JSON-AS]008` preset-placement slice.
+- Public `optimize` and `shrink` now run `strip-debug` as the final preset pass after `directize`, preserving the existing late tail and avoiding earlier name removal before name-sensitive diagnostics or policy passes.
+- Validation: red-first preset-order test failed before implementation; final `optimize_test.mbt` (`47/47`), focused registry preset expansion, `strip_debug_test.mbt` (`3/3`), `moon fmt`, `moon info`, native `src/cmd` build, and `git diff --check` passed.
+- Remaining `[JSON-AS]008` work: json-as artifact custom-section size measurement after scheduling.
+
+## [2026-06-25] passes/strip-debug | Preserve non-name custom sections
+
+- Filed [`raw/research/0908-2026-06-25-strip-debug-custom-section-preservation.md`](raw/research/0908-2026-06-25-strip-debug-custom-section-preservation.md) for the `[JSON-AS]008` direct `strip-debug` evidence refresh.
+- `strip-debug` now removes Starshine's structured/raw name-section payload while preserving non-name custom sections, matching the reduced Binaryen oracle probe for an arbitrary `foo` custom section. Raw custom-section placement still differs because Binaryen rewrites the preserved custom section after code while Starshine preserves the input placement; this is classified as custom-section placement drift, not a semantic-section mismatch.
+- Validation: red-first focused test failed before implementation; final `moon fmt`, `moon info`, focused `strip_debug_test.mbt` (`3/3`), native `src/cmd` build, manual Binaryen custom-section oracle validation, and a 1000-case `strip-debug` semantic-section compare smoke passed with `0` mismatches/failures.
+- Remaining `[JSON-AS]008` work: preset placement and json-as artifact custom-section size measurement.
+
+## [2026-06-25] passes/code-pushing | Close preset neighborhood blocker
+
+- Filed [`raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md`](raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md) after the user-directed direct `code-pushing` blockers were closed.
+- Decision: the public `optimize` and `shrink` presets already schedule `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`, and focused ordered-neighborhood tests lock that shape.
+- Validation: focused `optimize_test.mbt`, `simplify_locals_nostructure_test.mbt`, and `registry_test.mbt` preset/order tests all passed `1/1`.
+- Remaining status: no useful user-directed `code-pushing` gap is currently known; reopen only for new source-backed CP behavior, generated mismatch, validation failure, shared-GC fixture requirement, or preset-neighborhood drift.
+
+## [2026-06-25] passes/code-pushing | Implement ref-into-if refinalization
+
+- Filed [`raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md`](raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md) for the user-directed GC/refinalization follow-up.
+- `code-pushing` now handles the lit-derived `ref-into-if` family by accepting safe direct `local.get` values in single-set into-`if` sinking, preserving source-local write guards, and weakening moved non-null body-local ref types to nullable refs after sinking.
+- Validation: red-first focused test failed before implementation; final `moon fmt`, `moon info`, focused ref-into-if test, `code_pushing_test.mbt` (`138/138`), `hot_mutate_test.mbt` (`9/9`), native `src/cmd` build, and bounded `code-pushing-all` smoke (`200/200`, `0` mismatches/failures) passed.
+- Remaining caveat: the focused fixture bypasses input validation because Starshine's validator still rejects non-defaultable non-null body locals before definite-assignment analysis; the optimized output is required to validate.
+
+## [2026-06-25] passes/code-pushing | Implement exact intrinsic no-effects calls
+
+- Filed [`raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md`](raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md) after the `0904` import-identity prerequisite.
+- `code-pushing` now sinks only exact imported `binaryen-intrinsics` / `call.without.effects` call values with pure/nontrapping arguments into the sole using `if` arm.
+- Ordinary imports, defined calls with matching signatures, post-`if` local uses, and exact intrinsic calls with `local.tee` arguments remain stationary.
+- Validation: red-first intrinsic positive failed before implementation; final focused intrinsic positives/negatives, `code_pushing_test.mbt` (`137/137`), native `src/cmd` build, and bounded `code-pushing-all` compare smoke (`200/200`, `0` mismatches/failures) passed. Full `src/passes` was blocked by missing local `tests/node/dist/starshine-debug-wasi.wasm` in unrelated pass-manager artifact tests.
+
+## [2026-06-25] ir/code-pushing | Add import identity metadata
+
+- Filed [`raw/research/0904-2026-06-25-code-pushing-import-identity-metadata.md`](raw/research/0904-2026-06-25-code-pushing-import-identity-metadata.md) for the user-directed reopening of the `binaryen-intrinsics/call.without.effects` prerequisite blocker after the `0903` actionability audit.
+- `HotModuleContext` now preserves exact function import module/name identity and exposes `hot_module_resolve_func_import` plus `hot_module_func_import_matches`, enabling a future exact intrinsic predicate without type/arity heuristics.
+- No `code-pushing` movement changed in this slice; ordinary calls remain barriers until a red-first behavior slice uses the new metadata.
+- Validation: red-first focused import-identity test failed on missing accessors; final `moon fmt`, `moon info`, focused `hot_module_context_test.mbt`, and full native `src/ir` tests passed.
+
+## [2026-06-25] passes/code-pushing | Post-IIT actionability audit
+
+- Filed [`raw/research/0903-2026-06-25-code-pushing-post-iit-actionability-audit.md`](raw/research/0903-2026-06-25-code-pushing-post-iit-actionability-audit.md) after the `0902` `--ignore-implicit-traps` / `-iit` implementation slice.
+- Decision: no remaining source-backed/generated `code-pushing` replacement work is currently actionable. The old `0897` IIT boundary is superseded for implementation status, while `0898` branch/switch, `0899` intrinsic no-effects import identity, and `0900` GC/refinalization remain closed until their explicit reopening criteria fire.
+- Documentation hygiene corrected stale living-page wording that still described IIT as a current Starshine boundary/non-goal, without changing behavior, generated profiles, public API, or executable examples.
+- Validation: docs/status audit only; no Moon tests required.
+
+## [2026-06-25] passes/code-pushing | Implement ignore-implicit-traps
+
+- Filed [`raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md`](raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md) as a new source-backed widening slice after the old `[O4Z-AUDIT-CP-BINREP]` closeout.
+- Starshine now exposes distinct `--ignore-implicit-traps` / `-iit` plumbing through CLI/config/env/command options/hot-pass context, separate from TNH, and `code-pushing` uses it for the Binaryen v130 memory-load `br_if` movement while preserving store/call boundaries.
+- Validation: red-first CLI/context tests failed before implementation; final `moon fmt`, `moon info`, focused `src/cli`, `code_pushing_test.mbt`, focused `src/cmd --filter '*ignore*'`, native `src/cmd` build, help grep, and bounded `code-pushing-all` smoke `.tmp/pass-fuzz-code-pushing-iit-smoke-200` passed with `200/200` compared and `0` mismatches/failures under `--normalize local-cleanup-debris`.
+- Updated `0897`, `0901`, `agent-todo.md`, and the `code-pushing` wiki pages to mark the prior boundary superseded for implementation status without invalidating the old closeout.
+
+## [2026-06-25] passes/code-pushing | Close replacement follow-up
+
+- Filed [`raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md`](raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md) as the closeout for `[O4Z-AUDIT-CP-BINREP]`.
+- Decision: all replacement follow-up subitems are now either implemented with red-first tests and bounded compare smoke (`0893`, `0895`, `0896`) or explicitly resolved as narrow boundaries with reopening criteria (`0897`, `0898`, `0899`, `0900`).
+- Matrix decision: the closeout documents why a smaller matrix is sufficient here: `0892` remains the old four-lane direct-pass closeout, each behavior-changing binrep slice ran bounded `code-pushing-all` smoke with `0` raw mismatches/failures, and the final four subitems were docs/status-only boundary decisions.
+- Updated `agent-todo.md` and `code-pushing` strategy/index pages.
+
+## [2026-06-25] passes/code-pushing | Document GC/ref boundary
+
+- Filed [`raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md`](raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md) for `[CP-BINREP-005]`.
+- Decision: existing direct-pass work covers Starshine-representable `RefFunc`, `br_on_*`, and atomics/GC non-null `struct.get` families, while Binaryen `ref-into-if` remains an accepted boundary requiring local type weakening/refinalization after sinking changes non-null local dominance.
+- Updated `agent-todo.md` and the `code-pushing` wiki pages. All `[O4Z-AUDIT-CP-BINREP]` subitems are now either implemented or explicitly resolved; final replacement closeout still needs a status note.
+
+## [2026-06-25] passes/code-pushing | Document intrinsic no-effects boundary
+
+- Filed [`raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md`](raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md) for `[CP-BINREP-004]`.
+- Decision: Binaryen's `binaryen-intrinsics/call.without.effects` sink-call family remains an accepted current Starshine boundary/API blocker because pass-visible hot context records function types, not import module/name identity. Ordinary calls remain barriers; do not use a type/arity heuristic for the intrinsic.
+- Updated `agent-todo.md` and the `code-pushing` wiki pages. `[O4Z-AUDIT-CP-BINREP]` remains active for broader GC/ref surfaces.
+
+## [2026-06-25] passes/code-pushing | Close branch/switch follow-up boundary
+
+- Filed [`raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md`](raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md) for `[CP-BINREP-007]`.
+- Decision: no new branch/switch behavior is warranted without a reduced Binaryen-positive case or generated mismatch. Existing `0824`/`0825` notes already implemented the useful branch-value `br_if` positives, while `0822`, `0843`, and `0848` protect the probed simple, value-carrying, and multi-label `br_table` shapes as Binaryen-stationary.
+- Updated `agent-todo.md` and the `code-pushing` wiki pages. `[O4Z-AUDIT-CP-BINREP]` remains active for no-effects intrinsics and broader GC/ref surfaces.
+
+## [2026-06-25] passes/code-pushing | Document ignore-implicit-traps boundary
+
+- Filed [`raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md`](raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md) for `[CP-BINREP-003]`.
+- Decision: Binaryen v130's `--ignore-implicit-traps` / `-iit` surface is a distinct accepted current Starshine boundary, not a `--traps-never-happen` alias. Starshine has no `ignore_implicit_traps` / `--ignore-implicit-traps` plumbing and does not claim the lit `value-might-interfere` memory-load movement.
+- Evidence: local `wasm-opt --help` lists `--ignore-implicit-traps,-iit` separately from `--traps-never-happen,-tnh`; repo grep found no Starshine implicit-trap flag/context plumbing; `_build/native/release/build/cmd/cmd.exe --ignore-implicit-traps --code-pushing --format wat .tmp/binaryen-lit/code-pushing_ignore-implicit-traps.wast` reports `error: unknown pass flag: ignore-implicit-traps`.
+- Updated `agent-todo.md` and the `code-pushing` wiki pages. `[O4Z-AUDIT-CP-BINREP]` remains active for no-effects intrinsics, GC/ref surfaces, and low-priority branch/switch probes.
+
+## [2026-06-25] passes/code-pushing | Preserve independent into-if order
+
+- Filed [`raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md`](raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md) for `[CP-BINREP-006]`.
+- Starshine now uses the consecutive into-if multi-set path for independent sets as well as dependency chains, preserving Binaryen source order for the reduced two-set probe instead of letting fixed-point single-set sinking reverse the arm prefix.
+- Validation: red-first source-order test failed before implementation (`2 != 1`), focused `code_pushing_test.mbt` passed `126/126`, `moon fmt`, `moon test src/passes` (`2835/2835`), native `src/cmd` build, and bounded `code-pushing-all` smoke `.tmp/pass-fuzz-code-pushing-all-1000-20260625-binrep006-order` passed with `1000/1000` compared, `466` normalized, `534` cleanup-normalized, raw mismatches/failures `0` under `--normalize local-cleanup-debris`.
+- Updated `agent-todo.md` and the `code-pushing` wiki pages. `[O4Z-AUDIT-CP-BINREP]` remains active for `ignore-implicit-traps`, intrinsic no-effects calls, GC/ref surfaces, and low-priority branch/switch probes.
+
+## [2026-06-25] passes/code-pushing | Implement TNH movement
+
+- Filed [`raw/research/0895-2026-06-25-code-pushing-tnh-movement.md`](raw/research/0895-2026-06-25-code-pushing-tnh-movement.md) for `[CP-BINREP-002]`, superseding the implementation blocker from `0894`.
+- Starshine now plumbs `HotPipelineOptions.traps_never_happen` into public `HotPassContext` and uses it in `code-pushing` to sink exact integer div/rem values into the sole using `if` arm only when TNH is enabled; default trap timing remains protected.
+- Validation: red-first TNH positive failed before implementation, focused `code_pushing_test.mbt` passed `125/125`, `moon fmt`, `moon info`, `moon test src/passes` (`2834/2834`), native `src/cmd` build, and bounded `code-pushing-all` smoke `.tmp/pass-fuzz-code-pushing-all-1000-20260625-binrep002-tnh` passed with `1000/1000` compared, `466` normalized, `534` cleanup-normalized, raw mismatches/failures `0` under `--normalize local-cleanup-debris`.
+- Updated `agent-todo.md`, the `code-pushing` wiki pages, and the generated `src/passes/pkg.generated.mbti` public API snapshot. `[O4Z-AUDIT-CP-BINREP]` remains active for `ignore-implicit-traps`, intrinsic no-effects calls, GC/ref surfaces, source-order refinements, and low-priority branch/switch probes.
+
+## [2026-06-25] passes/code-pushing | Document TNH context blocker
+
+- Filed [`raw/research/0894-2026-06-25-code-pushing-tnh-context-blocker.md`](raw/research/0894-2026-06-25-code-pushing-tnh-context-blocker.md) for `[CP-BINREP-002]` after inspecting the local trap-mode plumbing.
+- Finding: `HotPipelineOptions` and CLI config carry `traps_never_happen`, but `HotPassContext` does not expose trap mode to hot function passes, while `code_pushing_node_is_movable_value(...)` currently rejects exact trapping integer div/rem opcodes unconditionally.
+- This is a blocker, not an accepted non-goal: `[CP-BINREP-002]` remains open and should add red default-vs-TNH tests plus explicit hot-pass context plumbing/API snapshot review before relaxing code-pushing trap gates.
+
+## [2026-06-25] passes/code-pushing | Add dependency-chain into-if sinking
+
+- Filed [`raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md`](raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md) for `[CP-BINREP-001]`, the first replacement-oriented follow-up after the v0.1.0 direct-pass closeout.
+- Starshine now sinks consecutive SFA local-copy dependency chains into the sole consuming void-`if` arm while preserving source order and rejecting source/moved-local writes in the arm. Focused red-first coverage failed before implementation (`expected nop`) and then passed with the boundary test.
+- Validation: focused `code_pushing_test.mbt` passed `123/123`; `moon fmt`, `moon test src/passes` (`2832/2832`), native `src/cmd` build, and `moon info` passed with pre-existing warnings; bounded `code-pushing-all` smoke `.tmp/pass-fuzz-code-pushing-all-1000-20260625-binrep001-local-cleanup-rerun2` compared `1000/1000`, `466` normalized, `534` cleanup-normalized, raw mismatches/failures `0` under `--normalize local-cleanup-debris`.
+- Updated `agent-todo.md` and the `code-pushing` segment/barrier page. `[O4Z-AUDIT-CP-BINREP]` remains active for trap-mode, `ignore-implicit-traps`, intrinsic no-effects calls, GC/ref, broader ordering, and low-priority branch/switch follow-ups.
+
+## [2026-06-25] passes/code-pushing | Close O4z direct-pass audit
+
+- Filed [`raw/research/0892-2026-06-25-code-pushing-final-closeout.md`](raw/research/0892-2026-06-25-code-pushing-final-closeout.md) as the source-backed stop condition for `[O4Z-AUDIT-CP]`.
+- Closeout evidence cites the current four-lane direct-compare matrix: `0888` dedicated `code-pushing-all` (`10000/10000`, `4769` normalized, `5231` cleanup-normalized, `0` raw mismatches/failures), `0889` explicit wasm-smith (`9956/10000` normalized, `44` Binaryen/tool command failures, `0` raw mismatches), `0890` regular GenValid (`100000/100000` normalized, `0` failures), and `0891` broad named `pass-fuzz-stress` (`10000/10000` normalized, `0` failures).
+- Validation: `moon info`, `moon fmt`, focused `src/passes/code_pushing_test.mbt` (`121/121`), `moon test src/passes` (`2830/2830`), full `moon test` (`6160/6160`), and native release `src/cmd` build all passed; `moon info` retained existing warnings in `src/validate`.
+- Updated the `code-pushing` wiki pages and `agent-todo.md` to mark the v0.1.0 direct-pass audit closed with explicit reopening criteria. The closeout does not claim raw output parity or public preset-neighborhood parity.
+
+## [2026-06-25] passes/code-pushing | Refresh post-0890 pass-fuzz-stress 10000
+
+- Filed [`raw/research/0891-2026-06-25-code-pushing-pass-fuzz-stress-post-0890-10000.md`](raw/research/0891-2026-06-25-code-pushing-pass-fuzz-stress-post-0890-10000.md) after refreshing the broad named `pass-fuzz-stress` lane with the current native binary.
+- `.tmp/pass-fuzz-code-pushing-pass-fuzz-stress-10000-20260625-post-0890` used seed `0x5555`, `--gen-valid-profile pass-fuzz-stress`, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe`; it compared `10000/10000`, normalized `10000`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property/command failures `0`, Binaryen cache `10000 hits/0 misses`, and Binaryen failure cache `0 hits/0 misses`.
+- This satisfies the current broad named final-closeout lane. The four direct-compare lanes are current as `0888`/`0889`/`0890`/`0891`, but final `[O4Z-AUDIT-CP]` closeout still needs an explicit source-backed stop condition.
+
+## [2026-06-25] passes/code-pushing | Refresh post-0889 regular GenValid 100000
+
+- Filed [`raw/research/0890-2026-06-25-code-pushing-regular-post-0889-100000.md`](raw/research/0890-2026-06-25-code-pushing-regular-post-0889-100000.md) after refreshing the regular GenValid lane with the current native binary.
+- `.tmp/pass-fuzz-code-pushing-regular-100000-20260625-post-0889` used seed `0x5eed`, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe`; it compared `100000/100000`, normalized `100000`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property/command failures `0`, Binaryen cache `100000 hits/0 misses`, and Binaryen failure cache `0 hits/0 misses`.
+- This satisfies the current regular GenValid final-closeout lane, but final `[O4Z-AUDIT-CP]` closeout still needs broad named `pass-fuzz-stress` 10000 and an explicit source-backed stop condition.
+
+## [2026-06-25] passes/code-pushing | Refresh post-0888 wasm-smith 10000
+
+- Filed [`raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md`](raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md) after refreshing the explicit wasm-smith lane with the current native binary.
+- `.tmp/pass-fuzz-code-pushing-wasm-smith-10000-20260625-post-0888` used seed `0x5eed`, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe`; it compared `9956/10000`, normalized `9956`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property failures `0`, and command failures `44` classified as cached Binaryen/tool classes (`39` rec-group-zero, `3` bad-section-size, `1` invalid-tag-index, `1` table-index-out-of-range).
+- This satisfies the current explicit wasm-smith final-closeout lane, but final `[O4Z-AUDIT-CP]` closeout still needs regular 100000, broad named `pass-fuzz-stress` 10000, and an explicit source-backed stop condition.
+
+## [2026-06-25] passes/code-pushing | Refresh post-0887 code-pushing-all 10000
+
+- Filed [`raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md`](raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md) after refreshing the dedicated `code-pushing-all` 10000 lane with the current native binary and `--normalize local-cleanup-debris`.
+- `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-0887` used seed `0x5eed`, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe`; it compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, validation/generator/property/command failures `0`, Binaryen cache `10000 hits/0 misses`, and Binaryen failure cache `0 hits/0 misses`.
+- This satisfies the post-`0884`/post-`0887` dedicated aggregate lane, but final `[O4Z-AUDIT-CP]` closeout still needs regular 100000, explicit wasm-smith 10000, broad named `pass-fuzz-stress` 10000, and an explicit stop condition.
+
+## [2026-06-25] passes/code-pushing | Refine nested disjoint global roots
+
+- Filed [`raw/research/0887-2026-06-25-code-pushing-nested-global-set-root-refinements.md`](raw/research/0887-2026-06-25-code-pushing-nested-global-set-root-refinements.md) after local Binaryen v130 moved `global.get G0; local.set` across a nested block with two direct disjoint `global.set` roots, but kept it before a nested block with a live `drop(local.get)` separator and before a nested sub-block containing the disjoint write.
+- Added focused Starshine coverage for the multiple-direct-write movement case and two intentionally unsupported/Binaryen-stationary boundaries. The current narrowed nested disjoint-global gate already matched all three shapes, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*multiple other global.set roots*'`, `*drop local separator*`, and `*nested sub-block disjoint global.set*` each passed `1/1`. Final closeout still needs post-`0884` matrix lanes.
+
+## [2026-06-25] passes/code-pushing | Refresh post-0884 aggregate smoke
+
+- Filed [`raw/research/0886-2026-06-25-code-pushing-all-post-0884-smoke.md`](raw/research/0886-2026-06-25-code-pushing-all-post-0884-smoke.md) after rebuilding native `src/cmd` and running a bounded dedicated `code-pushing-all` smoke with `_build/native/release/build/cmd/cmd.exe`.
+- `.tmp/pass-fuzz-code-pushing-all-post-0884-smoke-1000-local-cleanup` used seed `0x5eed`, `--jobs auto`, and `--normalize local-cleanup-debris`; it compared `1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`, validation/generator/property/command failures `0`, Binaryen cache `1000 hits/0 misses`, and Binaryen failure cache `0 hits/0 misses`.
+- This is bounded regression evidence only. Final `[O4Z-AUDIT-CP]` closeout still needs post-`0884` regular 100000, explicit wasm-smith 10000, dedicated `code-pushing-all` 10000, and broad named `pass-fuzz-stress` 10000 lanes.
+
+## [2026-06-25] passes/code-pushing | Keep nested disjoint call-valued global writes stationary
+
+- Filed [`raw/research/0885-2026-06-25-code-pushing-nested-disjoint-global-set-call-boundary.md`](raw/research/0885-2026-06-25-code-pushing-nested-disjoint-global-set-call-boundary.md) after local Binaryen v130 kept `global.get G0; local.set` before a nested block containing `global.set G1 (call $callee)` and a later `br_if`.
+- Added intentionally unsupported/Binaryen-stationary Starshine coverage in `src/passes/code_pushing_test.mbt`; the current narrowed nested disjoint-global gate already preserved the shape, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*nested disjoint global.set call value*'` passed `1/1`. Final closeout still needs post-`0884` matrix lanes.
+
+## [2026-06-25] passes/code-pushing | Move nested disjoint globals across pure roots
+
+- Filed [`raw/research/0884-2026-06-25-code-pushing-nested-disjoint-global-set-pure-root-window.md`](raw/research/0884-2026-06-25-code-pushing-nested-disjoint-global-set-pure-root-window.md) after local Binaryen v130 moved `global.get G0; local.set` across a nested block containing a disjoint `global.set G1` plus either `nop` or dead `drop(const)`, but kept the candidate before a nested block that also writes matching `G0`.
+- Added red-first Starshine coverage for the pure-root nested block and boundary coverage for the nested matching-global case. `src/passes/code_pushing.mbt` now allows only `nop` / dead `drop(const)` roots alongside direct disjoint global writes in that nested exception.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*pure roots*'` failed before implementation then passed `1/1`; `*matching global.set*` passed `1/1`. This behavior change supersedes post-`0881` final-matrix freshness; final closeout now needs post-`0884` lanes.
+
+## [2026-06-25] passes/code-pushing | Refresh post-0881 aggregate smoke
+
+- Filed [`raw/research/0883-2026-06-25-code-pushing-all-post-0881-smoke.md`](raw/research/0883-2026-06-25-code-pushing-all-post-0881-smoke.md) after rebuilding native `src/cmd` and running a bounded dedicated `code-pushing-all` smoke with `_build/native/release/build/cmd/cmd.exe`.
+- `.tmp/pass-fuzz-code-pushing-all-post-0881-smoke-1000-local-cleanup` used seed `0x5eed`, `--jobs auto`, and `--normalize local-cleanup-debris`; it compared `1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`, validation/generator/property/command failures `0`, Binaryen cache `1000 hits/0 misses`, and Binaryen failure cache `0 hits/0 misses`.
+- This is bounded regression evidence only. Final `[O4Z-AUDIT-CP]` closeout still needs post-`0881` regular 100000, explicit wasm-smith 10000, dedicated `code-pushing-all` 10000, and broad named `pass-fuzz-stress` 10000 lanes.
+
+## [2026-06-25] passes/code-pushing | Keep multitable read/write stationary
+
+- Filed [`raw/research/0882-2026-06-25-code-pushing-multitable-read-write-boundary.md`](raw/research/0882-2026-06-25-code-pushing-multitable-read-write-boundary.md) after local Binaryen v130 kept `table.get T0; local.set` before `table.set T1` and a later `br_if` when `T0 != T1`.
+- Added intentionally unsupported/Binaryen-stationary Starshine coverage in `src/passes/code_pushing_test.mbt`; existing movable-value gates already preserved the shape, so no pass implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*other table.set*'` passed `1/1`. This boundary does not refresh the post-`0881` final matrix requirement.
+
+## [2026-06-25] passes/code-pushing | Refine disjoint global read movement
+
+- Filed [`raw/research/0881-2026-06-25-code-pushing-nested-disjoint-global-set-movement.md`](raw/research/0881-2026-06-25-code-pushing-nested-disjoint-global-set-movement.md) after local Binaryen v130 moved `global.get G0; local.set` after a nested block containing only `global.set G1` and a later `br_if`, but kept the candidate before a disjoint `global.set G1` whose value contains a call.
+- Added red-first Starshine coverage in `src/passes/code_pushing_test.mbt`: one Binaryen-positive nested-disjoint movement test and one intentionally unsupported/Binaryen-stationary call-valued disjoint-write boundary. `src/passes/code_pushing.mbt` now restricts the disjoint-global exception to direct or one-block disjoint global writes without call/throw/memory-write/table-write value effects.
+- Validation: focused filters `*nested other global.set*`, `*disjoint global.set call value*`, `*other global.set*`, and `*global.get value before global.set*` passed after the first two failed before implementation. This behavior change means final closeout now needs post-`0881` matrix lanes.
+
+## [2026-06-25] passes/code-pushing | Keep nonmatching memory/table reads stationary
+
+- Filed [`raw/research/0880-2026-06-25-code-pushing-nonmatching-state-read-write-boundaries.md`](raw/research/0880-2026-06-25-code-pushing-nonmatching-state-read-write-boundaries.md) after local Binaryen v130 kept `i32.load` before unrelated `table.set` and `table.get` before unrelated `i32.store` before later `br_if`.
+- Added intentionally unsupported/Binaryen-stationary Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing movable-value gate already preserved both shapes, so no pass implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*before table.set*'` and `moon test --target native src/passes/code_pushing_test.mbt --filter '*before memory.store*'` both passed `2/2`, including earlier matching-write boundary tests selected by those filters. This characterization does not refresh the post-`0879` final matrix requirement.
+
+## [2026-06-25] passes/code-pushing | Move global.get across disjoint global.set
+
+- Filed [`raw/research/0879-2026-06-25-code-pushing-disjoint-global-set-movement.md`](raw/research/0879-2026-06-25-code-pushing-disjoint-global-set-movement.md) after local Binaryen v130 moved `global.get G0; local.set` after a direct `global.set G1` and later `br_if` when `G0 != G1`.
+- Added red-first Starshine coverage in `src/passes/code_pushing_test.mbt` and implemented a narrow direct-root disjoint-global crossing check in `src/passes/code_pushing.mbt`; the existing matching-global boundary remains green.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*other global.set*'` and `moon test --target native src/passes/code_pushing_test.mbt --filter '*global.get value before global.set*'` both passed `1/1`. This behavior change means final closeout still needs refreshed post-`0861`/post-`0879` matrix lanes.
+
+## [2026-06-25] passes/code-pushing | Keep memory/table reads before matching writes
+
+- Filed [`raw/research/0878-2026-06-25-code-pushing-state-read-mutation-boundary.md`](raw/research/0878-2026-06-25-code-pushing-state-read-mutation-boundary.md) after local Binaryen v130 kept `i32.load` and `table.get` candidate `local.set` roots before matching `i32.store` / `table.set` roots and later `br_if`.
+- Added intentionally unsupported/Binaryen-stationary Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing effect/order barriers already preserved both shapes, so no pass implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*value before*'` passed `5/5`, including the earlier global/size boundary tests matched by the same filter. This boundary does not supersede the post-`0861` final matrix refresh requirement and narrows the pure-value memory/table write findings: state-reading candidate values cannot cross matching writes without fresh source-backed proof.
+
+## [2026-06-25] passes/code-pushing | Keep size reads before matching growth
+
+- Filed [`raw/research/0877-2026-06-25-code-pushing-size-read-mutation-boundary.md`](raw/research/0877-2026-06-25-code-pushing-size-read-mutation-boundary.md) after local Binaryen v130 kept `memory.size` and `table.size` candidate `local.set` roots before matching `memory.grow` / `table.grow` roots and later `br_if`.
+- Added intentionally unsupported/Binaryen-stationary Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing effect/order barriers already preserved both shapes, so no pass implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*size value before*'` passed `2/2`. This boundary does not supersede the post-`0861` final matrix refresh requirement and narrows the pure-value size/growth findings: size-dependent candidate values cannot cross matching growth without fresh source-backed proof.
+
+## [2026-06-25] passes/code-pushing | Keep global read before global mutation
+
+- Filed [`raw/research/0876-2026-06-25-code-pushing-global-read-mutation-boundary.md`](raw/research/0876-2026-06-25-code-pushing-global-read-mutation-boundary.md) after local Binaryen v130 kept a `global.get` candidate `local.set` before an intervening matching `global.set` and later `br_if`.
+- Added intentionally unsupported/Binaryen-stationary Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing effect/order barriers already preserved the shape, so no pass implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*global.get value before global.set*'` passed `1/1`. This boundary does not supersede the post-`0861` final matrix refresh requirement and narrows the previous pure-value-across-`global.set` finding: state-reading candidate values cannot cross matching mutation without fresh source-backed proof.
+
+## [2026-06-25] passes/code-pushing | Move pure value across table.init/elem.drop
+
+- Filed [`raw/research/0875-2026-06-25-code-pushing-table-segment-root-movement.md`](raw/research/0875-2026-06-25-code-pushing-table-segment-root-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after intervening `table.init` / `elem.drop` roots and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched both Binaryen-positive shapes, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*table.init before br_if*'` and `moon test --target native src/passes/code_pushing_test.mbt --filter '*elem.drop before br_if*'` each passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement and does not permit table-reading, element-segment-dependent, reference-sensitive, or trap-sensitive candidate values to cross table-segment roots.
+
+## [2026-06-25] passes/code-pushing | Move pure value across memory.init/data.drop
+
+- Filed [`raw/research/0874-2026-06-25-code-pushing-memory-segment-root-movement.md`](raw/research/0874-2026-06-25-code-pushing-memory-segment-root-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after intervening `memory.init` / `data.drop` roots and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched both Binaryen-positive shapes, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*memory.init before br_if*'` and `moon test --target native src/passes/code_pushing_test.mbt --filter '*data.drop before br_if*'` each passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement and does not permit memory-reading, data-segment-dependent, or trap-sensitive candidate values to cross memory-segment roots.
+
+## [2026-06-25] passes/code-pushing | Move pure value across size-read roots
+
+- Filed [`raw/research/0873-2026-06-25-code-pushing-size-read-root-movement.md`](raw/research/0873-2026-06-25-code-pushing-size-read-root-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after dropped `memory.size` / `table.size` roots and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched both Binaryen-positive shapes, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*memory.size before br_if*'` and `moon test --target native src/passes/code_pushing_test.mbt --filter '*table.size before br_if*'` each passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement and does not permit size-dependent candidate values to cross memory/table mutation.
+
+## [2026-06-25] passes/code-pushing | Move pure value across table.copy/table.fill
+
+- Filed [`raw/research/0872-2026-06-25-code-pushing-table-bulk-movement.md`](raw/research/0872-2026-06-25-code-pushing-table-bulk-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after intervening `table.copy` / `table.fill` roots and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched both Binaryen-positive shapes, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*table.copy before br_if*'` and `moon test --target native src/passes/code_pushing_test.mbt --filter '*table.fill before br_if*'` each passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Move pure value across memory.fill
+
+- Filed [`raw/research/0871-2026-06-25-code-pushing-memory-fill-movement.md`](raw/research/0871-2026-06-25-code-pushing-memory-fill-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after an intervening `memory.fill` and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched the Binaryen-positive shape, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*memory.fill before br_if*'` passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Move pure value across memory.copy
+
+- Filed [`raw/research/0870-2026-06-25-code-pushing-memory-copy-movement.md`](raw/research/0870-2026-06-25-code-pushing-memory-copy-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after an intervening `memory.copy` and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched the Binaryen-positive shape, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*memory.copy before br_if*'` passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Move pure value across table.grow
+
+- Filed [`raw/research/0869-2026-06-25-code-pushing-table-grow-movement.md`](raw/research/0869-2026-06-25-code-pushing-table-grow-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after an intervening dropped `table.grow` and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched the Binaryen-positive shape, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*table.grow before br_if*'` passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Move pure value across memory.grow
+
+- Filed [`raw/research/0868-2026-06-25-code-pushing-memory-grow-movement.md`](raw/research/0868-2026-06-25-code-pushing-memory-grow-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after an intervening dropped `memory.grow` and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched the Binaryen-positive shape, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*memory.grow before br_if*'` passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Move pure value across memory.store
+
+- Filed [`raw/research/0867-2026-06-25-code-pushing-memory-store-movement.md`](raw/research/0867-2026-06-25-code-pushing-memory-store-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after an intervening `i32.store` and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched the Binaryen-positive shape, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*memory.store before br_if*'` passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Move pure value across table.set
+
+- Filed [`raw/research/0866-2026-06-25-code-pushing-table-set-movement.md`](raw/research/0866-2026-06-25-code-pushing-table-set-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after an intervening `table.set` and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched the Binaryen-positive shape, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*table.set before br_if*'` passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Move pure value across global.set
+
+- Filed [`raw/research/0865-2026-06-25-code-pushing-global-set-movement.md`](raw/research/0865-2026-06-25-code-pushing-global-set-movement.md) after local Binaryen v130 moved a pure constant SFA `local.set` after an intervening `global.set` and later `br_if`.
+- Added focused Starshine coverage in `src/passes/code_pushing_test.mbt`; the existing segment path already matched the Binaryen-positive shape, so no implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*global.set before br_if*'` passed `1/1`. This characterization-only positive slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Cover try_table multi-catch boundary
+
+- Filed [`raw/research/0864-2026-06-25-code-pushing-try-table-multi-catch-boundary.md`](raw/research/0864-2026-06-25-code-pushing-try-table-multi-catch-boundary.md) after local Binaryen v130 kept a pure SFA `local.set` before a reduced `try_table (catch $e ...) (catch_all ...)` root and later `br_if`.
+- Added intentionally unsupported/Binaryen-stationary focused coverage in `src/passes/code_pushing_test.mbt`; the existing `HotOp::TryTable` barrier already preserved the shape, so no implementation or GenValid leaf changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*multi-catch try_table*'` passed `1/1`. This characterization-only slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Cover try_table catch payload boundaries
+
+- Filed [`raw/research/0863-2026-06-25-code-pushing-try-table-catch-payload-boundaries.md`](raw/research/0863-2026-06-25-code-pushing-try-table-catch-payload-boundaries.md) after local Binaryen v130 kept a pure SFA `local.set` before `try_table` roots using tag-payload `catch` and payload-plus-reference `catch_ref` handlers and a later `br_if`.
+- Added intentionally unsupported/Binaryen-stationary focused coverage in `src/passes/code_pushing_test.mbt`; existing `HotOp::TryTable` barriers already preserved both shapes, so no implementation or GenValid leaf changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*payload catch try_table*'` and `moon test --target native src/passes/code_pushing_test.mbt --filter '*catch_ref try_table*'` each passed `1/1`. This characterization-only slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Cover try_table catch_all_ref boundary
+
+- Filed [`raw/research/0862-2026-06-25-code-pushing-try-table-catch-all-ref-boundary.md`](raw/research/0862-2026-06-25-code-pushing-try-table-catch-all-ref-boundary.md) after local Binaryen v130 kept a pure SFA `local.set` before a reference-carrying `try_table (catch_all_ref ...)` root and later `br_if`.
+- Added intentionally unsupported/Binaryen-stationary focused coverage in `src/passes/code_pushing_test.mbt`; existing `HotOp::TryTable` barriers already preserved the shape, so no implementation or GenValid leaf changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*catch_all_ref try_table*'` passed `1/1`. This characterization-only slice does not supersede the post-`0861` final matrix refresh requirement.
+
+## [2026-06-25] passes/code-pushing | Keep rethrowing legacy try stationary
+
+- Filed [`raw/research/0861-2026-06-25-code-pushing-rethrow-boundary.md`](raw/research/0861-2026-06-25-code-pushing-rethrow-boundary.md) after local Binaryen v130 validated a legacy `try`/`catch` shape with `rethrow` and kept the pure SFA `local.set` before the EH root and later `br_if`.
+- Added red-first focused direct-HOT coverage in `src/passes/code_pushing_test.mbt`; it initially failed with Starshine moving the set after `br_if`, then passed after the pass began treating crossed HOT subtrees/regions containing `Rethrow` as segment barriers.
+- Validation: `*rethrowing legacy try*` passed `1/1`; full focused `*code-pushing*` passed `85/85`; `moon fmt`, `moon info`, native `src/cmd` build, and `git diff --check` passed with pre-existing warnings where noted; bounded `code-pushing-all` smoke at `.tmp/pass-fuzz-code-pushing-all-rethrow-1000-20260625` compared `1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`. Final `[O4Z-AUDIT-CP]` closeout remains open; because behavior changed after `0858`, all closeout matrix lanes need post-`0861` refreshes.
+
+## [2026-06-25] passes/code-pushing | Keep try_table as EH barrier
+
+- Filed [`raw/research/0858-2026-06-25-code-pushing-try-table-boundary.md`](raw/research/0858-2026-06-25-code-pushing-try-table-boundary.md) after local Binaryen v130 validated a `try_table (catch_all ...)` before later `br_if` probe and kept the pure SFA `local.set` before `try_table`.
+- Added red-first intentionally unsupported/Binaryen-stationary focused coverage in `src/passes/code_pushing_test.mbt`; it initially failed with Starshine moving the set after `br_if`, then passed after `HotOp::Try`/`HotOp::TryTable` became hard segment-order barriers.
+- Validation: `*try_table*`, `*plain throw*`, `*throw_ref*`, and full focused `*code-pushing*` (`82/82`) tests passed; `moon fmt`, `moon info`, native `src/cmd` build, and a 1000-case `code-pushing-all` smoke at `.tmp/pass-fuzz-code-pushing-all-try-table-1000-20260625` passed (`1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`). Final `[O4Z-AUDIT-CP]` closeout remains open; because behavior changed after `0856` and `0857`, all closeout matrix lanes now need post-`0858` refreshes.
+
+## [2026-06-25] passes/code-pushing | Keep plain throw as EH barrier
+
+- Filed [`raw/research/0857-2026-06-25-code-pushing-plain-throw-boundary.md`](raw/research/0857-2026-06-25-code-pushing-plain-throw-boundary.md) after local Binaryen v130 validated a tag-based `throw` before later `br_if` probe and kept the pure SFA `local.set` before `throw`.
+- Added red-first intentionally unsupported/Binaryen-stationary focused coverage in `src/passes/code_pushing_test.mbt`; it initially failed with Starshine moving the set after `br_if`, then passed after `HotOp::Throw`/`HotOp::Rethrow` became hard segment-order barriers while preserving the source-backed `throw_ref` movement from `0855`.
+- Validation: `*plain throw*`, `*throw_ref*`, `*call barrier*`, and full focused `*code-pushing*` (`81/81`) tests passed; `moon fmt`, `moon info`, native `src/cmd` build, and a 1000-case `code-pushing-all` smoke at `.tmp/pass-fuzz-code-pushing-all-plain-throw-1000-20260625` passed (`1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`). Final `[O4Z-AUDIT-CP]` closeout remains open; because behavior changed after `0856`, all closeout matrix lanes now need post-`0857` refreshes.
+
+## [2026-06-25] passes/code-pushing | Refresh code-pushing-all after throw_ref
+
+- Filed [`raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md`](raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md) after rerunning the 19-leaf `code-pushing-all` dedicated profile with the post-`throw_ref` native CLI.
+- `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-throw-ref` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected all 19 aggregate leaves.
+- This supersedes the post-call-barrier dedicated lane in `0851` for current dedicated-profile closeout-progress evidence. Final `[O4Z-AUDIT-CP]` closeout still needs remaining source-gap work plus then-current regular, wasm-smith, and broad named lanes.
+
+## [2026-06-25] passes/code-pushing | Move across throw_ref before br_if
+
+- Filed [`raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md`](raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md) after local Binaryen v130 moved a pure SFA `local.set` after a later `br_if` despite an intervening non-fallthrough `throw_ref` root.
+- Added red-first focused coverage in `src/passes/code_pushing_test.mbt`; it initially failed with the set still before `throw_ref`, then passed after Starshine kept calls as hard segment-order barriers but stopped treating `throw_ref` itself as that hard barrier for pure-value single-set movement.
+- Validation: `*throw_ref*`, `*call barrier*`, and full focused `*code-pushing*` (`80/80`) passed; `moon fmt`, `moon info`, native `src/cmd` build, and a bounded `code-pushing-all` 1000-case smoke passed with `0` raw mismatches/failures. Final closeout remains open and needs then-current matrix refreshes after this behavior change.
+
+## [2026-06-25] passes/code-pushing | Refresh regular GenValid after call barrier
+
+- Filed [`raw/research/0854-2026-06-25-code-pushing-regular-100000-post-call-barrier-refresh.md`](raw/research/0854-2026-06-25-code-pushing-regular-100000-post-call-barrier-refresh.md) after rerunning the large regular GenValid lane with the rebuilt native CLI from the call-barrier fix.
+- `.tmp/pass-fuzz-code-pushing-regular-100000-20260625-post-bbb` compared `100000/100000`, normalized `100000`, cleanup-normalized `0`, raw mismatches/failures `0`, validation/generator/property failures `0`, command failures `0`, Binaryen cache `100000 hits/0 misses`, and selected `binaryen-oracle-portable: 100000`.
+- This supersedes the pre-call-barrier regular 100000 lane in `0845` for current closeout-progress evidence; final `[O4Z-AUDIT-CP]` closeout still needs remaining source gaps/accepted boundaries and an explicit stop condition.
+
+## [2026-06-25] passes/code-pushing | Refresh pass-fuzz-stress after call barrier
+
+- Filed [`raw/research/0853-2026-06-25-code-pushing-pass-fuzz-stress-post-call-barrier-refresh.md`](raw/research/0853-2026-06-25-code-pushing-pass-fuzz-stress-post-call-barrier-refresh.md) after rerunning the broad named `pass-fuzz-stress` GenValid lane with the rebuilt native CLI from the call-barrier fix.
+- `.tmp/pass-fuzz-code-pushing-pass-fuzz-stress-10000-20260625-post-aaa` compared `10000/10000`, normalized `10000`, cleanup-normalized `0`, raw mismatches/failures `0`, validation/generator/property failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected `pass-fuzz-stress: 10000`.
+- This supersedes the pre-call-barrier broad named lane in `0849` for current closeout-progress evidence; final `[O4Z-AUDIT-CP]` closeout still needs remaining source gaps/accepted boundaries, then-current matrix lanes, and an explicit stop condition.
+
+## [2026-06-25] passes/code-pushing | Refresh wasm-smith after call barrier
+
+- Filed [`raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md`](raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md) after rerunning the explicit `wasm-smith` lane with the rebuilt native CLI from the call-barrier fix.
+- `.tmp/pass-fuzz-code-pushing-wasm-smith-10000-20260625-post-zz` compared `9956/10000`, normalized `9956`, cleanup-normalized `0`, raw mismatches/failures `0`, validation/generator/property failures `0`, and command failures `44`.
+- Agent classification: all command failures are Binaryen/tool classes (`binaryen-rec-group-zero: 39`, `binaryen-bad-section-size: 3`, `binaryen-invalid-tag-index: 1`, `binaryen-table-index-out-of-range: 1`), with no Starshine failures. Final closeout remains open.
+
+## [2026-06-25] passes/code-pushing | Refresh code-pushing-all after call barrier
+
+- Filed [`raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md`](raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md) after rerunning the 19-leaf `code-pushing-all` dedicated profile with the rebuilt native CLI from the call-barrier fix.
+- `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-yy` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected all 19 aggregate leaves.
+- This supersedes the pre-call-barrier 10000-case dedicated lane for current closeout-progress evidence; final `[O4Z-AUDIT-CP]` closeout still requires remaining source gaps/accepted boundaries, then-current matrix lanes, and an explicit stop condition.
+
+## [2026-06-25] passes/code-pushing | Fix call barrier before br_if
+
+- Filed [`raw/research/0850-2026-06-25-code-pushing-call-barrier.md`](raw/research/0850-2026-06-25-code-pushing-call-barrier.md) after local Binaryen v130 kept a pure SFA `local.set` before an intervening call and later `br_if` push point.
+- Added red-first focused coverage in `src/passes/code_pushing_test.mbt`; it initially failed with Starshine moving the set after the branch, then passed after adding a call/throw segment-order barrier for single-set movement.
+- The full focused `*code-pushing*` filter passed `79/79` after also restoring the generated-prefix `br_on_non_null` helper to block-label targets only, preserving the documented loop-label stationary boundary.
+- Post-fix aggregate smoke `.tmp/pass-fuzz-code-pushing-all-call-barrier-1000-20260625` compared `1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`, and command failures `0`; final `[O4Z-AUDIT-CP]` closeout remains open and needs a refreshed 10000 dedicated lane after this behavior change.
+
+## [2026-06-25] passes/code-pushing | Refresh pass-fuzz-stress after br_table boundary
+
+- Filed [`raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md`](raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md) after rerunning the broad named `pass-fuzz-stress` GenValid lane for direct `code-pushing`.
+- `.tmp/pass-fuzz-code-pushing-pass-fuzz-stress-10000-20260625-post-ww` compared `10000/10000`, normalized `10000`, cleanup-normalized `0`, raw mismatches/failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected profile counts `pass-fuzz-stress: 10000`.
+- This refreshes broad named-profile closeout-progress evidence after the multi-label `br_table` boundary slice; final `[O4Z-AUDIT-CP]` closeout remains open until source gaps/accepted boundaries, all then-current matrix lanes, and an explicit stop condition are complete.
+
+## [2026-06-25] passes/code-pushing | Document multi-label br_table boundary
+
+- Filed [`raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md`](raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md) after local Binaryen v130 validated a nested-block `br_table $inner $outer $inner` probe and kept the pure SFA `local.set` before the switch.
+- Added intentionally unsupported/Binaryen-stationary focused coverage in `src/passes/code_pushing_test.mbt`; `moon test --target native src/passes/code_pushing_test.mbt --filter '*multi-label br_table*'` passed `1/1`.
+- This narrows one switch boundary only. It does not add switch mutation or a `code-pushing-all` GenValid leaf, and broader `br_table` surfaces remain open under `[O4Z-AUDIT-CP]`.
+
+## [2026-06-25] passes/code-pushing | Refresh code-pushing-all after boundary probe
+
+- Filed [`raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md`](raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md) after rerunning the 19-leaf `code-pushing-all` dedicated profile with `--normalize local-cleanup-debris`.
+- `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-uu` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and all 19 aggregate leaves selected.
+- This keeps the dedicated-profile closeout-progress lane fresh after the docs-only `br_on_null` prefix boundary probe; final `[O4Z-AUDIT-CP]` closeout still needs source gap resolution/accepted boundaries plus the remaining then-current matrix lanes and explicit stop condition.
+
+## [2026-06-25] passes/code-pushing | Probe br_on_null prefix boundary
+
+- Filed [`raw/research/0846-2026-06-25-code-pushing-br-on-null-prefix-boundary.md`](raw/research/0846-2026-06-25-code-pushing-br-on-null-prefix-boundary.md) after local Binaryen v130 validated a result-block `br_on_null` with an explicit prefix payload and kept the pure SFA `local.set` before the branch rewrite.
+- Commands passed: `wasm-tools parse`, `wasm-tools validate --features all`, `wasm-opt --version` (`version_130`), and `wasm-opt --all-features --code-pushing -S`.
+- Classification: narrow Binaryen-stationary boundary. No movement implementation or GenValid leaf was added; focused Starshine boundary coverage remains blocked until the local WAT/HOT surface can represent this exact multi-value branch/fallthrough stack shape.
+
+## [2026-06-25] passes/code-pushing | Refresh regular GenValid 100000 lane
+
+- Filed [`raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md`](raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md) after running the required large regular GenValid lane for direct `code-pushing` with `--normalize local-cleanup-debris`.
+- `.tmp/pass-fuzz-code-pushing-regular-100000-20260625` compared `100000/100000`, normalized `100000`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, and Binaryen cache `10356 hits/89644 misses`.
+- This is closeout-progress evidence for the regular lane, not final `[O4Z-AUDIT-CP]` closeout; source-backed gaps/accepted boundaries, remaining matrix lanes, and an explicit stop condition must still be then-current.
+
+## [2026-06-25] passes/code-pushing | Document br_on_cast prefix boundaries
+
+- Filed [`raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md`](raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md) after local Binaryen v130 validated two-result block-label `br_on_cast` and `br_on_cast_fail` prefix-payload probes but kept the pure SFA `local.set` before each branch.
+- Added intentionally unsupported/Binaryen-stationary HOT coverage in `src/passes/code_pushing_test.mbt`; `moon test --target native src/passes/code_pushing_test.mbt --filter '*prefix payload*'` passed `2/2`.
+- This is a narrow accepted stationary boundary for those two cast prefix-payload probes only. It does not add mutation support or a `code-pushing-all` leaf; broader prefix-payload/reference-carrying forms remain open under `[O4Z-AUDIT-CP]`.
+
+## [2026-06-25] passes/code-pushing | Document value br_table boundary
+
+- Filed [`raw/research/0843-2026-06-25-code-pushing-value-br-table-boundary.md`](raw/research/0843-2026-06-25-code-pushing-value-br-table-boundary.md) after a local Binaryen v130 probe kept a pure SFA `local.set` before a value-carrying `br_table` to a result block.
+- Added focused boundary coverage in `src/passes/code_pushing_test.mbt`; `moon test --target native src/passes/code_pushing_test.mbt --filter '*value br_table*'` passed `1/1`, and the broader `*br_table*` filter passed `3/3`.
+- This is an intentionally narrow unsupported/Binaryen-stationary boundary. It does not add switch mutation or a `code-pushing-all` GenValid leaf, and broader `br_table` surfaces remain open under `[O4Z-AUDIT-CP]`.
+
+## [2026-06-25] passes/code-pushing | Refresh current code-pushing-all 10000 lane
+
+- Filed [`raw/research/0842-2026-06-25-code-pushing-all-10000-current.md`](raw/research/0842-2026-06-25-code-pushing-all-10000-current.md) after rerunning the then-current 19-leaf `code-pushing-all` dedicated profile with `--normalize local-cleanup-debris`.
+- `.tmp/pass-fuzz-code-pushing-all-10000-20260625-current` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, and Binaryen cache `10000 hits/0 misses`.
+- All 19 aggregate leaves were sampled, including `code-pushing-br-on-non-null-prefix: 513` and `code-pushing-br-if-value: 516`. This supersedes earlier 17-leaf 10000-case aggregate evidence and the 19-leaf 1000-case smokes for dedicated-profile closeout-progress, but final `[O4Z-AUDIT-CP]` closeout remains open.
+
+## [2026-06-25] passes/code-pushing | Add value br_if to aggregate
+
+- Filed [`raw/research/0841-2026-06-25-code-pushing-br-if-value-aggregate-inclusion.md`](raw/research/0841-2026-06-25-code-pushing-br-if-value-aggregate-inclusion.md) after the normalized targeted value-`br_if` lane scaled to 1000 requested cases: `.tmp/pass-fuzz-code-pushing-br-if-value-copydrop-normalized-1000-20260625` compared `1000/1000` with `1000` cleanup-normalized matches and `0` raw mismatches/failures.
+- Added `CodePushingBrIfValueProfile` to `CodePushingAllProfile` test-first. The aggregate test failed before implementation because the value-branch leaf was not sampled, then focused `*code-pushing*` GenValid tests passed `3/3`; `moon fmt`, `moon info`, and `moon test src/validate` also passed with only pre-existing warnings.
+- Refreshed aggregate smoke `.tmp/pass-fuzz-code-pushing-all-br-if-value-aggregated-1000-20260625`: compared `1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`.
+
+## [2026-06-25] passes/code-pushing | Normalize value br_if local cleanup debris
+
+- Filed [`raw/research/0840-2026-06-25-code-pushing-br-if-value-local-cleanup-normalizer.md`](raw/research/0840-2026-06-25-code-pushing-br-if-value-local-cleanup-normalizer.md) after the representative value-`br_if` targeted mismatch proved to be `local.set tmp (br_if ...); drop tmp` cleanup debris after the movement fix.
+- Added red-first `local-cleanup-debris` normalizer coverage for single-use `br_if` result-drop temps. `bun test scripts/lib/pass-fuzz-compare-task.test.ts` passed `35/35`.
+- Refreshed `code-pushing-br-if-value` at 200 requested cases with `--normalize local-cleanup-debris`: `.tmp/pass-fuzz-code-pushing-br-if-value-copydrop-normalized-200-20260625` compared `200/200`, cleanup-normalized `200`, raw mismatches/failures `0`. Keep the leaf out of `code-pushing-all` until a larger targeted refresh and aggregate smoke land.
+
+## [2026-06-25] passes/code-pushing | Add br_on_non_null prefix to aggregate
+
+- Filed [`raw/research/0839-2026-06-25-code-pushing-prefix-aggregate-inclusion.md`](raw/research/0839-2026-06-25-code-pushing-prefix-aggregate-inclusion.md) after the normalized targeted prefix lane scaled to 1000 requested cases: `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-copydrop-normalized-1000-20260625` compared `1000/1000` with `1000` cleanup-normalized matches and `0` raw mismatches/failures.
+- Added `CodePushingBrOnNonNullPrefixProfile` to `CodePushingAllProfile` test-first. The aggregate test failed before implementation because the prefix leaf was not sampled, then focused `*code-pushing*` GenValid tests passed `3/3`; `moon fmt`, `moon info`, and `moon test src/validate` also passed with only pre-existing warnings.
+- Refreshed aggregate smoke `.tmp/pass-fuzz-code-pushing-all-prefix-aggregated-1000-20260625`: compared `1000/1000`, normalized `507`, cleanup-normalized `493`, raw mismatches/failures `0`. `code-pushing-br-if-value` remains targeted-only.
+
+## [2026-06-25] passes/code-pushing | Normalize br_on_non_null prefix local cleanup debris
+
+- Filed [`raw/research/0838-2026-06-25-code-pushing-prefix-local-cleanup-normalizer.md`](raw/research/0838-2026-06-25-code-pushing-prefix-local-cleanup-normalizer.md) after the exact-HOT movement fix showed the targeted prefix lane's remaining representative drift was single-use local copy/drop and tuple-local allocation debris, not missed movement.
+- Added red-first `local-cleanup-debris` normalizer coverage for single-use local copy drops and local-tee copy drops, plus tuple local declaration canonicalization. `bun test scripts/lib/pass-fuzz-compare-task.test.ts` passed `34/34`.
+- Refreshed `code-pushing-br-on-non-null-prefix` at 200 requested cases with `--normalize local-cleanup-debris`: `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-copydrop-normalized2-200-20260625` compared `200/200`, cleanup-normalized `200`, raw mismatches/failures `0`. Keep the leaf out of `code-pushing-all` until a larger targeted refresh and aggregate smoke land.
+
+## [2026-06-25] passes/code-pushing | Narrow exact HOT br_on_non_null prefix blocker
+
+- Filed [`raw/research/0837-2026-06-25-code-pushing-br-on-non-null-prefix-exact-hot.md`](raw/research/0837-2026-06-25-code-pushing-br-on-non-null-prefix-exact-hot.md) after dumping the real generated HOT for the targeted prefix-payload replay. The missed shape was a two-child `BrOnNonNull` root in a two-result block shared by duplicate top-level drops, so the previous helper rejected the branch child count and over-counted the shared block's local writes.
+- Added red-first exact-HOT coverage and a narrow fix: allow prefix-payload `BrOnNonNull` roots and use unique-node total local accounting for this helper. Focused `*exact generated br_on_non_null*` and `*br_on_non_null*` now pass, but `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-exact-20-20260625` still compared `20/20` with `20` raw mismatches, and `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-exact-200-20260625` compared `65/200` before the mismatch cap with `65` raw mismatches, due to a remaining prefix-payload lowerer/local-cleanup temp. Keep `code-pushing-br-on-non-null-prefix` out of `code-pushing-all`.
+
+## [2026-06-25] passes/code-pushing | Narrow br_on_non_null prefix lowered blocker
+
+- Filed [`raw/research/0836-2026-06-25-code-pushing-br-on-non-null-prefix-lowered-followup.md`](raw/research/0836-2026-06-25-code-pushing-br-on-non-null-prefix-lowered-followup.md) after adding a red-first focused nested-HOT regression for generated-like `br_on_non_null` prefix-payload movement. The focused test failed with user locals still before the branch, then passed after a narrow generated-prefix helper and recursive/control-child scan.
+- The real targeted generated lane remains blocked: `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-fix-200-20260625` compared `65/200` before the cap with `65` raw mismatches, and `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-fix2-20-20260625` compared `20/20` with `20` raw mismatches. Keep `code-pushing-br-on-non-null-prefix` out of `code-pushing-all`; next work should inspect the exact replayed HOT shape.
+
+## [2026-06-25] passes/code-pushing | Add br_on_non_null prefix targeted profile
+
+- Added targeted GenValid leaf `code-pushing-br-on-non-null-prefix` for the two-result block-label `br_on_non_null` prefix-payload shape. It is intentionally excluded from `code-pushing-all` after `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-200-20260625` compared `65/200` before the mismatch cap, with `65` raw mismatches and no validation/generator/property/command failures.
+- Agent classification: targeted lowering/HOT-representation blocker for generated multivalue-prefix shapes. Binaryen sinks the local sets after the rewritten `br_on_non_null`; Starshine currently leaves the generated WAT-lowered local sets before the branch. Keep the leaf targeted-only until fixed or narrowly normalized.
+
+## [2026-06-25] passes/code-pushing | Cover br_on_non_null prefix multi-set movement
+
+- Filed [`raw/research/0835-2026-06-25-code-pushing-br-on-non-null-prefix-multiset.md`](raw/research/0835-2026-06-25-code-pushing-br-on-non-null-prefix-multiset.md) after a Binaryen v130 probe showed two adjacent pure SFA `local.set` roots move after a two-result block-label `br_on_non_null` with an explicit prefix payload, preserving source order.
+- Added focused HOT coverage in `src/passes/code_pushing_wbtest.mbt`. The test passed without extra implementation because the ordered multi-set helper already uses the narrowed block-label `BrOnNonNull` support added by the single-set prefix-payload slice. Prefix-payload coverage remains focused-test/probe-only until a generated aggregate-safe leaf is added and refreshed.
+
+## [2026-06-25] passes/code-pushing | Refresh aggregate after prefix payload movement
+
+- Refreshed a bounded dedicated `code-pushing-all` smoke after the focused prefix-payload `br_on_non_null` implementation. `.tmp/pass-fuzz-code-pushing-all-prefix-refresh-1000-20260625` used the current native binary, seed `0x5eed`, and `--normalize local-cleanup-debris`; it compared `1000/1000`, normalized `544`, cleanup-normalized `456`, raw mismatches `0`, validation/generator/property/command failures `0`, cache `wasm-smith 0 hits/0 misses`, Binaryen `1000 hits/0 misses`, and Binaryen failures `0 hits/0 misses`.
+- This is a post-change aggregate smoke only. The focused two-result block-label `br_on_non_null` prefix-payload shape is still not an aggregate leaf, and final closeout still requires the full matrix.
+
+## [2026-06-25] passes/code-pushing | Implement br_on_non_null prefix payload movement
+
+- Followed up [`raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md`](raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md) with a focused `[O4Z-AUDIT-CP]` behavior slice. Red-first whitebox coverage now builds a two-result block-label `br_on_non_null` with an explicit prefix payload and proves Starshine moves one pure SFA `local.set` after the branch while preserving prefix-payload and guard-read negatives.
+- Starshine added a resolved-block HOT builder for this multi-result test shape and widened only the block-label `BrOnNonNull` push-point gate. Loop-label `br_on_*`, broader reference-carrying forms, aggregate GenValid coverage, and multi-set prefix-payload variants remain open.
+
+## [2026-06-25] passes/code-pushing | Probe br_on_non_null prefix payload
+
+- Filed [`raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md`](raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md) for a source-backed remaining `[O4Z-AUDIT-CP]` behavior gap. Local Binaryen v130 on `.tmp/o4z-audit-cp-ee/br-on-non-null-prefix.wat` moved a pure `local.set` after a two-result block-label `br_on_non_null` carrying an explicit `i32` prefix payload plus the implicit non-null reference payload.
+- This is not an accepted boundary: Starshine's prior `BrOnNonNull` movement gate was limited to the one-result block-label shape. Future work should decide whether the focused implementation can become aggregate-safe profile coverage.
+
+## [2026-06-25] passes/code-pushing | Refresh value-br_if lowering blocker
+
+- Filed [`raw/research/0833-2026-06-25-code-pushing-br-if-value-lowering-blocker.md`](raw/research/0833-2026-06-25-code-pushing-br-if-value-lowering-blocker.md) after refreshing the targeted `code-pushing-br-if-value` lane. `.tmp/pass-fuzz-code-pushing-br-if-value-refresh-100-20260625` used the current native binary, seed `0x5eed`, and `--normalize local-cleanup-debris`; it compared `35/100` before the mismatch cap, with `35` raw mismatches and `0` validation/generator/property/command failures.
+- Agent classification: size-losing value-`br_if` lowering/normalization blocker, not a missing `code-pushing` movement proof. Both outputs sink the local sets after the value-branch `br_if`, but Starshine materializes the fallthrough value through an extra temporary local and drops it while Binaryen emits `drop (br_if ...)`. Keep `code-pushing-br-if-value` targeted-only and out of `code-pushing-all` until fixed, narrowly normalized, or explicitly accepted with size/semantic evidence.
+
+## [2026-06-25] passes/code-pushing | Refresh pass-fuzz-stress direct evidence
+
+- Refreshed the broad named `pass-fuzz-stress` native `code-pushing` compare as closeout-progress evidence. `.tmp/pass-fuzz-code-pushing-pass-fuzz-stress-10000-20260625` used local Binaryen `version_130`, `_build/native/release/build/cmd/cmd.exe`, seed `0x5555`, and `--normalize local-cleanup-debris`; it compared `10000/10000` with `10000` normalized, `0` cleanup-normalized, `0` raw mismatches, and `0` validation/generator/property/command failures.
+- Cache counters were `wasm-smith 0 hits/0 misses`, Binaryen `14 hits/9986 misses`, and Binaryen failures `0 hits/0 misses`; selected profile counts were `pass-fuzz-stress: 10000`. This strengthens the broad named GenValid lane evidence but does not close `[O4Z-AUDIT-CP]` without the 100000 regular lane, a then-current dedicated `code-pushing-all` lane, and remaining source-backed gaps resolved or accepted.
+
+## [2026-06-25] passes/code-pushing | Document br_on_cast_fail loop boundary
+
+- Filed [`raw/research/0832-2026-06-25-code-pushing-br-on-cast-fail-loop-boundary.md`](raw/research/0832-2026-06-25-code-pushing-br-on-cast-fail-loop-boundary.md) for a narrow `[O4Z-AUDIT-CP]` boundary. A local Binaryen v130 probe validated `.tmp/o4z-audit-cp-cc/br-on-cast-fail-loop.wat` but kept the pure `local.set` before the one-result loop-label `br_on_cast_fail`, after rewriting the loop-carried reference through scratch/control structure.
+- Added focused HOT coverage in `src/passes/code_pushing_test.mbt` so Starshine keeps that loop-label window stationary; `moon test --target native src/passes/code_pushing_test.mbt --filter '*loop-label br_on_cast_fail*'` passed `1/1`. This accepts only the probed one-result `br_on_cast_fail` loop-label boundary; broader `br_on_*` loop-label variants, prefix-payload, and reference-carrying forms remain open.
+
+## [2026-06-25] passes/code-pushing | Refresh explicit wasm-smith direct evidence
+
+- Refreshed an explicit `--wasm-smith` native `code-pushing` compare as closeout-progress evidence. `.tmp/pass-fuzz-code-pushing-wasm-smith-10000-20260625` used local Binaryen `version_130`, `_build/native/release/build/cmd/cmd.exe`, seed `0x5eed`, and `--normalize local-cleanup-debris`; it compared `9956/10000` with `9956` normalized, `0` cleanup-normalized, `0` raw mismatches, `0` validation/generator/property failures, and `44` Binaryen/tool command failures.
+- Command-failure classes were `binaryen-rec-group-zero: 39`, `binaryen-invalid-tag-index: 1`, `binaryen-table-index-out-of-range: 1`, and `binaryen-bad-section-size: 3`; cache counters were `wasm-smith 10000 hits/0 misses`, Binaryen `106 hits/9850 misses`, and Binaryen failures `0 hits/44 misses`. This strengthens the external-generator lane evidence but does not close `[O4Z-AUDIT-CP]` without the full final matrix and remaining source-backed boundaries/fixes.
+
+## [2026-06-25] passes/code-pushing | Document br_on_cast loop boundary
+
+- Filed [`raw/research/0831-2026-06-25-code-pushing-br-on-cast-loop-boundary.md`](raw/research/0831-2026-06-25-code-pushing-br-on-cast-loop-boundary.md) for a narrow `[O4Z-AUDIT-CP]` boundary. A local Binaryen v130 probe validated `.tmp/o4z-audit-cp-aa/br-on-cast-loop.wat` but kept the pure `local.set` before the one-result loop-label `br_on_cast`, after rewriting the loop-carried reference through scratch/control structure.
+- Added focused HOT coverage in `src/passes/code_pushing_test.mbt` so Starshine keeps that loop-label window stationary; `moon test --target native src/passes/code_pushing_test.mbt --filter '*loop-label br_on_cast*'` passed `1/1`. This accepts only the probed one-result `br_on_cast` loop-label boundary; broader `br_on_*` loop-label, prefix-payload, and reference-carrying forms remain open.
+
+## [2026-06-25] passes/code-pushing | Document br_on_non_null loop boundary
+
+- Filed [`raw/research/0830-2026-06-25-code-pushing-br-on-non-null-loop-boundary.md`](raw/research/0830-2026-06-25-code-pushing-br-on-non-null-loop-boundary.md) for a narrow `[O4Z-AUDIT-CP]` boundary. A local Binaryen v130 probe validated `.tmp/o4z-audit-cp-z/br-on-non-null-loop.wat` but kept the pure `local.set` before the one-result loop-label `br_on_non_null`, after rewriting the loop-carried reference through scratch/control structure.
+- Added focused HOT coverage in `src/passes/code_pushing_test.mbt` so Starshine keeps that loop-label window stationary; `moon test --target native src/passes/code_pushing_test.mbt --filter '*loop-label br_on_non_null*'` passed `1/1`. This accepts only the probed one-result `br_on_non_null` loop-label boundary; broader `br_on_*` loop-label, prefix-payload, and reference-carrying forms remain open.
+
+## [2026-06-25] passes/code-pushing | Refresh regular GenValid direct evidence
+
+- Refreshed a regular non-profile native `code-pushing` compare as closeout-progress evidence. `.tmp/pass-fuzz-code-pushing-regular-10000-20260625` used local Binaryen `version_130`, `_build/native/release/build/cmd/cmd.exe`, seed `0x5eed`, and `--normalize local-cleanup-debris`; it compared `10000/10000` with `10000` normalized, `0` cleanup-normalized, `0` raw mismatches/failures, Binaryen cache `102 hits/9898 misses`, and ordinary `binaryen-oracle-portable: 10000` GenValid selection.
+- Updated the code-pushing fuzzing/readiness docs and `[O4Z-AUDIT-CP]` backlog. This does not close the audit; final closeout still needs the full matrix and source-backed resolution or accepted boundaries for remaining broader conditional branches, switch mutation, value-branch lowering, ordered windows, and effect surfaces.
+
+## [2026-06-24] passes/code-pushing | Refresh code-pushing aggregate profile evidence
+
+- Refreshed the dedicated native `code-pushing-all` compare after the `br_on_cast_fail` aggregate leaf landed. `.tmp/pass-fuzz-code-pushing-all-10000-20260624` compared `10000/10000` with `5377` normalized, `4623` cleanup-normalized, `0` raw mismatches/failures, Binaryen cache `10000 hits/0 misses`, and all 17 aggregate-safe leaves selected, including `code-pushing-br-on-cast-fail: 559`, `code-pushing-br-on-cast: 602`, `code-pushing-br-on-non-null: 601`, and `code-pushing-br-on-null: 589`.
+- Updated the code-pushing fuzzing and readiness docs to make this 10000-case dedicated-profile lane the latest aggregate evidence. `[O4Z-AUDIT-CP]` remains active for broader conditional branches, switch mutation, value-branch lowering, regular/direct compare refresh, and final closeout.
+
+## [2026-06-24] passes/code-pushing | Add br_on_cast_fail segment movement
+
+- Filed [`raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md`](raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md) for the twenty-fourth `[O4Z-AUDIT-CP]` slice. Binaryen v130 moved one pure SFA set, and then two adjacent local-independent SFA sets in source order, after a dropped one-result-block `br_on_cast_fail`; it kept the set before the branch when the cast operand read the moved local.
+- Starshine now accounts for `BrOnCastFail`'s implicit final taken-edge payload in HOT verification, admits the bounded dropped one-result block-label push point for existing single-set and ordered multi-set code-pushing movement, and adds aggregate-safe `code-pushing-br-on-cast-fail` to `code-pushing-all`. Focused `*br_on_cast_fail*` failed red-first with `InvalidBranchArity(... actual 0, expected 1)`, then passed `3/3`; focused GenValid code-pushing passed `3/3`; full focused code-pushing passed `71/71`; the refreshed aggregate lane compared `1000/1000` with `544` normalized, `456` cleanup-normalized, `0` raw mismatches/failures, and `code-pushing-br-on-cast-fail: 49` selections. `[O4Z-AUDIT-CP]` remains active for broader `br_on_*`, switch, value-branch lowering, and closeout.
+
+## [2026-06-24] passes/code-pushing | Add br_on_cast segment movement
+
+- Filed [`raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md`](raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md) for the twenty-third `[O4Z-AUDIT-CP]` slice. Binaryen v130 moved one pure SFA set, and then two adjacent local-independent SFA sets in source order, after a dropped one-result-block `br_on_cast`; it kept the set before the branch when the cast operand read the moved local or when the remaining local use was outside the branch block.
+- Starshine now accounts for successful `BrOnCast`'s implicit final taken-edge payload in HOT verification, admits the bounded dropped one-result block-label push point for existing single-set and ordered multi-set code-pushing movement, and adds aggregate-safe `code-pushing-br-on-cast` to `code-pushing-all`. Focused `*br_on_cast*` failed red-first with `InvalidBranchArity(... actual 0, expected 1)`, then passed `3/3`; focused GenValid code-pushing passed `3/3`; the refreshed aggregate lane compared `1000/1000` with `502` normalized, `498` cleanup-normalized, `0` raw mismatches/failures, and `code-pushing-br-on-cast: 62` selections. `[O4Z-AUDIT-CP]` remains active for `br_on_cast_fail`, broader `br_on_*`, switch, value-branch lowering, and closeout.
+
+## [2026-06-24] passes/code-pushing | Add br_on_non_null segment movement
+
+- Filed [`raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md`](raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md) for the twenty-second `[O4Z-AUDIT-CP]` slice. Binaryen v130 moved one pure SFA set, and then two adjacent local-independent SFA sets in source order, after a one-result-block `br_on_non_null`; it kept the set before the branch when the guard read the moved local.
+- Starshine now accounts for `BrOnNonNull`'s implicit final taken-edge payload in HOT verification, admits the bounded one-result block-label push point for existing single-set and ordered multi-set code-pushing movement, and adds aggregate-safe `code-pushing-br-on-non-null` to `code-pushing-all`. Focused `*br_on_non_null*` failed red-first with `InvalidBranchArity(... actual 0, expected 1)`, then passed `3/3`; focused GenValid code-pushing passed `3/3`; the refreshed aggregate lane compared `1000/1000` with `473` normalized, `527` cleanup-normalized, `0` raw mismatches/failures, and `code-pushing-br-on-non-null: 59` selections. `[O4Z-AUDIT-CP]` remains active for broader `br_on_*`, switch, value-branch lowering, and closeout.
+
+## [2026-06-24] passes/code-pushing | Add br_on_null segment movement
+
+- Filed [`raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md`](raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md) for the twenty-first `[O4Z-AUDIT-CP]` slice. Binaryen v130 moved one pure SFA set, and then two adjacent local-independent SFA sets in source order, after a dropped zero-arity-label `br_on_null`; it kept the set before the branch when the guard read the moved local.
+- Starshine now admits dropped void-label `BrOnNull` as a bounded conditional-branch push point for existing single-set and adjacent ordered multi-set movement, preserving the guard-read boundary through whole-root local accounting. Focused `*br_on_null*` passed `3/3`, full focused code-pushing passed `62/62`, focused GenValid code-pushing passed `3/3`, and aggregate-safe `code-pushing-all` compared `1000/1000` with `424` normalized, `576` cleanup-normalized, `0` raw mismatches/failures, and `code-pushing-br-on-null: 74` selections. `[O4Z-AUDIT-CP]` remains active for broader push points, value-branch lowering, and closeout.
+
+## [2026-06-24] passes/code-pushing | Add branch-value br_if ordered multi-set movement
+
+- Filed [`raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md) for the twentieth `[O4Z-AUDIT-CP]` slice. Binaryen v130 moved adjacent local-independent SFA sets after a value-block-target `br_if` with one branch payload while preserving source order, so Starshine widened the ordered multi-set helper for that bounded branch-value push point.
+- Evidence: local `wasm-opt version 130` probe moved the two-set branch-value window; the focused `*branch value*` test failed before implementation with reversed moved-local order, then passed `3/3`. Focused `src/validate/gen_valid_tests.mbt` `*code-pushing*` passed `3/3`. Aggregate-safe `code-pushing-all` compare with the targeted branch-value leaf still excluded compared `1000/1000`, normalized `375`, cleanup-normalized `625`, raw mismatches/failures `0`. The targeted `code-pushing-br-if-value` leaf now emits the multi-set branch-value shape but remains excluded from `code-pushing-all` until the value-`br_if` HOT-lowering temporary-local representation/size gap is fixed or normalized.
+
+## [2026-06-21] passes/code-pushing | Document br_table boundary
+
+- Filed [`raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md`](raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md) for the seventeenth `[O4Z-AUDIT-CP]` slice. Binaryen v130 kept both a single-set and adjacent two-set pure SFA window before a no-branch-value `br_table $exit $exit` to the enclosing void block label, so Starshine added focused no-mutation boundary coverage instead of widening switch mutation.
+- Evidence: local `wasm-opt version 130` probes kept the `local.set` roots before `br_table`; `moon test --target native src/passes/code_pushing_test.mbt --filter '*br_table*'` passed `2/2`. No GenValid leaf or compare lane was added because no positive movement family landed; `[O4Z-AUDIT-CP]` remains active.
+
+## [2026-06-21] passes/code-pushing | Add drop-global-get window multi-set movement
+
+- Filed [`raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md`](raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md) for the sixteenth `[O4Z-AUDIT-CP]` slice. Starshine now preserves source order when moving local-independent SFA sets separated by a dead `drop(global.get)` root after ordinary void `if` and dropped value-`if` push points, while keeping the same separator window stationary before block-/loop-target `br_if` to match Binaryen v130 probes. `code-pushing-all` includes the new `code-pushing-multi-set-global-get-window` leaf.
+- Evidence: local Binaryen `version_130` moved reduced `drop (global.get $g)`-separated multi-set probes after ordinary `if` and dropped-`if`, but not before block-/loop-target `br_if`. The focused `*global-get-separated*` tests failed before final implementation on the `br_if` boundary, then passed `3/3`. Focused `*code-pushing*` passed `50/50`, focused GenValid code-pushing tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2753/2753`), `moon test src/validate` (`1627/1627`), full `moon test` (`6083/6083`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `1000/1000`, normalized `375`, cleanup-normalized `625`, raw mismatches/failures `0`, and selected all thirteen aggregate leaves including `code-pushing-multi-set-global-get-window: 67`.
+
+## [2026-06-21] passes/code-pushing | Add drop-local-get window multi-set movement
+
+- Filed [`raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md`](raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md) for the fifteenth `[O4Z-AUDIT-CP]` slice. Starshine now preserves source order when moving local-independent SFA sets separated by a dead `drop(local.get)` root after ordinary void `if`, dropped value-`if`, and narrow no-branch-value block-/loop-target `br_if` push points. `code-pushing-all` includes the new `code-pushing-multi-set-local-get-window` leaf.
+- Evidence: local Binaryen `version_130` moved reduced `drop (local.get $param)`-separated multi-set probes after ordinary `if`, dropped-`if`, block-target `br_if`, and loop-target `br_if` push points while preserving order and leaving the dropped local read before the push point. The focused `*local-get-separated*` tests failed before implementation with reversed moved-local order, then passed `4/4`. Focused `*code-pushing*` passed `47/47`, focused GenValid code-pushing tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2750/2750`), `moon test src/validate` (`1627/1627`), full `moon test` (`6080/6080`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `1000/1000`, normalized `412`, cleanup-normalized `588`, raw mismatches/failures `0`, and selected all twelve aggregate leaves including `code-pushing-multi-set-local-get-window: 86`.
+
+## [2026-06-21] passes/code-pushing | Add drop-const window multi-set movement
+
+- Filed [`raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md`](raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md) for the fourteenth `[O4Z-AUDIT-CP]` slice. Starshine now preserves source order when moving local-independent SFA sets separated by a dead `drop(const)` root after ordinary void `if`, dropped value-`if`, and narrow no-branch-value block-/loop-target `br_if` push points. `code-pushing-all` includes the new `code-pushing-multi-set-drop-window` leaf.
+- Evidence: local Binaryen `version_130` moved reduced `drop (i32.const 99)`-separated multi-set probes after ordinary `if`, dropped-`if`, block-target `br_if`, and loop-target `br_if` push points while preserving order and leaving the drop before the push point. The focused `*drop-const-separated*` tests failed before implementation with reversed moved-local order, then passed `4/4`. Focused `*code-pushing*` passed `43/43`, focused GenValid code-pushing tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2746/2746`), `moon test src/validate` (`1627/1627`), full `moon test` (`6076/6076`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `1000/1000`, normalized `472`, cleanup-normalized `528`, raw mismatches/failures `0`, and selected all eleven aggregate leaves including `code-pushing-multi-set-drop-window: 81`.
+
+## [2026-06-20] passes/code-pushing | Add loop-target br_if movement
+
+- Filed [`raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md`](raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md) for the thirteenth `[O4Z-AUDIT-CP]` slice. Starshine now treats no-branch-value `br_if` to a void loop label as a supported push point for the existing single-set, ordered multi-set, and direct local-copy movement paths. `code-pushing-all` includes the new `code-pushing-loop-br-if` leaf.
+- Evidence: local Binaryen `version_130` moved reduced single-set, adjacent multi-set, and direct local-copy loop-target probes after the branch while preserving source order. The focused `*loop-target br_if*` tests failed before implementation, then passed; focused `*code-pushing*` passed `39/39`, focused GenValid code-pushing tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2742/2742`), `moon test src/validate` (`1627/1627`), full `moon test` (`6072/6072`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `1000/1000`, normalized `516`, cleanup-normalized `484`, raw mismatches/failures `0`, and selected all ten aggregate leaves including `code-pushing-loop-br-if: 98`.
+
+## [2026-06-20] passes/code-pushing | Add nop-window ordered multi-set movement
+
+- Filed [`raw/research/0817-2026-06-20-code-pushing-nop-window-multi-set-movement.md`](raw/research/0817-2026-06-20-code-pushing-nop-window-multi-set-movement.md) for the twelfth `[O4Z-AUDIT-CP]` slice. Starshine now preserves source order when moving local-independent SFA sets separated only by `nop` roots after ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points. `code-pushing-all` includes the new `code-pushing-multi-set-nop-window` leaf.
+- Evidence: local Binaryen `version_130` moved reduced `nop`-separated multi-set probes after ordinary `if`, dropped-`if`, and `br_if` push points while preserving order and leaving the separator before the push point. The focused `*nop-separated*` tests failed before implementation with reversed moved-local order, then passed `3/3`. Focused `*code-pushing*` passed `36/36`, focused GenValid code-pushing tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2739/2739`), `moon test src/validate` (`1627/1627`), full `moon test` (`6069/6069`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `900/900`, normalized `402`, cleanup-normalized `498`, raw mismatches/failures `0`, and selected all nine aggregate leaves including `code-pushing-multi-set-nop-window: 92`.
+
+## [2026-06-20] passes/code-pushing | Add local-copy ordered multi-set movement
+
+- Filed [`raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md`](raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md) for the eleventh `[O4Z-AUDIT-CP]` slice. Starshine now preserves source order when moving adjacent direct local-copy SFA sets after ordinary void `if`, dropped value-`if`, and narrow no-branch-value `br_if` push points, and refuses grouped movement across push points that write copied source locals. `code-pushing-all` includes the new `code-pushing-multi-set-local-copy` leaf.
+- Evidence: local Binaryen `version_130` moved reduced local-copy probes after ordinary `if`, dropped-`if`, and `br_if` push points while preserving order; a source-write probe kept the source-sensitive copy before the `if` and moved the independent copy after it. The focused `*local-copy*` tests failed before implementation, then passed `4/4`. Focused `*code-pushing*` passed `33/33`, focused GenValid code-pushing tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2736/2736`), `moon test src/validate` (`1627/1627`), full `moon test` (`6066/6066`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `800/800`, normalized `400`, cleanup-normalized `400`, raw mismatches/failures `0`, and selected every one of the eight aggregate leaves exactly `100` times.
+
+## [2026-06-20] passes/code-pushing | Add br_if ordered multi-set movement
+
+- Filed [`raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md) for the tenth `[O4Z-AUDIT-CP]` slice. Starshine now preserves source order when moving adjacent local-independent SFA sets after a narrow no-branch-value `br_if` to a void block label, and `code-pushing-all` includes the new `code-pushing-multi-set-br-if` leaf.
+- Evidence: local Binaryen `version_130` moved the reduced two-set `br_if` probe after the branch while preserving `local.set $1` before `local.set $2`. The focused `*multiple SFA sets after br_if*` test failed before implementation with reversed moved-local order, then passed after implementation. Focused `*code-pushing*` passed `29/29`, focused code-pushing GenValid tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2732/2732`), `moon test src/validate` (`1627/1627`), full `moon test` (`6062/6062`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `700/700`, normalized `403`, cleanup-normalized `297`, raw mismatches/failures `0`, and selected `code-pushing-dropped-if: 91`, `code-pushing-multi-set: 97`, `code-pushing-after-if: 95`, `code-pushing-multi-set-br-if: 111`, `code-pushing-if-arm: 105`, `code-pushing-multi-set-dropped-if: 101`, `code-pushing-br-if: 100`.
+
+## [2026-06-20] passes/code-pushing | Add dropped-if ordered multi-set movement
+
+- Filed [`raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md`](raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md) for the ninth `[O4Z-AUDIT-CP]` slice. Starshine now preserves source order when moving adjacent local-independent SFA sets after a dropped value `if`, and `code-pushing-all` includes the new `code-pushing-multi-set-dropped-if` leaf.
+- Evidence: local Binaryen `version_130` moved the reduced two-set dropped-`if` probe after the dropped wrapper while preserving `local.set $1` before `local.set $2`. The focused `*multiple SFA sets after dropped*` test failed before implementation with reversed moved-local order, then passed after implementation. Focused `*code-pushing*` passed `28/28`, focused code-pushing GenValid tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2731/2731`), `moon test src/validate` (`1627/1627`), full `moon test` (`6061/6061`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `600/600`, normalized `292`, cleanup-normalized `308`, raw mismatches/failures `0`, and selected `code-pushing-dropped-if: 101`, `code-pushing-multi-set-dropped-if: 103`, `code-pushing-if-arm: 89`, `code-pushing-after-if: 109`, `code-pushing-multi-set: 110`, `code-pushing-br-if: 88`.
+
+## [2026-06-20] passes/code-pushing | Add ordered multi-set movement
+
+- Filed [`raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md`](raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md) for the eighth `[O4Z-AUDIT-CP]` slice. Starshine now handles a first ordered `optimizeSegment(...)` subcase: adjacent local-independent SFA sets move after an ordinary void `if` in source order when neither arm reads any moved local and every read is a same-region suffix read.
+- Evidence: local Binaryen `version_130` moved the reduced two-set probe after the void `if` while preserving `local.set $1` before `local.set $2`. The focused `*multiple SFA*` test failed before implementation with reversed moved-local order, then passed after implementation. Focused `*code-pushing*` passed `27/27`, focused code-pushing GenValid tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2730/2730`), `moon test src/validate` (`1627/1627`), full `moon test` (`6060/6060`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `500/500`, normalized `227`, cleanup-normalized `273`, raw mismatches/failures `0`, and selected `code-pushing-after-if: 91`, `code-pushing-multi-set: 85`, `code-pushing-if-arm: 97`, `code-pushing-dropped-if: 121`, `code-pushing-br-if: 106`.
+
+## [2026-06-20] passes/code-pushing | Add br_if segment movement
+
+- Filed [`raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md) for the seventh `[O4Z-AUDIT-CP]` slice. Starshine now consumes the existing `candidate:conditional-branch` diagnostic for a narrow single-set movement family, moving a safe SFA `local.set` after a no-branch-value `br_if` to a void block label when the branch does not read the local and all reads are same-block suffix reads.
+- Evidence: local Binaryen `version_130` moved the reduced `br_if` probe and kept the set before `br_if` when the branch condition read the local. The focused positive failed before implementation, then `*br_if*` passed `2/2`, focused `*code-pushing*` passed `26/26`, focused code-pushing GenValid tests passed `3/3`, `moon fmt`, `moon info`, `moon test src/passes` (`2729/2729`), `moon test src/validate` (`1627/1627`), full `moon test` (`6059/6059`), and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `400/400`, normalized `200`, cleanup-normalized `200`, raw mismatches/failures `0`, and selected `code-pushing-if-arm: 100`, `code-pushing-br-if: 100`, `code-pushing-dropped-if: 100`, `code-pushing-after-if: 100`.
+
+## [2026-06-20] passes/code-pushing | Add dropped-if segment movement
+
+- Filed [`raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md) for the sixth `[O4Z-AUDIT-CP]` slice. Starshine now consumes the existing `candidate:dropped-if` diagnostic for a narrow single-set movement family, moving a safe SFA `local.set` after a dropped value `if` when the dropped push point does not read the local and all reads are same-region suffix reads.
+- Evidence: local Binaryen `version_130` moved the reduced dropped-`if` probe; the focused positive failed before implementation, then `*dropped*` passed `2/2`, focused `*code-pushing*` passed `24/24`, focused code-pushing GenValid tests passed `3/3`, `moon fmt`, `moon info`, and native `src/cmd` build passed with pre-existing warnings. The refreshed `code-pushing-all` native lane with `--normalize local-cleanup-debris` compared `300/300`, normalized `90`, cleanup-normalized `210`, raw mismatches/failures `0`, and selected `code-pushing-dropped-if: 90`, `code-pushing-if-arm: 98`, `code-pushing-after-if: 112`.
+
+## [2026-06-20] passes/code-pushing | Add dedicated GenValid profile
+
+- Filed [`raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md`](raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md) for the fifth `[O4Z-AUDIT-CP]` slice. Starshine now has a `code-pushing-all` dedicated GenValid profile with `code-pushing-if-arm` and `code-pushing-after-if` leaves for the currently implemented positive movement families.
+- Evidence: focused generator tests passed under `*code-pushing gen-valid*` (`2/2`) and `*code-pushing aggregate*` (`1/1`). `moon build --target native --release src/cmd` completed with pre-existing pass-manager unused-function warnings and produced `_build/native/release/build/cmd/cmd.exe`; the older `target/native/release/build/cmd/cmd.exe` path remains absent here. Native dedicated compare with `--normalize local-cleanup-debris` compared `200/200`, cleanup-normalized `200`, raw mismatches `0`, validation/generator/property/command failures `0`, and selected `code-pushing-if-arm: 100` / `code-pushing-after-if: 100`. A raw no-normalizer probe stopped at `65` local-cleanup output-shape mismatches, classified as bounded Starshine `nop`/empty-else cleanup drift rather than final pass closeout.
+
+## [2026-06-20] passes/code-pushing | Add ordinary-if segment movement
+
+- Filed [`raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md) for the fourth `[O4Z-AUDIT-CP]` slice. Starshine now consumes the segment-window diagnostic in a first mutating family: one SFA set can move after an ordinary void `if` when the `if` does not read the local and all reads are same-region suffix reads after the `if`.
+- Evidence: local `wasm-opt version 130` oracle moved the reduced set after the void `if`; the red-first focused test failed before implementation, then focused code-pushing tests passed `22/22`, whitebox inventory tests passed `5/5`, `moon fmt`, `moon info`, `moon test src/passes` (`2725/2725`), full `moon test` (`6052/6052`), and a bounded non-native `100`-case compare lane passed with `100` normalized matches and `0` mismatches/failures. A parallel `1000`-case compare attempt failed before comparison because the documented native `cmd.exe` path was absent after `moon build` in this checkout; this is recorded as tooling/path evidence, not pass behavior closeout.
+
+## [2026-06-20] passes/code-pushing | Add segment-window inventory
+
+- Filed [`raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](raw/research/0808-2026-06-20-code-pushing-segment-inventory.md) for the third `[O4Z-AUDIT-CP]` slice. Starshine now has non-mutating whitebox helpers to classify selected block-local `local.set` candidate windows, push-point kinds, SFA rejection reasons, and a coarse ordered-before/effect barrier before broad `optimizeSegment(...)` movement.
+- Evidence: red-first missing-helper failure, then focused `moon test --target native src/passes/code_pushing_wbtest.mbt --filter '*segment inventory*'` passed `5/5`. This was inventory-only; no mutating segment movement or pass-fuzz closeout matrix was run.
+
+## [2026-06-20] passes/code-pushing | Refresh version_130 source and lit surface
+
+- Filed [`raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md) and [`raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md) for the second `[O4Z-AUDIT-CP]` slice. The local oracle is `wasm-opt version 130 (version_130)`; the current official lit proof surface is the named family set and no longer includes a generic `code-pushing.wast` file.
+- Findings: `CodePushing.cpp` still uses `LocalAnalyzer`, `class Pusher`, `isPushable`, `isPushPoint`, `optimizeSegment`, `optimizeIntoIf`, and `doWalkFunction`, but `version_130` now uses `effects.orderedBefore(cumulativeEffects)` in movement checks. `code-pushing-atomics.wast` adds GC-read/shared-atomic load/store ordering coverage that remains an explicit Starshine audit gap.
+
+## [2026-06-20] passes/code-pushing | Add unreachable-arm post-use sink slice
+
+- Filed [`raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md) for the first `[O4Z-AUDIT-CP]` widening slice. Starshine now sinks a safe `local.set` into the only consuming `if` arm even when the local is read after the `if`, if every extra read is a same-region suffix read and the non-consuming arm cannot fall through under the conservative local proof.
+- Evidence: local Binaryen `wasm-opt --all-features --code-pushing -S` probe folded the `then`-consuming / `else unreachable` shape. Red-first focused test failed before implementation with `expected nop`; after implementation, `moon test --target native src/passes/code_pushing_test.mbt --filter '*opposite arm cannot fall through*'` passed `1/1`, and focused `*code-pushing*` passed `19/19`.
 
 ## [2026-06-20] passes/pick-load-signs | Add dedicated GenValid profile
 
@@ -17257,3 +17883,21 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded `docs/wiki/raw/research/0893-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-seven-later.md` for the twenty-fourth OI-M tuple/multivalue sub-slice.
 - Binaryen `version_130` preserves two earlier calls, a selected trapping `i32.load`, seven later calls, and the selected reload order through tuple scratch; Starshine direct-HOT coverage now proves the same order with two earlier drops, a selected temp, seven later drops, and final reload.
 - Updated the optimize-instructions source index, WAT shapes, Starshine strategy/HOT strategy, and active backlog so remaining OI-M work stays focused on public tuple fixtures, multi-result tuple-scratch localization, full-simplify replay, tuple-optimization neighbor reductions, and broader tee/drop reconstruction.
+## 2026-06-24 code-pushing br_on_non_null inventory
+
+- Recorded `docs/wiki/raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md` for `[O4Z-AUDIT-CP-V]`.
+- Binaryen `wasm-opt version 130` probes show `code-pushing` moves single-set and adjacent ordered multi-set windows after a one-result-block `br_on_non_null`, while a guard-read shape remains stationary.
+- No Starshine behavior changed in this slice: `br_on_non_null` carries an implicit non-null reference to the taken label, so HOT branch-payload verification/lowering needs a dedicated red-first IR slice before code-pushing can safely widen.
+- Updated the code-pushing dossier, WAT shape catalog, fuzzing profile notes, port-readiness page, and active backlog to keep the blocker and next implementation path visible.
+
+## 2026-06-25 code-pushing legacy try-lowered movement
+
+- Recorded `docs/wiki/raw/research/0859-2026-06-25-code-pushing-legacy-try-lowered-movement.md` for `[O4Z-AUDIT-CP-HHH]`.
+- Binaryen `wasm-opt version 130` moves a pure SFA set after a reduced legacy `try`/`catch` before a later `br_if`, unlike the stationary `try_table` catch-target boundary in `0858`.
+- Added focused Starshine coverage for the observable movement through the current WAT-to-HOT path, noting that the fixture lowers legacy `try` to a HOT block and does not prove native `HotOp::Try` segment-barrier behavior.
+
+## 2026-06-25 code-pushing payload throw boundary
+
+- Recorded `docs/wiki/raw/research/0860-2026-06-25-code-pushing-payload-throw-boundary.md` for `[O4Z-AUDIT-CP-III]`.
+- Binaryen `wasm-opt version 130` keeps a pure SFA set before a payload-bearing tag-based `throw` and later `br_if`, extending the no-payload stationary boundary from `0857`.
+- Added focused intentionally stationary Starshine coverage and kept broader rethrow/native-try/richer EH forms open.

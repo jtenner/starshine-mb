@@ -279,6 +279,8 @@ pub fn hot_build_nop(HotFunc) -> Int
 
 pub fn hot_build_ref_null(HotFunc, @lib.RefType) -> Int
 
+pub fn hot_build_resolved_block(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType], Array[Int]) -> Int
+
 pub fn hot_build_return(HotFunc, Array[Int]) -> Int
 
 pub fn hot_build_return_call(HotFunc, Int, Array[Int]) -> Int
@@ -425,9 +427,13 @@ pub fn hot_memarg_get(HotFunc, Int) -> HotMemArg
 
 pub fn hot_module_context_from_module(@lib.Module) -> HotModuleContext
 
+pub fn hot_module_func_import_matches(HotModuleContext, @lib.FuncIdx, String, String) -> Bool
+
 pub fn hot_module_resolve_array_field(HotModuleContext, @lib.TypeIdx) -> @lib.FieldType?
 
 pub fn hot_module_resolve_block_results(HotModuleContext, @lib.BlockType) -> Array[@lib.ValType]?
+
+pub fn hot_module_resolve_func_import(HotModuleContext, @lib.FuncIdx) -> (@lib.Name, @lib.Name)?
 
 pub fn hot_module_resolve_func_type(HotModuleContext, @lib.FuncIdx) -> @lib.FuncType?
 
@@ -615,6 +621,8 @@ pub fn hot_root_splice(HotFunc, Int, Int, Array[Int]) -> Array[Int]
 
 pub fn hot_root_storage_count(HotFunc) -> Int
 
+pub fn hot_set_body_local_type(HotFunc, Int, @lib.ValType) -> Bool
+
 pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
 
 pub fn hot_simple_value_key(HotFunc, Int) -> HotSimpleValueKey?
@@ -682,6 +690,8 @@ pub fn[S, E] hot_walk_region(HotFunc, Int, S, (S, Int, Int) -> HotVisitCtl[S, E]
 pub fn[S, E] hot_walk_subtree_postorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
 pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+
+pub fn hot_weaken_body_local_to_nullable_ref(HotFunc, Int) -> Bool
 
 pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
@@ -1218,6 +1228,7 @@ pub struct HotModuleContext {
   func_type_idxs : Array[@lib.TypeIdx]
   func_types : Array[@lib.FuncType]
   func_type_slots : Array[@lib.TypeIdx?]
+  func_imports : Array[(@lib.Name, @lib.Name)?]
   tables : Array[@lib.TableType]
   mems : Array[@lib.MemType]
   globals : Array[@lib.GlobalType]
@@ -1309,9 +1320,11 @@ pub enum HotOp {
   Atomic
   Simd
 } derive(Eq, @debug.Debug)
+pub fn HotOp::atomic_op() -> Self
 pub fn HotOp::br_on_cast() -> Self
 pub fn HotOp::br_on_cast_fail() -> Self
 pub fn HotOp::br_on_non_null() -> Self
+pub fn HotOp::br_on_null() -> Self
 pub fn HotOp::catch_() -> Self
 pub fn HotOp::catch_all() -> Self
 pub fn HotOp::ref_get_desc() -> Self

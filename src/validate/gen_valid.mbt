@@ -678,6 +678,26 @@ pub enum GenValidProfile {
   PickLoadSignsImportedMemoryProfile
   PickLoadSignsI64WatchProfile
   PickLoadSignsAllProfile
+  CodePushingIfArmProfile
+  CodePushingAfterIfProfile
+  CodePushingDroppedIfProfile
+  CodePushingBrIfProfile
+  CodePushingBrOnNullProfile
+  CodePushingBrOnNonNullProfile
+  CodePushingBrOnNonNullPrefixProfile
+  CodePushingBrOnCastProfile
+  CodePushingBrOnCastFailProfile
+  CodePushingBrIfValueProfile
+  CodePushingMultiSetProfile
+  CodePushingMultiSetDroppedIfProfile
+  CodePushingMultiSetBrIfProfile
+  CodePushingMultiSetLocalCopyProfile
+  CodePushingMultiSetNopWindowProfile
+  CodePushingLoopBrIfProfile
+  CodePushingMultiSetDropWindowProfile
+  CodePushingMultiSetLocalGetWindowProfile
+  CodePushingMultiSetGlobalGetWindowProfile
+  CodePushingAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
@@ -758,6 +778,28 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PickLoadSignsImportedMemoryProfile => "pick-load-signs-imported-memory"
     PickLoadSignsI64WatchProfile => "pick-load-signs-i64-watch"
     PickLoadSignsAllProfile => "pick-load-signs-all"
+    CodePushingIfArmProfile => "code-pushing-if-arm"
+    CodePushingAfterIfProfile => "code-pushing-after-if"
+    CodePushingDroppedIfProfile => "code-pushing-dropped-if"
+    CodePushingBrIfProfile => "code-pushing-br-if"
+    CodePushingBrOnNullProfile => "code-pushing-br-on-null"
+    CodePushingBrOnNonNullProfile => "code-pushing-br-on-non-null"
+    CodePushingBrOnNonNullPrefixProfile => "code-pushing-br-on-non-null-prefix"
+    CodePushingBrOnCastProfile => "code-pushing-br-on-cast"
+    CodePushingBrOnCastFailProfile => "code-pushing-br-on-cast-fail"
+    CodePushingBrIfValueProfile => "code-pushing-br-if-value"
+    CodePushingMultiSetProfile => "code-pushing-multi-set"
+    CodePushingMultiSetDroppedIfProfile => "code-pushing-multi-set-dropped-if"
+    CodePushingMultiSetBrIfProfile => "code-pushing-multi-set-br-if"
+    CodePushingMultiSetLocalCopyProfile => "code-pushing-multi-set-local-copy"
+    CodePushingMultiSetNopWindowProfile => "code-pushing-multi-set-nop-window"
+    CodePushingLoopBrIfProfile => "code-pushing-loop-br-if"
+    CodePushingMultiSetDropWindowProfile => "code-pushing-multi-set-drop-window"
+    CodePushingMultiSetLocalGetWindowProfile =>
+      "code-pushing-multi-set-local-get-window"
+    CodePushingMultiSetGlobalGetWindowProfile =>
+      "code-pushing-multi-set-global-get-window"
+    CodePushingAllProfile => "code-pushing-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
@@ -772,6 +814,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     GsiDescCastAllProfile
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
+    | CodePushingAllProfile
     | SsaNomergeAllProfile => true
     _ => false
   }
@@ -813,6 +856,28 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(PickLoadSignsNoMemoryBoundaryProfile, 1),
         GenValidProfileMember::new(PickLoadSignsImportedMemoryProfile, 1),
         GenValidProfileMember::new(PickLoadSignsI64WatchProfile, 1),
+      ]
+    CodePushingAllProfile =>
+      [
+        GenValidProfileMember::new(CodePushingIfArmProfile, 1),
+        GenValidProfileMember::new(CodePushingAfterIfProfile, 1),
+        GenValidProfileMember::new(CodePushingDroppedIfProfile, 1),
+        GenValidProfileMember::new(CodePushingBrIfProfile, 1),
+        GenValidProfileMember::new(CodePushingBrOnNullProfile, 1),
+        GenValidProfileMember::new(CodePushingBrOnNonNullProfile, 1),
+        GenValidProfileMember::new(CodePushingBrOnNonNullPrefixProfile, 1),
+        GenValidProfileMember::new(CodePushingBrOnCastProfile, 1),
+        GenValidProfileMember::new(CodePushingBrOnCastFailProfile, 1),
+        GenValidProfileMember::new(CodePushingBrIfValueProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetDroppedIfProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetBrIfProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetLocalCopyProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetNopWindowProfile, 1),
+        GenValidProfileMember::new(CodePushingLoopBrIfProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetDropWindowProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetLocalGetWindowProfile, 1),
+        GenValidProfileMember::new(CodePushingMultiSetGlobalGetWindowProfile, 1),
       ]
     SsaNomergeAllProfile =>
       [
@@ -920,6 +985,26 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PickLoadSignsImportedMemoryProfile,
     PickLoadSignsI64WatchProfile,
     PickLoadSignsAllProfile,
+    CodePushingIfArmProfile,
+    CodePushingAfterIfProfile,
+    CodePushingDroppedIfProfile,
+    CodePushingBrIfProfile,
+    CodePushingBrOnNullProfile,
+    CodePushingBrOnNonNullProfile,
+    CodePushingBrOnNonNullPrefixProfile,
+    CodePushingBrOnCastProfile,
+    CodePushingBrOnCastFailProfile,
+    CodePushingBrIfValueProfile,
+    CodePushingMultiSetProfile,
+    CodePushingMultiSetDroppedIfProfile,
+    CodePushingMultiSetBrIfProfile,
+    CodePushingMultiSetLocalCopyProfile,
+    CodePushingMultiSetNopWindowProfile,
+    CodePushingLoopBrIfProfile,
+    CodePushingMultiSetDropWindowProfile,
+    CodePushingMultiSetLocalGetWindowProfile,
+    CodePushingMultiSetGlobalGetWindowProfile,
+    CodePushingAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
@@ -983,6 +1068,9 @@ pub fn gen_valid_profile_by_name(
     "pick-load-signs" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-closeout" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-all-profiles" => Ok(PickLoadSignsAllProfile)
+    "code-pushing" => Ok(CodePushingAllProfile)
+    "code-pushing-closeout" => Ok(CodePushingAllProfile)
+    "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
     _ =>
@@ -1343,6 +1431,28 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_pick_load_signs_profile_config(profile)
     PickLoadSignsAllProfile =>
       gen_valid_pick_load_signs_profile_config(PickLoadSignsSignedExtendProfile)
+    CodePushingIfArmProfile
+    | CodePushingAfterIfProfile
+    | CodePushingDroppedIfProfile
+    | CodePushingBrIfProfile
+    | CodePushingBrOnNullProfile
+    | CodePushingBrOnNonNullProfile
+    | CodePushingBrOnNonNullPrefixProfile
+    | CodePushingBrOnCastProfile
+    | CodePushingBrOnCastFailProfile
+    | CodePushingBrIfValueProfile
+    | CodePushingMultiSetProfile
+    | CodePushingMultiSetDroppedIfProfile
+    | CodePushingMultiSetBrIfProfile
+    | CodePushingMultiSetLocalCopyProfile
+    | CodePushingMultiSetNopWindowProfile
+    | CodePushingLoopBrIfProfile
+    | CodePushingMultiSetDropWindowProfile
+    | CodePushingMultiSetLocalGetWindowProfile
+    | CodePushingMultiSetGlobalGetWindowProfile =>
+      gen_valid_code_pushing_profile_config(profile)
+    CodePushingAllProfile =>
+      gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
     SsaNomergeCoverageProfile
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
@@ -1586,6 +1696,138 @@ fn gen_valid_is_pick_load_signs_profile_config(config : GenValidConfig) -> Bool 
   config == GenValidConfig::for_profile(PickLoadSignsNoMemoryBoundaryProfile) ||
   config == GenValidConfig::for_profile(PickLoadSignsImportedMemoryProfile) ||
   config == GenValidConfig::for_profile(PickLoadSignsI64WatchProfile)
+}
+
+///|
+fn gen_valid_code_pushing_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 1,
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: if profile == CodePushingMultiSetGlobalGetWindowProfile {
+      1
+    } else {
+      0
+    },
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: if profile == CodePushingMultiSetLocalCopyProfile {
+      3
+    } else if profile == CodePushingMultiSetLocalGetWindowProfile {
+      2
+    } else {
+      1
+    },
+    max_results: if profile == CodePushingAfterIfProfile ||
+      profile == CodePushingBrIfValueProfile ||
+      profile == CodePushingBrOnNonNullProfile ||
+      profile == CodePushingBrOnCastProfile ||
+      profile == CodePushingBrOnCastFailProfile {
+      1
+    } else {
+      0
+    },
+    max_locals: if profile == CodePushingMultiSetProfile ||
+      profile == CodePushingMultiSetDroppedIfProfile ||
+      profile == CodePushingMultiSetBrIfProfile ||
+      profile == CodePushingBrOnNullProfile ||
+      profile == CodePushingBrOnNonNullProfile ||
+      profile == CodePushingBrOnNonNullPrefixProfile ||
+      profile == CodePushingBrOnCastProfile ||
+      profile == CodePushingBrOnCastFailProfile ||
+      profile == CodePushingMultiSetLocalCopyProfile ||
+      profile == CodePushingMultiSetNopWindowProfile ||
+      profile == CodePushingLoopBrIfProfile ||
+      profile == CodePushingMultiSetDropWindowProfile ||
+      profile == CodePushingMultiSetLocalGetWindowProfile ||
+      profile == CodePushingMultiSetGlobalGetWindowProfile {
+      2
+    } else {
+      1
+    },
+    max_body_statements: match profile {
+      CodePushingAfterIfProfile => 8
+      CodePushingDroppedIfProfile => 9
+      CodePushingBrIfProfile => 7
+      CodePushingBrIfValueProfile => 11
+      CodePushingBrOnNullProfile => 11
+      CodePushingBrOnNonNullProfile => 10
+      CodePushingBrOnNonNullPrefixProfile => 16
+      CodePushingBrOnCastProfile => 12
+      CodePushingBrOnCastFailProfile => 13
+      CodePushingMultiSetProfile => 11
+      CodePushingMultiSetDroppedIfProfile => 12
+      CodePushingMultiSetBrIfProfile => 13
+      CodePushingMultiSetLocalCopyProfile => 11
+      CodePushingMultiSetNopWindowProfile => 14
+      CodePushingLoopBrIfProfile => 15
+      CodePushingMultiSetDropWindowProfile => 16
+      CodePushingMultiSetLocalGetWindowProfile => 16
+      CodePushingMultiSetGlobalGetWindowProfile => 16
+      _ => 5
+    },
+    max_body_depth: 2,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: profile == CodePushingMultiSetGlobalGetWindowProfile,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_memory_limit_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_ref_types: profile == CodePushingBrOnNullProfile ||
+      profile == CodePushingBrOnNonNullProfile ||
+      profile == CodePushingBrOnNonNullPrefixProfile ||
+      profile == CodePushingBrOnCastProfile ||
+      profile == CodePushingBrOnCastFailProfile,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_subtyping_topology: false,
+      allow_typed_body_generator: false,
+      allow_name_custom_sections: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(CodePushingIfArmProfile) ||
+  config == GenValidConfig::for_profile(CodePushingAfterIfProfile) ||
+  config == GenValidConfig::for_profile(CodePushingDroppedIfProfile) ||
+  config == GenValidConfig::for_profile(CodePushingBrIfProfile) ||
+  config == GenValidConfig::for_profile(CodePushingBrOnNullProfile) ||
+  config == GenValidConfig::for_profile(CodePushingBrOnNonNullProfile) ||
+  config == GenValidConfig::for_profile(CodePushingBrOnNonNullPrefixProfile) ||
+  config == GenValidConfig::for_profile(CodePushingBrOnCastProfile) ||
+  config == GenValidConfig::for_profile(CodePushingBrOnCastFailProfile) ||
+  config == GenValidConfig::for_profile(CodePushingBrIfValueProfile) ||
+  config == GenValidConfig::for_profile(CodePushingMultiSetProfile) ||
+  config == GenValidConfig::for_profile(CodePushingMultiSetDroppedIfProfile) ||
+  config == GenValidConfig::for_profile(CodePushingMultiSetBrIfProfile) ||
+  config == GenValidConfig::for_profile(CodePushingMultiSetLocalCopyProfile) ||
+  config == GenValidConfig::for_profile(CodePushingMultiSetNopWindowProfile) ||
+  config == GenValidConfig::for_profile(CodePushingLoopBrIfProfile) ||
+  config == GenValidConfig::for_profile(CodePushingMultiSetDropWindowProfile) ||
+  config ==
+  GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile) ||
+  config ==
+  GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile)
 }
 
 ///|
@@ -12176,6 +12418,595 @@ fn gen_valid_pick_load_signs_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_code_pushing_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(CodePushingAfterIfProfile) {
+    CodePushingAfterIfProfile
+  } else if config == GenValidConfig::for_profile(CodePushingDroppedIfProfile) {
+    CodePushingDroppedIfProfile
+  } else if config == GenValidConfig::for_profile(CodePushingBrIfProfile) {
+    CodePushingBrIfProfile
+  } else if config == GenValidConfig::for_profile(CodePushingBrOnNullProfile) {
+    CodePushingBrOnNullProfile
+  } else if config == GenValidConfig::for_profile(CodePushingBrOnNonNullProfile) {
+    CodePushingBrOnNonNullProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingBrOnNonNullPrefixProfile) {
+    CodePushingBrOnNonNullPrefixProfile
+  } else if config == GenValidConfig::for_profile(CodePushingBrOnCastProfile) {
+    CodePushingBrOnCastProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingBrOnCastFailProfile) {
+    CodePushingBrOnCastFailProfile
+  } else if config == GenValidConfig::for_profile(CodePushingBrIfValueProfile) {
+    CodePushingBrIfValueProfile
+  } else if config == GenValidConfig::for_profile(CodePushingMultiSetProfile) {
+    CodePushingMultiSetProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetDroppedIfProfile) {
+    CodePushingMultiSetDroppedIfProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetBrIfProfile) {
+    CodePushingMultiSetBrIfProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetLocalCopyProfile) {
+    CodePushingMultiSetLocalCopyProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetNopWindowProfile) {
+    CodePushingMultiSetNopWindowProfile
+  } else if config == GenValidConfig::for_profile(CodePushingLoopBrIfProfile) {
+    CodePushingLoopBrIfProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetDropWindowProfile) {
+    CodePushingMultiSetDropWindowProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile) {
+    CodePushingMultiSetLocalGetWindowProfile
+  } else if config ==
+    GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile) {
+    CodePushingMultiSetGlobalGetWindowProfile
+  } else {
+    CodePushingIfArmProfile
+  }
+}
+
+///|
+fn gen_valid_code_pushing_if_arm_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::local_get(LocalIdx::new(1U)), Instruction::drop()],
+      Some([Instruction::nop()]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_after_if_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(3)),
+    Instruction::i32_const(I32(4)),
+    Instruction::i32_add(),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_dropped_if_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [Instruction::i32_const(I32(1))],
+      Some([Instruction::i32_const(I32(2))]),
+    ),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_br_if_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_if(LabelIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_br_on_null_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_on_null(LabelIdx::new(0U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_br_on_non_null_body() -> Array[Instruction] {
+  let extern_heap = HeapType::abs(AbsHeapType::extern_())
+  [
+    Instruction::block(
+      BlockType::val_type(ValType::externref()),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_on_non_null(LabelIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+        Instruction::ref_null(extern_heap),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_br_on_non_null_prefix_body() -> Array[Instruction] {
+  let extern_heap = HeapType::abs(AbsHeapType::extern_())
+  [
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(1U)),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::i32_const(I32(42)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_on_non_null(LabelIdx::new(0U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+        Instruction::i32_const(I32(13)),
+        Instruction::ref_null(extern_heap),
+      ]),
+    ),
+    Instruction::drop(),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_br_on_cast_body() -> Array[Instruction] {
+  let any_heap = HeapType::abs(AbsHeapType::any())
+  let i31_heap = HeapType::abs(AbsHeapType::i31())
+  [
+    Instruction::block(
+      BlockType::val_type(ValType::i31ref_nullable()),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_on_cast(
+          LabelIdx::new(0U),
+          true,
+          any_heap,
+          true,
+          i31_heap,
+        ),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+        Instruction::ref_null(i31_heap),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_br_on_cast_fail_body() -> Array[Instruction] {
+  let any_heap = HeapType::abs(AbsHeapType::any())
+  let i31_heap = HeapType::abs(AbsHeapType::i31())
+  [
+    Instruction::block(
+      BlockType::val_type(ValType::anyref()),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_on_cast_fail(
+          LabelIdx::new(0U),
+          true,
+          any_heap,
+          true,
+          i31_heap,
+        ),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+        Instruction::ref_null(any_heap),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_br_if_value_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::i32_const(I32(42)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_if(LabelIdx::new(0U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_multi_set_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::i32_const(I32(9)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_multi_set_dropped_if_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::i32_const(I32(9)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [Instruction::i32_const(I32(1))],
+      Some([Instruction::i32_const(I32(2))]),
+    ),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_multi_set_nop_window_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::nop(),
+    Instruction::i32_const(I32(9)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_loop_br_if_body() -> Array[Instruction] {
+  [
+    Instruction::loop_(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_if(LabelIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_multi_set_drop_window_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::i32_const(I32(99)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(9)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_multi_set_local_get_window_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(9)),
+    Instruction::local_set(LocalIdx::new(3U)),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(3U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_multi_set_global_get_window_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::global_get(GlobalIdx::new(0U)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(9)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_multi_set_local_copy_body() -> Array[Instruction] {
+  [
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::local_set(LocalIdx::new(3U)),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::local_set(LocalIdx::new(4U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::nop()],
+      Some([Instruction::nop()]),
+    ),
+    Instruction::local_get(LocalIdx::new(3U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(4U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_multi_set_br_if_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(2U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::br_if(LabelIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
+  let kind = gen_valid_code_pushing_profile_kind(config)
+  let result_type = if kind == CodePushingAfterIfProfile ||
+    kind == CodePushingBrIfValueProfile {
+    [ValType::i32()]
+  } else if kind == CodePushingBrOnNonNullProfile {
+    [ValType::externref()]
+  } else if kind == CodePushingBrOnCastProfile {
+    [ValType::i31ref_nullable()]
+  } else if kind == CodePushingBrOnCastFailProfile {
+    [ValType::anyref()]
+  } else {
+    []
+  }
+  let body = match kind {
+    CodePushingAfterIfProfile => gen_valid_code_pushing_after_if_body()
+    CodePushingDroppedIfProfile => gen_valid_code_pushing_dropped_if_body()
+    CodePushingBrIfProfile => gen_valid_code_pushing_br_if_body()
+    CodePushingBrOnNullProfile => gen_valid_code_pushing_br_on_null_body()
+    CodePushingBrOnNonNullProfile =>
+      gen_valid_code_pushing_br_on_non_null_body()
+    CodePushingBrOnNonNullPrefixProfile =>
+      gen_valid_code_pushing_br_on_non_null_prefix_body()
+    CodePushingBrOnCastProfile => gen_valid_code_pushing_br_on_cast_body()
+    CodePushingBrOnCastFailProfile =>
+      gen_valid_code_pushing_br_on_cast_fail_body()
+    CodePushingBrIfValueProfile => gen_valid_code_pushing_br_if_value_body()
+    CodePushingMultiSetProfile => gen_valid_code_pushing_multi_set_body()
+    CodePushingMultiSetDroppedIfProfile =>
+      gen_valid_code_pushing_multi_set_dropped_if_body()
+    CodePushingMultiSetBrIfProfile =>
+      gen_valid_code_pushing_multi_set_br_if_body()
+    CodePushingMultiSetLocalCopyProfile =>
+      gen_valid_code_pushing_multi_set_local_copy_body()
+    CodePushingMultiSetNopWindowProfile =>
+      gen_valid_code_pushing_multi_set_nop_window_body()
+    CodePushingLoopBrIfProfile => gen_valid_code_pushing_loop_br_if_body()
+    CodePushingMultiSetDropWindowProfile =>
+      gen_valid_code_pushing_multi_set_drop_window_body()
+    CodePushingMultiSetLocalGetWindowProfile =>
+      gen_valid_code_pushing_multi_set_local_get_window_body()
+    CodePushingMultiSetGlobalGetWindowProfile =>
+      gen_valid_code_pushing_multi_set_global_get_window_body()
+    _ => gen_valid_code_pushing_if_arm_body()
+  }
+  let params = if kind == CodePushingMultiSetLocalCopyProfile {
+    [ValType::i32(), ValType::i32(), ValType::i32()]
+  } else if kind == CodePushingMultiSetLocalGetWindowProfile {
+    [ValType::i32(), ValType::i32()]
+  } else if kind == CodePushingBrOnNullProfile ||
+    kind == CodePushingBrOnNonNullProfile ||
+    kind == CodePushingBrOnNonNullPrefixProfile {
+    [ValType::externref()]
+  } else if kind == CodePushingBrOnCastProfile ||
+    kind == CodePushingBrOnCastFailProfile {
+    [ValType::anyref()]
+  } else {
+    [ValType::i32()]
+  }
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func(params, result_type)),
+  )
+  let block_type = RecType::new(
+    SubType::comp_type(
+      CompType::func([], [ValType::i32(), ValType::externref()]),
+    ),
+  )
+  let type_sec = if kind == CodePushingBrOnNonNullPrefixProfile {
+    TypeSec::new([func_type, block_type])
+  } else {
+    TypeSec::new([func_type])
+  }
+  let mod = Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::from_types(
+            if kind == CodePushingBrIfValueProfile ||
+              kind == CodePushingMultiSetProfile ||
+              kind == CodePushingMultiSetDroppedIfProfile ||
+              kind == CodePushingMultiSetBrIfProfile ||
+              kind == CodePushingBrOnNullProfile ||
+              kind == CodePushingBrOnNonNullProfile ||
+              kind == CodePushingBrOnNonNullPrefixProfile ||
+              kind == CodePushingBrOnCastProfile ||
+              kind == CodePushingBrOnCastFailProfile ||
+              kind == CodePushingMultiSetLocalCopyProfile ||
+              kind == CodePushingMultiSetNopWindowProfile ||
+              kind == CodePushingLoopBrIfProfile ||
+              kind == CodePushingMultiSetDropWindowProfile ||
+              kind == CodePushingMultiSetGlobalGetWindowProfile {
+              [ValType::i32(), ValType::i32()]
+            } else if kind == CodePushingMultiSetLocalGetWindowProfile {
+              [ValType::i32(), ValType::i32()]
+            } else {
+              [ValType::i32()]
+            },
+          ),
+          Expr::new(body),
+        ),
+      ]),
+    )
+  if kind == CodePushingMultiSetGlobalGetWindowProfile {
+    mod.with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), false),
+          Expr::new([Instruction::i32_const(I32(42))]),
+        ),
+      ]),
+    )
+  } else {
+    mod
+  }
+}
+
+///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
   if gen_valid_is_gsi_desc_cast_profile_config(config) {
@@ -12186,6 +13017,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_pick_load_signs_profile_config(config) {
     return gen_valid_pick_load_signs_profile_module(config)
+  }
+  if gen_valid_is_code_pushing_profile_config(config) {
+    return gen_valid_code_pushing_profile_module(config)
   }
   let import_budget = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,
