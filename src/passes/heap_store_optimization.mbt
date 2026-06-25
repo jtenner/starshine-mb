@@ -1578,19 +1578,20 @@ fn hso_nodes_can_reorder(
   moved_id : Int,
   moved_mask : UInt,
 ) -> Bool {
-  if hso_subtree_global_order_conflicts(func, barrier_id, moved_id) {
+  if ((barrier_mask | moved_mask) & @ir.EFFECT_MASK_GLOBAL_STATE) != 0U &&
+    hso_subtree_global_order_conflicts(func, barrier_id, moved_id) {
     return false
   }
-  let barrier_reorder_mask = if hso_subtree_may_skip_local_set(
-      cache, func, barrier_id,
-    ) {
+  let barrier_reorder_mask = if (barrier_mask & @ir.EFFECT_MASK_CONTROL) == 0U {
+    barrier_mask
+  } else if hso_subtree_may_skip_local_set(cache, func, barrier_id) {
     barrier_mask
   } else {
     barrier_mask ^ (barrier_mask & @ir.EFFECT_MASK_CONTROL)
   }
-  let moved_reorder_mask = if hso_subtree_may_skip_local_set(
-      cache, func, moved_id,
-    ) {
+  let moved_reorder_mask = if (moved_mask & @ir.EFFECT_MASK_CONTROL) == 0U {
+    moved_mask
+  } else if hso_subtree_may_skip_local_set(cache, func, moved_id) {
     moved_mask
   } else {
     moved_mask ^ (moved_mask & @ir.EFFECT_MASK_CONTROL)
