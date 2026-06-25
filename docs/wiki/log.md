@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Refresh post-0888 wasm-smith 10000
+
+- Filed [`raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md`](raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md) after refreshing the explicit wasm-smith lane with the current native binary.
+- `.tmp/pass-fuzz-code-pushing-wasm-smith-10000-20260625-post-0888` used seed `0x5eed`, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe`; it compared `9956/10000`, normalized `9956`, cleanup-normalized `0`, raw mismatches `0`, validation/generator/property failures `0`, and command failures `44` classified as cached Binaryen/tool classes (`39` rec-group-zero, `3` bad-section-size, `1` invalid-tag-index, `1` table-index-out-of-range).
+- This satisfies the current explicit wasm-smith final-closeout lane, but final `[O4Z-AUDIT-CP]` closeout still needs regular 100000, broad named `pass-fuzz-stress` 10000, and an explicit source-backed stop condition.
+
 ## [2026-06-25] passes/code-pushing | Refresh post-0887 code-pushing-all 10000
 
 - Filed [`raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md`](raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md) after refreshing the dedicated `code-pushing-all` 10000 lane with the current native binary and `--normalize local-cleanup-debris`.

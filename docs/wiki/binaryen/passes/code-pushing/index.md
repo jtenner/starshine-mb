@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md
   - ../../../raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md
   - ../../../raw/research/0887-2026-06-25-code-pushing-nested-global-set-root-refinements.md
   - ../../../raw/research/0886-2026-06-25-code-pushing-all-post-0884-smoke.md
