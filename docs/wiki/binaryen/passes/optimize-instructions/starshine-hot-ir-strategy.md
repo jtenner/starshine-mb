@@ -425,7 +425,7 @@ The local file now models the first `visitTupleExtract(...)` family for one-use 
 
 - when every non-selected tuple child is pure, the extract forwards the selected lane directly;
 - when non-selected siblings have effects and produce at most one value, Starshine preserves/drops earlier effects before the selected lane, localizes the selected lane to a temp local when later effects exist, preserves/drops later effects, then reloads the selected value;
-- broader tee/drop reconstruction, multi-use tuple proofs, multi-value selected lanes or siblings, and public text-surface coverage remain open under `[O4Z-AUDIT-OI-M]`.
+- local-carried/multi-use tuple extraction is now an explicit Binaryen-matching keep-spelling boundary for the probed shape; broader tee/drop reconstruction, any future safe multi-use tuple proof, multi-value selected lanes or siblings, and public text-surface coverage remain open under `[O4Z-AUDIT-OI-M]`.
 
 ## 6. First local sign-extension facts, but not full Binaryen `LocalScanner`
 

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock multi-use tuple boundary
+
+- Added OI-M boundary coverage for direct-HOT multi-use `tuple.make` extraction: the existing one-use `tuple.extract(tuple.make(...))` helper intentionally does not rewrite a tuple value used by more than one extraction.
+- Binaryen `version_130` keeps the probed local-carried multi-use tuple extraction shape under direct `--optimize-instructions`, so Starshine documents this as a keep-spelling boundary rather than hidden tuple parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiuse-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*multi-use tuple*'` passed immediately as boundary coverage.
+
 ## [2026-06-25] passes/optimize-instructions | Rewrite reinterpret loads
 
 - Added the OI-G direct load-result cleanup for full-width load plus reinterpret pairs: `f32.reinterpret_i32(i32.load p)` becomes `f32.load p`, `f64.reinterpret_i64(i64.load p)` becomes `f64.load p`, and the inverse integer-result forms become `i32.load` / `i64.load`.

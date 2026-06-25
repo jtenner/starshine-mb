@@ -810,7 +810,7 @@ After, conceptually:
   chosen-lane)
 ```
 
-The actual implementation uses a temp local and dropped-children rebuilding so the selected lane survives while the rest of the tuple side effects remain honest. Current Starshine coverage includes pure omitted siblings plus single-result effectful siblings before and after the selected lane: earlier effects are dropped before the selected lane, later effects force a selected-lane `local.set`, then later effects are dropped before reloading the selected value. Multi-result lanes/siblings, multi-use tuples, and broader tee/drop reconstruction remain open.
+The actual implementation uses a temp local and dropped-children rebuilding so the selected lane survives while the rest of the tuple side effects remain honest. Current Starshine coverage includes pure omitted siblings plus single-result effectful siblings before and after the selected lane: earlier effects are dropped before the selected lane, later effects force a selected-lane `local.set`, then later effects are dropped before reloading the selected value. A 2026-06-25 boundary test locks local-carried / multi-use tuple extraction as a keep-spelling shape under Binaryen `version_130`; multi-result lanes/siblings, any future safe multi-use tuple proof, and broader tee/drop reconstruction remain open.
 
 ## Negative / bailout families
 

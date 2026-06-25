@@ -138,7 +138,7 @@ The local pass does not yet model the upstream visitor families for:
 - GC aggregate RMW/cmpxchg lowering: Starshine exposes `struct.atomic.get*` but not aggregate RMW/cmpxchg text/core constructors, while Binaryen optimizes source-backed non-mutating RMW/cmpxchg forms to `struct.get`-like reads
 - `call_ref` directization families beyond the covered direct/ref.func, constant-index and call-indexed table.get, select, and fallthrough-known subsets with zero arguments or localized single-result arguments
 - broader memory and bulk-memory lowering beyond the covered tiny-copy/fill, stored-value, offset-fold, and narrow raw-gate escapes
-- tuple extraction parity beyond the one-use tuple.make subset with pure siblings or covered single-result effectful sibling drop/localization
+- tuple extraction parity beyond the one-use tuple.make subset with pure siblings or covered single-result effectful sibling drop/localization; local-carried / multi-use tuple extraction is now a documented keep-spelling boundary for the probed Binaryen `version_130` shape
 - a whole-function local prescan equivalent beyond the narrow fallthrough sign facts and direct sign-extension equality range folds
 - deferred `ReFinalize` / EH-pop repair inside this pass
 

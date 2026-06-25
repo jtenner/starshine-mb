@@ -7812,6 +7812,62 @@ test "optimize-instructions localizes tuple.extract of tuple.make with effectful
 }
 
 ///|
+test "optimize-instructions intentionally keeps multi-use tuple.make boundary" {
+  // Boundary-only OI-M classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps tuple extractions through a local-carried
+  // multi-use tuple (`.tmp/oi-m-tuple-multiuse-probe.wat`). Starshine's direct
+  // tuple.extract(tuple.make(...)) forwarding remains one-use-only, and this
+  // direct-HOT fixture locks the same multi-use proof boundary rather than
+  // claiming broader tuple reconstruction parity.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [
+      @ir.hot_build_const_i32(func, @lib.I32(1)),
+      @ir.hot_build_const_i64(func, @lib.I64(2L)),
+    ],
+  )
+  let ignored = @ir.hot_build_tuple_extract(func, @lib.ValType::i64(), tuple, 1)
+  let selected = @ir.hot_build_tuple_extract(
+    func,
+    @lib.ValType::i32(),
+    tuple,
+    0,
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, ignored))
+  @ir.hot_root_append(func, selected)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected multi-use tuple boundary success, got \{err}")
+  }
+
+  let result = @ir.hot_root_get(func, 1)
+  match @ir.hot_node_get(func, result).op {
+    @ir.HotOp::TupleExtract => ()
+    _ => fail("expected multi-use tuple.extract to stay unchanged")
+  }
+  let result_tuple = @ir.hot_child_get(func, result, 0)
+  @debug.assert_eq(result_tuple, tuple)
+  match @ir.hot_node_get(func, tuple).op {
+    @ir.HotOp::TupleMake => ()
+    _ => fail("expected multi-use tuple.make to stay available")
+  }
+}
+
+///|
 test "optimize-instructions preserves earlier and later tuple.extract sibling effects" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
