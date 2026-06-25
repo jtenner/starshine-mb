@@ -339,13 +339,14 @@ pub struct HotPassContext {
   cache : @ir.HotAnalysisCache
   verify_policy : HotPipelineVerifyPolicy
   closed_world : Bool
+  traps_never_happen : Bool
   optimize_level : Int
   shrink_level : Int
   trace : (String) -> Unit
   perf : HotPerfSession?
   module_ctx : @ir.HotModuleContext?
 }
-pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, perf? : HotPerfSession?, module_ctx? : @ir.HotModuleContext?, optimize_level? : Int, shrink_level? : Int) -> Self
+pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, traps_never_happen? : Bool, perf? : HotPerfSession?, module_ctx? : @ir.HotModuleContext?, optimize_level? : Int, shrink_level? : Int) -> Self
 
 pub enum HotPassRegistryCategory {
   HotPass

@@ -3,6 +3,7 @@ kind: entity
 status: strong
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
   - ../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md
   - ../../../raw/research/0891-2026-06-25-code-pushing-pass-fuzz-stress-post-0890-10000.md
   - ../../../raw/research/0890-2026-06-25-code-pushing-regular-post-0889-100000.md
@@ -195,7 +196,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 - Do not move non-SFA locals without a stronger local-use proof.
 - Do not move values across effects that can invalidate or must be ordered after the delayed computation.
-- Do not change trap timing unless the active trap policy explicitly permits that behavior.
+- Do not change trap timing unless the active trap policy explicitly permits that behavior; Starshine now carries `traps_never_happen` into hot passes and uses it for the reduced exact integer div/rem into-if family.
 - Do not strand post-if uses unless the non-consuming arm cannot fall through or another proof preserves the value.
 - Do not treat two-live-arm duplication as a default `code-pushing` behavior.
 - Preserve order among multiple pushed sets.

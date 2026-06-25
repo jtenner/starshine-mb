@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-24
+last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
+  - ../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md
+  - ../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md
   - ../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md
   - ../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md
   - ../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md
@@ -62,13 +65,13 @@ The owner file is:
 
 - [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
 
-The current implementation is deliberately narrower than Binaryen's full source-level `Pusher` model. Its older direct-pass subset was accepted under the previous semantic criteria, but `[O4Z-AUDIT-CP]` is active under the current release-gating standard:
+The current implementation is deliberately narrower than Binaryen's full source-level `Pusher` model. `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by [`0892`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md); replacement-oriented follow-up work continues under `[O4Z-AUDIT-CP-BINREP]`:
 
 1. **Safe single-consuming-arm local-set sinking**
    - A root `local.set` before a void `if` can be replaced with `nop`.
    - A cloned `local.set` is inserted into the one `if` arm that contains all in-arm reads of that local.
    - Same-region suffix reads after the `if` are allowed only when the opposite arm cannot fall through under the current conservative root proof.
-   - Values are limited to pure nontrapping HOT values plus guarded `global.get`, local-copy setup, and narrow non-null `struct.get` heap-read shapes.
+   - Values are limited to pure nontrapping HOT values plus guarded `global.get`, local-copy setup, narrow non-null `struct.get` heap-read shapes, and exact integer div/rem values only when `HotPassContext.traps_never_happen` is true.
 2. **Ordinary `if`, dropped `if`, and narrow `br_if` segment movement**
    - The first mutating segment-window consumer moves one SFA `local.set` after an ordinary void `if` when the `if` itself does not read the local and every read is a same-region suffix read after the `if`.
    - The dropped-wrapper extension moves the same single-set family after a dropped value `if` when the dropped push point does not read the local and every read is a same-region suffix read after the wrapper.
@@ -122,13 +125,13 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | --- | --- |
 | Function-local `LocalAnalyzer` SFA scan | Non-mutating diagnostic reports prefix-read and multiple-write SFA rejection reasons; mutating paths still use per-candidate get/write counting |
 | `Pusher` block segment scan | Non-mutating segment-window diagnostic recognizes selected block-local candidate windows; mutating paths now consume ordinary `if` and dropped-`if` after-movement subsets while remaining bounded and narrower |
-| `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get`, local-copy, and narrow non-null `struct.get` cases; diagnostic reports coarse ordered-before/effect barriers |
+| `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get`, local-copy, narrow non-null `struct.get`, and TNH-only exact integer div/rem cases; diagnostic reports coarse ordered-before/effect barriers |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Diagnostic recognizes these where HOT representation is local; mutation targets ordinary void `if`, dropped value-`if` wrappers, no-branch-value void-block-target / void-loop-target `br_if` subsets, dropped void-label `br_on_null` subsets, and bounded value-block-target `br_if` subsets; simple no-branch-value `br_table` block-exit windows are tested as a no-mutation boundary |
 | `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if`, dropped-`if`, no-branch-value `br_if`, dropped void-label `br_on_null`, and value-block-target `br_if` after-movement slices implemented; ordered adjacent multi-set movement implemented for local-independent values before ordinary void `if`, dropped value-`if`, narrow no-branch-value void-block-target `br_if`, narrow no-branch-value void-loop-target `br_if`, and dropped void-label `br_on_null`, plus direct local-copy values when source locals are stable, `nop`-/`drop(const)`-/`drop(local.get)`-separated local-independent windows, and bounded ordinary-/dropped-`if` `drop(global.get)` windows; broader multi-set, branch-value multi-set, arbitrary separators beyond `nop` / `drop(const)` / `drop(local.get)` / bounded ordinary-/dropped-`if` `drop(global.get)` windows, and other push-point movement not implemented generally |
 | `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm, plus same-region suffix reads when the opposite arm cannot fall through |
 | Unreachable-arm post-use allowance | First conservative slice implemented for roots ending in `unreachable`, `return`, or tail-return roots |
 | `version_130` ordered-before / atomics source surfaces | First `code-pushing-atomics.wast` heap-read slice implemented for non-null `struct.get` across atomic loads and store boundaries; general `orderedBefore` remains an audit gap |
-| Broader GC/EH/trap-option source surfaces | Narrow `struct.get`/atomics family implemented; broader GC/EH/trap-option surfaces are guarded out or not modeled broadly |
+| Broader GC/EH/trap-option source surfaces | Narrow `struct.get`/atomics family and TNH exact integer div/rem into-if movement are implemented; broader GC/EH/trap-option surfaces are guarded out or not modeled broadly |
 | Refinalization / later optimizer cycles | Starshine relies on HOT verification, lowering, and final validation; future broader ports need equivalent local retyping discipline |
 
 ## Current local positive family
@@ -309,7 +312,7 @@ The pass refuses to move when:
 - a `candidate:conditional-branch` is neither a no-branch-value `br_if` to a void block/loop label nor a one-payload `br_if` to a value block label;
 - ordered multi-set movement would need non-adjacent sets beyond `nop`, `drop(const)`, or `drop(local.get)` separators, push points outside ordinary void `if` / dropped value-`if` / narrow `br_if` / adjacent value-block-target `br_if`, local-copy dependency chains, duplicate locals, arm or branch reads of moved locals, source-local writes, or non-suffix reads;
 - the source value is not movable under the strict pure/nontrapping or guarded setup gates;
-- the source value may trap;
+- the source value may trap and the active context has not enabled `traps_never_happen` for the reduced exact integer div/rem family;
 - or the target arm does not exist.
 
 ## Starshine-local dead-block flattening family
@@ -340,7 +343,7 @@ So the honest local status is:
 - direct pass flag: active;
 - focused HOT subset: accepted complete under semantic / validity / 50%-speed criteria;
 - exact Binaryen preset slot: not claimed;
-- broader source-level `Pusher` coverage: active `[O4Z-AUDIT-CP]` work before release-gating closeout.
+- broader source-level `Pusher` coverage: old `[O4Z-AUDIT-CP]` is closed by `0892`; active replacement follow-up remains under `[O4Z-AUDIT-CP-BINREP]`.
 
 ## Current audit widening
 
@@ -368,7 +371,7 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the analyzer/segment inventory exists, and the ordinary-void-`if`, dropped value-`if`, no-branch-value block-target and loop-target `br_if`, branch-value block-target `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, no-branch-value `br_if` multi-set, branch-value `br_if` multi-set, dropped `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, direct local-copy multi-set, `nop`-window multi-set, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, bounded ordinary-/dropped-`if` `drop(global.get)`-window multi-set, and narrow non-null `struct.get`/atomics movement slices now consume that inventory. Simple no-branch-value `br_table` block-exit windows are tested as a Binaryen-stationary no-mutation boundary, not as switch mutation parity. Bounded one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, and dropped one-result-block `br_on_cast_fail` are implemented after HOT implicit branch-payload verifier fixes; loop/prefix-payload shapes and broader `br_on_*` forms remain open. The next active audit work is still broader source-backed segment/push-point parity, with general ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active, and `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by `0892`. Replacement-oriented work continues under `[O4Z-AUDIT-CP-BINREP]`: dependency-chain into-if sinking is implemented by `0893`, and TNH exact integer div/rem into-if movement is implemented by `0895`. Remaining follow-ups include `code-pushing_ignore-implicit-traps.wast`, no-effects intrinsics, broader GC/ref surfaces, source-order refinements, and low-priority branch/switch probes. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 

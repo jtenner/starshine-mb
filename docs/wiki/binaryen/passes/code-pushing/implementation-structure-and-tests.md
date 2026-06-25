@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-24
+last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
   - ../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md
   - ../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md
   - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
@@ -69,7 +70,7 @@ Important source regions by owner name:
 | `code-pushing-atomics.wast` | `version_130` atomics/GC ordering: non-null GC `struct.get` reads may move past shared atomic loads but not shared atomic stores, both into `if` arms and across segment push points; Starshine mirrors this narrow family with HOT tests until shared-GC WAT parsing is available |
 | `code-pushing_into_if.wast` | One-arm `if` sinking plus post-if-read and unreachable-arm subtleties |
 | `code-pushing_ignore-implicit-traps.wast` | Option-sensitive relaxation around implicit traps |
-| `code-pushing_tnh.wast` | Traps-never-happen behavior |
+| `code-pushing_tnh.wast` | Traps-never-happen behavior; Starshine now covers the reduced exact integer div/rem into-if family from `0895` |
 | `code-pushing-gc.wast` | GC/reference-typed families under the same movement-safety rules |
 | `code-pushing-eh.wast` | Exception-handling-sensitive no-op and movement boundaries |
 | `code-pushing-eh-legacy.wast` | Legacy EH-sensitive coverage retained in the `version_130` lit surface |
@@ -91,7 +92,7 @@ Official `version_130` test URLs:
 | Local file | What it proves |
 | --- | --- |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) | Accepted direct HOT subset: safe single-arm `local.set` sinking, bounded segment movement after ordinary/dropped `if`, no-branch-value and branch-value `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, guarded `global.get` / local-copy / non-null `struct.get` movement, and local dead-block flattening |
-| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Then/else positives, pure-value/global/local-copy movement positives, `br_if` branch-value single-/multi-set positives and payload-read boundary, dropped `br_on_null`, one-result-block `br_on_non_null`, dropped `br_on_cast`, and dropped `br_on_cast_fail` single-/multi-set positives plus guard-read boundaries, both-arm and later-use negatives, nested-later-use negative, trap guard, dead-block flattening guards |
+| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Then/else positives, pure-value/global/local-copy movement positives, `br_if` branch-value single-/multi-set positives and payload-read boundary, dropped `br_on_null`, one-result-block `br_on_non_null`, dropped `br_on_cast`, and dropped `br_on_cast_fail` single-/multi-set positives plus guard-read boundaries, both-arm and later-use negatives, nested-later-use negative, default trap guard, TNH exact-div into-if positive, dead-block flattening guards |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Active registry entry and preset omission / tuple exact-slot gating |
 | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Registry classification for the direct pass |
 | [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) | Command-surface coverage for direct pass use |

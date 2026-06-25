@@ -75,11 +75,15 @@ fn code_pushing_node_is_nontrapping_struct_get_from_local_get(
 fn code_pushing_node_is_movable_value(
   func : @ir.HotFunc,
   node_id : Int,
+  traps_never_happen? : Bool = false,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  if code_pushing_exact_instr_can_trap(@ir.hot_node_exact_instr(func, node_id)) {
+  let exact_instr_can_trap = code_pushing_exact_instr_can_trap(
+    @ir.hot_node_exact_instr(func, node_id),
+  )
+  if !traps_never_happen && exact_instr_can_trap {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -94,7 +98,8 @@ fn code_pushing_node_is_movable_value(
     | @ir.HotOp::RefFunc
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract =>
-      @ir.effects_is_pure(@ir.effects_for_node(func, node_id))
+      @ir.effects_is_pure(@ir.effects_for_node(func, node_id)) ||
+      (traps_never_happen && exact_instr_can_trap)
     @ir.HotOp::GlobalGet => true
     @ir.HotOp::Heap =>
       code_pushing_node_is_nontrapping_struct_get_from_local_get(func, node_id)
@@ -1195,7 +1200,11 @@ fn code_pushing_try_sink_set_before_later_barrier(
     return false
   }
   let value_id = @ir.hot_child_get(func, set_id, 0)
-  if !code_pushing_node_is_movable_value(func, value_id) {
+  if !code_pushing_node_is_movable_value(
+      func,
+      value_id,
+      traps_never_happen=ctx.traps_never_happen,
+    ) {
     return false
   }
   if !code_pushing_node_is_global_get(func, value_id) {
@@ -1246,8 +1255,9 @@ fn code_pushing_try_sink_set_before_later_barrier(
 fn code_pushing_value_is_ordered_set_movable(
   func : @ir.HotFunc,
   value_id : Int,
+  traps_never_happen? : Bool = false,
 ) -> Bool {
-  code_pushing_node_is_movable_value(func, value_id) ||
+  code_pushing_node_is_movable_value(func, value_id, traps_never_happen~) ||
   code_pushing_node_is_local_get(func, value_id)
 }
 
@@ -1481,7 +1491,11 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
           return false
         }
         let value_id = @ir.hot_child_get(func, root_id, 0)
-        if !code_pushing_node_is_movable_value(func, value_id) ||
+        if !code_pushing_node_is_movable_value(
+            func,
+            value_id,
+            traps_never_happen=ctx.traps_never_happen,
+          ) ||
           code_pushing_node_has_any_local_get(func, value_id) {
           continue
         }
@@ -1593,7 +1607,11 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
           return false
         }
         let value_id = @ir.hot_child_get(func, root_id, 0)
-        if !code_pushing_value_is_ordered_set_movable(func, value_id) {
+        if !code_pushing_value_is_ordered_set_movable(
+            func,
+            value_id,
+            traps_never_happen=ctx.traps_never_happen,
+          ) {
           return false
         }
         let source_local = if code_pushing_node_is_local_get(func, value_id) {
@@ -1809,7 +1827,11 @@ fn code_pushing_try_sink_set_after_if_push_point(
     return false
   }
   let value_id = @ir.hot_child_get(func, set_id, 0)
-  if !code_pushing_node_is_movable_value(func, value_id) {
+  if !code_pushing_node_is_movable_value(
+      func,
+      value_id,
+      traps_never_happen=ctx.traps_never_happen,
+    ) {
     return false
   }
   let local_id = set_node.imm0
@@ -1938,7 +1960,11 @@ fn code_pushing_try_sink_dependency_chain_into_if_arm(
           return false
         }
         let value_id = @ir.hot_child_get(func, root_id, 0)
-        if !code_pushing_value_is_ordered_set_movable(func, value_id) {
+        if !code_pushing_value_is_ordered_set_movable(
+            func,
+            value_id,
+            traps_never_happen=ctx.traps_never_happen,
+          ) {
           return false
         }
         let source_local = if code_pushing_node_is_local_get(func, value_id) {
@@ -2115,7 +2141,11 @@ fn code_pushing_try_sink_set_into_if_then(
   // mutation remains governed by the stricter source-backed checks below.
   ignore(code_pushing_segment_window_diagnostic(func, region_ref, set_idx))
   let value_id = @ir.hot_child_get(func, set_id, 0)
-  if !code_pushing_node_is_movable_value(func, value_id) {
+  if !code_pushing_node_is_movable_value(
+      func,
+      value_id,
+      traps_never_happen=ctx.traps_never_happen,
+    ) {
     return false
   }
 

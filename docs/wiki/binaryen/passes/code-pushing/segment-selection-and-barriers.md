@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
   - ../../../raw/research/0894-2026-06-25-code-pushing-tnh-context-blocker.md
   - ../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md
   - ../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md
@@ -142,7 +143,7 @@ This is the important distinction from stale two-live-arm duplication examples:
 
 Trap timing and exceptional control are correctness boundaries.
 
-- Default trap policy is stricter than ignore-implicit-traps / TNH modes. As of [`0894`](../../../raw/research/0894-2026-06-25-code-pushing-tnh-context-blocker.md), `[CP-BINREP-002]` remains open because `HotPipelineOptions` carries `traps_never_happen`, but `HotPassContext` does not expose that flag to hot passes; implementing trap-relaxed `code-pushing` movement needs explicit context plumbing before relaxing trapping-value gates.
+- Default trap policy is stricter than ignore-implicit-traps / TNH modes. As of [`0895`](../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md), Starshine plumbs `HotPipelineOptions.traps_never_happen` into `HotPassContext` and `code-pushing` uses it to sink exact integer div/rem values, such as the reduced `i32.div_s` into-if probe, only when TNH is enabled. The default trap-timing boundary remains protected, and broader `code-pushing_ignore-implicit-traps.wast` coverage remains tracked by `[CP-BINREP-003]`.
 - GC/reference expressions are allowed only when the same effect and use proof succeeds.
 - `code-pushing-atomics.wast` proves non-null GC `struct.get` reads can move past shared atomic loads but not shared atomic stores, both into the sole consuming `if` arm and across a segment push point for suffix use.
 - Starshine now mirrors that atomics/GC family with HOT fixtures because its WAT surface does not yet parse the official shared-GC syntax; the implementation admits only non-null `struct.get` from a `local.get` source and blocks intervening memory writes.

@@ -370,6 +370,67 @@ test "code-pushing keeps const local.set when both if arms use it" {
 }
 
 ///|
+test "code-pushing keeps trapping div before if by default" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32 i32 i32) (local i32)
+        #|    (local.set 3 (i32.div_s (local.get 0) (local.get 1)))
+        #|    (if (local.get 2)
+        #|      (then
+        #|        (drop (local.get 3))))))
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded code-pushing success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 0))(local.get (Local 1))i32.div_s(local.set (Local 3))(local.get (Local 2))(if",
+    ),
+    msg=pretty,
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing sinks trapping div into sole using if arm when traps never happen" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32 i32 i32) (local i32)
+        #|    (local.set 3 (i32.div_s (local.get 0) (local.get 1)))
+        #|    (if (local.get 2)
+        #|      (then
+        #|        (drop (local.get 3))))))
+      ),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected trap-relaxed code-pushing success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 2))(if (Void) (local.get (Local 0)) (local.get (Local 1)) i32.div_s (local.set (Local 3)) (local.get (Local 3)) drop",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "code-pushing keeps local.set before if when the local is used after the if" {
   let trace : Array[String] = []
   let optimized = match

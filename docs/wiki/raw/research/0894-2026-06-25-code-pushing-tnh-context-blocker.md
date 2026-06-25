@@ -2,6 +2,8 @@
 
 Date: 2026-06-25
 
+Superseded for implementation status by [`0895-2026-06-25-code-pushing-tnh-movement.md`](0895-2026-06-25-code-pushing-tnh-movement.md): the blocker identified here was resolved by adding `HotPassContext.traps_never_happen` and wiring it into `code-pushing`. This note remains useful as the historical blocker analysis.
+
 ## Question
 
 Can `[CP-BINREP-002]` be implemented immediately by teaching `code-pushing` to honor `--traps-never-happen` for trapping values such as `i32.div_s` sunk into a sole consuming `if` arm?

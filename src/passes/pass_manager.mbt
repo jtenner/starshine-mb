@@ -71,6 +71,7 @@ pub struct HotPassContext {
   cache : @ir.HotAnalysisCache
   verify_policy : HotPipelineVerifyPolicy
   closed_world : Bool
+  traps_never_happen : Bool
   optimize_level : Int
   shrink_level : Int
   trace : (String) -> Unit
@@ -85,6 +86,7 @@ pub fn HotPassContext::new(
   verify_policy : HotPipelineVerifyPolicy,
   closed_world : Bool,
   trace : (String) -> Unit,
+  traps_never_happen? : Bool = false,
   perf? : HotPerfSession? = None,
   module_ctx? : @ir.HotModuleContext? = None,
   optimize_level? : Int = 0,
@@ -95,6 +97,7 @@ pub fn HotPassContext::new(
     cache,
     verify_policy,
     closed_world,
+    traps_never_happen,
     optimize_level,
     shrink_level,
     trace,
@@ -25320,6 +25323,7 @@ fn run_hot_pipeline_func(
     options.verify_policy,
     options.closed_world,
     options.trace,
+    traps_never_happen=options.traps_never_happen,
     perf=options.perf,
     module_ctx=Some(module_ctx),
     optimize_level=options.optimize_level,
@@ -26295,6 +26299,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
             options.verify_policy,
             options.closed_world,
             options.trace,
+            traps_never_happen=options.traps_never_happen,
             perf=options.perf,
             module_ctx=Some(module_ctx),
             optimize_level=options.optimize_level,
