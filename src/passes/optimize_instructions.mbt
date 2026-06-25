@@ -4271,6 +4271,67 @@ fn optimize_instructions_try_rewrite_reinterpret_load_result(
 }
 
 ///|
+fn optimize_instructions_try_rewrite_i64_extend_i32_load_result(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  if node.child_count != 1 {
+    return false
+  }
+  let load_id = @ir.hot_child_get(func, node_id, 0)
+  if !optimize_instructions_node_is_live(func, dead, load_id) ||
+    pass_node_use_count(ctx, func, load_id) != 1 {
+    return false
+  }
+  let load = @ir.hot_node_get(func, load_id)
+  if load.child_count != 1 {
+    return false
+  }
+  let new_instr = match
+    (
+      @ir.hot_node_exact_instr(func, load_id),
+      @ir.hot_node_exact_instr(func, node_id),
+    ) {
+    (
+      Some(@lib.Instruction::I32Load(memarg)),
+      Some(@lib.Instruction::I64ExtendI32U),
+    ) => @lib.Instruction::i64_load32u(memarg)
+    (
+      Some(@lib.Instruction::I32Load(memarg)),
+      Some(@lib.Instruction::I64ExtendI32S),
+    ) => @lib.Instruction::i64_load32s(memarg)
+    (
+      Some(@lib.Instruction::I32Load8U(memarg)),
+      Some(@lib.Instruction::I64ExtendI32U | @lib.Instruction::I64ExtendI32S),
+    ) => @lib.Instruction::i64_load8u(memarg)
+    (
+      Some(@lib.Instruction::I32Load16U(memarg)),
+      Some(@lib.Instruction::I64ExtendI32U | @lib.Instruction::I64ExtendI32S),
+    ) => @lib.Instruction::i64_load16u(memarg)
+    (
+      Some(@lib.Instruction::I32Load8S(memarg)),
+      Some(@lib.Instruction::I64ExtendI32S),
+    ) => @lib.Instruction::i64_load8s(memarg)
+    (
+      Some(@lib.Instruction::I32Load16S(memarg)),
+      Some(@lib.Instruction::I64ExtendI32S),
+    ) => @lib.Instruction::i64_load16s(memarg)
+    _ => return false
+  }
+  optimize_instructions_rewrite_exact_with_children(
+    ctx,
+    func,
+    node_id,
+    new_instr,
+    [@ir.hot_child_get(func, load_id, 0)],
+  )
+  true
+}
+
+///|
 fn optimize_instructions_try_widen_store_of_wrap_i64(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -8068,6 +8129,9 @@ fn optimize_instructions_visit_node(
         false
       } else {
         optimize_instructions_try_rewrite_reinterpret_load_result(
+          ctx, func, dead, node_id,
+        ) ||
+        optimize_instructions_try_rewrite_i64_extend_i32_load_result(
           ctx, func, dead, node_id,
         ) ||
         optimize_instructions_try_fold_convert(

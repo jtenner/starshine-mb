@@ -104,7 +104,7 @@ So Starshine already covers a meaningful subset of the arithmetic rewrite surfac
 
 ### 4. Memory and stored-value cleanup
 
-The local pass covers the small Binaryen-style memory surface that has direct HOT support: tiny `memory.copy` / `memory.fill` lowering for selected constant sizes, including flat stack-carried tiny `memory.copy` forms with no-param direct-call/local/constant operands, constant-pointer static-offset folding (including the narrow public `i32.const; nonzero-offset scalar load; drop; call` raw-gate escape), narrow-store redundant-mask and constant truncation cleanup, direct `i32.wrap_i64` store widening, direct reinterpret-store representation rewrites such as `f32.store(f32.reinterpret_i32 x)` to `i32.store x`, and one-use full-width reinterpret-load result rewrites such as `f32.reinterpret_i32(i32.load p)` to `f32.load p`.
+The local pass covers the small Binaryen-style memory surface that has direct HOT support: tiny `memory.copy` / `memory.fill` lowering for selected constant sizes, including flat stack-carried tiny `memory.copy` forms with no-param direct-call/local/constant operands, constant-pointer static-offset folding (including the narrow public `i32.const; nonzero-offset scalar load; drop; call` raw-gate escape), narrow-store redundant-mask and constant truncation cleanup, direct `i32.wrap_i64` store widening, direct reinterpret-store representation rewrites such as `f32.store(f32.reinterpret_i32 x)` to `i32.store x`, one-use full-width reinterpret-load result rewrites such as `f32.reinterpret_i32(i32.load p)` to `f32.load p`, and one-use `i64.extend_i32_*` load-result rewrites such as `i64.extend_i32_u(i32.load p)` to `i64.load32_u p`.
 
 Broader memory work remains deliberately open or boundary-tested: zero-size bulk-memory cleanup needs trap-relaxed mode support, non-flat or parameterized/effect-control `memory.copy` localization remains open, broader mixed load/call functions still stop at the public raw gate, and non-local wider `memory.fill` values such as calls or computed `i32.add` values are now source-backed keep-spelling boundaries rather than missing materialization.
 
@@ -137,7 +137,7 @@ The local pass does not yet model the upstream visitor families for:
 - broad reference-typed and GC rewrites beyond the many narrow OI-I/OI-K subsets already covered
 - GC aggregate RMW/cmpxchg lowering: Starshine exposes `struct.atomic.get*` but not aggregate RMW/cmpxchg text/core constructors, while Binaryen optimizes source-backed non-mutating RMW/cmpxchg forms to `struct.get`-like reads
 - `call_ref` directization families beyond the covered direct/ref.func, constant-index and call-indexed table.get, select, and fallthrough-known subsets with zero arguments or localized single-result arguments
-- broader memory and bulk-memory lowering beyond the covered tiny-copy/fill, stored-value, offset-fold, and narrow raw-gate escapes
+- broader memory and bulk-memory lowering beyond the covered tiny-copy/fill, stored-value, load-result, offset-fold, and narrow raw-gate escapes
 - tuple extraction parity beyond the one-use tuple.make subset with pure siblings or covered single-result effectful sibling drop/localization; local-carried / multi-use tuple extraction is now a documented keep-spelling boundary for the probed Binaryen `version_130` shape
 - a whole-function local prescan equivalent beyond the narrow fallthrough sign facts and direct sign-extension equality range folds
 - deferred `ReFinalize` / EH-pop repair inside this pass

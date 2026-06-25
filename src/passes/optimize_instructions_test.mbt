@@ -6868,6 +6868,90 @@ test "optimize-instructions rewrites reinterpret loads to representation loads" 
 }
 
 ///|
+test "optimize-instructions rewrites i64.extend_i32 loads to representation loads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load
+        #|    i64.extend_i32_u)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load
+        #|    i64.extend_i32_s)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load8_u
+        #|    i64.extend_i32_u)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load8_s
+        #|    i64.extend_i32_s)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load16_u
+        #|    i64.extend_i32_u)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load16_s
+        #|    i64.extend_i32_s)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load8_u
+        #|    i64.extend_i32_s)
+        #|  (func (param $ptr i32) (result i64)
+        #|    local.get $ptr
+        #|    i32.load16_u
+        #|    i64.extend_i32_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected extend-load optimize success, got \{err}")
+  }
+  for idx = 0U; idx < 8U; idx = idx + 1U {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(idx))
+    assert_false(pretty.contains("i64.extend_i32"), msg=pretty)
+  }
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+    ["(local.get (Local 0))", "i64.load32u"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(1U)),
+    ["(local.get (Local 0))", "i64.load32s"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+    ["(local.get (Local 0))", "i64.load8u"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(3U)),
+    ["(local.get (Local 0))", "i64.load8s"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(4U)),
+    ["(local.get (Local 0))", "i64.load16u"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(5U)),
+    ["(local.get (Local 0))", "i64.load16s"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(6U)),
+    ["(local.get (Local 0))", "i64.load8u"],
+  )
+  optimize_instructions_assert_strings_in_order(
+    optimized.pretty_print_func(@lib.FuncIdx::new(7U)),
+    ["(local.get (Local 0))", "i64.load16u"],
+  )
+}
+
+///|
 test "optimize-instructions keeps i64.extend_i32 before i64 narrow stores as a Binaryen OI parity boundary" {
   // Boundary-only OI-G classification: Binaryen `version_130`
   // `--optimize-instructions` does NOT fold `i64.store8` / `i64.store16` of an

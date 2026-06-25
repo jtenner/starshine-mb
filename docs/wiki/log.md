@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Rewrite i64 extend loads
+
+- Added OI-G direct load-result cleanup for one-use i32 loads under `i64.extend_i32_u` / `i64.extend_i32_s`, rewriting them to matching i64 representation loads when the loaded-value semantics are identical.
+- The rewrite covers full `i32.load` to `i64.load32_u` / `i64.load32_s`, unsigned narrow i32 loads to unsigned i64 narrow loads for either i64 extend, and signed narrow i32 loads to signed i64 narrow loads only for signed extend.
+- Evidence: Binaryen oracle probes `.tmp/oi-g-extend-load-probe.wat` and `.tmp/oi-g-extend-load-mixed-probe.wat`; red-first `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*extend_i32 loads*'` failed before implementation and passed after.
+
 ## [2026-06-25] passes/optimize-instructions | Lock multi-use tuple boundary
 
 - Added OI-M boundary coverage for direct-HOT multi-use `tuple.make` extraction: the existing one-use `tuple.extract(tuple.make(...))` helper intentionally does not rewrite a tuple value used by more than one extraction.
