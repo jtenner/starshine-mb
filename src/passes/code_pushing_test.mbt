@@ -2953,6 +2953,91 @@ test "code-pushing moves pure SFA set past table.size before br_if push point" {
 }
 
 ///|
+test "code-pushing boundary keeps memory.size value before memory.grow and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps a memory-size candidate value before matching memory growth.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (local i32)
+      #|    (block $exit
+      #|      memory.size
+      #|      local.set 1
+      #|      i32.const 1
+      #|      memory.grow
+      #|      drop
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  let set_id = @ir.hot_region_get(func, body_ref, 0)
+  code_pushing_expect_op(func, set_id, "local.set")
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, set_id, 0)).op {
+    @ir.HotOp::MemorySize => ()
+    other => abort("expected local.set(memory.size), got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body_ref, 1)).op {
+    @ir.HotOp::Drop => ()
+    other => abort("expected drop(memory.grow), got \{other}")
+  }
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
+test "code-pushing boundary keeps table.size value before table.grow and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps a table-size candidate value before matching table growth.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (table 1 funcref)
+      #|  (func (param i32) (local i32)
+      #|    (block $exit
+      #|      table.size 0
+      #|      local.set 1
+      #|      ref.null func
+      #|      i32.const 1
+      #|      table.grow 0
+      #|      drop
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  let set_id = @ir.hot_region_get(func, body_ref, 0)
+  code_pushing_expect_op(func, set_id, "local.set")
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, set_id, 0)).op {
+    @ir.HotOp::TableSize => ()
+    other => abort("expected local.set(table.size), got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body_ref, 1)).op {
+    @ir.HotOp::Drop => ()
+    other => abort("expected drop(table.grow), got \{other}")
+  }
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
 test "code-pushing moves pure SFA set past memory.init before br_if push point" {
   let func = code_pushing_test_run_hot(
     (
