@@ -22620,75 +22620,71 @@ fn run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  module_ctx : @ir.HotModuleContext,
+) -> Int {
+  if start >= instrs.length() {
+    return -1
+  }
+  if start + 1 < instrs.length() &&
+    run_hot_pipeline_optimize_instructions_is_pure_arg_unary_call_operand(
+      instrs[start],
+      instrs[start + 1],
+      module_ctx,
+    ) {
+    return start + 2
+  }
+  if run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
+      instrs[start],
+      module_ctx,
+    ) {
+    return start + 1
+  }
+  -1
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
 ) -> Bool {
-  if run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy_with_unary_calls(
-      instrs, module_ctx,
-    ) {
-    return true
-  }
-  if instrs.length() == 0 || instrs.length() % 4 != 0 {
+  if instrs.length() == 0 {
     return false
   }
+  let mut i = 0
   let mut saw_call = false
-  for i = 0; i < instrs.length(); i = i + 4 {
-    if !run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
-        instrs[i],
-        module_ctx,
-      ) ||
-      !run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
-        instrs[i + 1],
-        module_ctx,
-      ) ||
+  while i < instrs.length() {
+    let dst_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
+      instrs, i, module_ctx,
+    )
+    if dst_end < 0 {
+      return false
+    }
+    let src_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
+      instrs, dst_end, module_ctx,
+    )
+    if src_end < 0 ||
+      src_end + 1 >= instrs.length() ||
       !run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
-        instrs[i + 2],
+        instrs[src_end],
       ) {
       return false
     }
-    match instrs[i + 3] {
+    match instrs[src_end + 1] {
       @lib.MemoryCopy(_, _) => ()
       _ => return false
     }
-    if run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i]) ||
-      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i + 1]) {
+    if dst_end > i + 1 ||
+      src_end > dst_end + 1 ||
+      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i]) ||
+      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[dst_end]) {
       saw_call = true
     }
+    i = src_end + 2
   }
   saw_call
-}
-
-///|
-fn run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy_with_unary_calls(
-  instrs : Array[@lib.Instruction],
-  module_ctx : @ir.HotModuleContext,
-) -> Bool {
-  if instrs.length() == 0 || instrs.length() % 6 != 0 {
-    return false
-  }
-  for i = 0; i < instrs.length(); i = i + 6 {
-    if !run_hot_pipeline_optimize_instructions_is_pure_arg_unary_call_operand(
-        instrs[i],
-        instrs[i + 1],
-        module_ctx,
-      ) ||
-      !run_hot_pipeline_optimize_instructions_is_pure_arg_unary_call_operand(
-        instrs[i + 2],
-        instrs[i + 3],
-        module_ctx,
-      ) ||
-      !run_hot_pipeline_optimize_instructions_instr_is_tiny_memory_copy_size(
-        instrs[i + 4],
-      ) {
-      return false
-    }
-    match instrs[i + 5] {
-      @lib.MemoryCopy(_, _) => ()
-      _ => return false
-    }
-  }
-  true
 }
 
 ///|

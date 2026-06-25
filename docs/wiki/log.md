@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lower mixed parameterized tiny memory.copy
+
+- Added OI-G implementation and red-first coverage for stack-carried tiny `memory.copy` sequences whose destination/source address operands mix no-param direct calls with one-pure-argument direct calls.
+- Binaryen `version_130` lowers the probed size-1 and size-8 mixed copies to load/store pairs while preserving destination-call-before-source-call order; Starshine now parses each tiny-copy address operand independently before letting the existing HOT lowering run.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-mixed-parameterized-memory-copy-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*mixed parameterized tiny memory.copy*'` failed before implementation with `stack-carried-effect-optimize-instructions-noop` and passed after; `*tiny memory.copy*` passed `5/5`.
+
 ## [2026-06-25] passes/optimize-instructions | Lock tuple-optimization multivalue boundary
 
 - Added OI-M public-pipeline boundary coverage for a multivalue block under `--optimize-instructions --tuple-optimization`.

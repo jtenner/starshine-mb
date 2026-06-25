@@ -184,12 +184,12 @@ What to remember:
   the narrow stack-style form `pure local.get/const; no-param direct call;
   commutative integer binop`, so simple `local.get + call` functions reach HOT
   and get the same call-first spelling. It also admits flat tiny `memory.copy`
-  sequences with local/constant operands, no-param direct-call operands, and the
-  exact one-pure-argument direct-call address subset, plus flat byte
-  `memory.fill` sequences with local/constant/no-param-call destination/value
-  operands; broader stack-carried call/effect shapes still remain behind
-  `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT
-  lowering slice proves them safe.
+  sequences whose address operands may independently be local/constant operands,
+  no-param direct-call operands, or the exact one-pure-argument direct-call form,
+  plus flat byte `memory.fill` sequences with local/constant/no-param-call
+  destination/value operands; broader stack-carried call/effect shapes still
+  remain behind `stack-carried-effect-optimize-instructions-noop` until a
+  localizing/HOT lowering slice proves them safe.
 
 ## Shape family 3: eliminate `0 - x` wrappers inside adds
 
@@ -631,13 +631,18 @@ Effectful flat copy operands and byte-fill values are also covered for narrow no
   (i32.const 8))
 ```
 
-becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. The tiny-copy raw-gate escape also covers the exact one-pure-argument direct-call address form:
+becomes `i64.store(i64.load(call $src))` with the destination call emitted before the nested source load, matching Binaryen's observed evaluation order. The tiny-copy raw-gate escape also covers the exact one-pure-argument direct-call address form and source-backed mixed combinations:
 
 ```wat
 (memory.copy
   (call $dst (local.get $d))
   (call $src (local.get $s))
   (i32.const 8))
+
+(memory.copy
+  (call $dst (local.get $d))
+  (call $src0)
+  (i32.const 1))
 ```
 
 Similarly, `local.get $dst; call $value; i32.const 1; memory.fill` becomes `i32.store8(local.get $dst, call $value)`.

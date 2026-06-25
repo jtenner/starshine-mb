@@ -6367,6 +6367,60 @@ test "optimize-instructions expands stack-carried parameterized tiny memory.copy
 }
 
 ///|
+test "optimize-instructions expands stack-carried mixed parameterized tiny memory.copy" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func $dst1 (param i32) (result i32) local.get 0)
+        #|  (func $src0 (result i32) i32.const 16)
+        #|  (func $dst0 (result i32) i32.const 32)
+        #|  (func $src1 (param i32) (result i32) local.get 0)
+        #|  (func (param $d i32) (param $s i32)
+        #|    local.get $d
+        #|    call $dst1
+        #|    call $src0
+        #|    i32.const 1
+        #|    memory.copy
+        #|    call $dst0
+        #|    local.get $s
+        #|    call $src1
+        #|    i32.const 8
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected mixed parameterized memory.copy optimize success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
+      )
+    }),
+    msg="expected mixed parameterized stack memory.copy raw escape, trace=\{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  // Binaryen version_130 lowers the mixed one-arg/no-arg direct-call address
+  // shape (`.tmp/oi-g-mixed-parameterized-memory-copy-probe.wat`). This remains
+  // a narrow raw-gate escape for pure local/constant unary-call arguments, not a
+  // broad stack-carried/localizing claim.
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "call (Func 0)", "call (Func 1)", "i32.load8u", "i32.store8",
+    "call (Func 2)", "(local.get (Local 1))", "call (Func 3)", "i64.load", "i64.store",
+  ])
+}
+
+///|
 test "optimize-instructions expands wider tiny memory.copy to exact load/store" {
   let optimized = match
     pass_test_run_pipeline(
