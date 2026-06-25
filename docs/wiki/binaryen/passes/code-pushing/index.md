@@ -3,6 +3,7 @@ kind: entity
 status: strong
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md
   - ../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md
   - ../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md
   - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
@@ -211,7 +212,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 - One `if` arm consumes the local and the other does not.
 - Post-if reads where the non-consuming arm is unreachable.
-- `switch` and conditional `br` push points, including the current simple, value-carrying, and multi-label `br_table` no-mutation boundaries, the bounded Binaryen-positive one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, and dropped one-result-block `br_on_cast_fail` families, and the current Binaryen-stationary prefix-payload `br_on_null` / `br_on_cast` / `br_on_cast_fail` boundaries.
+- `switch` and conditional `br` push points, including the current simple, value-carrying, and multi-label `br_table` no-mutation boundaries closed for the current replacement follow-up by [`0898`](../../../raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md), the bounded Binaryen-positive one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, and dropped one-result-block `br_on_cast_fail` families, and the current Binaryen-stationary prefix-payload `br_on_null` / `br_on_cast` / `br_on_cast_fail` boundaries.
 - Trap-capable expressions under default, Binaryen `--ignore-implicit-traps` / `-iit` (currently documented as a Starshine non-goal boundary), and TNH options.
 - GC/reference operations such as `ref.func`, casts, null checks, and the `version_130` atomics/GC ordering family.
 - EH control where movement can change exceptional observability, including the current `throw_ref` positive movement, no-payload and payload-bearing tag-based `throw` / `try_table` stationary split including the `catch_all_ref` try-table boundary, no-rethrow legacy `try`/`catch` try-lowered movement characterization, and rethrow-containing HOT stationary boundary.

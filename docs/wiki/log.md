@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Close branch/switch follow-up boundary
+
+- Filed [`raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md`](raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md) for `[CP-BINREP-007]`.
+- Decision: no new branch/switch behavior is warranted without a reduced Binaryen-positive case or generated mismatch. Existing `0824`/`0825` notes already implemented the useful branch-value `br_if` positives, while `0822`, `0843`, and `0848` protect the probed simple, value-carrying, and multi-label `br_table` shapes as Binaryen-stationary.
+- Updated `agent-todo.md` and the `code-pushing` wiki pages. `[O4Z-AUDIT-CP-BINREP]` remains active for no-effects intrinsics and broader GC/ref surfaces.
+
 ## [2026-06-25] passes/code-pushing | Document ignore-implicit-traps boundary
 
 - Filed [`raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md`](raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md) for `[CP-BINREP-003]`.
