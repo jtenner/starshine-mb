@@ -11262,6 +11262,25 @@ fn gen_valid_append_heap_store_optimization_body_slice(
                 out.push(Instruction::i32_const(I32(148)))
                 out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
               }
+
+              out.push(Instruction::call(target.idx))
+              out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+              out.push(Instruction::struct_new(struct_idx))
+              out.push(Instruction::local_set(local_idx))
+              out.push(
+                Instruction::try_table(
+                  BlockType::val_type(ValType::i32()),
+                  [],
+                  Expr::new([
+                    Instruction::ref_func(tail_target.idx),
+                    Instruction::return_call_ref(tail_target.type_idx),
+                  ]),
+                ),
+              )
+              out.push(Instruction::drop())
+              out.push(Instruction::local_get(local_idx))
+              out.push(Instruction::i32_const(I32(149)))
+              out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
             }
             _ => ()
           }
