@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1100-2026-06-25-heap-store-optimization-result-wrapper-later-field-audit.md
   - ../../../raw/research/1099-2026-06-25-heap-store-optimization-trap-oldfield-audit.md
   - ../../../raw/research/1098-2026-06-25-heap-store-optimization-call-root-barrier-audit.md
   - ../../../raw/research/1097-2026-06-25-heap-store-optimization-default-oldfield-audit.md
@@ -408,6 +409,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `1016` adds the typed-function-reference counterpart: Binaryen folds the pure set-value case across a later-field result-typed `try_table` / `call_ref`, but preserves `struct.set` when the moved value is also a `call_ref`; Starshine already matches both shapes.
   - Coverage note `1017` adds the indirect-call counterpart: Binaryen folds the pure set-value case across a later-field result-typed `try_table` / `call_indirect`, but preserves `struct.set` when the moved value is also a `call_indirect`; Starshine already matches both shapes.
   - Follow-up `1018` fixes the tail-call counterpart: Binaryen preserves `struct.new`, the result-typed `try_table`, and the later `struct.set` for `return_call`, `return_call_indirect`, and `return_call_ref` later constructor fields even when the moved set value is pure. Starshine now blocks folding across later-field tail/throw escapes while keeping the `1015`-`1017` non-tail pure folds.
+  - Micro-audit `1100` narrow-closes the result-wrapper later-field/set-value matrix for non-tail direct/indirect/typed-function-reference call splits, tail-call no-fold boundaries, immutable-descriptor set-value positives, and generated catchable wrapper roots. HSO-D/E/G stay open for exact descriptor `ref.cast`, arbitrary catch/control call shapes, result-wrapper old-field variants outside `1086`, and broader `trySwap(...)` operands outside `1095`.
   - Coverage note `1019` adds old-field preservation coverage for the non-tail later-field result-wrapper pure-fold side: Binaryen folds a pure later same-field store into `struct.new` while preserving an overwritten old-field call or exact trapping `i32.div_s` under `drop` before the later-field `try_table`; Starshine already matched.
   - Coverage note `1020` adds the old-field side of the later-field tail-call boundary: Binaryen preserves `struct.new`, the old-field call or exact trap, the result-typed `try_table` / `return_call`, and the later `struct.set`; Starshine already matched after `1018`.
   - Coverage note `1021` adds the immutable-descriptor counterpart of the `1019` fold: Binaryen folds pure same-field stores into `struct.new_desc` when another constructor field is a non-tail result-typed `try_table`, preserves the overwritten call or exact trap under `drop`, and keeps the immutable descriptor `global.get`; Starshine already matched.
