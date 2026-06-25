@@ -3336,15 +3336,8 @@ fn hso_try_fold_into_struct_new(
       Some(_) => @lib.Instruction::struct_new_desc(type_idx)
       None => @lib.Instruction::struct_new(type_idx)
     }
-    let replacement_id = @ir.hot_build_heap(
-      func,
-      @ir.hot_type_results(func, @ir.hot_node_get(func, struct_new_id).ty),
-      instr,
-      children,
-    )
-    let replacement = @ir.hot_node_get(func, replacement_id)
-    @ir.hot_delete_node(func, replacement_id)
-    @ir.hot_replace_node(func, struct_new_id, replacement)
+    @ir.hot_node_exact_instr_set(func, struct_new_id, instr)
+    ignore(@ir.hot_replace_child_span(func, struct_new_id, children))
   } else {
     let old_value_id = @ir.hot_child_get(func, struct_new_id, field_idx)
     let replacement = match
@@ -3763,15 +3756,12 @@ fn hso_try_fold_pure_default_struct_set_chain(
       }
     }
   }
-  let replacement_id = @ir.hot_build_heap(
+  @ir.hot_node_exact_instr_set(
     func,
-    @ir.hot_type_results(func, @ir.hot_node_get(func, struct_new_id).ty),
+    struct_new_id,
     @lib.Instruction::struct_new(type_idx),
-    children,
   )
-  let replacement = @ir.hot_node_get(func, replacement_id)
-  @ir.hot_delete_node(func, replacement_id)
-  @ir.hot_replace_node(func, struct_new_id, replacement)
+  ignore(@ir.hot_replace_child_span(func, struct_new_id, children))
   Some(([roots[idx]], next_idx))
 }
 
