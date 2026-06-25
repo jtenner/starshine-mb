@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1094-2026-06-25-heap-store-optimization-skip-local-control-audit.md
   - ../../../raw/research/1093-2026-06-25-heap-store-optimization-post-simple-skip-compare.md
   - ../../../raw/research/1092-2026-06-25-heap-store-optimization-simple-skip-fast-path.md
   - ../../../raw/research/1091-2026-06-25-heap-store-optimization-non-goal-audit.md
@@ -366,6 +367,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Coverage note `0887` locked the plain-constructor counterpart: Binaryen also preserves `struct.set` for plain `struct.new` when the overwritten old field and a later constructor field both call, because old-field side-effect preservation does not override the later-field call barrier; Starshine already matched.
 - Control-flow skip-local-set hazards include loop backedges that can re-enter target-local reads.
   - Follow-up `0863` confirmed Binaryen preserves `struct.set` when a branch-valued store can `br_if` to a loop header that reads the fresh-struct target local before the next `local.set`; Starshine already matched this HSO-F negative.
+  - Micro-audit `1094` narrow-closes the direct skip-local-set control matrix by mapping safe function-external exits, locally caught call/throw negatives, nested control-sequence traversal, the one-disappearing-bad-get exception, direct-root `return_call_ref` Starshine wins, loop-backedge local-read hazards, and generated catch/branch skip-local-set roots to source-backed tests or profile evidence. HSO-F stays open for broader branch/catch review, arbitrary descriptor control, exact descriptor `ref.cast`, and result-wrapper/tail-call families outside that matrix.
 - Descriptor/default old-field combinations follow the same directional effect rules.
   - Follow-up `0856` confirmed Binaryen folds `struct.new_default_desc` chain stores into `struct.new_desc` when safe, but preserves a descriptor `struct.set` when a later constructor field call orders before a moved call value.
 - Generic heap dead-store elimination and load forwarding remain explicit non-goals for direct HSO.
