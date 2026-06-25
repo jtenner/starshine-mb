@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover size-9 bulk-memory boundary
+
+- Added OI-G public-pipeline boundary coverage for size-9 `memory.copy` and `memory.fill`.
+- Binaryen `version_130` keeps both bulk operations rather than synthesizing mixed 8+1 load/store sequences; Starshine now locks the same keep-spelling behavior outside the exact 1/2/4/8/16 lowering set.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-copy-size9-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*size-9 bulk-memory*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected-eighth multi-result tuple boundary
 
 - Added OI-M direct-HOT boundary coverage for selecting the eighth scalar lane from a multi-result tuple child.
