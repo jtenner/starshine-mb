@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md
   - ../../../raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md
   - ../../../raw/research/0846-2026-06-25-code-pushing-br-on-null-prefix-boundary.md
   - ../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md
@@ -141,7 +142,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 ### Current Starshine output shape
 
 - Narrow single-consuming-arm local-set sinks become `nop` at the original root plus a cloned `local.set` inside the target arm.
-- The first segment movement slices can replace original SFA sets with `nop` and insert cloned sets immediately after an ordinary void `if`, after a dropped value-`if` wrapper, after a narrow void-block-target / void-loop-target `br_if`, after a dropped void-label `br_on_null`, or after a value-block-target `br_if` with one branch payload when all uses are later suffix reads. Multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, narrow no-branch-value void-block-target / void-loop-target `br_if`, dropped void-label `br_on_null`, and value-block-target `br_if` push points, plus direct local-copy, `nop`-separated, `drop(const)`-separated, `drop(local.get)`-separated, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated subcases with explicit source-local/order boundaries. Simple no-branch-value `br_table` block-exit windows and the first value-carrying result-block `br_table` probe are currently protected no-mutation boundaries, not a mutating switch implementation.
+- The first segment movement slices can replace original SFA sets with `nop` and insert cloned sets immediately after an ordinary void `if`, after a dropped value-`if` wrapper, after a narrow void-block-target / void-loop-target `br_if`, after a dropped void-label `br_on_null`, or after a value-block-target `br_if` with one branch payload when all uses are later suffix reads. Multi-set movement is currently limited to adjacent local-independent sets before ordinary void `if`, dropped value-`if`, narrow no-branch-value void-block-target / void-loop-target `br_if`, dropped void-label `br_on_null`, and value-block-target `br_if` push points, plus direct local-copy, `nop`-separated, `drop(const)`-separated, `drop(local.get)`-separated, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated subcases with explicit source-local/order boundaries. Simple no-branch-value `br_table` block-exit windows, the first value-carrying result-block `br_table` probe, and one multi-label nested-block `br_table` probe are currently protected no-mutation boundaries, not a mutating switch implementation.
 - Narrow non-null `struct.get` values sourced from `local.get` may move across atomic loads under the same local-use proof, but atomic stores remain a movement boundary, mirroring the shared-struct `version_130` atomics lit family through HOT fixtures until Starshine grows a shared-GC WAT surface.
 - Some typed/dead block roots near unreachable context are spliced into the parent region.
 - Unmatched shapes stay unchanged.
@@ -163,7 +164,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 - One `if` arm consumes the local and the other does not.
 - Post-if reads where the non-consuming arm is unreachable.
-- `switch` and conditional `br` push points, including the current simple and value-carrying `br_table` no-mutation boundaries, the bounded Binaryen-positive one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, and dropped one-result-block `br_on_cast_fail` families, and the current Binaryen-stationary prefix-payload `br_on_null` / `br_on_cast` / `br_on_cast_fail` boundaries.
+- `switch` and conditional `br` push points, including the current simple, value-carrying, and multi-label `br_table` no-mutation boundaries, the bounded Binaryen-positive one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, and dropped one-result-block `br_on_cast_fail` families, and the current Binaryen-stationary prefix-payload `br_on_null` / `br_on_cast` / `br_on_cast_fail` boundaries.
 - Trap-capable expressions under default, ignore-implicit-traps, and TNH options.
 - GC/reference operations such as `ref.func`, casts, null checks, and the `version_130` atomics/GC ordering family.
 - EH control where movement can change exceptional observability.

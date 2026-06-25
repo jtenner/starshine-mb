@@ -2561,6 +2561,52 @@ test "code-pushing boundary keeps SFA set before value br_table switch push poin
 }
 
 ///|
+test "code-pushing boundary keeps SFA set before multi-label br_table switch push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps the pure set before a multi-target br_table window, even when one target
+  // falls through to a later suffix read and another exits the outer block.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    (block $outer
+      #|      (block $inner
+      #|        i32.const 7
+      #|        local.set 1
+      #|        local.get 0
+      #|        br_table $inner $outer $inner
+      #|        local.get 1
+      #|        drop)
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let outer_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, outer_id, "block")
+  let outer_body_ref = @ir.hot_region_body_ref(func, outer_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, outer_body_ref), 2)
+  let inner_id = @ir.hot_region_get(func, outer_body_ref, 0)
+  code_pushing_expect_op(func, inner_id, "block")
+  let inner_body_ref = @ir.hot_region_body_ref(func, inner_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, inner_body_ref), 3)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, inner_body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, inner_body_ref, 1),
+    "br_table",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, inner_body_ref, 2), "drop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, outer_body_ref, 1), "drop")
+}
+
+///|
 test "code-pushing boundary keeps adjacent multi-set window before br_table switch push point" {
   let func = code_pushing_test_run_hot(
     (
