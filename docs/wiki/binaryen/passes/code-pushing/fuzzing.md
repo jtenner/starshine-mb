@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md
   - ../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md
   - ../../../raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md
   - ../../../raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md
@@ -90,7 +91,7 @@ Current bounded dedicated lane:
 bun scripts/pass-fuzz-compare.ts --count 200 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-profile-200-local-cleanup --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 50 --keep-going-after-command-failures
 ```
 
-Post-call-barrier note: [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md) changed behavior after the previous 10000-case dedicated lane. The immediate smoke `.tmp/pass-fuzz-code-pushing-all-call-barrier-1000-20260625` compared `1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`, command failures `0`, and Binaryen cache `1000 hits/0 misses`. Refresh `code-pushing-all` at 10000 cases before final closeout.
+Current post-call-barrier 10000-case dedicated lane: [`0851`](../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md) refreshed the 19-leaf `code-pushing-all` profile after the call/throw barrier fix. `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-yy` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected all 19 aggregate leaves.
 
 2026-06-20 initial profile result before the dropped-if leaf: compared `200/200`, cleanup-normalized matches `200`, raw mismatches `0`, validation/generator/property/command failures `0`, selected subprofiles `code-pushing-if-arm: 100` and `code-pushing-after-if: 100`, cache `wasm-smith 0 hits/0 misses`, `Binaryen 200 hits/0 misses`, `Binaryen failures 0 hits/0 misses`.
 

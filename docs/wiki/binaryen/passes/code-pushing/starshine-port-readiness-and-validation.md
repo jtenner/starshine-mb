@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md
   - ../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md
   - ../../../raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md
   - ../../../raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md
@@ -142,6 +143,8 @@ The prefix local-cleanup follow-up in [`0838`](../../../raw/research/0838-2026-0
 The prefix aggregate inclusion follow-up in [`0839`](../../../raw/research/0839-2026-06-25-code-pushing-prefix-aggregate-inclusion.md) reran the targeted prefix lane at 1000 requested cases; `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-copydrop-normalized-1000-20260625` compared `1000/1000` with `1000` cleanup-normalized matches and `0` raw mismatches/failures. `code-pushing-all` now includes `code-pushing-br-on-non-null-prefix`, and the post-change aggregate smoke `.tmp/pass-fuzz-code-pushing-all-prefix-aggregated-1000-20260625` compared `1000/1000` with `507` normalized, `493` cleanup-normalized, and `0` raw mismatches/failures.
 
 The call-barrier slice in [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md) fixed an over-broad Starshine movement: local Binaryen v130 kept a pure SFA set before an intervening call and later `br_if`, while the first focused Starshine test moved it after the branch. Starshine now blocks single-set segment sinking across call/throw roots. The same focused pass also restored the generated-prefix `br_on_non_null` helper to block-label targets only, preserving the documented loop-label stationary boundary.
+
+The post-call-barrier dedicated refresh in [`0851`](../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md) reran `code-pushing-all` at 10000 cases with the rebuilt native CLI: compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, command failures `0`, and all 19 aggregate leaves selected. This restores current dedicated-profile closeout-progress evidence after the behavior fix, but not final audit closeout.
 
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 

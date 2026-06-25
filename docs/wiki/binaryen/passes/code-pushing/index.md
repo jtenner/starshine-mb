@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md
   - ../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md
   - ../../../raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md
   - ../../../raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md
