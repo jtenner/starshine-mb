@@ -178,6 +178,18 @@ fn code_pushing_effects_safe_to_cross_for_heap_read(mask : UInt) -> Bool {
 }
 
 ///|
+fn code_pushing_node_has_segment_order_barrier(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return true
+  }
+  let mask = @ir.effects_for_node(func, node_id)
+  (mask & (@ir.EFFECT_MASK_CALL | @ir.EFFECT_MASK_THROW)) != 0U
+}
+
+///|
 fn code_pushing_node_safe_to_cross_for_value(
   func : @ir.HotFunc,
   node_id : Int,
@@ -1255,6 +1267,10 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
   if branch.imm0 < 0 || @ir.hot_child_count(func, branch_id) < 1 {
     return false
   }
+  match @ir.hot_label_kind(func, branch.imm0) {
+    @ir.HotLabelKind::BlockLabel => ()
+    _ => return false
+  }
   let set_ids : Array[Int] = []
   let local_ids : Array[Int] = []
   let value_ids : Array[Int] = []
@@ -1642,6 +1658,9 @@ fn code_pushing_try_sink_set_after_if_push_point(
       }
       push_idx = idx
       break
+    }
+    if code_pushing_node_has_segment_order_barrier(func, candidate_id) {
+      return false
     }
     if code_pushing_node_is_drop_global_get_window_separator(func, candidate_id) {
       saw_drop_global_get_separator = true

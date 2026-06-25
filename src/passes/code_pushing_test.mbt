@@ -166,6 +166,11 @@ fn code_pushing_expect_op(
         @ir.HotOp::BrTable => ()
         _ => abort("expected br_table")
       }
+    "call" =>
+      match op {
+        @ir.HotOp::Call => ()
+        _ => abort("expected call")
+      }
     "atomic" =>
       match op {
         @ir.HotOp::Atomic => ()
@@ -2602,8 +2607,16 @@ test "code-pushing boundary keeps SFA set before multi-label br_table switch pus
     @ir.hot_region_get(func, inner_body_ref, 1),
     "br_table",
   )
-  code_pushing_expect_op(func, @ir.hot_region_get(func, inner_body_ref, 2), "drop")
-  code_pushing_expect_op(func, @ir.hot_region_get(func, outer_body_ref, 1), "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, inner_body_ref, 2),
+    "drop",
+  )
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, outer_body_ref, 1),
+    "drop",
+  )
 }
 
 ///|
@@ -2649,6 +2662,43 @@ test "code-pushing boundary keeps adjacent multi-set window before br_table swit
   )
   code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
   code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 4), "drop")
+}
+
+///|
+test "code-pushing boundary keeps SFA set before call barrier and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps the pure set before an intervening call that may observe ordered-before
+  // effects before a later br_if push point.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (local i32)
+      #|    (block $exit
+      #|      i32.const 7
+      #|      local.set 0
+      #|      call $callee
+      #|      i32.const 1
+      #|      br_if $exit
+      #|      local.get 0
+      #|      drop))
+      #|  (func $callee))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "call")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
 }
 
 ///|

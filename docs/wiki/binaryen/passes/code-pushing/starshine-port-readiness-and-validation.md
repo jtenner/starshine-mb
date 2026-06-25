@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md
   - ../../../raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md
   - ../../../raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md
   - ../../../raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md
@@ -139,6 +140,8 @@ The exact-HOT follow-up in [`0837`](../../../raw/research/0837-2026-06-25-code-p
 The prefix local-cleanup follow-up in [`0838`](../../../raw/research/0838-2026-06-25-code-pushing-prefix-local-cleanup-normalizer.md) classified that remaining representative family as narrow compare-normalizable local cleanup/allocation debris after the movement fix. The `local-cleanup-debris` normalizer now erases single-use local copy drops and single-use local-tee copy drops when the source local is not written before the dropped use, and it canonicalizes tuple local declarations. The targeted 200-case prefix lane `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-copydrop-normalized2-200-20260625` compared `200/200` with `200` cleanup-normalized matches and `0` raw mismatches/failures.
 
 The prefix aggregate inclusion follow-up in [`0839`](../../../raw/research/0839-2026-06-25-code-pushing-prefix-aggregate-inclusion.md) reran the targeted prefix lane at 1000 requested cases; `.tmp/pass-fuzz-code-pushing-br-on-non-null-prefix-copydrop-normalized-1000-20260625` compared `1000/1000` with `1000` cleanup-normalized matches and `0` raw mismatches/failures. `code-pushing-all` now includes `code-pushing-br-on-non-null-prefix`, and the post-change aggregate smoke `.tmp/pass-fuzz-code-pushing-all-prefix-aggregated-1000-20260625` compared `1000/1000` with `507` normalized, `493` cleanup-normalized, and `0` raw mismatches/failures.
+
+The call-barrier slice in [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md) fixed an over-broad Starshine movement: local Binaryen v130 kept a pure SFA set before an intervening call and later `br_if`, while the first focused Starshine test moved it after the branch. Starshine now blocks single-set segment sinking across call/throw roots. The same focused pass also restored the generated-prefix `br_on_non_null` helper to block-label targets only, preserving the documented loop-label stationary boundary.
 
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 
