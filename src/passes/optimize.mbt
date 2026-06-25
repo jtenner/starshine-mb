@@ -324,6 +324,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "optimize-instructions", "heap-store-optimization", "dae-optimizing", "inlining-optimizing",
         "duplicate-function-elimination", "duplicate-import-elimination", "simplify-globals-optimizing",
         "remove-unused-module-elements", "string-gathering", "reorder-globals", "directize",
+        "strip-debug",
       ],
     ),
     pass_registry_entry_preset(
@@ -341,6 +342,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "optimize-instructions", "heap-store-optimization", "dae-optimizing", "inlining-optimizing",
         "duplicate-function-elimination", "duplicate-import-elimination", "simplify-globals-optimizing",
         "remove-unused-module-elements", "string-gathering", "reorder-globals", "directize",
+        "strip-debug",
       ],
     ),
   ]
@@ -494,7 +496,7 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute", "optimize-instructions",
     "heap-store-optimization", "dae-optimizing", "inlining-optimizing", "duplicate-function-elimination",
     "duplicate-import-elimination", "simplify-globals-optimizing", "remove-unused-module-elements",
-    "string-gathering", "reorder-globals", "directize",
+    "string-gathering", "reorder-globals", "directize", "strip-debug",
   ]
 }
 
@@ -512,7 +514,7 @@ pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute", "optimize-instructions",
     "heap-store-optimization", "dae-optimizing", "inlining-optimizing", "duplicate-function-elimination",
     "duplicate-import-elimination", "simplify-globals-optimizing", "remove-unused-module-elements",
-    "string-gathering", "reorder-globals", "directize",
+    "string-gathering", "reorder-globals", "directize", "strip-debug",
   ]
 }
 

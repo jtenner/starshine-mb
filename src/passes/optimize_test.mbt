@@ -876,7 +876,7 @@ test "optimize and shrink presets schedule reorder-locals only inside the tuple 
 test "optimize and shrink presets schedule the accepted SGO late-tail neighborhood" {
   let expected_tail = [
     "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
-    "reorder-globals", "directize",
+    "reorder-globals", "directize", "strip-debug",
   ]
   for
     preset in [
@@ -931,10 +931,48 @@ test "optimize and shrink presets schedule string global late tail" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
   for preset in [optimize, shrink] {
-    let tail_start = preset.length() - 3
+    let tail_start = preset.length() - 4
     @debug.assert_eq(preset[tail_start], "string-gathering")
     @debug.assert_eq(preset[tail_start + 1], "reorder-globals")
     @debug.assert_eq(preset[tail_start + 2], "directize")
+    @debug.assert_eq(preset[tail_start + 3], "strip-debug")
+  }
+}
+
+///|
+test "optimize and shrink presets schedule strip-debug after all name-sensitive late passes" {
+  let optimize = optimize_preset_passes(HotPipelineOptions::new())
+  let shrink = shrink_preset_passes(HotPipelineOptions::new())
+  for preset in [optimize, shrink] {
+    @debug.assert_eq(preset[preset.length() - 2], "directize")
+    @debug.assert_eq(preset[preset.length() - 1], "strip-debug")
+    @debug.assert_eq(
+      optimize_test_pass_slots(preset, "strip-debug").length(),
+      1,
+    )
+  }
+}
+
+///|
+test "optimize and shrink presets strip names while preserving non-name custom sections" {
+  for pass_name in ["optimize", "shrink"] {
+    let input = optimize_test_named_custom_module()
+    let optimized = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), [pass_name]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected \{pass_name} preset success, got \{err}")
+    }
+    @debug.assert_eq(optimized.name_sec, None)
+    @debug.assert_eq(optimized.raw_name_sec_payload, None)
+    @debug.assert_eq(
+      optimized.custom_secs,
+      optimize_test_preserved_custom_secs(),
+    )
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected \{pass_name} preset output to validate, got \{err}")
+    }
   }
 }
 
@@ -1075,6 +1113,48 @@ test "remove-unused-names can clean up stale labels exposed by remove-unused-brs
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("Block("), msg=pretty)
+}
+
+///|
+fn optimize_test_preserved_custom_secs() -> Array[@lib.CustomSec] {
+  [@lib.CustomSec::new(@lib.Name::from_string("profile"), b"keep-me")]
+}
+
+///|
+fn optimize_test_named_custom_module() -> @lib.Module {
+  @lib.Module::new(
+    custom_secs=optimize_test_preserved_custom_secs(),
+    type_sec=Some(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    ),
+    func_sec=Some(@lib.FuncSec::new([@lib.TypeIdx::new(0U)])),
+    export_sec=Some(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    ),
+    code_sec=Some(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    ),
+  )
+  .with_name_sec(
+    @lib.NameSec::new(
+      module_name=Some(@lib.Name::from_string("fixture")),
+      func_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("run")),
+        ]),
+      ),
+    ),
+  )
+  .with_raw_name_sec_payload(b"raw-name")
 }
 
 ///|
