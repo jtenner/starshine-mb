@@ -11313,6 +11313,23 @@ fn gen_valid_append_heap_store_optimization_body_slice(
             out.push(Instruction::struct_set(described_idx, U32::new(0U)))
           }
 
+          // Descriptor call-result old-field roots cover the descriptor-bearing
+          // sibling of the plain direct-call result root above: the overwritten
+          // field is the direct helper call result, and the descriptor is pure.
+          match i32_result_call {
+            Some(target) => {
+              out.push(Instruction::call(target.idx))
+              out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+              out.push(Instruction::struct_new_default(descriptor_idx))
+              out.push(Instruction::struct_new_desc(described_idx))
+              out.push(Instruction::local_set(described_local_idx))
+              out.push(Instruction::local_get(described_local_idx))
+              out.push(Instruction::i32_const(I32(143)))
+              out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+            }
+            None => ()
+          }
+
           // Mutable-descriptor result-wrapper old-field roots exercise the
           // conservative boundary where a value-producing old field and a
           // mutable descriptor read must stay before a catchable call wrapper;
