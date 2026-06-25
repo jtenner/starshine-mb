@@ -45,6 +45,11 @@ sources:
   - ../../../raw/research/0865-2026-06-25-optimize-instructions-oi-m-trapping-sibling.md
   - ../../../raw/research/0866-2026-06-25-optimize-instructions-oi-g-v128-memory-copy.md
   - ../../../raw/research/0867-2026-06-25-optimize-instructions-oi-m-selected-trapping-lane.md
+  - ../../../raw/research/0868-2026-06-25-optimize-instructions-oi-g-v128-zero-memory-fill.md
+  - ../../../raw/research/0869-2026-06-25-optimize-instructions-oi-m-selected-trapping-effectful-sibling.md
+  - ../../../raw/research/0870-2026-06-25-optimize-instructions-oi-g-v128-nonzero-memory-fill.md
+  - ../../../raw/research/0871-2026-06-25-optimize-instructions-oi-m-selected-trapping-earlier-sibling.md
+  - ../../../raw/research/0872-2026-06-25-optimize-instructions-oi-g-zero-bulk-effects.md
   - ../../../raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md
   - ../../../raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md
   - ../../../raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md
@@ -420,7 +425,7 @@ The local pass still does not cover broader upstream families like:
 - non-`1`/`2`/`4`/`8`/`16` constant-size `memory.copy` sequences and any future multi-store copy shapes; size `16` is covered by the one-load/one-store SIMD proof
 - nonconstant-size `memory.copy`, because the size expression is not part of the exact tiny lowering proof
 - any future source-backed nonconstant wider `memory.fill` materialization beyond the covered direct `local.get` subset and constant size-16 repeated-byte fill case; call-backed and computed `i32.add` values for sizes `2`/`4`/`8` are now explicit keep-spelling boundaries under Binaryen `version_130`, while size-1 local/no-param-call and pure-argument direct-call values are covered
-- trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today
+- trap-relaxing zero-size bulk-memory cleanup; zero-size `memory.copy` and `memory.fill` are explicit no-ignore-traps/TNH/IIT boundaries today, including effectful call operands that Binaryen also keeps
 - broader stored-value/load-result canonicalization for the general load/store surface; only the current redundant-mask subset is covered (either `and` operand order for `i32.store8` / `i32.store16` plus a local Starshine-win `i64.store8` / `i64.store16` / `i64.store32` generalization that Binaryen `version_130` does not perform), Binaryen-style constant stored-value truncation before narrow stores, direct one-use `i32.wrap_i64` i32-store widening, direct reinterpret-store representation rewrites with memarg preservation, one-use full-width reinterpret-load result rewrites, and one-use `i64.extend_i32_*` load-result rewrites. Local-carried/shared `local.tee(i32.load)` plus reinterpret/extend spellings are explicit Binaryen-matching load-result boundaries, local-carried/shared `local.tee(f32.reinterpret_i32(...))` or `local.set`/`local.get` before `f32.store` are explicit Binaryen-matching stored-value boundaries, and local-carried/shared `i32.wrap_i64` store values are explicit Binaryen-matching keep-spelling boundaries, not claimed as one-use representation parity. For offset canonicalization, Starshine covers the narrow Binaryen-style memory32 and memory64 constant-pointer static-offset folds; tested nonconstant pointer-add address forms are now a Binaryen `version_130` OI no-change boundary, and public-pipeline mixed load/call functions remain behind `load-call-optimize-instructions-noop`, so static-offset folds apply only when the raw gate lets the pass run
 
 ## 4. Partial GC constructor / field surface; GC RMW/cmpxchg boundary

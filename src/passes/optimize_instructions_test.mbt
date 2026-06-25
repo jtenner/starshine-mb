@@ -6670,6 +6670,49 @@ test "optimize-instructions keeps memory.copy outside exact tiny lowering bounda
 }
 
 ///|
+test "optimize-instructions keeps zero-size bulk-memory with effectful operands" {
+  // Boundary-only OI-G classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps zero-size memory.copy/fill even when the
+  // destination, source, and fill value operands are calls
+  // (`.tmp/oi-g-zero-bulk-effect-probe.wat`). Starshine likewise keeps the
+  // original bulk-memory operations rather than dropping evaluated operands.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func $dst (result i32) (i32.const 0))
+        #|  (func $src (result i32) (i32.const 4))
+        #|  (func $val (result i32) (i32.const 255))
+        #|  (func
+        #|    call $dst
+        #|    call $src
+        #|    i32.const 0
+        #|    memory.copy
+        #|    call $dst
+        #|    call $val
+        #|    i32.const 0
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected zero-size bulk-memory boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "call (Func 1)", "memory.copy", "call (Func 0)", "call (Func 2)",
+    "memory.fill",
+  ])
+  assert_false(pretty.contains("i32.load8u"), msg=pretty)
+  assert_false(pretty.contains("i32.store8"), msg=pretty)
+}
+
+///|
 test "optimize-instructions expands tiny constant memory.fill to store" {
   let optimized = match
     pass_test_run_pipeline(

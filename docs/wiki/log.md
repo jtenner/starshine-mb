@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover effectful zero-size bulk-memory
+
+- Added OI-G public-pipeline coverage proving zero-size `memory.copy` / `memory.fill` keep effectful call operands and original call order.
+- Binaryen `version_130` keeps the same zero-size bulk-memory operations for call-backed destination/source/value operands, so this is a boundary/status slice rather than a red-first implementation change.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-zero-bulk-effect-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*zero-size bulk-memory*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple earlier sibling
 
 - Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after an earlier effectful sibling.
