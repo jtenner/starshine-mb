@@ -32,6 +32,7 @@ sources:
   - ../../../raw/research/0852-2026-06-25-optimize-instructions-oi-g-wrap-store-memargs.md
   - ../../../raw/research/0854-2026-06-25-optimize-instructions-oi-g-wrap-store-multiuse-boundary.md
   - ../../../raw/research/0853-2026-06-25-optimize-instructions-oi-m-multiresult-selected-boundary.md
+  - ../../../raw/research/0855-2026-06-25-optimize-instructions-oi-m-selected-second-lane-boundary.md
   - ../../../raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md
   - ../../../raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md
   - ../../../raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md
@@ -433,7 +434,7 @@ The local file now models the first `visitTupleExtract(...)` family for one-use 
 - when non-selected siblings have effects and produce at most one value, Starshine preserves/drops earlier effects before the selected lane, localizes the selected lane to a temp local when later effects exist, preserves/drops later effects, then reloads the selected value;
 - local-carried/multi-use tuple extraction is now an explicit Binaryen-matching keep-spelling boundary for the probed shape;
 - multi-result non-selected siblings are a current tuple-scratch localization boundary: Binaryen `version_130` materializes tuple scratch and scalar drops for the probed shape, while Starshine keeps the direct-HOT tuple spelling until a safe multi-result sibling localizer exists;
-- multi-result selected children are also a current tuple-scratch localization boundary: Binaryen materializes tuple scratch, drops non-selected lanes, stores the chosen scalar, and reloads it, while Starshine keeps the direct-HOT tuple spelling until a safe selected-child localizer exists;
+- multi-result selected children are also a current tuple-scratch localization boundary: Binaryen materializes tuple scratch, drops non-selected lanes, stores the chosen scalar, and reloads it for both covered selected-first and selected-second probes, while Starshine keeps the direct-HOT tuple spelling until a safe selected-child localizer exists;
 - broader tee/drop reconstruction, any future safe multi-use tuple proof, public text-surface coverage, tuple-scratch localization, and broader tuple-neighbor signoff remain open under `[O4Z-AUDIT-OI-M]`; the first `simplify-locals-nostructure` neighbor replay only covers the existing single-result effectful-sibling localization subset.
 
 ## 6. First local sign-extension facts, but not full Binaryen `LocalScanner`

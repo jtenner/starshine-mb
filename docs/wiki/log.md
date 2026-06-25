@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock multi-result selected second-lane boundary
+
+- Added OI-M boundary coverage for `tuple.extract(tuple.make(...))` when extracting the second scalar lane from a selected multi-result tuple child.
+- Binaryen `version_130` localizes the probed `tuple.extract 3 1` through tuple scratch, scalar drops, and a temp local; Starshine keeps the direct-HOT `TupleExtract` index `1`, `TupleMake`, and multi-result `Call` shape until a safe tuple-scratch localizer exists.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiresult-selected-second-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*multi-result selected second lane*'` passed `1/1` immediately as boundary coverage.
+
 ## [2026-06-25] passes/optimize-instructions | Lock multi-use wrap-store boundary
 
 - Added OI-G boundary coverage for local-carried/shared `i32.wrap_i64` stored values before narrow i32 stores.

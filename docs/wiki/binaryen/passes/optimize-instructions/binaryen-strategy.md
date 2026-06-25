@@ -389,7 +389,7 @@ The focused page in this folder covers them in more detail, but the main impleme
 - default-value constructor cleanup for `struct.new` / `array.new` / `array.new_fixed`
 - relaxation of acquire-release ops on unshared GC heaps
 - lowering of some unshared GC RMW / cmpxchg forms to simpler get/set code
-- tuple extraction cleanup via `tuple.extract(tuple.make(...))`, including tuple-scratch/scalar-temp reconstruction when selected or non-selected children produce multiple values
+- tuple extraction cleanup via `tuple.extract(tuple.make(...))`, including tuple-scratch/scalar-temp reconstruction when selected or non-selected children produce multiple values (covered probes include selected first/second scalar lanes)
 
 This part of the pass is where a future honest Starshine port would need the most new helper infrastructure.
 
