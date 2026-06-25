@@ -4223,6 +4223,14 @@ pub fn Instruction::ref_cast_type(rt : RefType) -> Instruction {
 }
 
 ///|
+pub fn Instruction::ref_cast_exact(
+  nullable : Bool,
+  ht : HeapType,
+) -> Instruction {
+  RefCast(nullable, true, ht)
+}
+
+///|
 pub fn Instruction::ref_test_desc(
   nullable : Bool,
   ht : HeapType,

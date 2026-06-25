@@ -237,6 +237,21 @@ fn decode_ref_heap_type(
 }
 
 ///|
+fn decode_maybe_exact_heap_type(
+  bytes : Bytes,
+  i : Int,
+) -> Result[(Bool, HeapType, Int), BinaryDecodeError] {
+  match decode_ref_heap_type(bytes, i) {
+    Ok((exact, ht, next)) => Ok((exact, ht, next))
+    Err(_) =>
+      match Decode::decode(bytes, i) {
+        Ok((ht, next)) => Ok((false, ht, next))
+        Err(err) => Err(err)
+      }
+  }
+}
+
+///|
 pub impl Decode for RefType with fn decode(bytes, i) {
   match bytes.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)

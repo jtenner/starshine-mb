@@ -125,6 +125,22 @@ pub impl Encode for HeapType with fn encode(val, buf) {
 }
 
 ///|
+fn encode_exact_heap_type(
+  ht : HeapType,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  match ht {
+    HeapType(TypeIdx(i)) => {
+      buf.write_byte(0x62)
+      Encode::encode(@lib.S33(i), buf)
+    }
+    HeapType(RecIdx(_)) =>
+      Err(BinaryEncodeError::CannotEncodeRecursiveIndexHeapType)
+    _ => Err(BinaryEncodeError::CannotEncodeDefTypeHeapType)
+  }
+}
+
+///|
 pub impl Encode for AbsHeapType with fn encode(val, buf) {
   match val {
     ExnAbsHeapType => buf.write_byte(0x69)

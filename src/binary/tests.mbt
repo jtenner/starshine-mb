@@ -2847,6 +2847,28 @@ test "Descriptor instruction roundtrip" {
 }
 
 ///|
+test "exact ref.cast instruction roundtrip preserves exact heap immediate" {
+  let expected = Instruction::ref_cast_exact(
+    false,
+    HeapType::new(TypeIdx::new(1U)),
+  )
+  let bytes = b"\xFB\x16\x62\x01"
+  match
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok((decoded, next)) => {
+      @debug.assert_eq(decoded, expected)
+      @debug.assert_eq(next, bytes.length())
+    }
+    Err(e) => fail("expected exact ref.cast decode success, got \{e}")
+  }
+  let buf = @buffer.new()
+  match Encode::encode(expected, buf) {
+    Ok(_) => @debug.assert_eq(buf.to_bytes(), bytes)
+    Err(e) => fail("expected exact ref.cast encode success, got \{e}")
+  }
+}
+
+///|
 test "String array instruction roundtrip" {
   roundtrip(Instruction::string_new_utf8_array())
   roundtrip(Instruction::string_new_lossy_utf8_array())
