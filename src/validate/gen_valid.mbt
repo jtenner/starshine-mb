@@ -11171,6 +11171,68 @@ fn gen_valid_append_heap_store_optimization_body_slice(
       out.push(Instruction::local_get(local_idx))
       out.push(Instruction::i32_const(I32(100)))
       out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
+      // Same-resource memory roots are the complementary trySwap barrier:
+      // the constructor reads memory size, so a wrapped memory.fill must keep
+      // the later struct.set instead of letting HSO reorder across the fill.
+      out.push(Instruction::memory_size(MemIdx::new(0U)))
+      out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::try_table(
+              BlockType::void_(),
+              [Catch::all(LabelIdx::new(0U))],
+              Expr::new([
+                Instruction::i32_const(I32(0)),
+                Instruction::i32_const(I32(7)),
+                Instruction::i32_const(I32(1)),
+                Instruction::memory_fill(MemIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+      )
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(101)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
+      // Contained control flow in the wrapped table-side root should stay in
+      // the generated profile too: Binaryen can still fold the later store
+      // when the branch does not escape the root wrapper or touch the target.
+      out.push(Instruction::memory_size(MemIdx::new(0U)))
+      out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::try_table(
+              BlockType::void_(),
+              [Catch::all(LabelIdx::new(0U))],
+              Expr::new([
+                Instruction::block(
+                  BlockType::void_(),
+                  Expr::new([
+                    Instruction::i32_const(I32(0)),
+                    Instruction::br_if(LabelIdx::new(0U)),
+                    Instruction::i32_const(I32(0)),
+                    Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+                    Instruction::table_set(TableIdx::new(0U)),
+                  ]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      )
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(102)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
     }
   }
 }
