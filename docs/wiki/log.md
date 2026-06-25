@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover selected-fourth multi-result tuple boundary
+
+- Added OI-M direct-HOT boundary coverage for selecting the fourth scalar lane from a multi-result tuple child.
+- Binaryen `version_130` localizes the selected fourth result through tuple scratch plus scalar temps; Starshine intentionally keeps the direct-HOT tuple spelling until selected-child tuple-scratch localization exists.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiresult-selected-fourth-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected fourth lane*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Rewrite maxBits signed compare spellings
 
 - Added OI-D red-first coverage for signed relational comparisons whose operand is proven nonnegative and bounded but whose constant remains in range.
