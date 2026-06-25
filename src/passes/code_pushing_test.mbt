@@ -4387,6 +4387,52 @@ test "code-pushing boundary keeps table.get value before memory.store and br_if 
 }
 
 ///|
+test "code-pushing boundary keeps table.get value before other table.set and br_if push point" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps a table-reading candidate value before a write to another table.
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (table $t0 1 funcref)
+      #|  (table $t1 1 funcref)
+      #|  (func (param i32) (local funcref)
+      #|    (block $exit
+      #|      i32.const 0
+      #|      table.get $t0
+      #|      local.set 1
+      #|      i32.const 0
+      #|      ref.func $f
+      #|      table.set $t1
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop))
+      #|  (func $f)
+      #|  (elem declare func $f))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  let set_id = @ir.hot_region_get(func, body_ref, 0)
+  code_pushing_expect_op(func, set_id, "local.set")
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, set_id, 0)).op {
+    @ir.HotOp::TableGet => ()
+    other => abort("expected local.set(table.get), got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body_ref, 1)).op {
+    @ir.HotOp::TableSet => ()
+    other => abort("expected table.set, got \{other}")
+  }
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
 test "code-pushing boundary keeps table.get value before table.set and br_if push point" {
   // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
   // keeps a table-reading candidate value before a matching table write.

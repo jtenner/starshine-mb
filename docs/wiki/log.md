@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Keep multitable read/write stationary
+
+- Filed [`raw/research/0882-2026-06-25-code-pushing-multitable-read-write-boundary.md`](raw/research/0882-2026-06-25-code-pushing-multitable-read-write-boundary.md) after local Binaryen v130 kept `table.get T0; local.set` before `table.set T1` and a later `br_if` when `T0 != T1`.
+- Added intentionally unsupported/Binaryen-stationary Starshine coverage in `src/passes/code_pushing_test.mbt`; existing movable-value gates already preserved the shape, so no pass implementation or GenValid profile changed.
+- Validation: `moon test --target native src/passes/code_pushing_test.mbt --filter '*other table.set*'` passed `1/1`. This boundary does not refresh the post-`0881` final matrix requirement.
+
 ## [2026-06-25] passes/code-pushing | Refine disjoint global read movement
 
 - Filed [`raw/research/0881-2026-06-25-code-pushing-nested-disjoint-global-set-movement.md`](raw/research/0881-2026-06-25-code-pushing-nested-disjoint-global-set-movement.md) after local Binaryen v130 moved `global.get G0; local.set` after a nested block containing only `global.set G1` and a later `br_if`, but kept the candidate before a disjoint `global.set G1` whose value contains a call.
