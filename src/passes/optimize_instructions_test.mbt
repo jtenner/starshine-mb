@@ -8776,6 +8776,45 @@ test "optimize-instructions tuple.extract localization survives simplify-locals-
 }
 
 ///|
+test "optimize-instructions intentionally keeps public multivalue block through full simplify-locals boundary" {
+  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
+  // `--optimize-instructions --simplify-locals` localizes the probed multivalue
+  // block through tuple scratch plus scalar-local traffic around the
+  // non-selected effect (`.tmp/oi-m-tuple-full-simplify-neighbor-probe.wat`).
+  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
+  // a direct-HOT replay of the OI-localized tuple block is a separate verifier
+  // boundary (`InvalidChildRef`). Do not report this as full simplify-locals
+  // neighbor parity until one of those paths is fixed.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $side (result i64)
+        #|    i64.const 9)
+        #|  (func (param $x i32) (result i32)
+        #|    (block (result i32 i64)
+        #|      local.get $x
+        #|      call $side)
+        #|    drop))
+        #|,
+      ),
+      ["optimize-instructions", "simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected public multivalue full simplify-locals boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock full simplify-locals multivalue boundary
+
+- Added OI-M public-pipeline boundary coverage for a multivalue block under `--optimize-instructions --simplify-locals`.
+- Binaryen `version_130` reconstructs tuple scratch plus scalar locals for the probed block; Starshine keeps the public block/drop/call/local.get spelling, and direct-HOT replay of the OI-localized tuple block currently hits `InvalidChildRef(3, 0, 0)`, so this is boundary coverage rather than full neighbor parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-full-simplify-neighbor-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*public multivalue block through full simplify-locals boundary*'` passed `1/1` after the direct-HOT verifier failure reframed the slice.
+
 ## [2026-06-25] passes/optimize-instructions | Lock nonconstant load-call boundary
 
 - Added OI-G boundary coverage for the mixed load/call shape beyond the exact constant-address offset-fold escape.
