@@ -6726,6 +6726,64 @@ test "optimize-instructions expands byte memory.fill with local and call values"
 }
 
 ///|
+test "optimize-instructions expands stack-carried parameterized byte memory.fill" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func $dst1 (param i32) (result i32) local.get 0)
+        #|  (func $val1 (param i32) (result i32) local.get 0)
+        #|  (func $dst0 (result i32) i32.const 32)
+        #|  (func (param $d i32) (param $v i32)
+        #|    local.get $d
+        #|    call $dst1
+        #|    local.get $v
+        #|    call $val1
+        #|    i32.const 1
+        #|    memory.fill
+        #|    call $dst0
+        #|    local.get $v
+        #|    call $val1
+        #|    i32.const 1
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected parameterized byte memory.fill optimize success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
+      )
+    }),
+    msg="expected parameterized byte memory.fill raw escape, trace=\{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  // Binaryen version_130 lowers these parameterized byte fills to store8
+  // (`.tmp/oi-g-parameterized-byte-fill-probe.wat`). Wider call-backed fills
+  // remain source-backed keep-spelling boundaries.
+  assert_false(pretty.contains("memory.fill"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "i32.store8"),
+    2,
+    msg=pretty,
+  )
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 0))", "call (Func 0)", "(local.get (Local 1))", "call (Func 1)",
+    "i32.store8", "call (Func 2)", "(local.get (Local 1))", "call (Func 1)", "i32.store8",
+  ])
+}
+
+///|
 test "optimize-instructions truncates constant byte memory.fill values before store8" {
   let optimized = match
     pass_test_run_pipeline(

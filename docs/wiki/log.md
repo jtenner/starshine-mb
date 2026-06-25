@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lower parameterized byte memory.fill
+
+- Added OI-G implementation and red-first coverage for stack-carried size-1 `memory.fill` sequences whose destination/value operands may be one-pure-argument direct calls.
+- Binaryen `version_130` lowers the probed parameterized byte fills to `i32.store8`; Starshine now lets the exact flat byte-fill shape through the `stack-carried-effect` raw gate while keeping wider call-backed fills as source-backed keep-spelling boundaries.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-parameterized-byte-fill-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*parameterized byte memory.fill*'` failed before implementation with `stack-carried-effect-optimize-instructions-noop` and passed after; `*memory.fill*` passed `13/13`.
+
 ## [2026-06-25] passes/optimize-instructions | Lower mixed parameterized tiny memory.copy
 
 - Added OI-G implementation and red-first coverage for stack-carried tiny `memory.copy` sequences whose destination/source address operands mix no-param direct calls with one-pure-argument direct calls.

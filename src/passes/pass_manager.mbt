@@ -22703,32 +22703,39 @@ fn run_hot_pipeline_optimize_instructions_is_byte_stack_memory_fill(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
 ) -> Bool {
-  if instrs.length() == 0 || instrs.length() % 4 != 0 {
+  if instrs.length() == 0 {
     return false
   }
+  let mut i = 0
   let mut saw_call = false
-  for i = 0; i < instrs.length(); i = i + 4 {
-    if !run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
-        instrs[i],
-        module_ctx,
-      ) ||
-      !run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
-        instrs[i + 1],
-        module_ctx,
-      ) ||
+  while i < instrs.length() {
+    let dst_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
+      instrs, i, module_ctx,
+    )
+    if dst_end < 0 {
+      return false
+    }
+    let value_end = run_hot_pipeline_optimize_instructions_match_stack_memory_copy_operand(
+      instrs, dst_end, module_ctx,
+    )
+    if value_end < 0 ||
+      value_end + 1 >= instrs.length() ||
       !run_hot_pipeline_optimize_instructions_instr_is_byte_memory_fill_size(
-        instrs[i + 2],
+        instrs[value_end],
       ) {
       return false
     }
-    match instrs[i + 3] {
+    match instrs[value_end + 1] {
       @lib.MemoryFill(_) => ()
       _ => return false
     }
-    if run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i]) ||
-      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i + 1]) {
+    if dst_end > i + 1 ||
+      value_end > dst_end + 1 ||
+      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i]) ||
+      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[dst_end]) {
       saw_call = true
     }
+    i = value_end + 2
   }
   saw_call
 }

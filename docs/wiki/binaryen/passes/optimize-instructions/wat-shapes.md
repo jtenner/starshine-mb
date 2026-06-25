@@ -186,10 +186,11 @@ What to remember:
   and get the same call-first spelling. It also admits flat tiny `memory.copy`
   sequences whose address operands may independently be local/constant operands,
   no-param direct-call operands, or the exact one-pure-argument direct-call form,
-  plus flat byte `memory.fill` sequences with local/constant/no-param-call
-  destination/value operands; broader stack-carried call/effect shapes still
-  remain behind `stack-carried-effect-optimize-instructions-noop` until a
-  localizing/HOT lowering slice proves them safe.
+  plus flat byte `memory.fill` sequences with local/constant/no-param-call or
+  exact one-pure-argument direct-call destination/value operands; broader
+  stack-carried call/effect shapes still remain behind
+  `stack-carried-effect-optimize-instructions-noop` until a localizing/HOT
+  lowering slice proves them safe.
 
 ## Shape family 3: eliminate `0 - x` wrappers inside adds
 
@@ -645,7 +646,14 @@ becomes `i64.store(i64.load(call $src))` with the destination call emitted befor
   (i32.const 1))
 ```
 
-Similarly, `local.get $dst; call $value; i32.const 1; memory.fill` becomes `i32.store8(local.get $dst, call $value)`.
+Similarly, `local.get $dst; call $value; i32.const 1; memory.fill` and exact one-pure-argument byte-fill operands become `i32.store8`:
+
+```wat
+(memory.fill
+  (call $dst (local.get $d))
+  (call $value (local.get $v))
+  (i32.const 1))
+```
 
 Important negative shape:
 
