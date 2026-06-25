@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple lane
+
+- Added OI-M direct-HOT coverage proving one-use `tuple.extract(tuple.make(...))` forwarding preserves a selected trapping `i32.load` lane.
+- Binaryen `version_130` preserves the selected load through tuple scratch; Starshine's direct-HOT localizer preserves the same trap/value behavior by returning an exact `i32.load`.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-selected-trapping-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected trapping tuple.extract lane*'` passed `1/1` as coverage/status evidence.
+
 ## [2026-06-25] passes/optimize-instructions | Lower size-16 memory.copy
 
 - Extended OI-G exact constant-size `memory.copy` lowering to size `16`, matching Binaryen `version_130` with a one-load/one-store `v128.load` / `v128.store` rewrite.

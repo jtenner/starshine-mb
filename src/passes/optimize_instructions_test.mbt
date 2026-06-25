@@ -8584,6 +8584,74 @@ test "optimize-instructions folds tuple.extract of one-use tuple.make" {
 }
 
 ///|
+test "optimize-instructions preserves selected trapping tuple.extract lane" {
+  // OI-M selected-lane trap coverage: Binaryen `version_130`
+  // `--optimize-instructions` preserves a selected `i32.load` lane from
+  // `tuple.extract(tuple.make(...))` via tuple scratch in
+  // `.tmp/oi-m-tuple-selected-trapping-probe.wat`. Starshine may keep the
+  // smaller direct selected load, but it must not treat the selected trapping
+  // lane as removable tuple debris.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
+  let selected_load = @ir.hot_build_load(
+    func,
+    @lib.ValType::i32(),
+    memarg,
+    @ir.hot_build_local_get(func, 0),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    selected_load,
+    @lib.Instruction::i32_load(memarg),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+    [
+      selected_load,
+      @ir.hot_build_const_i32(func, @lib.I32(7)),
+      @ir.hot_build_const_i32(func, @lib.I32(9)),
+    ],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected selected trapping tuple lane forwarding success, got \{err}",
+      )
+  }
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Load => ()
+    other =>
+      fail(
+        "expected selected trapping tuple lane to remain a load, got \{other}",
+      )
+  }
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::I32Load(_)) => ()
+    _ => fail("expected selected trapping tuple lane to keep exact i32.load")
+  }
+}
+
+///|
 test "optimize-instructions localizes tuple.extract of tuple.make with effectful siblings" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
