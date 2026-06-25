@@ -157,6 +157,67 @@ describe("pass-fuzz compare normalizers", () => {
     expect(normalized).toContain("local.set $local0");
   });
 
+  test("local-cleanup-debris erases single-use local copy drops", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local $1 i32)
+  (drop
+   (local.get $1)
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (local $1 i32)
+  (local $2 i32)
+  (local.set $2
+   (local.get $1)
+  )
+  (drop
+   (local.get $2)
+  )
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(starshineWat, ["local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(binaryenWat, ["local-cleanup-debris"]),
+    );
+  });
+
+  test("local-cleanup-debris erases single-use local tee copy drops", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local $1 i32)
+  (drop
+   (local.get $1)
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (local $1 i32)
+  (local $2 i32)
+  (local $3 i32)
+  (local.set $3
+   (local.tee $2
+    (local.get $1)
+   )
+  )
+  (drop
+   (local.get $3)
+  )
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(starshineWat, ["local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(binaryenWat, ["local-cleanup-debris"]),
+    );
+  });
+
   test("local-cleanup-debris canonicalizes local names after unused local deletion", () => {
     const binaryenWat = `(module
  (func $0 (param $0 i64) (result f32)
