@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover size-3 memory.copy boundary
+
+- Added OI-G public-pipeline coverage proving non-power-of-two size-3 `memory.copy` stays outside the exact tiny-copy lowering set.
+- Binaryen `version_130` keeps `local.get $dst; local.get $src; i32.const 3; memory.copy`; Starshine now locks that it also keeps `memory.copy` and does not introduce a multi-load/store sequence.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-copy-size3-boundary-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*memory.copy outside exact tiny lowering boundary*'` passed `2/2`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple with two earlier and four later siblings
 
 - Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after two earlier effectful siblings and before four later effectful siblings.

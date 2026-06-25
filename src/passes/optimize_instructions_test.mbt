@@ -6729,6 +6729,10 @@ test "optimize-instructions keeps memory.copy outside exact tiny lowering bounda
         #|    memory.copy
         #|    local.get $dst
         #|    local.get $src
+        #|    i32.const 3
+        #|    memory.copy
+        #|    local.get $dst
+        #|    local.get $src
         #|    i32.const 32
         #|    memory.copy
         #|    local.get $dst
@@ -6745,11 +6749,12 @@ test "optimize-instructions keeps memory.copy outside exact tiny lowering bounda
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   // Intentional fail-closed boundary: without trap-relaxed mode support, a
-  // zero-size memory.copy is kept; without a broader multi-store overlap proof
-  // and exact constant-size support, larger/nonconstant copies are kept too.
+  // zero-size memory.copy is kept; Binaryen also keeps size-3 copy spelling
+  // (`.tmp/oi-g-memory-copy-size3-boundary-probe.wat`) rather than widening to
+  // multiple narrow stores, and larger/nonconstant copies are kept too.
   @debug.assert_eq(
     optimize_instructions_test_count_substring(pretty, "memory.copy"),
-    3,
+    4,
     msg=pretty,
   )
   assert_false(pretty.contains("i32.load8u"), msg=pretty)
