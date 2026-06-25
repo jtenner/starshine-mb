@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1089-2026-06-25-heap-store-optimization-target-local-hazard-audit.md
   - ../../../raw/research/1088-2026-06-25-heap-store-optimization-control-context-skip.md
   - ../../../raw/research/1086-2026-06-25-heap-store-optimization-result-wrapper-oldfield-audit.md
   - ../../../raw/research/1085-2026-06-25-heap-store-optimization-control-scan-skip.md
@@ -334,6 +335,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `0855` confirmed Binaryen preserves a chain when an early moved value writes the target local, but still folds an earlier harmless store before preserving a later target-local-read store.
   - Follow-up `0857` confirmed descriptor constructors keep the same moved-value target-local read hazard: Binaryen preserves the later `struct.set` rather than reading the target local before its fresh-struct assignment.
   - Follow-up `0858` confirmed the matching descriptor target-local write hazard: Binaryen preserves the later `struct.set` when the moved value assigns a replacement descriptor-constructed struct to the same local.
+  - Micro-audit `1089` narrow-closes the direct target-local submatrix by mapping plain read/write hazards, chain variants, and descriptor read/write hazards to focused HSO tests and Binaryen `version_130` probes. This does not close broader moved-value, descriptor/later-field, result-wrapper, or exact descriptor `ref.cast` interactions.
   - Follow-up `0859` fixed the complementary descriptor later-field local-read positive: Binaryen folds when the later constructor field reads the target local but the moved value itself has no local-state effects.
   - Follow-up `0860` fixed descriptor later-field global conflict handling for later-field reads: Binaryen folds when a later field reads mutable global `$g0` and the moved value writes unrelated `$g1`, but preserves `struct.set` when both touch `$g0`.
   - Follow-up `0861` fixed the complementary later-field global-write split: Binaryen folds when a later field writes `$g0` and the moved value reads or writes unrelated `$g1`, but preserves `struct.set` for same-global read/write conflicts.
