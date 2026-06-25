@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1122-2026-06-25-heap-store-optimization-complete-default-chain-count.md
   - ../../../raw/research/1121-2026-06-25-heap-store-optimization-lazy-predicate-cache.md
   - ../../../raw/research/1120-2026-06-25-heap-store-optimization-post-1119-validation.md
   - ../../../raw/research/1119-2026-06-25-heap-store-optimization-const-value-effect-skip.md
@@ -542,7 +543,8 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `1118` removes generated `nop` roots from the consumed pure-default stores in the `1115` fast path instead of replacing each consumed store with a fresh `nop`. Focused HSO tests, native build, `moon fmt`, and a 1000-case direct compare were green. Starshine medians improved to `4.069ms` at 1000 functions and `8.384ms` at 2000 functions, but HSO-I stays open at about `4.1x` the `1111` Binaryen median (`2.028ms`).
   - Follow-up `1119` skips generic effect-mask lookup for childless `Const`/`RefNull` values inside that same pure-default fast path. Focused HSO tests, native build, `moon fmt`, and a 1000-case direct compare were green. Starshine medians moved to `4.062ms` at 1000 functions and `8.108ms` at 2000 functions; HSO-I stays open at about `4.0x` Binaryen. A broader op-shape nested-region shortcut was rejected because it broke the disappearing-bad-get safety tests.
   - Validation refresh `1120` ran `moon test src/passes` (`3045/3045`), full `moon test` (`6362/6362`), and a post-`1119` 10000-case direct GenValid compare (`10000/10000` normalized, `0` mismatches/failures). A fresh 2000-function timing refresh measured Starshine median `8.186ms` and Binaryen median `1.28922ms`, so HSO-I remained open at about `6.35x` that refreshed Binaryen run and HSO-J remained deferred.
-  - Follow-up `1121` makes the predicate cache lazy so pure-default fast-path functions do not preallocate predicate revision arrays/bitsets they never query. Focused HSO tests, native build, `moon fmt`, and a 1000-case direct compare were green. Starshine medians improved slightly to `3.986ms` at 1000 functions and `7.985ms` at 2000 functions, still about `6.19x` the `1120` refreshed Binaryen median, so HSO-I remains open.
+  - Follow-up `1121` makes the predicate cache lazy so pure-default fast-path functions do not preallocate predicate revision arrays/bitsets they never query. Focused HSO tests, native build, `moon fmt`, and a 1000-case direct compare were green. Starshine medians improved slightly to `3.986ms` at 1000 functions and `7.985ms` at 2000 functions, still about `6.19x` the `1120` refreshed Binaryen median.
+  - Follow-up `1122` separates struct field-count caching from defaultable field-type caching so complete pure-default overwrite chains build `struct.new` without materializing default field types. Focused HSO tests, native build, `moon fmt`, and a 1000-case direct compare were green. Starshine medians improved to `3.861ms` at 1000 functions and `7.710ms` at 2000 functions, still about `5.98x` the `1120` refreshed Binaryen median, so HSO-I remains open.
 
 ## Beginner warning: what the name hides
 

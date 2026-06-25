@@ -30,6 +30,7 @@ priv struct HsoPredicateCache {
 
 ///|
 priv struct HsoTypeCache {
+  struct_field_counts : Array[Int]
   default_field_counts : Array[Int]
   default_field_types : Array[Array[@lib.ValType]?]
 }
@@ -46,7 +47,7 @@ fn hso_new_predicate_cache() -> HsoPredicateCache {
 
 ///|
 fn hso_new_type_cache() -> HsoTypeCache {
-  { default_field_counts: [], default_field_types: [] }
+  { struct_field_counts: [], default_field_counts: [], default_field_types: [] }
 }
 
 ///|
@@ -68,6 +69,7 @@ fn hso_ensure_type_cache_capacity(
   type_slot : Int,
 ) -> Unit {
   while cache.default_field_counts.length() <= type_slot {
+    cache.struct_field_counts.push(-2)
     cache.default_field_counts.push(-2)
     cache.default_field_types.push(None)
   }
@@ -2305,6 +2307,33 @@ fn hso_build_default_value(func : @ir.HotFunc, vt : @lib.ValType) -> Int? {
 }
 
 ///|
+fn hso_type_struct_field_count(
+  type_cache : HsoTypeCache,
+  module_ctx : @ir.HotModuleContext,
+  type_idx : @lib.TypeIdx,
+) -> Int? {
+  let type_slot = match type_idx {
+    @lib.TypeIdx(raw_idx) | @lib.RecIdx(raw_idx) => raw_idx.reinterpret_as_int()
+  }
+  hso_ensure_type_cache_capacity(type_cache, type_slot)
+  match type_cache.struct_field_counts[type_slot] {
+    count if count >= 0 => return Some(count)
+    -1 => return None
+    _ => ()
+  }
+  let fields = match
+    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+    Some(fields) => fields
+    None => {
+      type_cache.struct_field_counts[type_slot] = -1
+      return None
+    }
+  }
+  type_cache.struct_field_counts[type_slot] = fields.length()
+  Some(fields.length())
+}
+
+///|
 fn hso_type_defaultable_struct_field_types(
   type_cache : HsoTypeCache,
   module_ctx : @ir.HotModuleContext,
@@ -2326,8 +2355,12 @@ fn hso_type_defaultable_struct_field_types(
   let fields = match
     @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
     Some(fields) => fields
-    None => return None
+    None => {
+      type_cache.struct_field_counts[type_slot] = -1
+      return None
+    }
   }
+  type_cache.struct_field_counts[type_slot] = fields.length()
   let field_types : Array[@lib.ValType] = []
   for field in fields {
     let @lib.FieldType(stor, _) = field
@@ -3665,12 +3698,11 @@ fn hso_try_fold_pure_default_struct_set_chain(
   if exact_type_idx != type_idx {
     return None
   }
-  let field_types = match
-    hso_type_defaultable_struct_field_types(type_cache, module_ctx, type_idx) {
-    Some(field_types) => field_types
+  let field_count = match
+    hso_type_struct_field_count(type_cache, module_ctx, type_idx) {
+    Some(field_count) => field_count
     None => return None
   }
-  let field_count = field_types.length()
   let replacements : Array[Int] = Array::make(field_count, -1)
   let mut next_idx = idx + 1
   let mut set_count = 0
@@ -3698,12 +3730,32 @@ fn hso_try_fold_pure_default_struct_set_chain(
     return None
   }
   let children : Array[Int] = []
+  let mut needs_defaults = false
+  for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
+    if replacements[field_idx] < 0 {
+      needs_defaults = true
+      break
+    }
+  }
+  let field_types = if needs_defaults {
+    match
+      hso_type_defaultable_struct_field_types(type_cache, module_ctx, type_idx) {
+      Some(field_types) => Some(field_types)
+      None => return None
+    }
+  } else {
+    None
+  }
   for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
     if replacements[field_idx] >= 0 {
       children.push(replacements[field_idx])
     } else {
-      match hso_build_default_value(func, field_types[field_idx]) {
-        Some(default_id) => children.push(default_id)
+      match field_types {
+        Some(field_types) =>
+          match hso_build_default_value(func, field_types[field_idx]) {
+            Some(default_id) => children.push(default_id)
+            None => return None
+          }
         None => return None
       }
     }
