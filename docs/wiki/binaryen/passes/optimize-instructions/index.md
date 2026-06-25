@@ -140,6 +140,7 @@ sources:
   - ../../../raw/research/0860-2026-06-25-optimize-instructions-oi-g-mixed-parameterized-memory-copy.md
   - ../../../raw/research/0861-2026-06-25-optimize-instructions-oi-g-parameterized-byte-fill.md
   - ../../../raw/research/0862-2026-06-25-optimize-instructions-oi-g-multiparam-bulk-memory.md
+  - ../../../raw/research/0863-2026-06-25-optimize-instructions-oi-m-earlier-later-neighbor.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt

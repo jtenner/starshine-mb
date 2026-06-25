@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover earlier/later tuple neighbor
+
+- Added OI-M direct-HOT neighbor coverage for the covered single-result `tuple.extract(tuple.make(...))` localization when both earlier and later non-selected siblings have effects.
+- Starshine keeps the OI-localized block valid through `simplify-locals-nostructure` as `drop(earlier); local.set(selected); drop(later); local.get(selected)`. Binaryen source evidence preserves the same calls and selected lane, but Starshine's WAT parser does not accept that tuple text syntax, so this is direct-HOT status coverage rather than public text-pipeline parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-earlier-later-neighbor-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*earlier and later tuple.extract localization survives simplify-locals-nostructure*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Lower multi-parameter bulk-memory calls
 
 - Added OI-G implementation and red-first coverage for stack-carried tiny bulk-memory sequences whose direct-call operands take multiple pure local/constant arguments.

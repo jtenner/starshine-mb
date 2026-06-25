@@ -13,6 +13,7 @@ sources:
   - ../../../raw/research/0860-2026-06-25-optimize-instructions-oi-g-mixed-parameterized-memory-copy.md
   - ../../../raw/research/0861-2026-06-25-optimize-instructions-oi-g-parameterized-byte-fill.md
   - ../../../raw/research/0862-2026-06-25-optimize-instructions-oi-g-multiparam-bulk-memory.md
+  - ../../../raw/research/0863-2026-06-25-optimize-instructions-oi-m-earlier-later-neighbor.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -143,7 +144,7 @@ The local pass does not yet model the upstream visitor families for:
 - GC aggregate RMW/cmpxchg lowering: Starshine exposes `struct.atomic.get*` but not aggregate RMW/cmpxchg text/core constructors, while Binaryen optimizes source-backed non-mutating RMW/cmpxchg forms to `struct.get`-like reads
 - `call_ref` directization families beyond the covered direct/ref.func, constant-index and call-indexed table.get, select, and fallthrough-known subsets with zero arguments or localized single-result arguments; multi-result argument select-of-`ref.func` directization is now a documented tuple-scratch localization boundary for both `call_ref` and `return_call_ref`
 - broader memory and bulk-memory lowering beyond the covered tiny-copy/fill, stored-value, load-result, offset-fold, and narrow raw-gate escapes
-- tuple extraction parity beyond the one-use tuple.make subset with pure siblings or covered single-result effectful sibling drop/localization; the covered single-result effectful-sibling localization now has first `simplify-locals-nostructure` neighbor coverage, full `simplify-locals` and dedicated `tuple-optimization` on the public multivalue-block probe are documented boundaries because Binaryen uses tuple scratch while Starshine keeps the block/drop spelling, direct-HOT replay of the full-simplify shape currently hits `InvalidChildRef`, local-carried / multi-use tuple extraction is a documented keep-spelling boundary for the probed Binaryen `version_130` shape, and multi-result non-selected siblings plus multi-result selected children, including the selected-second lane, remain documented tuple-scratch localization boundaries
+- tuple extraction parity beyond the one-use tuple.make subset with pure siblings or covered single-result effectful sibling drop/localization; the covered single-result effectful-sibling localization now has first `simplify-locals-nostructure` neighbor coverage for the first later-effect subset and direct-HOT earlier+later effectful-sibling coverage, full `simplify-locals` and dedicated `tuple-optimization` on the public multivalue-block probe are documented boundaries because Binaryen uses tuple scratch while Starshine keeps the block/drop spelling, direct-HOT replay of the full-simplify shape currently hits `InvalidChildRef`, local-carried / multi-use tuple extraction is a documented keep-spelling boundary for the probed Binaryen `version_130` shape, and multi-result non-selected siblings plus multi-result selected children, including the selected-second lane, remain documented tuple-scratch localization boundaries
 - a whole-function local prescan equivalent beyond the narrow fallthrough sign facts and direct sign-extension equality range folds
 - deferred `ReFinalize` / EH-pop repair inside this pass
 

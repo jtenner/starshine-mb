@@ -9013,6 +9013,109 @@ test "optimize-instructions tuple.extract localization survives simplify-locals-
 }
 
 ///|
+test "optimize-instructions earlier and later tuple.extract localization survives simplify-locals-nostructure neighbor" {
+  // Status-only OI-M neighbor coverage: this direct-HOT fixture extends the
+  // covered single-result tuple.extract localization to the earlier+later
+  // effectful sibling subset under `simplify-locals-nostructure`. Public WAT
+  // tuple syntax is not accepted by Starshine's local WAT parser yet, so this is
+  // not claimed as public text-pipeline parity.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i64(),
+      @lib.ValType::i64(),
+    ]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [
+      @lib.ValType::i64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::i64(),
+    ],
+    [
+      @ir.hot_build_local_tee(
+        func,
+        1,
+        @ir.hot_build_const_i64(func, @lib.I64(9L)),
+      ),
+      @ir.hot_build_local_get(func, 0),
+      @ir.hot_build_const_i64(func, @lib.I64(11L)),
+      @ir.hot_build_local_tee(
+        func,
+        2,
+        @ir.hot_build_const_i64(func, @lib.I64(10L)),
+      ),
+    ],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 1)
+  @ir.hot_root_append(func, extract)
+
+  let oi_ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(oi_ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected earlier/later tuple.extract OI success, got \{err}")
+  }
+  let sln_ctx = HotPassContext::new(
+    simplify_locals_nostructure_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(sln_ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected earlier/later tuple.extract simplify-locals-nostructure neighbor success, got \{err}",
+      )
+  }
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected earlier/later tuple localization to remain a block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 4)
+  let earlier_drop = @ir.hot_region_get(func, body, 0)
+  let selected_set = @ir.hot_region_get(func, body, 1)
+  let later_drop = @ir.hot_region_get(func, body, 2)
+  let selected_get = @ir.hot_region_get(func, body, 3)
+  match @ir.hot_node_get(func, earlier_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected earlier sibling drop to survive neighbor")
+  }
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected selected temp set to survive neighbor")
+  }
+  match @ir.hot_node_get(func, later_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected later sibling drop to survive neighbor")
+  }
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected temp reload to survive neighbor")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, selected_get).imm0,
+    @ir.hot_node_get(func, selected_set).imm0,
+  )
+}
+
+///|
 test "optimize-instructions intentionally keeps public multivalue block through full simplify-locals boundary" {
   // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
   // `--optimize-instructions --simplify-locals` localizes the probed multivalue
