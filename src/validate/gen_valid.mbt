@@ -708,6 +708,7 @@ pub enum GenValidProfile {
   SsaNomergeParityProfile
   SsaNomergeStressProfile
   SsaNomergeAllProfile
+  RandomAllProfilesProfile
 } derive(Eq, Debug)
 
 ///|
@@ -811,6 +812,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SsaNomergeParityProfile => "ssa-nomerge-parity"
     SsaNomergeStressProfile => "ssa-nomerge-stress"
     SsaNomergeAllProfile => "ssa-nomerge-all"
+    RandomAllProfilesProfile => "random-all-profiles"
   }
 }
 
@@ -821,7 +823,8 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
-    | SsaNomergeAllProfile => true
+    | SsaNomergeAllProfile
+    | RandomAllProfilesProfile => true
     _ => false
   }
 }
@@ -890,6 +893,40 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SsaNomergeParityProfile, 3),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 2),
         GenValidProfileMember::new(SsaNomergeCoverageProfile, 2),
+        GenValidProfileMember::new(SsaNomergeStressProfile, 1),
+      ]
+    RandomAllProfilesProfile =>
+      [
+        GenValidProfileMember::new(NaturalSmallProfile, 1),
+        GenValidProfileMember::new(NaturalWideProfile, 1),
+        GenValidProfileMember::new(NaturalDeepProfile, 1),
+        GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
+        GenValidProfileMember::new(CoverageForcedAllFeaturesProfile, 1),
+        GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
+        GenValidProfileMember::new(BinaryenOracleRelaxedSimdProfile, 1),
+        GenValidProfileMember::new(MutationSeedSmallProfile, 1),
+        GenValidProfileMember::new(MutationSeedRichProfile, 1),
+        GenValidProfileMember::new(PassFuzzStressProfile, 1),
+        GenValidProfileMember::new(ValidatorStressProfile, 1),
+        GenValidProfileMember::new(PassCleanupProfile, 1),
+        GenValidProfileMember::new(PassDaeProfile, 1),
+        GenValidProfileMember::new(PassInliningProfile, 1),
+        GenValidProfileMember::new(PassMemoryProfile, 1),
+        GenValidProfileMember::new(PassGcRefProfile, 1),
+        GenValidProfileMember::new(PassControlProfile, 1),
+        GenValidProfileMember::new(NoImportsProfile, 1),
+        GenValidProfileMember::new(ImportsHeavyProfile, 1),
+        GenValidProfileMember::new(GcHeavyProfile, 1),
+        GenValidProfileMember::new(SimdHeavyProfile, 1),
+        GenValidProfileMember::new(RelaxedSimdProfile, 1),
+        GenValidProfileMember::new(MemoryHeavyProfile, 1),
+        GenValidProfileMember::new(ControlHeavyProfile, 1),
+        GenValidProfileMember::new(TopologyHeavyProfile, 1),
+        GenValidProfileMember::new(PathologicalValidProfile, 1),
+        GenValidProfileMember::new(HeapStoreOptimizationProfile, 1),
+        GenValidProfileMember::new(SsaNomergeCoverageProfile, 1),
+        GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
+        GenValidProfileMember::new(SsaNomergeParityProfile, 1),
         GenValidProfileMember::new(SsaNomergeStressProfile, 1),
       ]
     _ => []
@@ -1017,6 +1054,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SsaNomergeParityProfile,
     SsaNomergeStressProfile,
     SsaNomergeAllProfile,
+    RandomAllProfilesProfile,
   ]
 }
 
@@ -1079,6 +1117,8 @@ pub fn gen_valid_profile_by_name(
     "code-pushing-closeout" => Ok(CodePushingAllProfile)
     "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
     "hso" => Ok(HeapStoreOptimizationProfile)
+    "all-profiles" => Ok(RandomAllProfilesProfile)
+    "random-profiles" => Ok(RandomAllProfilesProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
     _ =>
@@ -1469,6 +1509,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | SsaNomergeStressProfile => gen_valid_ssa_nomerge_profile_config(profile)
     SsaNomergeAllProfile =>
       gen_valid_ssa_nomerge_profile_config(SsaNomergeCoverageProfile)
+    RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
   }
 }
 

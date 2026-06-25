@@ -7466,6 +7466,63 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
 }
 
 ///|
+test "random all-profiles gen-valid profile resolves every leaf profile" {
+  @debug.assert_eq(
+    gen_valid_profile_name(RandomAllProfilesProfile),
+    "random-all-profiles",
+  )
+  match gen_valid_profile_by_name("all-profiles") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, RandomAllProfilesProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(
+        members.contains(GenValidProfileMember::new(NaturalSmallProfile, 1)),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(HeapStoreOptimizationProfile, 1),
+        ),
+      )
+      assert_true(
+        members.contains(GenValidProfileMember::new(SsaNomergeStressProfile, 1)),
+      )
+      assert_false(
+        members.contains(
+          GenValidProfileMember::new(RandomAllProfilesProfile, 1),
+        ),
+      )
+      assert_false(
+        members.contains(GenValidProfileMember::new(SsaNomergeAllProfile, 1)),
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "random all-profiles composite samples non-composite profile leaves" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 256 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      RandomAllProfilesProfile,
+      0x5555UL,
+      index,
+    )
+    assert_false(gen_valid_profile_is_composite(leaf))
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(NaturalSmallProfile))
+  assert_true(seen.contains(HeapStoreOptimizationProfile))
+  assert_true(seen.contains(SsaNomergeCoverageProfile))
+  assert_true(seen.contains(SsaNomergeStressProfile))
+}
+
+///|
 test "composite gen-valid profile sampling is deterministic and replayable" {
   let first = gen_valid_profile_leaf_for_case(SsaNomergeAllProfile, 0x5eedUL, 1)
   let replayed = gen_valid_profile_leaf_for_case(
