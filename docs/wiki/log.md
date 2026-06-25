@@ -17568,3 +17568,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Binaryen `wasm-opt version 130` probes show `code-pushing` moves single-set and adjacent ordered multi-set windows after a one-result-block `br_on_non_null`, while a guard-read shape remains stationary.
 - No Starshine behavior changed in this slice: `br_on_non_null` carries an implicit non-null reference to the taken label, so HOT branch-payload verification/lowering needs a dedicated red-first IR slice before code-pushing can safely widen.
 - Updated the code-pushing dossier, WAT shape catalog, fuzzing profile notes, port-readiness page, and active backlog to keep the blocker and next implementation path visible.
+
+## 2026-06-25 code-pushing legacy try-lowered movement
+
+- Recorded `docs/wiki/raw/research/0859-2026-06-25-code-pushing-legacy-try-lowered-movement.md` for `[O4Z-AUDIT-CP-HHH]`.
+- Binaryen `wasm-opt version 130` moves a pure SFA set after a reduced legacy `try`/`catch` before a later `br_if`, unlike the stationary `try_table` catch-target boundary in `0858`.
+- Added focused Starshine coverage for the observable movement through the current WAT-to-HOT path, noting that the fixture lowers legacy `try` to a HOT block and does not prove native `HotOp::Try` segment-barrier behavior.
