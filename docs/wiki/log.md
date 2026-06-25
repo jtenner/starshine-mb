@@ -719,10 +719,15 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Implement br_on_non_null prefix payload movement
+
+- Followed up [`raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md`](raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md) with a focused `[O4Z-AUDIT-CP]` behavior slice. Red-first whitebox coverage now builds a two-result block-label `br_on_non_null` with an explicit prefix payload and proves Starshine moves one pure SFA `local.set` after the branch while preserving prefix-payload and guard-read negatives.
+- Starshine added a resolved-block HOT builder for this multi-result test shape and widened only the block-label `BrOnNonNull` push-point gate. Loop-label `br_on_*`, broader reference-carrying forms, aggregate GenValid coverage, and multi-set prefix-payload variants remain open.
+
 ## [2026-06-25] passes/code-pushing | Probe br_on_non_null prefix payload
 
 - Filed [`raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md`](raw/research/0834-2026-06-25-code-pushing-br-on-non-null-prefix-payload.md) for a source-backed remaining `[O4Z-AUDIT-CP]` behavior gap. Local Binaryen v130 on `.tmp/o4z-audit-cp-ee/br-on-non-null-prefix.wat` moved a pure `local.set` after a two-result block-label `br_on_non_null` carrying an explicit `i32` prefix payload plus the implicit non-null reference payload.
-- This is not an accepted boundary: Starshine's current `BrOnNonNull` movement gate remains limited to the one-result block-label shape. Future work should add red HOT prefix-payload movement tests plus prefix/guard-read negatives before widening the pass and deciding whether this can become aggregate-safe profile coverage.
+- This is not an accepted boundary: Starshine's prior `BrOnNonNull` movement gate was limited to the one-result block-label shape. Future work should decide whether the focused implementation can become aggregate-safe profile coverage.
 
 ## [2026-06-25] passes/code-pushing | Refresh value-br_if lowering blocker
 

@@ -719,7 +719,13 @@ fn code_pushing_single_set_conditional_branch_push_point_supported(
           branch_arity == 0 && child_count == 1
         _ => false
       }
-    @ir.HotOp::BrOnNonNull | @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
+    @ir.HotOp::BrOnNonNull =>
+      match @ir.hot_label_kind(func, branch.imm0) {
+        @ir.HotLabelKind::BlockLabel =>
+          branch_arity >= 1 && child_count >= 1 && child_count <= branch_arity
+        _ => false
+      }
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
       match @ir.hot_label_kind(func, branch.imm0) {
         @ir.HotLabelKind::BlockLabel => branch_arity == 1 && child_count == 1
         _ => false

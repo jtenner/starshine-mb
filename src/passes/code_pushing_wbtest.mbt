@@ -120,3 +120,228 @@ test "code-pushing segment inventory reports ordered-before barriers" {
     "reject:ordered-before-barrier",
   )
 }
+
+///|
+fn code_pushing_wbtest_run_hot_func(func : @ir.HotFunc) -> @ir.HotFunc {
+  let ctx = HotPassContext::new(
+    code_pushing_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => func
+    Err(err) => abort("expected code-pushing hot pass success, got \{err}")
+  }
+}
+
+///|
+fn code_pushing_wbtest_expect_op(
+  func : @ir.HotFunc,
+  node_id : Int,
+  expected : String,
+) -> Unit {
+  let op = @ir.hot_node_get(func, node_id).op
+  match (expected, op) {
+    ("nop", @ir.HotOp::Nop) => ()
+    ("drop", @ir.HotOp::Drop) => ()
+    ("local.set", @ir.HotOp::LocalSet) => ()
+    ("br_on_non_null", @ir.HotOp::BrOnNonNull) => ()
+    _ => abort("expected \{expected}, got \{op}")
+  }
+}
+
+///|
+fn code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
+  prefix_reads_moved : Bool,
+  guard_reads_moved : Bool,
+) -> @ir.HotFunc {
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let extern_ref = @lib.ValType::externref()
+  let nullable_extern = @lib.RefType::new(true, extern_heap)
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(
+      params=[extern_ref],
+      locals=if guard_reads_moved {
+        [extern_ref]
+      } else {
+        [@lib.ValType::i32()]
+      },
+    ),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [@lib.ValType::i32(), extern_ref]),
+  )
+  let block_id = @ir.hot_build_resolved_block(
+    func,
+    @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+    [],
+    [@lib.ValType::i32(), extern_ref],
+    [],
+  )
+  let target = @ir.hot_control_node_label(func, block_id)
+  let body : Array[Int] = []
+  body.push(
+    @ir.hot_build_local_set(
+      func,
+      1,
+      if guard_reads_moved {
+        @ir.hot_build_ref_null(func, nullable_extern)
+      } else {
+        @ir.hot_build_const_i32(func, @lib.I32(7))
+      },
+    ),
+  )
+  let prefix_payload = if prefix_reads_moved {
+    @ir.hot_build_local_get(func, 1)
+  } else {
+    @ir.hot_build_const_i32(func, @lib.I32(42))
+  }
+  let guard_ref = if guard_reads_moved {
+    @ir.hot_build_local_get(func, 1)
+  } else {
+    @ir.hot_build_local_get(func, 0)
+  }
+  let branch = @ir.hot_build_node(
+    func,
+    @ir.HotOp::br_on_non_null(),
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+    imm0=target,
+    children=[prefix_payload, guard_ref],
+  )
+  body.push(@ir.hot_build_drop(func, branch))
+  body.push(@ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)))
+  body.push(@ir.hot_build_const_i32(func, @lib.I32(13)))
+  body.push(@ir.hot_build_ref_null(func, nullable_extern))
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, block_id),
+    body,
+  )
+  @ir.hot_root_append(func, block_id)
+  code_pushing_wbtest_run_hot_func(func)
+}
+
+///|
+fn code_pushing_wbtest_find_first_block(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => return node_id
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let found = code_pushing_wbtest_find_first_block(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+    )
+    if found >= 0 {
+      return found
+    }
+  }
+  -1
+}
+
+///|
+fn code_pushing_wbtest_root_block(func : @ir.HotFunc) -> Int {
+  for slot = 0; slot < @ir.hot_root_count(func); slot = slot + 1 {
+    let found = code_pushing_wbtest_find_first_block(
+      func,
+      @ir.hot_root_get(func, slot),
+    )
+    if found >= 0 {
+      return found
+    }
+  }
+  abort("expected block root")
+}
+
+///|
+test "code-pushing moves pure SFA set after br_on_non_null prefix payload before later same-block use" {
+  let func = code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
+    false, false,
+  )
+
+  let block_id = code_pushing_wbtest_root_block(func)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 6)
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "nop",
+  )
+  let branch_drop = @ir.hot_region_get(func, body_ref, 1)
+  code_pushing_wbtest_expect_op(func, branch_drop, "drop")
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_non_null",
+  )
+  let moved_set = @ir.hot_region_get(func, body_ref, 2)
+  code_pushing_wbtest_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 3),
+    "drop",
+  )
+}
+
+///|
+test "code-pushing keeps SFA set before br_on_non_null prefix payload that reads it" {
+  let func = code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
+    true, false,
+  )
+
+  let block_id = code_pushing_wbtest_root_block(func)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 5)
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  let branch_drop = @ir.hot_region_get(func, body_ref, 1)
+  code_pushing_wbtest_expect_op(func, branch_drop, "drop")
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_non_null",
+  )
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 2),
+    "drop",
+  )
+}
+
+///|
+test "code-pushing keeps SFA set before br_on_non_null guard that reads it" {
+  let func = code_pushing_wbtest_br_on_non_null_prefix_payload_fixture(
+    false, true,
+  )
+
+  let block_id = code_pushing_wbtest_root_block(func)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 5)
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  let branch_drop = @ir.hot_region_get(func, body_ref, 1)
+  code_pushing_wbtest_expect_op(func, branch_drop, "drop")
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_non_null",
+  )
+  code_pushing_wbtest_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 2),
+    "drop",
+  )
+}

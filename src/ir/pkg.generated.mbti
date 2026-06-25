@@ -279,6 +279,8 @@ pub fn hot_build_nop(HotFunc) -> Int
 
 pub fn hot_build_ref_null(HotFunc, @lib.RefType) -> Int
 
+pub fn hot_build_resolved_block(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType], Array[Int]) -> Int
+
 pub fn hot_build_return(HotFunc, Array[Int]) -> Int
 
 pub fn hot_build_return_call(HotFunc, Int, Array[Int]) -> Int
