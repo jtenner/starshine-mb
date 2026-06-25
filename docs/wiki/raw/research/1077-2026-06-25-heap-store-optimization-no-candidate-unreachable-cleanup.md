@@ -130,4 +130,4 @@ Result:
 
 ## Remaining status
 
-The specific `1076` mismatch is fixed and replay-green. HSO-J is not closeout-green yet: the full explicit wasm-smith 10000-case lane still needs rerun after this fix, and the final closeout matrix still needs the 100000 regular GenValid lane, dedicated HSO profile lane, random all-profiles lane if/when the profile exists or is named, O4z slot/neighborhood replay, full Moon validation, performance status, and source-backed family review.
+The specific `1076` mismatch is fixed and replay-green. Follow-up `1078` reran the full explicit wasm-smith 10000-case lane after this fix with `9956/10000` compared, `9956` normalized matches, and `0` mismatches. HSO-J is still not closeout-green: the final closeout matrix still needs the 100000 regular GenValid lane, dedicated HSO profile lane refresh or acceptance of `1073` as current, random all-profiles lane if/when the profile exists or is named, O4z slot/neighborhood replay, full Moon validation, performance status, and source-backed family review.
