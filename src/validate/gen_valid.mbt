@@ -11327,6 +11327,22 @@ fn gen_valid_append_heap_store_optimization_body_slice(
               out.push(Instruction::i32_const(I32(143)))
               out.push(Instruction::struct_set(described_idx, U32::new(0U)))
 
+              if !env.tables.is_empty() {
+                out.push(Instruction::i32_const(I32(0)))
+                out.push(
+                  Instruction::call_indirect(target.type_idx, TableIdx::new(0U)),
+                )
+                out.push(
+                  Instruction::ref_null(HeapType::abs(AbsHeapType::eq())),
+                )
+                out.push(Instruction::struct_new_default(descriptor_idx))
+                out.push(Instruction::struct_new_desc(described_idx))
+                out.push(Instruction::local_set(described_local_idx))
+                out.push(Instruction::local_get(described_local_idx))
+                out.push(Instruction::i32_const(I32(145)))
+                out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+              }
+
               // Mutable-descriptor direct-call result roots keep the generated
               // surface distinct from pure descriptor calls and from the older
               // result-wrapper barrier roots: the overwritten field is the
