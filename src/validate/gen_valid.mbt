@@ -11186,6 +11186,21 @@ fn gen_valid_append_heap_store_optimization_body_slice(
           out.push(Instruction::struct_get(described_idx, U32::new(0U)))
           out.push(Instruction::drop())
 
+          // Descriptor old-field side-effect preservation: a later same-field
+          // store can fold into struct.new_desc only if the overwritten
+          // memory.grow field effect is preserved in order.
+          if !env.mems.is_empty() {
+            out.push(Instruction::i32_const(I32(1)))
+            out.push(Instruction::memory_grow(MemIdx::new(0U)))
+            out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+            out.push(Instruction::struct_new_default(descriptor_idx))
+            out.push(Instruction::struct_new_desc(described_idx))
+            out.push(Instruction::local_set(described_local_idx))
+            out.push(Instruction::local_get(described_local_idx))
+            out.push(Instruction::i32_const(I32(109)))
+            out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+          }
+
           // Descriptor catch/throw skip-local-set hazards mirror the ordinary
           // catchable root below while keeping descriptor materialization in
           // the generated profile. The throw sibling can skip the constructor
