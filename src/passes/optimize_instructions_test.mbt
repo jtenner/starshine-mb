@@ -838,6 +838,52 @@ test "optimize-instructions folds i32 masked unsigned compares outside max" {
 }
 
 ///|
+test "optimize-instructions preserves i32 masked unsigned compare effects" {
+  let source =
+    #|(module
+    #|  (func $test (result i32)
+    #|    call $effect
+    #|    i32.const 255
+    #|    i32.and
+    #|    i32.const 256
+    #|    i32.eq)
+    #|  (func $effect (result i32) i32.const 7))
+    #|
+  let func = optimize_instructions_test_run_hot(source)
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail("expected effectful i32 masked compare to become drop+const block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+  let dropped = @ir.hot_region_get(func, body, 0)
+  match @ir.hot_node_get(func, dropped).op {
+    @ir.HotOp::Drop => ()
+    _ =>
+      fail(
+        "expected first folded i32 masked compare root to preserve lhs with drop",
+      )
+  }
+  @debug.assert_eq(@ir.hot_child_count(func, dropped), 1)
+  let masked = @ir.hot_child_get(func, dropped, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, masked),
+    Some(@lib.Instruction::i32_and()),
+  )
+  let result = @ir.hot_region_get(func, body, 1)
+  match @ir.hot_node_get(func, result).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected second folded i32 masked compare root to be const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, result).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions folds i64 masked unsigned compares outside max" {
   let eq_func = optimize_instructions_test_run_hot(
     "(module (func (param i64) (result i32) local.get 0 i64.const 255 i64.and i64.const 256 i64.eq))",

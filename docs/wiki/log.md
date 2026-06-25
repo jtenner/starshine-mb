@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Preserve i32 masked unsigned compare effects
+
+- Extended the OI-D `maxBits`-style i32 masked unsigned compare fold to preserve effectful/trapping direct masked operands: when the compared constant is outside the nonnegative `i32.and` mask range, Starshine now replaces the compare with `drop(masked-value); i32.const result` instead of skipping the fold.
+- Kept the slice narrow: it handles direct i32 `and` masks only; effect-preserving i64, recursive maxBits facts beyond direct nonnegative masks, signed range proofs, and non-mask width facts remain open.
+- Evidence: Binaryen `version_130` oracle probe `.tmp/oi-d-mask-compare-probe.wat` folds the call-backed i32 mask compare to `drop(i32.and(call, 255)); i32.const 0`; red-first `*i32 masked unsigned compare effects*` failed before implementation and passed after.
+
 ## [2026-06-24] passes/optimize-instructions | Fold pure i64 masked unsigned compares
 
 - Extended the OI-D `maxBits`-style masked unsigned compare slice to i64: a side-effect-free direct `i64.and` with a nonnegative constant mask can now fold `eq`/`ne` and unsigned relational compares when the compared constant is outside the masked range.

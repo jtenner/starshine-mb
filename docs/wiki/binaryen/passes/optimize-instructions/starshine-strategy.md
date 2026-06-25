@@ -37,7 +37,7 @@ Current Starshine `src/passes/optimize_instructions.mbt` is a real HOT pass, but
 The implemented center of gravity is:
 
 - exact binary constant folding
-- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare folding, first pure i32/i64 masked unsigned-compare folds, and relational constant canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare folding, pure i32/i64 plus effect-preserving i32 masked unsigned-compare folds, and relational constant canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites
 - constant-`if` folding
@@ -72,7 +72,7 @@ The local file has dedicated helpers for:
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
 - same-local integer compare folding
-- pure i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask proves the value is below an out-of-range constant
+- pure i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask proves the value is below an out-of-range constant, plus effect-preserving i32 folded results that drop the masked value before the replacement constant
 - relational operand canonicalization
 - relational-constant normalization
 

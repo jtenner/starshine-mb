@@ -7361,9 +7361,6 @@ fn optimize_instructions_try_fold_i32_masked_unsigned_compare(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
-    return false
-  }
   let max_value = match
     optimize_instructions_i32_and_unsigned_max(func, dead, lhs_id) {
     Some(value) => value
@@ -7378,7 +7375,14 @@ fn optimize_instructions_try_fold_i32_masked_unsigned_compare(
       instr, max_value, rhs,
     ) {
     Some(result) => {
-      optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+      if optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) ||
+        optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
+        optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+      } else {
+        optimize_instructions_replace_with_drop_then_const_i32(
+          ctx, func, node_id, lhs_id, result,
+        )
+      }
       true
     }
     None => false
