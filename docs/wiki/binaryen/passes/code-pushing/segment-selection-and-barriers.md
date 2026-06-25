@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md
   - ../../../raw/research/0887-2026-06-25-code-pushing-nested-global-set-root-refinements.md
   - ../../../raw/research/0885-2026-06-25-code-pushing-nested-disjoint-global-set-call-boundary.md
   - ../../../raw/research/0884-2026-06-25-code-pushing-nested-disjoint-global-set-pure-root-window.md
@@ -72,6 +73,8 @@ related:
 # `code-pushing` Segment Selection And Barriers
 
 ## Corrected framing
+
+The v0.1.0 release-gating closeout for `[O4Z-AUDIT-CP]` is recorded in [`../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md). This page remains the movement/barrier guide and reopening checklist: future `code-pushing` work should start here if a new Binaryen-positive probe, generated mismatch, validation failure, source drift, or preset-neighborhood requirement appears.
 
 The current source-backed Binaryen frame after the 2026-06-20 `version_130` refresh is:
 
