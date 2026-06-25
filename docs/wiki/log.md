@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover local dynamic bulk-memory
+
+- Added OI-G public-pipeline coverage proving local dynamic-size `memory.copy` / `memory.fill` keep their bulk-memory operations and local operand order.
+- Binaryen `version_130` keeps the same local dynamic-size bulk-memory operations, so this is a boundary/status slice rather than a red-first implementation change.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-local-dynamic-bulk-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*local dynamic-size bulk-memory*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover selected trapping tuple with two later siblings
 
 - Added OI-M direct-HOT coverage proving a selected trapping tuple lane remains ordered after an earlier effectful sibling and before two later effectful siblings.
