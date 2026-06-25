@@ -84,7 +84,7 @@ The local file has explicit machinery for:
 - sorting local gets and some node kinds conservatively
 - refusing reordering across same-local writes, shared tee payloads, trapping loads, and loop-carried inputs
 
-That matches the upstream strategy of canonicalize-first, but the proof substrate is local-HOT-specific. The general commutative canonicalizer is live for ranked HOT value nodes, including call / indirect-call / call_ref value operands, and uses the same sound reorder proof (`optimize_instructions_subtrees_can_swap`) exercised by the leading `(0 - x) + y -> y - x` rewrite (see section 3). Calls rank before locals/constants to match Binaryen's call-first spelling, but memory/table/global/local conflicts and may-trap-past-side-effect hazards still block the swap.
+That matches the upstream strategy of canonicalize-first, but the proof substrate is local-HOT-specific. The general commutative canonicalizer is live for ranked HOT value nodes, including call / indirect-call / call_ref value operands, and uses the same sound reorder proof (`optimize_instructions_subtrees_can_swap`) exercised by the leading `(0 - x) + y -> y - x` rewrite (see section 3). Calls rank before locals/constants to match Binaryen's call-first spelling, but memory/table/global/local conflicts and may-trap-past-side-effect hazards still block the swap. The public/raw pipeline now admits the narrow straight-line stack form `pure local.get/const; no-param direct call; commutative integer binop` so simple call-operand fixtures reach this HOT path; broader stack-carried effects still skip.
 
 ### 3. Add / sub / mul / shift rewrites
 

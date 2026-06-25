@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Admit simple stack-carried call operands through OI raw gate
+
+- Narrowed `stack-carried-effect-optimize-instructions-noop` for the exact straight-line `pure local.get/const; no-param direct call; commutative integer binop` subset, allowing public `local.get + call` fixtures to reach HOT and use the call-first commutative canonicalizer added earlier.
+- Kept broader stack-carried effects fail-closed: load/call mixtures, local writes, memory.copy call-result operands, call operands with parameters, indirect/reference calls, multi-result calls, and control-bearing forms still require separate source-backed localization/gate slices.
+- Evidence: red-first focused public-pipeline test `*stack-carried call operands*` failed with `skip-raw reason=stack-carried-effect-optimize-instructions-noop`; after the narrow raw-gate escape it passed and asserted no raw skip plus `call (Func 1)` before `local.get (Local 0)` in the optimized body. Docs/backlog now describe the raw-gate escape as narrow rather than broad call-operand parity.
+
 ## [2026-06-24] passes/optimize-instructions | Add guarded call ranks to commutative canonicalization
 
 - Added `HotOp::Call`, `HotOp::CallIndirect`, and `HotOp::CallRef` to the optimize-instructions commutative kind-rank table ahead of locals/constants, matching Binaryen's call-first commutative spelling for safe shapes such as `local.get + call` and `const * call`.

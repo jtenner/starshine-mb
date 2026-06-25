@@ -136,10 +136,12 @@ What to remember:
   `local.tee`/`local.get` conflicts, memory write/read conflicts such as
   `load + call`, may-trap past side-effect hazards such as `local.tee + call`,
   and control-flow operands
-- this is HOT canonicalizer behavior; the public/raw pipeline can still skip
-  stack-style call-operand functions behind the existing
-  `stack-carried-effect-optimize-instructions-noop` gate until a separate raw
-  gate/localization slice proves those functions safe to lift and rewrite
+- this is HOT canonicalizer behavior, but the public/raw pipeline now admits
+  the narrow stack-style form `pure local.get/const; no-param direct call;
+  commutative integer binop`, so simple `local.get + call` functions reach HOT
+  and get the same call-first spelling; broader stack-carried call/effect
+  shapes still remain behind `stack-carried-effect-optimize-instructions-noop`
+  until a localizing/HOT-lowering slice proves them safe
 
 ## Shape family 3: eliminate `0 - x` wrappers inside adds
 

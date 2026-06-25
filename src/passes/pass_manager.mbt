@@ -22426,6 +22426,79 @@ fn run_hot_pipeline_optimize_instructions_has_local_load_then_call(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.LocalGet(_)
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Add
+    | @lib.I32Mul
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I64Add
+    | @lib.I64Mul
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Eq
+    | @lib.I64Ne => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instr {
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          params.length() == 0 && results.length() == 1
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instrs {
+    [lhs, call, binop] =>
+      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        lhs,
+      ) &&
+      run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
+        call, module_ctx,
+      ) &&
+      run_hot_pipeline_optimize_instructions_instr_is_commutative_integer_binop(
+        binop,
+      )
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_prefix_has_stack_carried_effect(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -22530,6 +22603,9 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   )
   if run_hot_pipeline_optimize_instructions_has_stack_carried_effect(
       body, env, module_ctx,
+    ) &&
+    !run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
+      body, module_ctx,
     ) {
     return Some({
       reason: "stack-carried-effect-optimize-instructions-noop",

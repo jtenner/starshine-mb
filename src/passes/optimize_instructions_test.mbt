@@ -190,6 +190,38 @@ test "optimize-instructions public pipeline still cleans neutral add outside raw
 }
 
 ///|
+test "optimize-instructions public pipeline canonicalizes simple stack-carried call operands" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32)
+        #|    local.get 0
+        #|    call $one
+        #|    i32.add)
+        #|  (func $one (result i32)
+        #|    i32.const 1))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions call cleanup success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[optimize-instructions]:skip-raw") }),
+    msg="unexpected raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 1)", "local.get (Local 0)", "i32.add",
+  ])
+}
+
+///|
 test "optimize-instructions skips functions mixing loads and calls" {
   let trace : Array[String] = []
   match
