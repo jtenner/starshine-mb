@@ -8978,6 +8978,60 @@ fn gen_valid_test_instrs_contain_code_pushing_br_on_non_null_candidate(
 }
 
 ///|
+fn gen_valid_test_instrs_contain_code_pushing_br_on_non_null_prefix_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) =>
+        for i = 0; i + 13 < body.length(); i = i + 1 {
+          match
+            (
+              body[i],
+              body[i + 1],
+              body[i + 2],
+              body[i + 3],
+              body[i + 4],
+              body[i + 5],
+              body[i + 6],
+              body[i + 7],
+              body[i + 8],
+              body[i + 9],
+              body[i + 10],
+              body[i + 11],
+              body[i + 12],
+              body[i + 13],
+            ) {
+            (
+              I32Const(_),
+              LocalSet(LocalIdx(first_set_idx)),
+              I32Const(_),
+              LocalSet(LocalIdx(second_set_idx)),
+              I32Const(_),
+              LocalGet(LocalIdx(cond_idx)),
+              BrOnNonNull(_),
+              Drop,
+              LocalGet(LocalIdx(first_use_idx)),
+              Drop,
+              LocalGet(LocalIdx(second_use_idx)),
+              Drop,
+              I32Const(_),
+              RefNull(_),
+            ) if first_set_idx == 1U &&
+              second_set_idx == 2U &&
+              cond_idx == 0U &&
+              first_use_idx == 1U &&
+              second_use_idx == 2U => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_instrs_contain_code_pushing_br_on_cast_candidate(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -9248,6 +9302,10 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
     "code-pushing-br-on-non-null",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(CodePushingBrOnNonNullPrefixProfile),
+    "code-pushing-br-on-non-null-prefix",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(CodePushingBrOnCastProfile),
     "code-pushing-br-on-cast",
   )
@@ -9323,6 +9381,11 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       )
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingBrOnNonNullProfile }),
+      )
+      assert_true(
+        !members.any(fn(entry) {
+          entry.profile == CodePushingBrOnNonNullPrefixProfile
+        }),
       )
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingBrOnCastProfile }),
@@ -9401,6 +9464,7 @@ test "code-pushing aggregate profile samples every current code-pushing family" 
   assert_true(seen.contains(CodePushingBrIfProfile))
   assert_true(seen.contains(CodePushingBrOnNullProfile))
   assert_true(seen.contains(CodePushingBrOnNonNullProfile))
+  assert_true(!seen.contains(CodePushingBrOnNonNullPrefixProfile))
   assert_true(seen.contains(CodePushingBrOnCastProfile))
   assert_true(seen.contains(CodePushingBrOnCastFailProfile))
   assert_true(seen.contains(CodePushingMultiSetProfile))
@@ -9536,6 +9600,30 @@ test "code-pushing gen-valid profiles emit pass-owned if movement candidates" {
   assert_true(
     gen_valid_test_instrs_contain_code_pushing_br_on_non_null_candidate(
       gen_valid_test_first_func_instrs(br_on_non_null.wasm_module),
+    ),
+  )
+
+  let br_on_non_null_prefix = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(CodePushingBrOnNonNullPrefixProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    br_on_non_null_prefix.config_label,
+    "code-pushing-br-on-non-null-prefix",
+  )
+  match validate_module(br_on_non_null_prefix.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(br_on_non_null_prefix.facts.has_branch_heavy_control)
+  assert_true(br_on_non_null_prefix.facts.uses_ref_types)
+  assert_true(
+    gen_valid_test_instrs_contain_code_pushing_br_on_non_null_prefix_candidate(
+      gen_valid_test_first_func_instrs(br_on_non_null_prefix.wasm_module),
     ),
   )
 
