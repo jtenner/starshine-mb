@@ -50,6 +50,7 @@ sources:
   - ../../../raw/research/0870-2026-06-25-optimize-instructions-oi-g-v128-nonzero-memory-fill.md
   - ../../../raw/research/0871-2026-06-25-optimize-instructions-oi-m-selected-trapping-earlier-sibling.md
   - ../../../raw/research/0872-2026-06-25-optimize-instructions-oi-g-zero-bulk-effects.md
+  - ../../../raw/research/0873-2026-06-25-optimize-instructions-oi-m-selected-trapping-earlier-later-siblings.md
   - ../../../raw/research/0815-2026-06-20-optimize-instructions-oi-g-signext-store-boundary.md
   - ../../../raw/research/0816-2026-06-20-optimize-instructions-oi-g-effectful-memory-copy-boundary.md
   - ../../../raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md
@@ -449,7 +450,7 @@ For OI-L specifically, Binaryen `version_130` optimizes non-mutating aggregate R
 The local file now models the first `visitTupleExtract(...)` family for one-use `tuple.extract(tuple.make(...))` producers:
 
 - when every non-selected tuple child is pure, the extract forwards the selected lane directly, including selected lanes that may trap such as `i32.load`;
-- when non-selected siblings have effects or traps and produce at most one value, Starshine preserves/drops earlier effects before the selected lane, localizes the selected lane to a temp local when later effects exist, preserves/drops later effects or trapping loads, then reloads the selected value;
+- when non-selected siblings have effects or traps and produce at most one value, Starshine preserves/drops earlier effects before the selected lane, localizes the selected lane to a temp local when later effects exist, preserves/drops later effects or trapping loads, then reloads the selected value; the combined selected-trapping earlier-plus-later sibling fixture now locks the `drop(Call); LocalSet(i32.load); drop(Call); LocalGet` order against Binaryen's tuple-scratch oracle;
 - local-carried/multi-use tuple extraction is now an explicit Binaryen-matching keep-spelling boundary for the probed shape;
 - multi-result non-selected siblings are a current tuple-scratch localization boundary: Binaryen `version_130` materializes tuple scratch and scalar drops for the probed shape, while Starshine keeps the direct-HOT tuple spelling until a safe multi-result sibling localizer exists;
 - multi-result selected children are also a current tuple-scratch localization boundary: Binaryen materializes tuple scratch, drops non-selected lanes, stores the chosen scalar, and reloads it for both covered selected-first and selected-second probes, while Starshine keeps the direct-HOT tuple spelling until a safe selected-child localizer exists;
