@@ -9363,7 +9363,7 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       @debug.assert_eq(profile, CodePushingAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 18)
+      @debug.assert_eq(members.length(), 19)
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingIfArmProfile }),
       )
@@ -9394,6 +9394,9 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
         members.any(fn(entry) {
           entry.profile == CodePushingBrOnCastFailProfile
         }),
+      )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingBrIfValueProfile }),
       )
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingMultiSetProfile }),
@@ -9467,6 +9470,7 @@ test "code-pushing aggregate profile samples every current code-pushing family" 
   assert_true(seen.contains(CodePushingBrOnNonNullPrefixProfile))
   assert_true(seen.contains(CodePushingBrOnCastProfile))
   assert_true(seen.contains(CodePushingBrOnCastFailProfile))
+  assert_true(seen.contains(CodePushingBrIfValueProfile))
   assert_true(seen.contains(CodePushingMultiSetProfile))
   assert_true(seen.contains(CodePushingMultiSetDroppedIfProfile))
   assert_true(seen.contains(CodePushingMultiSetBrIfProfile))
