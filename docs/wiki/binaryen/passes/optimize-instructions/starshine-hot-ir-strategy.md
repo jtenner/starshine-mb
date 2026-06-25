@@ -150,6 +150,7 @@ Its center of gravity is:
 - successful local-`ref.func` `ref.test` / `ref.cast` basics from OI-I: exact `ref.test (ref func)` fed by local `ref.func` folds to `i32.const 1`, and exact `ref.cast (ref func)` fed by local `ref.func` rewrites to the constructor child; already-evaluated effectful prefixes such as `drop(call $effect)` are preserved before exact `ref.func` `ref.test`, `ref.cast`, `ref.is_null`, and `ref.as_non_null` simplifications; target-supertypes and arbitrary function-subtype facts remain open
 - declared non-null local `ref.test` / `ref.cast` basics from OI-I: `ref.test (ref T)` fed by a `local.get` whose declared type is non-null `(ref T)` folds to `i32.const 1`, and exact `ref.cast (ref T)` fed by that local rewrites to the local child; additionally, declared non-null `(ref i31)` locals and declared non-null absolute `struct` / `array` locals fold successful `ref.test` / `ref.cast` for absolute target supertypes `eq` and `any`, including nullable-target successful casts/tests for non-null absolute aggregate locals because the operand cannot be null; declared non-null absolute `struct` / `array` locals also fold failed `ref.test` / `ref.cast` against the other absolute aggregate sibling to `i32.const 0` / `unreachable`, including nullable-target sibling casts/tests because the non-null operand cannot be null and preserving already-evaluated effectful prefixes such as `drop(call $effect)` before nullable-target success and sibling-miss results; the same already-evaluated effectful prefixes are preserved before non-null-target success and sibling-miss results for non-null absolute aggregate sources; nullable local absolute `struct` / `array` sources also fold non-null-target sibling `ref.test` / `ref.cast` to `i32.const 0` / `unreachable` because both null and the opposite aggregate sibling miss a non-null target; nullable local sources whose declared heap is accepted by the existing absolute `i31` or absolute aggregate supertype helper fold nullable-target successful `ref.test` / `ref.cast` to `i32.const 1` / the original local because null also matches a nullable target, preserving already-evaluated effectful prefixes such as `drop(call $effect)`; exact same-heap nullable-source non-null-target `ref.cast` lowers to `ref.as_non_null`, preserving the operand effect and null trap while keeping narrowing heap-checking casts as `ref.cast`; broader subtype, indexed-type, flow-sensitive, descriptor, exactness, TNH, and IIT facts remain open
 - duplicate-branch collapse in then-regions
+- `tuple.extract(tuple.make(...))` forwarding for one-use tuples: pure non-selected siblings are omitted, and the narrow effectful-sibling case localizes the selected lane before preserving/dropping later non-selected effects
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
 That is a meaningful implemented pass.
@@ -416,11 +417,13 @@ Important upstream behaviors are still absent locally, especially:
 
 For OI-L specifically, Binaryen `version_130` optimizes non-mutating aggregate RMW/cmpxchg forms such as `struct.atomic.rmw.add 0`, `struct.atomic.rmw.and -1`, and `struct.atomic.rmw.cmpxchg` with equal expected/replacement values to `struct.get`-like reads for probed acqrel/acqrel forms. Starshine currently has text/core support for `struct.atomic.get*` only, not aggregate RMW/cmpxchg constructors, so these remain an explicit representation boundary rather than hidden parity.
 
-## 5. No tuple extraction parity surface
+## 5. Partial tuple extraction surface
 
-The local file does not model upstream `visitTupleExtract(...)`:
+The local file now models the first `visitTupleExtract(...)` family for one-use `tuple.extract(tuple.make(...))` producers:
 
-- `tuple.extract(tuple.make(...))` simplification with the surrounding tee/drop reconstruction
+- when every non-selected tuple child is pure, the extract forwards the selected lane directly;
+- when a later non-selected sibling has effects and produces at most one value, Starshine localizes the selected lane to a temp local, preserves/drops the effectful sibling, then reloads the selected value;
+- broader tee/drop reconstruction, multi-use tuple proofs, multi-value siblings, and public text-surface coverage remain open under `[O4Z-AUDIT-OI-M]`.
 
 ## 6. First local sign-extension facts, but not full Binaryen `LocalScanner`
 
@@ -510,7 +513,7 @@ Treat the current local implementation as:
 - a real implemented HOT pass
 - strongest today on integer / boolean / control canonicalization
 - intentionally carrying extra writeback-safety logic for local artifact history
-- still missing any further source-backed `call_ref` known-target shapes beyond the covered select/table/fallthrough subset, broader load/store canonicalization, GC, tuple, and helper-substrate surface
+- still missing any further source-backed `call_ref` known-target shapes beyond the covered select/table/fallthrough subset, broader load/store canonicalization, GC, broader tuple/multivalue reconstruction, and helper-substrate surface
 
 For this pass, "what Starshine does today" and "what Binaryen `version_130` expects for release-gating O4z parity" are not the same thing.
 The wiki should keep that difference explicit and use `[O4Z-AUDIT-OI-*]` slice owners from the 2026-06-19 matrix when expanding coverage.

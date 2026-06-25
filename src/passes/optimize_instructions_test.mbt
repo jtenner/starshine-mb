@@ -7601,7 +7601,7 @@ test "optimize-instructions folds tuple.extract of one-use tuple.make" {
 }
 
 ///|
-test "optimize-instructions keeps tuple.extract of tuple.make with effectful siblings" {
+test "optimize-instructions localizes tuple.extract of tuple.make with effectful siblings" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
       @lib.ValType::i64(),
@@ -7635,15 +7635,40 @@ test "optimize-instructions keeps tuple.extract of tuple.make with effectful sib
   )
   match hot_pass_run(ctx, func) {
     Ok(_) => ()
-    Err(err) => fail("expected tuple.extract boundary success, got \{err}")
+    Err(err) => fail("expected tuple.extract localization success, got \{err}")
   }
 
   let root = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, root).op {
-    @ir.HotOp::TupleExtract => ()
-    _ =>
-      fail("expected effectful sibling tuple.extract boundary to stay intact")
+    @ir.HotOp::Block => ()
+    _ => fail("expected effectful sibling tuple.extract to become a block")
   }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  let selected_set = @ir.hot_region_get(func, body, 0)
+  let sibling_drop = @ir.hot_region_get(func, body, 1)
+  let selected_get = @ir.hot_region_get(func, body, 2)
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected selected tuple child to be localized before sibling")
+  }
+  match @ir.hot_node_get(func, sibling_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected non-selected effectful sibling to be dropped")
+  }
+  let dropped = @ir.hot_child_get(func, sibling_drop, 0)
+  match @ir.hot_node_get(func, dropped).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected dropped sibling to preserve local.tee effect")
+  }
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected localized selected tuple child to be reloaded")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, selected_get).imm0,
+    @ir.hot_node_get(func, selected_set).imm0,
+  )
 }
 
 ///|

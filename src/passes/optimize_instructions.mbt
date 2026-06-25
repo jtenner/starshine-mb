@@ -3543,21 +3543,76 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
   if index < 0 || index >= tuple.child_count {
     return false
   }
+  let selected_id = @ir.hot_child_get(func, tuple_id, index)
+  let selected_results = @ir.hot_type_results(
+    func,
+    @ir.hot_node_get(func, selected_id).ty,
+  )
+  if selected_results.length() != 1 {
+    return false
+  }
+  let mut has_effectful_sibling = false
+  let mut has_later_effectful_sibling = false
   for slot = 0; slot < tuple.child_count; slot = slot + 1 {
     if slot == index {
       continue
     }
     let sibling_id = @ir.hot_child_get(func, tuple_id, slot)
     if !optimize_instructions_node_effects_are_pure(ctx, func, sibling_id) {
-      return false
+      has_effectful_sibling = true
+      if slot > index {
+        has_later_effectful_sibling = true
+      }
+      let sibling_results = @ir.hot_type_results(
+        func,
+        @ir.hot_node_get(func, sibling_id).ty,
+      )
+      if sibling_results.length() > 1 {
+        return false
+      }
     }
   }
-  optimize_instructions_replace_with_node_id(
-    ctx,
+  if !has_effectful_sibling {
+    optimize_instructions_replace_with_node_id(ctx, func, node_id, selected_id)
+    return true
+  }
+  let body : Array[Int] = []
+  let mut selected_local : Int = -1
+  if has_later_effectful_sibling {
+    selected_local = @ir.hot_append_body_local(func, selected_results[0])
+  }
+  for slot = 0; slot < tuple.child_count; slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, tuple_id, slot)
+    if slot == index {
+      if has_later_effectful_sibling {
+        body.push(@ir.hot_build_local_set(func, selected_local, selected_id))
+      }
+      continue
+    }
+    if optimize_instructions_node_effects_are_pure(ctx, func, child_id) {
+      continue
+    }
+    let child_results = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, child_id).ty,
+    )
+    match child_results.length() {
+      0 => body.push(child_id)
+      1 => body.push(@ir.hot_build_drop(func, child_id))
+      _ => return false
+    }
+  }
+  if has_later_effectful_sibling {
+    body.push(@ir.hot_build_local_get(func, selected_local))
+  } else {
+    body.push(selected_id)
+  }
+  let replacement = @ir.hot_build_block(
     func,
-    node_id,
-    @ir.hot_child_get(func, tuple_id, index),
+    @lib.BlockType::val_type(selected_results[0]),
+    body,
   )
+  optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
   true
 }
 

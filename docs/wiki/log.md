@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Localize effectful tuple.extract siblings
+
+- Extended the OI-M one-use `tuple.extract(tuple.make(...))` fold to cover the narrow later-effectful-sibling case: Starshine stores the selected lane to a temp local, preserves/drops the effectful non-selected sibling, then reloads the selected value.
+- The slice matches the Binaryen `version_130` direct-OI local tee/drop reconstruction shape for the probed effectful sibling while keeping broader tuple tee/drop reconstruction, multi-result siblings, multi-use tuples, and public text-surface work open.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-probe.wat`; red-first `*tuple.extract*effectful siblings*` failed before implementation with the original `TupleExtract` and passed after.
+
 ## [2026-06-24] passes/optimize-instructions | Directize call-indexed table.get call_ref targets
 
 - Narrowed the OI raw `stack-carried-effect` gate for `call_ref` / `return_call_ref` whose target is `call $index; table.get`, where `$index` is a no-param one-result direct call and any already-evaluated call arguments are pure locals/constants.
