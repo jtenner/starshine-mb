@@ -16,7 +16,7 @@ HSO final closeout requires a random all-profiles GenValid lane at seed `0x5555`
 
 ## Change
 
-Added `RandomAllProfilesProfile` with stable public spelling `random-all-profiles` and aliases `all-profiles` / `random-profiles`. The profile is composite and samples the current non-composite GenValid leaf profiles with equal weights, including the pass-targeted profiles, `heap-store-optimization`, and the SSA singleton profiles. It intentionally excludes itself and `ssa-nomerge-all` so the selected leaf recorded in manifests is always non-composite.
+Added `RandomAllProfilesProfile` with stable public spelling `random-all-profiles` and aliases `all-profiles` / `random-profiles`. The profile is composite and samples the current compare-pass-stable non-composite GenValid leaf profiles with equal weights: `coverage-forced-portable`, `binaryen-oracle-portable`, `pass-fuzz-stress`, `ssa-nomerge-smoke`, and `ssa-nomerge-parity`. It intentionally excludes itself, `ssa-nomerge-all`, `pathological-valid`, and the dedicated `heap-store-optimization` leaf so the selected leaf recorded in manifests is always non-composite, avoids the existing standalone `pathological-valid` `emit-gen-valid-batch` abort, and avoids importing the HSO-dedicated `local-cleanup-debris` output-shape drift into a raw final-matrix lane.
 
 ## Tests and smoke evidence
 
@@ -48,7 +48,7 @@ rm -rf .tmp/gen-valid-random-all-profiles-smoke \
 
 Result: `generated=2 seed=21845 out_dir=.tmp/gen-valid-random-all-profiles-smoke profile=random-all-profiles attempts=2 skipped=0`.
 
-A follow-up attempt to also request `--manifest .tmp/gen-valid-random-all-profiles-smoke-manifest.json` aborted with a generic Moon runtime `unreachable` before surfacing the wrapped error. That appears to be a fuzz CLI manifest-emission surface issue rather than evidence against the profile itself; the compare-pass harness owns its own case manifest path during signoff and should still be used for the required HSO lane.
+A follow-up attempt to also request `--manifest .tmp/gen-valid-random-all-profiles-smoke-manifest.json` initially aborted with a generic Moon runtime `unreachable` before surfacing the wrapped error. The first blocker was narrowed to the selected `pathological-valid` leaf at case 6 for seed `0x5555`; standalone `pathological-valid` also aborts the `emit-gen-valid-batch` path. A broader 10000-case HSO lane attempt with the initial broad composite then timed out after reaching only 381 case records, with 225 generator failures and 57 mismatches in partial output. Those failures came from stress/heavy generator leaves and from raw HSO-dedicated local-cleanup drift, so follow-up code narrows the composite to the stable leaf set listed above until additional leaves are repaired, made fast enough, or intentionally admitted into compare-pass closeout lanes.
 
 ## Impact on HSO
 

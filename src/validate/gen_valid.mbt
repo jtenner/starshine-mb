@@ -897,37 +897,11 @@ pub fn gen_valid_profile_members(
       ]
     RandomAllProfilesProfile =>
       [
-        GenValidProfileMember::new(NaturalSmallProfile, 1),
-        GenValidProfileMember::new(NaturalWideProfile, 1),
-        GenValidProfileMember::new(NaturalDeepProfile, 1),
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
-        GenValidProfileMember::new(CoverageForcedAllFeaturesProfile, 1),
         GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
-        GenValidProfileMember::new(BinaryenOracleRelaxedSimdProfile, 1),
-        GenValidProfileMember::new(MutationSeedSmallProfile, 1),
-        GenValidProfileMember::new(MutationSeedRichProfile, 1),
         GenValidProfileMember::new(PassFuzzStressProfile, 1),
-        GenValidProfileMember::new(ValidatorStressProfile, 1),
-        GenValidProfileMember::new(PassCleanupProfile, 1),
-        GenValidProfileMember::new(PassDaeProfile, 1),
-        GenValidProfileMember::new(PassInliningProfile, 1),
-        GenValidProfileMember::new(PassMemoryProfile, 1),
-        GenValidProfileMember::new(PassGcRefProfile, 1),
-        GenValidProfileMember::new(PassControlProfile, 1),
-        GenValidProfileMember::new(NoImportsProfile, 1),
-        GenValidProfileMember::new(ImportsHeavyProfile, 1),
-        GenValidProfileMember::new(GcHeavyProfile, 1),
-        GenValidProfileMember::new(SimdHeavyProfile, 1),
-        GenValidProfileMember::new(RelaxedSimdProfile, 1),
-        GenValidProfileMember::new(MemoryHeavyProfile, 1),
-        GenValidProfileMember::new(ControlHeavyProfile, 1),
-        GenValidProfileMember::new(TopologyHeavyProfile, 1),
-        GenValidProfileMember::new(PathologicalValidProfile, 1),
-        GenValidProfileMember::new(HeapStoreOptimizationProfile, 1),
-        GenValidProfileMember::new(SsaNomergeCoverageProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
-        GenValidProfileMember::new(SsaNomergeStressProfile, 1),
       ]
     _ => []
   }

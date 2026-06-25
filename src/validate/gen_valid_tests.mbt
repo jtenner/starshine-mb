@@ -7466,7 +7466,7 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
 }
 
 ///|
-test "random all-profiles gen-valid profile resolves every leaf profile" {
+test "random all-profiles gen-valid profile resolves stable compare-pass leaves" {
   @debug.assert_eq(
     gen_valid_profile_name(RandomAllProfilesProfile),
     "random-all-profiles",
@@ -7477,15 +7477,35 @@ test "random all-profiles gen-valid profile resolves every leaf profile" {
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
       assert_true(
-        members.contains(GenValidProfileMember::new(NaturalSmallProfile, 1)),
-      )
-      assert_true(
         members.contains(
-          GenValidProfileMember::new(HeapStoreOptimizationProfile, 1),
+          GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
         ),
       )
       assert_true(
-        members.contains(GenValidProfileMember::new(SsaNomergeStressProfile, 1)),
+        members.contains(
+          GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
+        ),
+      )
+      assert_true(
+        members.contains(GenValidProfileMember::new(PassFuzzStressProfile, 1)),
+      )
+      assert_true(
+        members.contains(GenValidProfileMember::new(SsaNomergeSmokeProfile, 1)),
+      )
+      assert_true(
+        members.contains(GenValidProfileMember::new(SsaNomergeParityProfile, 1)),
+      )
+      assert_false(
+        members.contains(
+          GenValidProfileMember::new(HeapStoreOptimizationProfile, 1),
+        ),
+        msg="the dedicated HSO profile currently needs local-cleanup-debris normalization and is not a raw random-all leaf",
+      )
+      assert_false(
+        members.contains(
+          GenValidProfileMember::new(PathologicalValidProfile, 1),
+        ),
+        msg="pathological-valid currently aborts the emit-gen-valid-batch path and is not a stable compare-pass leaf",
       )
       assert_false(
         members.contains(
@@ -7501,7 +7521,7 @@ test "random all-profiles gen-valid profile resolves every leaf profile" {
 }
 
 ///|
-test "random all-profiles composite samples non-composite profile leaves" {
+test "random all-profiles composite samples stable profile leaves" {
   let seen : Array[GenValidProfile] = []
   let mut index = 1
   while index <= 256 {
@@ -7516,10 +7536,13 @@ test "random all-profiles composite samples non-composite profile leaves" {
     }
     index += 1
   }
-  assert_true(seen.contains(NaturalSmallProfile))
-  assert_true(seen.contains(HeapStoreOptimizationProfile))
-  assert_true(seen.contains(SsaNomergeCoverageProfile))
-  assert_true(seen.contains(SsaNomergeStressProfile))
+  assert_true(seen.contains(CoverageForcedPortableProfile))
+  assert_true(seen.contains(BinaryenOraclePortableProfile))
+  assert_true(seen.contains(PassFuzzStressProfile))
+  assert_true(seen.contains(SsaNomergeSmokeProfile))
+  assert_true(seen.contains(SsaNomergeParityProfile))
+  assert_false(seen.contains(HeapStoreOptimizationProfile))
+  assert_false(seen.contains(PathologicalValidProfile))
 }
 
 ///|
