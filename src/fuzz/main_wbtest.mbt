@@ -2369,6 +2369,13 @@ test "emit gen-valid heap-store-optimization profile records GC store opportunit
   assert_true(
     manifest.contains("\"selected_profile\":\"heap-store-optimization\""),
   )
+
+  let decoded = match decode_module(selection.artifacts[0].1) {
+    Ok(v) => v
+    Err(e) => fail("expected HSO profile artifact to decode, got \{e}")
+  }
+  let wat = decoded.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(wat.contains("struct.new_default"), msg=wat)
 }
 
 ///|

@@ -11129,6 +11129,17 @@ fn gen_valid_append_heap_store_optimization_body_slice(
   out.push(Instruction::local_get(local_idx))
   out.push(Instruction::i32_const(I32(77)))
   out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
+  // Default constructors exercise HSO's materialization path, where a later
+  // struct.set replaces one default field in the generated struct.new.
+  out.push(Instruction::struct_new_default(struct_idx))
+  out.push(Instruction::local_set(local_idx))
+  out.push(Instruction::local_get(local_idx))
+  out.push(Instruction::i32_const(I32(88)))
+  out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+  out.push(Instruction::local_get(local_idx))
+  out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
+  out.push(Instruction::drop())
 }
 
 ///|
