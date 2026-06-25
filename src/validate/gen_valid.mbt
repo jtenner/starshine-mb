@@ -1851,7 +1851,7 @@ fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
     max_tables: 1,
     max_mems: 1,
     max_globals: 2,
-    max_tags: 0,
+    max_tags: 1,
     max_elems: 1,
     max_datas: 1,
     max_params: 0,
@@ -1862,7 +1862,7 @@ fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
     features: GenValidFeatureToggles::{
       ..base.features,
       allow_imports: false,
-      allow_tags: false,
+      allow_tags: true,
       allow_calls: false,
       allow_call_indirect: false,
       allow_tail_calls: false,
@@ -11285,6 +11285,42 @@ fn gen_valid_append_heap_store_optimization_body_slice(
       out.push(Instruction::i32_const(I32(102)))
       out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
     }
+  }
+
+  // Catchable control roots cover the LazyLocalGraph-style skip-local-set
+  // hazard: the local.set that records the fresh constructor is inside a
+  // try_table body with a catchable throw on a sibling path, so Binaryen must
+  // not treat the later local.get/struct.set as unconditionally tied to that
+  // constructor.
+  if !env.tags.is_empty() && !env.mems.is_empty() {
+    let tag_idx = TagIdx::new(0U)
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::try_table(
+            BlockType::void_(),
+            [Catch::all(LabelIdx::new(0U))],
+            Expr::new([
+              Instruction::memory_size(MemIdx::new(0U)),
+              Instruction::if_(
+                BlockType::void_(),
+                [Instruction::throw_(tag_idx)],
+                Some([
+                  Instruction::i32_const(I32(103)),
+                  Instruction::ref_null(HeapType::abs(AbsHeapType::eq())),
+                  Instruction::struct_new(struct_idx),
+                  Instruction::local_set(local_idx),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(local_idx))
+    out.push(Instruction::i32_const(I32(104)))
+    out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
   }
 }
 

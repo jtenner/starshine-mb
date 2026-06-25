@@ -2363,6 +2363,7 @@ test "emit gen-valid heap-store-optimization profile records GC store opportunit
     @debug.assert_eq(item.selected_profile, "heap-store-optimization")
     assert_true(item.facts.has_gc_constructors)
     assert_true(item.facts.has_gc_accessors)
+    assert_true(item.facts.has_tags)
   }
   let manifest = format_gen_valid_batch_manifest_json(args, selection)
   assert_true(manifest.contains("\"config_label\":\"heap-store-optimization\""))
@@ -2382,6 +2383,7 @@ test "emit gen-valid heap-store-optimization profile records GC store opportunit
   assert_true(wat.contains("table.set"), msg=wat)
   assert_true(wat.contains("memory.fill"), msg=wat)
   assert_true(wat.contains("br_if"), msg=wat)
+  assert_true(wat.contains("throw"), msg=wat)
 }
 
 ///|
