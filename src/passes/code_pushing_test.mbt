@@ -242,6 +242,36 @@ test "code-pushing sinks const local.set into the only using else arm" {
 }
 
 ///|
+test "code-pushing preserves source order for independent sets sunk into if arm" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32 i32)
+      #|    (local.set 1 (i32.const 7))
+      #|    (local.set 2 (i32.const 9))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (drop (local.get 1))
+      #|        (drop (local.get 2))))))
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "nop")
+  let if_id = @ir.hot_root_get(func, 2)
+  code_pushing_expect_op(func, if_id, "if")
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 4)
+  let first_set = @ir.hot_region_get(func, then_ref, 0)
+  let second_set = @ir.hot_region_get(func, then_ref, 1)
+  code_pushing_expect_op(func, first_set, "local.set")
+  code_pushing_expect_op(func, second_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_set).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, second_set).imm0, 2)
+}
+
+///|
 test "code-pushing sinks local-copy dependency chain into the only using if arm" {
   let func = code_pushing_test_run_hot(
     (

@@ -719,6 +719,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Preserve independent into-if order
+
+- Filed [`raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md`](raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md) for `[CP-BINREP-006]`.
+- Starshine now uses the consecutive into-if multi-set path for independent sets as well as dependency chains, preserving Binaryen source order for the reduced two-set probe instead of letting fixed-point single-set sinking reverse the arm prefix.
+- Validation: red-first source-order test failed before implementation (`2 != 1`), focused `code_pushing_test.mbt` passed `126/126`, `moon fmt`, `moon test src/passes` (`2835/2835`), native `src/cmd` build, and bounded `code-pushing-all` smoke `.tmp/pass-fuzz-code-pushing-all-1000-20260625-binrep006-order` passed with `1000/1000` compared, `466` normalized, `534` cleanup-normalized, raw mismatches/failures `0` under `--normalize local-cleanup-debris`.
+- Updated `agent-todo.md` and the `code-pushing` wiki pages. `[O4Z-AUDIT-CP-BINREP]` remains active for `ignore-implicit-traps`, intrinsic no-effects calls, GC/ref surfaces, and low-priority branch/switch probes.
+
 ## [2026-06-25] passes/code-pushing | Implement TNH movement
 
 - Filed [`raw/research/0895-2026-06-25-code-pushing-tnh-movement.md`](raw/research/0895-2026-06-25-code-pushing-tnh-movement.md) for `[CP-BINREP-002]`, superseding the implementation blocker from `0894`.

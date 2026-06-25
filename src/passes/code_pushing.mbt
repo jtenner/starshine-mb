@@ -1930,7 +1930,7 @@ fn code_pushing_try_sink_set_after_if_push_point(
 }
 
 ///|
-fn code_pushing_try_sink_dependency_chain_into_if_arm(
+fn code_pushing_try_sink_consecutive_sets_into_if_arm(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -1943,7 +1943,6 @@ fn code_pushing_try_sink_dependency_chain_into_if_arm(
   let local_ids : Array[Int] = []
   let value_ids : Array[Int] = []
   let source_local_ids : Array[Int] = []
-  let mut saw_dependency = false
   let mut idx = set_idx
   while idx < @ir.hot_region_root_count(func, region_ref) {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
@@ -1979,10 +1978,7 @@ fn code_pushing_try_sink_dependency_chain_into_if_arm(
           return false
         }
         if local_ids.any(fn(existing) { existing == source_local }) {
-          // Dependency-chain sinking is source-backed only when the source has
-          // already been materialized by an earlier moved set. Preserving the
-          // original set order keeps dependent local.get values well-defined.
-          saw_dependency = true
+          ()
         } else if source_local_ids.any(fn(existing) { existing == local_id }) {
           return false
         }
@@ -1996,9 +1992,7 @@ fn code_pushing_try_sink_dependency_chain_into_if_arm(
     }
     idx += 1
   }
-  if !saw_dependency ||
-    set_ids.length() < 2 ||
-    idx >= @ir.hot_region_root_count(func, region_ref) {
+  if set_ids.length() < 2 || idx >= @ir.hot_region_root_count(func, region_ref) {
     return false
   }
   let if_id = @ir.hot_region_get(func, region_ref, idx)
@@ -2350,7 +2344,7 @@ fn code_pushing_scan_region_once(
     if code_pushing_try_sink_set_after_if_push_point(ctx, func, region_ref, idx) {
       return true
     }
-    if code_pushing_try_sink_dependency_chain_into_if_arm(
+    if code_pushing_try_sink_consecutive_sets_into_if_arm(
         ctx, func, region_ref, idx,
       ) {
       return true

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md
   - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
   - ../../../raw/research/0894-2026-06-25-code-pushing-tnh-context-blocker.md
   - ../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md
@@ -131,7 +132,7 @@ A random later expression is not automatically a destination. The first Starshin
 
 ## Barrier 5: `if` arm sinking needs one consuming arm
 
-For `if` sinking, the moved set goes into the arm that reads the local. The other arm must not need the local. As of [`0893`](../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md), this includes consecutive local-copy dependency chains when earlier moved sets feed later moved sets and only one arm consumes the chain; the implementation preserves source order and rejects source/moved-local writes in the arm. Reads after the `if` are only safe when control-flow facts, such as an unreachable non-consuming arm, preserve availability.
+For `if` sinking, the moved set goes into the arm that reads the local. The other arm must not need the local. As of [`0893`](../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md) and [`0896`](../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md), this includes consecutive multi-set windows when only one arm consumes the moved locals: dependency chains where earlier moved sets feed later moved sets, plus independent pure sets whose source order must be preserved. The implementation rejects source/moved-local writes in the arm. Reads after the `if` are only safe when control-flow facts, such as an unreachable non-consuming arm, preserve availability.
 
 This is the important distinction from stale two-live-arm duplication examples:
 

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md
   - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
   - ../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md
   - ../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md
@@ -71,6 +72,7 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - A root `local.set` before a void `if` can be replaced with `nop`.
    - A cloned `local.set` is inserted into the one `if` arm that contains all in-arm reads of that local.
    - Same-region suffix reads after the `if` are allowed only when the opposite arm cannot fall through under the current conservative root proof.
+   - Consecutive multi-set windows that feed one arm are sunk in source order, covering both dependency chains and independent pure sets.
    - Values are limited to pure nontrapping HOT values plus guarded `global.get`, local-copy setup, narrow non-null `struct.get` heap-read shapes, and exact integer div/rem values only when `HotPassContext.traps_never_happen` is true.
 2. **Ordinary `if`, dropped `if`, and narrow `br_if` segment movement**
    - The first mutating segment-window consumer moves one SFA `local.set` after an ordinary void `if` when the `if` itself does not read the local and every read is a same-region suffix read after the `if`.
@@ -371,7 +373,7 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, and `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by `0892`. Replacement-oriented work continues under `[O4Z-AUDIT-CP-BINREP]`: dependency-chain into-if sinking is implemented by `0893`, and TNH exact integer div/rem into-if movement is implemented by `0895`. Remaining follow-ups include `code-pushing_ignore-implicit-traps.wast`, no-effects intrinsics, broader GC/ref surfaces, source-order refinements, and low-priority branch/switch probes. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active, and `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by `0892`. Replacement-oriented work continues under `[O4Z-AUDIT-CP-BINREP]`: dependency-chain into-if sinking is implemented by `0893`, TNH exact integer div/rem into-if movement is implemented by `0895`, and independent into-if multi-set source order is implemented by `0896`. Remaining follow-ups include `code-pushing_ignore-implicit-traps.wast`, no-effects intrinsics, broader GC/ref surfaces, and low-priority branch/switch probes. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 
