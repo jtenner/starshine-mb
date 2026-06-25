@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock local-carried representation-store boundary
+
+- Added OI-G boundary coverage for local-carried/shared reinterpret-store spellings.
+- Binaryen `version_130` keeps the probed `local.tee(f32.reinterpret_i32(...))` and `local.set`/`local.get` forms before `f32.store`; Starshine's representation-store rewrite remains a direct one-use stored-value rewrite rather than hidden shared-store parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-local-carried-reinterpret-store-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*local-carried reinterpret-store*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover tuple localization local-cleanup neighbor
 
 - Added OI-M neighbor coverage proving Starshine's covered single-result effectful-sibling `tuple.extract(tuple.make(...))` localization remains an explicit temp-local/effect-drop block after `simplify-locals-nostructure`.

@@ -6915,6 +6915,55 @@ test "optimize-instructions rewrites reinterpret stores to representation stores
 }
 
 ///|
+test "optimize-instructions intentionally keeps local-carried reinterpret-store boundary" {
+  // Boundary-only OI-G classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps local-carried/shared reinterpret-store
+  // spellings instead of rewriting them to representation stores
+  // (`.tmp/oi-g-local-carried-reinterpret-store-probe.wat`). Starshine's
+  // direct stored-value rewrite remains limited to direct one-use reinterpret
+  // children, so this fixture prevents hiding broader shared-store parity.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (param $bits i32) (local $tmp f32)
+        #|    local.get $ptr
+        #|    local.get $bits
+        #|    f32.reinterpret_i32
+        #|    local.tee $tmp
+        #|    f32.store)
+        #|  (func (param $ptr i32) (param $bits i32) (local $tmp f32)
+        #|    local.get $bits
+        #|    f32.reinterpret_i32
+        #|    local.set $tmp
+        #|    local.get $ptr
+        #|    local.get $tmp
+        #|    f32.store))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected local-carried reinterpret-store boundary success, got \{err}",
+      )
+  }
+  let tee_store = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(tee_store.contains("f32.reinterpret_i32"), msg=tee_store)
+  assert_true(tee_store.contains("local.tee"), msg=tee_store)
+  assert_true(tee_store.contains("f32.store"), msg=tee_store)
+  assert_false(tee_store.contains("i32.store"), msg=tee_store)
+  let local_store = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(local_store.contains("f32.reinterpret_i32"), msg=local_store)
+  assert_true(local_store.contains("local.set"), msg=local_store)
+  assert_true(local_store.contains("local.get"), msg=local_store)
+  assert_true(local_store.contains("f32.store"), msg=local_store)
+  assert_false(local_store.contains("i32.store"), msg=local_store)
+}
+
+///|
 test "optimize-instructions rewrites reinterpret loads to representation loads" {
   let optimized = match
     pass_test_run_pipeline(
