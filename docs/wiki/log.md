@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Refresh wasm-smith after call barrier
+
+- Filed [`raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md`](raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md) after rerunning the explicit `wasm-smith` lane with the rebuilt native CLI from the call-barrier fix.
+- `.tmp/pass-fuzz-code-pushing-wasm-smith-10000-20260625-post-zz` compared `9956/10000`, normalized `9956`, cleanup-normalized `0`, raw mismatches/failures `0`, validation/generator/property failures `0`, and command failures `44`.
+- Agent classification: all command failures are Binaryen/tool classes (`binaryen-rec-group-zero: 39`, `binaryen-bad-section-size: 3`, `binaryen-invalid-tag-index: 1`, `binaryen-table-index-out-of-range: 1`), with no Starshine failures. Final closeout remains open.
+
 ## [2026-06-25] passes/code-pushing | Refresh code-pushing-all after call barrier
 
 - Filed [`raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md`](raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md) after rerunning the 19-leaf `code-pushing-all` dedicated profile with the rebuilt native CLI from the call-barrier fix.

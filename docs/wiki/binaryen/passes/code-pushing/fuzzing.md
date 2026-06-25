@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md
   - ../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md
   - ../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md
   - ../../../raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md
