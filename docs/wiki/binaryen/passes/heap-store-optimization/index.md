@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/1117-2026-06-25-heap-store-optimization-closeout-deferral.md
   - ../../../raw/research/1116-2026-06-25-heap-store-optimization-performance-disposition.md
   - ../../../raw/research/1115-2026-06-25-heap-store-optimization-pure-default-chain-fast-path.md
   - ../../../raw/research/1114-2026-06-25-heap-store-optimization-post-safety-closeout-probe.md
@@ -533,7 +534,7 @@ It is a narrow GC constructor/store cleanup pass.
   - Follow-up `1092` skips skip-local-set predicate walks when moved values have no control effect. The 1000-function median improved slightly to `5.436ms`; the 2000-function median was still flat at `11.201ms` (`~5.3x` Binaryen). Post-change direct compare smoke `1093` compared `10000/10000` ordinary GenValid cases with `10000` normalized matches and `0` mismatches/failures.
   - Follow-up `1112` skips irrelevant global-order and skip-local-set reorder predicate walks when effect masks prove no global/control interaction. It improved the 1000-function median to `5.155ms`, but the 2000-function median stayed open at `11.083ms`.
   - Follow-up `1115` batches the straight-line pure `struct.new_default` plus consecutive childless constant/null `struct.set` chain before falling back to the general safety path for non-simple matching stores. Focused HSO tests, native build, and a 1000-case direct compare were green. Starshine medians improved to `4.285ms` at 1000 functions and `8.934ms` at 2000 functions, but HSO-I stays open because the 2000-function ratio is still about `4.4x` the `1111` Binaryen median (`2.028ms`).
-  - Disposition note `1116` keeps HSO-I open rather than accepting the gap: close only by meeting `<=2x` on the current fixture, superseding it with stronger artifact/neighborhood timing and reopening criteria, or getting explicit user approval to carry the measured gap.
+  - Disposition note `1116` keeps HSO-I open rather than accepting the gap: close only by meeting `<=2x` on the current fixture, superseding it with stronger artifact/neighborhood timing and reopening criteria, or getting explicit user approval to carry the measured gap. Closeout deferral `1117` adds post-`1115` broader Moon validation (`moon test src/passes` `3045/3045`, full `moon test` `6362/6362`) but keeps HSO-J deferred until HSO-I is resolved or explicitly accepted.
 
 ## Beginner warning: what the name hides
 
