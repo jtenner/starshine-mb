@@ -22369,6 +22369,42 @@ fn run_hot_pipeline_optimize_instructions_instr_is_plain_load(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_instr_is_nonzero_offset_memory_load(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Load(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I64Load(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.F32Load(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.F64Load(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I32Load8S(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I32Load8U(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I32Load16S(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I32Load16U(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I64Load8S(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I64Load8U(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I64Load16S(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I64Load16U(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I64Load32S(@lib.MemArg(_, _, @lib.U64(offset)))
+    | @lib.I64Load32U(@lib.MemArg(_, _, @lib.U64(offset))) => offset > 0UL
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_is_const_offset_load_then_call(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  match instrs {
+    [@lib.I32Const(_), load, @lib.Drop, @lib.Call(_)] =>
+      run_hot_pipeline_optimize_instructions_instr_is_nonzero_offset_memory_load(
+        load,
+      )
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_instr_is_call(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -22716,7 +22752,9 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if stats.loads > 0 && stats.calls > 0 {
+  if stats.loads > 0 &&
+    stats.calls > 0 &&
+    !run_hot_pipeline_optimize_instructions_is_const_offset_load_then_call(body) {
     return Some({
       reason: "load-call-optimize-instructions-noop",
       func: original,

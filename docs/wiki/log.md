@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Admit load-call constant offsets through OI raw gate
+
+- Narrowed `load-call-optimize-instructions-noop` for the exact `i32.const; nonzero-offset scalar load; drop; call` shape, allowing direct OI's constant-pointer static-offset fold to run even when a direct call follows the dropped load.
+- Starshine now rewrites the public-pipeline fixture `i32.const 8; i32.load offset=4; drop; call` to use `i32.const 12` with zero load offset, matching Binaryen `version_130` for the source-backed case.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-load-call-offset-next-probe.wat`; red-first `*load-call constant memory offsets*` failed before implementation with `load-call-optimize-instructions-noop` and passed after. Broader mixed load/call functions remain behind the raw gate.
+
 ## [2026-06-24] passes/optimize-instructions | Fold same-local integer binaries
 
 - Added direct OI-D same-local integer binary folding: identical direct `local.get` operands under `sub` and `xor` become zero, while identical direct `local.get` operands under `and` and `or` become the local value, for i32 and i64.

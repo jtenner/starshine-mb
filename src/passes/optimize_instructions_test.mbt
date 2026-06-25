@@ -257,7 +257,7 @@ test "optimize-instructions skips functions mixing loads and calls" {
 }
 
 ///|
-test "optimize-instructions intentionally keeps load-call memory offset folds behind raw gate" {
+test "optimize-instructions folds load-call constant memory offsets through narrow raw-gate escape" {
   let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
@@ -279,22 +279,22 @@ test "optimize-instructions intentionally keeps load-call memory offset folds be
     Err(err) =>
       fail("expected load-call memory offset gate success, got \{err}")
   }
-  assert_true(
+  assert_false(
     trace.any(fn(line) {
       line.contains(
         "pass[optimize-instructions]:skip-raw reason=load-call-optimize-instructions-noop",
       )
     }),
+    msg="unexpected load-call raw skip",
   )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  // Intentional fail-closed OI-G boundary: the direct HOT pass can fold
-  // constant-pointer static offsets, but the public pipeline keeps mixed
-  // load/call functions unchanged until the raw gate has a narrower,
-  // source-backed escape proof.
-  assert_true(pretty.contains("i32.const I32(8)"), msg=pretty)
+  // Binaryen version_130 folds the constant address and static offset even when
+  // a call follows the dropped load. The escape remains exact: constant address,
+  // nonzero static-offset load, drop, then direct call.
+  assert_true(pretty.contains("i32.const I32(12)"), msg=pretty)
   assert_true(pretty.contains("i32.load"), msg=pretty)
-  assert_true(pretty.contains("offset=U64(4)"), msg=pretty)
-  assert_false(pretty.contains("i32.const I32(12)"), msg=pretty)
+  assert_false(pretty.contains("offset=U64(4)"), msg=pretty)
+  assert_false(pretty.contains("i32.const I32(8)"), msg=pretty)
 }
 
 ///|
