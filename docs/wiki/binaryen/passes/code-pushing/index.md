@@ -3,6 +3,7 @@ kind: entity
 status: strong
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md
   - ../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md
   - ../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md
   - ../../../raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md
@@ -132,7 +133,7 @@ The current source-backed Binaryen mental model is:
 - sink into the one `if` arm that reads the local, with an important unreachable-arm post-use allowance;
 - rely on later optimizer cycles for deeper recursive opportunities.
 
-The current Starshine implementation is an accepted direct-pass subset under Starshine's pass-wide completion criteria:
+The current Starshine implementation is an accepted direct-pass subset under Starshine's pass-wide completion criteria. `[O4Z-AUDIT-CP]` closed in [`0892`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md), and the replacement-oriented follow-up `[O4Z-AUDIT-CP-BINREP]` closed in [`0901`](../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md):
 
 - safe movable-value `local.set` sinking into the single `if` arm that contains all reads of that local;
 - a first ordinary-void-`if` segment movement slice that moves one SFA set after the `if` when all reads are same-region suffix reads;
