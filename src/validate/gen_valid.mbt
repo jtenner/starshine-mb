@@ -11191,6 +11191,17 @@ fn gen_valid_append_heap_store_optimization_body_slice(
       out.push(Instruction::local_get(local_idx))
       out.push(Instruction::i32_const(I32(140)))
       out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
+      if !env.tables.is_empty() {
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::call_indirect(target.type_idx, TableIdx::new(0U)))
+        out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+        out.push(Instruction::struct_new(struct_idx))
+        out.push(Instruction::local_set(local_idx))
+        out.push(Instruction::local_get(local_idx))
+        out.push(Instruction::i32_const(I32(141)))
+        out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+      }
     }
     None => ()
   }
