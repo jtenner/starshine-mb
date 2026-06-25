@@ -7672,6 +7672,109 @@ test "optimize-instructions localizes tuple.extract of tuple.make with effectful
 }
 
 ///|
+test "optimize-instructions preserves earlier and later tuple.extract sibling effects" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i64(),
+      @lib.ValType::i64(),
+    ]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [
+      @lib.ValType::i64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::i64(),
+    ],
+    [
+      @ir.hot_build_local_tee(
+        func,
+        1,
+        @ir.hot_build_const_i64(func, @lib.I64(9L)),
+      ),
+      @ir.hot_build_local_get(func, 0),
+      @ir.hot_build_const_i64(func, @lib.I64(11L)),
+      @ir.hot_build_local_tee(
+        func,
+        2,
+        @ir.hot_build_const_i64(func, @lib.I64(10L)),
+      ),
+    ],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 1)
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple.extract multi-sibling localization success, got \{err}",
+      )
+  }
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected tuple.extract with earlier and later effects to become a block",
+      )
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 4)
+  let earlier_drop = @ir.hot_region_get(func, body, 0)
+  let selected_set = @ir.hot_region_get(func, body, 1)
+  let later_drop = @ir.hot_region_get(func, body, 2)
+  let selected_get = @ir.hot_region_get(func, body, 3)
+  match @ir.hot_node_get(func, earlier_drop).op {
+    @ir.HotOp::Drop => ()
+    _ =>
+      fail(
+        "expected earlier effectful sibling to be dropped before selected lane",
+      )
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, earlier_drop, 0)).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected earlier dropped sibling to preserve local.tee effect")
+  }
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected selected lane to localize before later effect")
+  }
+  match @ir.hot_node_get(func, later_drop).op {
+    @ir.HotOp::Drop => ()
+    _ =>
+      fail(
+        "expected later effectful sibling to be dropped after selected local.set",
+      )
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, later_drop, 0)).op {
+    @ir.HotOp::LocalTee => ()
+    _ => fail("expected later dropped sibling to preserve local.tee effect")
+  }
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected lane to reload after later effect")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, selected_get).imm0,
+    @ir.hot_node_get(func, selected_set).imm0,
+  )
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)

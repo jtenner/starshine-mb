@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-24] passes/optimize-instructions | Cover ordered tuple.extract sibling effects
+
+- Added focused OI-M coverage for one-use `tuple.extract(tuple.make(...))` with an earlier effectful sibling, a pure omitted sibling, and a later effectful sibling.
+- The existing localizer already preserves tuple child order for this subset: `drop(earlier effect); local.set(selected temp); drop(later effect); local.get(selected temp)`. This narrows the documented OI-M gap without claiming broader multi-result, multi-use, text-surface, or neighbor-pass tuple parity.
+- Evidence: focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*tuple.extract*'` passed `3/3`; no red-first implementation failure was expected because the helper already handled this subset after the prior later-sibling slice.
+
 ## [2026-06-24] passes/optimize-instructions | Localize effectful tuple.extract siblings
 
 - Extended the OI-M one-use `tuple.extract(tuple.make(...))` fold to cover the narrow later-effectful-sibling case: Starshine stores the selected lane to a temp local, preserves/drops the effectful non-selected sibling, then reloads the selected value.
