@@ -201,6 +201,46 @@ pub fn hot_append_body_local(func : HotFunc, ty : ValType) -> LocalId {
 }
 
 ///|
+pub fn hot_set_body_local_type(
+  func : HotFunc,
+  local_id : LocalId,
+  ty : ValType,
+) -> Bool {
+  let body_local_id = local_id - hot_param_count(func)
+  if body_local_id < 0 || body_local_id >= func.locals.locals.length() {
+    return false
+  }
+  if func.locals.locals[body_local_id] == ty {
+    return false
+  }
+  func.locals.locals[body_local_id] = ty
+  hot_revision_bump(func)
+  true
+}
+
+///|
+pub fn hot_weaken_body_local_to_nullable_ref(
+  func : HotFunc,
+  local_id : LocalId,
+) -> Bool {
+  let current = match hot_local_type(func, local_id) {
+    Some(ty) => ty
+    None => return false
+  }
+  let ref_type = match current {
+    RefTypeValType(rt) if rt.is_non_nullable() => rt
+    _ => return false
+  }
+  hot_set_body_local_type(
+    func,
+    local_id,
+    ValType::ref_type(
+      RefType::new(true, ref_type.get_heap_type(), exact=ref_type.is_exact()),
+    ),
+  )
+}
+
+///|
 pub fn hot_root_count(func : HotFunc) -> Int {
   func.roots.length()
 }

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
   - ../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md
   - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
   - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
@@ -649,7 +650,8 @@ Safe rule:
 
 - reference-typed expressions may participate only when the same SFA, use, and effect proof succeeds;
 - `code-pushing-atomics.wast` shows a non-null GC `struct.get` may move past a shared atomic load, but not past a shared atomic store;
-- Starshine implements only this narrow `struct.get`/atomic load-store family today, through HOT fixtures because the WAT parser/lowerer cannot yet consume the official shared-GC syntax;
+- Starshine implements this narrow `struct.get`/atomic load-store family today, through HOT fixtures because the WAT parser/lowerer cannot yet consume the official shared-GC syntax;
+- Starshine also implements the `code-pushing_into_if.wast` `ref-into-if` family: after sinking a direct `local.get` ref set into the reachable `if` arm, the moved non-null body-local ref type is weakened to the same nullable heap type so later uses validate;
 - `ref.func`, casts, null checks, descriptor-shaped operations, broader heap expressions, and other atomics need explicit tests before Starshine widens.
 
 ## Shape 14: EH shapes are bailout-rich

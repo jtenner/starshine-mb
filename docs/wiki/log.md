@@ -719,6 +719,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Implement ref-into-if refinalization
+
+- Filed [`raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md`](raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md) for the user-directed GC/refinalization follow-up.
+- `code-pushing` now handles the lit-derived `ref-into-if` family by accepting safe direct `local.get` values in single-set into-`if` sinking, preserving source-local write guards, and weakening moved non-null body-local ref types to nullable refs after sinking.
+- Validation: red-first focused test failed before implementation; final `moon fmt`, `moon info`, focused ref-into-if test, `code_pushing_test.mbt` (`138/138`), `hot_mutate_test.mbt` (`9/9`), native `src/cmd` build, and bounded `code-pushing-all` smoke (`200/200`, `0` mismatches/failures) passed.
+- Remaining caveat: the focused fixture bypasses input validation because Starshine's validator still rejects non-defaultable non-null body locals before definite-assignment analysis; the optimized output is required to validate.
+
 ## [2026-06-25] passes/code-pushing | Implement exact intrinsic no-effects calls
 
 - Filed [`raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md`](raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md) after the `0904` import-identity prerequisite.

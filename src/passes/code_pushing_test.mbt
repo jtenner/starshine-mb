@@ -692,6 +692,48 @@ test "code-pushing keeps local.set before if when the local is used after the if
 }
 
 ///|
+test "code-pushing sinks ref local into if arm and weakens local to nullable" {
+  let input =
+    #|(module
+    #|  (func (param (ref any)) (local (ref any))
+    #|    local.get 0
+    #|    local.set 1
+    #|    i32.const 0
+    #|    if
+    #|      unreachable
+    #|    else
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    local.get 1
+    #|    ref.as_non_null
+    #|    drop))
+    #|
+  let parsed = match
+    @wast.wast_to_binary_module(input, filename="code-pushing-ref-into-if.wat") {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref into-if fixture parse success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(parsed, HotPipelineOptions::new(), ["code-pushing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref into-if code-pushing success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected ref into-if output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("[1] (Ref Null Any) (local)"), msg=pretty)
+  assert_true(
+    pretty.contains(
+      "(if (Void) unreachable else (local.get (Local 0)) (local.set (Local 1)) (local.get (Local 1)) drop",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "code-pushing sinks if-arm local.set when the opposite arm cannot fall through to a later use" {
   let func = code_pushing_test_run_hot(
     (

@@ -2252,7 +2252,16 @@ fn code_pushing_try_sink_set_into_if_then(
       traps_never_happen=ctx.traps_never_happen,
       ignore_implicit_traps=ctx.ignore_implicit_traps,
       module_ctx=ctx.module_ctx,
-    ) {
+    ) &&
+    !code_pushing_node_is_local_get(func, value_id) {
+    return false
+  }
+  let source_local = if code_pushing_node_is_local_get(func, value_id) {
+    @ir.hot_node_get(func, value_id).imm0
+  } else {
+    -1
+  }
+  if source_local == set_node.imm0 {
     return false
   }
 
@@ -2312,6 +2321,10 @@ fn code_pushing_try_sink_set_into_if_then(
   if @ir.hot_node_result_arity(func, if_id) != 0 {
     return false
   }
+  if source_local >= 0 &&
+    code_pushing_if_arms_write_local_deep_limited(func, if_id, source_local, 8) {
+    return false
+  }
   let local_id = set_node.imm0
   let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
     func, if_id, local_id,
@@ -2363,6 +2376,7 @@ fn code_pushing_try_sink_set_into_if_then(
   }
   match target_ref {
     Some(target_ref) => {
+      ignore(@ir.hot_weaken_body_local_to_nullable_ref(func, local_id))
       let pushed_set = code_pushing_make_local_set_clone(
         func, local_id, value_id,
       )

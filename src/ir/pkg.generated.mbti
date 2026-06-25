@@ -621,6 +621,8 @@ pub fn hot_root_splice(HotFunc, Int, Int, Array[Int]) -> Array[Int]
 
 pub fn hot_root_storage_count(HotFunc) -> Int
 
+pub fn hot_set_body_local_type(HotFunc, Int, @lib.ValType) -> Bool
+
 pub fn hot_side_table_kind_for_op(HotOp) -> HotSideTableKind?
 
 pub fn hot_simple_value_key(HotFunc, Int) -> HotSimpleValueKey?
@@ -688,6 +690,8 @@ pub fn[S, E] hot_walk_region(HotFunc, Int, S, (S, Int, Int) -> HotVisitCtl[S, E]
 pub fn[S, E] hot_walk_subtree_postorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
 pub fn[S, E] hot_walk_subtree_preorder(HotFunc, Int, S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
+
+pub fn hot_weaken_body_local_to_nullable_ref(HotFunc, Int) -> Bool
 
 pub fn[S, E] hot_worklist_walk(HotFunc, Array[Int], S, (S, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
 
