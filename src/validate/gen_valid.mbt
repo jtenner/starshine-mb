@@ -11301,6 +11301,33 @@ fn gen_valid_append_heap_store_optimization_body_slice(
           out.push(Instruction::local_get(described_local_idx))
           out.push(Instruction::i32_const(I32(108)))
           out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+
+          // Exact descriptor branch-result roots cover the br_on_non_null
+          // descriptor operand surface that previously aborted Starshine's HOT
+          // verifier/lowerer before direct HSO could compare against Binaryen.
+          out.push(Instruction::i32_const(I32(127)))
+          out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+          out.push(
+            Instruction::block(
+              BlockType::val_type(
+                ValType::ref_type(
+                  RefType::new(false, HeapType::new(descriptor_idx), exact=true),
+                ),
+              ),
+              Expr::new([
+                Instruction::ref_null_type(
+                  RefType::new(true, HeapType::new(descriptor_idx), exact=true),
+                ),
+                Instruction::br_on_non_null(LabelIdx::new(0U)),
+                Instruction::unreachable_(),
+              ]),
+            ),
+          )
+          out.push(Instruction::struct_new_desc(described_idx))
+          out.push(Instruction::local_set(described_local_idx))
+          out.push(Instruction::local_get(described_local_idx))
+          out.push(Instruction::i32_const(I32(128)))
+          out.push(Instruction::struct_set(described_idx, U32::new(0U)))
         }
         None => ()
       }

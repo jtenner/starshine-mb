@@ -5252,6 +5252,58 @@ test "heap-store-optimization folds both default call stores as documented Stars
 }
 
 ///|
+fn hso_exact_descriptor_br_on_non_null_block() -> @lib.Instruction {
+  let descriptor = @lib.TypeIdx::new(1U)
+  let exact_desc_ref = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(descriptor),
+    exact=true,
+  )
+  @lib.Instruction::block(
+    @lib.BlockType::val_type(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::new(descriptor), exact=true),
+      ),
+    ),
+    @lib.Expr::new([
+      @lib.Instruction::ref_null_type(exact_desc_ref),
+      @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+      @lib.Instruction::unreachable_(),
+    ]),
+  )
+}
+
+///|
+test "heap-store-optimization folds descriptor br_on_non_null result operands without aborting" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_desc_test_run([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+      hso_exact_descriptor_br_on_non_null_block(),
+      @lib.Instruction::struct_new_desc(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::i32_const(@lib.I32(9)),
+      @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected descriptor br_on_non_null heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_on_non_null"), msg=pretty)
+  assert_true(pretty.contains("struct.new_desc"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap-store-optimization folds struct.new_desc stores into the allocation" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)

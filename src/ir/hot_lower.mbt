@@ -192,7 +192,7 @@ fn hot_lower_impl_const(
     HotConstPayload::F32Const(v) => out.push(Instruction::f32_const(v))
     HotConstPayload::F64Const(v) => out.push(Instruction::f64_const(v))
     HotConstPayload::RefNullConst(rt) =>
-      out.push(Instruction::ref_null(rt.get_heap_type()))
+      out.push(Instruction::ref_null_type(rt))
     HotConstPayload::StringConst(bytes) =>
       out.push(Instruction::string_const(bytes))
   }

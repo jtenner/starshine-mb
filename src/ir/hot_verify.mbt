@@ -112,6 +112,12 @@ fn hot_verify_branch_payload_arity(func : HotFunc, node_id : NodeId) -> Int? {
       } else {
         Some(node.child_count - 1)
       }
+    HotOp::BrOnNonNull | HotOp::BrOnCast | HotOp::BrOnCastFail =>
+      if node.child_count == 0 {
+        None
+      } else {
+        Some(node.child_count)
+      }
     _ => Some(0)
   }
 }
