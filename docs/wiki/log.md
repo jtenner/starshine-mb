@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lower stack-carried byte memory.fill
+
+- Added OI-G implementation and coverage for flat stack-carried size-1 `memory.fill` forms whose destination/value operands are local/constant or no-param direct calls.
+- Binaryen `version_130` lowers the probed local and call-backed byte fills to `i32.store8`; Starshine now lets this exact shape escape `stack-carried-effect-optimize-instructions-noop` so the existing HOT byte-fill lowering runs, while keeping wider call-backed/computed fills documented as source-backed boundaries.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-effectful-byte-fill-probe.wat`; red-first focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*byte memory.fill with local and call values*'` failed before implementation and passed after.
+
 ## [2026-06-25] passes/optimize-instructions | Lock local-carried representation-store boundary
 
 - Added OI-G boundary coverage for local-carried/shared reinterpret-store spellings.

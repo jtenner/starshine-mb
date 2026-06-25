@@ -368,7 +368,7 @@ Examples:
 
 - under IIT/TNH, `memory.copy(x, x, size)` can collapse to dropped operands
 - `memory.copy(..., const-size)` may lower to one load plus one store for small sizes
-- `memory.fill(..., const-value, const-size)` may lower to one or two stores or one SIMD store
+- `memory.fill(..., const-value, const-size)` may lower to one or two stores or one SIMD store; current `version_130` probes also lower size-1 local or no-param-call values directly to `i32.store8`, while keeping probed non-local wider fill values as `memory.fill`
 - size `0` cases are only dropped under trap-relaxing modes
 
 This is one of the strongest signs that the pass is broader than its name implies.

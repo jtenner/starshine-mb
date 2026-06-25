@@ -22627,6 +22627,52 @@ fn run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_instr_is_byte_memory_fill_size(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(@lib.I32(raw)) => raw == 1
+    @lib.I64Const(@lib.I64(raw)) => raw == 1L
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_is_byte_stack_memory_fill(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  if instrs.length() == 0 || instrs.length() % 4 != 0 {
+    return false
+  }
+  let mut saw_call = false
+  for i = 0; i < instrs.length(); i = i + 4 {
+    if !run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
+        instrs[i],
+        module_ctx,
+      ) ||
+      !run_hot_pipeline_optimize_instructions_instr_is_stack_memory_copy_operand(
+        instrs[i + 1],
+        module_ctx,
+      ) ||
+      !run_hot_pipeline_optimize_instructions_instr_is_byte_memory_fill_size(
+        instrs[i + 2],
+      ) {
+      return false
+    }
+    match instrs[i + 3] {
+      @lib.MemoryFill(_) => ()
+      _ => return false
+    }
+    if run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i]) ||
+      run_hot_pipeline_optimize_instructions_instr_is_call(instrs[i + 1]) {
+      saw_call = true
+    }
+  }
+  saw_call
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_prefix_has_stack_carried_effect(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -22736,6 +22782,9 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       body, module_ctx,
     ) &&
     !run_hot_pipeline_optimize_instructions_is_tiny_stack_memory_copy(
+      body, module_ctx,
+    ) &&
+    !run_hot_pipeline_optimize_instructions_is_byte_stack_memory_fill(
       body, module_ctx,
     ) &&
     !run_hot_pipeline_optimize_instructions_is_call_indexed_table_get_call_ref(
