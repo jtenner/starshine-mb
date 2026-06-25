@@ -136,6 +136,7 @@ sources:
   - ../../../raw/research/0855-2026-06-25-optimize-instructions-oi-m-selected-second-lane-boundary.md
   - ../../../raw/research/0857-2026-06-25-optimize-instructions-oi-m-full-simplify-boundary.md
   - ../../../raw/research/0858-2026-06-25-optimize-instructions-oi-g-parameterized-memory-copy.md
+  - ../../../raw/research/0859-2026-06-25-optimize-instructions-oi-m-tuple-optimization-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt

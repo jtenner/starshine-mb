@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Lock tuple-optimization multivalue boundary
+
+- Added OI-M public-pipeline boundary coverage for a multivalue block under `--optimize-instructions --tuple-optimization`.
+- Binaryen `version_130` reconstructs tuple scratch plus scalar locals for the probed block; Starshine keeps the public block/drop/call/local.get spelling and does not introduce temp locals, so this is boundary coverage rather than tuple-optimization neighbor parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-optimization-neighbor-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*tuple-optimization boundary*'` passed `1/1` immediately as boundary/status coverage.
+
 ## [2026-06-25] passes/optimize-instructions | Lower parameterized tiny memory.copy
 
 - Added OI-G implementation and red-first coverage for the exact stack-carried tiny `memory.copy` shape whose destination and source operands are direct calls with one pure argument each.

@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
+  - ../../../raw/research/0859-2026-06-25-optimize-instructions-oi-m-tuple-optimization-boundary.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -389,7 +390,7 @@ The focused page in this folder covers them in more detail, but the main impleme
 - default-value constructor cleanup for `struct.new` / `array.new` / `array.new_fixed`
 - relaxation of acquire-release ops on unshared GC heaps
 - lowering of some unshared GC RMW / cmpxchg forms to simpler get/set code
-- tuple extraction cleanup via `tuple.extract(tuple.make(...))`, including tuple-scratch/scalar-temp reconstruction when selected or non-selected children produce multiple values (covered probes include selected first/second scalar lanes) and when the full `simplify-locals` neighbor cleans a public multivalue block
+- tuple extraction cleanup via `tuple.extract(tuple.make(...))`, including tuple-scratch/scalar-temp reconstruction when selected or non-selected children produce multiple values (covered probes include selected first/second scalar lanes) and when the full `simplify-locals` or dedicated `tuple-optimization` neighbor cleans a public multivalue block
 
 This part of the pass is where a future honest Starshine port would need the most new helper infrastructure.
 
