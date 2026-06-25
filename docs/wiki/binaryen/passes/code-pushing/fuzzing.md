@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0842-2026-06-25-code-pushing-all-10000-current.md
   - ../../../raw/research/0841-2026-06-25-code-pushing-br-if-value-aggregate-inclusion.md
   - ../../../raw/research/0840-2026-06-25-code-pushing-br-if-value-local-cleanup-normalizer.md
   - ../../../raw/research/0839-2026-06-25-code-pushing-prefix-aggregate-inclusion.md
@@ -202,6 +203,8 @@ Result: compared `1000/1000`, normalized matches `375`, cleanup-normalized match
 2026-06-25 value-`br_if` local-cleanup normalizer follow-up: [`0840`](../../../raw/research/0840-2026-06-25-code-pushing-br-if-value-local-cleanup-normalizer.md) added red-first normalizer coverage for single-use `local.set tmp (br_if ...); drop tmp` carriers. The targeted refresh `.tmp/pass-fuzz-code-pushing-br-if-value-copydrop-normalized-200-20260625` compared `200/200`, normalized `0`, cleanup-normalized `200`, raw mismatches/failures `0`, cache `Binaryen 200 hits/0 misses`.
 
 2026-06-25 value-`br_if` aggregate inclusion follow-up: [`0841`](../../../raw/research/0841-2026-06-25-code-pushing-br-if-value-aggregate-inclusion.md) reran the targeted value-branch lane at 1000 requested cases, `.tmp/pass-fuzz-code-pushing-br-if-value-copydrop-normalized-1000-20260625`, and it compared `1000/1000` with `1000` cleanup-normalized matches and `0` raw mismatches/failures. `code-pushing-all` now includes `code-pushing-br-if-value` as its nineteenth leaf. The post-change aggregate smoke `.tmp/pass-fuzz-code-pushing-all-br-if-value-aggregated-1000-20260625` compared `1000/1000`, normalized `466`, cleanup-normalized `534`, raw mismatches/failures `0`, cache `Binaryen 1000 hits/0 misses`.
+
+2026-06-25 current 19-leaf dedicated-profile refresh: [`0842`](../../../raw/research/0842-2026-06-25-code-pushing-all-10000-current.md) reran the then-current `code-pushing-all` lane at 10000 requested cases with `--normalize local-cleanup-debris`: `.tmp/pass-fuzz-code-pushing-all-10000-20260625-current` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches `0`, validation/generator/property/command failures `0`, command failures `0`, cache `Binaryen 10000 hits/0 misses`. All 19 aggregate leaves were selected, including `code-pushing-br-on-non-null-prefix: 513` and `code-pushing-br-if-value: 516`. This supersedes the older 17-leaf 10000-case aggregate evidence and the 19-leaf 1000-case smokes for dedicated-profile closeout-progress, but final closeout still needs the 100000 regular lane and source-backed gap resolution or accepted boundaries.
 
 2026-06-25 post-prefix-payload focused implementation aggregate smoke: `.tmp/pass-fuzz-code-pushing-all-prefix-refresh-1000-20260625` used the current native binary after the focused two-result block-label `br_on_non_null` prefix-payload movement change, seed `0x5eed`, `--gen-valid-profile code-pushing-all`, and `--normalize local-cleanup-debris`. It compared `1000/1000`, normalized `544`, cleanup-normalized `456`, raw mismatches `0`, validation/generator/property/command failures `0`, cache `wasm-smith 0 hits/0 misses`, Binaryen `1000 hits/0 misses`, Binaryen failures `0 hits/0 misses`, and all 17 aggregate-safe leaves selected. The focused prefix-payload shape is still not an aggregate leaf.
 
