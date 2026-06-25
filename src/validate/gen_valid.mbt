@@ -11204,6 +11204,28 @@ fn gen_valid_append_heap_store_optimization_body_slice(
           )
           out.push(Instruction::struct_set(described_idx, U32::new(0U)))
 
+          // Descriptor later-field result wrappers exercise folds where a
+          // different constructor field is supplied by a result-typed
+          // try_table and the later same-field store still targets field 0.
+          out.push(Instruction::i32_const(I32(112)))
+          out.push(
+            Instruction::try_table(
+              BlockType::val_type(
+                ValType::ref_type(RefType::abs(AbsHeapType::eq())),
+              ),
+              [],
+              Expr::new([
+                Instruction::ref_null(HeapType::abs(AbsHeapType::eq())),
+              ]),
+            ),
+          )
+          out.push(Instruction::struct_new_default(descriptor_idx))
+          out.push(Instruction::struct_new_desc(described_idx))
+          out.push(Instruction::local_set(described_local_idx))
+          out.push(Instruction::local_get(described_local_idx))
+          out.push(Instruction::i32_const(I32(113)))
+          out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+
           // Descriptor old-field side-effect preservation: a later same-field
           // store can fold into struct.new_desc only if the overwritten
           // memory.grow field effect is preserved in order.
