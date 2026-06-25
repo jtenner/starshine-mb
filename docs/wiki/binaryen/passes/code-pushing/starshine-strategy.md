@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md
   - ../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md
   - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
   - ../../../raw/research/0893-2026-06-25-code-pushing-dependency-chain-into-if.md
@@ -373,7 +374,7 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, and `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by `0892`. Replacement-oriented work continues under `[O4Z-AUDIT-CP-BINREP]`: dependency-chain into-if sinking is implemented by `0893`, TNH exact integer div/rem into-if movement is implemented by `0895`, and independent into-if multi-set source order is implemented by `0896`. Remaining follow-ups include `code-pushing_ignore-implicit-traps.wast`, no-effects intrinsics, broader GC/ref surfaces, and low-priority branch/switch probes. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active, and `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by `0892`. Replacement-oriented work continues under `[O4Z-AUDIT-CP-BINREP]`: dependency-chain into-if sinking is implemented by `0893`, TNH exact integer div/rem into-if movement is implemented by `0895`, independent into-if multi-set source order is implemented by `0896`, and Binaryen's separate `--ignore-implicit-traps` / `-iit` lit surface is explicitly documented as an accepted current Starshine boundary by `0897` rather than conflated with TNH. Remaining follow-ups include no-effects intrinsics, broader GC/ref surfaces, and low-priority branch/switch probes. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 

@@ -3,6 +3,7 @@ kind: entity
 status: strong
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md
   - ../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md
   - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
   - ../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md
@@ -197,7 +198,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 - Do not move non-SFA locals without a stronger local-use proof.
 - Do not move values across effects that can invalidate or must be ordered after the delayed computation.
-- Do not change trap timing unless the active trap policy explicitly permits that behavior; Starshine now carries `traps_never_happen` into hot passes and uses it for the reduced exact integer div/rem into-if family.
+- Do not change trap timing unless the active trap policy explicitly permits that behavior; Starshine now carries `traps_never_happen` into hot passes and uses it for the reduced exact integer div/rem into-if family. Binaryen's separate `--ignore-implicit-traps` / `-iit` policy remains an accepted Starshine boundary as of [`0897`](../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md), not a TNH alias.
 - Do not strand post-if uses unless the non-consuming arm cannot fall through or another proof preserves the value.
 - Do not treat two-live-arm duplication as a default `code-pushing` behavior.
 - Preserve order among multiple pushed sets, including consecutive multi-set windows sunk into a sole consuming `if` arm.
@@ -211,7 +212,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 - One `if` arm consumes the local and the other does not.
 - Post-if reads where the non-consuming arm is unreachable.
 - `switch` and conditional `br` push points, including the current simple, value-carrying, and multi-label `br_table` no-mutation boundaries, the bounded Binaryen-positive one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, and dropped one-result-block `br_on_cast_fail` families, and the current Binaryen-stationary prefix-payload `br_on_null` / `br_on_cast` / `br_on_cast_fail` boundaries.
-- Trap-capable expressions under default, ignore-implicit-traps, and TNH options.
+- Trap-capable expressions under default, Binaryen `--ignore-implicit-traps` / `-iit` (currently documented as a Starshine non-goal boundary), and TNH options.
 - GC/reference operations such as `ref.func`, casts, null checks, and the `version_130` atomics/GC ordering family.
 - EH control where movement can change exceptional observability, including the current `throw_ref` positive movement, no-payload and payload-bearing tag-based `throw` / `try_table` stationary split including the `catch_all_ref` try-table boundary, no-rethrow legacy `try`/`catch` try-lowered movement characterization, and rethrow-containing HOT stationary boundary.
 - Starshine dead-block flattening, which is local cleanup rather than upstream `CodePushing.cpp` behavior.

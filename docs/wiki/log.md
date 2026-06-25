@@ -719,6 +719,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Document ignore-implicit-traps boundary
+
+- Filed [`raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md`](raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md) for `[CP-BINREP-003]`.
+- Decision: Binaryen v130's `--ignore-implicit-traps` / `-iit` surface is a distinct accepted current Starshine boundary, not a `--traps-never-happen` alias. Starshine has no `ignore_implicit_traps` / `--ignore-implicit-traps` plumbing and does not claim the lit `value-might-interfere` memory-load movement.
+- Evidence: local `wasm-opt --help` lists `--ignore-implicit-traps,-iit` separately from `--traps-never-happen,-tnh`; repo grep found no Starshine implicit-trap flag/context plumbing; `_build/native/release/build/cmd/cmd.exe --ignore-implicit-traps --code-pushing --format wat .tmp/binaryen-lit/code-pushing_ignore-implicit-traps.wast` reports `error: unknown pass flag: ignore-implicit-traps`.
+- Updated `agent-todo.md` and the `code-pushing` wiki pages. `[O4Z-AUDIT-CP-BINREP]` remains active for no-effects intrinsics, GC/ref surfaces, and low-priority branch/switch probes.
+
 ## [2026-06-25] passes/code-pushing | Preserve independent into-if order
 
 - Filed [`raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md`](raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md) for `[CP-BINREP-006]`.
