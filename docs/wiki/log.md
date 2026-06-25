@@ -719,6 +719,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Refresh pass-fuzz-stress after br_table boundary
+
+- Filed [`raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md`](raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md) after rerunning the broad named `pass-fuzz-stress` GenValid lane for direct `code-pushing`.
+- `.tmp/pass-fuzz-code-pushing-pass-fuzz-stress-10000-20260625-post-ww` compared `10000/10000`, normalized `10000`, cleanup-normalized `0`, raw mismatches/failures `0`, command failures `0`, Binaryen cache `10000 hits/0 misses`, and selected profile counts `pass-fuzz-stress: 10000`.
+- This refreshes broad named-profile closeout-progress evidence after the multi-label `br_table` boundary slice; final `[O4Z-AUDIT-CP]` closeout remains open until source gaps/accepted boundaries, all then-current matrix lanes, and an explicit stop condition are complete.
+
 ## [2026-06-25] passes/code-pushing | Document multi-label br_table boundary
 
 - Filed [`raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md`](raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md) after local Binaryen v130 validated a nested-block `br_table $inner $outer $inner` probe and kept the pure SFA `local.set` before the switch.
