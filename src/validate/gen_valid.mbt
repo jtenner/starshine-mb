@@ -11185,6 +11185,45 @@ fn gen_valid_append_heap_store_optimization_body_slice(
           out.push(Instruction::local_get(described_local_idx))
           out.push(Instruction::struct_get(described_idx, U32::new(0U)))
           out.push(Instruction::drop())
+
+          // Descriptor catch/throw skip-local-set hazards mirror the ordinary
+          // catchable root below while keeping descriptor materialization in
+          // the generated profile. The throw sibling can skip the constructor
+          // assignment, so HSO must not fold the later store into this
+          // descriptor-bearing constructor.
+          if !env.tags.is_empty() && !env.mems.is_empty() {
+            let tag_idx = TagIdx::new(0U)
+            out.push(
+              Instruction::block(
+                BlockType::void_(),
+                Expr::new([
+                  Instruction::try_table(
+                    BlockType::void_(),
+                    [Catch::all(LabelIdx::new(0U))],
+                    Expr::new([
+                      Instruction::memory_size(MemIdx::new(0U)),
+                      Instruction::if_(
+                        BlockType::void_(),
+                        [Instruction::throw_(tag_idx)],
+                        Some([
+                          Instruction::i32_const(I32(105)),
+                          Instruction::ref_null(
+                            HeapType::abs(AbsHeapType::eq()),
+                          ),
+                          Instruction::struct_new_default(descriptor_idx),
+                          Instruction::struct_new_desc(described_idx),
+                          Instruction::local_set(described_local_idx),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ]),
+              ),
+            )
+            out.push(Instruction::local_get(described_local_idx))
+            out.push(Instruction::i32_const(I32(106)))
+            out.push(Instruction::struct_set(described_idx, U32::new(0U)))
+          }
         }
         None => ()
       }

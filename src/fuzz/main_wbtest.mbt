@@ -2380,6 +2380,7 @@ test "emit gen-valid heap-store-optimization profile records GC store opportunit
   assert_true(wat.contains("struct.new_desc"), msg=wat)
   assert_true(wat.contains("struct.new_default_desc"), msg=wat)
   assert_true(wat.contains("try_table"), msg=wat)
+  assert_true(wat.split("try_table").length() - 1 >= 5, msg=wat)
   assert_true(wat.contains("table.set"), msg=wat)
   assert_true(wat.contains("memory.fill"), msg=wat)
   assert_true(wat.contains("br_if"), msg=wat)
