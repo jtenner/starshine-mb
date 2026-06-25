@@ -11428,6 +11428,42 @@ fn gen_valid_append_heap_store_optimization_body_slice(
               out.push(Instruction::i32_const(I32(146)))
               out.push(Instruction::struct_set(described_idx, U32::new(0U)))
 
+              // Descriptor direct tail-call result-wrapper old-field roots keep
+              // the generated profile on the pure-descriptor sibling of the
+              // plain tail-call family: the overwritten field is a true helper
+              // call result, the descriptor operand is pure, and the later
+              // same-field store remains after the result-typed wrapper.
+              match env.current_func_idx {
+                Some(tail_idx) =>
+                  match gen_valid_callable_by_idx(env.funcs, tail_idx) {
+                    Some(tail_target) if tail_target.params.is_empty() &&
+                      tail_target.results.is_empty() => {
+                      out.push(Instruction::call(target.idx))
+                      out.push(
+                        Instruction::ref_null(HeapType::abs(AbsHeapType::eq())),
+                      )
+                      out.push(Instruction::struct_new_default(descriptor_idx))
+                      out.push(Instruction::struct_new_desc(described_idx))
+                      out.push(Instruction::local_set(described_local_idx))
+                      out.push(
+                        Instruction::try_table(
+                          BlockType::val_type(ValType::i32()),
+                          [],
+                          Expr::new([Instruction::return_call(tail_target.idx)]),
+                        ),
+                      )
+                      out.push(Instruction::drop())
+                      out.push(Instruction::local_get(described_local_idx))
+                      out.push(Instruction::i32_const(I32(150)))
+                      out.push(
+                        Instruction::struct_set(described_idx, U32::new(0U)),
+                      )
+                    }
+                    _ => ()
+                  }
+                None => ()
+              }
+
               // Mutable-descriptor direct-call result roots keep the generated
               // surface distinct from pure descriptor calls and from the older
               // result-wrapper barrier roots: the overwritten field is the
