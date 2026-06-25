@@ -14,6 +14,7 @@ using @cli {
   resolve_closed_world,
   resolve_pass_flags,
   resolve_traps_never_happen,
+  resolve_ignore_implicit_traps,
   infer_input_format,
   expand_globs_with_adapter,
   type CliInputFormat,

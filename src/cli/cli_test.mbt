@@ -254,6 +254,21 @@ test "parse_cli_args accepts trap-mode values and keeps them out of pass flags" 
 }
 
 ///|
+test "parse_cli_args accepts ignore-implicit-traps without treating it as a pass" {
+  let parsed = parse_ok(["--ignore-implicit-traps", "--validate"])
+  assert_true(parsed.ignore_implicit_traps)
+  @debug.assert_eq(parsed.pass_flags, ["validate"])
+  assert_true(!resolve_traps_never_happen(parsed))
+}
+
+///|
+test "parse_cli_args accepts Binaryen -iit alias for ignore-implicit-traps" {
+  let parsed = parse_ok(["-iit", "--code-pushing"])
+  assert_true(parsed.ignore_implicit_traps)
+  @debug.assert_eq(parsed.pass_flags, ["code-pushing"])
+}
+
+///|
 test "parse_cli_args accepts mixed-case option values" {
   let parsed = parse_ok([
     "--format=WAT", "--trap-mode=TRAPS-NEVER-HAPPEN", "--tracing=HeLpEr",
@@ -289,7 +304,7 @@ test "parse_cli_args rejects invalid trap-mode value" {
 ///|
 test "resolve_pass_flags omits trap-mode toggles from scheduled pass list" {
   let parsed = parse_ok([
-    "--traps-never-happen", "--traps-may-happen", "--flatten",
+    "--traps-never-happen", "--traps-may-happen", "--ignore-implicit-traps", "--flatten",
   ])
   @debug.assert_eq(resolve_pass_flags(parsed), ["flatten"])
 }
@@ -457,5 +472,6 @@ test "cli_config_schema_json exposes public schema fields" {
   assert_true(schema.contains("\"format\""))
   assert_true(schema.contains("\"trapMode\""))
   assert_true(schema.contains("\"trapsNeverHappen\""))
+  assert_true(schema.contains("\"ignoreImplicitTraps\""))
   assert_true(schema.contains("\"closedWorld\""))
 }

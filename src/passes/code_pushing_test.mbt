@@ -64,13 +64,17 @@ test "code-pushing skips O4z raw pass until self-opt decoder hazards are safe" {
 }
 
 ///|
-fn code_pushing_test_run_hot_func(func : @ir.HotFunc) -> @ir.HotFunc {
+fn code_pushing_test_run_hot_func(
+  func : @ir.HotFunc,
+  ignore_implicit_traps? : Bool = false,
+) -> @ir.HotFunc {
   let ctx = HotPassContext::new(
     code_pushing_descriptor(),
     @ir.HotAnalysisCache::new(),
     HotPipelineVerifyPolicy::after_each_pass(),
     false,
     fn(_) { () },
+    ignore_implicit_traps~,
   )
   match hot_pass_run(ctx, func) {
     Ok(_) => func
@@ -79,8 +83,14 @@ fn code_pushing_test_run_hot_func(func : @ir.HotFunc) -> @ir.HotFunc {
 }
 
 ///|
-fn code_pushing_test_run_hot(text : String) -> @ir.HotFunc {
-  code_pushing_test_run_hot_func(pass_test_lift_first_func(text))
+fn code_pushing_test_run_hot(
+  text : String,
+  ignore_implicit_traps? : Bool = false,
+) -> @ir.HotFunc {
+  code_pushing_test_run_hot_func(
+    pass_test_lift_first_func(text),
+    ignore_implicit_traps~,
+  )
 }
 
 ///|
@@ -190,6 +200,11 @@ fn code_pushing_expect_op(
       match op {
         @ir.HotOp::Heap => ()
         _ => abort("expected heap")
+      }
+    "store" =>
+      match op {
+        @ir.HotOp::Store => ()
+        _ => abort("expected store")
       }
     _ => abort("unknown expected hot op")
   }
@@ -953,6 +968,173 @@ test "code-pushing keeps SFA set before dropped if when the dropped if reads it"
     trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
     msg=trace.to_string(),
   )
+}
+
+///|
+test "code-pushing keeps memory load SFA before br_if by default" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (local i32)
+      #|    (block $exit
+      #|      i32.const 0
+      #|      i32.load
+      #|      local.set 1
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+  )
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "br_if")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "drop")
+}
+
+///|
+test "code-pushing moves memory load SFA after br_if when implicit traps are ignored" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (local i32)
+      #|    (block $exit
+      #|      i32.const 0
+      #|      i32.load
+      #|      local.set 1
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+    ignore_implicit_traps=true,
+  )
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let mut branch_idx = -1
+  let mut moved_idx = -1
+  for idx = 0; idx < @ir.hot_region_root_count(func, body_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::BrIf => branch_idx = idx
+      @ir.HotOp::LocalSet if @ir.hot_node_get(func, root_id).imm0 == 1 =>
+        moved_idx = idx
+      _ => ()
+    }
+  }
+  assert_true(branch_idx >= 0, msg="expected br_if in block")
+  assert_true(
+    moved_idx > branch_idx,
+    msg="expected memory-load set after br_if",
+  )
+}
+
+///|
+test "code-pushing keeps memory load before store under ignore implicit traps" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (local i32)
+      #|    (block $exit
+      #|      i32.const 0
+      #|      i32.load
+      #|      local.set 1
+      #|      i32.const 0
+      #|      i32.const 42
+      #|      i32.store
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+    ignore_implicit_traps=true,
+  )
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "store")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
+}
+
+///|
+test "code-pushing keeps memory load before nop and store accumulation under ignore implicit traps" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (local i32)
+      #|    (block $exit
+      #|      i32.const 0
+      #|      i32.load
+      #|      local.set 1
+      #|      nop
+      #|      i32.const 0
+      #|      i32.const 42
+      #|      i32.store
+      #|      local.get 0
+      #|      br_if $exit
+      #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+    ignore_implicit_traps=true,
+  )
+
+  let block_id = @ir.hot_root_get(func, 0)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "store")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "br_if")
+}
+
+///|
+test "code-pushing keeps memory load before effectful if pushpoint under ignore implicit traps" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func $effect (param i32) (local i32)
+      #|    i32.const 0
+      #|    i32.load
+      #|    local.set 1
+      #|    local.get 0
+      #|    if
+      #|      local.get 0
+      #|      call $effect
+      #|    end
+      #|    local.get 1
+      #|    drop))
+      #|
+    ),
+    ignore_implicit_traps=true,
+  )
+
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "local.set")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "if")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "drop")
 }
 
 ///|

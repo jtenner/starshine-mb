@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md
   - ../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md
   - ../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md
   - ../../../raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md
@@ -148,7 +149,7 @@ This is the important distinction from stale two-live-arm duplication examples:
 
 Trap timing and exceptional control are correctness boundaries.
 
-- Default trap policy is stricter than ignore-implicit-traps / TNH modes. As of [`0895`](../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md), Starshine plumbs `HotPipelineOptions.traps_never_happen` into `HotPassContext` and `code-pushing` uses it to sink exact integer div/rem values, such as the reduced `i32.div_s` into-if probe, only when TNH is enabled. The default trap-timing boundary remains protected. As of [`0897`](../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md), Binaryen's separate `--ignore-implicit-traps` / `-iit` surface is an explicit accepted Starshine boundary rather than a TNH alias: Starshine does not expose a distinct implicit-trap flag and does not claim the lit `value-might-interfere` memory-load movement.
+- Default trap policy is stricter than ignore-implicit-traps / TNH modes. As of [`0895`](../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md), Starshine plumbs `HotPipelineOptions.traps_never_happen` into `HotPassContext` and `code-pushing` uses it to sink exact integer div/rem values, such as the reduced `i32.div_s` into-if probe, only when TNH is enabled. The default trap-timing boundary remains protected. [`0897`](../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md) documented Binaryen's separate `--ignore-implicit-traps` / `-iit` surface as a boundary at the time; [`0902`](../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md) supersedes that implementation status. Starshine now exposes a distinct `ignore_implicit_traps` policy and uses it only for the lit-derived memory-load `br_if` movement, while preserving the `value-interferes`, accumulation, and effectful-pushpoint stationary boundaries.
 - GC/reference expressions are allowed only when the same effect and use proof succeeds. As of [`0900`](../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md), the current replacement follow-up treats `ref-into-if` local-type weakening/refinalization and broader official GC WAT parity as accepted boundaries, while retaining the already implemented `RefFunc`, `br_on_*`, and atomics/GC non-null `struct.get` families.
 - `code-pushing-atomics.wast` proves non-null GC `struct.get` reads can move past shared atomic loads but not shared atomic stores, both into the sole consuming `if` arm and across a segment push point for suffix use.
 - Starshine now mirrors that atomics/GC family with HOT fixtures because its WAT surface does not yet parse the official shared-GC syntax; the implementation admits only non-null `struct.get` from a `local.get` source and blocks intervening memory writes.

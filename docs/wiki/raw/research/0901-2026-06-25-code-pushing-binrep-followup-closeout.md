@@ -2,6 +2,8 @@
 
 Date: 2026-06-25
 
+Supersession note: [`0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md`](0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md) later implemented the `--ignore-implicit-traps` / `-iit` boundary as a new source-backed widening slice. This closeout remains valid for the old `[O4Z-AUDIT-CP-BINREP]` stop condition and should not be silently rewritten.
+
 ## Question
 
 Can `[O4Z-AUDIT-CP-BINREP]` close now that the replacement-oriented follow-up items after the v0.1.0 direct-pass closeout have either landed behavior changes with evidence or been explicitly resolved as narrow boundaries?
@@ -16,7 +18,7 @@ This is not a claim of byte-for-byte output parity, full `CodePushing.cpp` sourc
 
 - [`0893`](0893-2026-06-25-code-pushing-dependency-chain-into-if.md) / `[CP-BINREP-001]`: implemented consecutive local-copy dependency-chain sinking into the sole consuming `if` arm with red-first tests and bounded `code-pushing-all` smoke.
 - [`0895`](0895-2026-06-25-code-pushing-tnh-movement.md) / `[CP-BINREP-002]`: plumbed `traps_never_happen` into `HotPassContext` and implemented TNH-only exact integer div/rem into-if movement with default/TNH red-first tests and bounded `code-pushing-all` smoke.
-- [`0897`](0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md) / `[CP-BINREP-003]`: documented Binaryen `--ignore-implicit-traps` / `-iit` as a distinct accepted current Starshine boundary, not a TNH alias; Starshine does not claim the lit `value-might-interfere` memory-load movement.
+- [`0897`](0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md) / `[CP-BINREP-003]`: documented Binaryen `--ignore-implicit-traps` / `-iit` as a distinct accepted current Starshine boundary at the time, not a TNH alias. Later superseded for implementation status by [`0902`](0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md), which implemented the lit `value-might-interfere` memory-load movement as a new widening slice.
 - [`0899`](0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md) / `[CP-BINREP-004]`: documented `binaryen-intrinsics/call.without.effects` as a current import-metadata/API boundary; no unsafe type/arity heuristic was added.
 - [`0900`](0900-2026-06-25-code-pushing-gc-ref-boundary.md) / `[CP-BINREP-005]`: documented GC/ref coverage and boundaries: existing `RefFunc`, `br_on_*`, and atomics/GC non-null `struct.get` families remain covered, while `ref-into-if` requires local type weakening/refinalization.
 - [`0896`](0896-2026-06-25-code-pushing-independent-into-if-order.md) / `[CP-BINREP-006]`: implemented source-order-preserving consecutive independent multi-set sinking into the sole consuming `if` arm with red-first test and bounded `code-pushing-all` smoke.

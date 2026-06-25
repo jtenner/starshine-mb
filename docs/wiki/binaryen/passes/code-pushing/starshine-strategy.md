@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md
   - ../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md
   - ../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md
   - ../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md
@@ -71,14 +72,14 @@ The owner file is:
 
 - [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
 
-The current implementation is deliberately narrower than Binaryen's full source-level `Pusher` model. `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by [`0892`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md); replacement-oriented follow-up work continues under `[O4Z-AUDIT-CP-BINREP]`:
+The current implementation is deliberately narrower than Binaryen's full source-level `Pusher` model. `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate by [`0892`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md), and the old replacement-oriented follow-up `[O4Z-AUDIT-CP-BINREP]` closed in [`0901`](../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md). [`0902`](../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md) is a later source-backed widening slice:
 
 1. **Safe single-consuming-arm local-set sinking**
    - A root `local.set` before a void `if` can be replaced with `nop`.
    - A cloned `local.set` is inserted into the one `if` arm that contains all in-arm reads of that local.
    - Same-region suffix reads after the `if` are allowed only when the opposite arm cannot fall through under the current conservative root proof.
    - Consecutive multi-set windows that feed one arm are sunk in source order, covering both dependency chains and independent pure sets.
-   - Values are limited to pure nontrapping HOT values plus guarded `global.get`, local-copy setup, narrow non-null `struct.get` heap-read shapes, and exact integer div/rem values only when `HotPassContext.traps_never_happen` is true.
+   - Values are limited to pure nontrapping HOT values plus guarded `global.get`, local-copy setup, narrow non-null `struct.get` heap-read shapes, exact integer div/rem values only when `HotPassContext.traps_never_happen` is true, and ordinary memory loads only for the `--ignore-implicit-traps` / `-iit` policy added in `0902`.
 2. **Ordinary `if`, dropped `if`, and narrow `br_if` segment movement**
    - The first mutating segment-window consumer moves one SFA `local.set` after an ordinary void `if` when the `if` itself does not read the local and every read is a same-region suffix read after the `if`.
    - The dropped-wrapper extension moves the same single-set family after a dropped value `if` when the dropped push point does not read the local and every read is a same-region suffix read after the wrapper.
@@ -132,13 +133,13 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | --- | --- |
 | Function-local `LocalAnalyzer` SFA scan | Non-mutating diagnostic reports prefix-read and multiple-write SFA rejection reasons; mutating paths still use per-candidate get/write counting |
 | `Pusher` block segment scan | Non-mutating segment-window diagnostic recognizes selected block-local candidate windows; mutating paths now consume ordinary `if` and dropped-`if` after-movement subsets while remaining bounded and narrower |
-| `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get`, local-copy, narrow non-null `struct.get`, and TNH-only exact integer div/rem cases; diagnostic reports coarse ordered-before/effect barriers |
+| `isPushable(...)` removable-effect value gate | Replaced by stricter pure/nontrapping gate plus guarded `global.get`, local-copy, narrow non-null `struct.get`, TNH-only exact integer div/rem, and `ignore_implicit_traps`-only memory-load cases; diagnostic reports coarse ordered-before/effect barriers |
 | `isPushPoint(...)` over `if`, `switch`, conditional `br`, dropped wrappers | Diagnostic recognizes these where HOT representation is local; mutation targets ordinary void `if`, dropped value-`if` wrappers, no-branch-value void-block-target / void-loop-target `br_if` subsets, dropped void-label `br_on_null` subsets, and bounded value-block-target `br_if` subsets; simple no-branch-value `br_table` block-exit windows are tested as a no-mutation boundary |
 | `optimizeSegment(...)` ordered multi-set movement | First single-set ordinary-void-`if`, dropped-`if`, no-branch-value `br_if`, dropped void-label `br_on_null`, and value-block-target `br_if` after-movement slices implemented; ordered adjacent multi-set movement implemented for local-independent values before ordinary void `if`, dropped value-`if`, narrow no-branch-value void-block-target `br_if`, narrow no-branch-value void-loop-target `br_if`, and dropped void-label `br_on_null`, plus direct local-copy values when source locals are stable, `nop`-/`drop(const)`-/`drop(local.get)`-separated local-independent windows, and bounded ordinary-/dropped-`if` `drop(global.get)` windows; broader multi-set, branch-value multi-set, arbitrary separators beyond `nop` / `drop(const)` / `drop(local.get)` / bounded ordinary-/dropped-`if` `drop(global.get)` windows, and other push-point movement not implemented generally |
 | `optimizeIntoIf(...)` one-consuming-arm sink | Partially implemented for all reads in one arm, plus same-region suffix reads when the opposite arm cannot fall through |
 | Unreachable-arm post-use allowance | First conservative slice implemented for roots ending in `unreachable`, `return`, or tail-return roots |
 | `version_130` ordered-before / atomics source surfaces | First `code-pushing-atomics.wast` heap-read slice implemented for non-null `struct.get` across atomic loads and store boundaries; general `orderedBefore` remains an audit gap |
-| Broader GC/EH/trap-option source surfaces | Narrow `struct.get`/atomics family and TNH exact integer div/rem into-if movement are implemented; broader GC/EH/trap-option surfaces are guarded out or not modeled broadly |
+| Broader GC/EH/trap-option source surfaces | Narrow `struct.get`/atomics family, TNH exact integer div/rem into-if movement, and `ignore_implicit_traps` memory-load `br_if` movement are implemented; broader GC/EH/trap-option surfaces are guarded out or not modeled broadly |
 | Refinalization / later optimizer cycles | Starshine relies on HOT verification, lowering, and final validation; future broader ports need equivalent local retyping discipline |
 
 ## Current local positive family

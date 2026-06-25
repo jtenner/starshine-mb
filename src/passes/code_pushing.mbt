@@ -72,10 +72,32 @@ fn code_pushing_node_is_nontrapping_struct_get_from_local_get(
 }
 
 ///|
+fn code_pushing_node_is_memory_load(func : @ir.HotFunc, node_id : Int) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32Load(_))
+    | Some(@lib.Instruction::I64Load(_))
+    | Some(@lib.Instruction::F32Load(_))
+    | Some(@lib.Instruction::F64Load(_))
+    | Some(@lib.Instruction::I32Load8S(_))
+    | Some(@lib.Instruction::I32Load8U(_))
+    | Some(@lib.Instruction::I32Load16S(_))
+    | Some(@lib.Instruction::I32Load16U(_))
+    | Some(@lib.Instruction::I64Load8S(_))
+    | Some(@lib.Instruction::I64Load8U(_))
+    | Some(@lib.Instruction::I64Load16S(_))
+    | Some(@lib.Instruction::I64Load16U(_))
+    | Some(@lib.Instruction::I64Load32S(_))
+    | Some(@lib.Instruction::I64Load32U(_)) => true
+    _ => false
+  }
+}
+
+///|
 fn code_pushing_node_is_movable_value(
   func : @ir.HotFunc,
   node_id : Int,
   traps_never_happen? : Bool = false,
+  ignore_implicit_traps? : Bool = false,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -101,6 +123,8 @@ fn code_pushing_node_is_movable_value(
       @ir.effects_is_pure(@ir.effects_for_node(func, node_id)) ||
       (traps_never_happen && exact_instr_can_trap)
     @ir.HotOp::GlobalGet => true
+    @ir.HotOp::Load =>
+      ignore_implicit_traps && code_pushing_node_is_memory_load(func, node_id)
     @ir.HotOp::Heap =>
       code_pushing_node_is_nontrapping_struct_get_from_local_get(func, node_id)
     _ => false
@@ -408,6 +432,11 @@ fn code_pushing_node_safe_to_cross_for_value(
     )
     writes == 0
   } else {
+    if code_pushing_node_is_memory_load(func, value_id) {
+      return code_pushing_effects_safe_to_cross_for_heap_read(
+        @ir.effects_for_node(func, node_id),
+      )
+    }
     let source_local = code_pushing_nonnull_struct_get_source_local(
       func, value_id,
     )
@@ -870,6 +899,8 @@ fn code_pushing_segment_window_diagnostic(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   set_idx : Int,
+  traps_never_happen? : Bool = false,
+  ignore_implicit_traps? : Bool = false,
 ) -> String {
   if set_idx < 0 || set_idx >= @ir.hot_region_root_count(func, region_ref) {
     return "reject:no-local-set"
@@ -903,7 +934,12 @@ fn code_pushing_segment_window_diagnostic(
     return "reject:no-local-use"
   }
   let value_id = @ir.hot_child_get(func, set_id, 0)
-  if !code_pushing_node_is_movable_value(func, value_id) {
+  if !code_pushing_node_is_movable_value(
+      func,
+      value_id,
+      traps_never_happen~,
+      ignore_implicit_traps~,
+    ) {
     return "reject:not-pushable-value"
   }
   let mut idx = set_idx + 1
@@ -1204,6 +1240,7 @@ fn code_pushing_try_sink_set_before_later_barrier(
       func,
       value_id,
       traps_never_happen=ctx.traps_never_happen,
+      ignore_implicit_traps=ctx.ignore_implicit_traps,
     ) {
     return false
   }
@@ -1256,8 +1293,14 @@ fn code_pushing_value_is_ordered_set_movable(
   func : @ir.HotFunc,
   value_id : Int,
   traps_never_happen? : Bool = false,
+  ignore_implicit_traps? : Bool = false,
 ) -> Bool {
-  code_pushing_node_is_movable_value(func, value_id, traps_never_happen~) ||
+  code_pushing_node_is_movable_value(
+    func,
+    value_id,
+    traps_never_happen~,
+    ignore_implicit_traps~,
+  ) ||
   code_pushing_node_is_local_get(func, value_id)
 }
 
@@ -1495,6 +1538,7 @@ fn code_pushing_try_sink_generated_prefix_sets_after_br_on_non_null(
             func,
             value_id,
             traps_never_happen=ctx.traps_never_happen,
+            ignore_implicit_traps=ctx.ignore_implicit_traps,
           ) ||
           code_pushing_node_has_any_local_get(func, value_id) {
           continue
@@ -1611,6 +1655,7 @@ fn code_pushing_try_sink_ordered_sets_after_push_point(
             func,
             value_id,
             traps_never_happen=ctx.traps_never_happen,
+            ignore_implicit_traps=ctx.ignore_implicit_traps,
           ) {
           return false
         }
@@ -1806,7 +1851,11 @@ fn code_pushing_try_sink_set_after_if_push_point(
   set_idx : Int,
 ) -> Bool {
   let diagnostic = code_pushing_segment_window_diagnostic(
-    func, region_ref, set_idx,
+    func,
+    region_ref,
+    set_idx,
+    traps_never_happen=ctx.traps_never_happen,
+    ignore_implicit_traps=ctx.ignore_implicit_traps,
   )
   if diagnostic != "candidate:if" &&
     diagnostic != "candidate:dropped-if" &&
@@ -1831,6 +1880,7 @@ fn code_pushing_try_sink_set_after_if_push_point(
       func,
       value_id,
       traps_never_happen=ctx.traps_never_happen,
+      ignore_implicit_traps=ctx.ignore_implicit_traps,
     ) {
     return false
   }
@@ -1963,6 +2013,7 @@ fn code_pushing_try_sink_consecutive_sets_into_if_arm(
             func,
             value_id,
             traps_never_happen=ctx.traps_never_happen,
+            ignore_implicit_traps=ctx.ignore_implicit_traps,
           ) {
           return false
         }
@@ -2133,12 +2184,21 @@ fn code_pushing_try_sink_set_into_if_then(
   }
   // Keep the non-mutating segment inventory exercised in normal builds while
   // mutation remains governed by the stricter source-backed checks below.
-  ignore(code_pushing_segment_window_diagnostic(func, region_ref, set_idx))
+  ignore(
+    code_pushing_segment_window_diagnostic(
+      func,
+      region_ref,
+      set_idx,
+      traps_never_happen=ctx.traps_never_happen,
+      ignore_implicit_traps=ctx.ignore_implicit_traps,
+    ),
+  )
   let value_id = @ir.hot_child_get(func, set_id, 0)
   if !code_pushing_node_is_movable_value(
       func,
       value_id,
       traps_never_happen=ctx.traps_never_happen,
+      ignore_implicit_traps=ctx.ignore_implicit_traps,
     ) {
     return false
   }

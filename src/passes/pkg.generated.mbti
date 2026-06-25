@@ -340,13 +340,14 @@ pub struct HotPassContext {
   verify_policy : HotPipelineVerifyPolicy
   closed_world : Bool
   traps_never_happen : Bool
+  ignore_implicit_traps : Bool
   optimize_level : Int
   shrink_level : Int
   trace : (String) -> Unit
   perf : HotPerfSession?
   module_ctx : @ir.HotModuleContext?
 }
-pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, traps_never_happen? : Bool, perf? : HotPerfSession?, module_ctx? : @ir.HotModuleContext?, optimize_level? : Int, shrink_level? : Int) -> Self
+pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, perf? : HotPerfSession?, module_ctx? : @ir.HotModuleContext?, optimize_level? : Int, shrink_level? : Int) -> Self
 
 pub enum HotPassRegistryCategory {
   HotPass
@@ -418,6 +419,7 @@ pub struct HotPipelineOptions {
   validate_final_module : Bool
   closed_world : Bool
   traps_never_happen : Bool
+  ignore_implicit_traps : Bool
   zero_filled_memory : Bool
   optimize_level : Int
   shrink_level : Int
@@ -426,7 +428,7 @@ pub struct HotPipelineOptions {
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
-pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, traps_never_happen? : Bool, zero_filled_memory? : Bool, optimize_level? : Int, shrink_level? : Int, stack_function_passes? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
+pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, traps_never_happen? : Bool, ignore_implicit_traps? : Bool, zero_filled_memory? : Bool, optimize_level? : Int, shrink_level? : Int, stack_function_passes? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
 
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly

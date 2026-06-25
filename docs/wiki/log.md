@@ -719,6 +719,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Filed [`raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md`](raw/research/0807-2026-06-20-optimize-instructions-oi-i-effectful-non-null-source-non-null-target.md) for the fifty-first `[O4Z-AUDIT-OI-I]` coverage sub-slice. Starshine already preserves an already-evaluated `drop(call $effect)` prefix while folding non-null-source non-null-target aggregate `ref.test` / `ref.cast` success and sibling-miss suffixes to `i32.const 1`, `local.get`, `i32.const 0`, or `unreachable` as appropriate.
 - Evidence: Binaryen oracle preserved `drop(call $effect)` before the folded success and miss results. Red-first did not apply because this was coverage for existing behavior. Focused `*non-null-source non-null-target ref.test*` passed `1/1`, `*ref.test and ref.cast*` passed `22/22`, `*ref*` passed `58/58`, final `*optimize-instructions*` passed `188/188`, `moon fmt`, `moon test src/passes` (`2718/2718`), native `src/cmd` build, `moon info`, and diff checks passed. Direct compare smoke compared `1/1` with one known scalar/default output-shape raw mismatch and no reference operations in failure artifacts.
+## [2026-06-25] passes/code-pushing | Implement ignore-implicit-traps
+
+- Filed [`raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md`](raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md) as a new source-backed widening slice after the old `[O4Z-AUDIT-CP-BINREP]` closeout.
+- Starshine now exposes distinct `--ignore-implicit-traps` / `-iit` plumbing through CLI/config/env/command options/hot-pass context, separate from TNH, and `code-pushing` uses it for the Binaryen v130 memory-load `br_if` movement while preserving store/call boundaries.
+- Validation: red-first CLI/context tests failed before implementation; final `moon fmt`, `moon info`, focused `src/cli`, `code_pushing_test.mbt`, focused `src/cmd --filter '*ignore*'`, native `src/cmd` build, help grep, and bounded `code-pushing-all` smoke `.tmp/pass-fuzz-code-pushing-iit-smoke-200` passed with `200/200` compared and `0` mismatches/failures under `--normalize local-cleanup-debris`.
+- Updated `0897`, `0901`, `agent-todo.md`, and the `code-pushing` wiki pages to mark the prior boundary superseded for implementation status without invalidating the old closeout.
+
 ## [2026-06-25] passes/code-pushing | Close replacement follow-up
 
 - Filed [`raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md`](raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md) as the closeout for `[O4Z-AUDIT-CP-BINREP]`.

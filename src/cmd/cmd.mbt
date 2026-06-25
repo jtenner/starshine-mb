@@ -118,6 +118,7 @@ pub struct CmdRunSummary {
   optimize_level : Int
   shrink_level : Int
   traps_never_happen : Bool
+  ignore_implicit_traps : Bool
   monomorphize_min_benefit : Int
   closed_world : Bool
   low_memory_unused : Bool
@@ -137,6 +138,7 @@ pub fn CmdRunSummary::new(
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
   traps_never_happen? : Bool = false,
+  ignore_implicit_traps? : Bool = false,
   monomorphize_min_benefit? : Int = 5,
   closed_world? : Bool = false,
   low_memory_unused? : Bool = false,
@@ -149,6 +151,7 @@ pub fn CmdRunSummary::new(
     optimize_level,
     shrink_level,
     traps_never_happen,
+    ignore_implicit_traps,
     monomorphize_min_benefit,
     closed_world,
     low_memory_unused,
@@ -251,6 +254,7 @@ pub struct OptimizeOptions {
   low_memory_unused : Bool
   low_memory_bound : UInt64
   traps_never_happen : Bool
+  ignore_implicit_traps : Bool
   validation_policy : OptimizeValidationPolicy
   stack_function_passes : Bool
 } derive(Eq, Debug)
@@ -271,6 +275,7 @@ pub fn OptimizeOptions::new(
   low_memory_unused? : Bool = false,
   low_memory_bound? : UInt64 = 1024UL,
   traps_never_happen? : Bool = false,
+  ignore_implicit_traps? : Bool = false,
   validation_policy? : OptimizeValidationPolicy = OptimizeValidationPolicy::final_module_only(),
   stack_function_passes? : Bool = true,
 ) -> OptimizeOptions {
@@ -284,6 +289,7 @@ pub fn OptimizeOptions::new(
     low_memory_unused,
     low_memory_bound,
     traps_never_happen,
+    ignore_implicit_traps,
     validation_policy,
     stack_function_passes,
   }
@@ -491,6 +497,7 @@ fn normalize_parse_result_paths(parsed : CliParseResult) -> CliParseResult {
     pass_flags=parsed.pass_flags.copy(),
     optimize_flags=parsed.optimize_flags.copy(),
     trap_mode=parsed.trap_mode,
+    ignore_implicit_traps=parsed.ignore_implicit_traps,
     monomorphize_min_benefit=parsed.monomorphize_min_benefit,
     low_memory_unused=parsed.low_memory_unused,
     low_memory_bound=parsed.low_memory_bound,
@@ -876,6 +883,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
   let pass_flags : Array[String] = []
   let optimize_flags : Array[CliOptimizationFlag] = []
   let mut trap_mode : TrapMode? = None
+  let mut ignore_implicit_traps = false
   let mut monomorphize_min_benefit : Int? = None
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
@@ -1088,6 +1096,18 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
           }
         None => ()
       }
+      let ignore_implicit_value = match options.get("ignoreImplicitTraps") {
+        Some(v) => Some(v)
+        None => options.get("ignore-implicit-traps")
+      }
+      match ignore_implicit_value {
+        Some(value) =>
+          match parse_json_bool(value) {
+            Some(parsed_value) => ignore_implicit_traps = parsed_value
+            None => ()
+          }
+        None => ()
+      }
       let optimize_level_value = match options.get("optimizeLevel") {
         Some(v) => Some(v)
         None => options.get("optimize-level")
@@ -1175,6 +1195,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       pass_flags~,
       optimize_flags~,
       trap_mode~,
+      ignore_implicit_traps~,
       monomorphize_min_benefit~,
       low_memory_unused~,
       low_memory_bound~,
@@ -1201,6 +1222,7 @@ fn parse_env_overlay(
   let pass_flags : Array[String] = []
   let optimize_flags : Array[CliOptimizationFlag] = []
   let mut trap_mode : TrapMode? = None
+  let mut ignore_implicit_traps = false
   let mut monomorphize_min_benefit : Int? = None
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
@@ -1275,6 +1297,16 @@ fn parse_env_overlay(
       Some(raw) =>
         match parse_trap_mode_name(raw) {
           Some(mode) => trap_mode = Some(mode)
+          None => ()
+        }
+      None => ()
+    }
+  }
+  if !cli.ignore_implicit_traps && !config.ignore_implicit_traps {
+    match (io.get_env)("STARSHINE_IGNORE_IMPLICIT_TRAPS") {
+      Some(raw) =>
+        match parse_bool_string(raw) {
+          Some(parsed_value) => ignore_implicit_traps = parsed_value
           None => ()
         }
       None => ()
@@ -1393,6 +1425,7 @@ fn parse_env_overlay(
     pass_flags~,
     optimize_flags~,
     trap_mode~,
+    ignore_implicit_traps~,
     monomorphize_min_benefit~,
     low_memory_unused~,
     low_memory_bound~,
@@ -1480,6 +1513,9 @@ fn merge_parse_results(
         None => config.trap_mode
       }
   }
+  let ignore_implicit_traps = cli.ignore_implicit_traps ||
+    env.ignore_implicit_traps ||
+    config.ignore_implicit_traps
   let config_path = match cli.config_path {
     Some(path) => Some(path)
     None =>
@@ -1542,6 +1578,7 @@ fn merge_parse_results(
     pass_flags~,
     optimize_flags~,
     trap_mode~,
+    ignore_implicit_traps~,
     monomorphize_min_benefit~,
     low_memory_unused~,
     low_memory_bound~,
@@ -1665,6 +1702,7 @@ fn make_optimize_options(
   optimize_level : Int,
   shrink_level : Int,
   traps_never_happen : Bool,
+  ignore_implicit_traps : Bool,
   monomorphize_min_benefit : Int,
   closed_world : Bool,
   low_memory_unused : Bool,
@@ -1680,6 +1718,7 @@ fn make_optimize_options(
     low_memory_unused~,
     low_memory_bound~,
     traps_never_happen~,
+    ignore_implicit_traps~,
     validation_policy=if debug_serial_passes {
       OptimizeValidationPolicy::after_segment()
     } else {
@@ -1703,6 +1742,7 @@ fn optimize_options_to_hot_pipeline_options(
     validate_final_module~,
     closed_world=options.closed_world,
     traps_never_happen=options.traps_never_happen,
+    ignore_implicit_traps=options.ignore_implicit_traps,
     zero_filled_memory=options.zero_filled_memory,
     optimize_level=options.optimize_level,
     shrink_level=options.shrink_level,
@@ -2757,6 +2797,7 @@ fn cmd_post_encode_repro_note(
   optimize_level : Int,
   shrink_level : Int,
   traps_never_happen : Bool,
+  ignore_implicit_traps : Bool,
   monomorphize_min_benefit : Int,
   closed_world : Bool,
   low_memory_unused : Bool,
@@ -2786,6 +2827,9 @@ fn cmd_post_encode_repro_note(
   if traps_never_happen {
     write_arg("--traps-never-happen")
   }
+  if ignore_implicit_traps {
+    write_arg("--ignore-implicit-traps")
+  }
   if monomorphize_min_benefit != 5 {
     write_arg("--monomorphize-min-benefit \{monomorphize_min_benefit}")
   }
@@ -2812,6 +2856,7 @@ test "cmd_post_encode_repro_note reflects active hot pipeline flags" {
     OptimizeOptions::new(),
     0,
     0,
+    false,
     false,
     5,
     false,
@@ -2969,6 +3014,9 @@ fn cmd_build_help_text() -> String {
     out, "--trap-mode <allow|never>", "Control whether optimizations assume traps may happen.",
   )
   append_help_line(out, "--traps-never-happen", "Alias for --trap-mode never.")
+  append_help_line(
+    out, "--ignore-implicit-traps, -iit", "Allow eligible passes to ignore implicit trap timing without enabling TNH.",
+  )
   append_help_line(out, "--traps-may-happen", "Alias for --trap-mode allow.")
   append_help_line(
     out, "--closed-world", "Allow passes to assume a closed-world module graph when required for whole-program GC rewrites.",
@@ -3586,6 +3634,7 @@ pub fn run_cmd_with_adapter(
     return Err(CmdError::NoInputFiles)
   }
   let traps_never_happen = resolve_traps_never_happen(merged)
+  let ignore_implicit_traps = resolve_ignore_implicit_traps(merged)
   let closed_world = resolve_closed_world(merged)
   let (optimize_level, shrink_level) = resolve_optimize_levels(
     merged.optimize_flags,
@@ -3629,6 +3678,7 @@ pub fn run_cmd_with_adapter(
     optimize_level,
     shrink_level,
     traps_never_happen,
+    ignore_implicit_traps,
     monomorphize_min_benefit,
     closed_world,
     low_memory_unused,
@@ -3638,7 +3688,7 @@ pub fn run_cmd_with_adapter(
   cmd_trace_emit(
     io,
     trace_optimize,
-    "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen} closed_world=\{closed_world}",
+    "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen} ignore_implicit_traps=\{ignore_implicit_traps} closed_world=\{closed_world}",
   )
   match merged.tracing {
     Some(level) =>
@@ -3951,8 +4001,8 @@ pub fn run_cmd_with_adapter(
               e,
               cmd_post_encode_repro_note(
                 io, mod, resolved_passes, options, optimize_level, shrink_level,
-                traps_never_happen, monomorphize_min_benefit, closed_world, low_memory_unused,
-                low_memory_bound,
+                traps_never_happen, ignore_implicit_traps, monomorphize_min_benefit,
+                closed_world, low_memory_unused, low_memory_bound,
               ),
             ),
           )
@@ -3989,6 +4039,7 @@ pub fn run_cmd_with_adapter(
       optimize_level~,
       shrink_level~,
       traps_never_happen~,
+      ignore_implicit_traps~,
       monomorphize_min_benefit~,
       closed_world~,
       low_memory_unused~,

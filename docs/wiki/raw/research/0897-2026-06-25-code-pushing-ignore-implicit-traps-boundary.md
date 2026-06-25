@@ -2,6 +2,8 @@
 
 Date: 2026-06-25
 
+Superseded for implementation status by [`0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md`](0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md). This note remains historical evidence for the prior accepted boundary and its reopening criteria.
+
 ## Question
 
 Can Starshine close `[CP-BINREP-003]` by matching or explicitly resolving the Binaryen v130 `code-pushing_ignore-implicit-traps.wast` surface without silently conflating it with `--traps-never-happen`?
