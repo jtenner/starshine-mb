@@ -3719,11 +3719,7 @@ fn hso_try_fold_pure_default_struct_set_chain(
   let replacement = @ir.hot_node_get(func, replacement_id)
   @ir.hot_delete_node(func, replacement_id)
   @ir.hot_replace_node(func, struct_new_id, replacement)
-  let segment_roots : Array[Int] = [roots[idx]]
-  for nop_idx = 0; nop_idx < set_count; nop_idx = nop_idx + 1 {
-    segment_roots.push(@ir.hot_build_nop(func))
-  }
-  Some((segment_roots, next_idx))
+  Some(([roots[idx]], next_idx))
 }
 
 ///|
