@@ -2360,6 +2360,133 @@ test "code-pushing keeps SFA set before br_on_cast_fail operand that reads it" {
 }
 
 ///|
+fn code_pushing_br_on_cast_prefix_boundary_fixture(fail : Bool) -> @ir.HotFunc {
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let nullable_i31 = @lib.RefType::new(true, i31_heap)
+  let nullable_i31_val = @lib.ValType::ref_type(nullable_i31)
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[any_ref], locals=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [@lib.ValType::i32(), any_ref]),
+  )
+  let block_id = @ir.hot_build_resolved_block(
+    func,
+    @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+    [],
+    [@lib.ValType::i32(), any_ref],
+    [],
+  )
+  let target = @ir.hot_control_node_label(func, block_id)
+  let branch_payload = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(
+      if fail {
+        @lib.Instruction::br_on_cast_fail(
+          @lib.LabelIdx::new(0U),
+          true,
+          any_heap,
+          true,
+          i31_heap,
+        )
+      } else {
+        @lib.Instruction::br_on_cast(
+          @lib.LabelIdx::new(0U),
+          true,
+          any_heap,
+          true,
+          i31_heap,
+        )
+      },
+    ),
+  )
+  let branch = @ir.hot_build_node(
+    func,
+    if fail {
+      @ir.HotOp::br_on_cast_fail()
+    } else {
+      @ir.HotOp::br_on_cast()
+    },
+    @ir.hot_type_intern_value(
+      func,
+      if fail {
+        nullable_i31_val
+      } else {
+        any_ref
+      },
+    ),
+    imm0=target,
+    imm1=branch_payload,
+    children=[
+      @ir.hot_build_const_i32(func, @lib.I32(42)),
+      @ir.hot_build_local_get(func, 0),
+    ],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+    @ir.hot_build_local_set(func, 1, @ir.hot_build_const_i32(func, @lib.I32(7))),
+    @ir.hot_build_drop(func, branch),
+    @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
+    @ir.hot_build_const_i32(func, @lib.I32(13)),
+    @ir.hot_build_ref_null(func, @lib.RefType::new(true, any_heap)),
+  ])
+  @ir.hot_root_append(func, block_id)
+  code_pushing_test_run_hot_func(func)
+}
+
+///|
+test "code-pushing boundary keeps SFA set before br_on_cast prefix payload" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps the pure set before a prefix-payload br_on_cast to a result block.
+  let func = code_pushing_br_on_cast_prefix_boundary_fixture(false)
+
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 5)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  let branch_drop = @ir.hot_region_get(func, body_ref, 1)
+  code_pushing_expect_op(func, branch_drop, "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_cast",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "drop")
+}
+
+///|
+test "code-pushing boundary keeps SFA set before br_on_cast_fail prefix payload" {
+  // Intentionally unsupported/Binaryen-stationary boundary: local Binaryen v130
+  // keeps the pure set before a prefix-payload br_on_cast_fail to a result block.
+  let func = code_pushing_br_on_cast_prefix_boundary_fixture(true)
+
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 5)
+  code_pushing_expect_op(
+    func,
+    @ir.hot_region_get(func, body_ref, 0),
+    "local.set",
+  )
+  let branch_drop = @ir.hot_region_get(func, body_ref, 1)
+  code_pushing_expect_op(func, branch_drop, "drop")
+  code_pushing_expect_op(
+    func,
+    @ir.hot_child_get(func, branch_drop, 0),
+    "br_on_cast_fail",
+  )
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "drop")
+}
+
+///|
 test "code-pushing boundary keeps pure SFA set before br_table switch push point" {
   let func = code_pushing_test_run_hot(
     (
