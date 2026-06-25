@@ -16,6 +16,20 @@ fn hso_struct_fields(field_count : Int) -> Array[@lib.FieldType] {
 }
 
 ///|
+fn hso_i32_eqref_struct_fields() -> Array[@lib.FieldType] {
+  [
+    @lib.FieldType::new(
+      @lib.StorageType::val_type(@lib.ValType::i32()),
+      @lib.Mut::var_(),
+    ),
+    @lib.FieldType::new(
+      @lib.StorageType::val_type(@lib.ValType::eqref_null()),
+      @lib.Mut::const_(),
+    ),
+  ]
+}
+
+///|
 fn hso_test_module_with_locals(
   field_count : Int,
   local_types : Array[@lib.ValType],
@@ -529,6 +543,142 @@ fn hso_memory_table_test_module(
           @lib.Limits::i32(1U, None),
         ),
         None,
+      ),
+    ]),
+  )
+}
+
+///|
+fn hso_i32_eqref_memory_table_test_module_with_results_and_locals(
+  body : Array[@lib.Instruction],
+  results : Array[@lib.ValType],
+  local_types : Array[@lib.ValType],
+) -> @lib.Module {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_i32_eqref_struct_fields()),
+    ),
+  )
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], results)),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::from_types(local_types), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
+fn hso_i32_eqref_memory_table_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let pair = @lib.TypeIdx::new(0U)
+  let struct_ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  hso_i32_eqref_memory_table_test_module_with_results_and_locals(
+    body,
+    [@lib.ValType::i32()],
+    [struct_ref_type],
+  )
+}
+
+///|
+fn hso_i32_eqref_memory_table_void_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let pair = @lib.TypeIdx::new(0U)
+  let struct_ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  hso_i32_eqref_memory_table_test_module_with_results_and_locals(body, [], [
+    struct_ref_type,
+  ])
+}
+
+///|
+fn hso_i32_eqref_memory_table_i32_local_void_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let pair = @lib.TypeIdx::new(0U)
+  let struct_ref_type = @lib.ValType::ref_null(@lib.HeapType::new(pair))
+  hso_i32_eqref_memory_table_test_module_with_results_and_locals(body, [], [
+    @lib.ValType::i32(),
+    struct_ref_type,
+  ])
+}
+
+///|
+fn hso_type7_i32_eqref_memory_table_i32_local_void_test_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let struct_idx = @lib.TypeIdx::new(7U)
+  let struct_ref_type = @lib.ValType::ref_null(@lib.HeapType::new(struct_idx))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let empty_struct = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::struct_([])),
+  )
+  let wrapper_struct = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(
+            @lib.ValType::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(5U))),
+          ),
+          @lib.Mut::const_(),
+        ),
+      ]),
+    ),
+  )
+  let target_struct = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_(hso_i32_eqref_struct_fields()),
+    ),
+  )
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      func_type, func_type, empty_struct, empty_struct, empty_struct, empty_struct,
+      wrapper_struct, target_struct,
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(
+          @lib.RefType::abs(@lib.AbsHeapType::func()),
+          @lib.Limits::i32(1U, None),
+        ),
+        None,
+      ),
+    ]),
+  )
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32(), struct_ref_type]),
+        @lib.Expr::new(body),
       ),
     ]),
   )
@@ -1259,6 +1409,66 @@ fn hso_memory_table_test_run(
     Err(err) =>
       abort(
         "unexpected invalid memory+table heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_i32_eqref_memory_table_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_i32_eqref_memory_table_test_module(body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid i32/eqref memory+table heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_i32_eqref_memory_table_void_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_i32_eqref_memory_table_void_test_module(body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid void i32/eqref memory+table heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_i32_eqref_memory_table_i32_local_void_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_i32_eqref_memory_table_i32_local_void_test_module(body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid i32-local void i32/eqref memory+table heap-store-optimization test fixture: \{err}",
+      )
+  }
+  run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
+}
+
+///|
+fn hso_type7_i32_eqref_memory_table_i32_local_void_test_run(
+  body : Array[@lib.Instruction],
+) -> Result[@lib.Module, String] {
+  let mod_ = hso_type7_i32_eqref_memory_table_i32_local_void_test_module(body)
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "unexpected invalid type7 i32-local void i32/eqref memory+table heap-store-optimization test fixture: \{err}",
       )
   }
   run_hot_pipeline(mod_, HotPipelineOptions::new(), ["heap-store-optimization"])
@@ -3430,6 +3640,180 @@ test "heap-store-optimization folds memory.size constructors across void try_tab
     Err(err) =>
       fail(
         "expected memory.size/void-try_table-table-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds mixed i32 eqref constructors across void try_table table stores" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_i32_eqref_memory_table_test_run([
+      @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      @lib.Instruction::struct_new(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::func()),
+              ),
+              @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+            ]),
+          ),
+        ]),
+      ),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::i32_const(@lib.I32(100)),
+      @lib.Instruction::struct_set(pair, 0),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::struct_get(pair, 0),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected mixed i32/eqref void-try_table table-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds unused mixed i32 eqref constructors across void try_table table stores" {
+  let pair = @lib.TypeIdx::new(0U)
+  let local0 = @lib.LocalIdx::new(0U)
+  let optimized = match
+    hso_i32_eqref_memory_table_void_test_run([
+      @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      @lib.Instruction::struct_new(pair),
+      @lib.Instruction::local_set(local0),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::func()),
+              ),
+              @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+            ]),
+          ),
+        ]),
+      ),
+      @lib.Instruction::local_get(local0),
+      @lib.Instruction::i32_const(@lib.I32(100)),
+      @lib.Instruction::struct_set(pair, 0),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unused mixed i32/eqref void-try_table table-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds generated mixed void try_table table stores with preceding i32 local" {
+  let pair = @lib.TypeIdx::new(0U)
+  let struct_local = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_i32_eqref_memory_table_i32_local_void_test_run([
+      @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      @lib.Instruction::struct_new(pair),
+      @lib.Instruction::local_set(struct_local),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::func()),
+              ),
+              @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+            ]),
+          ),
+        ]),
+      ),
+      @lib.Instruction::local_get(struct_local),
+      @lib.Instruction::i32_const(@lib.I32(100)),
+      @lib.Instruction::struct_set(pair, 0),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected generated mixed void-try_table table-store heap-store-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
+test "heap-store-optimization folds type7 mixed void try_table table stores" {
+  let struct_idx = @lib.TypeIdx::new(7U)
+  let struct_local = @lib.LocalIdx::new(1U)
+  let optimized = match
+    hso_type7_i32_eqref_memory_table_i32_local_void_test_run([
+      @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::eq())),
+      @lib.Instruction::struct_new(struct_idx),
+      @lib.Instruction::local_set(struct_local),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(0)),
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::func()),
+              ),
+              @lib.Instruction::table_set(@lib.TableIdx::new(0U)),
+            ]),
+          ),
+        ]),
+      ),
+      @lib.Instruction::local_get(struct_local),
+      @lib.Instruction::i32_const(@lib.I32(100)),
+      @lib.Instruction::struct_set(struct_idx, 0),
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected type7 mixed void-try_table table-store heap-store-optimization success, got \{err}",
       )
   }
 

@@ -40,6 +40,8 @@ Results:
 
 ## Deferred generated try-table variant
 
+Supersession: follow-up research note `1025-2026-06-24-heap-store-optimization-try-table-profile-coverage.md` adds focused mixed-field coverage and re-enables this generated profile family after a fresh explicit native-binary rebuild. The paragraph below records the original observation from this slice; it is no longer the current status.
+
 A temporary attempt to include a generated void `try_table` / `table.set` profile case exposed a remaining generated-shape parity gap and was not kept in the profile. The generated case used the HSO profile's two-field struct shape `(field (mut i32)) (field eqref)`, a `memory.size` constructor operand, a `try_table` wrapper around `table.set`, and a later same-field `struct.set`.
 
 Observed on temporary out dirs such as `.tmp/pass-fuzz-heap-store-optimization-profile-expanded-fixed3-20`: Binaryen folded the later store into the constructor and left only its usual `nop` debris, while Starshine preserved the constructor, wrapper, and later `struct.set`. Both outputs validated, but this is not classified as an accepted Starshine win; it remains a narrow HSO-G parity gap because no measured benefit justifies the output-shape difference.

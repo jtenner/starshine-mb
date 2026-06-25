@@ -11140,6 +11140,39 @@ fn gen_valid_append_heap_store_optimization_body_slice(
   out.push(Instruction::local_get(local_idx))
   out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
   out.push(Instruction::drop())
+
+  // Void try_table/table.set roots exercise the wrapped trySwap path. The
+  // table root is deliberately non-throwing and does not touch the target
+  // local, so Binaryen folds the later same-local struct.set into the fresh
+  // constructor and preserves the table side effect before the new local.set.
+  if !env.mems.is_empty() && !env.tables.is_empty() {
+    let TableType(table_rt, _) = env.tables[0]
+    if ValType::ref_type(table_rt) == ValType::funcref() {
+      out.push(Instruction::memory_size(MemIdx::new(0U)))
+      out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+      out.push(Instruction::struct_new(struct_idx))
+      out.push(Instruction::local_set(local_idx))
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::try_table(
+              BlockType::void_(),
+              [Catch::all(LabelIdx::new(0U))],
+              Expr::new([
+                Instruction::i32_const(I32(0)),
+                Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+                Instruction::table_set(TableIdx::new(0U)),
+              ]),
+            ),
+          ]),
+        ),
+      )
+      out.push(Instruction::local_get(local_idx))
+      out.push(Instruction::i32_const(I32(100)))
+      out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+    }
+  }
 }
 
 ///|

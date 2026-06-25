@@ -5,6 +5,7 @@ last_reviewed: 2026-06-24
 sources:
   - ../../../raw/research/1023-2026-06-24-heap-store-optimization-genvalid-profile.md
   - ../../../raw/research/1024-2026-06-24-heap-store-optimization-default-profile-and-void-try-table.md
+  - ../../../raw/research/1025-2026-06-24-heap-store-optimization-try-table-profile-coverage.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
@@ -24,7 +25,8 @@ Dedicated GenValid profile: `heap-store-optimization` (alias: `hso`). It emits v
 - block-local `local.set(struct.new)` followed by same-local `struct.set`;
 - immediate `local.tee(struct.new)` stores;
 - repeated same-field stores where the final value wins;
-- `struct.new_default` materialization followed by same-local `struct.set`.
+- `struct.new_default` materialization followed by same-local `struct.set`;
+- non-throwing void `try_table` / `table.set` wrappers between a fresh `memory.size` constructor and a later same-local `struct.set`.
 
 Recommended dedicated-profile smoke lane:
 
@@ -40,4 +42,4 @@ Manifest triage fields:
 - `selected_profile`: `heap-store-optimization` because this is currently a leaf profile;
 - `facts.has_gc_constructors` and `facts.has_gc_accessors`: expected true for emitted profile cases.
 
-Descriptor/control-flow/store-barrier generators remain future work. Research note `1024` records a temporary void `try_table` / `table.set` generator attempt that exposed a narrow generated-shape HSO-G parity gap, so do not add that family to the profile until the generated immutable/ref-field variant is fixed or explicitly classified.
+Descriptor/control-flow/store-barrier generators beyond the current non-throwing void `try_table` / `table.set` root remain future work. Research note `1025` re-enabled the `1024` generated try-table family after focused mixed-field tests and a rebuilt 20-case dedicated-profile smoke lane were compare-normalized green.
