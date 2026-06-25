@@ -17345,3 +17345,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded `docs/wiki/raw/research/0893-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-seven-later.md` for the twenty-fourth OI-M tuple/multivalue sub-slice.
 - Binaryen `version_130` preserves two earlier calls, a selected trapping `i32.load`, seven later calls, and the selected reload order through tuple scratch; Starshine direct-HOT coverage now proves the same order with two earlier drops, a selected temp, seven later drops, and final reload.
 - Updated the optimize-instructions source index, WAT shapes, Starshine strategy/HOT strategy, and active backlog so remaining OI-M work stays focused on public tuple fixtures, multi-result tuple-scratch localization, full-simplify replay, tuple-optimization neighbor reductions, and broader tee/drop reconstruction.
+## 2026-06-24 code-pushing br_on_non_null inventory
+
+- Recorded `docs/wiki/raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md` for `[O4Z-AUDIT-CP-V]`.
+- Binaryen `wasm-opt version 130` probes show `code-pushing` moves single-set and adjacent ordered multi-set windows after a one-result-block `br_on_non_null`, while a guard-read shape remains stationary.
+- No Starshine behavior changed in this slice: `br_on_non_null` carries an implicit non-null reference to the taken label, so HOT branch-payload verification/lowering needs a dedicated red-first IR slice before code-pushing can safely widen.
+- Updated the code-pushing dossier, WAT shape catalog, fuzzing profile notes, port-readiness page, and active backlog to keep the blocker and next implementation path visible.

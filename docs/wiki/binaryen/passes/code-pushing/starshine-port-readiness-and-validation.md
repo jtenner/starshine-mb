@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md
   - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
   - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
   - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
@@ -91,6 +92,8 @@ The twentieth 2026-06-24 audit slice added adjacent ordered multi-set movement f
 
 The twenty-first 2026-06-24 audit slice added dropped void-label `br_on_null` movement in [`0826`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md). The conditional-branch shape gate now accepts zero-arity block/loop-label `BrOnNull` roots under a `drop`; existing whole-root accounting rejects guard operands that read moved locals, and both single-set plus adjacent ordered multi-set movement preserve source order. The aggregate-safe `code-pushing-br-on-null` GenValid leaf is included in `code-pushing-all`.
 
+The twenty-second 2026-06-24 audit slice inventoried `br_on_non_null` in [`0827`](../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md). Binaryen `version_130` moves single-set and adjacent multi-set windows after a one-result-block `br_on_non_null`, and keeps a guard-read shape stationary. Starshine did not widen behavior in this slice: `br_on_non_null` carries an implicit non-null reference to the taken label, so HOT branch-payload verification/lowering needs a dedicated red-first IR slice before code-pushing mutation can be made safe.
+
 The accepted criteria are pass-wide: match Binaryen semantics, emit valid wasm after safe transforms, and stay at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`). The current debug-artifact timing, about 1658ms for Starshine versus about 1311ms for Binaryen, clears that floor.
 
 Current Starshine code locations:
@@ -151,7 +154,7 @@ Binaryen's source-backed strategy is broader than the local subset:
    - Simple `br_table` switch boundary audit completed in [`0822`](../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md): Binaryen v130 kept single-set and adjacent two-set windows before a no-branch-value `br_table` to the enclosing void block label, so Starshine protects that no-mutation boundary while leaving broader switch work open.
    - Atomics/GC boundary slice completed in [`0823`](../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md): a narrow non-null `struct.get` from `local.get` may cross atomic loads for into-`if` and segment movement, while atomic stores remain memory-write boundaries.
    - Branch-value `br_if` single-set movement completed in [`0824`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md), and adjacent local-independent branch-value `br_if` ordered multi-set movement completed in [`0825`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md). Broader branch-value windows remain open.
-   - Dropped void-label `br_on_null` single-/adjacent-multi-set movement completed in [`0826`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md). Broader `br_on_*` forms, branch payload/reference-carrying forms, and WAT-surface coverage remain open.
+   - Dropped void-label `br_on_null` single-/adjacent-multi-set movement completed in [`0826`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md). `br_on_non_null` is Binaryen-positive in [`0827`](../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md), but remains blocked on HOT branch-payload representation/verification proof before mutation. Broader `br_on_*` forms, branch payload/reference-carrying forms, and WAT-surface coverage remain open.
    - Future work should add other push points or broader multi-set movement only one family at a time.
    - Keep all broader trap/GC/EH candidates negative until source-backed tests land.
 3. **Unreachable-arm post-use slice**
@@ -196,6 +199,7 @@ Starshine's older direct `code-pushing` subset remains supported by its 2026-05 
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
+- [`../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md`](../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md)
 - [`../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md`](../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md)
 - [`../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md`](../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md)
 - [`../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md)

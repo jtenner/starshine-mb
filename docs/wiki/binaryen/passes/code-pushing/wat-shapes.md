@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md
   - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
   - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
   - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
@@ -229,6 +230,32 @@ Binaryen-backed after:
 ```
 
 Starshine now implements this narrow dropped `br_on_null` subset for zero-arity block/loop labels when the guard operand does not read the moved local and every read is a same-region suffix read after the dropped branch. The adjacent local-independent multi-set variant is also source-backed and preserves source order. A guard-read variant such as `(local.get $tmp) (br_on_null $exit)` keeps the set stationary.
+
+## Shape 4d: `br_on_non_null` is Binaryen-positive but Starshine-blocked
+
+Binaryen-backed before:
+
+```wat
+(block $exit (result externref)
+  (local.set $tmp (i32.const 7))
+  (local.get $r)
+  (br_on_non_null $exit)
+  (drop (local.get $tmp))
+  (ref.null extern))
+```
+
+Binaryen-backed after:
+
+```wat
+(block $exit (result externref)
+  (br_on_non_null $exit
+    (local.get $r))
+  (local.set $tmp (i32.const 7))
+  (drop (local.get $tmp))
+  (ref.null noextern))
+```
+
+Binaryen also moves adjacent local-independent SFA sets after this push point while preserving source order, and keeps a set stationary when the `br_on_non_null` guard reads that moved local. Starshine does not implement this family yet because `br_on_non_null`'s taken edge implicitly carries the non-null guard reference to a one-result label; HOT branch-payload verification/lowering must be proved or fixed before code-pushing can safely mutate it.
 
 ## Shape 5: ordered multi-set movement after a void `if`
 
@@ -684,6 +711,7 @@ Before expecting a `code-pushing` rewrite, ask:
 
 ## Sources
 
+- [`../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md`](../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md)
 - [`../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md)
 - [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
 - [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)

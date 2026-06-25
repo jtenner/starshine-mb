@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-24
 sources:
+  - ../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md
   - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
   - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
   - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
@@ -365,10 +366,11 @@ Read these together with this page:
 
 ## Bottom line
 
-Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the analyzer/segment inventory exists, and the ordinary-void-`if`, dropped value-`if`, no-branch-value block-target and loop-target `br_if`, branch-value block-target `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, no-branch-value `br_if` multi-set, branch-value `br_if` multi-set, direct local-copy multi-set, `nop`-window multi-set, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, bounded ordinary-/dropped-`if` `drop(global.get)`-window multi-set, and narrow non-null `struct.get`/atomics movement slices now consume that inventory. Simple no-branch-value `br_table` block-exit windows are tested as a Binaryen-stationary no-mutation boundary, not as switch mutation parity. The next active audit work is still broader source-backed segment/push-point parity, with general ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
+Current Starshine `code-pushing` is active, but `[O4Z-AUDIT-CP]` is not closed under the current release-gating standard. The older direct subset remains supported by its 2026-05 evidence, the 2026-06-20 post-use slice is implemented, the analyzer/segment inventory exists, and the ordinary-void-`if`, dropped value-`if`, no-branch-value block-target and loop-target `br_if`, branch-value block-target `br_if`, ordinary-`if` multi-set, dropped-`if` multi-set, no-branch-value `br_if` multi-set, branch-value `br_if` multi-set, dropped `br_on_null`, direct local-copy multi-set, `nop`-window multi-set, `drop(const)`-window multi-set, `drop(local.get)`-window multi-set, bounded ordinary-/dropped-`if` `drop(global.get)`-window multi-set, and narrow non-null `struct.get`/atomics movement slices now consume that inventory. Simple no-branch-value `br_table` block-exit windows are tested as a Binaryen-stationary no-mutation boundary, not as switch mutation parity. Binaryen-positive `br_on_non_null` is inventoried but blocked on HOT implicit branch-payload verification/lowering proof before mutation. The next active audit work is still broader source-backed segment/push-point parity, with general ordered-before / atomics boundaries carried forward from the `version_130` refresh. The pass remains intentionally outside public presets until ordered-neighborhood proof lands.
 
 ## Sources
 
+- [`../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md`](../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md)
 - [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
 - [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
