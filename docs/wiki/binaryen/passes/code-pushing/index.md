@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md
   - ../../../raw/research/0846-2026-06-25-code-pushing-br-on-null-prefix-boundary.md
   - ../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md
   - ../../../raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md
@@ -185,7 +186,7 @@ For docs maintenance:
 - search for stale “no `Pusher`,” “no segment selection,” or “no local profitability” wording in this folder;
 - keep the no-two-live-arm-duplication warning, but do not erase Binaryen's real `Pusher` model.
 
-The 2026-06-25 regular GenValid 100000 closeout-progress lane in [`../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md`](../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md) compared `100000/100000` with `100000` normalized matches and no mismatches or failures under `--normalize local-cleanup-debris`. This satisfies the large regular-lane evidence requirement as of that source state, but `[O4Z-AUDIT-CP]` remains open until remaining source gaps are resolved or narrowly accepted and the final matrix/stop condition are then-current.
+The 2026-06-25 regular GenValid 100000 closeout-progress lane in [`../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md`](../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md) compared `100000/100000` with `100000` normalized matches and no mismatches or failures under `--normalize local-cleanup-debris`. The post-boundary dedicated `code-pushing-all` refresh in [`../../../raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md`](../../../raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md) compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, and had no raw mismatches or failures with all 19 aggregate leaves sampled. These satisfy large regular-lane and current dedicated-lane closeout-progress evidence as of that source state, but `[O4Z-AUDIT-CP]` remains open until remaining source gaps are resolved or narrowly accepted and the final matrix/stop condition are then-current.
 
 For current `[O4Z-AUDIT-CP]` widening:
 

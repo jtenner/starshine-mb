@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-25
 sources:
+  - ../../../raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md
   - ../../../raw/research/0846-2026-06-25-code-pushing-br-on-null-prefix-boundary.md
   - ../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md
   - ../../../raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md
@@ -205,7 +206,7 @@ Binaryen's source-backed strategy is broader than the local subset:
 4. **Effect-checked widening**
    - Only after the earlier slices are green, widen beyond the current strict movable-value gates using Starshine's effect model.
 5. **Dedicated profile growth**
-   - `code-pushing-all` now covers the implemented `if`-arm, after-`if`, dropped-`if`, narrow `br_if`, value-block-target `br_if`, dropped `br_on_null`, one-result-block `br_on_non_null`, two-result block-label `br_on_non_null` prefix-payload, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, ordinary-`if` ordered multi-set, dropped-`if` ordered multi-set, `br_if` ordered multi-set, local-copy ordered multi-set, `nop`-separated ordered multi-set, loop-target `br_if`, `drop(const)`-separated ordered multi-set, `drop(local.get)`-separated ordered multi-set, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated ordered multi-set positive families. Add aggregate leaves when switch/`br_table`, broader conditional branches, broader ordered multi-set movement, or broader atomics/GC/EH/trap-policy slices land.
+   - `code-pushing-all` now covers the implemented `if`-arm, after-`if`, dropped-`if`, narrow `br_if`, value-block-target `br_if`, dropped `br_on_null`, one-result-block `br_on_non_null`, two-result block-label `br_on_non_null` prefix-payload, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, ordinary-`if` ordered multi-set, dropped-`if` ordered multi-set, `br_if` ordered multi-set, local-copy ordered multi-set, `nop`-separated ordered multi-set, loop-target `br_if`, `drop(const)`-separated ordered multi-set, `drop(local.get)`-separated ordered multi-set, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated ordered multi-set positive families. The current post-boundary 10000-case dedicated lane in [`0847`](../../../raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md) compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, and had no raw mismatches or failures with all 19 leaves selected. Add aggregate leaves when switch/`br_table`, broader conditional branches, broader ordered multi-set movement, or broader atomics/GC/EH/trap-policy slices land.
 6. **Preset slice**
    - Revisit public `optimize` / `shrink` placement only after direct-pass semantic parity and the neighboring `simplify-locals-nostructure` work are honest.
 
