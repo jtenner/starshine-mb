@@ -3781,26 +3781,29 @@ fn hso_process_region(
   let mut changed = false
 
   for idx = 0; idx < roots.length(); idx = idx + 1 {
-    let child_external_roots : Array[Int] = []
-    for suffix_idx = idx + 1
-        suffix_idx < roots.length()
-        suffix_idx = suffix_idx + 1 {
-      child_external_roots.push(roots[suffix_idx])
+    let root_id = roots[idx]
+    // The nested-region descent can only do work for control-containing roots.
+    // Keep straight-line roots out before constructing suffix/external context.
+    if (
+        hso_effects_for_node(func, node_masks, root_id) &
+        @ir.EFFECT_MASK_CONTROL
+      ) !=
+      0U {
+      let child_external_roots : Array[Int] = []
+      for suffix_idx = idx + 1
+          suffix_idx < roots.length()
+          suffix_idx = suffix_idx + 1 {
+        child_external_roots.push(roots[suffix_idx])
+      }
+      for external_root_id in external_roots {
+        child_external_roots.push(external_root_id)
+      }
+      changed = hso_process_node_regions(
+          cache, type_cache, func, module_ctx, node_masks, root_id, active_catch_depth,
+          child_external_roots,
+        ) ||
+        changed
     }
-    for external_root_id in external_roots {
-      child_external_roots.push(external_root_id)
-    }
-    changed = hso_process_node_regions(
-        cache,
-        type_cache,
-        func,
-        module_ctx,
-        node_masks,
-        roots[idx],
-        active_catch_depth,
-        child_external_roots,
-      ) ||
-      changed
   }
 
   let next_roots : Array[Int] = []
