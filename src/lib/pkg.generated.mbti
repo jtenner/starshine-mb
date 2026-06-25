@@ -1971,6 +1971,7 @@ pub fn Instruction::ref_as_non_null() -> Self
 pub fn Instruction::ref_cast(Bool, HeapType) -> Self
 pub fn Instruction::ref_cast_desc_eq(Bool, HeapType) -> Self
 pub fn Instruction::ref_cast_desc_eq_type(RefType) -> Self
+pub fn Instruction::ref_cast_exact(Bool, HeapType) -> Self
 pub fn Instruction::ref_cast_type(RefType) -> Self
 pub fn Instruction::ref_eq() -> Self
 pub fn Instruction::ref_func(FuncIdx) -> Self

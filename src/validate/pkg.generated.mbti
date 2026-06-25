@@ -1076,6 +1076,7 @@ pub struct GenValidFeatureToggles {
   allow_name_custom_sections : Bool
   allow_typed_body_generator : Bool
   allow_ssa_nomerge_body_generator : Bool
+  allow_heap_store_optimization_body_generator : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self
@@ -1168,11 +1169,13 @@ pub enum GenValidProfile {
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
+  HeapStoreOptimizationProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
   SsaNomergeStressProfile
   SsaNomergeAllProfile
+  RandomAllProfilesProfile
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidProfileMember {
