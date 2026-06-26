@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-26] passes/optimize-instructions | Cover size-20 bulk-memory boundary
+
+- Added OI-G public-pipeline boundary coverage for size-20 `memory.copy` and `memory.fill`.
+- Binaryen `version_130` keeps both bulk operations rather than synthesizing a SIMD 16-byte lane plus trailing scalar lowering; Starshine now locks the same keep-spelling behavior outside the exact 1/2/4/8/16 lowering set.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-copy-size20-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*size-20 bulk-memory*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization four-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a multivalue block with four later non-selected effects under `optimize-instructions -> tuple-optimization`.
