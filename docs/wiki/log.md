@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover size-27 bulk-memory boundary
+
+- Added OI-G public-pipeline boundary coverage for size-27 `memory.copy` and `memory.fill`.
+- Binaryen `version_130` keeps both bulk operations rather than synthesizing SIMD, eight-byte, two-byte, and byte tail lowering; Starshine now locks the same keep-spelling behavior outside the exact 1/2/4/8/16 lowering set.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-copy-size27-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*size-27 bulk-memory*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization eleven-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for an eleven-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
