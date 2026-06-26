@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold i64.extend_i32_u maxBits compares
+
+- Added OI-D red-first coverage for `i64.extend_i32_u` as an unsigned maxBits producer.
+- Starshine now folds out-of-range compares over `i64.extend_i32_u` and rewrites in-range nonnegative signed relational comparisons to unsigned spelling, while keeping dynamic-shift and mixed signed-constant relational boundaries open.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-i64-extend-i32-u-maxbits-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*i64.extend_i32_u unsigned maxBits*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-four-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a twenty-four-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

@@ -1988,6 +1988,38 @@ test "optimize-instructions folds i32.wrap_i64 unsigned maxBits compares" {
 }
 
 ///|
+test "optimize-instructions folds i64.extend_i32_u unsigned maxBits compares" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i64.extend_i32_u
+        #|    i64.const -1
+        #|    i64.lt_s)
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i64.extend_i32_u
+        #|    i64.const 42
+        #|    i64.ge_s))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected i64.extend_i32_u maxBits optimize success, got \{err}")
+  }
+  let folded_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(folded_pretty.contains("i32.const I32(0)"), msg=folded_pretty)
+  assert_false(folded_pretty.contains("i64.lt_s"), msg=folded_pretty)
+  let spelling_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(spelling_pretty.contains("i64.ge_u"), msg=spelling_pretty)
+  assert_false(spelling_pretty.contains("i64.ge_s"), msg=spelling_pretty)
+}
+
+///|
 test "optimize-instructions rewrites unsigned maxBits signed compare spelling" {
   let optimized = match
     pass_test_run_pipeline(
