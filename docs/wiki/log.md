@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifteen-effect boundary
+
+- Added OI-M public-pipeline boundary coverage for a fifteen-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
+- Binaryen `version_130` localizes this probe through tuple scratch plus scalar locals, while Starshine keeps the public block/drop spelling; the mismatch remains an open tuple-scratch localization gap.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-optimization-fifteen-effects-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*fifteen later effects through tuple-optimization*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover size-30 bulk-memory boundary
 
 - Added OI-G public-pipeline boundary coverage for size-30 `memory.copy` and `memory.fill`.
