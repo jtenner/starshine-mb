@@ -19523,3 +19523,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded `docs/wiki/raw/research/1162-2026-06-26-optimize-instructions-oi-g-size22-bulk-boundary.md` for the sixty-sixth OI-G memory/load-store sub-slice.
 - Binaryen `version_130` keeps size-22 `memory.copy` and `memory.fill` as bulk operations rather than synthesizing a SIMD 16-byte lane plus scalar tail; Starshine now has public-pipeline boundary coverage proving it keeps the same spelling.
 - Updated the optimize-instructions source index, Starshine strategy, and active backlog so remaining OI-G work stays focused on broader stored-value, localization, raw-gate, load/store, and zero-size trap-relaxed surfaces.
+
+## 2026-06-26 optimize-instructions OI-M tuple-optimization seven-effect boundary
+
+- Recorded `docs/wiki/raw/research/1163-2026-06-26-optimize-instructions-oi-m-tuple-optimization-seven-effects-boundary.md` for the forty-ninth OI-M tuple/multivalue sub-slice.
+- Binaryen `version_130` localizes a public multivalue block with seven later non-selected effects through tuple scratch plus scalar locals under `--optimize-instructions --tuple-optimization`; Starshine keeps the public block/seven-drop spelling.
+- Kept this as boundary/status evidence, not parity: tuple-scratch reconstruction/localization remains active OI-M work.
