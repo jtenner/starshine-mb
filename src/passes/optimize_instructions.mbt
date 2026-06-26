@@ -5007,6 +5007,20 @@ fn optimize_instructions_i32_unary_local_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::i32_popcnt(),
+  ) ||
+  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_extend8s(),
+  ) ||
+  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_extend16s(),
   )
 }
 

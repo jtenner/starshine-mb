@@ -871,9 +871,11 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   // same-order `i32.shl`, `i32.shr_u`, `i32.shr_s`, `i32.rotl`, and
   // `i32.rotr` local/constant payload shells. Follow-up probe
   // `.tmp/oi-select-refi31-unary-arms-probe.wat` adds direct `i32.eqz`,
-  // `i32.clz`, `i32.ctz`, and `i32.popcnt` local-payload shells. This
-  // stays at direct same-payload i31 construction, not arbitrary reference
-  // or broad structural expression equality.
+  // `i32.clz`, `i32.ctz`, and `i32.popcnt` local-payload shells. Follow-up
+  // probe `.tmp/oi-select-refi31-signext-arms-probe.wat` adds direct
+  // `i32.extend8_s` and `i32.extend16_s` local-payload shells. This stays
+  // at direct same-payload i31 construction, not arbitrary reference or
+  // broad structural expression equality.
   let const_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result (ref i31)) (select (ref.i31 (i32.const 7)) (ref.i31 (i32.const 7)) (local.get 0))))",
   )
@@ -1016,6 +1018,25 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   match @ir.hot_node_exact_instr(popcnt_func, popcnt_root) {
     Some(@lib.Instruction::RefI31) => ()
     _ => fail("expected identical pure ref.i31 popcnt arms to fold to ref.i31")
+  }
+
+  let extend8_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.extend8_s (local.get 0))) (ref.i31 (i32.extend8_s (local.get 0))) (local.get 1))))",
+  )
+  let extend8_root = @ir.hot_root_get(extend8_func, 0)
+  match @ir.hot_node_exact_instr(extend8_func, extend8_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 extend8 arms to fold to ref.i31")
+  }
+
+  let extend16_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.extend16_s (local.get 0))) (ref.i31 (i32.extend16_s (local.get 0))) (local.get 1))))",
+  )
+  let extend16_root = @ir.hot_root_get(extend16_func, 0)
+  match @ir.hot_node_exact_instr(extend16_func, extend16_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ =>
+      fail("expected identical pure ref.i31 extend16 arms to fold to ref.i31")
   }
 }
 
