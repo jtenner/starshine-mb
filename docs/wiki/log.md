@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-seven-effect boundary
+
+- Added OI-M public-pipeline boundary coverage for a fifty-seven-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
+- Binaryen `version_130` localizes this probe through `tuple.make 58` plus tuple/scalar scratch locals, while Starshine keeps the public block/drop/call/local.get spelling; the mismatch remains an open tuple-scratch localization gap.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-optimization-fifty-seven-effects-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*fifty-seven later effects through tuple-optimization*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Fold identical compare select arms
 
 - Extended the OI-F identical pure `select` arm fold to direct i32/i64/f32/f64 local/constant compare shells.
@@ -18389,6 +18395,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the expanded upstream-only registry now includes `global-effects`, the human-readable catalogs link the new folder pages, and future recursive campaign threads can see that this candidate is no longer an uncovered expansion target.
 
 # Wasm Knowledge Base Log
+
+## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-seven-effect boundary
+
+- Added OI-M public-pipeline boundary coverage for a fifty-seven-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
+- Binaryen `version_130` localizes this probe through `tuple.make 58` plus tuple/scalar scratch locals, while Starshine keeps the public block/drop/call/local.get spelling; the mismatch remains an open tuple-scratch localization gap.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-optimization-fifty-seven-effects-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*fifty-seven later effects through tuple-optimization*'` passed `1/1`.
 
 ## [2026-06-26] passes/optimize-instructions | Fold identical compare select arms
 
