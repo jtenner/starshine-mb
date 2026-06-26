@@ -847,6 +847,57 @@ test "optimize-instructions folds integer eq/ne constant compares" {
 }
 
 ///|
+fn optimize_instructions_test_assert_i32_const_result(
+  wat : String,
+  expected : Int,
+  label : String,
+) -> Unit raise {
+  let func = optimize_instructions_test_run_hot(wat)
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected \{label} to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(expected)),
+  )
+}
+
+///|
+test "optimize-instructions folds signed constant relational nonnegative-negative pairs" {
+  // Coverage/status OI-D slice: Binaryen `version_130`
+  // `--optimize-instructions` folds signed relational constant pairs when a
+  // nonnegative lhs is compared with a negative rhs. Keep the proof to this
+  // sign-disjoint direction because the sibling negative-vs-nonnegative
+  // constants remain a mixed keep/canonicalize boundary below.
+  optimize_instructions_test_assert_i32_const_result(
+    "(module (func (result i32) i32.const 1 i32.const -2 i32.lt_s))", 0, "i32.lt_s",
+  )
+  optimize_instructions_test_assert_i32_const_result(
+    "(module (func (result i32) i32.const 1 i32.const -2 i32.le_s))", 0, "i32.le_s",
+  )
+  optimize_instructions_test_assert_i32_const_result(
+    "(module (func (result i32) i32.const 1 i32.const -2 i32.gt_s))", 1, "i32.gt_s",
+  )
+  optimize_instructions_test_assert_i32_const_result(
+    "(module (func (result i32) i32.const 1 i32.const -2 i32.ge_s))", 1, "i32.ge_s",
+  )
+  optimize_instructions_test_assert_i32_const_result(
+    "(module (func (result i32) i64.const 1 i64.const -2 i64.lt_s))", 0, "i64.lt_s",
+  )
+  optimize_instructions_test_assert_i32_const_result(
+    "(module (func (result i32) i64.const 1 i64.const -2 i64.le_s))", 0, "i64.le_s",
+  )
+  optimize_instructions_test_assert_i32_const_result(
+    "(module (func (result i32) i64.const 1 i64.const -2 i64.gt_s))", 1, "i64.gt_s",
+  )
+  optimize_instructions_test_assert_i32_const_result(
+    "(module (func (result i32) i64.const 1 i64.const -2 i64.ge_s))", 1, "i64.ge_s",
+  )
+}
+
+///|
 test "optimize-instructions keeps signed constant relational mixed boundary" {
   // Boundary/status-only OI-D coverage: Binaryen `version_130`
   // `--optimize-instructions` is mixed for signed relational constant pairs.

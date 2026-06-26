@@ -124,6 +124,7 @@ sources:
   - ../../../raw/research/1202-2026-06-26-optimize-instructions-oi-d-signed-zero-lhs-const-rel.md
   - ../../../raw/research/1204-2026-06-26-optimize-instructions-oi-d-negative-signed-const-rel-boundary.md
   - ../../../raw/research/1206-2026-06-26-optimize-instructions-oi-d-nonnegative-signed-const-rel-boundary.md
+  - ../../../raw/research/1210-2026-06-26-optimize-instructions-oi-d-nonnegative-negative-signed-const-rel.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -186,7 +187,7 @@ The local file has dedicated helpers for:
 
 - exact constant folding of binary ops
 - constant integer `eq` / `ne` compare folding for direct i32/i64 constant pairs
-- unsigned relational constant compare folding for direct i32/i64 `lt_u`, `le_u`, `gt_u`, and `ge_u` constant pairs, signed zero-lhs relational constant coverage, plus boundary coverage for Binaryen's mixed signed relational constant-pair behavior including same-sign negative keep-spelling, mixed nonnegative signed constant fold/canonicalize coverage, and `i64.extend_i32_u` unsigned maxBits producer coverage including narrowed child max fact propagation
+- unsigned relational constant compare folding for direct i32/i64 `lt_u`, `le_u`, `gt_u`, and `ge_u` constant pairs, signed zero-lhs relational constant coverage, nonnegative-vs-negative signed relational constant fold coverage, plus boundary coverage for Binaryen's mixed signed relational constant-pair behavior including same-sign negative keep-spelling, mixed same-sign nonnegative signed constant fold/canonicalize coverage, and `i64.extend_i32_u` unsigned maxBits producer coverage including narrowed child max fact propagation
 - unsigned domain-edge folds for `x <_u 0`, `x >=_u 0`, `x >_u UINT_MAX`, and `x <=_u UINT_MAX`, preserving effectful operands as a drop before the boolean constant
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites

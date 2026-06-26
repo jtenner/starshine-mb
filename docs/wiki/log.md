@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover nonnegative-negative signed const-rel folds
+
+- Added OI-D coverage/status for sign-disjoint signed relational constant pairs with nonnegative lhs and negative rhs.
+- Binaryen `version_130` folds the probed i32/i64 `1 <_s -2`, `1 <=_s -2`, `1 >_s -2`, and `1 >=_s -2` shapes to constants; Starshine already matched through existing compare canonicalization and constant compare machinery.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-signed-rel-nonneg-neg-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*signed constant relational nonnegative-negative*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization thirty-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a thirty-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
