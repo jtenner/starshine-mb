@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization forty-effect boundary
+
+- Added OI-M public-pipeline boundary coverage for a forty-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
+- Binaryen `version_130` localizes this probe through `tuple.make 41` plus tuple/scalar scratch locals, while Starshine keeps the public block/drop/call/local.get spelling; the mismatch remains an open tuple-scratch localization gap.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-optimization-forty-effects-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*forty later effects through tuple-optimization*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Fold identical ref.i31 add-payload select arms
 
 - Extended the OI-F identical pure `select` arm fold to the narrow direct `ref.i31(i32.add(local.get, i32.const))` payload shell when both arms and the condition are side-effect-free.
