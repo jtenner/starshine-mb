@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover direct selected-nineteenth tuple boundary
+
+- Added OI-M direct-HOT boundary coverage for selecting the nineteenth scalar lane from a direct nineteen-result call.
+- Binaryen `version_130` keeps direct no-sibling `tuple.extract 19 18 (call $multi)` rather than synthesizing tuple scratch locals; Starshine now locks the same keep-spelling behavior for the direct call shape.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiresult-selected-nineteenth-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected nineteenth lane*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover shift/rotate mask canonicalization
 
 - Added OI-D public-pipeline coverage for constant shift and rotate amounts whose effective WebAssembly amount is masked to `0`, `31`, or `63`.
