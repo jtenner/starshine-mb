@@ -7056,6 +7056,9 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   // integer addition cannot trap and cannot observe call/global side effects.
   optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_i64_add_local_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
   )
 }
 

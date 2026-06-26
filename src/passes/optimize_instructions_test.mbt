@@ -860,6 +860,28 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical i64.add select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical ordered-local `i64.add` select
+  // arms even when the condition is effectful, preserving that condition as a
+  // dropped prefix (`.tmp/oi-select-identical-i64-add-effectful-condition-probe.wat`).
+  // This deliberately stays at a nontrapping integer-add shell; do not extend
+  // to trapping div/rem, commuted operands, or arbitrary expression equality
+  // without fresh oracle evidence.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64) (result i64) (select (i64.add (local.get 0) (local.get 1)) (i64.add (local.get 0) (local.get 1)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i64.add select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure local-local binary arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds direct identical local/local binary select
