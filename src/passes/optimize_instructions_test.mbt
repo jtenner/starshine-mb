@@ -781,6 +781,24 @@ test "optimize-instructions folds select with identical pure global arms" {
 }
 
 ///|
+test "optimize-instructions folds select with identical pure ref.null arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds direct identical `ref.null` select arms
+  // when the condition is side-effect-free (`.tmp/oi-select-refnull-arms-probe.wat`).
+  // This is intentionally only direct ref.null equality, not broader reference
+  // value or structural-expression equality.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result funcref) (select (ref.null func) (ref.null func) (local.get 0))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::RefNull => ()
+    _ =>
+      fail("expected identical pure ref.null select arms to fold to ref.null")
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure float constant arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical f32/f64 constant select arms when

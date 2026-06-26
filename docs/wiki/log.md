@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical ref.null select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct same-result-type `ref.null` arms when the condition is side-effect-free.
+- Binaryen `version_130` folds the probed `ref.null func` / `ref.null eq` arms to the result null value; Starshine now matches this direct-null subset without claiming broader non-null reference value equality or structural expression equality.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-refnull-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*ref.null arms*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization thirty-six-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a thirty-six-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

@@ -1757,6 +1757,10 @@ fn optimize_instructions_is_side_effect_free_expr(
   } else {
     @ir.hot_node_get(func, node_id)
   }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefNull(_)) => return true
+    _ => ()
+  }
   match node.op {
     @ir.HotOp::LocalGet
     | @ir.HotOp::GlobalGet
@@ -4914,6 +4918,19 @@ fn optimize_instructions_select_arms_are_identical_pure(
       { op: @ir.HotOp::GlobalGet, imm0: lhs, .. },
       { op: @ir.HotOp::GlobalGet, imm0: rhs, .. },
     ) => return lhs == rhs
+    (
+      { op: @ir.HotOp::RefNull, ty: lhs_ty, .. },
+      { op: @ir.HotOp::RefNull, ty: rhs_ty, .. },
+    ) => return lhs_ty == rhs_ty
+    _ => ()
+  }
+  match
+    (
+      @ir.hot_node_exact_instr(func, if_true),
+      @ir.hot_node_exact_instr(func, if_false),
+    ) {
+    (Some(@lib.Instruction::RefNull(lhs)), Some(@lib.Instruction::RefNull(rhs))) =>
+      return lhs == rhs
     _ => ()
   }
   match
