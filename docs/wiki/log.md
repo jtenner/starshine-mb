@@ -20055,3 +20055,5 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - 2026-06-26: Filed `raw/research/1207-2026-06-26-optimize-instructions-oi-m-tuple-optimization-twenty-nine-effects-boundary.md` and updated the OI strategy/index/backlog with the twenty-nine-effect public tuple-optimization neighbor boundary.
 
 - 2026-06-26: Added OI-F identical numeric select-arm evidence in `docs/wiki/raw/research/1237-2026-06-26-optimize-instructions-oi-f-identical-numeric-select-arms.md`; Binaryen `version_130` folds same-order local/constant numeric expression arms, and Starshine now covers the narrow direct `i32`/`i64` shell without claiming arbitrary structural equality.
+
+- 2026-06-26: Added OI-M fifty-two-effect public tuple-optimization boundary evidence in `docs/wiki/raw/research/1238-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-two-effects-boundary.md`; Binaryen localizes to `tuple.make 53` with scratch locals, while Starshine keeps public block/drop spelling until tuple-scratch reconstruction/localization lands.
