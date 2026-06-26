@@ -19555,6 +19555,68 @@ test "optimize-instructions intentionally keeps public multivalue block with thi
 }
 
 ///|
+fn optimize_instructions_tuple_optimization_effect_boundary_fixture(
+  effect_count : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module")
+  for i = 0; i < effect_count; i = i + 1 {
+    out.write_string(" (func $side_")
+    out.write_string(i.to_string())
+    out.write_string(" (result i32) i32.const ")
+    out.write_string((i + 1).to_string())
+    out.write_string(")")
+  }
+  out.write_string(" (func (param $x i32) (result i32) (block (result")
+  for i = 0; i <= effect_count; i = i + 1 {
+    let _ = i
+    out.write_string(" i32")
+  }
+  out.write_string(") local.get $x")
+  for i = 0; i < effect_count; i = i + 1 {
+    out.write_string(" call $side_")
+    out.write_string(i.to_string())
+  }
+  out.write_string(")")
+  for i = 0; i < effect_count; i = i + 1 {
+    let _ = i
+    out.write_string(" drop")
+  }
+  out.write_string(") )")
+  out.to_string()
+}
+
+///|
+test "optimize-instructions intentionally keeps public multivalue block with thirty-three later effects through tuple-optimization boundary" {
+  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
+  // `--optimize-instructions --tuple-optimization` localizes the probed
+  // multivalue block with thirty-three later non-selected effects through
+  // `tuple.make 34` plus tuple/scalar-local traffic
+  // (`.tmp/oi-m-tuple-optimization-thirty-three-effects-probe.wat`).
+  // Starshine keeps the public multivalue block/drop spelling until local
+  // tuple-scratch reconstruction/localization exists.
+  let optimized = match
+    pass_test_run_pipeline(
+      optimize_instructions_tuple_optimization_effect_boundary_fixture(33),
+      ["optimize-instructions", "tuple-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected public multivalue thirty-three-effect tuple-optimization boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(33U))
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  for i = 0; i < 33; i = i + 1 {
+    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
+  }
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)

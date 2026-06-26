@@ -19830,6 +19830,8 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Binaryen `version_130` localizes a public multivalue block with seven later non-selected effects through tuple scratch plus scalar locals under `--optimize-instructions --tuple-optimization`; Starshine keeps the public block/seven-drop spelling.
 - Kept this as boundary/status evidence, not parity: tuple-scratch reconstruction/localization remains active OI-M work.
 
+- 2026-06-26: Added OI-M thirty-three-effect public tuple-optimization boundary evidence in `docs/wiki/raw/research/1217-2026-06-26-optimize-instructions-oi-m-tuple-optimization-thirty-three-effects-boundary.md`; Binaryen `version_130` lowers the public multivalue block to `tuple.make 34` with scratch locals under `--optimize-instructions --tuple-optimization`, while Starshine keeps the public block/drop spelling until tuple-scratch reconstruction/localization lands.
+
 - 2026-06-26: Added OI-G size-39 bulk-memory boundary evidence in `docs/wiki/raw/research/1216-2026-06-26-optimize-instructions-oi-g-size39-bulk-boundary.md`; Binaryen `version_130` keeps size-39 `memory.copy` / `memory.fill`, and Starshine now has focused boundary/status coverage that keeps those operations without scalar/SIMD lane lowering.
 
 - 2026-06-26: Filed `raw/research/1206-2026-06-26-optimize-instructions-oi-d-nonnegative-signed-const-rel-boundary.md` and updated the OI strategy/index/backlog with the mixed nonnegative signed relational constant-pair boundary.
