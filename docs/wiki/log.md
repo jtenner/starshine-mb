@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical conversion select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct f32/f64 conversion local shells.
+- Binaryen `version_130` folds probed identical `f32.convert_i32_s`, `f64.convert_i64_u`, `f64.promote_f32`, and `f32.demote_f64` select arms when the condition is side-effect-free; Starshine now covers the direct conversion shell without claiming arbitrary structural expression equality, conversion-tree equality, broad NaN payload equality, or effectful/trapping condition folding.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-identical-conversion-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*numeric expression arms*'` failed before implementation on `f32.convert_i32_s` and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-seven-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a fifty-seven-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

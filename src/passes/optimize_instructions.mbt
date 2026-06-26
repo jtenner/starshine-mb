@@ -5345,6 +5345,48 @@ fn optimize_instructions_f32_unary_local_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::f32_sqrt(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_convert_i32s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_convert_i32u(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_convert_i64s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_convert_i64u(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_demote_f64(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_reinterpret_i32(),
   )
 }
 
@@ -5403,6 +5445,48 @@ fn optimize_instructions_f64_unary_local_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::f64_sqrt(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_convert_i32s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_convert_i32u(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_convert_i64s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_convert_i64u(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_promote_f32(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_reinterpret_i64(),
   )
 }
 

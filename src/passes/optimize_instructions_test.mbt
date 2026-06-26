@@ -768,11 +768,13 @@ test "optimize-instructions folds select with identical pure numeric expression 
   // expression arms such as `i32.add(local.get, const)`,
   // `i64.add(local.get, const)`, direct i32/i64/f32/f64 compare
   // local/constant shells, direct f32/f64 binary local/constant shells
-  // including min/max, and direct i64 unary local shells when the condition is
+  // including min/max, direct f32/f64 conversion local shells, and direct i64
+  // unary local shells when the condition is
   // side-effect-free (`.tmp/oi-select-identical-binary-arms-probe.wat`,
   // `.tmp/oi-select-identical-float-binary-arms-probe.wat`,
   // `.tmp/oi-select-identical-float-minmax-arms-probe.wat`,
   // `.tmp/oi-select-identical-compare-arms-probe.wat`,
+  // `.tmp/oi-select-identical-conversion-arms-probe.wat`,
   // `.tmp/oi-select-identical-i64-unary-arms-probe.wat`). This deliberately
   // stays at narrow direct same-payload shells, not arbitrary structural
   // equality, commuted operands, or effectful/trapping condition handling.
@@ -864,6 +866,24 @@ test "optimize-instructions folds select with identical pure numeric expression 
   match @ir.hot_node_exact_instr(f64_compare_func, f64_compare_root) {
     Some(instr) if instr == @lib.Instruction::f64_le() => ()
     _ => fail("expected identical pure f64.le select arms to fold")
+  }
+
+  let f32_convert_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result f32) (select (f32.convert_i32_s (local.get 0)) (f32.convert_i32_s (local.get 0)) (local.get 1))))",
+  )
+  let f32_convert_root = @ir.hot_root_get(f32_convert_func, 0)
+  match @ir.hot_node_exact_instr(f32_convert_func, f32_convert_root) {
+    Some(instr) if instr == @lib.Instruction::f32_convert_i32s() => ()
+    _ => fail("expected identical pure f32.convert_i32_s select arms to fold")
+  }
+
+  let f64_convert_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 i32) (result f64) (select (f64.promote_f32 (local.get 0)) (f64.promote_f32 (local.get 0)) (local.get 1))))",
+  )
+  let f64_convert_root = @ir.hot_root_get(f64_convert_func, 0)
+  match @ir.hot_node_exact_instr(f64_convert_func, f64_convert_root) {
+    Some(instr) if instr == @lib.Instruction::f64_promote_f32() => ()
+    _ => fail("expected identical pure f64.promote_f32 select arms to fold")
   }
 
   let i64_unary_func = optimize_instructions_test_run_hot(
