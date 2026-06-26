@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical ref.i31 trunc-sat select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct nontrapping `ref.i31` payload shells for `i32.trunc_sat_f32_*` and `i32.trunc_sat_f64_*` over a same `local.get`.
+- Binaryen `version_130` folds the probed identical trunc-sat-payload i31 arms to the same constructor; Starshine now matches this source-backed subset without claiming arbitrary structural expression equality or effectful/trapping condition folding.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-refi31-truncsat-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*ref.i31 arms*'` failed before implementation on the `i32.trunc_sat_f32_s` payload case and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization forty-seven-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a forty-seven-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

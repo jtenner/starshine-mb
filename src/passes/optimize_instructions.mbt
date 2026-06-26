@@ -5021,6 +5021,34 @@ fn optimize_instructions_i32_unary_local_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::i32_extend16s(),
+  ) ||
+  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_trunc_sat_f32s(),
+  ) ||
+  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_trunc_sat_f32u(),
+  ) ||
+  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_trunc_sat_f64s(),
+  ) ||
+  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_trunc_sat_f64u(),
   )
 }
 
