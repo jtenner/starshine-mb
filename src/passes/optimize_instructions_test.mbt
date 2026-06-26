@@ -775,6 +775,78 @@ test "optimize-instructions canonicalizes i64.eq zero into eqz" {
 }
 
 ///|
+test "optimize-instructions folds integer eq/ne constant compares" {
+  // Red-first OI-D parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds same-width integer equality/inequality
+  // with two constant operands to `i32.const 0/1`; signed/unsigned relational
+  // constant pairs remain separate because the observed oracle probe keeps or
+  // canonicalizes those spellings instead of folding them to constants.
+  let i32_eq_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 7 i32.const 7 i32.eq))",
+  )
+  let i32_eq_root = @ir.hot_root_get(i32_eq_func, 0)
+  match @ir.hot_node_get(i32_eq_func, i32_eq_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected constant i32.eq to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_eq_func,
+      @ir.hot_node_get(i32_eq_func, i32_eq_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i32_ne_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 7 i32.const 8 i32.ne))",
+  )
+  let i32_ne_root = @ir.hot_root_get(i32_ne_func, 0)
+  match @ir.hot_node_get(i32_ne_func, i32_ne_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected constant i32.ne to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_ne_func,
+      @ir.hot_node_get(i32_ne_func, i32_ne_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i64_eq_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 7 i64.const 8 i64.eq))",
+  )
+  let i64_eq_root = @ir.hot_root_get(i64_eq_func, 0)
+  match @ir.hot_node_get(i64_eq_func, i64_eq_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected constant i64.eq to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_eq_func,
+      @ir.hot_node_get(i64_eq_func, i64_eq_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_ne_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 7 i64.const 8 i64.ne))",
+  )
+  let i64_ne_root = @ir.hot_root_get(i64_ne_func, 0)
+  match @ir.hot_node_get(i64_ne_func, i64_ne_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected constant i64.ne to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_ne_func,
+      @ir.hot_node_get(i64_ne_func, i64_ne_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+}
+
+///|
 test "optimize-instructions folds same-local integer compares" {
   let eq_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 local.get 0 i32.eq))",

@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold constant integer eq/ne compares
+
+- Added OI-D red-first coverage for direct i32/i64 `eq` / `ne` compares with two constant operands.
+- Starshine now folds those compares to the corresponding `i32.const` boolean result, matching Binaryen `version_130` direct `--optimize-instructions`; signed/unsigned relational constant pairs remain outside this narrow slice because the observed oracle did not directly fold them.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-int-const-compare-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*integer eq/ne constant compares*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a twenty-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

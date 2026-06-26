@@ -7821,6 +7821,74 @@ fn optimize_instructions_same_local_integer_compare_result(
 }
 
 ///|
+fn optimize_instructions_bool_i32(value : Bool) -> @lib.I32 {
+  if value {
+    @lib.I32(1)
+  } else {
+    @lib.I32(0)
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_integer_const_eq_ne_compare(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match instr {
+    @lib.Instruction::I32Eq | @lib.Instruction::I32Ne =>
+      match
+        (
+          optimize_instructions_i32_const(func, dead, lhs_id),
+          optimize_instructions_i32_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.I32(lhs_raw)), Some(@lib.I32(rhs_raw))) => {
+          let equal = lhs_raw == rhs_raw
+          let result = match instr {
+            @lib.Instruction::I32Eq => equal
+            _ => !equal
+          }
+          optimize_instructions_replace_with_const_i32(
+            ctx,
+            func,
+            node_id,
+            optimize_instructions_bool_i32(result),
+          )
+          true
+        }
+        _ => false
+      }
+    @lib.Instruction::I64Eq | @lib.Instruction::I64Ne =>
+      match
+        (
+          optimize_instructions_i64_const(func, dead, lhs_id),
+          optimize_instructions_i64_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.I64(lhs_raw)), Some(@lib.I64(rhs_raw))) => {
+          let equal = lhs_raw == rhs_raw
+          let result = match instr {
+            @lib.Instruction::I64Eq => equal
+            _ => !equal
+          }
+          optimize_instructions_replace_with_const_i32(
+            ctx,
+            func,
+            node_id,
+            optimize_instructions_bool_i32(result),
+          )
+          true
+        }
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_same_local_integer_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -8580,7 +8648,10 @@ fn optimize_instructions_visit_node(
         let mut current_lhs = func.children[node.child_base]
         let mut current_rhs = func.children[node.child_base + 1]
         let mut changed = false
-        if optimize_instructions_try_fold_same_local_integer_compare(
+        if optimize_instructions_try_fold_integer_const_eq_ne_compare(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_fold_same_local_integer_compare(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_rewrite_compare_eqz(
@@ -8682,6 +8753,9 @@ fn optimize_instructions_visit_node(
               let next_lhs = func.children[current.child_base]
               let next_rhs = func.children[current.child_base + 1]
               optimize_instructions_try_canonicalize_compare_const(
+                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+              ) ||
+              optimize_instructions_try_fold_integer_const_eq_ne_compare(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_i32_sign_extension_equality_compare(
