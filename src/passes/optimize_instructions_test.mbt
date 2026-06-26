@@ -916,6 +916,40 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical integer sub select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical ordered-local integer `sub`
+  // select arms even when the condition is effectful, preserving that
+  // condition as a dropped prefix
+  // (`.tmp/oi-select-identical-sub-effectful-condition-probe.wat`). This
+  // deliberately stays at nontrapping integer-subtract shells; do not extend to
+  // trapping div/rem, commuted operands, or arbitrary expression equality
+  // without fresh oracle evidence.
+  let i32_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (select (i32.sub (local.get 0) (local.get 1)) (i32.sub (local.get 0) (local.get 1)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let i32_root = @ir.hot_root_get(i32_func, 0)
+  match @ir.hot_node_get(i32_func, i32_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i32.sub select arms to fold while preserving the effectful condition",
+      )
+  }
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64) (result i64) (select (i64.sub (local.get 0) (local.get 1)) (i64.sub (local.get 0) (local.get 1)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  match @ir.hot_node_get(i64_func, i64_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i64.sub select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions preserves effectful condition when folding identical integer bitwise select arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical ordered-local integer bitwise

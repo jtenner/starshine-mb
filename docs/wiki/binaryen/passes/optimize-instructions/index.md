@@ -299,6 +299,7 @@ sources:
   - ../../../raw/research/1285-2026-06-26-optimize-instructions-oi-f-identical-intmul-effectful-condition.md
   - ../../../raw/research/1287-2026-06-26-optimize-instructions-oi-f-identical-intbitwise-effectful-condition.md
   - ../../../raw/research/1289-2026-06-26-optimize-instructions-oi-f-identical-shift-rotate-effectful-condition.md
+  - ../../../raw/research/1291-2026-06-26-optimize-instructions-oi-f-identical-sub-effectful-condition.md
   - ../../../raw/research/1238-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-two-effects-boundary.md
   - ../../../raw/research/1240-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-three-effects-boundary.md
   - ../../../raw/research/1242-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-four-effects-boundary.md
