@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization five-effect boundary
+
+- Added OI-M public-pipeline boundary coverage for a multivalue block with five later non-selected effects under `optimize-instructions -> tuple-optimization`.
+- Binaryen `version_130` localizes the shape through tuple scratch and scalar locals; Starshine keeps the public block/five-drop spelling, so this remains a documented tuple-scratch reconstruction boundary rather than parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-optimization-five-effects-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*five later effects through tuple-optimization*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover size-20 bulk-memory boundary
 
 - Added OI-G public-pipeline boundary coverage for size-20 `memory.copy` and `memory.fill`.

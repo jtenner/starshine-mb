@@ -14508,6 +14508,64 @@ test "optimize-instructions intentionally keeps public multivalue block with fou
 }
 
 ///|
+test "optimize-instructions intentionally keeps public multivalue block with five later effects through tuple-optimization boundary" {
+  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
+  // `--optimize-instructions --tuple-optimization` localizes the probed
+  // multivalue block with five later non-selected effects through tuple scratch
+  // plus scalar-local traffic (`.tmp/oi-m-tuple-optimization-five-effects-probe.wat`).
+  // Starshine's public WAT pipeline keeps the multivalue block/drop spelling;
+  // do not report this as tuple-optimization neighbor parity until tuple-scratch
+  // reconstruction/localization is implemented locally.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $side_a (result i64)
+        #|    i64.const 9)
+        #|  (func $side_b (result f32)
+        #|    f32.const 1)
+        #|  (func $side_c (result f64)
+        #|    f64.const 2)
+        #|  (func $side_d (result i32)
+        #|    i32.const 3)
+        #|  (func $side_e (result i64)
+        #|    i64.const 4)
+        #|  (func (param $x i32) (result i32)
+        #|    (block (result i32 i64 f32 f64 i32 i64)
+        #|      local.get $x
+        #|      call $side_a
+        #|      call $side_b
+        #|      call $side_c
+        #|      call $side_d
+        #|      call $side_e)
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop))
+        #|,
+      ),
+      ["optimize-instructions", "tuple-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected public multivalue five-effect tuple-optimization boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
