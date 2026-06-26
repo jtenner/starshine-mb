@@ -20053,3 +20053,5 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - 2026-06-26: Filed `raw/research/1206-2026-06-26-optimize-instructions-oi-d-nonnegative-signed-const-rel-boundary.md` and updated the OI strategy/index/backlog with the mixed nonnegative signed relational constant-pair boundary.
 
 - 2026-06-26: Filed `raw/research/1207-2026-06-26-optimize-instructions-oi-m-tuple-optimization-twenty-nine-effects-boundary.md` and updated the OI strategy/index/backlog with the twenty-nine-effect public tuple-optimization neighbor boundary.
+
+- 2026-06-26: Added OI-F identical numeric select-arm evidence in `docs/wiki/raw/research/1237-2026-06-26-optimize-instructions-oi-f-identical-numeric-select-arms.md`; Binaryen `version_130` folds same-order local/constant numeric expression arms, and Starshine now covers the narrow direct `i32`/`i64` shell without claiming arbitrary structural equality.
