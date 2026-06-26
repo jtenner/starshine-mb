@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-M tuple-optimization sixty-effect boundary slice `1254`, documenting Binaryen `tuple.make 61` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical SIMD splat select-arm slice `1253`, documenting Binaryen direct `i8x16.splat(local.get)` oracle evidence, Starshine red-first coverage, implementation scope, and retained SIMD/arbitrary-equality boundaries.
 
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-nine-effect boundary
