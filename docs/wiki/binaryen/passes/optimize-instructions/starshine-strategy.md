@@ -49,6 +49,7 @@ sources:
   - ../../../raw/research/0904-2026-06-25-optimize-instructions-oi-d-wrap-maxbits.md
   - ../../../raw/research/0906-2026-06-25-optimize-instructions-oi-d-dynamic-shift-maxbits-boundary.md
   - ../../../raw/research/0908-2026-06-25-optimize-instructions-oi-d-i64-dynamic-shift-maxbits-boundary.md
+  - ../../../raw/research/1150-2026-06-25-optimize-instructions-oi-d-shift-rotate-mask-coverage.md
   - ../../../raw/research/0901-2026-06-25-optimize-instructions-oi-m-selected-fourth-multiresult-boundary.md
   - ../../../raw/research/0903-2026-06-25-optimize-instructions-oi-m-selected-fifth-multiresult-boundary.md
   - ../../../raw/research/0905-2026-06-25-optimize-instructions-oi-m-selected-sixth-multiresult-boundary.md
@@ -95,7 +96,7 @@ The implemented center of gravity is:
 - exact binary constant folding
 - non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first pure/effect-preserving i32/i64 `shr_u` bounded unsigned-compare folds, first straight-line local-carried and `i32.wrap_i64` unsigned max facts, first direct nonnegative signed-relational folds and signed-to-unsigned compare spellings, and relational constant canonicalization
 - commutative operand ordering with HOT use-def safety guards
-- add/sub/mul/shift rewrites
+- add/sub/mul/shift rewrites, including constant shift/rotate effective-amount masking (`31`/`63`) through existing constant-fold/identity machinery
 - constant-`if` folding
 - nested boolean-`if` normalization and `eqz` wrapping
 - duplicate-branch collapse in then-regions

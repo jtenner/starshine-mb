@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover shift/rotate mask canonicalization
+
+- Added OI-D public-pipeline coverage for constant shift and rotate amounts whose effective WebAssembly amount is masked to `0`, `31`, or `63`.
+- Binaryen `version_130` reduces masked-zero `shl`/`rotl` forms to the original value and canonicalizes nonzero masked shift/rotate amounts to `31`/`63`; Starshine already matched through existing constant-fold/identity machinery.
+- Evidence: Binaryen oracle probes `.tmp/oi-d-shift-mask-probe.wat` and `.tmp/oi-d-rot-mask-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*masked constant shift*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover direct selected-seventeenth tuple boundary
 
 - Added OI-M direct-HOT boundary coverage for selecting the seventeenth scalar lane from a direct seventeen-result call.

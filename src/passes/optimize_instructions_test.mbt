@@ -9118,6 +9118,72 @@ test "optimize-instructions folds identity binary operands" {
 }
 
 ///|
+test "optimize-instructions canonicalizes masked constant shift amounts" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $shifts (param $x i32) (param $y i64)
+        #|    local.get $x
+        #|    i32.const 32
+        #|    i32.shl
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 63
+        #|    i32.shr_u
+        #|    drop
+        #|    local.get $x
+        #|    i32.const -1
+        #|    i32.shr_s
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 32
+        #|    i32.rotl
+        #|    drop
+        #|    local.get $x
+        #|    i32.const 63
+        #|    i32.rotr
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 64
+        #|    i64.shl
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 127
+        #|    i64.shr_u
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 64
+        #|    i64.rotl
+        #|    drop
+        #|    local.get $y
+        #|    i64.const 127
+        #|    i64.rotr
+        #|    drop))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected shift-mask optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.const 32"), msg=pretty)
+  assert_false(pretty.contains("i64.const 64"), msg=pretty)
+  assert_false(pretty.contains("i32.shl"), msg=pretty)
+  assert_false(pretty.contains("i64.shl"), msg=pretty)
+  assert_false(pretty.contains("i32.rotl"), msg=pretty)
+  assert_false(pretty.contains("i64.rotl"), msg=pretty)
+  assert_true(pretty.contains("I32(31)"), msg=pretty)
+  assert_true(pretty.contains("I64(63)"), msg=pretty)
+  assert_true(pretty.contains("i32.shr_u"), msg=pretty)
+  assert_true(pretty.contains("i32.shr_s"), msg=pretty)
+  assert_true(pretty.contains("i64.shr_u"), msg=pretty)
+  assert_true(pretty.contains("i32.rotr"), msg=pretty)
+  assert_true(pretty.contains("i64.rotr"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds div/rem/rot identity operands" {
   let optimized = match
     pass_test_run_pipeline(
