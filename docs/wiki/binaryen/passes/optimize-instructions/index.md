@@ -281,6 +281,7 @@ sources:
   - ../../../raw/research/1249-2026-06-26-optimize-instructions-oi-f-identical-conversion-select-arms.md
   - ../../../raw/research/1251-2026-06-26-optimize-instructions-oi-f-identical-v128-select-arms.md
   - ../../../raw/research/1253-2026-06-26-optimize-instructions-oi-f-identical-v128-splat-select-arms.md
+  - ../../../raw/research/1255-2026-06-26-optimize-instructions-oi-f-identical-local-local-select-arms.md
   - ../../../raw/research/1238-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-two-effects-boundary.md
   - ../../../raw/research/1240-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-three-effects-boundary.md
   - ../../../raw/research/1242-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-four-effects-boundary.md

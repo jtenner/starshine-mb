@@ -4935,6 +4935,66 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
 }
 
 ///|
+fn optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+  instr : @lib.Instruction,
+) -> Bool {
+  match
+    (
+      @ir.hot_node_exact_instr(func, lhs),
+      @ir.hot_node_exact_instr(func, rhs),
+      @ir.hot_node_get(func, lhs).child_count,
+      @ir.hot_node_get(func, rhs).child_count,
+    ) {
+    (Some(lhs_instr), Some(rhs_instr), 2, 2) => {
+      if lhs_instr != instr || rhs_instr != instr {
+        return false
+      }
+      let lhs_left = @ir.hot_child_get(func, lhs, 0)
+      let lhs_right = @ir.hot_child_get(func, lhs, 1)
+      let rhs_left = @ir.hot_child_get(func, rhs, 0)
+      let rhs_right = @ir.hot_child_get(func, rhs, 1)
+      match
+        (
+          optimize_instructions_local_get_id(func, dead, lhs_left),
+          optimize_instructions_local_get_id(func, dead, rhs_left),
+          optimize_instructions_local_get_id(func, dead, lhs_right),
+          optimize_instructions_local_get_id(func, dead, rhs_right),
+        ) {
+        (
+          Some(lhs_left_local),
+          Some(rhs_left_local),
+          Some(lhs_right_local),
+          Some(rhs_right_local),
+        ) =>
+          lhs_left_local == rhs_left_local && lhs_right_local == rhs_right_local
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_add(),
+  )
+}
+
+///|
 fn optimize_instructions_i32_local_const_payloads_are_identical_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -6267,7 +6327,10 @@ fn optimize_instructions_select_arms_are_identical_pure(
     }
     _ => ()
   }
-  if optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
+  if optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_i32_unary_local_payloads_are_identical_pure(
