@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical compare select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct i32/i64/f32/f64 local/constant compare shells.
+- Binaryen `version_130` folds probed identical `i32.eq`, `i64.lt_u`, `f32.gt`, and `f64.le` select arms when the condition is side-effect-free; Starshine now covers the direct compare shell without claiming arbitrary structural expression equality, commuted operands, value-equivalent constants, broad NaN payload equality, float algebraic equality, or effectful/trapping condition folding.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-identical-compare-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*numeric expression arms*'` failed before implementation on `i32.eq` and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-six-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a fifty-six-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
@@ -18383,6 +18389,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the expanded upstream-only registry now includes `global-effects`, the human-readable catalogs link the new folder pages, and future recursive campaign threads can see that this candidate is no longer an uncovered expansion target.
 
 # Wasm Knowledge Base Log
+
+## [2026-06-26] passes/optimize-instructions | Fold identical compare select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct i32/i64/f32/f64 local/constant compare shells.
+- Binaryen `version_130` folds probed identical `i32.eq`, `i64.lt_u`, `f32.gt`, and `f64.le` select arms when the condition is side-effect-free; Starshine now covers the direct compare shell without claiming arbitrary structural expression equality, commuted operands, value-equivalent constants, broad NaN payload equality, float algebraic equality, or effectful/trapping condition folding.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-identical-compare-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*numeric expression arms*'` failed before implementation on `i32.eq` and passed `1/1` after.
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 

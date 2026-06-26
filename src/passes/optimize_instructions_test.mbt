@@ -766,11 +766,13 @@ test "optimize-instructions folds select with identical pure numeric expression 
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds same-order local/constant numeric
   // expression arms such as `i32.add(local.get, const)`,
-  // `i64.add(local.get, const)`, direct f32/f64 binary local/constant shells
+  // `i64.add(local.get, const)`, direct i32/i64/f32/f64 compare
+  // local/constant shells, direct f32/f64 binary local/constant shells
   // including min/max, and direct i64 unary local shells when the condition is
   // side-effect-free (`.tmp/oi-select-identical-binary-arms-probe.wat`,
   // `.tmp/oi-select-identical-float-binary-arms-probe.wat`,
   // `.tmp/oi-select-identical-float-minmax-arms-probe.wat`,
+  // `.tmp/oi-select-identical-compare-arms-probe.wat`,
   // `.tmp/oi-select-identical-i64-unary-arms-probe.wat`). This deliberately
   // stays at narrow direct same-payload shells, not arbitrary structural
   // equality, commuted operands, or effectful/trapping condition handling.
@@ -826,6 +828,42 @@ test "optimize-instructions folds select with identical pure numeric expression 
   match @ir.hot_node_exact_instr(f64_max_func, f64_max_root) {
     Some(instr) if instr == @lib.Instruction::f64_max() => ()
     _ => fail("expected identical pure f64.max select arms to fold")
+  }
+
+  let i32_compare_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (select (i32.eq (local.get 0) (i32.const 7)) (i32.eq (local.get 0) (i32.const 7)) (local.get 1))))",
+  )
+  let i32_compare_root = @ir.hot_root_get(i32_compare_func, 0)
+  match @ir.hot_node_exact_instr(i32_compare_func, i32_compare_root) {
+    Some(instr) if instr == @lib.Instruction::i32_eq() => ()
+    _ => fail("expected identical pure i32.eq select arms to fold")
+  }
+
+  let i64_compare_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i32) (result i32) (select (i64.lt_u (local.get 0) (i64.const 9)) (i64.lt_u (local.get 0) (i64.const 9)) (local.get 1))))",
+  )
+  let i64_compare_root = @ir.hot_root_get(i64_compare_func, 0)
+  match @ir.hot_node_exact_instr(i64_compare_func, i64_compare_root) {
+    Some(instr) if instr == @lib.Instruction::i64_lt_u() => ()
+    _ => fail("expected identical pure i64.lt_u select arms to fold")
+  }
+
+  let f32_compare_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 i32) (result i32) (select (f32.gt (local.get 0) (f32.const 1.5)) (f32.gt (local.get 0) (f32.const 1.5)) (local.get 1))))",
+  )
+  let f32_compare_root = @ir.hot_root_get(f32_compare_func, 0)
+  match @ir.hot_node_exact_instr(f32_compare_func, f32_compare_root) {
+    Some(instr) if instr == @lib.Instruction::f32_gt() => ()
+    _ => fail("expected identical pure f32.gt select arms to fold")
+  }
+
+  let f64_compare_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64 i32) (result i32) (select (f64.le (local.get 0) (f64.const -2.25)) (f64.le (local.get 0) (f64.const -2.25)) (local.get 1))))",
+  )
+  let f64_compare_root = @ir.hot_root_get(f64_compare_func, 0)
+  match @ir.hot_node_exact_instr(f64_compare_func, f64_compare_root) {
+    Some(instr) if instr == @lib.Instruction::f64_le() => ()
+    _ => fail("expected identical pure f64.le select arms to fold")
   }
 
   let i64_unary_func = optimize_instructions_test_run_hot(

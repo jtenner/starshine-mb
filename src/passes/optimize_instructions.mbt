@@ -5517,6 +5517,76 @@ fn optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::i32_rem_u(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_eq(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_ne(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_lt_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_lt_u(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_gt_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_gt_u(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_le_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_le_u(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_ge_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_ge_u(),
   )
 }
 
@@ -5631,6 +5701,76 @@ fn optimize_instructions_i64_binary_local_const_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::i64_rem_u(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_eq(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_ne(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_lt_s(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_lt_u(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_gt_s(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_gt_u(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_le_s(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_le_u(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_ge_s(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_ge_u(),
   )
 }
 
@@ -5689,6 +5829,48 @@ fn optimize_instructions_f32_binary_local_const_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::f32_copysign(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_eq(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_ne(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_lt(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_gt(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_le(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_ge(),
   )
 }
 
@@ -5747,6 +5929,48 @@ fn optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::f64_copysign(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_eq(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_ne(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_lt(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_gt(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_le(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_ge(),
   )
 }
 
