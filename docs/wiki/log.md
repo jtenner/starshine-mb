@@ -19439,3 +19439,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded `docs/wiki/raw/research/1148-2026-06-25-optimize-instructions-oi-g-size18-bulk-boundary.md` for the sixty-second OI-G memory/load-store sub-slice.
 - Binaryen `version_130` keeps size-18 `memory.copy` and `memory.fill` as bulk operations rather than synthesizing a SIMD 16-byte lane plus trailing scalar load/store sequences; Starshine now has public-pipeline boundary coverage proving it keeps the same spelling.
 - Updated the optimize-instructions source index, Starshine strategy, and active backlog so remaining OI-G work stays focused on broader stored-value, localization, raw-gate, load/store, and zero-size trap-relaxed surfaces.
+
+## 2026-06-25 optimize-instructions OI-M direct selected-eighteenth boundary
+
+- Recorded `docs/wiki/raw/research/1149-2026-06-25-optimize-instructions-oi-m-direct-selected-eighteenth-boundary.md` for the forty-second OI-M tuple/multivalue sub-slice.
+- Binaryen `version_130` keeps a direct no-sibling `tuple.extract 18 17 (call $multi)` shape; Starshine now has direct-HOT boundary coverage proving it also keeps the `TupleExtract` over the eighteen-result call unchanged.
+- Kept the classification narrow: this does not claim tuple-scratch parity for sibling-bearing selected-child shapes, which remain active OI-M work.
