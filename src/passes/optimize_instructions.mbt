@@ -7044,6 +7044,22 @@ fn optimize_instructions_select_arms_are_identical_pure(
 }
 
 ///|
+fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  if_true : Int,
+  if_false : Int,
+) -> Bool {
+  // OI-F effectful-condition select folding may move the surviving arm after
+  // the condition's dropped evaluation. Keep this intentionally narrower than
+  // the side-effect-free-condition identical-arm predicate: ordered-local
+  // integer addition cannot trap and cannot observe call/global side effects.
+  optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  )
+}
+
+///|
 fn optimize_instructions_try_fold_const_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7065,8 +7081,15 @@ fn optimize_instructions_try_fold_const_select(
       optimize_instructions_replace_with_node_id(ctx, func, node_id, if_true)
       return true
     }
-    if optimize_instructions_is_shared_cross_safe_leaf(func, dead, if_true) &&
-      optimize_instructions_is_shared_cross_safe_leaf(func, dead, if_false) &&
+    if (
+        (
+          optimize_instructions_is_shared_cross_safe_leaf(func, dead, if_true) &&
+          optimize_instructions_is_shared_cross_safe_leaf(func, dead, if_false)
+        ) ||
+        optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
+          func, dead, if_true, if_false,
+        )
+      ) &&
       @ir.hot_node_result_arity(func, if_true) == 1 &&
       @ir.hot_node_result_arity(func, condition) == 1 {
       match @ir.hot_type_results(func, @ir.hot_node_type(func, if_true)) {
