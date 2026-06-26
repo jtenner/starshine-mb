@@ -869,9 +869,11 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   // same-order `i32.or(local.get, const)` and `i32.xor(local.get, const)`.
   // Follow-up probe `.tmp/oi-select-refi31-shift-arms-probe.wat` adds
   // same-order `i32.shl`, `i32.shr_u`, `i32.shr_s`, `i32.rotl`, and
-  // `i32.rotr` local/constant payload shells. This stays at direct
-  // same-payload i31 construction, not arbitrary reference or broad
-  // structural expression equality.
+  // `i32.rotr` local/constant payload shells. Follow-up probe
+  // `.tmp/oi-select-refi31-unary-arms-probe.wat` adds direct `i32.eqz`,
+  // `i32.clz`, `i32.ctz`, and `i32.popcnt` local-payload shells. This
+  // stays at direct same-payload i31 construction, not arbitrary reference
+  // or broad structural expression equality.
   let const_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result (ref i31)) (select (ref.i31 (i32.const 7)) (ref.i31 (i32.const 7)) (local.get 0))))",
   )
@@ -978,6 +980,42 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   match @ir.hot_node_exact_instr(rotr_func, rotr_root) {
     Some(@lib.Instruction::RefI31) => ()
     _ => fail("expected identical pure ref.i31 rotr arms to fold to ref.i31")
+  }
+
+  let eqz_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.eqz (local.get 0))) (ref.i31 (i32.eqz (local.get 0))) (local.get 1))))",
+  )
+  let eqz_root = @ir.hot_root_get(eqz_func, 0)
+  match @ir.hot_node_exact_instr(eqz_func, eqz_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 eqz arms to fold to ref.i31")
+  }
+
+  let clz_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.clz (local.get 0))) (ref.i31 (i32.clz (local.get 0))) (local.get 1))))",
+  )
+  let clz_root = @ir.hot_root_get(clz_func, 0)
+  match @ir.hot_node_exact_instr(clz_func, clz_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 clz arms to fold to ref.i31")
+  }
+
+  let ctz_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.ctz (local.get 0))) (ref.i31 (i32.ctz (local.get 0))) (local.get 1))))",
+  )
+  let ctz_root = @ir.hot_root_get(ctz_func, 0)
+  match @ir.hot_node_exact_instr(ctz_func, ctz_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 ctz arms to fold to ref.i31")
+  }
+
+  let popcnt_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.popcnt (local.get 0))) (ref.i31 (i32.popcnt (local.get 0))) (local.get 1))))",
+  )
+  let popcnt_root = @ir.hot_root_get(popcnt_func, 0)
+  match @ir.hot_node_exact_instr(popcnt_func, popcnt_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 popcnt arms to fold to ref.i31")
   }
 }
 

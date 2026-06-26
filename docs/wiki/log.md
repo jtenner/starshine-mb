@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical ref.i31 unary select arms
+
+- Extended the OI-F identical pure `select` arm fold to narrow direct `ref.i31` payload shells for `i32.eqz`, `i32.clz`, `i32.ctz`, and `i32.popcnt` over a same `local.get`.
+- Binaryen `version_130` folds the probed identical unary-payload i31 arms to the same constructor; Starshine now matches this source-backed subset without claiming arbitrary structural expression equality, commuted-payload equality, or effectful/trapping condition folding.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-refi31-unary-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*ref.i31 arms*'` failed before implementation on the `i32.eqz` payload case and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization forty-five-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a forty-five-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
