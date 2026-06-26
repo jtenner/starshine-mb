@@ -9683,6 +9683,51 @@ test "optimize-instructions keeps size-35 bulk-memory outside exact lowering bou
 }
 
 ///|
+test "optimize-instructions keeps size-36 bulk-memory outside exact lowering boundary" {
+  // Boundary-only OI-G classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps size-36 `memory.copy` and `memory.fill`
+  // (`.tmp/oi-g-memory-copy-size36-probe.wat`) rather than combining SIMD,
+  // scalar lanes, or SIMD-plus-tail lowering. Starshine likewise keeps the
+  // bulk-memory spelling outside the exact 1/2/4/8/16 memory.copy and
+  // 1/2/4/8/16 fill lanes.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (param $dst i32) (param $src i32) (param $value i32)
+        #|    local.get $dst
+        #|    local.get $src
+        #|    i32.const 36
+        #|    memory.copy
+        #|    local.get $dst
+        #|    local.get $value
+        #|    i32.const 36
+        #|    memory.fill))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected size-36 bulk-memory boundary success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  assert_true(pretty.contains("memory.fill"), msg=pretty)
+  assert_false(pretty.contains("i32.load8u"), msg=pretty)
+  assert_false(pretty.contains("i32.store8"), msg=pretty)
+  assert_false(pretty.contains("i32.load16u"), msg=pretty)
+  assert_false(pretty.contains("i32.store16"), msg=pretty)
+  assert_false(pretty.contains("i32.load"), msg=pretty)
+  assert_false(pretty.contains("i32.store"), msg=pretty)
+  assert_false(pretty.contains("i64.load"), msg=pretty)
+  assert_false(pretty.contains("i64.store"), msg=pretty)
+  assert_false(pretty.contains("v128.load"), msg=pretty)
+  assert_false(pretty.contains("v128.store"), msg=pretty)
+}
+
+///|
 test "optimize-instructions expands local four-byte memory.fill to store" {
   let optimized = match
     pass_test_run_pipeline(
