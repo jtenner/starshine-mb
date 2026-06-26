@@ -163,6 +163,7 @@ sources:
   - ../../../raw/research/0876-2026-06-25-optimize-instructions-oi-g-local-dynamic-bulk.md
   - ../../../raw/research/0890-2026-06-25-optimize-instructions-oi-g-global-dynamic-bulk.md
   - ../../../raw/research/0892-2026-06-25-optimize-instructions-oi-g-size5-bulk-boundary.md
+  - ../../../raw/research/0918-2026-06-25-optimize-instructions-oi-g-size6-bulk-boundary.md
   - ../../../raw/research/0894-2026-06-25-optimize-instructions-oi-g-size7-bulk-boundary.md
   - ../../../raw/research/0910-2026-06-25-optimize-instructions-oi-g-size9-bulk-boundary.md
   - ../../../raw/research/0912-2026-06-25-optimize-instructions-oi-g-size11-bulk-boundary.md
