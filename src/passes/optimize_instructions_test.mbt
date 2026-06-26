@@ -766,10 +766,11 @@ test "optimize-instructions folds select with identical pure numeric expression 
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds same-order local/constant numeric
   // expression arms such as `i32.add(local.get, const)`,
-  // `i64.add(local.get, const)`, direct f32/f64 binary local/constant shells,
-  // and direct i64 unary local shells when the condition is side-effect-free
-  // (`.tmp/oi-select-identical-binary-arms-probe.wat`,
+  // `i64.add(local.get, const)`, direct f32/f64 binary local/constant shells
+  // including min/max, and direct i64 unary local shells when the condition is
+  // side-effect-free (`.tmp/oi-select-identical-binary-arms-probe.wat`,
   // `.tmp/oi-select-identical-float-binary-arms-probe.wat`,
+  // `.tmp/oi-select-identical-float-minmax-arms-probe.wat`,
   // `.tmp/oi-select-identical-i64-unary-arms-probe.wat`). This deliberately
   // stays at narrow direct same-payload shells, not arbitrary structural
   // equality, commuted operands, or effectful/trapping condition handling.
@@ -807,6 +808,24 @@ test "optimize-instructions folds select with identical pure numeric expression 
   match @ir.hot_node_exact_instr(f64_binary_func, f64_binary_root) {
     Some(instr) if instr == @lib.Instruction::f64_mul() => ()
     _ => fail("expected identical pure f64.mul select arms to fold")
+  }
+
+  let f32_min_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 i32) (result f32) (select (f32.min (local.get 0) (f32.const 1.25)) (f32.min (local.get 0) (f32.const 1.25)) (local.get 1))))",
+  )
+  let f32_min_root = @ir.hot_root_get(f32_min_func, 0)
+  match @ir.hot_node_exact_instr(f32_min_func, f32_min_root) {
+    Some(instr) if instr == @lib.Instruction::f32_min() => ()
+    _ => fail("expected identical pure f32.min select arms to fold")
+  }
+
+  let f64_max_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64 i32) (result f64) (select (f64.max (local.get 0) (f64.const -4.5)) (f64.max (local.get 0) (f64.const -4.5)) (local.get 1))))",
+  )
+  let f64_max_root = @ir.hot_root_get(f64_max_func, 0)
+  match @ir.hot_node_exact_instr(f64_max_func, f64_max_root) {
+    Some(instr) if instr == @lib.Instruction::f64_max() => ()
+    _ => fail("expected identical pure f64.max select arms to fold")
   }
 
   let i64_unary_func = optimize_instructions_test_run_hot(

@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical float min/max select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct f32/f64 `min` and `max` local/constant binary shells.
+- Binaryen `version_130` folds probed identical `f32.min`, `f32.max`, `f64.min`, and `f64.max` select arms when the condition is side-effect-free; Starshine now covers the direct float min/max sibling without claiming arbitrary structural expression equality, commuted operands, value-equivalent constants, broad NaN payload equality, float algebraic equality, or effectful/trapping condition folding.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-identical-float-minmax-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*numeric expression arms*'` failed before implementation on `f32.min` and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-five-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a fifty-five-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

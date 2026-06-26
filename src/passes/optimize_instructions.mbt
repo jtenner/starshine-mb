@@ -5674,6 +5674,20 @@ fn optimize_instructions_f32_binary_local_const_payloads_are_identical_pure(
     dead,
     lhs,
     rhs,
+    @lib.Instruction::f32_min(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_max(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
     @lib.Instruction::f32_copysign(),
   )
 }
@@ -5712,6 +5726,20 @@ fn optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::f64_div(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_min(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_max(),
   ) ||
   optimize_instructions_f64_local_const_payloads_are_identical_pure(
     func,
