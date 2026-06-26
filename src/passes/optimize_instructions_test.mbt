@@ -879,9 +879,11 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   // Follow-up probe `.tmp/oi-select-refi31-reinterpret-arms-probe.wat` adds
   // direct `i32.reinterpret_f32` local-payload shells. Follow-up probe
   // `.tmp/oi-select-refi31-wrap-arms-probe.wat` adds direct `i32.wrap_i64`
-  // local-payload shells. This stays at direct
-  // same-payload i31 construction, not arbitrary
-  // reference or broad structural expression equality.
+  // local-payload shells. Follow-up probe
+  // `.tmp/oi-select-refi31-divrem-arms-probe.wat` adds same-order
+  // `i32.div_s`, `i32.div_u`, `i32.rem_s`, and `i32.rem_u` local/constant
+  // payload shells. This stays at direct same-payload i31 construction, not
+  // arbitrary reference or broad structural expression equality.
   let const_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result (ref i31)) (select (ref.i31 (i32.const 7)) (ref.i31 (i32.const 7)) (local.get 0))))",
   )
@@ -1089,6 +1091,42 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
     Some(@lib.Instruction::RefI31) => ()
     _ =>
       fail("expected identical pure ref.i31 wrap_i64 arms to fold to ref.i31")
+  }
+
+  let div_s_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.div_s (local.get 0) (i32.const 3))) (ref.i31 (i32.div_s (local.get 0) (i32.const 3))) (local.get 1))))",
+  )
+  let div_s_root = @ir.hot_root_get(div_s_func, 0)
+  match @ir.hot_node_exact_instr(div_s_func, div_s_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 div_s arms to fold to ref.i31")
+  }
+
+  let div_u_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.div_u (local.get 0) (i32.const 3))) (ref.i31 (i32.div_u (local.get 0) (i32.const 3))) (local.get 1))))",
+  )
+  let div_u_root = @ir.hot_root_get(div_u_func, 0)
+  match @ir.hot_node_exact_instr(div_u_func, div_u_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 div_u arms to fold to ref.i31")
+  }
+
+  let rem_s_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.rem_s (local.get 0) (i32.const 3))) (ref.i31 (i32.rem_s (local.get 0) (i32.const 3))) (local.get 1))))",
+  )
+  let rem_s_root = @ir.hot_root_get(rem_s_func, 0)
+  match @ir.hot_node_exact_instr(rem_s_func, rem_s_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 rem_s arms to fold to ref.i31")
+  }
+
+  let rem_u_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.rem_u (local.get 0) (i32.const 3))) (ref.i31 (i32.rem_u (local.get 0) (i32.const 3))) (local.get 1))))",
+  )
+  let rem_u_root = @ir.hot_root_get(rem_u_func, 0)
+  match @ir.hot_node_exact_instr(rem_u_func, rem_u_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 rem_u arms to fold to ref.i31")
   }
 }
 
