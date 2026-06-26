@@ -120,6 +120,7 @@ sources:
   - ../../../raw/research/1217-2026-06-26-optimize-instructions-oi-m-tuple-optimization-thirty-three-effects-boundary.md
   - ../../../raw/research/1218-2026-06-26-optimize-instructions-oi-f-identical-select-arms.md
   - ../../../raw/research/1219-2026-06-26-optimize-instructions-oi-m-tuple-optimization-thirty-four-effects-boundary.md
+  - ../../../raw/research/1220-2026-06-26-optimize-instructions-oi-m-tuple-optimization-thirty-five-effects-boundary.md
   - ../../../raw/research/1190-2026-06-26-optimize-instructions-oi-d-const-eq-ne.md
   - ../../../raw/research/1192-2026-06-26-optimize-instructions-oi-d-unsigned-domain-edge.md
   - ../../../raw/research/1194-2026-06-26-optimize-instructions-oi-d-unsigned-const-rel.md
