@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover size-38 bulk-memory boundary
+
+- Added OI-G boundary/status coverage for constant-size-38 `memory.copy` and `memory.fill`.
+- Binaryen `version_130` keeps both probed bulk-memory operations rather than synthesizing SIMD lanes, scalar lanes, or SIMD-plus-tail lowering; Starshine already matched and now guards the adjacent size-38 boundary.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-copy-size38-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*size-38 bulk-memory*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover signed zero-rhs constant relational boundary
 
 - Added OI-D boundary/status coverage for signed relational constant compares whose right operand is literal zero.
