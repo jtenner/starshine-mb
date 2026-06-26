@@ -282,6 +282,7 @@ sources:
   - ../../../raw/research/1251-2026-06-26-optimize-instructions-oi-f-identical-v128-select-arms.md
   - ../../../raw/research/1253-2026-06-26-optimize-instructions-oi-f-identical-v128-splat-select-arms.md
   - ../../../raw/research/1255-2026-06-26-optimize-instructions-oi-f-identical-local-local-select-arms.md
+  - ../../../raw/research/1257-2026-06-26-optimize-instructions-oi-f-identical-i64-local-local-select-arms.md
   - ../../../raw/research/1238-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-two-effects-boundary.md
   - ../../../raw/research/1240-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-three-effects-boundary.md
   - ../../../raw/research/1242-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-four-effects-boundary.md
@@ -539,6 +540,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 
 ## Sources
 
+- [`../../../raw/research/1257-2026-06-26-optimize-instructions-oi-f-identical-i64-local-local-select-arms.md`](../../../raw/research/1257-2026-06-26-optimize-instructions-oi-f-identical-i64-local-local-select-arms.md) extends narrow identical local/local select-arm folding to direct same-ordered `i64.add(local.get, local.get)` arms, matching Binaryen while keeping broader structural equality out of scope.
 - [`../../../raw/research/1256-2026-06-26-optimize-instructions-oi-m-tuple-optimization-sixty-one-effects-boundary.md`](../../../raw/research/1256-2026-06-26-optimize-instructions-oi-m-tuple-optimization-sixty-one-effects-boundary.md) extends the public `tuple-optimization` effect-count boundary ladder to sixty-one later non-selected effects, recording Binaryen's `tuple.make 62` localization and Starshine's current tuple-scratch gap.
 - [`../../../raw/research/1254-2026-06-26-optimize-instructions-oi-m-tuple-optimization-sixty-effects-boundary.md`](../../../raw/research/1254-2026-06-26-optimize-instructions-oi-m-tuple-optimization-sixty-effects-boundary.md) extends the public `tuple-optimization` effect-count boundary ladder to sixty later non-selected effects, recording Binaryen's `tuple.make 61` localization and Starshine's current tuple-scratch gap.
 - [`../../../raw/research/1253-2026-06-26-optimize-instructions-oi-f-identical-v128-splat-select-arms.md`](../../../raw/research/1253-2026-06-26-optimize-instructions-oi-f-identical-v128-splat-select-arms.md) adds narrow same-instruction/same-local SIMD splat select-arm folding, matching Binaryen for the direct `i8x16.splat(local.get)` oracle while avoiding SIMD algebraic, lane-equivalent, or arbitrary structural equality claims.
