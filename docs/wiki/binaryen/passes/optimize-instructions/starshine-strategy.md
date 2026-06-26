@@ -108,6 +108,7 @@ sources:
   - ../../../raw/research/1193-2026-06-26-optimize-instructions-oi-m-tuple-optimization-twenty-two-effects-boundary.md
   - ../../../raw/research/1190-2026-06-26-optimize-instructions-oi-d-const-eq-ne.md
   - ../../../raw/research/1192-2026-06-26-optimize-instructions-oi-d-unsigned-domain-edge.md
+  - ../../../raw/research/1194-2026-06-26-optimize-instructions-oi-d-unsigned-const-rel.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -170,6 +171,7 @@ The local file has dedicated helpers for:
 
 - exact constant folding of binary ops
 - constant integer `eq` / `ne` compare folding for direct i32/i64 constant pairs
+- unsigned relational constant compare folding for direct i32/i64 `lt_u`, `le_u`, `gt_u`, and `ge_u` constant pairs
 - unsigned domain-edge folds for `x <_u 0`, `x >=_u 0`, `x >_u UINT_MAX`, and `x <=_u UINT_MAX`, preserving effectful operands as a drop before the boolean constant
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites

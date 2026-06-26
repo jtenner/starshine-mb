@@ -847,6 +847,79 @@ test "optimize-instructions folds integer eq/ne constant compares" {
 }
 
 ///|
+test "optimize-instructions folds unsigned constant relational compares" {
+  // Red-first OI-D parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds unsigned relational compares with two
+  // same-width integer constants to `i32.const 0/1`. Signed relational
+  // constant pairs are deliberately not covered here because the observed
+  // oracle probe keeps or canonicalizes several signed forms instead of folding
+  // them to constants.
+  let i32_lt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const -1 i32.const 0 i32.lt_u))",
+  )
+  let i32_lt_root = @ir.hot_root_get(i32_lt_func, 0)
+  match @ir.hot_node_get(i32_lt_func, i32_lt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected constant i32.lt_u to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_lt_func,
+      @ir.hot_node_get(i32_lt_func, i32_lt_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i32_gt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 7 i32.const -3 i32.gt_u))",
+  )
+  let i32_gt_root = @ir.hot_root_get(i32_gt_func, 0)
+  match @ir.hot_node_get(i32_gt_func, i32_gt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected constant i32.gt_u to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_gt_func,
+      @ir.hot_node_get(i32_gt_func, i32_gt_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_le_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const -5 i64.const -5 i64.le_u))",
+  )
+  let i64_le_root = @ir.hot_root_get(i64_le_func, 0)
+  match @ir.hot_node_get(i64_le_func, i64_le_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected constant i64.le_u to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_le_func,
+      @ir.hot_node_get(i64_le_func, i64_le_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i64_ge_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const -6 i64.const 1 i64.ge_u))",
+  )
+  let i64_ge_root = @ir.hot_root_get(i64_ge_func, 0)
+  match @ir.hot_node_get(i64_ge_func, i64_ge_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected constant i64.ge_u to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_ge_func,
+      @ir.hot_node_get(i64_ge_func, i64_ge_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned domain-edge compares" {
   // Red-first OI-D parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds unsigned comparisons whose constant

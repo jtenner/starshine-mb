@@ -7840,17 +7840,30 @@ fn optimize_instructions_try_fold_integer_const_eq_ne_compare(
   rhs_id : Int,
 ) -> Bool {
   match instr {
-    @lib.Instruction::I32Eq | @lib.Instruction::I32Ne =>
+    @lib.Instruction::I32Eq
+    | @lib.Instruction::I32Ne
+    | @lib.Instruction::I32LtU
+    | @lib.Instruction::I32LeU
+    | @lib.Instruction::I32GtU
+    | @lib.Instruction::I32GeU =>
       match
         (
           optimize_instructions_i32_const(func, dead, lhs_id),
           optimize_instructions_i32_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I32(lhs_raw)), Some(@lib.I32(rhs_raw))) => {
-          let equal = lhs_raw == rhs_raw
           let result = match instr {
-            @lib.Instruction::I32Eq => equal
-            _ => !equal
+            @lib.Instruction::I32Eq => lhs_raw == rhs_raw
+            @lib.Instruction::I32Ne => lhs_raw != rhs_raw
+            @lib.Instruction::I32LtU =>
+              lhs_raw.reinterpret_as_uint() < rhs_raw.reinterpret_as_uint()
+            @lib.Instruction::I32LeU =>
+              lhs_raw.reinterpret_as_uint() <= rhs_raw.reinterpret_as_uint()
+            @lib.Instruction::I32GtU =>
+              lhs_raw.reinterpret_as_uint() > rhs_raw.reinterpret_as_uint()
+            @lib.Instruction::I32GeU =>
+              lhs_raw.reinterpret_as_uint() >= rhs_raw.reinterpret_as_uint()
+            _ => false
           }
           optimize_instructions_replace_with_const_i32(
             ctx,
@@ -7862,17 +7875,30 @@ fn optimize_instructions_try_fold_integer_const_eq_ne_compare(
         }
         _ => false
       }
-    @lib.Instruction::I64Eq | @lib.Instruction::I64Ne =>
+    @lib.Instruction::I64Eq
+    | @lib.Instruction::I64Ne
+    | @lib.Instruction::I64LtU
+    | @lib.Instruction::I64LeU
+    | @lib.Instruction::I64GtU
+    | @lib.Instruction::I64GeU =>
       match
         (
           optimize_instructions_i64_const(func, dead, lhs_id),
           optimize_instructions_i64_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I64(lhs_raw)), Some(@lib.I64(rhs_raw))) => {
-          let equal = lhs_raw == rhs_raw
           let result = match instr {
-            @lib.Instruction::I64Eq => equal
-            _ => !equal
+            @lib.Instruction::I64Eq => lhs_raw == rhs_raw
+            @lib.Instruction::I64Ne => lhs_raw != rhs_raw
+            @lib.Instruction::I64LtU =>
+              lhs_raw.reinterpret_as_uint64() < rhs_raw.reinterpret_as_uint64()
+            @lib.Instruction::I64LeU =>
+              lhs_raw.reinterpret_as_uint64() <= rhs_raw.reinterpret_as_uint64()
+            @lib.Instruction::I64GtU =>
+              lhs_raw.reinterpret_as_uint64() > rhs_raw.reinterpret_as_uint64()
+            @lib.Instruction::I64GeU =>
+              lhs_raw.reinterpret_as_uint64() >= rhs_raw.reinterpret_as_uint64()
+            _ => false
           }
           optimize_instructions_replace_with_const_i32(
             ctx,

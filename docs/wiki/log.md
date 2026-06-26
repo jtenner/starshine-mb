@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold unsigned constant relational compares
+
+- Added OI-D red-first coverage for direct i32/i64 unsigned relational comparisons with two constant operands.
+- Starshine now folds `lt_u`, `le_u`, `gt_u`, and `ge_u` constant pairs to the corresponding `i32.const` boolean using unsigned reinterpretation, while signed relational constant folding remains outside this slice because Binaryen's direct-pass behavior is mixed.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-int-const-rel-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*unsigned constant relational compares*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-two-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a twenty-two-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
