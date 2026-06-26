@@ -275,6 +275,7 @@ sources:
   - ../../../raw/research/1237-2026-06-26-optimize-instructions-oi-f-identical-numeric-select-arms.md
   - ../../../raw/research/1239-2026-06-26-optimize-instructions-oi-f-identical-i64-unary-select-arms.md
   - ../../../raw/research/1241-2026-06-26-optimize-instructions-oi-f-identical-float-unary-select-arms.md
+  - ../../../raw/research/1243-2026-06-26-optimize-instructions-oi-f-identical-float-binary-select-arms.md
   - ../../../raw/research/1238-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-two-effects-boundary.md
   - ../../../raw/research/1240-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-three-effects-boundary.md
   - ../../../raw/research/1242-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-four-effects-boundary.md

@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical float binary select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct f32/f64 local/constant binary shells.
+- Binaryen `version_130` folds probed identical `f32.add`, `f32.div`, `f32.copysign`, `f64.mul`, `f64.div`, and `f64.copysign` select arms when the condition is side-effect-free; Starshine now covers the direct float binary family without claiming arbitrary structural expression equality, commuted operands, value-equivalent constants, broad NaN payload equality, float algebraic equality, or effectful/trapping condition folding.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-identical-float-binary-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*numeric expression arms*'` failed before implementation on `f32.add` and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-four-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a fifty-four-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

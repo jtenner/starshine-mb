@@ -4979,6 +4979,84 @@ fn optimize_instructions_i64_local_const_payloads_are_identical_pure(
 }
 
 ///|
+fn optimize_instructions_f32_local_const_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+  instr : @lib.Instruction,
+) -> Bool {
+  match
+    (
+      @ir.hot_node_exact_instr(func, lhs),
+      @ir.hot_node_exact_instr(func, rhs),
+      @ir.hot_node_get(func, lhs).child_count,
+      @ir.hot_node_get(func, rhs).child_count,
+    ) {
+    (Some(lhs_instr), Some(rhs_instr), 2, 2) => {
+      if lhs_instr != instr || rhs_instr != instr {
+        return false
+      }
+      let lhs_left = @ir.hot_child_get(func, lhs, 0)
+      let lhs_right = @ir.hot_child_get(func, lhs, 1)
+      let rhs_left = @ir.hot_child_get(func, rhs, 0)
+      let rhs_right = @ir.hot_child_get(func, rhs, 1)
+      match
+        (
+          optimize_instructions_local_get_id(func, dead, lhs_left),
+          optimize_instructions_local_get_id(func, dead, rhs_left),
+          optimize_instructions_f32_const(func, dead, lhs_right),
+          optimize_instructions_f32_const(func, dead, rhs_right),
+        ) {
+        (Some(lhs_local), Some(rhs_local), Some(lhs_const), Some(rhs_const)) =>
+          lhs_local == rhs_local && lhs_const == rhs_const
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_f64_local_const_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+  instr : @lib.Instruction,
+) -> Bool {
+  match
+    (
+      @ir.hot_node_exact_instr(func, lhs),
+      @ir.hot_node_exact_instr(func, rhs),
+      @ir.hot_node_get(func, lhs).child_count,
+      @ir.hot_node_get(func, rhs).child_count,
+    ) {
+    (Some(lhs_instr), Some(rhs_instr), 2, 2) => {
+      if lhs_instr != instr || rhs_instr != instr {
+        return false
+      }
+      let lhs_left = @ir.hot_child_get(func, lhs, 0)
+      let lhs_right = @ir.hot_child_get(func, lhs, 1)
+      let rhs_left = @ir.hot_child_get(func, rhs, 0)
+      let rhs_right = @ir.hot_child_get(func, rhs, 1)
+      match
+        (
+          optimize_instructions_local_get_id(func, dead, lhs_left),
+          optimize_instructions_local_get_id(func, dead, rhs_left),
+          optimize_instructions_f64_const(func, dead, lhs_right),
+          optimize_instructions_f64_const(func, dead, rhs_right),
+        ) {
+        (Some(lhs_local), Some(rhs_local), Some(lhs_const), Some(rhs_const)) =>
+          lhs_local == rhs_local && lhs_const == rhs_const
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -5557,6 +5635,94 @@ fn optimize_instructions_i64_binary_local_const_payloads_are_identical_pure(
 }
 
 ///|
+fn optimize_instructions_f32_binary_local_const_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_add(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_sub(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_mul(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_div(),
+  ) ||
+  optimize_instructions_f32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_copysign(),
+  )
+}
+
+///|
+fn optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_add(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_sub(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_mul(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_div(),
+  ) ||
+  optimize_instructions_f64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_copysign(),
+  )
+}
+
+///|
 fn optimize_instructions_select_arms_are_identical_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -5648,6 +5814,12 @@ fn optimize_instructions_select_arms_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_i64_unary_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f32_binary_local_const_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_f32_unary_local_payloads_are_identical_pure(
