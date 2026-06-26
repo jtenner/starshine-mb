@@ -4901,11 +4901,12 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
 }
 
 ///|
-fn optimize_instructions_i32_add_local_const_payloads_are_identical_pure(
+fn optimize_instructions_i32_local_const_payloads_are_identical_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   lhs : Int,
   rhs : Int,
+  instr : @lib.Instruction,
 ) -> Bool {
   match
     (
@@ -4915,8 +4916,7 @@ fn optimize_instructions_i32_add_local_const_payloads_are_identical_pure(
       @ir.hot_node_get(func, rhs).child_count,
     ) {
     (Some(lhs_instr), Some(rhs_instr), 2, 2) => {
-      if lhs_instr != @lib.Instruction::i32_add() ||
-        rhs_instr != @lib.Instruction::i32_add() {
+      if lhs_instr != instr || rhs_instr != instr {
         return false
       }
       let lhs_left = @ir.hot_child_get(func, lhs, 0)
@@ -4937,6 +4937,29 @@ fn optimize_instructions_i32_add_local_const_payloads_are_identical_pure(
     }
     _ => false
   }
+}
+
+///|
+fn optimize_instructions_i32_add_or_sub_local_const_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_add(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_sub(),
+  )
 }
 
 ///|
@@ -5010,7 +5033,7 @@ fn optimize_instructions_select_arms_are_identical_pure(
         (Some(lhs), Some(rhs)) => return lhs == rhs
         _ => ()
       }
-      if optimize_instructions_i32_add_local_const_payloads_are_identical_pure(
+      if optimize_instructions_i32_add_or_sub_local_const_payloads_are_identical_pure(
           func, dead, true_payload, false_payload,
         ) {
         return true

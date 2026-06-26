@@ -858,9 +858,11 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   // with the same pure i32 payload when the condition is side-effect-free
   // (`.tmp/oi-select-refi31-arms-probe.wat`). Follow-up oracle probe
   // `.tmp/oi-select-refi31-add-arms-probe.wat` shows the same fold for a
-  // narrow same `i32.add(local.get, const)` payload shell. This stays at
-  // direct same-payload i31 construction, not arbitrary reference or broad
-  // structural expression equality.
+  // narrow same `i32.add(local.get, const)` payload shell; follow-up probe
+  // `.tmp/oi-select-refi31-sub-arms-probe.wat` does the same for same-order
+  // `i32.sub(local.get, const)`. This stays at direct same-payload i31
+  // construction, not arbitrary reference or broad structural expression
+  // equality.
   let const_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result (ref i31)) (select (ref.i31 (i32.const 7)) (ref.i31 (i32.const 7)) (local.get 0))))",
   )
@@ -877,6 +879,15 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   match @ir.hot_node_exact_instr(add_func, add_root) {
     Some(@lib.Instruction::RefI31) => ()
     _ => fail("expected identical pure ref.i31 add arms to fold to ref.i31")
+  }
+
+  let sub_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.sub (local.get 0) (i32.const 1))) (ref.i31 (i32.sub (local.get 0) (i32.const 1))) (local.get 1))))",
+  )
+  let sub_root = @ir.hot_root_get(sub_func, 0)
+  match @ir.hot_node_exact_instr(sub_func, sub_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 sub arms to fold to ref.i31")
   }
 }
 
