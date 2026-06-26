@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover selected-twelfth multi-result tuple boundary
+
+- Added OI-M direct-HOT boundary coverage for selecting the twelfth scalar lane from a multi-result tuple child.
+- Binaryen `version_130` localizes the selected twelfth result through tuple scratch plus scalar temps; Starshine intentionally keeps the direct-HOT tuple spelling until selected-child tuple-scratch localization exists.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiresult-selected-twelfth-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected twelfth lane*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover size-15 bulk-memory boundary
 
 - Added OI-G public-pipeline boundary coverage for size-15 `memory.copy` and `memory.fill`.
