@@ -877,7 +877,9 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   // probe `.tmp/oi-select-refi31-truncsat-arms-probe.wat` adds direct
   // `i32.trunc_sat_f32_s` and `i32.trunc_sat_f64_u` local-payload shells.
   // Follow-up probe `.tmp/oi-select-refi31-reinterpret-arms-probe.wat` adds
-  // direct `i32.reinterpret_f32` local-payload shells. This stays at direct
+  // direct `i32.reinterpret_f32` local-payload shells. Follow-up probe
+  // `.tmp/oi-select-refi31-wrap-arms-probe.wat` adds direct `i32.wrap_i64`
+  // local-payload shells. This stays at direct
   // same-payload i31 construction, not arbitrary
   // reference or broad structural expression equality.
   let const_func = optimize_instructions_test_run_hot(
@@ -1077,6 +1079,16 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
       fail(
         "expected identical pure ref.i31 reinterpret_f32 arms to fold to ref.i31",
       )
+  }
+
+  let wrap_i64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i32) (result (ref i31)) (select (ref.i31 (i32.wrap_i64 (local.get 0))) (ref.i31 (i32.wrap_i64 (local.get 0))) (local.get 1))))",
+  )
+  let wrap_i64_root = @ir.hot_root_get(wrap_i64_func, 0)
+  match @ir.hot_node_exact_instr(wrap_i64_func, wrap_i64_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ =>
+      fail("expected identical pure ref.i31 wrap_i64 arms to fold to ref.i31")
   }
 }
 
