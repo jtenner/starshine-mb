@@ -1141,6 +1141,92 @@ test "optimize-instructions folds signed zero-lhs constant relational compares" 
 }
 
 ///|
+test "optimize-instructions keeps signed zero-rhs constant relational boundary" {
+  // Boundary/status-only OI-D coverage: Binaryen `version_130`
+  // `--optimize-instructions` keeps negative-vs-zero signed constant compares
+  // but canonicalizes positive-vs-zero gt/le forms to unsigned spelling
+  // (`.tmp/oi-d-signed-rel-zero-rhs-probe.wat`). This keeps the signed
+  // constant relational surface narrow after the zero-lhs fold coverage.
+  let i32_neg_lt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const -2 i32.const 0 i32.lt_s))",
+  )
+  let i32_neg_lt_root = @ir.hot_root_get(i32_neg_lt_func, 0)
+  match @ir.hot_node_get(i32_neg_lt_func, i32_neg_lt_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected negative lhs zero-rhs i32.lt_s to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_neg_lt_func, i32_neg_lt_root),
+    Some(@lib.Instruction::i32_lt_s()),
+  )
+
+  let i32_neg_ge_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const -2 i32.const 0 i32.ge_s))",
+  )
+  let i32_neg_ge_root = @ir.hot_root_get(i32_neg_ge_func, 0)
+  match @ir.hot_node_get(i32_neg_ge_func, i32_neg_ge_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected negative lhs zero-rhs i32.ge_s to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_neg_ge_func, i32_neg_ge_root),
+    Some(@lib.Instruction::i32_ge_s()),
+  )
+
+  let i32_pos_gt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 2 i32.const 0 i32.gt_s))",
+  )
+  let i32_pos_gt_root = @ir.hot_root_get(i32_pos_gt_func, 0)
+  match @ir.hot_node_get(i32_pos_gt_func, i32_pos_gt_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected positive lhs zero-rhs i32.gt_s to canonicalize")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_pos_gt_func, i32_pos_gt_root),
+    Some(@lib.Instruction::i32_gt_u()),
+  )
+
+  let i32_pos_le_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 2 i32.const 0 i32.le_s))",
+  )
+  let i32_pos_le_root = @ir.hot_root_get(i32_pos_le_func, 0)
+  match @ir.hot_node_get(i32_pos_le_func, i32_pos_le_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected positive lhs zero-rhs i32.le_s to canonicalize")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_pos_le_func, i32_pos_le_root),
+    Some(@lib.Instruction::i32_le_u()),
+  )
+
+  let i64_neg_lt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const -2 i64.const 0 i64.lt_s))",
+  )
+  let i64_neg_lt_root = @ir.hot_root_get(i64_neg_lt_func, 0)
+  match @ir.hot_node_get(i64_neg_lt_func, i64_neg_lt_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected negative lhs zero-rhs i64.lt_s to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_neg_lt_func, i64_neg_lt_root),
+    Some(@lib.Instruction::i64_lt_s()),
+  )
+
+  let i64_pos_gt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 2 i64.const 0 i64.gt_s))",
+  )
+  let i64_pos_gt_root = @ir.hot_root_get(i64_pos_gt_func, 0)
+  match @ir.hot_node_get(i64_pos_gt_func, i64_pos_gt_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected positive lhs zero-rhs i64.gt_s to canonicalize")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_pos_gt_func, i64_pos_gt_root),
+    Some(@lib.Instruction::i64_gt_u()),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned constant relational compares" {
   // Red-first OI-D parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds unsigned relational compares with two

@@ -261,6 +261,7 @@ sources:
   - ../../../raw/research/1204-2026-06-26-optimize-instructions-oi-d-negative-signed-const-rel-boundary.md
   - ../../../raw/research/1206-2026-06-26-optimize-instructions-oi-d-nonnegative-signed-const-rel-boundary.md
   - ../../../raw/research/1210-2026-06-26-optimize-instructions-oi-d-nonnegative-negative-signed-const-rel.md
+  - ../../../raw/research/1213-2026-06-26-optimize-instructions-oi-d-signed-zero-rhs-const-rel-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt

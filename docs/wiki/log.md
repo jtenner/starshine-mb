@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover signed zero-rhs constant relational boundary
+
+- Added OI-D boundary/status coverage for signed relational constant compares whose right operand is literal zero.
+- Binaryen `version_130` keeps the probed negative-vs-zero signed comparisons and canonicalizes the probed positive-vs-zero `gt_s` / `le_s` forms to unsigned spelling rather than folding to constants; Starshine already matched and now guards that mixed boundary.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-signed-rel-zero-rhs-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*signed zero-rhs constant relational boundary*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization thirty-one-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a thirty-one-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
