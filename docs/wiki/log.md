@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-four-effect boundary
+
+- Added OI-M public-pipeline boundary coverage for a twenty-four-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
+- Binaryen `version_130` localizes this probe through `tuple.make 25` plus scalar locals, while Starshine keeps the public block/drop spelling; the mismatch remains an open tuple-scratch localization gap.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-optimization-twenty-four-effects-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*twenty-four later effects through tuple-optimization*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover signed constant relational boundary
 
 - Added OI-D status/boundary coverage for Binaryen's mixed signed relational constant-pair behavior.
