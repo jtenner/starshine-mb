@@ -7889,6 +7889,77 @@ fn optimize_instructions_try_fold_integer_const_eq_ne_compare(
 }
 
 ///|
+fn optimize_instructions_unsigned_domain_edge_compare_result(
+  instr : @lib.Instruction,
+  rhs_is_zero : Bool,
+  rhs_is_unsigned_max : Bool,
+) -> @lib.I32? {
+  if rhs_is_zero {
+    match instr {
+      @lib.Instruction::I32LtU | @lib.Instruction::I64LtU => Some(@lib.I32(0))
+      @lib.Instruction::I32GeU | @lib.Instruction::I64GeU => Some(@lib.I32(1))
+      _ => None
+    }
+  } else if rhs_is_unsigned_max {
+    match instr {
+      @lib.Instruction::I32GtU | @lib.Instruction::I64GtU => Some(@lib.I32(0))
+      @lib.Instruction::I32LeU | @lib.Instruction::I64LeU => Some(@lib.I32(1))
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_unsigned_domain_edge_compare(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let (rhs_is_zero, rhs_is_unsigned_max) = match instr {
+    @lib.Instruction::I32LtU
+    | @lib.Instruction::I32LeU
+    | @lib.Instruction::I32GtU
+    | @lib.Instruction::I32GeU =>
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) => (raw == 0, raw == -1)
+        _ => return false
+      }
+    @lib.Instruction::I64LtU
+    | @lib.Instruction::I64LeU
+    | @lib.Instruction::I64GtU
+    | @lib.Instruction::I64GeU =>
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(raw)) => (raw == 0L, raw == -1L)
+        _ => return false
+      }
+    _ => return false
+  }
+  match
+    optimize_instructions_unsigned_domain_edge_compare_result(
+      instr, rhs_is_zero, rhs_is_unsigned_max,
+    ) {
+    Some(result) => {
+      if optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) ||
+        optimize_instructions_node_effects_are_pure(ctx, func, lhs_id) {
+        optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+      } else {
+        optimize_instructions_replace_with_drop_then_const_i32(
+          ctx, func, node_id, lhs_id, result,
+        )
+      }
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_same_local_integer_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -8651,6 +8722,9 @@ fn optimize_instructions_visit_node(
         if optimize_instructions_try_fold_integer_const_eq_ne_compare(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
+          optimize_instructions_try_fold_unsigned_domain_edge_compare(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
           optimize_instructions_try_fold_same_local_integer_compare(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
@@ -8756,6 +8830,9 @@ fn optimize_instructions_visit_node(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_integer_const_eq_ne_compare(
+                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+              ) ||
+              optimize_instructions_try_fold_unsigned_domain_edge_compare(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_i32_sign_extension_equality_compare(

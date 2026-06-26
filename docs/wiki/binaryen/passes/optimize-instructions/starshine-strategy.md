@@ -106,6 +106,7 @@ sources:
   - ../../../raw/research/1189-2026-06-26-optimize-instructions-oi-m-tuple-optimization-twenty-effects-boundary.md
   - ../../../raw/research/1191-2026-06-26-optimize-instructions-oi-m-tuple-optimization-twenty-one-effects-boundary.md
   - ../../../raw/research/1190-2026-06-26-optimize-instructions-oi-d-const-eq-ne.md
+  - ../../../raw/research/1192-2026-06-26-optimize-instructions-oi-d-unsigned-domain-edge.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -135,7 +136,7 @@ Current Starshine `src/passes/optimize_instructions.mbt` is a real HOT pass, but
 The implemented center of gravity is:
 
 - exact binary constant folding and constant integer `eq` / `ne` compare folding
-- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first pure/effect-preserving i32/i64 `shr_u` bounded unsigned-compare folds, first straight-line local-carried and `i32.wrap_i64` unsigned max facts, first direct nonnegative signed-relational folds and signed-to-unsigned compare spellings, and relational constant canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, endpoint unsigned-domain compare folds (`x <_u 0`, `x >=_u 0`, `x >_u UINT_MAX`, `x <=_u UINT_MAX`) with effect preservation, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first pure/effect-preserving i32/i64 `shr_u` bounded unsigned-compare folds, first straight-line local-carried and `i32.wrap_i64` unsigned max facts, first direct nonnegative signed-relational folds and signed-to-unsigned compare spellings, and relational constant canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, including constant shift/rotate effective-amount masking (`31`/`63`) through existing constant-fold/identity machinery
 - constant-`if` folding
@@ -168,6 +169,7 @@ The local file has dedicated helpers for:
 
 - exact constant folding of binary ops
 - constant integer `eq` / `ne` compare folding for direct i32/i64 constant pairs
+- unsigned domain-edge folds for `x <_u 0`, `x >=_u 0`, `x >_u UINT_MAX`, and `x <=_u UINT_MAX`, preserving effectful operands as a drop before the boolean constant
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
 - same-local integer compare folding plus direct same-local integer binary folds for `sub`/`xor` to zero and `and`/`or` to the local value

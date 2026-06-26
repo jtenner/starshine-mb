@@ -847,6 +847,82 @@ test "optimize-instructions folds integer eq/ne constant compares" {
 }
 
 ///|
+test "optimize-instructions folds unsigned domain-edge compares" {
+  // Red-first OI-D parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds unsigned comparisons whose constant
+  // endpoint is outside the possible unsigned domain, while preserving any
+  // operand effects with an explicit drop before the boolean constant.
+  let i32_gt_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const -1 i32.gt_u))",
+  )
+  let i32_gt_root = @ir.hot_root_get(i32_gt_func, 0)
+  match @ir.hot_node_get(i32_gt_func, i32_gt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32.gt_u against unsigned max to fold to const 0")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_gt_func,
+      @ir.hot_node_get(i32_gt_func, i32_gt_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i32_le_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const -1 i32.le_u))",
+  )
+  let i32_le_root = @ir.hot_root_get(i32_le_func, 0)
+  match @ir.hot_node_get(i32_le_func, i32_le_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32.le_u against unsigned max to fold to const 1")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_le_func,
+      @ir.hot_node_get(i32_le_func, i32_le_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i64_lt_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.const 0 i64.lt_u))",
+  )
+  let i64_lt_root = @ir.hot_root_get(i64_lt_func, 0)
+  match @ir.hot_node_get(i64_lt_func, i64_lt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i64.lt_u against unsigned min to fold to const 0")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_lt_func,
+      @ir.hot_node_get(i64_lt_func, i64_lt_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let effect_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) call $effect i32.const 0 i32.ge_u) (func $effect (result i32) i32.const 3))",
+  )
+  let effect_root = @ir.hot_root_get(effect_func, 0)
+  match @ir.hot_node_get(effect_func, effect_root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected effectful unsigned domain fold to preserve the call")
+  }
+  let result_id = @ir.hot_child_get(effect_func, effect_root, 1)
+  match @ir.hot_node_get(effect_func, result_id).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected effectful unsigned domain fold to end with const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      effect_func,
+      @ir.hot_node_get(effect_func, result_id).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+}
+
+///|
 test "optimize-instructions folds same-local integer compares" {
   let eq_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 local.get 0 i32.eq))",

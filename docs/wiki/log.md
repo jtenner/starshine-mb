@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold unsigned domain-edge compares
+
+- Added OI-D red-first coverage for i32/i64 unsigned comparisons against the exact unsigned domain endpoints `0` and all-ones.
+- Starshine now folds `x <_u 0` and `x >_u UINT_MAX` to false, folds `x >=_u 0` and `x <=_u UINT_MAX` to true, and preserves effectful operands with an explicit drop before the boolean constant.
+- Evidence: Binaryen oracle probes `.tmp/oi-d-unsigned-domain-boundary-probe.wat` and `.tmp/oi-d-unsigned-domain-effect-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*unsigned domain-edge compares*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-one-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a twenty-one-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
