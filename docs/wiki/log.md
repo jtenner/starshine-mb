@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold narrowed i64.extend_i32_u maxBits compares
+
+- Added OI-D red-first coverage for `i64.extend_i32_u` preserving a narrower child maxBits fact from `i32.and` before falling back to `u32::MAX`.
+- Starshine now folds masked-extension out-of-range signed comparisons such as `i64.gt_s(i64.extend_i32_u(i32.and x 255), 300)` to `i32.const 0`, matching Binaryen's observed direct-pass behavior while keeping broader CFG/select/phi range scanning open.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-i64-extend-i32-u-masked-narrow-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*i64.extend_i32_u unsigned maxBits*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-five-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a twenty-five-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

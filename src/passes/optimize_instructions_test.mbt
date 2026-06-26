@@ -2002,7 +2002,14 @@ test "optimize-instructions folds i64.extend_i32_u unsigned maxBits compares" {
         #|    local.get $x
         #|    i64.extend_i32_u
         #|    i64.const 42
-        #|    i64.ge_s))
+        #|    i64.ge_s)
+        #|  (func (param $x i32) (result i32)
+        #|    local.get $x
+        #|    i32.const 255
+        #|    i32.and
+        #|    i64.extend_i32_u
+        #|    i64.const 300
+        #|    i64.gt_s))
         #|,
       ),
       ["optimize-instructions"],
@@ -2017,6 +2024,9 @@ test "optimize-instructions folds i64.extend_i32_u unsigned maxBits compares" {
   let spelling_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(spelling_pretty.contains("i64.ge_u"), msg=spelling_pretty)
   assert_false(spelling_pretty.contains("i64.ge_s"), msg=spelling_pretty)
+  let narrowed_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(narrowed_pretty.contains("i32.const I32(0)"), msg=narrowed_pretty)
+  assert_false(narrowed_pretty.contains("i64.gt_s"), msg=narrowed_pretty)
 }
 
 ///|

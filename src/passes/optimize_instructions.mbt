@@ -473,7 +473,14 @@ fn optimize_instructions_i64_unsigned_max_fact_for_node(
     @ir.HotOp::Unary | @ir.HotOp::Convert => {
       let operand_id = func.children[node.child_base]
       match @ir.hot_node_exact_instr(func, node_id) {
-        Some(@lib.Instruction::I64ExtendI32U) => Some(4294967295L)
+        Some(@lib.Instruction::I64ExtendI32U) =>
+          match
+            optimize_instructions_i32_unsigned_max_fact_for_node(
+              func, dead, scratch, operand_id,
+            ) {
+            Some(value) => Some(value.to_int64())
+            None => Some(4294967295L)
+          }
         _ =>
           optimize_instructions_i32_unsigned_max_fact_for_node(
             func, dead, scratch, operand_id,
