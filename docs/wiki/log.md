@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover signed zero-lhs constant relational folds
+
+- Added OI-D coverage/status for signed relational constant compares whose left operand is literal zero.
+- Binaryen `version_130` folds the probed i32/i64 `0 <_s c`, `0 <=_s c`, `0 >_s c`, and `0 >=_s c` shapes to `i32.const` booleans; Starshine already matched through existing compare-to-zero/constant canonicalization.
+- Evidence: Binaryen oracle probes `.tmp/oi-d-signed-zero-rel-probe.wat` and `.tmp/oi-d-signed-zero-equal-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*signed zero-lhs constant relational*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-six-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a twenty-six-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

@@ -891,6 +891,79 @@ test "optimize-instructions keeps signed constant relational mixed boundary" {
 }
 
 ///|
+test "optimize-instructions folds signed zero-lhs constant relational compares" {
+  // Coverage/status OI-D parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds signed relational constant compares whose
+  // left operand is literal zero to `i32.const 0/1` (`.tmp/oi-d-signed-zero-rel-probe.wat`
+  // and `.tmp/oi-d-signed-zero-equal-probe.wat`). This intentionally does not
+  // generalize to all signed constant-pair relational compares, because nearby
+  // non-zero pairs remain mixed keep/canonicalize behavior.
+  let i32_lt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 0 i32.const 5 i32.lt_s))",
+  )
+  let i32_lt_root = @ir.hot_root_get(i32_lt_func, 0)
+  match @ir.hot_node_get(i32_lt_func, i32_lt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected zero-lhs signed i32.lt_s to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_lt_func,
+      @ir.hot_node_get(i32_lt_func, i32_lt_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i32_ge_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 0 i32.const 5 i32.ge_s))",
+  )
+  let i32_ge_root = @ir.hot_root_get(i32_ge_func, 0)
+  match @ir.hot_node_get(i32_ge_func, i32_ge_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected zero-lhs signed i32.ge_s to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_ge_func,
+      @ir.hot_node_get(i32_ge_func, i32_ge_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_gt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 0 i64.const -5 i64.gt_s))",
+  )
+  let i64_gt_root = @ir.hot_root_get(i64_gt_func, 0)
+  match @ir.hot_node_get(i64_gt_func, i64_gt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected zero-lhs signed i64.gt_s to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_gt_func,
+      @ir.hot_node_get(i64_gt_func, i64_gt_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i64_le_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 0 i64.const -5 i64.le_s))",
+  )
+  let i64_le_root = @ir.hot_root_get(i64_le_func, 0)
+  match @ir.hot_node_get(i64_le_func, i64_le_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected zero-lhs signed i64.le_s to fold to a const")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_le_func,
+      @ir.hot_node_get(i64_le_func, i64_le_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned constant relational compares" {
   // Red-first OI-D parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds unsigned relational compares with two
