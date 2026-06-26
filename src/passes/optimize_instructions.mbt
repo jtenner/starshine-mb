@@ -5011,6 +5011,22 @@ fn optimize_instructions_i64_add_local_local_payloads_are_identical_pure(
 }
 
 ///|
+fn optimize_instructions_i32_mul_local_local_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_mul(),
+  )
+}
+
+///|
 fn optimize_instructions_i64_mul_local_local_payloads_are_identical_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -6363,6 +6379,9 @@ fn optimize_instructions_select_arms_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_i64_add_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i32_mul_local_local_payloads_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_i64_mul_local_local_payloads_are_identical_pure(
