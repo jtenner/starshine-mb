@@ -142,6 +142,7 @@ sources:
   - ../../../raw/research/1241-2026-06-26-optimize-instructions-oi-f-identical-float-unary-select-arms.md
   - ../../../raw/research/1238-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-two-effects-boundary.md
   - ../../../raw/research/1240-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-three-effects-boundary.md
+  - ../../../raw/research/1242-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-four-effects-boundary.md
   - ../../../raw/research/1190-2026-06-26-optimize-instructions-oi-d-const-eq-ne.md
   - ../../../raw/research/1192-2026-06-26-optimize-instructions-oi-d-unsigned-domain-edge.md
   - ../../../raw/research/1194-2026-06-26-optimize-instructions-oi-d-unsigned-const-rel.md
