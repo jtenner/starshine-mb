@@ -799,6 +799,25 @@ test "optimize-instructions folds select with identical pure v128 constant arms"
 }
 
 ///|
+test "optimize-instructions folds select with identical pure v128 splat arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds direct identical SIMD splat select arms when
+  // both arms use the same splat instruction over the same local and the
+  // condition is side-effect-free
+  // (`.tmp/oi-select-identical-v128-splat-arms-probe.wat`). This deliberately
+  // stays at exact same-lane splat/local shells, not SIMD algebraic equality,
+  // lane-equivalent spellings, or arbitrary structural expression equality.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result v128) (select (i8x16.splat (local.get 0)) (i8x16.splat (local.get 0)) (local.get 1))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(instr) if instr == @lib.Instruction::i8x16_splat() => ()
+    _ => fail("expected identical pure v128 splat select arms to fold")
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure numeric expression arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds same-order local/constant numeric

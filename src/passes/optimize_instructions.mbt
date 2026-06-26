@@ -1785,6 +1785,20 @@ fn optimize_instructions_is_side_effect_free_expr(
         dead,
         func.children[node.child_base],
       )
+    Some(instr) if node.child_count == 1 &&
+      (
+        instr == @lib.Instruction::i8x16_splat() ||
+        instr == @lib.Instruction::i16x8_splat() ||
+        instr == @lib.Instruction::i32x4_splat() ||
+        instr == @lib.Instruction::i64x2_splat() ||
+        instr == @lib.Instruction::f32x4_splat() ||
+        instr == @lib.Instruction::f64x2_splat()
+      ) =>
+      return optimize_instructions_is_side_effect_free_expr(
+        func,
+        dead,
+        func.children[node.child_base],
+      )
     _ => ()
   }
   match node.op {
@@ -6079,6 +6093,57 @@ fn optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
 }
 
 ///|
+fn optimize_instructions_v128_splat_local_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i8x16_splat(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i16x8_splat(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32x4_splat(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64x2_splat(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32x4_splat(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64x2_splat(),
+  )
+}
+
+///|
 fn optimize_instructions_select_arms_are_identical_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -6224,6 +6289,9 @@ fn optimize_instructions_select_arms_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_f64_unary_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_v128_splat_local_payloads_are_identical_pure(
       func, dead, if_true, if_false,
     ) {
     return true
