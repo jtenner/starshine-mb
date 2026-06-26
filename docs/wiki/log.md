@@ -19783,3 +19783,5 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Kept this as boundary/status evidence, not parity: tuple-scratch reconstruction/localization remains active OI-M work.
 
 - 2026-06-26: Filed `raw/research/1206-2026-06-26-optimize-instructions-oi-d-nonnegative-signed-const-rel-boundary.md` and updated the OI strategy/index/backlog with the mixed nonnegative signed relational constant-pair boundary.
+
+- 2026-06-26: Filed `raw/research/1207-2026-06-26-optimize-instructions-oi-m-tuple-optimization-twenty-nine-effects-boundary.md` and updated the OI strategy/index/backlog with the twenty-nine-effect public tuple-optimization neighbor boundary.
