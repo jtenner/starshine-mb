@@ -4940,7 +4940,7 @@ fn optimize_instructions_i32_local_const_payloads_are_identical_pure(
 }
 
 ///|
-fn optimize_instructions_i32_add_or_sub_local_const_payloads_are_identical_pure(
+fn optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   lhs : Int,
@@ -4959,6 +4959,13 @@ fn optimize_instructions_i32_add_or_sub_local_const_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::i32_sub(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_mul(),
   )
 }
 
@@ -5033,7 +5040,7 @@ fn optimize_instructions_select_arms_are_identical_pure(
         (Some(lhs), Some(rhs)) => return lhs == rhs
         _ => ()
       }
-      if optimize_instructions_i32_add_or_sub_local_const_payloads_are_identical_pure(
+      if optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
           func, dead, true_payload, false_payload,
         ) {
         return true
