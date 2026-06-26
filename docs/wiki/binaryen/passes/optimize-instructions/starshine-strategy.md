@@ -128,6 +128,7 @@ sources:
   - ../../../raw/research/1225-2026-06-26-optimize-instructions-oi-m-tuple-optimization-forty-effects-boundary.md
   - ../../../raw/research/1226-2026-06-26-optimize-instructions-oi-m-tuple-optimization-forty-one-effects-boundary.md
   - ../../../raw/research/1227-2026-06-26-optimize-instructions-oi-m-tuple-optimization-forty-two-effects-boundary.md
+  - ../../../raw/research/1228-2026-06-26-optimize-instructions-oi-m-tuple-optimization-forty-three-effects-boundary.md
   - ../../../raw/research/1190-2026-06-26-optimize-instructions-oi-d-const-eq-ne.md
   - ../../../raw/research/1192-2026-06-26-optimize-instructions-oi-d-unsigned-domain-edge.md
   - ../../../raw/research/1194-2026-06-26-optimize-instructions-oi-d-unsigned-const-rel.md
