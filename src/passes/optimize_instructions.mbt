@@ -4966,6 +4966,13 @@ fn optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::i32_mul(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_and(),
   )
 }
 
