@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-26] passes/optimize-instructions | Add sign-extension unsigned-top compare rewrite
+
+- Added OI-D red-first coverage and implementation for the narrow Binaryen-shaped `i32.extend8_s` / `i32.extend16_s` unsigned-top compare rewrite.
+- Starshine now rewrites `lt_u(..., -1)` / `ge_u(..., -1)` to `ne` / `eq` over an `and` mask (`255` or `65535`), preserving effectful operands once as the masked value.
+- Evidence: Binaryen oracle probes `.tmp/oi-d-signext-unsigned-rel-probe2.wat` and `.tmp/oi-d-signext-unsigned-rel-effect-probe.wat`; focused red-first `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*sign-extension unsigned top*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization two-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a multivalue block with two later non-selected effects under `optimize-instructions -> tuple-optimization`.

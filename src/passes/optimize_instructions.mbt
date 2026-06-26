@@ -7970,6 +7970,49 @@ fn optimize_instructions_try_fold_i32_sign_extension_equality_compare(
 }
 
 ///|
+fn optimize_instructions_try_rewrite_i32_sign_extension_unsigned_top_compare(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  let mask = match
+    optimize_instructions_i32_sign_extension_range(func, dead, lhs_id) {
+    Some((-128, 127, child_id)) => (255, child_id)
+    Some((-32768, 32767, child_id)) => (65535, child_id)
+    _ => return false
+  }
+  match optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) if raw == -1 => ()
+    _ => return false
+  }
+  let replacement_instr = match instr {
+    @lib.Instruction::I32LtU => @lib.Instruction::i32_ne()
+    @lib.Instruction::I32GeU => @lib.Instruction::i32_eq()
+    _ => return false
+  }
+  let (mask_value, child_id) = mask
+  let masked = optimize_instructions_build_i32_binary(
+    func,
+    @lib.Instruction::i32_and(),
+    child_id,
+    @ir.hot_build_const_i32(func, @lib.I32(mask_value)),
+  )
+  optimize_instructions_replace_with_exact_compare(
+    ctx,
+    func,
+    node_id,
+    replacement_instr,
+    masked,
+    @ir.hot_build_const_i32(func, @lib.I32(mask_value)),
+  )
+  true
+}
+
+///|
 fn optimize_instructions_i32_unsigned_max(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -8531,7 +8574,14 @@ fn optimize_instructions_visit_node(
           let range_folded = optimize_instructions_try_fold_i32_sign_extension_equality_compare(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           )
-          let masked_unsigned_folded = if range_folded {
+          let signext_top_rewritten = if range_folded {
+            false
+          } else {
+            optimize_instructions_try_rewrite_i32_sign_extension_unsigned_top_compare(
+              ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            )
+          }
+          let masked_unsigned_folded = if range_folded || signext_top_rewritten {
             false
           } else {
             optimize_instructions_try_fold_i32_masked_unsigned_compare(
@@ -8541,8 +8591,13 @@ fn optimize_instructions_visit_node(
               ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
             )
           }
-          changed = range_folded || masked_unsigned_folded || changed
-          let zero_folded = if masked_unsigned_folded || range_folded {
+          changed = range_folded ||
+            signext_top_rewritten ||
+            masked_unsigned_folded ||
+            changed
+          let zero_folded = if masked_unsigned_folded ||
+            signext_top_rewritten ||
+            range_folded {
             false
           } else {
             optimize_instructions_try_fold_compare_zero(

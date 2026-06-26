@@ -1117,6 +1117,59 @@ test "optimize-instructions folds i32 sign-extension equality outside range" {
 }
 
 ///|
+test "optimize-instructions rewrites i32 sign-extension unsigned top compares" {
+  let lt8_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.extend8_s i32.const -1 i32.lt_u))",
+  )
+  let lt8_root = @ir.hot_root_get(lt8_func, 0)
+  match @ir.hot_node_get(lt8_func, lt8_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected i32.extend8_s lt_u -1 to rewrite to compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(lt8_func, lt8_root),
+    Some(@lib.Instruction::i32_ne()),
+  )
+  let lt8_masked = @ir.hot_child_get(lt8_func, lt8_root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(lt8_func, lt8_masked),
+    Some(@lib.Instruction::i32_and()),
+  )
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      lt8_func,
+      @ir.hot_node_get(lt8_func, @ir.hot_child_get(lt8_func, lt8_root, 1)).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(255)),
+  )
+
+  let ge16_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.extend16_s i32.const -1 i32.ge_u))",
+  )
+  let ge16_root = @ir.hot_root_get(ge16_func, 0)
+  match @ir.hot_node_get(ge16_func, ge16_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected i32.extend16_s ge_u -1 to rewrite to compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ge16_func, ge16_root),
+    Some(@lib.Instruction::i32_eq()),
+  )
+  let ge16_masked = @ir.hot_child_get(ge16_func, ge16_root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ge16_func, ge16_masked),
+    Some(@lib.Instruction::i32_and()),
+  )
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      ge16_func,
+      @ir.hot_node_get(ge16_func, @ir.hot_child_get(ge16_func, ge16_root, 1)).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(65535)),
+  )
+}
+
+///|
 test "optimize-instructions keeps i64 sign-extension equality outside range" {
   // Boundary-only OI-D classification: Binaryen `version_130`
   // `--optimize-instructions` keeps i64 sign-extension equality/inequality
