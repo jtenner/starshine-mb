@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover negative signed constant relational boundary
+
+- Added OI-D boundary/status coverage for same-sign negative signed relational constant pairs.
+- Binaryen `version_130` keeps the probed i32/i64 negative signed relational comparisons with signed spelling; Starshine already matched and now guards against overgeneralizing the unsigned constant relational fold.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-negative-signed-const-rel-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*negative signed constant relational*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-seven-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a twenty-seven-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

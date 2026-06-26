@@ -252,6 +252,7 @@ sources:
   - ../../../raw/research/1198-2026-06-26-optimize-instructions-oi-d-i64-extend-i32-u-maxbits.md
   - ../../../raw/research/1200-2026-06-26-optimize-instructions-oi-d-i64-extend-i32-u-narrow-maxbits.md
   - ../../../raw/research/1202-2026-06-26-optimize-instructions-oi-d-signed-zero-lhs-const-rel.md
+  - ../../../raw/research/1204-2026-06-26-optimize-instructions-oi-d-negative-signed-const-rel-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt

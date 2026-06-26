@@ -891,6 +891,66 @@ test "optimize-instructions keeps signed constant relational mixed boundary" {
 }
 
 ///|
+test "optimize-instructions keeps negative signed constant relational compares" {
+  // Boundary/status-only OI-D coverage: Binaryen `version_130`
+  // `--optimize-instructions` keeps same-sign negative signed relational
+  // constant pairs in the probed forms (`.tmp/oi-d-negative-signed-const-rel-probe.wat`).
+  // This narrows the signed-constant boundary so the unsigned constant fold does
+  // not become a blanket signed relational fold.
+  let i32_lt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const -7 i32.const -3 i32.lt_s))",
+  )
+  let i32_lt_root = @ir.hot_root_get(i32_lt_func, 0)
+  match @ir.hot_node_get(i32_lt_func, i32_lt_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected negative signed i32.lt_s constants to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_lt_func, i32_lt_root),
+    Some(@lib.Instruction::i32_lt_s()),
+  )
+
+  let i32_ge_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const -5 i32.const -4 i32.ge_s))",
+  )
+  let i32_ge_root = @ir.hot_root_get(i32_ge_func, 0)
+  match @ir.hot_node_get(i32_ge_func, i32_ge_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected negative signed i32.ge_s constants to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_ge_func, i32_ge_root),
+    Some(@lib.Instruction::i32_ge_s()),
+  )
+
+  let i64_gt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const -2 i64.const -9 i64.gt_s))",
+  )
+  let i64_gt_root = @ir.hot_root_get(i64_gt_func, 0)
+  match @ir.hot_node_get(i64_gt_func, i64_gt_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected negative signed i64.gt_s constants to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_gt_func, i64_gt_root),
+    Some(@lib.Instruction::i64_gt_s()),
+  )
+
+  let i64_le_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const -2 i64.const -9 i64.le_s))",
+  )
+  let i64_le_root = @ir.hot_root_get(i64_le_func, 0)
+  match @ir.hot_node_get(i64_le_func, i64_le_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected negative signed i64.le_s constants to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_le_func, i64_le_root),
+    Some(@lib.Instruction::i64_le_s()),
+  )
+}
+
+///|
 test "optimize-instructions folds signed zero-lhs constant relational compares" {
   // Coverage/status OI-D parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds signed relational constant compares whose
