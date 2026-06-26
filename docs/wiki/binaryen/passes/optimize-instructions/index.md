@@ -178,6 +178,7 @@ sources:
   - ../../../raw/research/1152-2026-06-26-optimize-instructions-oi-g-size19-bulk-boundary.md
   - ../../../raw/research/1158-2026-06-26-optimize-instructions-oi-g-size20-bulk-boundary.md
   - ../../../raw/research/1160-2026-06-26-optimize-instructions-oi-g-size21-bulk-boundary.md
+  - ../../../raw/research/1162-2026-06-26-optimize-instructions-oi-g-size22-bulk-boundary.md
   - ../../../raw/research/0877-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-siblings.md
   - ../../../raw/research/0878-2026-06-25-optimize-instructions-oi-d-i64-signext-equality-boundary.md
   - ../../../raw/research/0879-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-one-later.md
