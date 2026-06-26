@@ -191,6 +191,7 @@ sources:
   - ../../../raw/research/0917-2026-06-25-optimize-instructions-oi-m-selected-twelfth-multiresult-boundary.md
   - ../../../raw/research/0919-2026-06-25-optimize-instructions-oi-m-selected-thirteenth-multiresult-boundary.md
   - ../../../raw/research/1141-2026-06-25-optimize-instructions-oi-m-selected-fourteenth-multiresult-boundary.md
+  - ../../../raw/research/1143-2026-06-25-optimize-instructions-oi-m-direct-selected-fifteenth-boundary.md
   - ../../../raw/research/0888-2026-06-25-optimize-instructions-oi-g-memory-fill-size3-boundary.md
   - ../../../raw/research/0889-2026-06-25-optimize-instructions-oi-d-i32-signext-rel-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
