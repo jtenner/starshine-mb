@@ -227,6 +227,7 @@ sources:
   - ../../../raw/research/1175-2026-06-26-optimize-instructions-oi-m-tuple-optimization-thirteen-effects-boundary.md
   - ../../../raw/research/1177-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fourteen-effects-boundary.md
   - ../../../raw/research/1179-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifteen-effects-boundary.md
+  - ../../../raw/research/1181-2026-06-26-optimize-instructions-oi-m-tuple-optimization-sixteen-effects-boundary.md
   - ../../../raw/research/0888-2026-06-25-optimize-instructions-oi-g-memory-fill-size3-boundary.md
   - ../../../raw/research/0889-2026-06-25-optimize-instructions-oi-d-i32-signext-rel-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
