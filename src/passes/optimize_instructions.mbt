@@ -4922,6 +4922,10 @@ fn optimize_instructions_select_arms_are_identical_pure(
       { op: @ir.HotOp::RefNull, ty: lhs_ty, .. },
       { op: @ir.HotOp::RefNull, ty: rhs_ty, .. },
     ) => return lhs_ty == rhs_ty
+    (
+      { op: @ir.HotOp::RefFunc, ty: lhs_ty, imm0: lhs_func, .. },
+      { op: @ir.HotOp::RefFunc, ty: rhs_ty, imm0: rhs_func, .. },
+    ) => return lhs_ty == rhs_ty && lhs_func == rhs_func
     _ => ()
   }
   match
@@ -4930,6 +4934,8 @@ fn optimize_instructions_select_arms_are_identical_pure(
       @ir.hot_node_exact_instr(func, if_false),
     ) {
     (Some(@lib.Instruction::RefNull(lhs)), Some(@lib.Instruction::RefNull(rhs))) =>
+      return lhs == rhs
+    (Some(@lib.Instruction::RefFunc(lhs)), Some(@lib.Instruction::RefFunc(rhs))) =>
       return lhs == rhs
     _ => ()
   }

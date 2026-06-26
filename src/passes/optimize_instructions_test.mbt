@@ -799,6 +799,25 @@ test "optimize-instructions folds select with identical pure ref.null arms" {
 }
 
 ///|
+test "optimize-instructions folds select with identical pure ref.func arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds direct identical `ref.func` select arms
+  // when the condition is side-effect-free (`.tmp/oi-select-reffunc-arms-probe.wat`).
+  // This is intentionally only direct same-function equality, not broader
+  // reference value, table, or structural-expression equality.
+  let func = optimize_instructions_test_run_hot(
+    "(module (type $t (func (param i32) (result funcref))) (func $target (type $t) (param i32) (result funcref) (select (ref.func $target) (ref.func $target) (local.get 0))) (elem declare func $target))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let node = @ir.hot_node_get(func, root)
+  match node.op {
+    @ir.HotOp::RefFunc => @debug.assert_eq(node.imm0, 0)
+    _ =>
+      fail("expected identical pure ref.func select arms to fold to ref.func")
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure float constant arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical f32/f64 constant select arms when

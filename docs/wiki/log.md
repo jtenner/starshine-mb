@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical ref.func select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct same-target `ref.func` arms when the condition is side-effect-free.
+- Binaryen `version_130` folds the probed `ref.func $target` arms to that same function reference; Starshine now matches this direct-function-reference subset without claiming broader reference value equality or structural expression equality.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-reffunc-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*ref.func arms*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization thirty-seven-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a thirty-seven-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
