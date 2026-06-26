@@ -287,6 +287,7 @@ sources:
   - ../../../raw/research/1246-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-six-effects-boundary.md
   - ../../../raw/research/1248-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-seven-effects-boundary.md
   - ../../../raw/research/1250-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-eight-effects-boundary.md
+  - ../../../raw/research/1252-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-nine-effects-boundary.md
   - ../../../raw/research/0888-2026-06-25-optimize-instructions-oi-g-memory-fill-size3-boundary.md
   - ../../../raw/research/0889-2026-06-25-optimize-instructions-oi-d-i32-signext-rel-boundary.md
   - ../../../raw/research/1190-2026-06-26-optimize-instructions-oi-d-const-eq-ne.md
@@ -534,6 +535,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 
 ## Sources
 
+- [`../../../raw/research/1252-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-nine-effects-boundary.md`](../../../raw/research/1252-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-nine-effects-boundary.md) extends the public `tuple-optimization` effect-count boundary ladder to fifty-nine later non-selected effects, recording Binaryen's `tuple.make 60` localization and Starshine's current tuple-scratch gap.
 - [`../../../raw/research/1251-2026-06-26-optimize-instructions-oi-f-identical-v128-select-arms.md`](../../../raw/research/1251-2026-06-26-optimize-instructions-oi-f-identical-v128-select-arms.md) adds direct byte-identical `v128.const` select-arm folding, matching Binaryen's direct vector-constant oracle while avoiding SIMD algebraic, lane-equivalent, or arbitrary structural equality claims.
 - [`../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md)
 - [`../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md`](../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md)
