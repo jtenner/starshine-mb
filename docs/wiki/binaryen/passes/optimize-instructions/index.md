@@ -166,6 +166,7 @@ sources:
   - ../../../raw/research/0918-2026-06-25-optimize-instructions-oi-g-size6-bulk-boundary.md
   - ../../../raw/research/0894-2026-06-25-optimize-instructions-oi-g-size7-bulk-boundary.md
   - ../../../raw/research/0910-2026-06-25-optimize-instructions-oi-g-size9-bulk-boundary.md
+  - ../../../raw/research/1140-2026-06-25-optimize-instructions-oi-g-size10-bulk-boundary.md
   - ../../../raw/research/0912-2026-06-25-optimize-instructions-oi-g-size11-bulk-boundary.md
   - ../../../raw/research/0914-2026-06-25-optimize-instructions-oi-g-size13-bulk-boundary.md
   - ../../../raw/research/0916-2026-06-25-optimize-instructions-oi-g-size15-bulk-boundary.md
