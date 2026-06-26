@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical pure select arms
+
+- Added OI-F red-first coverage and implementation for Binaryen-shaped identical pure `select` arms.
+- Starshine now folds direct identical `local.get`, i32 const, and i64 const arms when the condition is side-effect-free, while preserving trapping/effectful conditions.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-same-arms-probe.wat`; focused pure-local test failed before implementation and passed after implementation.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization thirty-two-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a thirty-two-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

@@ -749,6 +749,31 @@ test "optimize-instructions preserves select when constant dead arm has call eff
 }
 
 ///|
+test "optimize-instructions folds select with identical pure local arms" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (select (local.get 1) (local.get 1) (local.get 0))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::LocalGet =>
+      @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 1)
+    _ => fail("expected identical pure local select arms to fold to the local")
+  }
+}
+
+///|
+test "optimize-instructions keeps identical select arms when condition may trap" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (memory 1) (func (param i32) (result i32) (select (local.get 0) (local.get 0) (i32.load (i32.const 0)))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Select => ()
+    _ => fail("expected identical select arms to preserve a trapping condition")
+  }
+}
+
+///|
 test "optimize-instructions canonicalizes i32.eq zero into eqz" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.const 0 i32.eq))",

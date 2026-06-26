@@ -118,6 +118,7 @@ sources:
   - ../../../raw/research/1212-2026-06-26-optimize-instructions-oi-m-tuple-optimization-thirty-one-effects-boundary.md
   - ../../../raw/research/1215-2026-06-26-optimize-instructions-oi-m-tuple-optimization-thirty-two-effects-boundary.md
   - ../../../raw/research/1217-2026-06-26-optimize-instructions-oi-m-tuple-optimization-thirty-three-effects-boundary.md
+  - ../../../raw/research/1218-2026-06-26-optimize-instructions-oi-f-identical-select-arms.md
   - ../../../raw/research/1190-2026-06-26-optimize-instructions-oi-d-const-eq-ne.md
   - ../../../raw/research/1192-2026-06-26-optimize-instructions-oi-d-unsigned-domain-edge.md
   - ../../../raw/research/1194-2026-06-26-optimize-instructions-oi-d-unsigned-const-rel.md
@@ -164,7 +165,7 @@ The implemented center of gravity is:
 - non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, endpoint unsigned-domain compare folds (`x <_u 0`, `x >=_u 0`, `x >_u UINT_MAX`, `x <=_u UINT_MAX`) with effect preservation, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first pure/effect-preserving i32/i64 `shr_u` bounded unsigned-compare folds, first straight-line local-carried, `i32.wrap_i64`, and `i64.extend_i32_u` unsigned max facts including narrowed child facts, first direct nonnegative signed-relational folds and signed-to-unsigned compare spellings, signed zero-lhs constant relational folds, signed zero-rhs constant relational keep/canonicalize boundary coverage, and relational constant canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, including constant shift/rotate effective-amount masking (`31`/`63`) through existing constant-fold/identity machinery
-- constant-`if` folding
+- constant-`if` folding and constant-condition / identical-pure-arm `select` cleanup
 - nested boolean-`if` normalization and `eqz` wrapping
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation

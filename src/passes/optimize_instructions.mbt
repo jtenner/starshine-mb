@@ -4891,6 +4891,44 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
 }
 
 ///|
+fn optimize_instructions_select_arms_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  if_true : Int,
+  if_false : Int,
+) -> Bool {
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, if_true) ||
+    !optimize_instructions_is_side_effect_free_expr(func, dead, if_false) {
+    return false
+  }
+  match
+    (
+      optimize_instructions_local_get_id(func, dead, if_true),
+      optimize_instructions_local_get_id(func, dead, if_false),
+    ) {
+    (Some(lhs), Some(rhs)) => return lhs == rhs
+    _ => ()
+  }
+  match
+    (
+      optimize_instructions_i32_const(func, dead, if_true),
+      optimize_instructions_i32_const(func, dead, if_false),
+    ) {
+    (Some(lhs), Some(rhs)) => return lhs == rhs
+    _ => ()
+  }
+  match
+    (
+      optimize_instructions_i64_const(func, dead, if_true),
+      optimize_instructions_i64_const(func, dead, if_false),
+    ) {
+    (Some(lhs), Some(rhs)) => return lhs == rhs
+    _ => ()
+  }
+  false
+}
+
+///|
 fn optimize_instructions_try_fold_const_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4905,6 +4943,13 @@ fn optimize_instructions_try_fold_const_select(
   let if_true = @ir.hot_child_get(func, node_id, 0)
   let if_false = @ir.hot_child_get(func, node_id, 1)
   let condition = @ir.hot_child_get(func, node_id, 2)
+  if optimize_instructions_select_arms_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) &&
+    optimize_instructions_is_side_effect_free_expr(func, dead, condition) {
+    optimize_instructions_replace_with_node_id(ctx, func, node_id, if_true)
+    return true
+  }
   let (chosen, dead_arm) = match
     optimize_instructions_i32_const(func, dead, condition) {
     Some(@lib.I32(raw)) if raw == 0 => (if_false, if_true)
