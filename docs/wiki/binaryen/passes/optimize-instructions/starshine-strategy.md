@@ -75,6 +75,7 @@ sources:
   - ../../../raw/research/1155-2026-06-26-optimize-instructions-oi-m-tuple-optimization-three-effects-boundary.md
   - ../../../raw/research/1157-2026-06-26-optimize-instructions-oi-m-tuple-optimization-four-effects-boundary.md
   - ../../../raw/research/1159-2026-06-26-optimize-instructions-oi-m-tuple-optimization-five-effects-boundary.md
+  - ../../../raw/research/1161-2026-06-26-optimize-instructions-oi-m-tuple-optimization-six-effects-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/optimize.mbt
