@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover signed constant relational boundary
+
+- Added OI-D status/boundary coverage for Binaryen's mixed signed relational constant-pair behavior.
+- Binaryen `version_130` canonicalizes some signed pairs through zero compares, folds selected sign-disjoint/equality cases, and keeps other signed pairs; Starshine now locks the existing `i32.lt_s -2 1` zero-compare canonicalization and an `i64.gt_s -5 5` keep-spelling boundary.
+- Evidence: Binaryen oracle probe `.tmp/oi-d-signed-rel-next-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*signed constant relational mixed boundary*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-three-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a twenty-three-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

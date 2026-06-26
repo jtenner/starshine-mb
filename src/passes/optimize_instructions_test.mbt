@@ -847,6 +847,50 @@ test "optimize-instructions folds integer eq/ne constant compares" {
 }
 
 ///|
+test "optimize-instructions keeps signed constant relational mixed boundary" {
+  // Boundary/status-only OI-D coverage: Binaryen `version_130`
+  // `--optimize-instructions` is mixed for signed relational constant pairs.
+  // The oracle probe `.tmp/oi-d-signed-rel-next-probe.wat` canonicalizes
+  // `-2 < 1` through a zero compare, keeps `-5 > 5`, and only folds other
+  // selected signed pairs. Keep this test narrow so Starshine does not
+  // accidentally generalize the unsigned constant relational fold to all signed
+  // relational constants.
+  let canonical_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const -2 i32.const 1 i32.lt_s))",
+  )
+  let canonical_root = @ir.hot_root_get(canonical_func, 0)
+  match @ir.hot_node_get(canonical_func, canonical_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected signed const lt_s boundary to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(canonical_func, canonical_root),
+    Some(@lib.Instruction::i32_le_s()),
+  )
+  let canonical_rhs = @ir.hot_child_get(canonical_func, canonical_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      canonical_func,
+      @ir.hot_node_get(canonical_func, canonical_rhs).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let kept_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const -5 i64.const 5 i64.gt_s))",
+  )
+  let kept_root = @ir.hot_root_get(kept_func, 0)
+  match @ir.hot_node_get(kept_func, kept_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected signed const gt_s boundary to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(kept_func, kept_root),
+    Some(@lib.Instruction::i64_gt_s()),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned constant relational compares" {
   // Red-first OI-D parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds unsigned relational compares with two
