@@ -826,7 +826,8 @@ test "optimize-instructions folds select with identical pure local-local binary 
   // (`.tmp/oi-select-identical-local-local-arms-probe.wat`,
   // `.tmp/oi-select-identical-i64-local-local-arms-probe.wat`,
   // `.tmp/oi-select-identical-i64-mul-local-local-arms-probe.wat`,
-  // `.tmp/oi-select-identical-i32-mul-local-local-arms-probe.wat`). This
+  // `.tmp/oi-select-identical-i32-mul-local-local-arms-probe.wat`,
+  // `.tmp/oi-select-identical-i32-sub-local-local-arms-probe.wat`). This
   // deliberately stays at same-instruction/same-ordered-local binary shells,
   // not commuted operands or arbitrary structural expression equality.
   let func = optimize_instructions_test_run_hot(
@@ -845,6 +846,15 @@ test "optimize-instructions folds select with identical pure local-local binary 
   match @ir.hot_node_exact_instr(i32_mul_func, i32_mul_root) {
     Some(instr) if instr == @lib.Instruction::i32_mul() => ()
     _ => fail("expected identical pure i32.mul local-local select arms to fold")
+  }
+
+  let i32_sub_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32 i32) (result i32) (select (i32.sub (local.get 0) (local.get 1)) (i32.sub (local.get 0) (local.get 1)) (local.get 2))))",
+  )
+  let i32_sub_root = @ir.hot_root_get(i32_sub_func, 0)
+  match @ir.hot_node_exact_instr(i32_sub_func, i32_sub_root) {
+    Some(instr) if instr == @lib.Instruction::i32_sub() => ()
+    _ => fail("expected identical pure i32.sub local-local select arms to fold")
   }
 
   let i64_func = optimize_instructions_test_run_hot(
