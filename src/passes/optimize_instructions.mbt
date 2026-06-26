@@ -7915,6 +7915,28 @@ fn optimize_instructions_i32_sign_extension_range(
 }
 
 ///|
+fn optimize_instructions_i64_sign_extension_node(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Unary if node.child_count == 1 => ()
+    _ => return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I64Extend8S)
+    | Some(@lib.Instruction::I64Extend16S)
+    | Some(@lib.Instruction::I64Extend32S) => true
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_i32_sign_extension_equality_result(
   instr : @lib.Instruction,
   min_value : Int,
@@ -8008,6 +8030,39 @@ fn optimize_instructions_try_rewrite_i32_sign_extension_unsigned_top_compare(
     replacement_instr,
     masked,
     @ir.hot_build_const_i32(func, @lib.I32(mask_value)),
+  )
+  true
+}
+
+///|
+fn optimize_instructions_try_rewrite_i64_sign_extension_unsigned_top_compare(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  if !optimize_instructions_i64_sign_extension_node(func, dead, lhs_id) {
+    return false
+  }
+  match optimize_instructions_i64_const(func, dead, rhs_id) {
+    Some(@lib.I64(raw)) if raw == -1L => ()
+    _ => return false
+  }
+  let replacement_instr = match instr {
+    @lib.Instruction::I64LtU => @lib.Instruction::i64_ne()
+    @lib.Instruction::I64GeU => @lib.Instruction::i64_eq()
+    _ => return false
+  }
+  optimize_instructions_replace_with_exact_compare(
+    ctx,
+    func,
+    node_id,
+    replacement_instr,
+    lhs_id,
+    @ir.hot_build_const_i64(func, @lib.I64(-1L)),
   )
   true
 }
@@ -8579,6 +8634,9 @@ fn optimize_instructions_visit_node(
           } else {
             optimize_instructions_try_rewrite_i32_sign_extension_unsigned_top_compare(
               ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ) ||
+            optimize_instructions_try_rewrite_i64_sign_extension_unsigned_top_compare(
+              ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
             )
           }
           let masked_unsigned_folded = if range_folded || signext_top_rewritten {
@@ -8627,6 +8685,12 @@ fn optimize_instructions_visit_node(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_i32_sign_extension_equality_compare(
+                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+              ) ||
+              optimize_instructions_try_rewrite_i32_sign_extension_unsigned_top_compare(
+                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+              ) ||
+              optimize_instructions_try_rewrite_i64_sign_extension_unsigned_top_compare(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_i32_masked_unsigned_compare(

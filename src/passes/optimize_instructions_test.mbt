@@ -1170,6 +1170,52 @@ test "optimize-instructions rewrites i32 sign-extension unsigned top compares" {
 }
 
 ///|
+test "optimize-instructions rewrites i64 sign-extension unsigned top compares" {
+  let lt8_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.extend8_s i64.const -1 i64.lt_u))",
+  )
+  let lt8_root = @ir.hot_root_get(lt8_func, 0)
+  match @ir.hot_node_get(lt8_func, lt8_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected i64.extend8_s lt_u -1 to rewrite to compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(lt8_func, lt8_root),
+    Some(@lib.Instruction::i64_ne()),
+  )
+  let lt8_lhs = @ir.hot_child_get(lt8_func, lt8_root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(lt8_func, lt8_lhs),
+    Some(@lib.Instruction::i64_extend8s()),
+  )
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      lt8_func,
+      @ir.hot_node_get(lt8_func, @ir.hot_child_get(lt8_func, lt8_root, 1)).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(-1L)),
+  )
+
+  let ge32_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.extend32_s i64.const -1 i64.ge_u))",
+  )
+  let ge32_root = @ir.hot_root_get(ge32_func, 0)
+  match @ir.hot_node_get(ge32_func, ge32_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected i64.extend32_s ge_u -1 to rewrite to compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ge32_func, ge32_root),
+    Some(@lib.Instruction::i64_eq()),
+  )
+  let ge32_lhs = @ir.hot_child_get(ge32_func, ge32_root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ge32_func, ge32_lhs),
+    Some(@lib.Instruction::i64_extend32s()),
+  )
+}
+
+///|
 test "optimize-instructions keeps i64 sign-extension equality outside range" {
   // Boundary-only OI-D classification: Binaryen `version_130`
   // `--optimize-instructions` keeps i64 sign-extension equality/inequality

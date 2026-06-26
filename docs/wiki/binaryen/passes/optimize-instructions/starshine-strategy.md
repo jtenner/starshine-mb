@@ -52,6 +52,7 @@ sources:
   - ../../../raw/research/0908-2026-06-25-optimize-instructions-oi-d-i64-dynamic-shift-maxbits-boundary.md
   - ../../../raw/research/1150-2026-06-25-optimize-instructions-oi-d-shift-rotate-mask-coverage.md
   - ../../../raw/research/1154-2026-06-26-optimize-instructions-oi-d-signext-unsigned-top.md
+  - ../../../raw/research/1156-2026-06-26-optimize-instructions-oi-d-i64-signext-unsigned-top.md
   - ../../../raw/research/0901-2026-06-25-optimize-instructions-oi-m-selected-fourth-multiresult-boundary.md
   - ../../../raw/research/0903-2026-06-25-optimize-instructions-oi-m-selected-fifth-multiresult-boundary.md
   - ../../../raw/research/0905-2026-06-25-optimize-instructions-oi-m-selected-sixth-multiresult-boundary.md
@@ -134,7 +135,7 @@ The local file has dedicated helpers for:
 - `eqz` rewrites such as subtraction/addition compare lowering while intentionally preserving literal-constant `eqz` nodes to match Binaryen's direct pass output
 - compare-to-zero rewrites
 - same-local integer compare folding plus direct same-local integer binary folds for `sub`/`xor` to zero and `and`/`or` to the local value
-- pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask proves the value is below an out-of-range constant, first recursive i32/i64 `shr_u` bounded unsigned-compare folds for constant shift amounts `1..31` / `1..63`, carrying direct child `and`/`shr_u` and unsigned-load maxBits facts, a first straight-line local scan that propagates those unsigned max facts through direct `local.set` / `local.tee` roots to later `local.get` compares, first nonnegative signed-relational out-of-range folds plus in-range signed-to-unsigned spelling rewrites, and dropping effectful masked/shifted/loaded values before the replacement constant when folding, plus first direct i32 sign-extension equality range folds for `i32.extend8_s` / `i32.extend16_s`, a narrow unsigned-top compare rewrite for `i32.extend8_s` / `i32.extend16_s` against `u32::MAX`, and source-backed keep-spelling coverage for the corresponding i64 sign-extension equality boundary and direct i32 sign-extension signed-relational boundary
+- pure and effect-preserving i32/i64 masked unsigned-compare folding when an `and` with a nonnegative mask proves the value is below an out-of-range constant, first recursive i32/i64 `shr_u` bounded unsigned-compare folds for constant shift amounts `1..31` / `1..63`, carrying direct child `and`/`shr_u` and unsigned-load maxBits facts, a first straight-line local scan that propagates those unsigned max facts through direct `local.set` / `local.tee` roots to later `local.get` compares, first nonnegative signed-relational out-of-range folds plus in-range signed-to-unsigned spelling rewrites, and dropping effectful masked/shifted/loaded values before the replacement constant when folding, plus first direct i32 sign-extension equality range folds for `i32.extend8_s` / `i32.extend16_s`, narrow unsigned-top compare rewrites for i32 `extend8_s` / `extend16_s` against `u32::MAX` and i64 `extend8_s` / `extend16_s` / `extend32_s` against `u64::MAX`, and source-backed keep-spelling coverage for the corresponding i64 sign-extension out-of-range equality boundary and direct i32 sign-extension signed-relational boundary
 - relational operand canonicalization
 - relational-constant normalization
 
