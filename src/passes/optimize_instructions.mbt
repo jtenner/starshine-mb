@@ -4909,6 +4909,13 @@ fn optimize_instructions_select_arms_are_identical_pure(
     (Some(lhs), Some(rhs)) => return lhs == rhs
     _ => ()
   }
+  match (@ir.hot_node_get(func, if_true), @ir.hot_node_get(func, if_false)) {
+    (
+      { op: @ir.HotOp::GlobalGet, imm0: lhs, .. },
+      { op: @ir.HotOp::GlobalGet, imm0: rhs, .. },
+    ) => return lhs == rhs
+    _ => ()
+  }
   match
     (
       optimize_instructions_i32_const(func, dead, if_true),

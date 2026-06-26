@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical global select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct same-index `global.get` arms when the condition is side-effect-free.
+- Binaryen `version_130` folds the probed same-global arms and keeps different-global arms; Starshine now matches this direct-global subset without claiming global value-equivalence, broader structural expression equality, or effectful/trapping condition support.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-global-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*global arms*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization thirty-five-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a thirty-five-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

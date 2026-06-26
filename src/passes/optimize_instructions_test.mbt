@@ -762,6 +762,25 @@ test "optimize-instructions folds select with identical pure local arms" {
 }
 
 ///|
+test "optimize-instructions folds select with identical pure global arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds direct identical `global.get` select arms
+  // when the condition is side-effect-free (`.tmp/oi-select-global-arms-probe.wat`).
+  // This is intentionally only direct same-global equality, not structural
+  // expression equality or an effectful/trapping condition claim.
+  let func = optimize_instructions_test_run_hot(
+    "(module (global $g (mut i32) (i32.const 42)) (func (param i32) (result i32) (select (global.get $g) (global.get $g) (local.get 0))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::GlobalGet =>
+      @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 0)
+    _ =>
+      fail("expected identical pure global select arms to fold to global.get")
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure float constant arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical f32/f64 constant select arms when
