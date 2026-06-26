@@ -21129,6 +21129,36 @@ test "optimize-instructions intentionally keeps public multivalue block with six
 }
 
 ///|
+test "optimize-instructions intentionally keeps public multivalue block with sixty-three later effects through tuple-optimization boundary" {
+  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
+  // `--optimize-instructions --tuple-optimization` localizes the probed
+  // multivalue block with sixty-three later non-selected effects through
+  // `tuple.make 64` plus tuple/scalar-local traffic
+  // (`.tmp/oi-m-tuple-optimization-sixty-three-effects-probe.wat`).
+  // Starshine keeps the public multivalue block/drop spelling until local
+  // tuple-scratch reconstruction/localization exists.
+  let optimized = match
+    pass_test_run_pipeline(
+      optimize_instructions_tuple_optimization_effect_boundary_fixture(63),
+      ["optimize-instructions", "tuple-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected public multivalue sixty-three-effect tuple-optimization boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(63U))
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  for i = 0; i < 63; i = i + 1 {
+    assert_true(pretty.contains("call (Func \{i})"), msg=pretty)
+  }
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)

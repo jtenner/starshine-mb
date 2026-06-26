@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-M tuple-optimization sixty-three-effect boundary slice `1260`, documenting Binaryen `tuple.make 64` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical i64 mul local-local select-arm slice `1259`, documenting Binaryen direct `i64.mul(local.get, local.get)` oracle evidence, red-first Starshine implementation, and retained same-instruction/same-ordered-local scope.
 - 2026-06-26: Added OI-M tuple-optimization sixty-two-effect boundary slice `1258`, documenting Binaryen `tuple.make 63` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical i64 local-local select-arm slice `1257`, documenting Binaryen direct `i64.add(local.get, local.get)` oracle evidence, red-first Starshine implementation, and retained same-instruction/same-ordered-local scope.
