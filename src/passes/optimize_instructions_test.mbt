@@ -852,6 +852,24 @@ test "optimize-instructions folds select with identical pure float constant arms
 }
 
 ///|
+test "optimize-instructions folds select with identical pure ref.i31 arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds direct identical `ref.i31` select arms
+  // with the same pure i32 payload when the condition is side-effect-free
+  // (`.tmp/oi-select-refi31-arms-probe.wat`). This stays at direct
+  // same-payload i31 construction, not arbitrary reference or structural
+  // expression equality.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result (ref i31)) (select (ref.i31 (i32.const 7)) (ref.i31 (i32.const 7)) (local.get 0))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 select arms to fold to ref.i31")
+  }
+}
+
+///|
 test "optimize-instructions keeps identical select arms when condition may trap" {
   let func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (param i32) (result i32) (select (local.get 0) (local.get 0) (i32.load (i32.const 0)))))",

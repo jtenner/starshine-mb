@@ -1759,6 +1759,12 @@ fn optimize_instructions_is_side_effect_free_expr(
   }
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefNull(_)) => return true
+    Some(@lib.Instruction::RefI31) if node.child_count == 1 =>
+      return optimize_instructions_is_side_effect_free_expr(
+        func,
+        dead,
+        func.children[node.child_base],
+      )
     _ => ()
   }
   match node.op {
@@ -4937,6 +4943,35 @@ fn optimize_instructions_select_arms_are_identical_pure(
       return lhs == rhs
     (Some(@lib.Instruction::RefFunc(lhs)), Some(@lib.Instruction::RefFunc(rhs))) =>
       return lhs == rhs
+    _ => ()
+  }
+  match
+    (
+      @ir.hot_node_exact_instr(func, if_true),
+      @ir.hot_node_exact_instr(func, if_false),
+      @ir.hot_node_get(func, if_true).child_count,
+      @ir.hot_node_get(func, if_false).child_count,
+    ) {
+    (Some(@lib.Instruction::RefI31), Some(@lib.Instruction::RefI31), 1, 1) => {
+      let true_payload = @ir.hot_child_get(func, if_true, 0)
+      let false_payload = @ir.hot_child_get(func, if_false, 0)
+      match
+        (
+          optimize_instructions_local_get_id(func, dead, true_payload),
+          optimize_instructions_local_get_id(func, dead, false_payload),
+        ) {
+        (Some(lhs), Some(rhs)) => return lhs == rhs
+        _ => ()
+      }
+      match
+        (
+          optimize_instructions_i32_const(func, dead, true_payload),
+          optimize_instructions_i32_const(func, dead, false_payload),
+        ) {
+        (Some(lhs), Some(rhs)) => return lhs == rhs
+        _ => ()
+      }
+    }
     _ => ()
   }
   match
