@@ -18714,6 +18714,191 @@ test "optimize-instructions intentionally keeps public multivalue block with twe
 }
 
 ///|
+test "optimize-instructions intentionally keeps public multivalue block with thirty later effects through tuple-optimization boundary" {
+  // Boundary-only OI-M neighbor coverage: Binaryen `version_130`
+  // `--optimize-instructions --tuple-optimization` localizes the probed
+  // multivalue block with thirty later non-selected effects through `tuple.make 31`
+  // plus tuple/scalar-local traffic (`.tmp/oi-m-tuple-optimization-thirty-effects-probe.wat`).
+  // Starshine keeps the public multivalue block/drop spelling until local
+  // tuple-scratch reconstruction/localization exists.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $side_0 (result i32)
+        #|    i32.const 1)
+        #|  (func $side_1 (result i32)
+        #|    i32.const 2)
+        #|  (func $side_2 (result i32)
+        #|    i32.const 3)
+        #|  (func $side_3 (result i32)
+        #|    i32.const 4)
+        #|  (func $side_4 (result i32)
+        #|    i32.const 5)
+        #|  (func $side_5 (result i32)
+        #|    i32.const 6)
+        #|  (func $side_6 (result i32)
+        #|    i32.const 7)
+        #|  (func $side_7 (result i32)
+        #|    i32.const 8)
+        #|  (func $side_8 (result i32)
+        #|    i32.const 9)
+        #|  (func $side_9 (result i32)
+        #|    i32.const 10)
+        #|  (func $side_10 (result i32)
+        #|    i32.const 11)
+        #|  (func $side_11 (result i32)
+        #|    i32.const 12)
+        #|  (func $side_12 (result i32)
+        #|    i32.const 13)
+        #|  (func $side_13 (result i32)
+        #|    i32.const 14)
+        #|  (func $side_14 (result i32)
+        #|    i32.const 15)
+        #|  (func $side_15 (result i32)
+        #|    i32.const 16)
+        #|  (func $side_16 (result i32)
+        #|    i32.const 17)
+        #|  (func $side_17 (result i32)
+        #|    i32.const 18)
+        #|  (func $side_18 (result i32)
+        #|    i32.const 19)
+        #|  (func $side_19 (result i32)
+        #|    i32.const 20)
+        #|  (func $side_20 (result i32)
+        #|    i32.const 21)
+        #|  (func $side_21 (result i32)
+        #|    i32.const 22)
+        #|  (func $side_22 (result i32)
+        #|    i32.const 23)
+        #|  (func $side_23 (result i32)
+        #|    i32.const 24)
+        #|  (func $side_24 (result i32)
+        #|    i32.const 25)
+        #|  (func $side_25 (result i32)
+        #|    i32.const 26)
+        #|  (func $side_26 (result i32)
+        #|    i32.const 27)
+        #|  (func $side_27 (result i32)
+        #|    i32.const 28)
+        #|  (func $side_28 (result i32)
+        #|    i32.const 29)
+        #|  (func $side_29 (result i32)
+        #|    i32.const 30)
+        #|  (func (param $x i32) (result i32)
+        #|    (block (result i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        #|      local.get $x
+        #|      call $side_0
+        #|      call $side_1
+        #|      call $side_2
+        #|      call $side_3
+        #|      call $side_4
+        #|      call $side_5
+        #|      call $side_6
+        #|      call $side_7
+        #|      call $side_8
+        #|      call $side_9
+        #|      call $side_10
+        #|      call $side_11
+        #|      call $side_12
+        #|      call $side_13
+        #|      call $side_14
+        #|      call $side_15
+        #|      call $side_16
+        #|      call $side_17
+        #|      call $side_18
+        #|      call $side_19
+        #|      call $side_20
+        #|      call $side_21
+        #|      call $side_22
+        #|      call $side_23
+        #|      call $side_24
+        #|      call $side_25
+        #|      call $side_26
+        #|      call $side_27
+        #|      call $side_28
+        #|      call $side_29
+        #|    )
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|    drop
+        #|  )
+        #|)
+        #|
+      ),
+      ["optimize-instructions", "tuple-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected public multivalue thirty-effect tuple-optimization boundary success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(30U))
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 4)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 5)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 6)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 7)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 8)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 9)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 10)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 11)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 12)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 13)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 14)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 15)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 16)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 17)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 18)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 19)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 20)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 21)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 22)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 23)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 24)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 25)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 26)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 27)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 28)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 29)"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
 test "optimize-instructions folds array.len of pure array.new_fixed length" {
   let array_type = @lib.TypeIdx::new(0U)
   let effect_type = @lib.TypeIdx::new(1U)
