@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization twenty-two-effect boundary
+
+- Added OI-M public-pipeline boundary coverage for a twenty-two-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.
+- Binaryen `version_130` localizes this probe through tuple scratch plus scalar locals, while Starshine keeps the public block/drop spelling; the mismatch remains an open tuple-scratch localization gap.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-optimization-twenty-two-effects-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*twenty-two later effects through tuple-optimization*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Fold unsigned domain-edge compares
 
 - Added OI-D red-first coverage for i32/i64 unsigned comparisons against the exact unsigned domain endpoints `0` and all-ones.
