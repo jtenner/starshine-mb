@@ -833,7 +833,8 @@ test "optimize-instructions folds select with identical pure local-local binary 
   // `.tmp/oi-select-identical-i64-bitwise-local-local-arms-probe.wat`,
   // `.tmp/oi-select-identical-shift-rot-local-local-arms-probe.wat`,
   // `.tmp/oi-select-identical-compare-local-local-arms-probe.wat`,
-  // `.tmp/oi-select-identical-float-compare-local-local-arms-probe.wat`).
+  // `.tmp/oi-select-identical-float-compare-local-local-arms-probe.wat`,
+  // `.tmp/oi-select-identical-float-binary-local-local-arms-probe.wat`).
   // This
   // deliberately stays at same-instruction/same-ordered-local binary shells,
   // not commuted operands or arbitrary structural expression equality.
@@ -1019,6 +1020,54 @@ test "optimize-instructions folds select with identical pure local-local binary 
   match @ir.hot_node_exact_instr(f64_ge_func, f64_ge_root) {
     Some(instr) if instr == @lib.Instruction::f64_ge() => ()
     _ => fail("expected identical pure f64.ge local-local select arms to fold")
+  }
+
+  let f32_add_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32 i32) (result f32) (select (f32.add (local.get 0) (local.get 1)) (f32.add (local.get 0) (local.get 1)) (local.get 2))))",
+  )
+  let f32_add_root = @ir.hot_root_get(f32_add_func, 0)
+  match @ir.hot_node_exact_instr(f32_add_func, f32_add_root) {
+    Some(instr) if instr == @lib.Instruction::f32_add() => ()
+    _ => fail("expected identical pure f32.add local-local select arms to fold")
+  }
+
+  let f32_div_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32 i32) (result f32) (select (f32.div (local.get 0) (local.get 1)) (f32.div (local.get 0) (local.get 1)) (local.get 2))))",
+  )
+  let f32_div_root = @ir.hot_root_get(f32_div_func, 0)
+  match @ir.hot_node_exact_instr(f32_div_func, f32_div_root) {
+    Some(instr) if instr == @lib.Instruction::f32_div() => ()
+    _ => fail("expected identical pure f32.div local-local select arms to fold")
+  }
+
+  let f32_copysign_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32 i32) (result f32) (select (f32.copysign (local.get 0) (local.get 1)) (f32.copysign (local.get 0) (local.get 1)) (local.get 2))))",
+  )
+  let f32_copysign_root = @ir.hot_root_get(f32_copysign_func, 0)
+  match @ir.hot_node_exact_instr(f32_copysign_func, f32_copysign_root) {
+    Some(instr) if instr == @lib.Instruction::f32_copysign() => ()
+    _ =>
+      fail(
+        "expected identical pure f32.copysign local-local select arms to fold",
+      )
+  }
+
+  let f64_mul_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64 f64 i32) (result f64) (select (f64.mul (local.get 0) (local.get 1)) (f64.mul (local.get 0) (local.get 1)) (local.get 2))))",
+  )
+  let f64_mul_root = @ir.hot_root_get(f64_mul_func, 0)
+  match @ir.hot_node_exact_instr(f64_mul_func, f64_mul_root) {
+    Some(instr) if instr == @lib.Instruction::f64_mul() => ()
+    _ => fail("expected identical pure f64.mul local-local select arms to fold")
+  }
+
+  let f64_min_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64 f64 i32) (result f64) (select (f64.min (local.get 0) (local.get 1)) (f64.min (local.get 0) (local.get 1)) (local.get 2))))",
+  )
+  let f64_min_root = @ir.hot_root_get(f64_min_func, 0)
+  match @ir.hot_node_exact_instr(f64_min_func, f64_min_root) {
+    Some(instr) if instr == @lib.Instruction::f64_min() => ()
+    _ => fail("expected identical pure f64.min local-local select arms to fold")
   }
 }
 

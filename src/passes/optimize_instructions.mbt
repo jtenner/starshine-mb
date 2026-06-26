@@ -5381,6 +5381,122 @@ fn optimize_instructions_i64_compare_local_local_payloads_are_identical_pure(
 }
 
 ///|
+fn optimize_instructions_f32_binary_local_local_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_add(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_sub(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_mul(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_div(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_min(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_max(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f32_copysign(),
+  )
+}
+
+///|
+fn optimize_instructions_f64_binary_local_local_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_add(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_sub(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_mul(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_div(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_min(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_max(),
+  ) ||
+  optimize_instructions_local_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::f64_copysign(),
+  )
+}
+
+///|
 fn optimize_instructions_f32_compare_local_local_payloads_are_identical_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -6855,6 +6971,12 @@ fn optimize_instructions_select_arms_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_f64_compare_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f32_binary_local_local_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_f64_binary_local_local_payloads_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
