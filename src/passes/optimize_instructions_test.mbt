@@ -797,6 +797,24 @@ test "optimize-instructions folds select with identical pure numeric expression 
     Some(instr) if instr == @lib.Instruction::i64_clz() => ()
     _ => fail("expected identical pure i64.clz select arms to fold")
   }
+
+  let f32_unary_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 i32) (result f32) (select (f32.abs (local.get 0)) (f32.abs (local.get 0)) (local.get 1))))",
+  )
+  let f32_unary_root = @ir.hot_root_get(f32_unary_func, 0)
+  match @ir.hot_node_exact_instr(f32_unary_func, f32_unary_root) {
+    Some(instr) if instr == @lib.Instruction::f32_abs() => ()
+    _ => fail("expected identical pure f32.abs select arms to fold")
+  }
+
+  let f64_unary_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64 i32) (result f64) (select (f64.neg (local.get 0)) (f64.neg (local.get 0)) (local.get 1))))",
+  )
+  let f64_unary_root = @ir.hot_root_get(f64_unary_func, 0)
+  match @ir.hot_node_exact_instr(f64_unary_func, f64_unary_root) {
+    Some(instr) if instr == @lib.Instruction::f64_neg() => ()
+    _ => fail("expected identical pure f64.neg select arms to fold")
+  }
 }
 
 ///|
