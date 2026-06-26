@@ -157,6 +157,7 @@ sources:
   - ../../../raw/research/1273-2026-06-26-optimize-instructions-oi-f-identical-compare-local-local-select-arms.md
   - ../../../raw/research/1275-2026-06-26-optimize-instructions-oi-f-identical-float-compare-local-local-select-arms.md
   - ../../../raw/research/1277-2026-06-26-optimize-instructions-oi-f-identical-float-binary-local-local-select-arms.md
+  - ../../../raw/research/1279-2026-06-26-optimize-instructions-oi-f-identical-leaf-select-effectful-condition.md
   - ../../../raw/research/1238-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-two-effects-boundary.md
   - ../../../raw/research/1240-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-three-effects-boundary.md
   - ../../../raw/research/1242-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-four-effects-boundary.md

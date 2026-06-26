@@ -762,6 +762,26 @@ test "optimize-instructions folds select with identical pure local arms" {
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical leaf select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds direct identical leaf select arms even when
+  // the condition has effects, preserving the condition as a dropped prefix.
+  // This deliberately stays at nontrapping leaf arms; trapping expression arms
+  // must not be reordered across an effectful condition without separate proof.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (select (local.get 0) (local.get 0) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical leaf select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure v128 constant arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds direct identical `v128.const` select arms
@@ -1594,14 +1614,20 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
 }
 
 ///|
-test "optimize-instructions keeps identical select arms when condition may trap" {
+test "optimize-instructions preserves trapping condition when folding identical leaf select arms" {
+  // Boundary update for the leaf-only effectful-condition fold: trapping
+  // conditions are preserved as a dropped prefix for direct nontrapping leaf
+  // arms, matching Binaryen, rather than kept as a select.
   let func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (param i32) (result i32) (select (local.get 0) (local.get 0) (i32.load (i32.const 0)))))",
   )
   let root = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, root).op {
-    @ir.HotOp::Select => ()
-    _ => fail("expected identical select arms to preserve a trapping condition")
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical leaf select arms to preserve a trapping condition as drop+value",
+      )
   }
 }
 

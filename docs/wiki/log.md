@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-F identical leaf select-arm effectful/trapping-condition slice `1279`, documenting Binaryen drop-condition preservation, Starshine red-first implementation, and retained trapping-expression boundaries.
 - 2026-06-26: Added OI-M tuple-optimization seventy-effect boundary slice `1274`, documenting Binaryen `tuple.make 71` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical compare local-local select-arm slice `1273`, documenting Binaryen direct i32/i64 compare local-local oracle evidence, red-first Starshine implementation, and retained same-instruction/same-ordered-local scope.
 - 2026-06-26: Added OI-M tuple-optimization sixty-nine-effect boundary slice `1272`, documenting Binaryen `tuple.make 70` localization and Starshine's retained tuple-scratch reconstruction gap.
@@ -18441,6 +18442,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the expanded upstream-only registry now includes `global-effects`, the human-readable catalogs link the new folder pages, and future recursive campaign threads can see that this candidate is no longer an uncovered expansion target.
 
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-F identical leaf select-arm effectful/trapping-condition slice `1279`, documenting Binaryen drop-condition preservation, Starshine red-first implementation, and retained trapping-expression boundaries.
 - 2026-06-26: Added OI-M tuple-optimization seventy-effect boundary slice `1274`, documenting Binaryen `tuple.make 71` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical compare local-local select-arm slice `1273`, documenting Binaryen direct i32/i64 compare local-local oracle evidence, red-first Starshine implementation, and retained same-instruction/same-ordered-local scope.
 
