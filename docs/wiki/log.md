@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-F identical i64 bitwise local-local select-arm slice `1269`, documenting Binaryen direct `i64.and`/`i64.or`/`i64.xor(local.get, local.get)` oracle evidence, red-first Starshine implementation, and retained same-instruction/same-ordered-local scope.
 - 2026-06-26: Added OI-M tuple-optimization sixty-seven-effect boundary slice `1268`, documenting Binaryen `tuple.make 68` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical i32 bitwise local-local select-arm slice `1267`, documenting Binaryen direct `i32.and`/`i32.or`/`i32.xor(local.get, local.get)` oracle evidence, red-first Starshine implementation, and retained same-instruction/same-ordered-local scope.
 - 2026-06-26: Added OI-M tuple-optimization sixty-six-effect boundary slice `1266`, documenting Binaryen `tuple.make 67` localization and Starshine's retained tuple-scratch reconstruction gap.
