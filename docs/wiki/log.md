@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-25] passes/optimize-instructions | Cover direct selected-sixteenth tuple boundary
+
+- Added OI-M direct-HOT boundary coverage for selecting the sixteenth scalar lane from a direct sixteen-result call.
+- Binaryen `version_130` keeps direct no-sibling `tuple.extract 16 15 (call $multi)` rather than synthesizing tuple scratch locals; Starshine now locks the same keep-spelling behavior for the direct call shape.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-multiresult-selected-sixteenth-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected sixteenth lane*'` passed `1/1`.
+
 ## [2026-06-25] passes/optimize-instructions | Cover size-14 bulk-memory boundary
 
 - Added OI-G public-pipeline boundary coverage for size-14 `memory.copy` and `memory.fill`.
