@@ -166,7 +166,7 @@ The implemented center of gravity is:
 - non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, endpoint unsigned-domain compare folds (`x <_u 0`, `x >=_u 0`, `x >_u UINT_MAX`, `x <=_u UINT_MAX`) with effect preservation, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first pure/effect-preserving i32/i64 `shr_u` bounded unsigned-compare folds, first straight-line local-carried, `i32.wrap_i64`, and `i64.extend_i32_u` unsigned max facts including narrowed child facts, first direct nonnegative signed-relational folds and signed-to-unsigned compare spellings, signed zero-lhs constant relational folds, signed zero-rhs constant relational keep/canonicalize boundary coverage, and relational constant canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, including constant shift/rotate effective-amount masking (`31`/`63`) through existing constant-fold/identity machinery
-- constant-`if` folding and constant-condition / identical-pure-arm `select` cleanup
+- constant-`if` folding and constant-condition / identical-pure-arm local/integer/float `select` cleanup
 - nested boolean-`if` normalization and `eqz` wrapping
 - duplicate-branch collapse in then-regions
 - dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation

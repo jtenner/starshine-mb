@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical float select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct f32/f64 constants when the condition is side-effect-free.
+- Binaryen `version_130` folds the probed identical f32/f64 constant arms while keeping different float constants; Starshine now matches this direct-constant subset without claiming NaN-payload, reference-constant, or structural-expression equality.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-float-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*float constant arms*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization thirty-four-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a thirty-four-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

@@ -762,6 +762,40 @@ test "optimize-instructions folds select with identical pure local arms" {
 }
 
 ///|
+test "optimize-instructions folds select with identical pure float constant arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical f32/f64 constant select arms when
+  // the condition is side-effect-free (`.tmp/oi-select-float-arms-probe.wat`).
+  // This deliberately stays at direct constant equality and does not claim
+  // broader structural-expression equality, NaN-payload equality, or
+  // reference-constant parity.
+  let f32_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result f32) (select (f32.const 3.5) (f32.const 3.5) (local.get 0))))",
+  )
+  let f32_root = @ir.hot_root_get(f32_func, 0)
+  match @ir.hot_node_get(f32_func, f32_root).op {
+    @ir.HotOp::Const =>
+      @debug.assert_eq(
+        @ir.hot_const_get(f32_func, @ir.hot_node_get(f32_func, f32_root).imm0),
+        @ir.HotConstPayload::f32_const(@lib.F32::new(3.5)),
+      )
+    _ => fail("expected identical f32 constant select arms to fold")
+  }
+  let f64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result f64) (select (f64.const -2.5) (f64.const -2.5) (local.get 0))))",
+  )
+  let f64_root = @ir.hot_root_get(f64_func, 0)
+  match @ir.hot_node_get(f64_func, f64_root).op {
+    @ir.HotOp::Const =>
+      @debug.assert_eq(
+        @ir.hot_const_get(f64_func, @ir.hot_node_get(f64_func, f64_root).imm0),
+        @ir.HotConstPayload::f64_const(@lib.F64(-2.5)),
+      )
+    _ => fail("expected identical f64 constant select arms to fold")
+  }
+}
+
+///|
 test "optimize-instructions keeps identical select arms when condition may trap" {
   let func = optimize_instructions_test_run_hot(
     "(module (memory 1) (func (param i32) (result i32) (select (local.get 0) (local.get 0) (i32.load (i32.const 0)))))",

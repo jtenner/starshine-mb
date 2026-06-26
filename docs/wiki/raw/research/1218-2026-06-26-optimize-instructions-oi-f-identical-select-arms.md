@@ -17,36 +17,40 @@ Does Binaryen `version_130` `--optimize-instructions` fold `select` when both va
 
 ## Oracle
 
-Probe: `.tmp/oi-select-same-arms-probe.wat`.
+Probes: `.tmp/oi-select-same-arms-probe.wat` and `.tmp/oi-select-float-arms-probe.wat`.
 
-Command:
+Commands:
 
 ```sh
 wasm-opt --all-features -S --optimize-instructions .tmp/oi-select-same-arms-probe.wat -o .tmp/oi-select-same-arms-probe.out.wat
+wasm-opt --all-features -S --optimize-instructions .tmp/oi-select-float-arms-probe.wat -o .tmp/oi-select-float-arms-probe.out.wat
 ```
 
-Result: Binaryen folds identical pure local and constant arms to the selected value, but keeps the effectful-call-arm sibling spelling. The exact output used generated function names, but the behavioral point is that `(select (i32.const 7) (i32.const 7) cond)` becomes `i32.const 7`, and `(select (local.get 1) (local.get 1) cond)` becomes `local.get 1` when the condition is also pure.
+Result: Binaryen folds identical pure local and constant arms to the selected value, but keeps the effectful-call-arm sibling spelling. The exact output used generated function names, but the behavioral point is that `(select (i32.const 7) (i32.const 7) cond)` becomes `i32.const 7`, `(select (local.get 1) (local.get 1) cond)` becomes `local.get 1`, and a follow-up float probe folds identical f32/f64 constants when the condition is also pure.
 
 ## Starshine change
 
-Added red-first coverage for a direct local-get shape:
+Added red-first coverage for direct local-get and direct float-constant shapes:
 
 - `optimize-instructions folds select with identical pure local arms`
+- `optimize-instructions folds select with identical pure float constant arms`
 - `optimize-instructions keeps identical select arms when condition may trap`
 
-The first test failed before implementation because Starshine kept the `select`. The implementation now folds only when:
+The local-get test failed before the first implementation because Starshine kept the `select`. The float-constant test later failed before the narrower follow-up because Starshine only recognized local/i32/i64 identical arms. The implementation now folds only when:
 
 - the true and false arms are side-effect-free;
-- the true and false arms are the same direct `local.get`, i32 constant, or i64 constant;
+- the true and false arms are the same direct `local.get`, i32 constant, i64 constant, f32 constant, or f64 constant;
 - the condition is side-effect-free, so dropping it cannot remove a trap or effect.
 
-This intentionally avoids broader expression structural equality, reference/float constants, and effectful/trapping conditions until separately proven.
+This intentionally avoids broader expression structural equality, NaN-payload equality claims, reference constants, and effectful/trapping conditions until separately proven.
 
 ## Validation
 
 - Red-first focused test before implementation: `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*pure local arms*'` failed `0/1`.
-- Oracle command above passed.
-- Post-implementation focused test: `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*identical*select*'` passed `1/1`.
+- Float follow-up red-first focused test before implementation: `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*float constant arms*'` failed `0/1`.
+- Oracle commands above passed, including `.tmp/oi-select-float-arms-probe.wat`.
+- Post-implementation focused local test: `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*identical*select*'` passed `1/1`.
+- Post-implementation focused float test: `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*float constant arms*'` passed `1/1`.
 
 ## Remaining work
 

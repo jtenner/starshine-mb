@@ -4925,6 +4925,22 @@ fn optimize_instructions_select_arms_are_identical_pure(
     (Some(lhs), Some(rhs)) => return lhs == rhs
     _ => ()
   }
+  match
+    (
+      optimize_instructions_f32_const(func, dead, if_true),
+      optimize_instructions_f32_const(func, dead, if_false),
+    ) {
+    (Some(lhs), Some(rhs)) => return lhs == rhs
+    _ => ()
+  }
+  match
+    (
+      optimize_instructions_f64_const(func, dead, if_true),
+      optimize_instructions_f64_const(func, dead, if_false),
+    ) {
+    (Some(lhs), Some(rhs)) => return lhs == rhs
+    _ => ()
+  }
   false
 }
 
