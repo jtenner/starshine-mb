@@ -950,6 +950,41 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical integer shift and rotate select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical ordered-local integer shift and
+  // rotate select arms even when the condition is effectful, preserving that
+  // condition as a dropped prefix
+  // (`.tmp/oi-select-identical-shift-rotate-effectful-condition-probe.wat`).
+  // This deliberately stays at same-ordered local/local shift-count shells:
+  // WebAssembly masks shift/rotate counts and these instructions cannot trap,
+  // but commuted operands, trapping div/rem, and arbitrary expression equality
+  // still require separate proof.
+  let i32_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (select (i32.shl (local.get 0) (local.get 1)) (i32.shl (local.get 0) (local.get 1)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let i32_root = @ir.hot_root_get(i32_func, 0)
+  match @ir.hot_node_get(i32_func, i32_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i32.shl select arms to fold while preserving the effectful condition",
+      )
+  }
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64) (result i64) (select (i64.rotr (local.get 0) (local.get 1)) (i64.rotr (local.get 0) (local.get 1)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  match @ir.hot_node_get(i64_func, i64_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i64.rotr select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure local-local binary arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds direct identical local/local binary select
