@@ -951,6 +951,72 @@ test "optimize-instructions keeps negative signed constant relational compares" 
 }
 
 ///|
+test "optimize-instructions tracks nonnegative signed constant relational compares narrowly" {
+  // Boundary/status-only OI-D coverage: Binaryen `version_130` mixes
+  // direct folds and unsigned-spelling canonicalization for nonnegative signed
+  // relational constant pairs (`.tmp/oi-d-nonnegative-signed-const-rel-probe.wat`).
+  // This records Starshine's existing fixed-point behavior without claiming a
+  // broad signed-relational parity implementation.
+  let i32_lt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 3 i32.const 7 i32.lt_s))",
+  )
+  let i32_lt_root = @ir.hot_root_get(i32_lt_func, 0)
+  match @ir.hot_node_get(i32_lt_func, i32_lt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected nonnegative signed i32.lt_s constants to fold")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_lt_func,
+      @ir.hot_node_get(i32_lt_func, i32_lt_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i32_gt_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 9 i32.const 2 i32.gt_s))",
+  )
+  let i32_gt_root = @ir.hot_root_get(i32_gt_func, 0)
+  match @ir.hot_node_get(i32_gt_func, i32_gt_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected nonnegative signed i32.gt_s constants to canonicalize")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_gt_func, i32_gt_root),
+    Some(@lib.Instruction::i32_gt_u()),
+  )
+
+  let i64_le_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 4 i64.const 8 i64.le_s))",
+  )
+  let i64_le_root = @ir.hot_root_get(i64_le_func, 0)
+  match @ir.hot_node_get(i64_le_func, i64_le_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected nonnegative signed i64.le_s constants to fold")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_le_func,
+      @ir.hot_node_get(i64_le_func, i64_le_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i64_ge_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 8 i64.const 4 i64.ge_s))",
+  )
+  let i64_ge_root = @ir.hot_root_get(i64_ge_func, 0)
+  match @ir.hot_node_get(i64_ge_func, i64_ge_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected nonnegative signed i64.ge_s constants to canonicalize")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_ge_func, i64_ge_root),
+    Some(@lib.Instruction::i64_ge_u()),
+  )
+}
+
+///|
 test "optimize-instructions folds signed zero-lhs constant relational compares" {
   // Coverage/status OI-D parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds signed relational constant compares whose

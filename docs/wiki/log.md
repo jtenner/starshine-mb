@@ -19781,3 +19781,5 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded `docs/wiki/raw/research/1163-2026-06-26-optimize-instructions-oi-m-tuple-optimization-seven-effects-boundary.md` for the forty-ninth OI-M tuple/multivalue sub-slice.
 - Binaryen `version_130` localizes a public multivalue block with seven later non-selected effects through tuple scratch plus scalar locals under `--optimize-instructions --tuple-optimization`; Starshine keeps the public block/seven-drop spelling.
 - Kept this as boundary/status evidence, not parity: tuple-scratch reconstruction/localization remains active OI-M work.
+
+- 2026-06-26: Filed `raw/research/1206-2026-06-26-optimize-instructions-oi-d-nonnegative-signed-const-rel-boundary.md` and updated the OI strategy/index/backlog with the mixed nonnegative signed relational constant-pair boundary.
