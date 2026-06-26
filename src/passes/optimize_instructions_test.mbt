@@ -856,16 +856,27 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds direct identical `ref.i31` select arms
   // with the same pure i32 payload when the condition is side-effect-free
-  // (`.tmp/oi-select-refi31-arms-probe.wat`). This stays at direct
-  // same-payload i31 construction, not arbitrary reference or structural
-  // expression equality.
-  let func = optimize_instructions_test_run_hot(
+  // (`.tmp/oi-select-refi31-arms-probe.wat`). Follow-up oracle probe
+  // `.tmp/oi-select-refi31-add-arms-probe.wat` shows the same fold for a
+  // narrow same `i32.add(local.get, const)` payload shell. This stays at
+  // direct same-payload i31 construction, not arbitrary reference or broad
+  // structural expression equality.
+  let const_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result (ref i31)) (select (ref.i31 (i32.const 7)) (ref.i31 (i32.const 7)) (local.get 0))))",
   )
-  let root = @ir.hot_root_get(func, 0)
-  match @ir.hot_node_exact_instr(func, root) {
+  let const_root = @ir.hot_root_get(const_func, 0)
+  match @ir.hot_node_exact_instr(const_func, const_root) {
     Some(@lib.Instruction::RefI31) => ()
-    _ => fail("expected identical pure ref.i31 select arms to fold to ref.i31")
+    _ => fail("expected identical pure ref.i31 const arms to fold to ref.i31")
+  }
+
+  let add_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.add (local.get 0) (i32.const 1))) (ref.i31 (i32.add (local.get 0) (i32.const 1))) (local.get 1))))",
+  )
+  let add_root = @ir.hot_root_get(add_func, 0)
+  match @ir.hot_node_exact_instr(add_func, add_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 add arms to fold to ref.i31")
   }
 }
 
