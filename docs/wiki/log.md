@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization three-effect boundary
+
+- Added OI-M public-pipeline boundary coverage for a multivalue block with three later non-selected effects under `optimize-instructions -> tuple-optimization`.
+- Binaryen `version_130` localizes the shape through tuple scratch and scalar locals; Starshine keeps the public block/three-drop spelling, so this remains a documented tuple-scratch reconstruction boundary rather than parity.
+- Evidence: Binaryen oracle probe `.tmp/oi-m-tuple-optimization-three-effects-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*three later effects through tuple-optimization*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Add sign-extension unsigned-top compare rewrite
 
 - Added OI-D red-first coverage and implementation for the narrow Binaryen-shaped `i32.extend8_s` / `i32.extend16_s` unsigned-top compare rewrite.
