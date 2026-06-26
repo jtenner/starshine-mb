@@ -130,6 +130,7 @@ sources:
   - ../../../raw/research/1213-2026-06-26-optimize-instructions-oi-d-signed-zero-rhs-const-rel-boundary.md
   - ../../../raw/research/1211-2026-06-26-optimize-instructions-oi-g-size37-bulk-boundary.md
   - ../../../raw/research/1214-2026-06-26-optimize-instructions-oi-g-size38-bulk-boundary.md
+  - ../../../raw/research/1216-2026-06-26-optimize-instructions-oi-g-size39-bulk-boundary.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/optimize.mbt
