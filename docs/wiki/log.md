@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical i64 unary select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct i64 unary local-payload shells.
+- Binaryen `version_130` folds probed identical `i64.clz(local.get)` and `i64.eqz(local.get)` select arms when the condition is side-effect-free; Starshine now covers the direct i64 unary family without claiming arbitrary structural expression equality or effectful/trapping condition folding.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-identical-i64-unary-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*numeric expression arms*'` failed before implementation on `i64.clz` and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-one-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a fifty-one-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

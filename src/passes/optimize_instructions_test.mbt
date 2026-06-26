@@ -765,9 +765,10 @@ test "optimize-instructions folds select with identical pure local arms" {
 test "optimize-instructions folds select with identical pure numeric expression arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds same-order local/constant numeric
-  // expression arms such as `i32.add(local.get, const)` and
-  // `i64.add(local.get, const)` when the condition is side-effect-free
-  // (`.tmp/oi-select-identical-binary-arms-probe.wat`). This deliberately
+  // expression arms such as `i32.add(local.get, const)`,
+  // `i64.add(local.get, const)`, and direct i64 unary local shells when the
+  // condition is side-effect-free (`.tmp/oi-select-identical-binary-arms-probe.wat`,
+  // `.tmp/oi-select-identical-i64-unary-arms-probe.wat`). This deliberately
   // stays at narrow direct same-payload shells, not arbitrary structural
   // equality, commuted operands, or effectful/trapping condition handling.
   let i32_func = optimize_instructions_test_run_hot(
@@ -786,6 +787,15 @@ test "optimize-instructions folds select with identical pure numeric expression 
   match @ir.hot_node_exact_instr(i64_func, i64_root) {
     Some(instr) if instr == @lib.Instruction::i64_add() => ()
     _ => fail("expected identical pure i64.add select arms to fold")
+  }
+
+  let i64_unary_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i32) (result i64) (select (i64.clz (local.get 0)) (i64.clz (local.get 0)) (local.get 1))))",
+  )
+  let i64_unary_root = @ir.hot_root_get(i64_unary_func, 0)
+  match @ir.hot_node_exact_instr(i64_unary_func, i64_unary_root) {
+    Some(instr) if instr == @lib.Instruction::i64_clz() => ()
+    _ => fail("expected identical pure i64.clz select arms to fold")
   }
 }
 

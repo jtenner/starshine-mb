@@ -4979,7 +4979,7 @@ fn optimize_instructions_i64_local_const_payloads_are_identical_pure(
 }
 
 ///|
-fn optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+fn optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
   lhs : Int,
@@ -5019,89 +5019,196 @@ fn optimize_instructions_i32_unary_local_payloads_are_identical_pure(
   lhs : Int,
   rhs : Int,
 ) -> Bool {
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_eqz(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_clz(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_ctz(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_popcnt(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_extend8s(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_extend16s(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_trunc_sat_f32s(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_trunc_sat_f32u(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_trunc_sat_f64s(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_trunc_sat_f64u(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_reinterpret_f32(),
   ) ||
-  optimize_instructions_i32_unary_local_payloads_are_identical_pure_with_instr(
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
     func,
     dead,
     lhs,
     rhs,
     @lib.Instruction::i32_wrap_i64(),
+  )
+}
+
+///|
+fn optimize_instructions_i64_unary_local_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_eqz(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_clz(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_ctz(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_popcnt(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_extend8s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_extend16s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_extend32s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_extend_i32s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_extend_i32u(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_trunc_sat_f32s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_trunc_sat_f32u(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_trunc_sat_f64s(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_trunc_sat_f64u(),
+  ) ||
+  optimize_instructions_unary_local_payloads_are_identical_pure_with_instr(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_reinterpret_f64(),
   )
 }
 
@@ -5422,6 +5529,9 @@ fn optimize_instructions_select_arms_are_identical_pure(
       func, dead, if_true, if_false,
     ) ||
     optimize_instructions_i64_binary_local_const_payloads_are_identical_pure(
+      func, dead, if_true, if_false,
+    ) ||
+    optimize_instructions_i64_unary_local_payloads_are_identical_pure(
       func, dead, if_true, if_false,
     ) {
     return true
