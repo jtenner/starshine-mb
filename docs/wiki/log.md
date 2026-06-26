@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical ref.i31 or/xor select arms
+
+- Extended the OI-F identical pure `select` arm fold to narrow direct `ref.i31(i32.or(local.get, i32.const))` and `ref.i31(i32.xor(local.get, i32.const))` payload shells when both arms and the condition are side-effect-free.
+- Binaryen `version_130` folds the probed identical or/xor-payload i31 arms to the same constructor; Starshine now matches this source-backed subset without claiming arbitrary structural expression equality or commuted-payload equality.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-refi31-or-xor-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*ref.i31 arms*'` failed before implementation on the `i32.or` payload case and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization forty-three-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a forty-three-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

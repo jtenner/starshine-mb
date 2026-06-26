@@ -864,9 +864,11 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   // `.tmp/oi-select-refi31-mul-arms-probe.wat` does the same for same-order
   // `i32.mul(local.get, const)`. Follow-up probe
   // `.tmp/oi-select-refi31-and-arms-probe.wat` does the same for same-order
-  // `i32.and(local.get, const)`. This stays at direct same-payload i31
-  // construction, not arbitrary reference or broad structural expression
-  // equality.
+  // `i32.and(local.get, const)`. Follow-up probe
+  // `.tmp/oi-select-refi31-or-xor-arms-probe.wat` does the same for
+  // same-order `i32.or(local.get, const)` and `i32.xor(local.get, const)`.
+  // This stays at direct same-payload i31 construction, not arbitrary
+  // reference or broad structural expression equality.
   let const_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result (ref i31)) (select (ref.i31 (i32.const 7)) (ref.i31 (i32.const 7)) (local.get 0))))",
   )
@@ -910,6 +912,24 @@ test "optimize-instructions folds select with identical pure ref.i31 arms" {
   match @ir.hot_node_exact_instr(and_func, and_root) {
     Some(@lib.Instruction::RefI31) => ()
     _ => fail("expected identical pure ref.i31 and arms to fold to ref.i31")
+  }
+
+  let or_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.or (local.get 0) (i32.const 7))) (ref.i31 (i32.or (local.get 0) (i32.const 7))) (local.get 1))))",
+  )
+  let or_root = @ir.hot_root_get(or_func, 0)
+  match @ir.hot_node_exact_instr(or_func, or_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 or arms to fold to ref.i31")
+  }
+
+  let xor_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.xor (local.get 0) (i32.const 7))) (ref.i31 (i32.xor (local.get 0) (i32.const 7))) (local.get 1))))",
+  )
+  let xor_root = @ir.hot_root_get(xor_func, 0)
+  match @ir.hot_node_exact_instr(xor_func, xor_root) {
+    Some(@lib.Instruction::RefI31) => ()
+    _ => fail("expected identical pure ref.i31 xor arms to fold to ref.i31")
   }
 }
 
