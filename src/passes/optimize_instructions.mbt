@@ -4987,6 +4987,41 @@ fn optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
     lhs,
     rhs,
     @lib.Instruction::i32_xor(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_shl(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_shr_u(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_shr_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_rotl(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_rotr(),
   )
 }
 
