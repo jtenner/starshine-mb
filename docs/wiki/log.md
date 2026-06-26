@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Cover size-37 bulk-memory boundary
+
+- Added OI-G boundary/status coverage for constant-size-37 `memory.copy` and `memory.fill`.
+- Binaryen `version_130` keeps both probed bulk-memory operations rather than synthesizing SIMD lanes, scalar lanes, or SIMD-plus-tail lowering; Starshine already matched and now guards the adjacent size-37 boundary.
+- Evidence: Binaryen oracle probe `.tmp/oi-g-memory-copy-size37-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*size-37 bulk-memory*'` passed `1/1`.
+
 ## [2026-06-26] passes/optimize-instructions | Cover nonnegative-negative signed const-rel folds
 
 - Added OI-D coverage/status for sign-disjoint signed relational constant pairs with nonnegative lhs and negative rhs.
