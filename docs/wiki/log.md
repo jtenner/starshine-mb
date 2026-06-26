@@ -1,5 +1,11 @@
 # Wasm Knowledge Base Log
 
+## [2026-06-26] passes/optimize-instructions | Fold identical v128 select arms
+
+- Extended the OI-F identical pure `select` arm fold to direct byte-identical `v128.const` arms.
+- Binaryen `version_130` folds probed identical `v128.const i32x4 1 2 3 4` select arms when the condition is side-effect-free; Starshine now treats direct vector constants as pure leaves for this matcher and folds only exact byte-identical constants.
+- Evidence: Binaryen oracle probe `.tmp/oi-select-identical-v128-arms-probe.wat`; focused `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*v128 constant arms*'` failed before implementation and passed `1/1` after.
+
 ## [2026-06-26] passes/optimize-instructions | Cover tuple-optimization fifty-eight-effect boundary
 
 - Added OI-M public-pipeline boundary coverage for a fifty-eight-later-effect multivalue block under `optimize-instructions` plus `tuple-optimization`.

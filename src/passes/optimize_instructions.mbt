@@ -1759,6 +1759,26 @@ fn optimize_instructions_is_side_effect_free_expr(
   }
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefNull(_)) => return true
+    Some(
+      @lib.Instruction::V128Const(
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _
+      )
+    ) => return true
     Some(@lib.Instruction::RefI31) if node.child_count == 1 =>
       return optimize_instructions_is_side_effect_free_expr(
         func,
@@ -6101,6 +6121,48 @@ fn optimize_instructions_select_arms_are_identical_pure(
       return lhs == rhs
     (Some(@lib.Instruction::RefFunc(lhs)), Some(@lib.Instruction::RefFunc(rhs))) =>
       return lhs == rhs
+    (
+      Some(
+        @lib.Instruction::V128Const(
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _
+        ) as lhs
+      ),
+      Some(
+        @lib.Instruction::V128Const(
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _
+        ) as rhs
+      ),
+    ) => return lhs == rhs
     _ => ()
   }
   match

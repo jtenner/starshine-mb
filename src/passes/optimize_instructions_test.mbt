@@ -762,6 +762,43 @@ test "optimize-instructions folds select with identical pure local arms" {
 }
 
 ///|
+test "optimize-instructions folds select with identical pure v128 constant arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds direct identical `v128.const` select arms
+  // when the condition is side-effect-free
+  // (`.tmp/oi-select-identical-v128-arms-probe.wat`). This deliberately stays
+  // at exact byte-identical vector constants, not SIMD algebraic equality or
+  // arbitrary structural expression equality.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result v128) (select (v128.const i32x4 1 2 3 4) (v128.const i32x4 1 2 3 4) (local.get 0))))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(
+      @lib.Instruction::V128Const(
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _
+      )
+    ) => ()
+    _ => fail("expected identical pure v128.const select arms to fold")
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure numeric expression arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds same-order local/constant numeric
