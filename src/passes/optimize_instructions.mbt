@@ -7053,11 +7053,18 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   // OI-F effectful-condition select folding may move the surviving arm after
   // the condition's dropped evaluation. Keep this intentionally narrower than
   // the side-effect-free-condition identical-arm predicate: ordered-local
-  // integer addition cannot trap and cannot observe call/global side effects.
+  // integer addition/multiplication cannot trap and cannot observe call/global
+  // side effects.
   optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||
   optimize_instructions_i64_add_local_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_i32_mul_local_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_i64_mul_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   )
 }
