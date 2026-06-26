@@ -19397,3 +19397,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded `docs/wiki/raw/research/0860-2026-06-25-code-pushing-payload-throw-boundary.md` for `[O4Z-AUDIT-CP-III]`.
 - Binaryen `wasm-opt version 130` keeps a pure SFA set before a payload-bearing tag-based `throw` and later `br_if`, extending the no-payload stationary boundary from `0857`.
 - Added focused intentionally stationary Starshine coverage and kept broader rethrow/native-try/richer EH forms open.
+
+## 2026-06-25 optimize-instructions OI-G size-12 bulk-memory boundary
+
+- Recorded `docs/wiki/raw/research/1142-2026-06-25-optimize-instructions-oi-g-size12-bulk-boundary.md` for the fifty-ninth OI-G memory/load-store sub-slice.
+- Binaryen `version_130` keeps size-12 `memory.copy` and `memory.fill` as bulk operations rather than synthesizing mixed 8+4 load/store sequences; Starshine now has public-pipeline boundary coverage proving it keeps the same spelling.
+- Updated the optimize-instructions source index, Starshine strategy, and active backlog so remaining OI-G work stays focused on broader stored-value, localization, raw-gate, load/store, and zero-size trap-relaxed surfaces.
