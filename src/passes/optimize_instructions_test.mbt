@@ -1089,6 +1089,42 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical float binary select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical ordered-local f32/f64 binary
+  // select arms even when the condition is effectful, preserving that
+  // condition as a dropped prefix
+  // (`.tmp/oi-select-identical-float-binary-effectful-condition-probe.wat`).
+  // This deliberately stays at same-instruction/same-ordered local/local
+  // binary shells. Float arithmetic here is nontrapping and local-only, so
+  // the surviving arm cannot observe the condition's effects. This is not a
+  // broad NaN/algebraic, commuted-operand, SIMD, or arbitrary expression
+  // equality proof.
+  let f32_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32) (result f32) (select (f32.add (local.get 0) (local.get 1)) (f32.add (local.get 0) (local.get 1)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let f32_root = @ir.hot_root_get(f32_func, 0)
+  match @ir.hot_node_get(f32_func, f32_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical f32.add select arms to fold while preserving the effectful condition",
+      )
+  }
+  let f64_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64 f64) (result f64) (select (f64.mul (local.get 0) (local.get 1)) (f64.mul (local.get 0) (local.get 1)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let f64_root = @ir.hot_root_get(f64_func, 0)
+  match @ir.hot_node_get(f64_func, f64_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical f64.mul select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure local-local binary arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds direct identical local/local binary select
