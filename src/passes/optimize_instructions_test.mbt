@@ -1099,6 +1099,55 @@ test "optimize-instructions folds direct compare boolean select arms" {
 }
 
 ///|
+test "optimize-instructions folds eqz compare boolean select arms" {
+  // Red-first OI-F select parity slice: Binaryen `version_130`
+  // `--optimize-instructions` removes exact i32 boolean select arms around
+  // `i32.eqz(compare ...)` conditions. `select 1 0 (eqz(compare))` becomes
+  // the inverse compare, while `select 0 1 (eqz(compare))` becomes the inner
+  // compare. This deliberately does not claim arbitrary boolean algebra,
+  // branch-condition rewrites, or non-boolean value-select rewrites.
+  let i32_true_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 1 i32.const 0 local.get 0 local.get 1 i32.eq i32.eqz select))",
+  )
+  let i32_true_false_root = @ir.hot_root_get(i32_true_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_true_false_func, i32_true_false_root),
+    Some(@lib.Instruction::i32_ne()),
+  )
+
+  let i64_false_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64) (result i32) i32.const 0 i32.const 1 local.get 0 local.get 1 i64.ne i32.eqz select))",
+  )
+  let i64_false_true_root = @ir.hot_root_get(i64_false_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_false_true_func, i64_false_true_root),
+    Some(@lib.Instruction::i64_ne()),
+  )
+
+  let relational_true_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 1 i32.const 0 local.get 0 local.get 1 i32.lt_u i32.eqz select))",
+  )
+  let relational_true_false_root = @ir.hot_root_get(
+    relational_true_false_func, 0,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      relational_true_false_func, relational_true_false_root,
+    ),
+    Some(@lib.Instruction::i32_ge_u()),
+  )
+
+  let float_false_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64 f64) (result i32) i32.const 0 i32.const 1 local.get 0 local.get 1 f64.eq i32.eqz select))",
+  )
+  let float_false_true_root = @ir.hot_root_get(float_false_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(float_false_true_func, float_false_true_root),
+    Some(@lib.Instruction::f64_eq()),
+  )
+}
+
+///|
 test "optimize-instructions folds direct integer equality boolean select arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` removes exact i32 boolean select arms around

@@ -7622,6 +7622,19 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
 }
 
 ///|
+fn optimize_instructions_inverted_select_compare(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Instruction::I32Eq => Some(@lib.Instruction::i32_ne())
+    @lib.Instruction::I32Ne => Some(@lib.Instruction::i32_eq())
+    @lib.Instruction::I64Eq => Some(@lib.Instruction::i64_ne())
+    @lib.Instruction::I64Ne => Some(@lib.Instruction::i64_eq())
+    _ => optimize_instructions_inverted_eqz_compare(instr)
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_const_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7682,6 +7695,25 @@ fn optimize_instructions_try_fold_const_select(
           optimize_instructions_i32_const(func, dead, if_false),
         ) {
         (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
+          match @ir.hot_node_exact_instr(func, inner_condition) {
+            Some(inner_instr) if @ir.hot_child_count(func, inner_condition) == 2 =>
+              match optimize_instructions_inverted_select_compare(inner_instr) {
+                Some(inverted_instr) => {
+                  let lhs_id = @ir.hot_child_get(func, inner_condition, 0)
+                  let rhs_id = @ir.hot_child_get(func, inner_condition, 1)
+                  if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
+                    !optimize_instructions_node_is_live(func, dead, rhs_id) {
+                    return false
+                  }
+                  optimize_instructions_replace_with_exact_compare(
+                    ctx, func, node_id, inverted_instr, lhs_id, rhs_id,
+                  )
+                  return true
+                }
+                _ => ()
+              }
+            _ => ()
+          }
           optimize_instructions_replace_with_exact_unary(
             ctx,
             func,
@@ -7692,6 +7724,19 @@ fn optimize_instructions_try_fold_const_select(
           return true
         }
         (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
+          match @ir.hot_node_exact_instr(func, inner_condition) {
+            Some(inner_instr) if @ir.hot_child_count(func, inner_condition) == 2 =>
+              match optimize_instructions_inverted_select_compare(inner_instr) {
+                Some(_) => {
+                  optimize_instructions_replace_with_node_id(
+                    ctx, func, node_id, inner_condition,
+                  )
+                  return true
+                }
+                _ => ()
+              }
+            _ => ()
+          }
           optimize_instructions_replace_with_exact_compare(
             ctx,
             func,

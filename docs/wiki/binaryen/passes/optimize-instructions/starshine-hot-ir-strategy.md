@@ -13,6 +13,7 @@ sources:
   - ../../../raw/research/1343-2026-06-27-optimize-instructions-oi-f-i64-zero-compare-boolean-select.md
   - ../../../raw/research/1345-2026-06-27-optimize-instructions-oi-f-direct-compare-boolean-select.md
   - ../../../raw/research/1347-2026-06-27-optimize-instructions-oi-f-integer-equality-boolean-select.md
+  - ../../../raw/research/1349-2026-06-27-optimize-instructions-oi-f-eqz-compare-boolean-select.md
   - ../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md
   - ../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md
   - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
