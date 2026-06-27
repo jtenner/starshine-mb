@@ -7706,6 +7706,36 @@ fn optimize_instructions_try_fold_eqz(
   }
   let operand = func.nodes[operand_id]
   match (instr, operand.op, @ir.hot_node_exact_instr(func, operand_id)) {
+    (@lib.Instruction::I32Eqz, @ir.HotOp::Unary, Some(@lib.Instruction::I32Eqz)) => {
+      let inner_operand_id = @ir.hot_child_get(func, operand_id, 0)
+      if !optimize_instructions_node_is_live(func, dead, inner_operand_id) {
+        return false
+      }
+      optimize_instructions_replace_with_exact_compare(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_ne(),
+        inner_operand_id,
+        @ir.hot_build_const_i32(func, @lib.I32(0)),
+      )
+      return true
+    }
+    (@lib.Instruction::I32Eqz, @ir.HotOp::Unary, Some(@lib.Instruction::I64Eqz)) => {
+      let inner_operand_id = @ir.hot_child_get(func, operand_id, 0)
+      if !optimize_instructions_node_is_live(func, dead, inner_operand_id) {
+        return false
+      }
+      optimize_instructions_replace_with_exact_compare(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i64_ne(),
+        inner_operand_id,
+        @ir.hot_build_const_i64(func, @lib.I64(0L)),
+      )
+      return true
+    }
     (@lib.Instruction::I32Eqz, @ir.HotOp::Binary, Some(@lib.Instruction::I32Sub)
     )
     | (

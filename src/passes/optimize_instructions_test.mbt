@@ -621,6 +621,47 @@ test "optimize-instructions rewrites eqz on add const into eq negated const" {
 }
 
 ///|
+test "optimize-instructions rewrites double eqz into ne zero" {
+  let i32_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.eqz))",
+  )
+  let i32_root = @ir.hot_root_get(i32_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_func, i32_root),
+    Some(@lib.Instruction::i32_ne()),
+  )
+  let i32_lhs = @ir.hot_child_get(i32_func, i32_root, 0)
+  let i32_rhs = @ir.hot_child_get(i32_func, i32_root, 1)
+  match @ir.hot_node_get(i32_func, i32_lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected i32 double-eqz rewrite to keep the original operand")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i32_func, @ir.hot_node_get(i32_func, i32_rhs).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.eqz i32.eqz))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_func, i64_root),
+    Some(@lib.Instruction::i64_ne()),
+  )
+  let i64_lhs = @ir.hot_child_get(i64_func, i64_root, 0)
+  let i64_rhs = @ir.hot_child_get(i64_func, i64_root, 1)
+  match @ir.hot_node_get(i64_func, i64_lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected i64 double-eqz rewrite to keep the original operand")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(i64_func, @ir.hot_node_get(i64_func, i64_rhs).imm0),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+}
+
+///|
 test "optimize-instructions folds constant false void ifs to nops" {
   let optimized = match
     pass_test_run_pipeline(
