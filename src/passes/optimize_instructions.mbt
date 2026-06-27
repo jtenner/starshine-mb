@@ -7736,6 +7736,138 @@ fn optimize_instructions_try_fold_eqz(
       )
       return true
     }
+    (@lib.Instruction::I32Eqz, @ir.HotOp::Compare, Some(@lib.Instruction::I32Ne)
+    ) => {
+      let lhs_id = @ir.hot_child_get(func, operand_id, 0)
+      let rhs_id = @ir.hot_child_get(func, operand_id, 1)
+      match
+        (
+          optimize_instructions_i32_const(func, dead, lhs_id),
+          optimize_instructions_i32_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.I32(raw)), _) if raw == 0 => {
+          optimize_instructions_replace_with_exact_unary(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_eqz(),
+            rhs_id,
+          )
+          return true
+        }
+        (_, Some(@lib.I32(raw))) if raw == 0 => {
+          optimize_instructions_replace_with_exact_unary(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_eqz(),
+            lhs_id,
+          )
+          return true
+        }
+        _ => ()
+      }
+    }
+    (@lib.Instruction::I32Eqz, @ir.HotOp::Compare, Some(@lib.Instruction::I64Ne)
+    ) => {
+      let lhs_id = @ir.hot_child_get(func, operand_id, 0)
+      let rhs_id = @ir.hot_child_get(func, operand_id, 1)
+      match
+        (
+          optimize_instructions_i64_const(func, dead, lhs_id),
+          optimize_instructions_i64_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.I64(raw)), _) if raw == 0L => {
+          optimize_instructions_replace_with_exact_unary(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_eqz(),
+            rhs_id,
+          )
+          return true
+        }
+        (_, Some(@lib.I64(raw))) if raw == 0L => {
+          optimize_instructions_replace_with_exact_unary(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_eqz(),
+            lhs_id,
+          )
+          return true
+        }
+        _ => ()
+      }
+    }
+    (@lib.Instruction::I32Eqz, @ir.HotOp::Compare, Some(@lib.Instruction::I32Eq)
+    ) => {
+      let lhs_id = @ir.hot_child_get(func, operand_id, 0)
+      let rhs_id = @ir.hot_child_get(func, operand_id, 1)
+      match
+        (
+          optimize_instructions_i32_const(func, dead, lhs_id),
+          optimize_instructions_i32_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.I32(raw)), _) if raw == 0 => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_ne(),
+            rhs_id,
+            @ir.hot_build_const_i32(func, @lib.I32(0)),
+          )
+          return true
+        }
+        (_, Some(@lib.I32(raw))) if raw == 0 => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_ne(),
+            lhs_id,
+            @ir.hot_build_const_i32(func, @lib.I32(0)),
+          )
+          return true
+        }
+        _ => ()
+      }
+    }
+    (@lib.Instruction::I32Eqz, @ir.HotOp::Compare, Some(@lib.Instruction::I64Eq)
+    ) => {
+      let lhs_id = @ir.hot_child_get(func, operand_id, 0)
+      let rhs_id = @ir.hot_child_get(func, operand_id, 1)
+      match
+        (
+          optimize_instructions_i64_const(func, dead, lhs_id),
+          optimize_instructions_i64_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.I64(raw)), _) if raw == 0L => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_ne(),
+            rhs_id,
+            @ir.hot_build_const_i64(func, @lib.I64(0L)),
+          )
+          return true
+        }
+        (_, Some(@lib.I64(raw))) if raw == 0L => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_ne(),
+            lhs_id,
+            @ir.hot_build_const_i64(func, @lib.I64(0L)),
+          )
+          return true
+        }
+        _ => ()
+      }
+    }
     (@lib.Instruction::I32Eqz, @ir.HotOp::Binary, Some(@lib.Instruction::I32Sub)
     )
     | (
