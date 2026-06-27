@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-M tuple-optimization ninety-three-effect boundary slice `1320`, documenting Binaryen `tuple.make 94` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-K array.new_default get large-length boundary slice `1319`, documenting Binaryen keep-spelling evidence and Starshine's red-first guard against erasing allocation-size traps.
 - 2026-06-26: Added OI-M tuple-optimization ninety-two-effect boundary slice `1318`, documenting Binaryen `tuple.make 93` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F mutable-global effectful-condition select-arm boundary slice `1317`, documenting Binaryen keep-spelling evidence and Starshine's red-first fix that stops moving `global.get` arms across effectful conditions.
