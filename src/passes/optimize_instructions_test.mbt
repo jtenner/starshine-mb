@@ -750,6 +750,58 @@ test "optimize-instructions rewrites eqz on float eq-ne compares into inverted c
 }
 
 ///|
+test "optimize-instructions applies De Morgan to and of eqz operands" {
+  // Red-first OI-F boolean parity slice: Binaryen `version_130`
+  // `--optimize-instructions` rewrites `(and (eqz x) (eqz y))` to
+  // `eqz(or x y)` while preserving left-to-right operand evaluation. This is
+  // deliberately the two-direct-`eqz` i32.and shell only; it does not claim
+  // broader boolean algebra, commuted/non-eqz operands, or branch-condition
+  // rewrites.
+  let local_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) local.get 0 i32.eqz local.get 1 i32.eqz i32.and))",
+  )
+  let local_root = @ir.hot_root_get(local_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(local_func, local_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  let local_or = @ir.hot_child_get(local_func, local_root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(local_func, local_or),
+    Some(@lib.Instruction::i32_or()),
+  )
+  match
+    @ir.hot_node_get(local_func, @ir.hot_child_get(local_func, local_or, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected De Morgan i32.or to keep the first original operand")
+  }
+  match
+    @ir.hot_node_get(local_func, @ir.hot_child_get(local_func, local_or, 1)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected De Morgan i32.or to keep the second original operand")
+  }
+
+  let call_func = optimize_instructions_test_run_hot(
+    "(module (global $g (mut i32) (i32.const 0)) (func (param i32) (result i32) call $side i32.eqz local.get 0 i32.eqz i32.and) (func $side (result i32) i32.const 1 global.set $g i32.const 7))",
+  )
+  let call_root = @ir.hot_root_get(call_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(call_func, call_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  let call_or = @ir.hot_child_get(call_func, call_root, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(call_func, call_or),
+    Some(@lib.Instruction::i32_or()),
+  )
+  match
+    @ir.hot_node_get(call_func, @ir.hot_child_get(call_func, call_or, 0)).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected De Morgan i32.or to keep the effectful first operand")
+  }
+}
+
+///|
 test "optimize-instructions rewrites double eqz into ne zero" {
   let i32_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.eqz))",

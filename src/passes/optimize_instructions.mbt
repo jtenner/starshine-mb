@@ -7693,6 +7693,59 @@ fn optimize_instructions_try_fold_const_select(
 }
 
 ///|
+fn optimize_instructions_try_apply_demorgan_and_eqz(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match instr {
+    @lib.Instruction::I32And => ()
+    _ => return false
+  }
+  if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
+    !optimize_instructions_node_is_live(func, dead, rhs_id) {
+    return false
+  }
+  match
+    (
+      @ir.hot_node_exact_instr(func, lhs_id),
+      @ir.hot_node_exact_instr(func, rhs_id),
+    ) {
+    (Some(@lib.Instruction::I32Eqz), Some(@lib.Instruction::I32Eqz)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, lhs_id) != 1 ||
+    @ir.hot_child_count(func, rhs_id) != 1 {
+    return false
+  }
+  let lhs_operand_id = @ir.hot_child_get(func, lhs_id, 0)
+  let rhs_operand_id = @ir.hot_child_get(func, rhs_id, 0)
+  if !optimize_instructions_node_is_live(func, dead, lhs_operand_id) ||
+    !optimize_instructions_node_is_live(func, dead, rhs_operand_id) {
+    return false
+  }
+  let or_id = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    lhs_operand_id,
+    rhs_operand_id,
+  )
+  @ir.hot_node_exact_instr_set(func, or_id, @lib.Instruction::i32_or())
+  optimize_instructions_replace_with_exact_unary(
+    ctx,
+    func,
+    node_id,
+    @lib.Instruction::i32_eqz(),
+    or_id,
+  )
+  true
+}
+
+///|
 fn optimize_instructions_inverted_eqz_compare(
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
@@ -11675,6 +11728,9 @@ fn optimize_instructions_visit_node(
         let changed = optimize_instructions_try_fold_same_local_integer_binary(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
+          optimize_instructions_try_apply_demorgan_and_eqz(
+            ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
           optimize_instructions_try_fold_identity_binary(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
@@ -11734,6 +11790,9 @@ fn optimize_instructions_visit_node(
           let current_rhs = func.children[current.child_base + 1]
           let current_instr = func.instr_payloads[current.imm0].instr
           optimize_instructions_try_fold_same_local_integer_binary(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_apply_demorgan_and_eqz(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_fold_identity_binary(
