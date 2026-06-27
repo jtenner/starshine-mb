@@ -7054,8 +7054,8 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   // the condition's dropped evaluation. Keep this intentionally narrower than
   // the side-effect-free-condition identical-arm predicate: ordered-local
   // integer addition/subtraction/multiplication/bitwise/shift/rotate/compare
-  // shells cannot trap (WebAssembly masks shift/rotate counts) and cannot
-  // observe call/global side effects.
+  // shells and float compare shells cannot trap (WebAssembly masks
+  // shift/rotate counts) and cannot observe call/global side effects.
   optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||
@@ -7090,6 +7090,12 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
     func, dead, if_true, if_false,
   ) ||
   optimize_instructions_i64_compare_local_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_f32_compare_local_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_f64_compare_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   )
 }
