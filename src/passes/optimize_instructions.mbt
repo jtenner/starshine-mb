@@ -7913,6 +7913,42 @@ fn optimize_instructions_try_fold_const_select(
       }
     _ => ()
   }
+  match @ir.hot_node_exact_instr(func, condition) {
+    Some(compare_instr) if @ir.hot_child_count(func, condition) == 2 =>
+      match optimize_instructions_inverted_eqz_compare(compare_instr) {
+        Some(inverted_instr) =>
+          match
+            (
+              optimize_instructions_i32_const(func, dead, if_true),
+              optimize_instructions_i32_const(func, dead, if_false),
+            ) {
+            (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
+              if !optimize_instructions_node_is_live(func, dead, condition) {
+                return false
+              }
+              optimize_instructions_replace_with_node_id(
+                ctx, func, node_id, condition,
+              )
+              return true
+            }
+            (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
+              let lhs_id = @ir.hot_child_get(func, condition, 0)
+              let rhs_id = @ir.hot_child_get(func, condition, 1)
+              if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
+                !optimize_instructions_node_is_live(func, dead, rhs_id) {
+                return false
+              }
+              optimize_instructions_replace_with_exact_compare(
+                ctx, func, node_id, inverted_instr, lhs_id, rhs_id,
+              )
+              return true
+            }
+            _ => ()
+          }
+        _ => ()
+      }
+    _ => ()
+  }
   match
     (
       optimize_instructions_i32_const(func, dead, if_true),

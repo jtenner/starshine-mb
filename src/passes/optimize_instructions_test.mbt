@@ -1046,6 +1046,59 @@ test "optimize-instructions removes zero compares from select conditions" {
 }
 
 ///|
+test "optimize-instructions folds direct compare boolean select arms" {
+  // Red-first OI-F select parity slice: Binaryen `version_130`
+  // `--optimize-instructions` removes exact i32 boolean select arms around
+  // direct compare conditions. `select 1 0 (compare ...)` becomes the compare
+  // itself, while `select 0 1 (compare ...)` becomes the compare inverse when
+  // Binaryen has a direct inverse spelling. This deliberately does not claim
+  // arbitrary non-compare boolean conditions or value-select rewrites.
+  let int_true_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 1 i32.const 0 local.get 0 local.get 1 i32.lt_s select))",
+  )
+  let int_true_false_root = @ir.hot_root_get(int_true_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(int_true_false_func, int_true_false_root),
+    Some(@lib.Instruction::i32_lt_s()),
+  )
+  match
+    @ir.hot_node_get(
+      int_true_false_func,
+      @ir.hot_child_get(int_true_false_func, int_true_false_root, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected true/false compare select to keep lhs operand")
+  }
+
+  let int_false_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 0 i32.const 1 local.get 0 local.get 1 i32.lt_s select))",
+  )
+  let int_false_true_root = @ir.hot_root_get(int_false_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(int_false_true_func, int_false_true_root),
+    Some(@lib.Instruction::i32_ge_s()),
+  )
+
+  let float_true_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32) (result i32) i32.const 1 i32.const 0 local.get 0 local.get 1 f32.eq select))",
+  )
+  let float_true_false_root = @ir.hot_root_get(float_true_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(float_true_false_func, float_true_false_root),
+    Some(@lib.Instruction::f32_eq()),
+  )
+
+  let float_false_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32) (result i32) i32.const 0 i32.const 1 local.get 0 local.get 1 f32.eq select))",
+  )
+  let float_false_true_root = @ir.hot_root_get(float_false_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(float_false_true_func, float_false_true_root),
+    Some(@lib.Instruction::f32_ne()),
+  )
+}
+
+///|
 test "optimize-instructions folds i64 zero-compare boolean select arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` canonicalizes exact i32 boolean arms over direct
