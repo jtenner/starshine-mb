@@ -176,6 +176,7 @@ sources:
   - ../../../raw/research/1313-2026-06-26-optimize-instructions-oi-f-identical-int-unary-effectful-condition.md
   - ../../../raw/research/1315-2026-06-26-optimize-instructions-oi-f-identical-float-conversion-effectful-condition.md
   - ../../../raw/research/1317-2026-06-26-optimize-instructions-oi-f-mutable-global-effectful-condition-boundary.md
+  - ../../../raw/research/1319-2026-06-26-optimize-instructions-oi-k-array-new-default-get-large-len-boundary.md
   - ../../../raw/research/1312-2026-06-26-optimize-instructions-oi-m-tuple-optimization-eighty-nine-effects-boundary.md
   - ../../../raw/research/1314-2026-06-26-optimize-instructions-oi-m-tuple-optimization-ninety-effects-boundary.md
   - ../../../raw/research/1316-2026-06-26-optimize-instructions-oi-m-tuple-optimization-ninety-one-effects-boundary.md
@@ -360,7 +361,7 @@ Those are local HOT-IR and writeback-survival rules, not a literal upstream phas
 
 The local pass does not yet model the upstream visitor families for:
 
-- broad reference-typed and GC rewrites beyond the many narrow OI-I/OI-K subsets already covered
+- broad reference-typed and GC rewrites beyond the many narrow OI-I/OI-K subsets already covered; the OI-K default-array get subset now keeps negative and huge `array.new_default` lengths to preserve allocation traps before folding constant-index gets
 - GC aggregate RMW/cmpxchg lowering: Starshine exposes `struct.atomic.get*` but not aggregate RMW/cmpxchg text/core constructors, while Binaryen optimizes source-backed non-mutating RMW/cmpxchg forms to `struct.get`-like reads
 - `call_ref` directization families beyond the covered direct/ref.func, constant-index and call-indexed table.get, select, and fallthrough-known subsets with zero arguments or localized single-result arguments; multi-result argument select-of-`ref.func` directization is now a documented tuple-scratch localization boundary for both `call_ref` and `return_call_ref`
 - broader memory and bulk-memory lowering beyond the covered tiny-copy/fill, stored-value, load-result, offset-fold, and narrow raw-gate escapes

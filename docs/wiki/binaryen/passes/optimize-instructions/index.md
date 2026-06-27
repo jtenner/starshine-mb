@@ -115,6 +115,7 @@ sources:
   - ../../../raw/research/0828-2026-06-21-optimize-instructions-oi-k-struct-new-default.md
   - ../../../raw/research/0829-2026-06-21-optimize-instructions-oi-k-array-new-default-get.md
   - ../../../raw/research/0830-2026-06-21-optimize-instructions-oi-k-array-new-default-len.md
+  - ../../../raw/research/1319-2026-06-26-optimize-instructions-oi-k-array-new-default-get-large-len-boundary.md
   - ../../../raw/research/0831-2026-06-21-optimize-instructions-oi-k-array-new-len.md
   - ../../../raw/research/0832-2026-06-21-optimize-instructions-oi-k-array-new-get.md
   - ../../../raw/research/0833-2026-06-21-optimize-instructions-oi-k-array-set-fresh.md

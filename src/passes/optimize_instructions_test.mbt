@@ -24181,6 +24181,7 @@ test "optimize-instructions folds array.get of constant-size array.new_default d
     .with_func_sec(
       @lib.FuncSec::new([
         result_type, result_type, result_type, result_type, result_type, indexed_type,
+        result_type, result_type,
       ]),
     )
     .with_code_sec(
@@ -24239,6 +24240,24 @@ test "optimize-instructions folds array.get of constant-size array.new_default d
             @lib.Instruction::array_get(array_i32_type),
           ]),
         ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::array_new_default(array_i32_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(50000000)),
+            @lib.Instruction::array_new_default(array_i32_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_i32_type),
+          ]),
+        ),
       ]),
     ),
   )
@@ -24248,6 +24267,8 @@ test "optimize-instructions folds array.get of constant-size array.new_default d
   let s16 = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   let oob = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
   let dynamic_len = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  let huge_len = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
   for pretty in [plain, s8, u8, s16] {
     assert_false(pretty.contains("array.get"), msg=pretty)
     assert_false(pretty.contains("array.new_default"), msg=pretty)
@@ -24260,6 +24281,12 @@ test "optimize-instructions folds array.get of constant-size array.new_default d
   // cannot prove that a constant index is in-bounds or out-of-bounds.
   assert_true(dynamic_len.contains("array.get"), msg=dynamic_len)
   assert_true(dynamic_len.contains("array.new_default"), msg=dynamic_len)
+  // Correctness boundary: Binaryen version_130 keeps negative and huge
+  // allocation lengths to preserve the allocation-size trap before the get.
+  assert_true(negative_len.contains("array.get"), msg=negative_len)
+  assert_true(negative_len.contains("array.new_default"), msg=negative_len)
+  assert_true(huge_len.contains("array.get"), msg=huge_len)
+  assert_true(huge_len.contains("array.new_default"), msg=huge_len)
 }
 
 ///|

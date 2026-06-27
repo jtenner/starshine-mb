@@ -4130,7 +4130,9 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
           dead,
           @ir.hot_child_get(func, array_id, 0),
         ) {
-        Some(@lib.I32(len)) => len
+        Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
+            len,
+          ) => len
         _ => return false
       }
       (1, len)
