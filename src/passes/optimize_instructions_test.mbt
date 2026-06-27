@@ -931,6 +931,37 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical integer unary select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical ordered-local integer unary select
+  // arms even when the condition is effectful, preserving that condition as a
+  // dropped prefix
+  // (`.tmp/oi-select-identical-int-unary-effectful-condition-probe.wat`). This
+  // deliberately stays at nontrapping clz/ctz/popcnt/eqz local-only shells; do
+  // not extend to trapping conversions, arbitrary expression equality, or
+  // SIMD/float equivalence without fresh oracle evidence.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i64) (result i32 i64) (select (i32.clz (local.get 0)) (i32.clz (local.get 0)) (call $effect)) (select (i64.popcnt (local.get 1)) (i64.popcnt (local.get 1)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let first_root = @ir.hot_root_get(func, 0)
+  let second_root = @ir.hot_root_get(func, 1)
+  match @ir.hot_node_get(func, first_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i32.clz select arms to fold while preserving the effectful condition",
+      )
+  }
+  match @ir.hot_node_get(func, second_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i64.popcnt select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions preserves effectful condition when folding identical i32.add select arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical ordered-local `i32.add` select

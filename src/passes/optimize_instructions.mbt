@@ -7500,8 +7500,9 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   // the condition's dropped evaluation. Keep this intentionally narrower than
   // the side-effect-free-condition identical-arm predicate: ordered-local and
   // ordered local/constant integer addition/subtraction/multiplication/bitwise/
-  // shift/rotate/compare shells plus float unary/binary/compare shells cannot
-  // trap (WebAssembly masks shift/rotate counts) and cannot observe call/global
+  // shift/rotate/compare shells, integer unary local shells, and float
+  // unary/binary/compare shells cannot trap (WebAssembly masks shift/rotate
+  // counts) and cannot observe call/global
   // side effects. Integer local/constant div/rem remains excluded because those
   // operations can trap. Float local/constant binary shells use the same proof:
   // they are local-only, constant-only, and nontrapping, including min/max
@@ -7545,6 +7546,12 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
     func, dead, if_true, if_false,
   ) ||
   optimize_instructions_i32_compare_local_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_i32_unary_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_i64_unary_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||
   optimize_instructions_i32_nontrapping_local_const_payloads_are_identical_pure(
