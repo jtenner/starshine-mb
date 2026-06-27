@@ -201,6 +201,7 @@ sources:
   - ../../../raw/research/1334-2026-06-27-optimize-instructions-oi-m-tuple-optimization-one-hundred-effects-boundary.md
   - ../../../raw/research/1336-2026-06-27-optimize-instructions-oi-m-tuple-optimization-one-hundred-one-effects-boundary.md
   - ../../../raw/research/1338-2026-06-27-optimize-instructions-oi-m-tuple-optimization-one-hundred-two-effects-boundary.md
+  - ../../../raw/research/1340-2026-06-27-optimize-instructions-oi-m-tuple-optimization-one-hundred-three-effects-boundary.md
   - ../../../raw/research/1238-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-two-effects-boundary.md
   - ../../../raw/research/1240-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-three-effects-boundary.md
   - ../../../raw/research/1242-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-four-effects-boundary.md
