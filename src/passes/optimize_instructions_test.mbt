@@ -1158,6 +1158,63 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical integer local-const select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical ordered local/constant i32/i64
+  // add/bitwise/compare select arms even when the condition is effectful,
+  // preserving that condition as a dropped prefix
+  // (`.tmp/oi-select-identical-int-localconst-effectful-condition-probe.wat`).
+  // This remains a narrow same-instruction/same-ordered local/constant proof
+  // for nontrapping integer arithmetic/bitwise/shift/rotate/compare shells;
+  // it deliberately excludes trapping div/rem, commuted operands, value-
+  // equivalent constants, and arbitrary expression equality.
+  let i32_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (select (i32.add (local.get 0) (i32.const 7)) (i32.add (local.get 0) (i32.const 7)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let i32_root = @ir.hot_root_get(i32_func, 0)
+  match @ir.hot_node_get(i32_func, i32_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i32.add local-const select arms to fold while preserving the effectful condition",
+      )
+  }
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i64) (select (i64.xor (local.get 0) (i64.const 7)) (i64.xor (local.get 0) (i64.const 7)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  match @ir.hot_node_get(i64_func, i64_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i64.xor local-const select arms to fold while preserving the effectful condition",
+      )
+  }
+  let i32_cmp_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) (select (i32.lt_u (local.get 0) (i32.const 7)) (i32.lt_u (local.get 0) (i32.const 7)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let i32_cmp_root = @ir.hot_root_get(i32_cmp_func, 0)
+  match @ir.hot_node_get(i32_cmp_func, i32_cmp_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i32.lt_u local-const select arms to fold while preserving the effectful condition",
+      )
+  }
+  let i64_cmp_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) (select (i64.ge_s (local.get 0) (i64.const 7)) (i64.ge_s (local.get 0) (i64.const 7)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let i64_cmp_root = @ir.hot_root_get(i64_cmp_func, 0)
+  match @ir.hot_node_get(i64_cmp_func, i64_cmp_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i64.ge_s local-const select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions preserves effectful condition when folding identical float binary select arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical ordered-local f32/f64 binary

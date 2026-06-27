@@ -7044,6 +7044,318 @@ fn optimize_instructions_select_arms_are_identical_pure(
 }
 
 ///|
+fn optimize_instructions_i32_nontrapping_local_const_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_add(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_sub(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_mul(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_and(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_or(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_xor(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_shl(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_shr_u(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_shr_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_rotl(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_rotr(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_eq(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_ne(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_lt_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_lt_u(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_gt_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_gt_u(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_le_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_le_u(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_ge_s(),
+  ) ||
+  optimize_instructions_i32_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i32_ge_u(),
+  )
+}
+
+///|
+fn optimize_instructions_i64_nontrapping_local_const_payloads_are_identical_pure(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_add(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_sub(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_mul(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_and(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_or(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_xor(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_shl(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_shr_u(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_shr_s(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_rotl(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_rotr(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_eq(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_ne(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_lt_s(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_lt_u(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_gt_s(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_gt_u(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_le_s(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_le_u(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_ge_s(),
+  ) ||
+  optimize_instructions_i64_local_const_payloads_are_identical_pure(
+    func,
+    dead,
+    lhs,
+    rhs,
+    @lib.Instruction::i64_ge_u(),
+  )
+}
+
+///|
 fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -7052,13 +7364,15 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
 ) -> Bool {
   // OI-F effectful-condition select folding may move the surviving arm after
   // the condition's dropped evaluation. Keep this intentionally narrower than
-  // the side-effect-free-condition identical-arm predicate: ordered-local
-  // integer addition/subtraction/multiplication/bitwise/shift/rotate/compare
-  // shells plus float unary/binary/compare shells cannot trap (WebAssembly
-  // masks shift/rotate counts) and cannot observe call/global side effects.
-  // Float local/constant binary shells use the same proof: they are local-only,
-  // constant-only, and nontrapping, including min/max spelling; this is not a
-  // broader float-value-equivalence or commuted-operand proof.
+  // the side-effect-free-condition identical-arm predicate: ordered-local and
+  // ordered local/constant integer addition/subtraction/multiplication/bitwise/
+  // shift/rotate/compare shells plus float unary/binary/compare shells cannot
+  // trap (WebAssembly masks shift/rotate counts) and cannot observe call/global
+  // side effects. Integer local/constant div/rem remains excluded because those
+  // operations can trap. Float local/constant binary shells use the same proof:
+  // they are local-only, constant-only, and nontrapping, including min/max
+  // spelling; this is not a broader float-value-equivalence or commuted-operand
+  // proof.
   optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||
@@ -7090,6 +7404,12 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
     func, dead, if_true, if_false,
   ) ||
   optimize_instructions_i32_compare_local_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_i32_nontrapping_local_const_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_i64_nontrapping_local_const_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||
   optimize_instructions_i64_compare_local_local_payloads_are_identical_pure(
