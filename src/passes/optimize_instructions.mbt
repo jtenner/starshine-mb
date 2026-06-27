@@ -7636,6 +7636,55 @@ fn optimize_instructions_try_fold_const_select(
   let if_true = @ir.hot_child_get(func, node_id, 0)
   let if_false = @ir.hot_child_get(func, node_id, 1)
   let condition = @ir.hot_child_get(func, node_id, 2)
+  match @ir.hot_node_exact_instr(func, condition) {
+    Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, condition) == 1 => {
+      let inner_condition = @ir.hot_child_get(func, condition, 0)
+      if !optimize_instructions_node_is_live(func, dead, inner_condition) {
+        return false
+      }
+      match
+        (
+          optimize_instructions_i32_const(func, dead, if_true),
+          optimize_instructions_i32_const(func, dead, if_false),
+        ) {
+        (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
+          optimize_instructions_replace_with_exact_unary(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_eqz(),
+            inner_condition,
+          )
+          return true
+        }
+        (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_ne(),
+            inner_condition,
+            @ir.hot_build_const_i32(func, @lib.I32(0)),
+          )
+          return true
+        }
+        _ => ()
+      }
+      match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+        [result_type] => {
+          let replacement = @ir.hot_build_select(
+            func, result_type, if_false, if_true, inner_condition,
+          )
+          optimize_instructions_replace_with_node_id(
+            ctx, func, node_id, replacement,
+          )
+          return true
+        }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
   match
     (
       optimize_instructions_i32_const(func, dead, if_true),

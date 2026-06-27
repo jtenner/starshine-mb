@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-27: Added OI-F select eqz-condition slice `1337`, documenting Binaryen's direct `(select A B (i32.eqz cond)) -> (select B A cond)` rewrite and Starshine's narrow red-first implementation.
 - 2026-06-27: Added OI-M tuple-optimization one-hundred-one-effect boundary slice `1336`, documenting Binaryen `tuple.make 102` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-27: Added OI-F boolean constant select slice `1335`, documenting Binaryen's direct `select 1/0 -> i32.ne(cond, 0)` and `select 0/1 -> i32.eqz(cond)` rewrites plus Starshine's narrow red-first implementation.
 - 2026-06-27: Added OI-M tuple-optimization one-hundred-effect boundary slice `1334`, documenting Binaryen `tuple.make 101` localization and Starshine's retained tuple-scratch reconstruction gap.

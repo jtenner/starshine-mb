@@ -867,6 +867,73 @@ test "optimize-instructions folds boolean const select arms to condition compare
 }
 
 ///|
+test "optimize-instructions removes eqz from select conditions by swapping arms" {
+  // Red-first OI-F select parity slice: Binaryen `version_130`
+  // `--optimize-instructions` rewrites `(select a b (i32.eqz cond))` to
+  // `(select b a cond)`. For exact boolean const arms this composes directly
+  // to the existing i32 1/0 and 0/1 condition-compare forms. This deliberately
+  // covers only a direct i32.eqz condition shell, not broader condition
+  // normalization or branch-condition rewrites.
+  let value_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 42 i32.const 13 local.get 0 i32.eqz select))",
+  )
+  let value_root = @ir.hot_root_get(value_func, 0)
+  match @ir.hot_node_get(value_func, value_root).op {
+    @ir.HotOp::Select => ()
+    _ => fail("expected select with swapped arms after removing eqz condition")
+  }
+  let value_true = @ir.hot_child_get(value_func, value_root, 0)
+  let value_false = @ir.hot_child_get(value_func, value_root, 1)
+  let value_condition = @ir.hot_child_get(value_func, value_root, 2)
+  @debug.assert_eq(
+    @ir.hot_const_get(value_func, @ir.hot_node_get(value_func, value_true).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(13)),
+  )
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      value_func,
+      @ir.hot_node_get(value_func, value_false).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(42)),
+  )
+  match @ir.hot_node_get(value_func, value_condition).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected swapped select to keep the inner eqz operand")
+  }
+
+  let bool_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 1 i32.const 0 local.get 0 i32.eqz select))",
+  )
+  let bool_root = @ir.hot_root_get(bool_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(bool_func, bool_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  match
+    @ir.hot_node_get(bool_func, @ir.hot_child_get(bool_func, bool_root, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail(
+        "expected boolean const select with eqz condition to fold to eqz of inner operand",
+      )
+  }
+
+  let call_func = optimize_instructions_test_run_hot(
+    "(module (global $g (mut i32) (i32.const 0)) (func (result i32) i32.const 42 i32.const 13 call $side i32.eqz select) (func $side (result i32) i32.const 1 global.set $g i32.const 7))",
+  )
+  let call_root = @ir.hot_root_get(call_func, 0)
+  match @ir.hot_node_get(call_func, call_root).op {
+    @ir.HotOp::Select => ()
+    _ => fail("expected effectful eqz condition select to remain a select")
+  }
+  match
+    @ir.hot_node_get(call_func, @ir.hot_child_get(call_func, call_root, 2)).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected effectful swapped select to keep the call condition")
+  }
+}
+
+///|
 test "optimize-instructions rewrites double eqz into ne zero" {
   let i32_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.eqz))",
