@@ -838,6 +838,42 @@ test "optimize-instructions folds select with identical pure v128 splat arms" {
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical ref.i31 select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical direct `ref.i31` select arms
+  // even when the condition is effectful, preserving that condition as a
+  // dropped prefix
+  // (`.tmp/oi-select-identical-refi31-effectful-condition-probe.wat`). This
+  // deliberately stays at nontrapping `ref.i31` shells whose i32 payloads are
+  // local or already-covered nontrapping local/constant/unary forms; do not
+  // extend to arbitrary reference expression equality or trapping payloads
+  // without fresh oracle evidence.
+  let local_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result (ref i31)) (select (ref.i31 (local.get 0)) (ref.i31 (local.get 0)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let local_root = @ir.hot_root_get(local_func, 0)
+  match @ir.hot_node_get(local_func, local_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical ref.i31 local select arms to fold while preserving the effectful condition",
+      )
+  }
+
+  let add_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result (ref i31)) (select (ref.i31 (i32.add (local.get 0) (i32.const 1))) (ref.i31 (i32.add (local.get 0) (i32.const 1))) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let add_root = @ir.hot_root_get(add_func, 0)
+  match @ir.hot_node_get(add_func, add_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical ref.i31 add select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions preserves effectful condition when folding identical v128 splat select arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical direct-local SIMD splat select

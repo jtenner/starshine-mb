@@ -7356,6 +7356,50 @@ fn optimize_instructions_i64_nontrapping_local_const_payloads_are_identical_pure
 }
 
 ///|
+fn optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  match
+    (
+      @ir.hot_node_exact_instr(func, lhs),
+      @ir.hot_node_exact_instr(func, rhs),
+      @ir.hot_node_get(func, lhs).child_count,
+      @ir.hot_node_get(func, rhs).child_count,
+    ) {
+    (Some(@lib.Instruction::RefI31), Some(@lib.Instruction::RefI31), 1, 1) => {
+      let lhs_payload = @ir.hot_child_get(func, lhs, 0)
+      let rhs_payload = @ir.hot_child_get(func, rhs, 0)
+      match
+        (
+          optimize_instructions_local_get_id(func, dead, lhs_payload),
+          optimize_instructions_local_get_id(func, dead, rhs_payload),
+        ) {
+        (Some(lhs_local), Some(rhs_local)) => return lhs_local == rhs_local
+        _ => ()
+      }
+      match
+        (
+          optimize_instructions_i32_const(func, dead, lhs_payload),
+          optimize_instructions_i32_const(func, dead, rhs_payload),
+        ) {
+        (Some(lhs_const), Some(rhs_const)) => return lhs_const == rhs_const
+        _ => ()
+      }
+      optimize_instructions_i32_nontrapping_local_const_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      ) ||
+      optimize_instructions_i32_unary_local_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -7372,8 +7416,13 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   // operations can trap. Float local/constant binary shells use the same proof:
   // they are local-only, constant-only, and nontrapping, including min/max
   // spelling; this is not a broader float-value-equivalence or commuted-operand
-  // proof. SIMD splat shells are limited to same-instruction direct-local
-  // splats; this is not a vector algebra or lane-equivalent spelling proof.
+  // proof. Ref.i31 shells are limited to nontrapping i32 payload spellings
+  // already admitted by the side-effect-free identical-arm predicate. SIMD
+  // splat shells are limited to same-instruction direct-local splats; this is
+  // not a vector algebra or lane-equivalent spelling proof.
+  optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
+    func, dead, if_true, if_false,
+  ) ||
   optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||

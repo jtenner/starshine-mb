@@ -171,6 +171,7 @@ sources:
   - ../../../raw/research/1301-2026-06-26-optimize-instructions-oi-f-identical-float-localconst-effectful-condition.md
   - ../../../raw/research/1303-2026-06-26-optimize-instructions-oi-f-identical-int-localconst-effectful-condition.md
   - ../../../raw/research/1305-2026-06-26-optimize-instructions-oi-f-identical-v128-splat-effectful-condition.md
+  - ../../../raw/research/1307-2026-06-26-optimize-instructions-oi-f-identical-refi31-effectful-condition.md
   - ../../../raw/research/1238-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-two-effects-boundary.md
   - ../../../raw/research/1240-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-three-effects-boundary.md
   - ../../../raw/research/1242-2026-06-26-optimize-instructions-oi-m-tuple-optimization-fifty-four-effects-boundary.md
