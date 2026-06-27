@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-27: Added OI-M tuple-optimization one-hundred-effect boundary slice `1334`, documenting Binaryen `tuple.make 101` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-27: Added OI-F De Morgan `and(eqz, eqz)` slice `1333`, documenting Binaryen's direct `i32.eqz(i32.or ...)` rewrite and Starshine's narrow red-first implementation.
 - 2026-06-27: Added OI-M tuple-optimization ninety-nine-effect boundary slice `1332`, documenting Binaryen `tuple.make 100` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-27: Added OI-D float equality/inequality `eqz(compare)` inversion evidence in `raw/research/1331-2026-06-27-optimize-instructions-oi-d-eqz-float-eqne.md`; updated OI strategy/index and backlog to record the narrow f32/f64 eq/ne inversion and float relational boundary.
