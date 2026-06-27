@@ -1046,6 +1046,118 @@ test "optimize-instructions removes zero compares from select conditions" {
 }
 
 ///|
+test "optimize-instructions folds i64 zero-compare boolean select arms" {
+  // Red-first OI-F select parity slice: Binaryen `version_130`
+  // `--optimize-instructions` canonicalizes exact i32 boolean arms over direct
+  // i64 zero-compare select conditions. `i64.eq(x, 0)` with `1/0` arms becomes
+  // `i64.eqz(x)`, `i64.eq(x, 0)` with `0/1` arms becomes `i64.ne(x, 0)`, and
+  // direct `i64.ne(x, 0)` mirrors those forms without an extra eqz shell. This
+  // deliberately does not claim non-boolean value-select rewrites or broader
+  // i64 compare normalization.
+  let eq_true_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) i32.const 1 i32.const 0 local.get 0 i64.const 0 i64.eq select))",
+  )
+  let eq_true_false_root = @ir.hot_root_get(eq_true_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(eq_true_false_func, eq_true_false_root),
+    Some(@lib.Instruction::i64_eqz()),
+  )
+  match
+    @ir.hot_node_get(
+      eq_true_false_func,
+      @ir.hot_child_get(eq_true_false_func, eq_true_false_root, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected i64 eq-zero boolean true/false select to keep operand")
+  }
+
+  let eq_false_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) i32.const 0 i32.const 1 local.get 0 i64.const 0 i64.eq select))",
+  )
+  let eq_false_true_root = @ir.hot_root_get(eq_false_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(eq_false_true_func, eq_false_true_root),
+    Some(@lib.Instruction::i64_ne()),
+  )
+  let eq_false_true_lhs = @ir.hot_child_get(
+    eq_false_true_func, eq_false_true_root, 0,
+  )
+  let eq_false_true_rhs = @ir.hot_child_get(
+    eq_false_true_func, eq_false_true_root, 1,
+  )
+  match @ir.hot_node_get(eq_false_true_func, eq_false_true_lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected i64 eq-zero boolean false/true select to keep operand")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      eq_false_true_func,
+      @ir.hot_node_get(eq_false_true_func, eq_false_true_rhs).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+
+  let ne_true_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) i32.const 1 i32.const 0 local.get 0 i64.const 0 i64.ne select))",
+  )
+  let ne_true_false_root = @ir.hot_root_get(ne_true_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ne_true_false_func, ne_true_false_root),
+    Some(@lib.Instruction::i64_ne()),
+  )
+  let ne_true_false_lhs = @ir.hot_child_get(
+    ne_true_false_func, ne_true_false_root, 0,
+  )
+  let ne_true_false_rhs = @ir.hot_child_get(
+    ne_true_false_func, ne_true_false_root, 1,
+  )
+  match @ir.hot_node_get(ne_true_false_func, ne_true_false_lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected i64 ne-zero boolean true/false select to keep operand")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      ne_true_false_func,
+      @ir.hot_node_get(ne_true_false_func, ne_true_false_rhs).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+
+  let ne_false_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) i32.const 0 i32.const 1 local.get 0 i64.const 0 i64.ne select))",
+  )
+  let ne_false_true_root = @ir.hot_root_get(ne_false_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ne_false_true_func, ne_false_true_root),
+    Some(@lib.Instruction::i64_eqz()),
+  )
+  match
+    @ir.hot_node_get(
+      ne_false_true_func,
+      @ir.hot_child_get(ne_false_true_func, ne_false_true_root, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected i64 ne-zero boolean false/true select to keep operand")
+  }
+
+  let value_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) i32.const 42 i32.const 13 local.get 0 i64.const 0 i64.eq select))",
+  )
+  let value_root = @ir.hot_root_get(value_func, 0)
+  match @ir.hot_node_get(value_func, value_root).op {
+    @ir.HotOp::Select => ()
+    _ => fail("expected non-boolean i64 zero-compare select to stay a select")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      value_func,
+      @ir.hot_child_get(value_func, value_root, 2),
+    ),
+    Some(@lib.Instruction::i64_eqz()),
+  )
+}
+
+///|
 test "optimize-instructions folds i64 eqz boolean select arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` keeps value selects with an `i64.eqz` condition,

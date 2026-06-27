@@ -9,6 +9,8 @@ sources:
   - ../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md
   - ../../../raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md
   - ../../../raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md
+  - ../../../raw/research/1341-2026-06-27-optimize-instructions-oi-f-i64-eqz-boolean-select.md
+  - ../../../raw/research/1343-2026-06-27-optimize-instructions-oi-f-i64-zero-compare-boolean-select.md
   - ../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md
   - ../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md
   - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
@@ -381,6 +383,7 @@ It can:
 - wrap certain boolean value-`if`s in `eqz`
 - flip some nested conditions when the tree is unshared
 - fold constant-condition `select`s only when the dropped arm is side-effect-free and any effectful chosen arm is uniquely used
+- fold narrow exact i32 boolean-arm `select`s over direct `i64.eqz` and direct `i64.eq` / `i64.ne` zero-compare conditions to Binaryen-shaped `i64.eqz` or `i64.ne(x, 0)` results while keeping non-boolean value selects bounded
 - collapse duplicate then-branch `if`s into a direct branch
 
 This is one area where the local code is more explicit than the upstream `visitIf()` teaching surface because several helpers exist mainly to preserve local HOT/writeback behavior.
