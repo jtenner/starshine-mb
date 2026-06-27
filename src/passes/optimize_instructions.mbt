@@ -7372,7 +7372,8 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   // operations can trap. Float local/constant binary shells use the same proof:
   // they are local-only, constant-only, and nontrapping, including min/max
   // spelling; this is not a broader float-value-equivalence or commuted-operand
-  // proof.
+  // proof. SIMD splat shells are limited to same-instruction direct-local
+  // splats; this is not a vector algebra or lane-equivalent spelling proof.
   optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||
@@ -7437,6 +7438,9 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
     func, dead, if_true, if_false,
   ) ||
   optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_v128_splat_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   )
 }

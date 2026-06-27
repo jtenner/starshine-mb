@@ -838,6 +838,29 @@ test "optimize-instructions folds select with identical pure v128 splat arms" {
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical v128 splat select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical direct-local SIMD splat select
+  // arms even when the condition is effectful, preserving that condition as a
+  // dropped prefix
+  // (`.tmp/oi-select-identical-v128-splat-effectful-condition-probe.wat`). This
+  // deliberately stays at nontrapping same-instruction same-local splat shells;
+  // do not extend to SIMD algebraic equality, lane-equivalent vector spellings,
+  // or arbitrary expression equality without fresh oracle evidence.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result v128) (select (i8x16.splat (local.get 0)) (i8x16.splat (local.get 0)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical i8x16.splat select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions preserves effectful condition when folding identical i32.add select arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical ordered-local `i32.add` select
