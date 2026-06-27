@@ -12031,9 +12031,11 @@ fn optimize_instructions_try_rewrite_compare_eqz(
           optimize_instructions_i32_const(func, dead, lhs_id),
           optimize_instructions_i32_const(func, dead, rhs_id),
         ) {
-        (Some(@lib.Instruction::I32Eqz), _, _, Some(@lib.I32(raw))) =>
+        (Some(@lib.Instruction::I32Eqz), _, _, Some(@lib.I32(raw)))
+        | (Some(@lib.Instruction::I64Eqz), _, _, Some(@lib.I32(raw))) =>
           (lhs_id, raw)
-        (_, Some(@lib.Instruction::I32Eqz), Some(@lib.I32(raw)), _) =>
+        (_, Some(@lib.Instruction::I32Eqz), Some(@lib.I32(raw)), _)
+        | (_, Some(@lib.Instruction::I64Eqz), Some(@lib.I32(raw)), _) =>
           (rhs_id, raw)
         _ => (-1, 0)
       }
@@ -12048,23 +12050,47 @@ fn optimize_instructions_try_rewrite_compare_eqz(
           (@lib.Instruction::I32Eq, 1) | (@lib.Instruction::I32Ne, 0) => true
           _ => false
         }
+        let eqz_instr = @ir.hot_node_exact_instr(func, eqz_id)
         if keep_eqz {
-          optimize_instructions_replace_with_exact_unary(
-            ctx,
-            func,
-            node_id,
-            @lib.Instruction::i32_eqz(),
-            operand_id,
-          )
+          match eqz_instr {
+            Some(@lib.Instruction::I64Eqz) =>
+              optimize_instructions_replace_with_exact_unary(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i64_eqz(),
+                operand_id,
+              )
+            _ =>
+              optimize_instructions_replace_with_exact_unary(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i32_eqz(),
+                operand_id,
+              )
+          }
         } else {
-          optimize_instructions_replace_with_exact_compare(
-            ctx,
-            func,
-            node_id,
-            @lib.Instruction::i32_ne(),
-            operand_id,
-            @ir.hot_build_const_i32(func, @lib.I32(0)),
-          )
+          match eqz_instr {
+            Some(@lib.Instruction::I64Eqz) =>
+              optimize_instructions_replace_with_exact_compare(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i64_ne(),
+                operand_id,
+                @ir.hot_build_const_i64(func, @lib.I64(0L)),
+              )
+            _ =>
+              optimize_instructions_replace_with_exact_compare(
+                ctx,
+                func,
+                node_id,
+                @lib.Instruction::i32_ne(),
+                operand_id,
+                @ir.hot_build_const_i32(func, @lib.I32(0)),
+              )
+          }
         }
         return true
       }

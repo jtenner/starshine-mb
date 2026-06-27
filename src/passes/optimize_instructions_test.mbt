@@ -754,6 +754,65 @@ test "optimize-instructions folds compare of eqz against boolean constants" {
 }
 
 ///|
+test "optimize-instructions folds compare of i64 eqz against boolean constants" {
+  // Red-first OI-F boolean parity slice: Binaryen `version_130`
+  // `--optimize-instructions` applies the same exact boolean-constant compare
+  // cleanup to direct `i64.eqz` results as to direct `i32.eqz` results.
+  // This deliberately covers only direct `i32.eq` / `i32.ne` shells around an
+  // `i64.eqz` boolean result and exact i32 constants `0` / `1`.
+  let eq_zero_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.eqz i32.const 0 i32.eq))",
+  )
+  let eq_zero_root = @ir.hot_root_get(eq_zero_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(eq_zero_func, eq_zero_root),
+    Some(@lib.Instruction::i64_ne()),
+  )
+  match
+    @ir.hot_node_get(
+      eq_zero_func,
+      @ir.hot_child_get(eq_zero_func, eq_zero_root, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected eq(i64.eqz(x), 0) to keep the original operand")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      eq_zero_func,
+      @ir.hot_node_get(
+        eq_zero_func,
+        @ir.hot_child_get(eq_zero_func, eq_zero_root, 1),
+      ).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+
+  let ne_zero_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.eqz i32.const 0 i32.ne))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ne_zero_func, @ir.hot_root_get(ne_zero_func, 0)),
+    Some(@lib.Instruction::i64_eqz()),
+  )
+
+  let eq_one_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.eqz i32.const 1 i32.eq))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(eq_one_func, @ir.hot_root_get(eq_one_func, 0)),
+    Some(@lib.Instruction::i64_eqz()),
+  )
+
+  let ne_one_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.eqz i32.const 1 i32.ne))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ne_one_func, @ir.hot_root_get(ne_one_func, 0)),
+    Some(@lib.Instruction::i64_ne()),
+  )
+}
+
+///|
 test "optimize-instructions rewrites eqz on integer compares into inverted compares" {
   // Red-first OI-D parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `i32.eqz` around integer relational
