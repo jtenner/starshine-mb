@@ -802,6 +802,71 @@ test "optimize-instructions applies De Morgan to and of eqz operands" {
 }
 
 ///|
+test "optimize-instructions folds boolean const select arms to condition compares" {
+  // Red-first OI-F select parity slice: Binaryen `version_130`
+  // `--optimize-instructions` rewrites `(select 1 0 cond)` to
+  // `i32.ne(cond, 0)` and `(select 0 1 cond)` to `i32.eqz(cond)`, preserving
+  // the original condition operand and its effects. This deliberately covers
+  // only direct i32 1/0 and 0/1 select arms, not arbitrary select values,
+  // non-i32 arms, or branch-condition rewrites.
+  let true_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 1 i32.const 0 local.get 0 select))",
+  )
+  let true_false_root = @ir.hot_root_get(true_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(true_false_func, true_false_root),
+    Some(@lib.Instruction::i32_ne()),
+  )
+  match
+    @ir.hot_node_get(
+      true_false_func,
+      @ir.hot_child_get(true_false_func, true_false_root, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected select 1/0 rewrite to keep the condition operand")
+  }
+  let true_false_zero = @ir.hot_child_get(true_false_func, true_false_root, 1)
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      true_false_func,
+      @ir.hot_node_get(true_false_func, true_false_zero).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let false_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 0 i32.const 1 local.get 0 select))",
+  )
+  let false_true_root = @ir.hot_root_get(false_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(false_true_func, false_true_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  match
+    @ir.hot_node_get(
+      false_true_func,
+      @ir.hot_child_get(false_true_func, false_true_root, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected select 0/1 rewrite to keep the condition operand")
+  }
+
+  let call_func = optimize_instructions_test_run_hot(
+    "(module (global $g (mut i32) (i32.const 0)) (func (result i32) i32.const 1 i32.const 0 call $side select) (func $side (result i32) i32.const 1 global.set $g i32.const 7))",
+  )
+  let call_root = @ir.hot_root_get(call_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(call_func, call_root),
+    Some(@lib.Instruction::i32_ne()),
+  )
+  match
+    @ir.hot_node_get(call_func, @ir.hot_child_get(call_func, call_root, 0)).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected select 1/0 rewrite to keep the effectful condition")
+  }
+}
+
+///|
 test "optimize-instructions rewrites double eqz into ne zero" {
   let i32_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.eqz))",

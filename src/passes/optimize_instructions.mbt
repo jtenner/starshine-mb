@@ -7636,6 +7636,34 @@ fn optimize_instructions_try_fold_const_select(
   let if_true = @ir.hot_child_get(func, node_id, 0)
   let if_false = @ir.hot_child_get(func, node_id, 1)
   let condition = @ir.hot_child_get(func, node_id, 2)
+  match
+    (
+      optimize_instructions_i32_const(func, dead, if_true),
+      optimize_instructions_i32_const(func, dead, if_false),
+    ) {
+    (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
+      optimize_instructions_replace_with_exact_compare(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_ne(),
+        condition,
+        @ir.hot_build_const_i32(func, @lib.I32(0)),
+      )
+      return true
+    }
+    (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
+      optimize_instructions_replace_with_exact_unary(
+        ctx,
+        func,
+        node_id,
+        @lib.Instruction::i32_eqz(),
+        condition,
+      )
+      return true
+    }
+    _ => ()
+  }
   if optimize_instructions_select_arms_are_identical_pure(
       func, dead, if_true, if_false,
     ) {

@@ -148,6 +148,7 @@ sources:
   - ../../../raw/research/1329-2026-06-27-optimize-instructions-oi-d-eqz-relational-compare.md
   - ../../../raw/research/1331-2026-06-27-optimize-instructions-oi-d-eqz-float-eqne.md
   - ../../../raw/research/1333-2026-06-27-optimize-instructions-oi-f-demorgan-and-eqz.md
+  - ../../../raw/research/1335-2026-06-27-optimize-instructions-oi-f-boolean-const-select.md
   - ../../../raw/research/0901-2026-06-25-optimize-instructions-oi-m-selected-fourth-multiresult-boundary.md
   - ../../../raw/research/0903-2026-06-25-optimize-instructions-oi-m-selected-fifth-multiresult-boundary.md
   - ../../../raw/research/0905-2026-06-25-optimize-instructions-oi-m-selected-sixth-multiresult-boundary.md
