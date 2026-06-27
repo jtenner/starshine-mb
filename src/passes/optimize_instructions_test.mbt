@@ -1046,6 +1046,71 @@ test "optimize-instructions removes zero compares from select conditions" {
 }
 
 ///|
+test "optimize-instructions folds i64 eqz boolean select arms" {
+  // Red-first OI-F select parity slice: Binaryen `version_130`
+  // `--optimize-instructions` keeps value selects with an `i64.eqz` condition,
+  // but composes exact i32 boolean arms to `i64.eqz(x)` for `1/0` and
+  // `i64.ne(x, 0)` for `0/1`. This deliberately covers only direct i64.eqz
+  // select-condition shells with exact i32 boolean arms, not non-boolean value
+  // selects, i32 condition normalization, branch rewrites, or broader boolean
+  // algebra.
+  let true_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) i32.const 1 i32.const 0 local.get 0 i64.eqz select))",
+  )
+  let true_false_root = @ir.hot_root_get(true_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(true_false_func, true_false_root),
+    Some(@lib.Instruction::i64_eqz()),
+  )
+  match
+    @ir.hot_node_get(
+      true_false_func,
+      @ir.hot_child_get(true_false_func, true_false_root, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected i64 eqz boolean true/false select to keep the operand")
+  }
+
+  let false_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) i32.const 0 i32.const 1 local.get 0 i64.eqz select))",
+  )
+  let false_true_root = @ir.hot_root_get(false_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(false_true_func, false_true_root),
+    Some(@lib.Instruction::i64_ne()),
+  )
+  let false_true_lhs = @ir.hot_child_get(false_true_func, false_true_root, 0)
+  let false_true_rhs = @ir.hot_child_get(false_true_func, false_true_root, 1)
+  match @ir.hot_node_get(false_true_func, false_true_lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected i64 eqz boolean false/true select to keep the operand")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      false_true_func,
+      @ir.hot_node_get(false_true_func, false_true_rhs).imm0,
+    ),
+    @ir.HotConstPayload::i64_const(@lib.I64(0L)),
+  )
+
+  let value_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) i32.const 42 i32.const 13 local.get 0 i64.eqz select))",
+  )
+  let value_root = @ir.hot_root_get(value_func, 0)
+  match @ir.hot_node_get(value_func, value_root).op {
+    @ir.HotOp::Select => ()
+    _ => fail("expected non-boolean i64 eqz select to stay a select")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(
+      value_func,
+      @ir.hot_child_get(value_func, value_root, 2),
+    ),
+    Some(@lib.Instruction::i64_eqz()),
+  )
+}
+
+///|
 test "optimize-instructions rewrites double eqz into ne zero" {
   let i32_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.eqz))",

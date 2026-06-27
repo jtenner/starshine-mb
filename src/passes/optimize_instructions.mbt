@@ -7637,6 +7637,40 @@ fn optimize_instructions_try_fold_const_select(
   let if_false = @ir.hot_child_get(func, node_id, 1)
   let condition = @ir.hot_child_get(func, node_id, 2)
   match @ir.hot_node_exact_instr(func, condition) {
+    Some(@lib.Instruction::I64Eqz) if @ir.hot_child_count(func, condition) == 1 => {
+      let inner_condition = @ir.hot_child_get(func, condition, 0)
+      if !optimize_instructions_node_is_live(func, dead, inner_condition) {
+        return false
+      }
+      match
+        (
+          optimize_instructions_i32_const(func, dead, if_true),
+          optimize_instructions_i32_const(func, dead, if_false),
+        ) {
+        (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
+          optimize_instructions_replace_with_exact_unary(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_eqz(),
+            inner_condition,
+          )
+          return true
+        }
+        (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_ne(),
+            inner_condition,
+            @ir.hot_build_const_i64(func, @lib.I64(0L)),
+          )
+          return true
+        }
+        _ => ()
+      }
+    }
     Some(@lib.Instruction::I32Eqz) if @ir.hot_child_count(func, condition) == 1 => {
       let inner_condition = @ir.hot_child_get(func, condition, 0)
       if !optimize_instructions_node_is_live(func, dead, inner_condition) {
