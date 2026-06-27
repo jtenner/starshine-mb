@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-M tuple-optimization ninety-five-effect boundary slice `1324`, documenting Binaryen `tuple.make 96` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-D double `eqz` rewrite slice `1323`, documenting Binaryen `eqz(eqz(x)) -> ne(x, 0)` evidence and Starshine red-first implementation.
 - 2026-06-26: Added OI-M tuple-optimization ninety-four-effect boundary slice `1322`, documenting Binaryen `tuple.make 95` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F immutable-global effectful-condition select-arm slice `1321`, documenting Binaryen drop-condition evidence and Starshine's module-context immutability proof.
