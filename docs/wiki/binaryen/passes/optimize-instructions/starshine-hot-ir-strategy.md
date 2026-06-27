@@ -43,6 +43,8 @@ sources:
   - ../../../raw/research/0857-2026-06-25-optimize-instructions-oi-m-full-simplify-boundary.md
   - ../../../raw/research/0858-2026-06-25-optimize-instructions-oi-g-parameterized-memory-copy.md
   - ../../../raw/research/0859-2026-06-25-optimize-instructions-oi-m-tuple-optimization-boundary.md
+  - ../../../raw/research/1342-2026-06-27-optimize-instructions-oi-m-tuple-optimization-one-hundred-four-effects-boundary.md
+  - ../../../raw/research/1344-2026-06-27-optimize-instructions-oi-m-tuple-optimization-one-hundred-five-effects-boundary.md
   - ../../../raw/research/0860-2026-06-25-optimize-instructions-oi-g-mixed-parameterized-memory-copy.md
   - ../../../raw/research/0861-2026-06-25-optimize-instructions-oi-g-parameterized-byte-fill.md
   - ../../../raw/research/0875-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-later-siblings.md
