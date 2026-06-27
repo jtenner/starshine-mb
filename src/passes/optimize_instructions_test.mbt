@@ -674,6 +674,86 @@ test "optimize-instructions rewrites eqz on zero compare into inverted compare" 
 }
 
 ///|
+test "optimize-instructions folds compare of eqz against boolean constants" {
+  // Red-first OI-F boolean parity slice: Binaryen `version_130`
+  // `--optimize-instructions` rewrites direct `i32.eq` / `i32.ne` compares
+  // between an `i32.eqz` result and exact boolean constants. `eq(eqz(x), 0)`
+  // and `ne(eqz(x), 1)` become `x != 0`; `ne(eqz(x), 0)` and
+  // `eq(eqz(x), 1)` become `eqz(x)`. This deliberately does not claim
+  // arbitrary boolean algebra, non-boolean constants, or branch rewrites.
+  let eq_zero_rhs_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.const 0 i32.eq))",
+  )
+  let eq_zero_rhs_root = @ir.hot_root_get(eq_zero_rhs_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(eq_zero_rhs_func, eq_zero_rhs_root),
+    Some(@lib.Instruction::i32_ne()),
+  )
+  match
+    @ir.hot_node_get(
+      eq_zero_rhs_func,
+      @ir.hot_child_get(eq_zero_rhs_func, eq_zero_rhs_root, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected eq(eqz(x), 0) to keep the original operand")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      eq_zero_rhs_func,
+      @ir.hot_node_get(
+        eq_zero_rhs_func,
+        @ir.hot_child_get(eq_zero_rhs_func, eq_zero_rhs_root, 1),
+      ).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let eq_zero_lhs_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 0 local.get 0 i32.eqz i32.eq))",
+  )
+  let eq_zero_lhs_root = @ir.hot_root_get(eq_zero_lhs_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(eq_zero_lhs_func, eq_zero_lhs_root),
+    Some(@lib.Instruction::i32_ne()),
+  )
+
+  let ne_zero_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.const 0 i32.ne))",
+  )
+  let ne_zero_root = @ir.hot_root_get(ne_zero_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ne_zero_func, ne_zero_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  match
+    @ir.hot_node_get(
+      ne_zero_func,
+      @ir.hot_child_get(ne_zero_func, ne_zero_root, 0),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected ne(eqz(x), 0) to keep the original operand")
+  }
+
+  let eq_one_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.const 1 i32.eq))",
+  )
+  let eq_one_root = @ir.hot_root_get(eq_one_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(eq_one_func, eq_one_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+
+  let ne_one_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.const 1 i32.ne))",
+  )
+  let ne_one_root = @ir.hot_root_get(ne_one_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(ne_one_func, ne_one_root),
+    Some(@lib.Instruction::i32_ne()),
+  )
+}
+
+///|
 test "optimize-instructions rewrites eqz on integer compares into inverted compares" {
   // Red-first OI-D parity slice: Binaryen `version_130`
   // `--optimize-instructions` rewrites `i32.eqz` around integer relational

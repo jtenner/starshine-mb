@@ -156,6 +156,7 @@ sources:
   - ../../../raw/research/1345-2026-06-27-optimize-instructions-oi-f-direct-compare-boolean-select.md
   - ../../../raw/research/1347-2026-06-27-optimize-instructions-oi-f-integer-equality-boolean-select.md
   - ../../../raw/research/1349-2026-06-27-optimize-instructions-oi-f-eqz-compare-boolean-select.md
+  - ../../../raw/research/1351-2026-06-27-optimize-instructions-oi-f-compare-eqz-boolean-constants.md
   - ../../../raw/research/0901-2026-06-25-optimize-instructions-oi-m-selected-fourth-multiresult-boundary.md
   - ../../../raw/research/0903-2026-06-25-optimize-instructions-oi-m-selected-fifth-multiresult-boundary.md
   - ../../../raw/research/0905-2026-06-25-optimize-instructions-oi-m-selected-sixth-multiresult-boundary.md

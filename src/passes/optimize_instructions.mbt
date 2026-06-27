@@ -12022,6 +12022,55 @@ fn optimize_instructions_try_rewrite_compare_eqz(
     ) {
     return false
   }
+  match instr {
+    @lib.Instruction::I32Eq | @lib.Instruction::I32Ne => {
+      let (eqz_id, const_value) = match
+        (
+          @ir.hot_node_exact_instr(func, lhs_id),
+          @ir.hot_node_exact_instr(func, rhs_id),
+          optimize_instructions_i32_const(func, dead, lhs_id),
+          optimize_instructions_i32_const(func, dead, rhs_id),
+        ) {
+        (Some(@lib.Instruction::I32Eqz), _, _, Some(@lib.I32(raw))) =>
+          (lhs_id, raw)
+        (_, Some(@lib.Instruction::I32Eqz), Some(@lib.I32(raw)), _) =>
+          (rhs_id, raw)
+        _ => (-1, 0)
+      }
+      if eqz_id >= 0 &&
+        (const_value == 0 || const_value == 1) &&
+        @ir.hot_child_count(func, eqz_id) == 1 {
+        let operand_id = @ir.hot_child_get(func, eqz_id, 0)
+        if !optimize_instructions_node_is_live(func, dead, operand_id) {
+          return false
+        }
+        let keep_eqz = match (instr, const_value) {
+          (@lib.Instruction::I32Eq, 1) | (@lib.Instruction::I32Ne, 0) => true
+          _ => false
+        }
+        if keep_eqz {
+          optimize_instructions_replace_with_exact_unary(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_eqz(),
+            operand_id,
+          )
+        } else {
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_ne(),
+            operand_id,
+            @ir.hot_build_const_i32(func, @lib.I32(0)),
+          )
+        }
+        return true
+      }
+    }
+    _ => ()
+  }
   match
     (
       instr,

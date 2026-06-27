@@ -14,6 +14,7 @@ sources:
   - ../../../raw/research/1345-2026-06-27-optimize-instructions-oi-f-direct-compare-boolean-select.md
   - ../../../raw/research/1347-2026-06-27-optimize-instructions-oi-f-integer-equality-boolean-select.md
   - ../../../raw/research/1349-2026-06-27-optimize-instructions-oi-f-eqz-compare-boolean-select.md
+  - ../../../raw/research/1351-2026-06-27-optimize-instructions-oi-f-compare-eqz-boolean-constants.md
   - ../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md
   - ../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md
   - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
@@ -188,7 +189,7 @@ The in-tree implementation is still a real, useful hot pass.
 Its center of gravity is:
 
 - exact integer binary constant folding, including add and sub
-- non-constant `eqz` / compare-to-zero rewrites, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first recursive pure/effect-preserving i32/i64 `shr_u`/`and`/unsigned-load bounded unsigned-compare folds, first straight-line local-carried and `i32.wrap_i64` unsigned max facts, first nonnegative signed-relational folds and signed-to-unsigned spelling rewrites, first i32 sign-extension equality folds plus a source-backed i64 sign-extension equality keep-spelling boundary, and relational constant plus guarded operand canonicalization
+- non-constant `eqz` / compare-to-zero rewrites, direct `i32.eqz` compares against exact boolean constants, same-local integer compare and binary operand folding, pure and effect-preserving i32/i64 masked unsigned-compare folds plus first recursive pure/effect-preserving i32/i64 `shr_u`/`and`/unsigned-load bounded unsigned-compare folds, first straight-line local-carried and `i32.wrap_i64` unsigned max facts, first nonnegative signed-relational folds and signed-to-unsigned spelling rewrites, first i32 sign-extension equality folds plus a source-backed i64 sign-extension equality keep-spelling boundary, and relational constant plus guarded operand canonicalization
 - commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites, scalar float spelling rewrites, and `i32.wrap_i64` constant folding
 - first local scanner-style sign-extension facts, redundant sign-extension removal, and shift-pair sign-extension idiom rewrites
@@ -392,6 +393,7 @@ It can:
 - flip some nested conditions when the tree is unshared
 - fold constant-condition `select`s only when the dropped arm is side-effect-free and any effectful chosen arm is uniquely used
 - fold narrow exact i32 boolean-arm `select`s over direct compare conditions by keeping the compare or using a direct inverse compare, including direct integer equality `i32/i64.eq` and `i32/i64.ne` conditions, and over direct `i64.eqz` plus direct `i64.eq` / `i64.ne` zero-compare conditions to Binaryen-shaped `i64.eqz` or `i64.ne(x, 0)` results while keeping non-boolean value selects bounded
+- fold direct `i32.eq` / `i32.ne` compares between `i32.eqz` and exact boolean constants to either `i32.eqz(x)` or `i32.ne(x, 0)`
 - collapse duplicate then-branch `if`s into a direct branch
 
 This is one area where the local code is more explicit than the upstream `visitIf()` teaching surface because several helpers exist mainly to preserve local HOT/writeback behavior.
