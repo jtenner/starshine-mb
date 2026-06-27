@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-27: Added OI-F integer equality boolean select slice `1347`, documenting Binaryen direct `i32/i64.eq` and `i32/i64.ne` boolean-select cleanup and Starshine's narrow red-first implementation.
 - 2026-06-27: Added OI-M tuple-optimization one-hundred-six-effect boundary slice `1346`, documenting Binaryen `tuple.make 107` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-27: Added OI-F direct compare boolean select slice `1345`, documenting Binaryen direct-compare boolean-select cleanup and Starshine's narrow red-first implementation.
 - 2026-06-27: Added OI-M tuple-optimization one-hundred-five-effect boundary slice `1344`, documenting Binaryen `tuple.make 106` localization and Starshine's retained tuple-scratch reconstruction gap.

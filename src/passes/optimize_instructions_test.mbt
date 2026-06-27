@@ -1099,6 +1099,60 @@ test "optimize-instructions folds direct compare boolean select arms" {
 }
 
 ///|
+test "optimize-instructions folds direct integer equality boolean select arms" {
+  // Red-first OI-F select parity slice: Binaryen `version_130`
+  // `--optimize-instructions` removes exact i32 boolean select arms around
+  // direct integer equality conditions. This covers local/local `i32.eq`,
+  // `i32.ne`, `i64.eq`, and `i64.ne` conditions, including exact `0/1` arm
+  // inversion. It deliberately does not claim broad nonzero compare-to-const
+  // condition normalization, branch rewrites, or non-boolean value selects.
+  let i32_eq_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 1 i32.const 0 local.get 0 local.get 1 i32.eq select))",
+  )
+  let i32_eq_true_root = @ir.hot_root_get(i32_eq_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_eq_true_func, i32_eq_true_root),
+    Some(@lib.Instruction::i32_eq()),
+  )
+
+  let i32_eq_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 0 i32.const 1 local.get 0 local.get 1 i32.eq select))",
+  )
+  let i32_eq_false_root = @ir.hot_root_get(i32_eq_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_eq_false_func, i32_eq_false_root),
+    Some(@lib.Instruction::i32_ne()),
+  )
+
+  let i32_ne_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) i32.const 0 i32.const 1 local.get 0 local.get 1 i32.ne select))",
+  )
+  let i32_ne_false_root = @ir.hot_root_get(i32_ne_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_ne_false_func, i32_ne_false_root),
+    Some(@lib.Instruction::i32_eq()),
+  )
+
+  let i64_eq_true_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64) (result i32) i32.const 1 i32.const 0 local.get 0 local.get 1 i64.eq select))",
+  )
+  let i64_eq_true_root = @ir.hot_root_get(i64_eq_true_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_eq_true_func, i64_eq_true_root),
+    Some(@lib.Instruction::i64_eq()),
+  )
+
+  let i64_ne_false_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64) (result i32) i32.const 0 i32.const 1 local.get 0 local.get 1 i64.ne select))",
+  )
+  let i64_ne_false_root = @ir.hot_root_get(i64_ne_false_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_ne_false_func, i64_ne_false_root),
+    Some(@lib.Instruction::i64_eq()),
+  )
+}
+
+///|
 test "optimize-instructions folds i64 zero-compare boolean select arms" {
   // Red-first OI-F select parity slice: Binaryen `version_130`
   // `--optimize-instructions` canonicalizes exact i32 boolean arms over direct

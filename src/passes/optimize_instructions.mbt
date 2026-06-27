@@ -7914,7 +7914,49 @@ fn optimize_instructions_try_fold_const_select(
     _ => ()
   }
   match @ir.hot_node_exact_instr(func, condition) {
-    Some(compare_instr) if @ir.hot_child_count(func, condition) == 2 =>
+    Some(compare_instr) if @ir.hot_child_count(func, condition) == 2 => {
+      let lhs_id = @ir.hot_child_get(func, condition, 0)
+      let rhs_id = @ir.hot_child_get(func, condition, 1)
+      match compare_instr {
+        @lib.Instruction::I32Eq
+        | @lib.Instruction::I32Ne
+        | @lib.Instruction::I64Eq
+        | @lib.Instruction::I64Ne =>
+          match
+            (
+              optimize_instructions_i32_const(func, dead, if_true),
+              optimize_instructions_i32_const(func, dead, if_false),
+            ) {
+            (Some(@lib.I32(1)), Some(@lib.I32(0))) => {
+              if !optimize_instructions_node_is_live(func, dead, condition) {
+                return false
+              }
+              optimize_instructions_replace_with_node_id(
+                ctx, func, node_id, condition,
+              )
+              return true
+            }
+            (Some(@lib.I32(0)), Some(@lib.I32(1))) => {
+              if !optimize_instructions_node_is_live(func, dead, lhs_id) ||
+                !optimize_instructions_node_is_live(func, dead, rhs_id) {
+                return false
+              }
+              let inverted_instr = match compare_instr {
+                @lib.Instruction::I32Eq => @lib.Instruction::i32_ne()
+                @lib.Instruction::I32Ne => @lib.Instruction::i32_eq()
+                @lib.Instruction::I64Eq => @lib.Instruction::i64_ne()
+                @lib.Instruction::I64Ne => @lib.Instruction::i64_eq()
+                _ => abort("unreachable integer equality compare")
+              }
+              optimize_instructions_replace_with_exact_compare(
+                ctx, func, node_id, inverted_instr, lhs_id, rhs_id,
+              )
+              return true
+            }
+            _ => ()
+          }
+        _ => ()
+      }
       match optimize_instructions_inverted_eqz_compare(compare_instr) {
         Some(inverted_instr) =>
           match
@@ -7947,6 +7989,7 @@ fn optimize_instructions_try_fold_const_select(
           }
         _ => ()
       }
+    }
     _ => ()
   }
   match

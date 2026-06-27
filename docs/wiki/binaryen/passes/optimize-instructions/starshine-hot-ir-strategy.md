@@ -12,6 +12,7 @@ sources:
   - ../../../raw/research/1341-2026-06-27-optimize-instructions-oi-f-i64-eqz-boolean-select.md
   - ../../../raw/research/1343-2026-06-27-optimize-instructions-oi-f-i64-zero-compare-boolean-select.md
   - ../../../raw/research/1345-2026-06-27-optimize-instructions-oi-f-direct-compare-boolean-select.md
+  - ../../../raw/research/1347-2026-06-27-optimize-instructions-oi-f-integer-equality-boolean-select.md
   - ../../../raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md
   - ../../../raw/research/0733-2026-06-19-optimize-instructions-oi-g-wide-memory-fill.md
   - ../../../raw/research/0734-2026-06-19-optimize-instructions-oi-g-eight-byte-fill.md
@@ -190,7 +191,7 @@ Its center of gravity is:
 - first local scanner-style sign-extension facts, redundant sign-extension removal, and shift-pair sign-extension idiom rewrites
 - constant-`if` folding
 - nested boolean-`if` normalization and `eqz` wrapping
-- constant-condition `select` cleanup when the dropped arm is side-effect-free plus exact i32 boolean-arm cleanup over direct compare conditions
+- constant-condition `select` cleanup when the dropped arm is side-effect-free plus exact i32 boolean-arm cleanup over direct compare conditions, including direct integer equality conditions
 - tiny `memory.copy` lowering for constant sizes `1`/`2`/`4`/`8`/`16`, including the size-16 `v128.load` / `v128.store` shape and direct call-backed size-16 public-pipeline coverage, direct-core memory64 copy fixtures for `i64` address preservation, and flat stack-carried raw-gate escapes whose address operands may independently be local/constant/global operands, no-param direct-call operands, or direct calls with pure local/constant/global arguments, preserving destination-before-source evaluation order, including the no-parameter direct-call size-16 SIMD lane; mixed flat tiny-copy/byte-fill functions are admitted by the same tiny bulk-memory gate
 - constant/local-value `memory.fill` lowering for selected sizes (`1`, constant `2`/`4`/`8`, constant size-16 repeated-byte fill via `v128.const` + `v128.store`, and local.get `2`/`4`/`8`), including size-1 constant low-byte canonicalization, a flat stack-carried byte-fill raw-gate escape for local/global/no-param-call values and direct-call destination/value forms with pure local/constant/global arguments, and direct-core memory64 fill fixtures after the local typechecker length fix
 - stored-value/load-result cleanup for redundant masks in either `and` operand order plus constant stored-value truncation before `i32.store8` / `i32.store16` and, as documented, `i64.store8` / `i64.store16` / `i64.store32`, direct `i32.wrap_i64` i32-store widening with source memargs preserved, direct reinterpret-store representation rewrites (`f32.store(f32.reinterpret_i32 x)` -> `i32.store x`, etc.) with source memargs preserved, direct one-use full-width reinterpret-load result rewrites (`f32.reinterpret_i32(i32.load p)` -> `f32.load p`, etc.), and one-use i32-load plus `i64.extend_i32_*` rewrites to matching i64 loads (`i64.load32_*`, `i64.load8_*`, `i64.load16_*`) where the loaded value semantics are identical; representation-load rewrites preserve the original load memarg offset and alignment, while local-carried/shared load-result, reinterpret-store, and `i32.wrap_i64` store-value spellings are now documented keep-spelling boundaries
@@ -387,7 +388,7 @@ It can:
 - wrap certain boolean value-`if`s in `eqz`
 - flip some nested conditions when the tree is unshared
 - fold constant-condition `select`s only when the dropped arm is side-effect-free and any effectful chosen arm is uniquely used
-- fold narrow exact i32 boolean-arm `select`s over direct compare conditions by keeping the compare or using an existing direct inverse compare, and over direct `i64.eqz` plus direct `i64.eq` / `i64.ne` zero-compare conditions to Binaryen-shaped `i64.eqz` or `i64.ne(x, 0)` results while keeping non-boolean value selects bounded
+- fold narrow exact i32 boolean-arm `select`s over direct compare conditions by keeping the compare or using a direct inverse compare, including direct integer equality `i32/i64.eq` and `i32/i64.ne` conditions, and over direct `i64.eqz` plus direct `i64.eq` / `i64.ne` zero-compare conditions to Binaryen-shaped `i64.eqz` or `i64.ne(x, 0)` results while keeping non-boolean value selects bounded
 - collapse duplicate then-branch `if`s into a direct branch
 
 This is one area where the local code is more explicit than the upstream `visitIf()` teaching surface because several helpers exist mainly to preserve local HOT/writeback behavior.
