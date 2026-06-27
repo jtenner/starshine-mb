@@ -351,6 +351,7 @@ sources:
   - ../../../raw/research/1313-2026-06-26-optimize-instructions-oi-f-identical-int-unary-effectful-condition.md
   - ../../../raw/research/1315-2026-06-26-optimize-instructions-oi-f-identical-float-conversion-effectful-condition.md
   - ../../../raw/research/1317-2026-06-26-optimize-instructions-oi-f-mutable-global-effectful-condition-boundary.md
+  - ../../../raw/research/1321-2026-06-26-optimize-instructions-oi-f-immutable-global-effectful-condition.md
   - ../../../raw/research/1312-2026-06-26-optimize-instructions-oi-m-tuple-optimization-eighty-nine-effects-boundary.md
   - ../../../raw/research/1314-2026-06-26-optimize-instructions-oi-m-tuple-optimization-ninety-effects-boundary.md
   - ../../../raw/research/1316-2026-06-26-optimize-instructions-oi-m-tuple-optimization-ninety-one-effects-boundary.md

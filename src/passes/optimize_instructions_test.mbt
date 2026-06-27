@@ -1896,6 +1896,55 @@ test "optimize-instructions keeps identical mutable global select arms across ef
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical immutable global select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical immutable `global.get` select arms
+  // even when the condition is effectful, preserving that condition as a dropped
+  // prefix (`.tmp/oi-select-immutable-global-effectful-probe.wat`). The mutable
+  // global boundary above remains no-fold because calls may change mutable globals.
+  let module_ctx = @ir.hot_module_context_from_module(
+    @lib.Module::new().with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(42))]),
+        ),
+      ]),
+    ),
+  )
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let lhs = @ir.hot_build_global_get(func, 0, @lib.ValType::i32())
+  let rhs = @ir.hot_build_global_get(func, 0, @lib.ValType::i32())
+  let condition = @ir.hot_build_call(func, 0, [@lib.ValType::i32()], [])
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_select(func, @lib.ValType::i32(), lhs, rhs, condition),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(module_ctx),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected immutable global select fold success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected identical immutable global select arms to fold")
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure ref.null arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds direct identical `ref.null` select arms

@@ -7491,6 +7491,34 @@ fn optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
 }
 
 ///|
+fn optimize_instructions_select_identical_immutable_global_arms(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  if_true : Int,
+  if_false : Int,
+) -> Bool {
+  match (@ir.hot_node_get(func, if_true), @ir.hot_node_get(func, if_false)) {
+    (
+      { op: @ir.HotOp::GlobalGet, imm0: lhs, .. },
+      { op: @ir.HotOp::GlobalGet, imm0: rhs, .. },
+    ) if lhs == rhs =>
+      match ctx.module_ctx {
+        Some(module_ctx) =>
+          match
+            @ir.hot_module_resolve_global_type(
+              module_ctx,
+              @lib.GlobalIdx::new(lhs.reinterpret_as_uint()),
+            ) {
+            Some(@lib.GlobalType(_, false)) => true
+            _ => false
+          }
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -7619,6 +7647,9 @@ fn optimize_instructions_try_fold_const_select(
         (
           optimize_instructions_is_shared_cross_safe_leaf(func, dead, if_true) &&
           optimize_instructions_is_shared_cross_safe_leaf(func, dead, if_false)
+        ) ||
+        optimize_instructions_select_identical_immutable_global_arms(
+          ctx, func, if_true, if_false,
         ) ||
         optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
           func, dead, if_true, if_false,
