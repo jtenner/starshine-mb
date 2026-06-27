@@ -1541,7 +1541,6 @@ fn optimize_instructions_is_shared_cross_safe_leaf(
   }
   match node.op {
     @ir.HotOp::LocalGet
-    | @ir.HotOp::GlobalGet
     | @ir.HotOp::Const
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefFunc => true

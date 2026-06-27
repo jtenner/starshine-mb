@@ -1837,6 +1837,65 @@ test "optimize-instructions folds select with identical pure global arms" {
 }
 
 ///|
+test "optimize-instructions keeps identical mutable global select arms across effectful condition" {
+  // Red-first OI-F correctness/parity slice: Binaryen `version_130`
+  // `--optimize-instructions` keeps identical `global.get` select arms when the
+  // condition can mutate the global (`.tmp/oi-select-mutable-global-effectful-condition-probe.wat`).
+  // Folding this to `drop(condition); global.get` would read the mutable global
+  // after the call instead of before it, so the effectful-condition identical-arm
+  // cleanup must not admit global leaves.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let lhs = @ir.hot_build_global_get(func, 0, @lib.ValType::i32())
+  let rhs = @ir.hot_build_global_get(func, 0, @lib.ValType::i32())
+  let condition = @ir.hot_build_call(func, 0, [@lib.ValType::i32()], [])
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_select(func, @lib.ValType::i32(), lhs, rhs, condition),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected mutable global select boundary success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Select => {
+      @debug.assert_eq(@ir.hot_node_get(func, root).child_count, 3)
+      let lhs = @ir.hot_child_get(func, root, 0)
+      let rhs = @ir.hot_child_get(func, root, 1)
+      let condition = @ir.hot_child_get(func, root, 2)
+      match @ir.hot_node_get(func, lhs).op {
+        @ir.HotOp::GlobalGet => ()
+        _ => fail("expected first global.get arm to stay")
+      }
+      match @ir.hot_node_get(func, rhs).op {
+        @ir.HotOp::GlobalGet => ()
+        _ => fail("expected second global.get arm to stay")
+      }
+      match @ir.hot_node_get(func, condition).op {
+        @ir.HotOp::Call => ()
+        _ => fail("expected effectful condition call to stay")
+      }
+    }
+    _ =>
+      fail(
+        "expected identical mutable global select arms to stay across effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions folds select with identical pure ref.null arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds direct identical `ref.null` select arms

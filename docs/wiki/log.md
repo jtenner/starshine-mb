@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-F mutable-global effectful-condition select-arm boundary slice `1317`, documenting Binaryen keep-spelling evidence and Starshine's red-first fix that stops moving `global.get` arms across effectful conditions.
 - 2026-06-26: Added OI-M tuple-optimization ninety-one-effect boundary slice `1316`, documenting Binaryen `tuple.make 92` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical float conversion effectful-condition select slice `1315`, documenting Binaryen drop-condition preservation for nontrapping conversion/promote shells and Starshine's existing coverage/status boundary.
 - 2026-06-26: Added OI-M tuple-optimization ninety-effect boundary slice `1314`, documenting Binaryen `tuple.make 91` localization and Starshine's retained tuple-scratch reconstruction gap.
