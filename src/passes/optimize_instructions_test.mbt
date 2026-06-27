@@ -909,6 +909,28 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical v128.const select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical byte-equal `v128.const` select
+  // arms even when the condition is effectful, preserving that condition as a
+  // dropped prefix
+  // (`.tmp/oi-select-identical-v128-const-effectful-condition-probe.wat`). This
+  // is only byte-identical constant-arm cleanup, not lane-equivalent SIMD value
+  // equality, SIMD algebra, or arbitrary vector expression equality.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result v128) (select (v128.const i32x4 1 2 3 4) (v128.const i32x4 1 2 3 4) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical v128.const select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions preserves effectful condition when folding identical i32.add select arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical ordered-local `i32.add` select

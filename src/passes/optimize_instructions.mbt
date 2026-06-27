@@ -6757,6 +6757,60 @@ fn optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
 }
 
 ///|
+fn optimize_instructions_v128_consts_are_identical_pure(
+  func : @ir.HotFunc,
+  lhs : Int,
+  rhs : Int,
+) -> Bool {
+  match
+    (@ir.hot_node_exact_instr(func, lhs), @ir.hot_node_exact_instr(func, rhs)) {
+    (
+      Some(
+        @lib.Instruction::V128Const(
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _
+        ) as lhs_instr
+      ),
+      Some(
+        @lib.Instruction::V128Const(
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          _
+        ) as rhs_instr
+      ),
+    ) => lhs_instr == rhs_instr
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_v128_splat_local_payloads_are_identical_pure(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -7459,6 +7513,7 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
     func, dead, if_true, if_false,
   ) ||
+  optimize_instructions_v128_consts_are_identical_pure(func, if_true, if_false) ||
   optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||
