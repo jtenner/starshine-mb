@@ -934,6 +934,118 @@ test "optimize-instructions removes eqz from select conditions by swapping arms"
 }
 
 ///|
+test "optimize-instructions removes zero compares from select conditions" {
+  // Red-first OI-F select parity slice: Binaryen `version_130`
+  // `--optimize-instructions` rewrites `(select a b (i32.eq cond 0))` to
+  // `(select b a cond)` and `(select a b (i32.ne cond 0))` to
+  // `(select a b cond)`. Exact i32 boolean const arms compose to the existing
+  // condition-compare folds. This deliberately covers only direct i32 eq/ne
+  // zero condition shells, not arbitrary compare constants, broader boolean
+  // algebra, or branch-condition rewrites.
+  let eq_value_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 42 i32.const 13 local.get 0 i32.const 0 i32.eq select))",
+  )
+  let eq_value_root = @ir.hot_root_get(eq_value_func, 0)
+  match @ir.hot_node_get(eq_value_func, eq_value_root).op {
+    @ir.HotOp::Select => ()
+    _ => fail("expected eq-zero condition select to remain a select")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      eq_value_func,
+      @ir.hot_node_get(
+        eq_value_func,
+        @ir.hot_child_get(eq_value_func, eq_value_root, 0),
+      ).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(13)),
+  )
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      eq_value_func,
+      @ir.hot_node_get(
+        eq_value_func,
+        @ir.hot_child_get(eq_value_func, eq_value_root, 1),
+      ).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(42)),
+  )
+  match
+    @ir.hot_node_get(
+      eq_value_func,
+      @ir.hot_child_get(eq_value_func, eq_value_root, 2),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected eq-zero select condition to become the inner operand")
+  }
+
+  let ne_value_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 42 i32.const 13 local.get 0 i32.const 0 i32.ne select))",
+  )
+  let ne_value_root = @ir.hot_root_get(ne_value_func, 0)
+  match @ir.hot_node_get(ne_value_func, ne_value_root).op {
+    @ir.HotOp::Select => ()
+    _ => fail("expected ne-zero condition select to remain a select")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      ne_value_func,
+      @ir.hot_node_get(
+        ne_value_func,
+        @ir.hot_child_get(ne_value_func, ne_value_root, 0),
+      ).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(42)),
+  )
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      ne_value_func,
+      @ir.hot_node_get(
+        ne_value_func,
+        @ir.hot_child_get(ne_value_func, ne_value_root, 1),
+      ).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(13)),
+  )
+  match
+    @ir.hot_node_get(
+      ne_value_func,
+      @ir.hot_child_get(ne_value_func, ne_value_root, 2),
+    ).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected ne-zero select condition to become the inner operand")
+  }
+
+  let bool_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) i32.const 1 i32.const 0 local.get 0 i32.const 0 i32.eq select))",
+  )
+  let bool_root = @ir.hot_root_get(bool_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(bool_func, bool_root),
+    Some(@lib.Instruction::i32_eqz()),
+  )
+  match
+    @ir.hot_node_get(bool_func, @ir.hot_child_get(bool_func, bool_root, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected boolean eq-zero select to fold to eqz of inner operand")
+  }
+
+  let call_func = optimize_instructions_test_run_hot(
+    "(module (global $g (mut i32) (i32.const 0)) (func (result i32) i32.const 42 i32.const 13 call $side i32.const 0 i32.ne select) (func $side (result i32) i32.const 1 global.set $g i32.const 7))",
+  )
+  let call_root = @ir.hot_root_get(call_func, 0)
+  match @ir.hot_node_get(call_func, call_root).op {
+    @ir.HotOp::Select => ()
+    _ => fail("expected effectful ne-zero condition select to remain a select")
+  }
+  match
+    @ir.hot_node_get(call_func, @ir.hot_child_get(call_func, call_root, 2)).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected effectful ne-zero condition to keep the call operand")
+  }
+}
+
+///|
 test "optimize-instructions rewrites double eqz into ne zero" {
   let i32_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.eqz))",
