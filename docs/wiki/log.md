@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-M tuple-optimization eighty-three-effect boundary slice `1300`, documenting Binaryen `tuple.make 84` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical float unary effectful-condition select slice `1299`, documenting Binaryen drop-condition preservation, Starshine red-first implementation, and retained arbitrary-expression/SIMD/trapping boundaries.
 - 2026-06-26: Added OI-M tuple-optimization eighty-two-effect boundary slice `1298`, documenting Binaryen `tuple.make 83` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-F identical float binary effectful-condition select slice `1297`, documenting Binaryen drop-condition preservation, Starshine red-first implementation, and retained NaN/algebraic/SIMD/arbitrary-expression boundaries.
