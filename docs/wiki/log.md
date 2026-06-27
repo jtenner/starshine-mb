@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-27: Added OI-D float equality/inequality `eqz(compare)` inversion evidence in `raw/research/1331-2026-06-27-optimize-instructions-oi-d-eqz-float-eqne.md`; updated OI strategy/index and backlog to record the narrow f32/f64 eq/ne inversion and float relational boundary.
 - 2026-06-27: Added OI-M tuple-optimization ninety-eight-effect boundary slice `1330`, documenting Binaryen `tuple.make 99` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-27: Added OI-D integer-relational `eqz(compare)` inversion evidence in `raw/research/1329-2026-06-27-optimize-instructions-oi-d-eqz-relational-compare.md`; updated OI strategy/index and backlog to record the narrow i32/i64 relational inversion and float/eq-ne boundaries.
 - 2026-06-26: Added OI-M tuple-optimization ninety-seven-effect boundary slice `1328`, documenting Binaryen `tuple.make 98` localization and Starshine's retained tuple-scratch reconstruction gap.

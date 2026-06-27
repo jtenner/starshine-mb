@@ -710,6 +710,46 @@ test "optimize-instructions rewrites eqz on integer compares into inverted compa
 }
 
 ///|
+test "optimize-instructions rewrites eqz on float eq-ne compares into inverted compares" {
+  // Red-first OI-D parity slice: Binaryen `version_130`
+  // `--optimize-instructions` rewrites `i32.eqz` around `f32.eq` / `f32.ne`
+  // and `f64.eq` / `f64.ne` by inverting only the equality opcode. This is
+  // deliberately not a NaN-sensitive float relational inversion: Binaryen kept
+  // `i32.eqz(f32.lt(...))` in the prior companion probe.
+  let f32_eq_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32) (result i32) local.get 0 local.get 1 f32.eq i32.eqz))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f32_eq_func, @ir.hot_root_get(f32_eq_func, 0)),
+    Some(@lib.Instruction::f32_ne()),
+  )
+
+  let f32_ne_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32 f32) (result i32) local.get 0 local.get 1 f32.ne i32.eqz))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f32_ne_func, @ir.hot_root_get(f32_ne_func, 0)),
+    Some(@lib.Instruction::f32_eq()),
+  )
+
+  let f64_eq_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64 f64) (result i32) local.get 0 local.get 1 f64.eq i32.eqz))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f64_eq_func, @ir.hot_root_get(f64_eq_func, 0)),
+    Some(@lib.Instruction::f64_ne()),
+  )
+
+  let f64_ne_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64 f64) (result i32) local.get 0 local.get 1 f64.ne i32.eqz))",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(f64_ne_func, @ir.hot_root_get(f64_ne_func, 0)),
+    Some(@lib.Instruction::f64_eq()),
+  )
+}
+
+///|
 test "optimize-instructions rewrites double eqz into ne zero" {
   let i32_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.eqz))",

@@ -7693,10 +7693,14 @@ fn optimize_instructions_try_fold_const_select(
 }
 
 ///|
-fn optimize_instructions_inverted_integer_compare(
+fn optimize_instructions_inverted_eqz_compare(
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
   match instr {
+    @lib.Instruction::F32Eq => Some(@lib.Instruction::f32_ne())
+    @lib.Instruction::F32Ne => Some(@lib.Instruction::f32_eq())
+    @lib.Instruction::F64Eq => Some(@lib.Instruction::f64_ne())
+    @lib.Instruction::F64Ne => Some(@lib.Instruction::f64_eq())
     @lib.Instruction::I32LtS => Some(@lib.Instruction::i32_ge_s())
     @lib.Instruction::I32LtU => Some(@lib.Instruction::i32_ge_u())
     @lib.Instruction::I32LeS => Some(@lib.Instruction::i32_gt_s())
@@ -7894,7 +7898,7 @@ fn optimize_instructions_try_fold_eqz(
       }
     }
     (@lib.Instruction::I32Eqz, @ir.HotOp::Compare, Some(compare_instr)) =>
-      match optimize_instructions_inverted_integer_compare(compare_instr) {
+      match optimize_instructions_inverted_eqz_compare(compare_instr) {
         Some(inverted) => {
           let lhs_id = @ir.hot_child_get(func, operand_id, 0)
           let rhs_id = @ir.hot_child_get(func, operand_id, 1)
