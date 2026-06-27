@@ -962,6 +962,42 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions covers effectful condition folding for identical float conversion select arms" {
+  // Coverage/status OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical nontrapping float conversion
+  // select arms even when the condition is effectful, preserving that condition
+  // as a dropped prefix
+  // (`.tmp/oi-select-identical-float-conversion-effectful-condition-probe.wat`).
+  // The implementation already flows through the f32/f64 unary local-shell
+  // identical-arm helpers; this test narrows that existing behavior to
+  // nontrapping convert/promote/demote/reinterpret spellings, not trapping
+  // truncation, arbitrary conversion trees, or value-equivalent float payloads.
+  let f32_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result f32) (select (f32.convert_i32_s (local.get 0)) (f32.convert_i32_s (local.get 0)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let f32_root = @ir.hot_root_get(f32_func, 0)
+  match @ir.hot_node_get(f32_func, f32_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical f32.convert_i32_s select arms to fold while preserving the effectful condition",
+      )
+  }
+
+  let f64_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32) (result f64) (select (f64.promote_f32 (local.get 0)) (f64.promote_f32 (local.get 0)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let f64_root = @ir.hot_root_get(f64_func, 0)
+  match @ir.hot_node_get(f64_func, f64_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical f64.promote_f32 select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions preserves effectful condition when folding identical i32.add select arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical ordered-local `i32.add` select
