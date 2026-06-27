@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-26: Added OI-M tuple-optimization ninety-seven-effect boundary slice `1328`, documenting Binaryen `tuple.make 98` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-D signed domain-edge compare slice `1327`, documenting Binaryen side-effect-free signed endpoint folding and Starshine's matching narrow implementation with an effectful-call boundary.
 - 2026-06-26: Added OI-M tuple-optimization ninety-six-effect boundary slice `1326`, documenting Binaryen `tuple.make 97` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-26: Added OI-D zero-compare `eqz` inversion slice `1325`, documenting Binaryen `eqz(ne(x, 0))` / `eqz(eq(x, 0))` evidence and Starshine red-first implementation.
