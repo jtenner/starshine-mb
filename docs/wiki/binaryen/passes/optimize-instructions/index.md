@@ -145,6 +145,7 @@ sources:
   - ../../../raw/research/1323-2026-06-26-optimize-instructions-oi-d-double-eqz.md
   - ../../../raw/research/1325-2026-06-26-optimize-instructions-oi-d-zero-compare-eqz.md
   - ../../../raw/research/1327-2026-06-26-optimize-instructions-oi-d-signed-domain-edge.md
+  - ../../../raw/research/1329-2026-06-27-optimize-instructions-oi-d-eqz-relational-compare.md
   - ../../../raw/research/0901-2026-06-25-optimize-instructions-oi-m-selected-fourth-multiresult-boundary.md
   - ../../../raw/research/0903-2026-06-25-optimize-instructions-oi-m-selected-fifth-multiresult-boundary.md
   - ../../../raw/research/0905-2026-06-25-optimize-instructions-oi-m-selected-sixth-multiresult-boundary.md

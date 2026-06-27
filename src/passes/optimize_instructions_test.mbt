@@ -674,6 +674,42 @@ test "optimize-instructions rewrites eqz on zero compare into inverted compare" 
 }
 
 ///|
+test "optimize-instructions rewrites eqz on integer compares into inverted compares" {
+  // Red-first OI-D parity slice: Binaryen `version_130`
+  // `--optimize-instructions` rewrites `i32.eqz` around integer relational
+  // compare results by inverting the compare opcode and preserving the original
+  // operands. This deliberately does not cover compare-to-zero spellings or
+  // NaN-sensitive float relational compares.
+  let i32_rel_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.lt_s i32.eqz))",
+  )
+  let i32_rel_root = @ir.hot_root_get(i32_rel_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_rel_func, i32_rel_root),
+    Some(@lib.Instruction::i32_ge_s()),
+  )
+  let i32_lhs = @ir.hot_child_get(i32_rel_func, i32_rel_root, 0)
+  let i32_rhs = @ir.hot_child_get(i32_rel_func, i32_rel_root, 1)
+  match @ir.hot_node_get(i32_rel_func, i32_lhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected inverted i32 compare to keep the original lhs")
+  }
+  match @ir.hot_node_get(i32_rel_func, i32_rhs).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected inverted i32 compare to keep the original rhs")
+  }
+
+  let i64_rel_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64) (result i32) local.get 0 local.get 1 i64.le_u i32.eqz))",
+  )
+  let i64_rel_root = @ir.hot_root_get(i64_rel_func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i64_rel_func, i64_rel_root),
+    Some(@lib.Instruction::i64_gt_u()),
+  )
+}
+
+///|
 test "optimize-instructions rewrites double eqz into ne zero" {
   let i32_func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 i32.eqz i32.eqz))",

@@ -7693,6 +7693,31 @@ fn optimize_instructions_try_fold_const_select(
 }
 
 ///|
+fn optimize_instructions_inverted_integer_compare(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Instruction::I32LtS => Some(@lib.Instruction::i32_ge_s())
+    @lib.Instruction::I32LtU => Some(@lib.Instruction::i32_ge_u())
+    @lib.Instruction::I32LeS => Some(@lib.Instruction::i32_gt_s())
+    @lib.Instruction::I32LeU => Some(@lib.Instruction::i32_gt_u())
+    @lib.Instruction::I32GtS => Some(@lib.Instruction::i32_le_s())
+    @lib.Instruction::I32GtU => Some(@lib.Instruction::i32_le_u())
+    @lib.Instruction::I32GeS => Some(@lib.Instruction::i32_lt_s())
+    @lib.Instruction::I32GeU => Some(@lib.Instruction::i32_lt_u())
+    @lib.Instruction::I64LtS => Some(@lib.Instruction::i64_ge_s())
+    @lib.Instruction::I64LtU => Some(@lib.Instruction::i64_ge_u())
+    @lib.Instruction::I64LeS => Some(@lib.Instruction::i64_gt_s())
+    @lib.Instruction::I64LeU => Some(@lib.Instruction::i64_gt_u())
+    @lib.Instruction::I64GtS => Some(@lib.Instruction::i64_le_s())
+    @lib.Instruction::I64GtU => Some(@lib.Instruction::i64_le_u())
+    @lib.Instruction::I64GeS => Some(@lib.Instruction::i64_lt_s())
+    @lib.Instruction::I64GeU => Some(@lib.Instruction::i64_lt_u())
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -7868,6 +7893,18 @@ fn optimize_instructions_try_fold_eqz(
         _ => ()
       }
     }
+    (@lib.Instruction::I32Eqz, @ir.HotOp::Compare, Some(compare_instr)) =>
+      match optimize_instructions_inverted_integer_compare(compare_instr) {
+        Some(inverted) => {
+          let lhs_id = @ir.hot_child_get(func, operand_id, 0)
+          let rhs_id = @ir.hot_child_get(func, operand_id, 1)
+          optimize_instructions_replace_with_exact_compare(
+            ctx, func, node_id, inverted, lhs_id, rhs_id,
+          )
+          return true
+        }
+        None => ()
+      }
     (@lib.Instruction::I32Eqz, @ir.HotOp::Binary, Some(@lib.Instruction::I32Sub)
     )
     | (
