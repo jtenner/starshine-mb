@@ -2958,6 +2958,74 @@ test "optimize-instructions folds unsigned constant relational compares" {
 }
 
 ///|
+test "optimize-instructions folds signed domain-edge compares" {
+  // Red-first OI-D parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds side-effect-free signed comparisons whose
+  // constant endpoint is outside the possible signed domain. Binaryen keeps the
+  // analogous call-backed signed comparison, so this coverage stays local-only.
+  let i32_lt_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const -2147483648 i32.lt_s))",
+  )
+  let i32_lt_root = @ir.hot_root_get(i32_lt_func, 0)
+  match @ir.hot_node_get(i32_lt_func, i32_lt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32.lt_s against signed min to fold to const 0")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_lt_func,
+      @ir.hot_node_get(i32_lt_func, i32_lt_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let i32_le_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32) (result i32) local.get 0 i32.const 2147483647 i32.le_s))",
+  )
+  let i32_le_root = @ir.hot_root_get(i32_le_func, 0)
+  match @ir.hot_node_get(i32_le_func, i32_le_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i32.le_s against signed max to fold to const 1")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i32_le_func,
+      @ir.hot_node_get(i32_le_func, i32_le_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i64_gt_func = optimize_instructions_test_run_hot(
+    "(module (func (param i64) (result i32) local.get 0 i64.const 9223372036854775807 i64.gt_s))",
+  )
+  let i64_gt_root = @ir.hot_root_get(i64_gt_func, 0)
+  match @ir.hot_node_get(i64_gt_func, i64_gt_root).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected i64.gt_s against signed max to fold to const 0")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(
+      i64_gt_func,
+      @ir.hot_node_get(i64_gt_func, i64_gt_root).imm0,
+    ),
+    @ir.HotConstPayload::i32_const(@lib.I32(0)),
+  )
+
+  let effect_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) call $effect i32.const -2147483648 i32.lt_s) (func $effect (result i32) i32.const 3))",
+  )
+  let effect_root = @ir.hot_root_get(effect_func, 0)
+  match @ir.hot_node_get(effect_func, effect_root).op {
+    @ir.HotOp::Compare => ()
+    _ => fail("expected effectful signed domain-edge compare to stay a compare")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(effect_func, effect_root),
+    Some(@lib.Instruction::i32_lt_s()),
+  )
+}
+
+///|
 test "optimize-instructions folds unsigned domain-edge compares" {
   // Red-first OI-D parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds unsigned comparisons whose constant

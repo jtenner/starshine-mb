@@ -10885,6 +10885,74 @@ fn optimize_instructions_unsigned_domain_edge_compare_result(
 }
 
 ///|
+fn optimize_instructions_signed_domain_edge_compare_result(
+  instr : @lib.Instruction,
+  rhs_is_signed_min : Bool,
+  rhs_is_signed_max : Bool,
+) -> @lib.I32? {
+  if rhs_is_signed_min {
+    match instr {
+      @lib.Instruction::I32LtS | @lib.Instruction::I64LtS => Some(@lib.I32(0))
+      @lib.Instruction::I32GeS | @lib.Instruction::I64GeS => Some(@lib.I32(1))
+      _ => None
+    }
+  } else if rhs_is_signed_max {
+    match instr {
+      @lib.Instruction::I32GtS | @lib.Instruction::I64GtS => Some(@lib.I32(0))
+      @lib.Instruction::I32LeS | @lib.Instruction::I64LeS => Some(@lib.I32(1))
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+fn optimize_instructions_try_fold_signed_domain_edge_compare(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, lhs_id) {
+    return false
+  }
+  let (rhs_is_signed_min, rhs_is_signed_max) = match instr {
+    @lib.Instruction::I32LtS
+    | @lib.Instruction::I32LeS
+    | @lib.Instruction::I32GtS
+    | @lib.Instruction::I32GeS =>
+      match optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) => (raw == -2147483648, raw == 2147483647)
+        _ => return false
+      }
+    @lib.Instruction::I64LtS
+    | @lib.Instruction::I64LeS
+    | @lib.Instruction::I64GtS
+    | @lib.Instruction::I64GeS =>
+      match optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(raw)) =>
+          (raw == -9223372036854775808L, raw == 9223372036854775807L)
+        _ => return false
+      }
+    _ => return false
+  }
+  match
+    optimize_instructions_signed_domain_edge_compare_result(
+      instr, rhs_is_signed_min, rhs_is_signed_max,
+    ) {
+    Some(result) => {
+      optimize_instructions_replace_with_const_i32(ctx, func, node_id, result)
+      true
+    }
+    None => false
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_unsigned_domain_edge_compare(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -11695,6 +11763,9 @@ fn optimize_instructions_visit_node(
         if optimize_instructions_try_fold_integer_const_eq_ne_compare(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
+          optimize_instructions_try_fold_signed_domain_edge_compare(
+            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
           optimize_instructions_try_fold_unsigned_domain_edge_compare(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
           ) ||
@@ -11803,6 +11874,9 @@ fn optimize_instructions_visit_node(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_integer_const_eq_ne_compare(
+                ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
+              ) ||
+              optimize_instructions_try_fold_signed_domain_edge_compare(
                 ctx, func, dead, node_id, next_instr, next_lhs, next_rhs,
               ) ||
               optimize_instructions_try_fold_unsigned_domain_edge_compare(
