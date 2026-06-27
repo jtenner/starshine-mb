@@ -349,6 +349,7 @@ sources:
   - ../../../raw/research/1311-2026-06-26-optimize-instructions-oi-f-identical-v128const-effectful-condition.md
   - ../../../raw/research/1313-2026-06-26-optimize-instructions-oi-f-identical-int-unary-effectful-condition.md
   - ../../../raw/research/1312-2026-06-26-optimize-instructions-oi-m-tuple-optimization-eighty-nine-effects-boundary.md
+  - ../../../raw/research/1314-2026-06-26-optimize-instructions-oi-m-tuple-optimization-ninety-effects-boundary.md
   - ../../../raw/research/0888-2026-06-25-optimize-instructions-oi-g-memory-fill-size3-boundary.md
   - ../../../raw/research/0889-2026-06-25-optimize-instructions-oi-d-i32-signext-rel-boundary.md
   - ../../../raw/research/1190-2026-06-26-optimize-instructions-oi-d-const-eq-ne.md
