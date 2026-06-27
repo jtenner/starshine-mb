@@ -1,4 +1,5 @@
 # Wasm Knowledge Base Log
+- 2026-06-27: Added OI-M tuple-optimization one-hundred-four-effect boundary slice `1342`, documenting Binaryen `tuple.make 105` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-27: Added OI-F i64 eqz boolean select slice `1341`, documenting Binaryen's direct `i64.eqz` boolean-select rewrites and Starshine's narrow red-first implementation.
 - 2026-06-27: Added OI-M tuple-optimization one-hundred-three-effect boundary slice `1340`, documenting Binaryen `tuple.make 104` localization and Starshine's retained tuple-scratch reconstruction gap.
 - 2026-06-27: Added OI-F select zero-compare condition slice `1339`, documenting Binaryen's direct `i32.eq`/`i32.ne` zero-condition select rewrites and Starshine's narrow red-first implementation.
