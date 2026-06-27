@@ -845,7 +845,7 @@ test "optimize-instructions preserves effectful condition when folding identical
   // dropped prefix
   // (`.tmp/oi-select-identical-refi31-effectful-condition-probe.wat`). This
   // deliberately stays at nontrapping `ref.i31` shells whose i32 payloads are
-  // local or already-covered nontrapping local/constant/unary forms; do not
+  // local or already-covered nontrapping local/constant, local/local, and unary forms; do not
   // extend to arbitrary reference expression equality or trapping payloads
   // without fresh oracle evidence.
   let local_func = optimize_instructions_test_run_hot(
@@ -869,6 +869,18 @@ test "optimize-instructions preserves effectful condition when folding identical
     _ =>
       fail(
         "expected identical ref.i31 add select arms to fold while preserving the effectful condition",
+      )
+  }
+
+  let local_local_add_func = optimize_instructions_test_run_hot(
+    "(module (func (param i32 i32) (result (ref i31)) (select (ref.i31 (i32.add (local.get 0) (local.get 1))) (ref.i31 (i32.add (local.get 0) (local.get 1))) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let local_local_add_root = @ir.hot_root_get(local_local_add_func, 0)
+  match @ir.hot_node_get(local_local_add_func, local_local_add_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical ref.i31 local-local add select arms to fold while preserving the effectful condition",
       )
   }
 }

@@ -6920,7 +6920,25 @@ fn optimize_instructions_select_arms_are_identical_pure(
         (Some(lhs), Some(rhs)) => return lhs == rhs
         _ => ()
       }
-      if optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
+      if optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
+          func, dead, true_payload, false_payload,
+        ) ||
+        optimize_instructions_i32_sub_local_local_payloads_are_identical_pure(
+          func, dead, true_payload, false_payload,
+        ) ||
+        optimize_instructions_i32_mul_local_local_payloads_are_identical_pure(
+          func, dead, true_payload, false_payload,
+        ) ||
+        optimize_instructions_i32_bitwise_local_local_payloads_are_identical_pure(
+          func, dead, true_payload, false_payload,
+        ) ||
+        optimize_instructions_i32_shift_rotate_local_local_payloads_are_identical_pure(
+          func, dead, true_payload, false_payload,
+        ) ||
+        optimize_instructions_i32_compare_local_local_payloads_are_identical_pure(
+          func, dead, true_payload, false_payload,
+        ) ||
+        optimize_instructions_i32_binary_local_const_payloads_are_identical_pure(
           func, dead, true_payload, false_payload,
         ) ||
         optimize_instructions_i32_unary_local_payloads_are_identical_pure(
@@ -7388,6 +7406,24 @@ fn optimize_instructions_ref_i31_payloads_are_identical_nontrapping_reorderable(
         (Some(lhs_const), Some(rhs_const)) => return lhs_const == rhs_const
         _ => ()
       }
+      optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      ) ||
+      optimize_instructions_i32_sub_local_local_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      ) ||
+      optimize_instructions_i32_mul_local_local_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      ) ||
+      optimize_instructions_i32_bitwise_local_local_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      ) ||
+      optimize_instructions_i32_shift_rotate_local_local_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      ) ||
+      optimize_instructions_i32_compare_local_local_payloads_are_identical_pure(
+        func, dead, lhs_payload, rhs_payload,
+      ) ||
       optimize_instructions_i32_nontrapping_local_const_payloads_are_identical_pure(
         func, dead, lhs_payload, rhs_payload,
       ) ||
