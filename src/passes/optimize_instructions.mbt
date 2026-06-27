@@ -7056,6 +7056,9 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
   // integer addition/subtraction/multiplication/bitwise/shift/rotate/compare
   // shells plus float unary/binary/compare shells cannot trap (WebAssembly
   // masks shift/rotate counts) and cannot observe call/global side effects.
+  // Float local/constant binary shells use the same proof: they are local-only,
+  // constant-only, and nontrapping, including min/max spelling; this is not a
+  // broader float-value-equivalence or commuted-operand proof.
   optimize_instructions_i32_add_local_local_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   ) ||
@@ -7108,6 +7111,12 @@ fn optimize_instructions_select_arms_are_identical_nontrapping_reorderable(
     func, dead, if_true, if_false,
   ) ||
   optimize_instructions_f64_binary_local_local_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_f32_binary_local_const_payloads_are_identical_pure(
+    func, dead, if_true, if_false,
+  ) ||
+  optimize_instructions_f64_binary_local_const_payloads_are_identical_pure(
     func, dead, if_true, if_false,
   )
 }

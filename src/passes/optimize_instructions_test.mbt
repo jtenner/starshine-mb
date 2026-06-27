@@ -1124,6 +1124,40 @@ test "optimize-instructions preserves effectful condition when folding identical
 }
 
 ///|
+test "optimize-instructions preserves effectful condition when folding identical float local-const select arms" {
+  // Red-first OI-F parity slice: Binaryen `version_130`
+  // `--optimize-instructions` folds identical ordered local/constant f32/f64
+  // binary select arms even when the condition is effectful, preserving that
+  // condition as a dropped prefix
+  // (`.tmp/oi-select-identical-float-localconst-effectful-condition-probe.wat`).
+  // This remains a narrow same-instruction/same-ordered local/constant proof;
+  // it is not a broad NaN, commuted-operand, value-equivalent constant, SIMD,
+  // or arbitrary expression equality proof.
+  let f32_func = optimize_instructions_test_run_hot(
+    "(module (func (param f32) (result f32) (select (f32.add (local.get 0) (f32.const 2.5)) (f32.add (local.get 0) (f32.const 2.5)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let f32_root = @ir.hot_root_get(f32_func, 0)
+  match @ir.hot_node_get(f32_func, f32_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical f32.add local-const select arms to fold while preserving the effectful condition",
+      )
+  }
+  let f64_func = optimize_instructions_test_run_hot(
+    "(module (func (param f64) (result f64) (select (f64.min (local.get 0) (f64.const 3.5)) (f64.min (local.get 0) (f64.const 3.5)) (call $effect))) (func $effect (result i32) (i32.const 1)))",
+  )
+  let f64_root = @ir.hot_root_get(f64_func, 0)
+  match @ir.hot_node_get(f64_func, f64_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected identical f64.min local-const select arms to fold while preserving the effectful condition",
+      )
+  }
+}
+
+///|
 test "optimize-instructions preserves effectful condition when folding identical float binary select arms" {
   // Red-first OI-F parity slice: Binaryen `version_130`
   // `--optimize-instructions` folds identical ordered-local f32/f64 binary
