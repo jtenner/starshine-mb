@@ -1845,6 +1845,28 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   @debug.assert_eq(gen_valid_profile_name(PassMemoryProfile), "pass-memory")
   @debug.assert_eq(gen_valid_profile_name(PassGcRefProfile), "pass-gc-ref")
   @debug.assert_eq(gen_valid_profile_name(PassControlProfile), "pass-control")
+  @debug.assert_eq(
+    gen_valid_profile_name(PassOiDefaultScalarProfile),
+    "pass-oi-default-scalar",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(PassOiLocalFactsProfile),
+    "pass-oi-local-facts",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(PassOiBooleanSelectProfile),
+    "pass-oi-boolean-select",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(PassOiMemoryBulkProfile),
+    "pass-oi-memory-bulk",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(PassOiCallRefProfile),
+    "pass-oi-call-ref",
+  )
+  @debug.assert_eq(gen_valid_profile_name(PassOiRefGcProfile), "pass-oi-ref-gc")
+  @debug.assert_eq(gen_valid_profile_name(PassOiTupleProfile), "pass-oi-tuple")
 
   let cleanup = GenValidConfig::for_profile(PassCleanupProfile)
   @debug.assert_eq(gen_valid_config_label(cleanup), "pass-cleanup")
@@ -1881,10 +1903,521 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   assert_true(control.features.allow_tail_calls)
   assert_true(control.max_body_depth >= 4)
 
+  let oi_default = GenValidConfig::for_profile(PassOiDefaultScalarProfile)
+  @debug.assert_eq(gen_valid_config_label(oi_default), "pass-oi-default-scalar")
+  assert_true(oi_default.features.allow_typed_body_generator)
+  assert_false(oi_default.features.allow_mems)
+  assert_true(oi_default.max_body_statements >= 14)
+
+  let oi_local = GenValidConfig::for_profile(PassOiLocalFactsProfile)
+  @debug.assert_eq(gen_valid_config_label(oi_local), "pass-oi-local-facts")
+  assert_true(oi_local.max_locals >= 8)
+  assert_false(oi_local.features.allow_mems)
+
+  let oi_boolean = GenValidConfig::for_profile(PassOiBooleanSelectProfile)
+  @debug.assert_eq(gen_valid_config_label(oi_boolean), "pass-oi-boolean-select")
+  assert_true(oi_boolean.features.allow_branch_heavy_control)
+  assert_true(oi_boolean.max_body_depth >= 4)
+
+  let oi_memory = GenValidConfig::for_profile(PassOiMemoryBulkProfile)
+  @debug.assert_eq(gen_valid_config_label(oi_memory), "pass-oi-memory-bulk")
+  assert_true(oi_memory.features.allow_mems)
+  assert_true(oi_memory.features.allow_memory64)
+  assert_true(oi_memory.max_datas >= 6)
+
+  let oi_call_ref = GenValidConfig::for_profile(PassOiCallRefProfile)
+  @debug.assert_eq(gen_valid_config_label(oi_call_ref), "pass-oi-call-ref")
+  assert_true(oi_call_ref.features.allow_ref_types)
+  assert_true(oi_call_ref.features.allow_calls)
+  assert_true(oi_call_ref.max_tables >= 1)
+
+  let oi_ref_gc = GenValidConfig::for_profile(PassOiRefGcProfile)
+  @debug.assert_eq(gen_valid_config_label(oi_ref_gc), "pass-oi-ref-gc")
+  assert_true(oi_ref_gc.features.allow_ref_types)
+  assert_true(oi_ref_gc.features.allow_subtyping_topology)
+  assert_true(oi_ref_gc.max_type_defs >= 16)
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiRefGcProfile, 0x5eedUL),
+    Some("oi-ref-gc:local-carried-null-test-cast"),
+  )
+
+  let oi_tuple = GenValidConfig::for_profile(PassOiTupleProfile)
+  @debug.assert_eq(gen_valid_config_label(oi_tuple), "pass-oi-tuple")
+  assert_true(oi_tuple.features.allow_typed_body_generator)
+  assert_true(oi_tuple.max_results >= 3)
+
+  match gen_valid_profile_by_name("pass oi memory bulk") {
+    Ok(profile) => @debug.assert_eq(profile, PassOiMemoryBulkProfile)
+    Err(msg) => fail(msg)
+  }
+
   match gen_valid_profile_by_name("pass dae") {
     Ok(profile) => @debug.assert_eq(profile, PassDaeProfile)
     Err(msg) => fail(msg)
   }
+}
+
+///|
+fn gen_valid_test_instrs_contain_oi_local_fact_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 3 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(set_idx)),
+        LocalGet(LocalIdx(get_idx)),
+        I32Extend8S,
+      ) if set_idx == get_idx => return true
+      (
+        I64Const(_),
+        LocalSet(LocalIdx(set_idx)),
+        LocalGet(LocalIdx(get_idx)),
+        I64Extend32S,
+      ) if set_idx == get_idx => return true
+      (I32Const(_), LocalTee(LocalIdx(_)), I32Const(_), I32Add) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_oi_scalar_local_carried(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 4 < instrs.length(); i = i + 1 {
+    match
+      (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
+      (
+        I32Const(_),
+        LocalSet(LocalIdx(set_idx)),
+        LocalGet(LocalIdx(get_idx)),
+        I32Const(_),
+        I32Add,
+      ) if set_idx == get_idx => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_oi_scalar_local_tee(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 3 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+      (I32Const(_), LocalTee(LocalIdx(_)), I32Const(_), I32Add) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_oi_local_mask_candidate(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (LocalGet(LocalIdx(_)), I32Const(_), I32And) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_oi_scalar_trigger_signature(
+  instrs : Array[Instruction],
+) -> String {
+  if gen_valid_test_instrs_contain_oi_scalar_local_carried(instrs) {
+    "local-carried"
+  } else if gen_valid_test_instrs_contain_oi_scalar_local_tee(instrs) {
+    "local-tee"
+  } else {
+    "direct"
+  }
+}
+
+///|
+fn gen_valid_test_oi_local_fact_trigger_signature(
+  instrs : Array[Instruction],
+) -> String {
+  if gen_valid_test_instrs_contain_oi_local_mask_candidate(instrs) {
+    "local-mask"
+  } else if gen_valid_test_instrs_contain_oi_scalar_local_tee(instrs) {
+    "local-tee"
+  } else {
+    "direct-sign-ext"
+  }
+}
+
+///|
+fn gen_valid_test_instrs_contain_oi_ref_local_carried(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (RefNull(_), LocalSet(LocalIdx(set_idx)), LocalGet(LocalIdx(get_idx))) if set_idx ==
+        get_idx => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_contain_ref_branch_cast(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      BrOnCast(_, _, _, _) | BrOnCastFail(_, _, _, _) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+        if gen_valid_test_instrs_contain_ref_branch_cast(body) {
+          return true
+        }
+      If(_, if_body, maybe_else) => {
+        if gen_valid_test_instrs_contain_ref_branch_cast(if_body) {
+          return true
+        }
+        match maybe_else {
+          Some(else_body) =>
+            if gen_valid_test_instrs_contain_ref_branch_cast(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_oi_ref_gc_trigger_signature(
+  instrs : Array[Instruction],
+) -> String {
+  if gen_valid_test_instrs_contain_oi_ref_local_carried(instrs) {
+    "local-carried"
+  } else if gen_valid_test_instrs_contain_ref_branch_cast(instrs) {
+    "branch-casts"
+  } else {
+    "direct"
+  }
+}
+
+///|
+fn gen_valid_test_instrs_contain_direct_ref_ops(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut saw_is_null = false
+  let mut saw_test = false
+  let mut saw_cast = false
+  let mut saw_eq = false
+  for instr in instrs {
+    match instr {
+      RefIsNull => saw_is_null = true
+      RefTest(_, _) => saw_test = true
+      RefCast(_, _, _) => saw_cast = true
+      RefEq => saw_eq = true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+        if gen_valid_test_instrs_contain_direct_ref_ops(body) {
+          saw_is_null = true
+          saw_test = true
+          saw_cast = true
+          saw_eq = true
+        }
+      _ => ()
+    }
+  }
+  saw_is_null && saw_test && saw_cast && saw_eq
+}
+
+///|
+test "OI-D and OI-E gen-valid profiles emit deterministic scalar and local-fact trigger shapes" {
+  let scalar = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiDefaultScalarProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(scalar.config_label, "pass-oi-default-scalar")
+  match validate_module(scalar.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  let scalar_counts = scalar.facts.exact_opcode_counts
+  assert_true(scalar_counts.i32_add > 0, msg="expected OI-D i32.add")
+  assert_true(scalar_counts.i32_eqz > 0, msg="expected OI-D i32.eqz")
+  assert_true(scalar_counts.i64_eqz > 0, msg="expected OI-D i64.eqz")
+  assert_true(scalar_counts.i32_extend8s > 0, msg="expected OI-D i32.extend8_s")
+  assert_true(
+    scalar_counts.i64_extend32s > 0,
+    msg="expected OI-D i64.extend32_s",
+  )
+  assert_true(scalar_counts.i32_shl > 0, msg="expected OI-D i32.shl")
+
+  let local_facts = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(local_facts.config_label, "pass-oi-local-facts")
+  match validate_module(local_facts.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(local_facts.facts.has_local_tee)
+  assert_true(local_facts.facts.exact_opcode_counts.local_tee > 0)
+  assert_true(local_facts.facts.exact_opcode_counts.i32_extend8s > 0)
+  assert_true(local_facts.facts.exact_opcode_counts.i64_extend32s > 0)
+  assert_true(
+    gen_valid_test_instrs_contain_oi_local_fact_candidate(
+      gen_valid_test_first_func_instrs(local_facts.wasm_module),
+    ),
+    msg="expected local-carried/local.tee OI-E candidate",
+  )
+}
+
+///|
+test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
+  let scalar_local_carried = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiDefaultScalarProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let scalar_local_tee = match
+    gen_valid_module_result_from_seed(
+      0x5eeeUL,
+      GenValidConfig::for_profile(PassOiDefaultScalarProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let scalar_direct = match
+    gen_valid_module_result_from_seed(
+      0x5eefUL,
+      GenValidConfig::for_profile(PassOiDefaultScalarProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    gen_valid_test_oi_scalar_trigger_signature(
+      gen_valid_test_first_func_instrs(scalar_local_carried.wasm_module),
+    ),
+    "local-carried",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_scalar_trigger_signature(
+      gen_valid_test_first_func_instrs(scalar_local_tee.wasm_module),
+    ),
+    "local-tee",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_scalar_trigger_signature(
+      gen_valid_test_first_func_instrs(scalar_direct.wasm_module),
+    ),
+    "direct",
+  )
+
+  let local_fact_tee = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let local_fact_mask = match
+    gen_valid_module_result_from_seed(
+      0x5eeeUL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let local_fact_direct = match
+    gen_valid_module_result_from_seed(
+      0x5eefUL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    gen_valid_test_oi_local_fact_trigger_signature(
+      gen_valid_test_first_func_instrs(local_fact_tee.wasm_module),
+    ),
+    "local-tee",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_local_fact_trigger_signature(
+      gen_valid_test_first_func_instrs(local_fact_mask.wasm_module),
+    ),
+    "local-mask",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_local_fact_trigger_signature(
+      gen_valid_test_first_func_instrs(local_fact_direct.wasm_module),
+    ),
+    "direct-sign-ext",
+  )
+}
+
+///|
+test "OI-I ref-gc trigger-smoke profile selects distinct seed-indexed reference cases" {
+  let local_carried = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiRefGcProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let branch_casts = match
+    gen_valid_module_result_from_seed(
+      0x5eeeUL,
+      GenValidConfig::for_profile(PassOiRefGcProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let direct = match
+    gen_valid_module_result_from_seed(
+      0x5eefUL,
+      GenValidConfig::for_profile(PassOiRefGcProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(local_carried.config_label, "pass-oi-ref-gc")
+  match validate_module(local_carried.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match validate_module(branch_casts.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match validate_module(direct.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_instrs_contain_direct_ref_ops(
+      gen_valid_test_first_func_instrs(direct.wasm_module),
+    ),
+    msg="expected OI-I direct ref.is_null/ref.test/ref.cast/ref.eq trigger ops",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_ref_gc_trigger_signature(
+      gen_valid_test_first_func_instrs(local_carried.wasm_module),
+    ),
+    "local-carried",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_ref_gc_trigger_signature(
+      gen_valid_test_first_func_instrs(branch_casts.wasm_module),
+    ),
+    "branch-casts",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_ref_gc_trigger_signature(
+      gen_valid_test_first_func_instrs(direct.wasm_module),
+    ),
+    "direct",
+  )
+}
+
+///|
+fn gen_valid_test_valtype_is_string_or_exn(vt : ValType) -> Bool {
+  vt == ValType::stringref() || vt == ValType::ref_null_exn()
+}
+
+///|
+fn gen_valid_test_module_has_string_or_exn_value_type(mod_ : Module) -> Bool {
+  match mod_.type_sec {
+    Some(TypeSec(types)) =>
+      for rec in types {
+        match rec {
+          SingleRecType(st) =>
+            match st.get_comptype() {
+              FuncCompType(params, results) => {
+                for vt in params {
+                  if gen_valid_test_valtype_is_string_or_exn(vt) {
+                    return true
+                  }
+                }
+                for vt in results {
+                  if gen_valid_test_valtype_is_string_or_exn(vt) {
+                    return true
+                  }
+                }
+              }
+              _ => ()
+            }
+          GroupRecType(sts) =>
+            for st in sts {
+              match st.get_comptype() {
+                FuncCompType(params, results) => {
+                  for vt in params {
+                    if gen_valid_test_valtype_is_string_or_exn(vt) {
+                      return true
+                    }
+                  }
+                  for vt in results {
+                    if gen_valid_test_valtype_is_string_or_exn(vt) {
+                      return true
+                    }
+                  }
+                }
+                _ => ()
+              }
+            }
+        }
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(GlobalSec(globals)) =>
+      for global_ in globals {
+        let Global(GlobalType(vt, _), _) = global_
+        if gen_valid_test_valtype_is_string_or_exn(vt) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+test "pass-oi-call-ref profile avoids string and exn value types for wasm-tools oracle" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiCallRefProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  assert_false(
+    gen_valid_test_module_has_string_or_exn_value_type(generated.wasm_module),
+    msg="pass-oi-call-ref profile feeds wasm-tools --features all, so it must not synthesize stringref or exnref value types unsupported by that oracle lane",
+  )
 }
 
 ///|

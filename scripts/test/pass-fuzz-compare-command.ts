@@ -58,8 +58,8 @@ if (args[0] === "run" && args.includes("src/fuzz")) {
   fs.writeFileSync(path.join(outDir, "gen-valid-000003.wasm"), "gen-valid-3");
   fs.writeFileSync(path.join(outDir, "gen-valid-000004.wasm"), "gen-valid-4");
   fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify({ records: [
-    { file_name: "gen-valid-000001.wasm", transform_id: "add-non-name-custom-section", feature_facts: { mode: "coverage-forced" } },
-    { file_name: "gen-valid-000002.wasm", transform_id: "add-non-name-custom-section", feature_facts: { mode: "coverage-forced" } },
+    { file_name: "gen-valid-000001.wasm", transform_id: "add-non-name-custom-section", profile_case_label: "oi-default-scalar:direct", feature_facts: { mode: "coverage-forced" } },
+    { file_name: "gen-valid-000002.wasm", transform_id: "add-non-name-custom-section", profile_case_label: "oi-default-scalar:direct", feature_facts: { mode: "coverage-forced" } },
     { file_name: "gen-valid-000003.wasm", transform_id: "add-non-name-custom-section", feature_facts: { mode: "coverage-forced" } },
     { file_name: "gen-valid-000004.wasm", transform_id: "add-non-name-custom-section", feature_facts: { mode: "coverage-forced" } },
   ] }));
@@ -204,6 +204,7 @@ process.exit(0);
     genValidManifestPath: string | null;
     genValidTransformCounts: Record<string, number>;
     genValidSelectedProfileCounts: Record<string, number>;
+    genValidProfileCaseCounts?: Record<string, number>;
     inputEffectTrapCounts: Record<string, number>;
     runtimeExecutionMatrix: {
       summary: {
@@ -233,6 +234,10 @@ process.exit(0);
     `expected per-transform gen-valid count, got ${JSON.stringify(summary.genValidTransformCounts)}`,
   );
   assert(
+    summary.genValidProfileCaseCounts?.["oi-default-scalar:direct"] === 2,
+    `expected per-profile-case gen-valid count, got ${JSON.stringify(summary.genValidProfileCaseCounts)}`,
+  );
+  assert(
     summary.inputEffectTrapCounts.mayTrap === 4,
     `expected four may-trap fake byte-stream inputs, got ${JSON.stringify(summary.inputEffectTrapCounts)}`,
   );
@@ -248,7 +253,7 @@ process.exit(0);
     summary.runtimeExecutionMatrix.summary.total === 0 && summary.runtimeExecutionMatrix.semanticMismatchSamples.length === 0,
     `expected empty default runtime matrix summary/samples, got ${JSON.stringify(summary.runtimeExecutionMatrix)}`,
   );
-  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { generator: string; transformId?: string; genValidFeatureFacts?: Record<string, unknown>; inputEffectTrapFacts?: Record<string, boolean> });
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { generator: string; transformId?: string; genValidProfileCaseLabel?: string; genValidFeatureFacts?: Record<string, unknown>; inputEffectTrapFacts?: Record<string, boolean> });
   assert(cases.length === 4, `expected 4 case records, got ${cases.length}`);
   assert(
     cases.every((record) => record.inputEffectTrapFacts && typeof record.inputEffectTrapFacts.mayTrap === "boolean"),
@@ -258,6 +263,10 @@ process.exit(0);
   assert(
     genValidCases.length === 4 && genValidCases.every((record) => record.transformId === "add-non-name-custom-section"),
     `expected gen-valid case metadata to preserve transform ids, got ${JSON.stringify(cases, null, 2)}`,
+  );
+  assert(
+    genValidCases.filter((record) => record.genValidProfileCaseLabel === "oi-default-scalar:direct").length === 2,
+    `expected gen-valid case metadata to preserve profile case labels, got ${JSON.stringify(cases, null, 2)}`,
   );
   assert(
     genValidCases.every((record) => record.genValidFeatureFacts && record.genValidFeatureFacts.mode === "coverage-forced"),

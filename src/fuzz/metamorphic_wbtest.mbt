@@ -4722,6 +4722,783 @@ test "metamorphic leading memory.size drop transform requires memory and roundtr
 }
 
 ///|
+test "OI local-carried transform injects scalar local set/get drop variants" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i64()], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match metamorphic_valid_transform_by_id("oi-local-carried") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiLocalCarried)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-local-carried")
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(locals, @lib.Expr(instrs)) => {
+          @debug.assert_eq(locals.length(), 1)
+          @debug.assert_eq(instrs.length(), 7)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(1))
+          @debug.assert_eq(
+            instrs[1],
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          )
+          @debug.assert_eq(
+            instrs[2],
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          )
+          @debug.assert_eq(instrs[3], @lib.Instruction::i32_const(1))
+          @debug.assert_eq(instrs[4], @lib.Instruction::i32_add())
+          @debug.assert_eq(instrs[5], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[6], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI local-tee-wrapped transform injects scalar local tee/drop variants" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i64()], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match metamorphic_valid_transform_by_id("oi-local-tee-wrapped") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiLocalTeeWrapped)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-local-tee-wrapped")
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(locals, @lib.Expr(instrs)) => {
+          @debug.assert_eq(locals.length(), 1)
+          @debug.assert_eq(instrs.length(), 8)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(7))
+          @debug.assert_eq(
+            instrs[1],
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+          )
+          @debug.assert_eq(instrs[2], @lib.Instruction::drop())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::i32_const(1))
+          @debug.assert_eq(instrs[5], @lib.Instruction::i32_add())
+          @debug.assert_eq(instrs[6], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[7], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI commuted-operands transform injects scalar operand-order variants" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match metamorphic_valid_transform_by_id("oi-commuted-operands") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiCommutedOperands)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-commuted-operands")
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 25)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(10))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(20))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_add())
+          @debug.assert_eq(instrs[3], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[4], @lib.Instruction::i32_const(20))
+          @debug.assert_eq(instrs[5], @lib.Instruction::i32_const(10))
+          @debug.assert_eq(instrs[6], @lib.Instruction::i32_add())
+          @debug.assert_eq(instrs[7], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[8], @lib.Instruction::i32_const(0x0f0f))
+          @debug.assert_eq(instrs[9], @lib.Instruction::i32_const(0x3333))
+          @debug.assert_eq(instrs[10], @lib.Instruction::i32_and())
+          @debug.assert_eq(instrs[11], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[12], @lib.Instruction::i32_const(0x3333))
+          @debug.assert_eq(instrs[13], @lib.Instruction::i32_const(0x0f0f))
+          @debug.assert_eq(instrs[14], @lib.Instruction::i32_and())
+          @debug.assert_eq(instrs[15], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[16], @lib.Instruction::i32_const(42))
+          @debug.assert_eq(instrs[17], @lib.Instruction::i32_const(7))
+          @debug.assert_eq(instrs[18], @lib.Instruction::i32_eq())
+          @debug.assert_eq(instrs[19], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[20], @lib.Instruction::i32_const(7))
+          @debug.assert_eq(instrs[21], @lib.Instruction::i32_const(42))
+          @debug.assert_eq(instrs[22], @lib.Instruction::i32_eq())
+          @debug.assert_eq(instrs[23], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[24], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI if-select-shell transform injects stack-neutral boolean shells" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match metamorphic_valid_transform_by_id("oi-if-select-shell") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiIfSelectShell)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-if-select-shell")
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 17)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(1))
+          match instrs[1] {
+            @lib.If(block_type, then_instrs, Some(else_instrs)) => {
+              @debug.assert_eq(
+                block_type,
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+              )
+              @debug.assert_eq(then_instrs.length(), 1)
+              @debug.assert_eq(then_instrs[0], @lib.Instruction::i32_const(11))
+              @debug.assert_eq(else_instrs.length(), 1)
+              @debug.assert_eq(else_instrs[0], @lib.Instruction::i32_const(22))
+            }
+            _ => fail("expected i32-result if shell")
+          }
+          @debug.assert_eq(instrs[2], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[3], @lib.Instruction::i32_const(0))
+          match instrs[4] {
+            @lib.If(@lib.VoidBlockType, then_instrs, Some(else_instrs)) => {
+              @debug.assert_eq(then_instrs.length(), 2)
+              @debug.assert_eq(then_instrs[0], @lib.Instruction::i32_const(1))
+              @debug.assert_eq(then_instrs[1], @lib.Instruction::drop())
+              @debug.assert_eq(else_instrs.length(), 2)
+              @debug.assert_eq(else_instrs[0], @lib.Instruction::i32_const(2))
+              @debug.assert_eq(else_instrs[1], @lib.Instruction::drop())
+            }
+            _ => fail("expected void if/else shell")
+          }
+          @debug.assert_eq(instrs[5], @lib.Instruction::i32_const(33))
+          @debug.assert_eq(instrs[6], @lib.Instruction::i32_const(33))
+          @debug.assert_eq(instrs[7], @lib.Instruction::i32_const(1))
+          @debug.assert_eq(instrs[8], @lib.Instruction::select())
+          @debug.assert_eq(instrs[9], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[10], @lib.Instruction::i32_const(44))
+          @debug.assert_eq(instrs[11], @lib.Instruction::i32_const(55))
+          @debug.assert_eq(instrs[12], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[13], @lib.Instruction::i32_eqz())
+          @debug.assert_eq(instrs[14], @lib.Instruction::select())
+          @debug.assert_eq(instrs[15], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[16], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI effectful-sibling transform injects private global side-effect shells" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::i32_const(9)]),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match metamorphic_valid_transform_by_id("oi-effectful-sibling") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiEffectfulSibling)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-effectful-sibling")
+  match transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      @debug.assert_eq(globals.length(), 2)
+      match globals[1] {
+        @lib.Global(@lib.GlobalType(type_, mut_), @lib.Expr(init)) => {
+          @debug.assert_eq(type_, @lib.ValType::i32())
+          @debug.assert_eq(mut_, true)
+          @debug.assert_eq(init.length(), 1)
+          @debug.assert_eq(init[0], @lib.Instruction::i32_const(0))
+        }
+      }
+    }
+    None => fail("expected transformed global section")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 22)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(101))
+          @debug.assert_eq(
+            instrs[1],
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          )
+          @debug.assert_eq(
+            instrs[2],
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+          )
+          @debug.assert_eq(instrs[3], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[4], @lib.Instruction::i32_const(1))
+          match instrs[5] {
+            @lib.If(@lib.VoidBlockType, then_instrs, Some(else_instrs)) => {
+              @debug.assert_eq(then_instrs.length(), 2)
+              @debug.assert_eq(then_instrs[0], @lib.Instruction::i32_const(102))
+              @debug.assert_eq(
+                then_instrs[1],
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+              )
+              @debug.assert_eq(else_instrs.length(), 2)
+              @debug.assert_eq(else_instrs[0], @lib.Instruction::i32_const(103))
+              @debug.assert_eq(
+                else_instrs[1],
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+              )
+            }
+            _ => fail("expected effectful if shell")
+          }
+          @debug.assert_eq(instrs[6], @lib.Instruction::i32_const(104))
+          @debug.assert_eq(
+            instrs[7],
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          )
+          @debug.assert_eq(instrs[8], @lib.Instruction::i32_const(10))
+          @debug.assert_eq(instrs[9], @lib.Instruction::i32_const(105))
+          @debug.assert_eq(
+            instrs[10],
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          )
+          @debug.assert_eq(instrs[11], @lib.Instruction::i32_const(20))
+          @debug.assert_eq(instrs[12], @lib.Instruction::i32_const(1))
+          @debug.assert_eq(instrs[13], @lib.Instruction::select())
+          @debug.assert_eq(instrs[14], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[15], @lib.Instruction::i32_const(106))
+          @debug.assert_eq(
+            instrs[16],
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(1U)),
+          )
+          @debug.assert_eq(instrs[17], @lib.Instruction::i32_const(2))
+          @debug.assert_eq(instrs[18], @lib.Instruction::i32_const(3))
+          @debug.assert_eq(instrs[19], @lib.Instruction::i32_add())
+          @debug.assert_eq(instrs[20], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[21], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI trapping-sibling transform injects dead trap-shaped scalar siblings" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match metamorphic_valid_transform_by_id("oi-trapping-sibling") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiTrappingSibling)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-trapping-sibling")
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(0))
+          match instrs[1] {
+            @lib.If(@lib.VoidBlockType, then_instrs, None) => {
+              @debug.assert_eq(then_instrs.length(), 12)
+              @debug.assert_eq(then_instrs[0], @lib.Instruction::i32_const(1))
+              @debug.assert_eq(then_instrs[1], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(then_instrs[2], @lib.Instruction::i32_div_s())
+              @debug.assert_eq(then_instrs[3], @lib.Instruction::drop())
+              @debug.assert_eq(then_instrs[4], @lib.Instruction::i32_const(1))
+              @debug.assert_eq(then_instrs[5], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(then_instrs[6], @lib.Instruction::i32_rem_u())
+              @debug.assert_eq(then_instrs[7], @lib.Instruction::drop())
+              @debug.assert_eq(then_instrs[8], @lib.Instruction::i64_const(1L))
+              @debug.assert_eq(then_instrs[9], @lib.Instruction::i64_const(0L))
+              @debug.assert_eq(then_instrs[10], @lib.Instruction::i64_div_u())
+              @debug.assert_eq(then_instrs[11], @lib.Instruction::drop())
+            }
+            _ => fail("expected dead trapping if shell")
+          }
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_const(2))
+          @debug.assert_eq(instrs[3], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI call-ref target wrapper transform injects private call_ref shells" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match
+    metamorphic_valid_transform_by_id("oi-call-ref-target-wrapper") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiCallRefTargetWrapper)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-call-ref-target-wrapper")
+  let target_type_idx = @lib.TypeIdx::new(1U)
+  let target_func_idx = @lib.FuncIdx::new(1U)
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(target_type_idx)),
+  )
+  match transformed.wasm_module.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      @debug.assert_eq(types.length(), 2)
+      match types[1] {
+        @lib.SingleRecType(
+          @lib.CompTypeSubType(_, @lib.FuncCompType(params, results))
+        ) => {
+          @debug.assert_eq(params, [])
+          @debug.assert_eq(results, [])
+        }
+        _ => fail("expected appended no-op target function type")
+      }
+    }
+    None => fail("expected transformed type section")
+  }
+  match transformed.wasm_module.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => {
+      @debug.assert_eq(type_idxs.length(), 2)
+      @debug.assert_eq(type_idxs[1], target_type_idx)
+    }
+    None => fail("expected transformed function section")
+  }
+  match transformed.wasm_module.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      @debug.assert_eq(elems.length(), 1)
+      match elems[0] {
+        @lib.Elem(@lib.Declarative, @lib.FuncsElemKind(funcs)) =>
+          @debug.assert_eq(funcs, [target_func_idx])
+        _ => fail("expected declarative elem declaring private call_ref target")
+      }
+    }
+    None => fail("expected transformed elem section")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 2)
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 12)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::ref_func(target_func_idx),
+          )
+          @debug.assert_eq(
+            instrs[1],
+            @lib.Instruction::call_ref(target_type_idx),
+          )
+          match instrs[2] {
+            @lib.Block(
+              @lib.ValTypeBlockType(@lib.RefTypeValType(_)),
+              @lib.Expr(body)
+            ) =>
+              @debug.assert_eq(body, [
+                @lib.Instruction::ref_func(target_func_idx),
+              ])
+            _ => fail("expected block-wrapped ref.func target")
+          }
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::call_ref(target_type_idx),
+          )
+          @debug.assert_eq(
+            instrs[4],
+            @lib.Instruction::ref_func(target_func_idx),
+          )
+          @debug.assert_eq(
+            instrs[5],
+            @lib.Instruction::ref_func(target_func_idx),
+          )
+          @debug.assert_eq(instrs[6], @lib.Instruction::i32_const(1))
+          @debug.assert_eq(
+            instrs[7],
+            @lib.Instruction::select(types=Some([typed_func_ref])),
+          )
+          @debug.assert_eq(
+            instrs[8],
+            @lib.Instruction::call_ref(target_type_idx),
+          )
+          @debug.assert_eq(instrs[9], @lib.Instruction::i32_const(0))
+          match instrs[10] {
+            @lib.If(@lib.VoidBlockType, then_instrs, None) => {
+              @debug.assert_eq(
+                then_instrs[0],
+                @lib.Instruction::ref_func(target_func_idx),
+              )
+              @debug.assert_eq(
+                then_instrs[1],
+                @lib.Instruction::call_ref(target_type_idx),
+              )
+            }
+            _ => fail("expected dead call_ref shell")
+          }
+          @debug.assert_eq(instrs[11], @lib.Instruction::nop())
+        }
+      }
+      match funcs[1] {
+        @lib.Func(_, @lib.Expr(instrs)) =>
+          @debug.assert_eq(instrs, [@lib.Instruction::nop()])
+      }
+    }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI tuple-selected-lane transform injects multivalue selected-lane smoke shells" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match
+    metamorphic_valid_transform_by_id("oi-tuple-selected-lane") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiTupleSelectedLane)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-tuple-selected-lane")
+  let tuple_block_type_idx = @lib.TypeIdx::new(1U)
+  match transformed.wasm_module.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      @debug.assert_eq(types.length(), 2)
+      match types[1] {
+        @lib.SingleRecType(
+          @lib.CompTypeSubType(_, @lib.FuncCompType(params, results))
+        ) => {
+          @debug.assert_eq(params, [])
+          @debug.assert_eq(results, [
+            @lib.ValType::i32(),
+            @lib.ValType::i64(),
+            @lib.ValType::f32(),
+            @lib.ValType::f64(),
+          ])
+        }
+        _ => fail("expected appended multivalue tuple block type")
+      }
+    }
+    None => fail("expected transformed type section")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 1)
+      match funcs[0] {
+        @lib.Func(locals, @lib.Expr(instrs)) => {
+          @debug.assert_eq(locals.length(), 4)
+          @debug.assert_eq(instrs.length(), 29)
+          match instrs[0] {
+            @lib.Block(@lib.TypeIdxBlockType(idx), @lib.Expr(body)) => {
+              @debug.assert_eq(idx, tuple_block_type_idx)
+              @debug.assert_eq(body.length(), 4)
+              @debug.assert_eq(body[0], @lib.Instruction::i32_const(11))
+              @debug.assert_eq(body[1], @lib.Instruction::i64_const(22L))
+              @debug.assert_eq(body[2], @lib.Instruction::f32_const(33.0F))
+              @debug.assert_eq(body[3], @lib.Instruction::f64_const(44.0))
+            }
+            _ => fail("expected selected-lane multivalue block shell")
+          }
+          @debug.assert_eq(
+            instrs[1],
+            @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+          )
+          @debug.assert_eq(
+            instrs[2],
+            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+          )
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          )
+          @debug.assert_eq(
+            instrs[4],
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          )
+          @debug.assert_eq(
+            instrs[5],
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[6], @lib.Instruction::drop())
+          @debug.assert_eq(
+            instrs[12],
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          )
+          @debug.assert_eq(
+            instrs[19],
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          )
+          @debug.assert_eq(
+            instrs[26],
+            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+          )
+          @debug.assert_eq(instrs[28], @lib.Instruction::nop())
+        }
+      }
+    }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI memory-size-boundary transform injects dead memory.copy/fill size variants" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match
+    metamorphic_valid_transform_by_id("oi-memory-size-boundary") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiMemorySizeBoundary)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-memory-size-boundary")
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 3)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(0))
+          match instrs[1] {
+            @lib.If(@lib.VoidBlockType, then_instrs, None) => {
+              @debug.assert_eq(then_instrs.length(), 64)
+              @debug.assert_eq(then_instrs[0], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(then_instrs[1], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(then_instrs[2], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(
+                then_instrs[3],
+                @lib.Instruction::memory_copy(
+                  @lib.MemIdx::new(0U),
+                  @lib.MemIdx::new(0U),
+                ),
+              )
+              @debug.assert_eq(then_instrs[4], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(then_instrs[5], @lib.Instruction::i32_const(255))
+              @debug.assert_eq(then_instrs[6], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(
+                then_instrs[7],
+                @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+              )
+              @debug.assert_eq(then_instrs[56], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(then_instrs[57], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(then_instrs[58], @lib.Instruction::i32_const(16))
+              @debug.assert_eq(
+                then_instrs[59],
+                @lib.Instruction::memory_copy(
+                  @lib.MemIdx::new(0U),
+                  @lib.MemIdx::new(0U),
+                ),
+              )
+              @debug.assert_eq(then_instrs[60], @lib.Instruction::i32_const(0))
+              @debug.assert_eq(
+                then_instrs[61],
+                @lib.Instruction::i32_const(255),
+              )
+              @debug.assert_eq(then_instrs[62], @lib.Instruction::i32_const(16))
+              @debug.assert_eq(
+                then_instrs[63],
+                @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+              )
+            }
+            _ => fail("expected dead if shell around memory.copy/fill variants")
+          }
+          @debug.assert_eq(instrs[2], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic trailing memory.size drop transform skips modules without memories" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -11479,13 +12256,21 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 478)
-  @debug.assert_eq(stats.validated, 478)
+  @debug.assert_eq(stats.transformed, 486)
+  @debug.assert_eq(stats.validated, 486)
   assert_true(
     stats.transform_ids.contains(
       "wrap-defined-function-bodies-in-nested-identity-loops",
     ),
   )
+  assert_true(stats.transform_ids.contains("oi-local-carried"))
+  assert_true(stats.transform_ids.contains("oi-local-tee-wrapped"))
+  assert_true(stats.transform_ids.contains("oi-commuted-operands"))
+  assert_true(stats.transform_ids.contains("oi-if-select-shell"))
+  assert_true(stats.transform_ids.contains("oi-effectful-sibling"))
+  assert_true(stats.transform_ids.contains("oi-trapping-sibling"))
+  assert_true(stats.transform_ids.contains("oi-call-ref-target-wrapper"))
+  assert_true(stats.transform_ids.contains("oi-tuple-selected-lane"))
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",

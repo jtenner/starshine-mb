@@ -1074,6 +1074,82 @@ fn optimize_instructions_try_directize_ref_func_call_ref(
 }
 
 ///|
+fn optimize_instructions_try_sink_same_global_set_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  if !optimize_instructions_node_is_live(func, dead, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_type_results(func, node.ty).length() != 0 {
+    return false
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, then_region) != 1 ||
+    @ir.hot_region_root_count(func, else_region) != 1 {
+    return false
+  }
+  let then_set_id = @ir.hot_region_get(func, then_region, 0)
+  let else_set_id = @ir.hot_region_get(func, else_region, 0)
+  if !optimize_instructions_node_is_live(func, dead, then_set_id) ||
+    !optimize_instructions_node_is_live(func, dead, else_set_id) {
+    return false
+  }
+  let then_set = @ir.hot_node_get(func, then_set_id)
+  let else_set = @ir.hot_node_get(func, else_set_id)
+  let global_id = match (then_set.op, else_set.op) {
+    (@ir.HotOp::GlobalSet, @ir.HotOp::GlobalSet) if then_set.imm0 ==
+      else_set.imm0 => then_set.imm0
+    _ => return false
+  }
+  if then_set.child_count != 1 || else_set.child_count != 1 {
+    return false
+  }
+  let then_value = @ir.hot_child_get(func, then_set_id, 0)
+  let else_value = @ir.hot_child_get(func, else_set_id, 0)
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, then_value) ||
+    !optimize_instructions_is_side_effect_free_expr(func, dead, else_value) {
+    return false
+  }
+  let then_results = @ir.hot_type_results(
+    func,
+    @ir.hot_node_get(func, then_value).ty,
+  )
+  let else_results = @ir.hot_type_results(
+    func,
+    @ir.hot_node_get(func, else_value).ty,
+  )
+  if then_results.length() != 1 ||
+    else_results.length() != 1 ||
+    then_results[0] != else_results[0] {
+    return false
+  }
+  let condition = @ir.hot_child_get(func, node_id, 0)
+  let value_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(then_results[0]),
+    condition,
+    [then_value],
+    else_body=Some([else_value]),
+  )
+  let replacement_set = @ir.hot_build_global_set(func, global_id, value_if)
+  @ir.hot_control_demote_if_to_block(func, node_id, [replacement_set])
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_constant_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -8222,14 +8298,23 @@ fn optimize_instructions_try_fold_eqz(
       if !optimize_instructions_node_is_live(func, dead, inner_operand_id) {
         return false
       }
-      optimize_instructions_replace_with_exact_compare(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i32_ne(),
-        inner_operand_id,
-        @ir.hot_build_const_i32(func, @lib.I32(0)),
-      )
+      match optimize_instructions_i32_const(func, dead, inner_operand_id) {
+        Some(@lib.I32(raw)) => {
+          let folded = if raw == 0 { @lib.I32(0) } else { @lib.I32(1) }
+          optimize_instructions_replace_with_const_i32(
+            ctx, func, node_id, folded,
+          )
+        }
+        None =>
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i32_ne(),
+            inner_operand_id,
+            @ir.hot_build_const_i32(func, @lib.I32(0)),
+          )
+      }
       return true
     }
     (@lib.Instruction::I32Eqz, @ir.HotOp::Unary, Some(@lib.Instruction::I64Eqz)) => {
@@ -8237,14 +8322,23 @@ fn optimize_instructions_try_fold_eqz(
       if !optimize_instructions_node_is_live(func, dead, inner_operand_id) {
         return false
       }
-      optimize_instructions_replace_with_exact_compare(
-        ctx,
-        func,
-        node_id,
-        @lib.Instruction::i64_ne(),
-        inner_operand_id,
-        @ir.hot_build_const_i64(func, @lib.I64(0L)),
-      )
+      match optimize_instructions_i64_const(func, dead, inner_operand_id) {
+        Some(@lib.I64(raw)) => {
+          let folded = if raw == 0L { @lib.I32(0) } else { @lib.I32(1) }
+          optimize_instructions_replace_with_const_i32(
+            ctx, func, node_id, folded,
+          )
+        }
+        None =>
+          optimize_instructions_replace_with_exact_compare(
+            ctx,
+            func,
+            node_id,
+            @lib.Instruction::i64_ne(),
+            inner_operand_id,
+            @ir.hot_build_const_i64(func, @lib.I64(0L)),
+          )
+      }
       return true
     }
     (@lib.Instruction::I32Eqz, @ir.HotOp::Compare, Some(@lib.Instruction::I32Ne)
@@ -10539,6 +10633,173 @@ fn optimize_instructions_replace_ref_cast_with_ref_as_non_null(
 }
 
 ///|
+fn optimize_instructions_try_narrow_null_cast_boundary_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let label_id = @ir.hot_control_node_label(func, node_id)
+  if label_id < 0 || @ir.hot_label_branch_arity(func, label_id) != 1 {
+    return false
+  }
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(_)] => ()
+    _ => return false
+  }
+  let body = @ir.hot_region_body_ref(func, node_id)
+  if @ir.hot_region_root_count(func, body) != 1 {
+    return false
+  }
+  let branch_id = @ir.hot_region_get(func, body, 0)
+  let branch = @ir.hot_node_get(func, branch_id)
+  if branch.imm0 != label_id || @ir.hot_child_count(func, branch_id) != 1 {
+    return false
+  }
+  let is_cast_branch = match branch.op {
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail => true
+    _ => false
+  }
+  if !is_cast_branch {
+    return false
+  }
+  let guard_id = @ir.hot_child_get(func, branch_id, 0)
+  match @ir.hot_node_get(func, guard_id).op {
+    @ir.HotOp::RefNull => ()
+    _ => return false
+  }
+  let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
+  let nullref = @lib.ValType::ref_null(none_heap)
+  let nullref_value_ty = @ir.hot_type_intern_value(func, nullref)
+  let nullref_block_ty = @ir.hot_type_intern_block_result(
+    func,
+    @lib.BlockType::val_type(nullref),
+  )
+  let target_nullable = match @ir.hot_node_exact_instr(func, branch_id) {
+    Some(@lib.Instruction::BrOnCast(_, @lib.CastOp(_, target_nullable), _, _)) =>
+      target_nullable
+    Some(
+      @lib.Instruction::BrOnCastFail(_, @lib.CastOp(_, target_nullable), _, _)
+    ) => target_nullable
+    _ => return false
+  }
+  let new_instr = match branch.op {
+    @ir.HotOp::BrOnCast =>
+      @lib.Instruction::br_on_cast(
+        @lib.LabelIdx::new(0U),
+        true,
+        none_heap,
+        target_nullable,
+        none_heap,
+      )
+    @ir.HotOp::BrOnCastFail =>
+      @lib.Instruction::br_on_cast_fail(
+        @lib.LabelIdx::new(0U),
+        true,
+        none_heap,
+        target_nullable,
+        none_heap,
+      )
+    _ => return false
+  }
+  let narrowed_guard = @ir.hot_build_ref_null(
+    func,
+    @lib.RefType::new(true, none_heap),
+  )
+  let payload_id = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(new_instr),
+  )
+  let replacement_branch = @ir.hot_build_node(
+    func,
+    branch.op,
+    nullref_value_ty,
+    imm0=label_id,
+    imm1=payload_id,
+    children=[narrowed_guard],
+  )
+  @ir.hot_replace_node(
+    func,
+    branch_id,
+    @ir.hot_node_get(func, replacement_branch),
+  )
+  @ir.hot_delete_node(func, replacement_branch)
+  @ir.hot_control_result_type_set(func, node_id, nullref_block_ty)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_replace_unreachable_guard_cast_branch(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let guard_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_get(func, guard_id).op {
+    @ir.HotOp::Unreachable => ()
+    _ => return false
+  }
+  optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+  true
+}
+
+///|
+fn optimize_instructions_try_collapse_dropped_unreachable_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let block_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let body = @ir.hot_region_body_ref(func, block_id)
+  let root_count = @ir.hot_region_root_count(func, body)
+  if root_count == 0 {
+    return false
+  }
+  let mut saw_unreachable = false
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    let root = @ir.hot_region_get(func, body, idx)
+    match @ir.hot_node_get(func, root).op {
+      @ir.HotOp::Unreachable => {
+        saw_unreachable = true
+        break
+      }
+      _ =>
+        if !optimize_instructions_node_effects_are_pure(ctx, func, root) {
+          return false
+        }
+    }
+  }
+  if !saw_unreachable {
+    return false
+  }
+  optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_ref_is_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -12513,6 +12774,10 @@ fn optimize_instructions_visit_node(
       }
     @ir.HotOp::Select =>
       optimize_instructions_try_fold_const_select(ctx, func, dead, node_id)
+    @ir.HotOp::Drop =>
+      optimize_instructions_try_collapse_dropped_unreachable_block(
+        ctx, func, node_id,
+      )
     @ir.HotOp::TupleExtract =>
       optimize_instructions_try_fold_tuple_extract_tuple_make(
         ctx, func, dead, node_id,
@@ -12545,6 +12810,10 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_directize_ref_func_call_ref(
         ctx, func, dead, node_id,
       )
+    @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail =>
+      optimize_instructions_try_replace_unreachable_guard_cast_branch(
+        ctx, func, node_id,
+      )
     @ir.HotOp::Load =>
       optimize_instructions_try_fold_const_memory_access_offset(
         ctx, func, dead, node_id,
@@ -12574,6 +12843,9 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       )
     @ir.HotOp::Block | @ir.HotOp::Loop =>
+      optimize_instructions_try_narrow_null_cast_boundary_block(
+        ctx, func, node_id,
+      ) ||
       optimize_instructions_try_collapse_dead_region_suffix(
         ctx,
         func,
@@ -12582,6 +12854,9 @@ fn optimize_instructions_visit_node(
         @ir.hot_control_node_label(func, node_id),
       )
     @ir.HotOp::If =>
+      optimize_instructions_try_sink_same_global_set_if(
+        ctx, func, dead, node_id,
+      ) ||
       optimize_instructions_try_fold_constant_if_condition(
         ctx, func, dead, node_id,
       ) ||
@@ -12640,6 +12915,14 @@ fn optimize_instructions_run(
       ) ||
       changed
   }
+  changed = optimize_instructions_try_collapse_dead_region_suffix(
+      ctx,
+      func,
+      dead,
+      @ir.HotRegionRef::root(),
+      -1,
+    ) ||
+    changed
   if changed {
     HotPassResult::changed()
   } else {

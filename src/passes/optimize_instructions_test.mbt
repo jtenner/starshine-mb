@@ -564,6 +564,31 @@ test "optimize-instructions keeps shared eqz constant children live" {
 }
 
 ///|
+test "optimize-instructions folds literal double eqz to constant" {
+  // OI-D grouped-sweep follow-up: Binaryen version_130 folds the generated
+  // `i32.const 1; i32.eqz; i32.eqz` representative to `i32.const 1` instead
+  // of stopping at the nonliteral double-eqz shape `i32.ne(1, 0)`. Keep the
+  // existing single-literal `eqz` behavior above unchanged.
+  let i32_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 1 i32.eqz i32.eqz))",
+  )
+  let i32_root = @ir.hot_root_get(i32_func, 0)
+  @debug.assert_eq(
+    @ir.hot_const_get(i32_func, @ir.hot_node_get(i32_func, i32_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i64_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i64.const 9 i64.eqz i32.eqz))",
+  )
+  let i64_root = @ir.hot_root_get(i64_func, 0)
+  @debug.assert_eq(
+    @ir.hot_const_get(i64_func, @ir.hot_node_get(i64_func, i64_root).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+}
+
+///|
 test "optimize-instructions keeps i64.eqz on non-zero constants" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (result i32) i64.const 9 i64.eqz))",
@@ -1605,6 +1630,307 @@ test "optimize-instructions constant-if folding preserves hot label ownership" {
     Err(err) =>
       fail("expected constant-if fold label owners to verify, got \{err}")
   }
+}
+
+///|
+test "optimize-instructions sinks same-global if set arms to one set of value if" {
+  // Red-first OI-F/OI-D parity reduction from
+  // `.tmp/oi-f-effectful-family-classify-20260627/.../case-000002-gen-valid-transform-oi-effectful-sibling`:
+  // Binaryen version_130 sinks same-global `if` arms into a single
+  // `global.set (if (result ...))`, shrinking the effectful-sibling family.
+  let func = optimize_instructions_test_run_hot(
+    "(module (global $g (mut i32) (i32.const 0)) (func (param i32) local.get 0 if i32.const 7 global.set $g else i32.const 9 global.set $g end))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  let set_id = match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => {
+      let body = @ir.hot_region_body_ref(func, root)
+      @debug.assert_eq(@ir.hot_region_root_count(func, body), 1)
+      @ir.hot_region_get(func, body, 0)
+    }
+    _ => root
+  }
+  let set_node = @ir.hot_node_get(func, set_id)
+  match set_node.op {
+    @ir.HotOp::GlobalSet => ()
+    other => fail("expected if arms to sink into one global.set, got \{other}")
+  }
+  @debug.assert_eq(set_node.imm0, 0)
+  @debug.assert_eq(set_node.child_count, 1)
+  let value_if = @ir.hot_child_get(func, set_id, 0)
+  match @ir.hot_node_get(func, value_if).op {
+    @ir.HotOp::If => ()
+    other => fail("expected global.set value to be an if, got \{other}")
+  }
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected sunk global.set(if) shape to verify, got \{err}")
+  }
+}
+
+///|
+test "optimize-instructions folds dropped pure constant add" {
+  // OI-F effectful-sibling reductions also showed stale native output keeping
+  // dropped `i32.const 2; i32.const 3; i32.add`. The pass-owned OI-D behavior is
+  // to fold that pure add before it is dropped; this guards the focused shape.
+  let func = optimize_instructions_test_run_hot(
+    "(module (func i32.const 2 i32.const 3 i32.add drop))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected root to stay a drop of folded add, got \{other}")
+  }
+  let folded = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, folded).op {
+    @ir.HotOp::Const => ()
+    other =>
+      fail("expected dropped pure i32.add to fold to const, got \{other}")
+  }
+  @debug.assert_eq(
+    @ir.hot_const_get(func, @ir.hot_node_get(func, folded).imm0),
+    @ir.HotConstPayload::i32_const(@lib.I32(5)),
+  )
+}
+
+///|
+test "optimize-instructions raw skip folds nested pure constant add" {
+  // Follow-up from `.tmp/oi-f-effectful-family-fix2-20260627`: after the first
+  // dropped add and same-global if sink were fixed, the remaining size loss kept
+  // `i32.add (i32.const 6) (i32.const 7)` nested under a dropped multiply inside
+  // a raw-skipped large function, while Binaryen folds that add to `i32.const 13`.
+  let source = StringBuilder::new()
+  source.write_string("(module (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") i32.const 6 i32.const 7 i32.add i32.const 3 i32.mul drop))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("I32(13)"), msg=pretty)
+  assert_true(pretty.contains("i32.mul"), msg=pretty)
+}
+
+///|
+test "optimize-instructions raw skip folds scalar sub i64 add sub and wrap constants" {
+  // Follow-up from `.tmp/oi-f-effectful-family-fix3-20260627`: the remaining
+  // size-losing `oi-effectful-sibling` representative still kept raw-skipped
+  // OI-D scalar constant spellings that the HOT pass already folds. Keep the
+  // raw escape narrow and pure: adjacent constants with exact scalar opcodes.
+  let source = StringBuilder::new()
+  source.write_string("(module (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") i32.const 84 i32.const 3 i32.sub drop i64.const 99 i64.const 5 i64.add drop i64.const 99 i64.const 5 i64.sub drop i64.const 4294967297 i32.wrap_i64 drop))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.sub"), msg=pretty)
+  assert_false(pretty.contains("i64.add"), msg=pretty)
+  assert_false(pretty.contains("i64.sub"), msg=pretty)
+  assert_false(pretty.contains("i32.wrap_i64"), msg=pretty)
+  assert_true(pretty.contains("I32(81)"), msg=pretty)
+  assert_true(pretty.contains("I64(104)"), msg=pretty)
+  assert_true(pretty.contains("I64(94)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions raw skip rewrites nonnegative signed scalar spellings" {
+  // Follow-up from `.tmp/oi-f-effectful-family-fix4-20260627`: the sampled
+  // private-global `oi-effectful-sibling` representative no longer loses
+  // normalized size, but raw-skip OI still keeps signed compare/div/rem/shift
+  // spellings for nonnegative constants where Binaryen prints unsigned forms.
+  // Keep this narrow: adjacent constants, nonnegative operands, and nonzero
+  // div/rem divisors.
+  let source = StringBuilder::new()
+  source.write_string("(module (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") i32.const 11 i32.const 3 i32.lt_s drop i32.const 11 i32.const 3 i32.gt_s drop i32.const 11 i32.const 3 i32.le_s drop i32.const 11 i32.const 3 i32.ge_s drop i32.const 84 i32.const 3 i32.div_s drop i32.const 84 i32.const 3 i32.rem_s drop i32.const 84 i32.const 3 i32.shr_s drop i64.const 11 i64.const 3 i64.lt_s drop i64.const 11 i64.const 3 i64.gt_s drop i64.const 11 i64.const 3 i64.le_s drop i64.const 11 i64.const 3 i64.ge_s drop i64.const 84 i64.const 3 i64.div_s drop i64.const 84 i64.const 3 i64.rem_s drop i64.const 84 i64.const 3 i64.shr_s drop))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.lt_s"), msg=pretty)
+  assert_false(pretty.contains("i32.gt_s"), msg=pretty)
+  assert_false(pretty.contains("i32.le_s"), msg=pretty)
+  assert_false(pretty.contains("i32.ge_s"), msg=pretty)
+  assert_false(pretty.contains("i32.div_s"), msg=pretty)
+  assert_false(pretty.contains("i32.rem_s"), msg=pretty)
+  assert_false(pretty.contains("i32.shr_s"), msg=pretty)
+  assert_false(pretty.contains("i64.lt_s"), msg=pretty)
+  assert_false(pretty.contains("i64.gt_s"), msg=pretty)
+  assert_false(pretty.contains("i64.le_s"), msg=pretty)
+  assert_false(pretty.contains("i64.ge_s"), msg=pretty)
+  assert_false(pretty.contains("i64.div_s"), msg=pretty)
+  assert_false(pretty.contains("i64.rem_s"), msg=pretty)
+  assert_false(pretty.contains("i64.shr_s"), msg=pretty)
+  assert_true(pretty.contains("i32.lt_u"), msg=pretty)
+  assert_true(pretty.contains("i32.gt_u"), msg=pretty)
+  assert_true(pretty.contains("i32.le_u"), msg=pretty)
+  assert_true(pretty.contains("i32.ge_u"), msg=pretty)
+  assert_true(pretty.contains("i32.div_u"), msg=pretty)
+  assert_true(pretty.contains("i32.rem_u"), msg=pretty)
+  assert_true(pretty.contains("i32.shr_u"), msg=pretty)
+  assert_true(pretty.contains("i64.lt_u"), msg=pretty)
+  assert_true(pretty.contains("i64.gt_u"), msg=pretty)
+  assert_true(pretty.contains("i64.le_u"), msg=pretty)
+  assert_true(pretty.contains("i64.ge_u"), msg=pretty)
+  assert_true(pretty.contains("i64.div_u"), msg=pretty)
+  assert_true(pretty.contains("i64.rem_u"), msg=pretty)
+  assert_true(pretty.contains("i64.shr_u"), msg=pretty)
+}
+
+///|
+test "optimize-instructions raw skip rewrites finite float sub spellings" {
+  // Follow-up from `.tmp/oi-f-effectful-family-fix5-20260627`: after the
+  // sampled private-global representative reached normalized size parity and
+  // integer scalar spellings matched, raw-skip OI still kept finite float
+  // subtraction spellings where Binaryen prints add-with-negated-constant. Keep
+  // this narrow: adjacent finite nonzero constants and no NaN or signed-zero
+  // boundary widening.
+  let source = StringBuilder::new()
+  source.write_string("(module (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") f32.const 9.25 f32.const 2.5 f32.sub drop f64.const 16.75 f64.const 3.5 f64.sub drop))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("f32.sub"), msg=pretty)
+  assert_false(pretty.contains("f64.sub"), msg=pretty)
+  assert_true(pretty.contains("f32.add"), msg=pretty)
+  assert_true(pretty.contains("f64.add"), msg=pretty)
+  assert_true(pretty.contains("F32(-2.5)"), msg=pretty)
+  assert_true(pretty.contains("F64(-3.5)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions raw skip rewrites f64 div by two before finite sub" {
+  // Follow-up from `.tmp/oi-f-effectful-family-fix6-20260627`: direct finite
+  // float subtraction spellings are gone in the sampled private-global
+  // representative, but Binaryen still rewrites the nested finite
+  // `(f64.div x 2.0) - c` shell to `f64.add(f64.mul x 0.5, -c)`.
+  let source = StringBuilder::new()
+  source.write_string("(module (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") f64.const 6.5 f64.const 2 f64.div f64.const 1.5 f64.sub drop))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("f64.sub"), msg=pretty)
+  assert_false(pretty.contains("f64.div"), msg=pretty)
+  assert_true(pretty.contains("f64.mul"), msg=pretty)
+  assert_true(pretty.contains("f64.add"), msg=pretty)
+  assert_true(pretty.contains("F64(0.5)"), msg=pretty)
+  assert_true(pretty.contains("F64(-1.5)"), msg=pretty)
 }
 
 ///|
@@ -7209,6 +7535,155 @@ test "optimize-instructions rewrites nullable-source non-null-target ref.test to
   }
   let effect_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
   assert_true(effect_pretty.contains("call (Func 0)"), msg=effect_pretty)
+}
+
+///|
+test "optimize-instructions narrows null br_on_cast block results" {
+  // OI-I grouped `oi-ref-gc:branch-cast-boundaries` evidence showed a
+  // size-losing shape where Binaryen narrows null-fed cast-boundary blocks to
+  // `nullref`. Keep this focused on single-payload self-targeted cast branches;
+  // descriptor/exactness and non-null producers remain separate OI-J work.
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let void_type = @lib.TypeIdx::new(0U)
+  let source = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([void_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::anyref()),
+              @lib.Expr::new([
+                @lib.Instruction::ref_null(any_heap),
+                @lib.Instruction::br_on_cast(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  any_heap,
+                  false,
+                  i31_heap,
+                ),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::anyref()),
+              @lib.Expr::new([
+                @lib.Instruction::ref_null(any_heap),
+                @lib.Instruction::br_on_cast_fail(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  any_heap,
+                  false,
+                  i31_heap,
+                ),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(source) {
+    Ok(_) => ()
+    Err(err) => fail("unexpected invalid null br_on_cast fixture: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(source, HotPipelineOptions::new(), [
+      "optimize-instructions",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected null br_on_cast optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("AbsHeapType Any"), msg=pretty)
+  assert_true(pretty.contains("AbsHeapType None"), msg=pretty)
+  assert_true(
+    pretty.contains("RefType Not Null (HeapType (AbsHeapType None))"),
+    msg=pretty,
+  )
+  assert_true(pretty.contains("br_on_cast"), msg=pretty)
+  assert_true(pretty.contains("br_on_cast_fail"), msg=pretty)
+}
+
+///|
+test "optimize-instructions collapses repeated dropped null trap blocks" {
+  // Same OI-I branch-cast grouped representative ends with two dropped result
+  // blocks whose only remaining body is `unreachable` after null-as-non-null
+  // folding. Collapse the first trap to an immediate root `unreachable` and
+  // trim the later unreachable tail, matching Binaryen's size-winning shape.
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let any_ref = @lib.ValType::ref_type(@lib.RefType::new(false, any_heap))
+  let void_type = @lib.TypeIdx::new(0U)
+  let source = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([void_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(any_ref),
+              @lib.Expr::new([
+                @lib.Instruction::ref_null(any_heap),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::br_on_cast(
+                  @lib.LabelIdx::new(0U),
+                  false,
+                  any_heap,
+                  false,
+                  @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+                ),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(any_ref),
+              @lib.Expr::new([
+                @lib.Instruction::ref_null(any_heap),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::br_on_cast_fail(
+                  @lib.LabelIdx::new(0U),
+                  false,
+                  any_heap,
+                  false,
+                  @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+                ),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(source) {
+    Ok(_) => ()
+    Err(err) => fail("unexpected invalid dropped trap fixture: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(source, HotPipelineOptions::new(), [
+      "optimize-instructions",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped trap optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("block"), msg=pretty)
+  assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
 }
 
 ///|

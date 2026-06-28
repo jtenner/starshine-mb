@@ -22943,6 +22943,747 @@ fn run_hot_pipeline_optimize_instructions_has_stack_carried_effect(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_local_get_count_instr(
+  instr : @lib.Instruction,
+  target : @lib.LocalIdx,
+) -> Int {
+  match instr {
+    @lib.LocalGet(local_id) if local_id == target => 1
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
+        body, target,
+      )
+    @lib.If(_, then_body, else_body) => {
+      let mut count = run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
+        then_body, target,
+      )
+      match else_body {
+        Some(body) =>
+          count = count +
+            run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
+              body, target,
+            )
+        None => ()
+      }
+      count
+    }
+    _ => 0
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
+  instrs : Array[@lib.Instruction],
+  target : @lib.LocalIdx,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    count = count +
+      run_hot_pipeline_raw_optimize_instructions_local_get_count_instr(
+        instr, target,
+      )
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
+  instr : @lib.Instruction,
+  root_instrs : Array[@lib.Instruction],
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Instruction::Block(bt, @lib.Expr(body)) => {
+      let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
+        body, root_instrs,
+      )
+      if changed {
+        (@lib.Instruction::block(bt, @lib.Expr::new(rewritten)), true)
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.Instruction::Loop(bt, @lib.Expr(body)) => {
+      let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
+        body, root_instrs,
+      )
+      if changed {
+        (@lib.Instruction::loop_(bt, @lib.Expr::new(rewritten)), true)
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.Instruction::If(bt, then_body, else_body) => {
+      let (rewritten_then, then_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
+        then_body, root_instrs,
+      )
+      let (rewritten_else, else_changed) = match else_body {
+        Some(body) => {
+          let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
+            body, root_instrs,
+          )
+          (Some(rewritten), changed)
+        }
+        None => (None, false)
+      }
+      if then_changed || else_changed {
+        (@lib.Instruction::if_(bt, rewritten_then, rewritten_else), true)
+      } else {
+        (instr, false)
+      }
+    }
+    @lib.Instruction::TryTable(bt, catches, @lib.Expr(body)) => {
+      let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
+        body, root_instrs,
+      )
+      if changed {
+        (
+          @lib.Instruction::try_table(bt, catches, @lib.Expr::new(rewritten)),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
+  instr : @lib.Instruction,
+) -> @lib.FuncIdx? {
+  match instr {
+    @lib.Instruction::RefFunc(func_idx) => Some(func_idx)
+    @lib.Instruction::Block(_, @lib.Expr(body)) if body.length() == 1 =>
+      match body[0] {
+        @lib.Instruction::RefFunc(func_idx) => Some(func_idx)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_push_directized_local_call_ref(
+  out : Array[@lib.Instruction],
+  ref_func_instr : @lib.Instruction,
+  local_set_instr : @lib.Instruction,
+  func_idx : @lib.FuncIdx,
+  local_id : @lib.LocalIdx,
+  root_instrs : Array[@lib.Instruction],
+  is_return : Bool,
+) -> Unit {
+  if run_hot_pipeline_raw_optimize_instructions_local_get_count_body(
+      root_instrs, local_id,
+    ) ==
+    1 {
+    if is_return {
+      out.push(@lib.Instruction::return_call(func_idx))
+    } else {
+      out.push(@lib.Instruction::call(func_idx))
+    }
+  } else {
+    out.push(ref_func_instr)
+    out.push(local_set_instr)
+    if is_return {
+      out.push(@lib.Instruction::return_call(func_idx))
+    } else {
+      out.push(@lib.Instruction::call(func_idx))
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
+  instrs : Array[@lib.Instruction],
+  root_instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    let (current, child_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_instr(
+      instrs[i],
+      root_instrs,
+    )
+    changed = changed || child_changed
+    if i + 1 < instrs.length() {
+      match (current, instrs[i + 1]) {
+        (block_instr, @lib.Instruction::Drop) if pass_raw_dropped_block_has_unreachable_tail(
+            block_instr,
+          ) => {
+          out.push(@lib.Instruction::unreachable_())
+          changed = true
+          break
+        }
+        (@lib.Instruction::RefNull(_), @lib.Instruction::RefAsNonNull) => {
+          out.push(@lib.Instruction::unreachable_())
+          changed = true
+          break
+        }
+        _ => ()
+      }
+    }
+    if i + 2 < instrs.length() {
+      match (current, instrs[i + 1], instrs[i + 2]) {
+        (
+          @lib.Instruction::RefNull(_),
+          @lib.Instruction::RefTest(nullable, _),
+          @lib.Instruction::Drop,
+        ) => {
+          out.push(
+            @lib.Instruction::i32_const(@lib.I32(if nullable { 1 } else { 0 })),
+          )
+          out.push(@lib.Instruction::drop())
+          changed = true
+          i += 3
+          continue
+        }
+        (
+          @lib.Instruction::RefNull(_),
+          @lib.Instruction::RefCast(nullable, exact, target_heap),
+          @lib.Instruction::Drop,
+        ) =>
+          if nullable {
+            out.push(
+              @lib.Instruction::ref_null_type(
+                @lib.RefType::new(true, target_heap, exact~),
+              ),
+            )
+            out.push(@lib.Instruction::drop())
+            changed = true
+            i += 3
+            continue
+          } else {
+            out.push(@lib.Instruction::unreachable_())
+            changed = true
+            break
+          }
+        _ => ()
+      }
+    }
+    if i + 4 < instrs.length() {
+      match
+        (
+          run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
+            current,
+          ),
+          run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
+            instrs[i + 1],
+          ),
+          instrs[i + 2],
+          instrs[i + 3],
+          instrs[i + 4],
+        ) {
+        (
+          Some(true_func),
+          Some(false_func),
+          @lib.Instruction::I32Const(@lib.I32(raw)),
+          @lib.Instruction::Select(_),
+          @lib.Instruction::CallRef(_),
+        ) => {
+          out.push(
+            @lib.Instruction::call(
+              if raw == 0 {
+                false_func
+              } else {
+                true_func
+              },
+            ),
+          )
+          changed = true
+          i += 5
+          continue
+        }
+        (
+          Some(true_func),
+          Some(false_func),
+          @lib.Instruction::I32Const(@lib.I32(raw)),
+          @lib.Instruction::Select(_),
+          @lib.Instruction::ReturnCallRef(_),
+        ) => {
+          out.push(
+            @lib.Instruction::return_call(
+              if raw == 0 {
+                false_func
+              } else {
+                true_func
+              },
+            ),
+          )
+          changed = true
+          i += 5
+          continue
+        }
+        _ => ()
+      }
+    }
+    if i + 3 < instrs.length() {
+      match
+        (
+          run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
+            current,
+          ),
+          instrs[i + 1],
+          instrs[i + 2],
+          instrs[i + 3],
+        ) {
+        (
+          Some(func_idx),
+          @lib.Instruction::LocalSet(local_id),
+          @lib.Instruction::LocalGet(get_local_id),
+          @lib.Instruction::CallRef(_),
+        ) if local_id == get_local_id => {
+          run_hot_pipeline_raw_optimize_instructions_push_directized_local_call_ref(
+            out,
+            current,
+            instrs[i + 1],
+            func_idx,
+            local_id,
+            root_instrs,
+            false,
+          )
+          changed = true
+          i += 4
+          continue
+        }
+        (
+          Some(func_idx),
+          @lib.Instruction::LocalSet(local_id),
+          @lib.Instruction::LocalGet(get_local_id),
+          @lib.Instruction::ReturnCallRef(_),
+        ) if local_id == get_local_id => {
+          run_hot_pipeline_raw_optimize_instructions_push_directized_local_call_ref(
+            out,
+            current,
+            instrs[i + 1],
+            func_idx,
+            local_id,
+            root_instrs,
+            true,
+          )
+          changed = true
+          i += 4
+          continue
+        }
+        _ => ()
+      }
+    }
+    if i + 1 < instrs.length() {
+      match
+        (
+          run_hot_pipeline_raw_optimize_instructions_ref_func_block_target(
+            current,
+          ),
+          instrs[i + 1],
+        ) {
+        (Some(func_idx), @lib.Instruction::CallRef(_)) => {
+          out.push(@lib.Instruction::call(func_idx))
+          changed = true
+          i += 2
+          continue
+        }
+        (Some(func_idx), @lib.Instruction::ReturnCallRef(_)) => {
+          out.push(@lib.Instruction::return_call(func_idx))
+          changed = true
+          i += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    out.push(current)
+    i += 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
+    instrs, instrs,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_sink_same_global_if(
+  block_type : @lib.BlockType,
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Array[@lib.Instruction]? {
+  if block_type != @lib.BlockType::void_() ||
+    then_body.length() != 2 ||
+    else_body.length() != 2 {
+    return None
+  }
+  let then_value = then_body[0]
+  let else_value = else_body[0]
+  match (then_body[1], else_body[1]) {
+    (@lib.GlobalSet(global_idx), @lib.GlobalSet(other_global_idx)) if global_idx ==
+      other_global_idx => {
+      let value_type = match
+        @ir.hot_module_resolve_global_type(module_ctx, global_idx) {
+        Some(@lib.GlobalType(val_type, _)) => val_type
+        None => return None
+      }
+      Some([
+        @lib.Instruction::if_(
+          @lib.BlockType::val_type(value_type),
+          [then_value],
+          Some([else_value]),
+        ),
+        @lib.Instruction::global_set(global_idx),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (next_body, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+        body, module_ctx,
+      )
+      if changed {
+        ([@lib.Instruction::block(block_type, @lib.Expr::new(next_body))], true)
+      } else {
+        ([instr], false)
+      }
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (next_body, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+        body, module_ctx,
+      )
+      if changed {
+        ([@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))], true)
+      } else {
+        ([instr], false)
+      }
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (next_body, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+        body, module_ctx,
+      )
+      if changed {
+        (
+          [
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            ),
+          ],
+          true,
+        )
+      } else {
+        ([instr], false)
+      }
+    }
+    @lib.If(block_type, then_body, Some(else_body)) => {
+      let (next_then, then_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+        then_body, module_ctx,
+      )
+      let (next_else, else_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+        else_body, module_ctx,
+      )
+      match
+        run_hot_pipeline_raw_optimize_instructions_sink_same_global_if(
+          block_type, next_then, next_else, module_ctx,
+        ) {
+        Some(expanded) => (expanded, true)
+        None =>
+          if then_changed || else_changed {
+            (
+              [@lib.Instruction::if_(block_type, next_then, Some(next_else))],
+              true,
+            )
+          } else {
+            ([instr], false)
+          }
+      }
+    }
+    @lib.If(block_type, then_body, None) => {
+      let (next_then, then_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+        then_body, module_ctx,
+      )
+      if then_changed {
+        ([@lib.Instruction::if_(block_type, next_then, None)], true)
+      } else {
+        ([instr], false)
+      }
+    }
+    _ => ([instr], false)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_wrap_i64_const_to_i32(
+  value : Int64,
+) -> @lib.I32 {
+  let lower64 = value & 4294967295L
+  if lower64 >= 2147483648L {
+    @lib.I32((lower64 - 4294967296L).to_int())
+  } else {
+    @lib.I32(lower64.to_int())
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_i32_nonnegative_signed_spelling(
+  lhs_raw : Int,
+  rhs_raw : Int,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  if lhs_raw < 0 || rhs_raw < 0 {
+    return None
+  }
+  match instr {
+    @lib.I32LtS => Some(@lib.Instruction::i32_lt_u())
+    @lib.I32GtS => Some(@lib.Instruction::i32_gt_u())
+    @lib.I32LeS => Some(@lib.Instruction::i32_le_u())
+    @lib.I32GeS => Some(@lib.Instruction::i32_ge_u())
+    @lib.I32DivS if rhs_raw != 0 => Some(@lib.Instruction::i32_div_u())
+    @lib.I32RemS if rhs_raw != 0 => Some(@lib.Instruction::i32_rem_u())
+    @lib.I32ShrS => Some(@lib.Instruction::i32_shr_u())
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_i64_nonnegative_signed_spelling(
+  lhs_raw : Int64,
+  rhs_raw : Int64,
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  if lhs_raw < 0L || rhs_raw < 0L {
+    return None
+  }
+  match instr {
+    @lib.I64LtS => Some(@lib.Instruction::i64_lt_u())
+    @lib.I64GtS => Some(@lib.Instruction::i64_gt_u())
+    @lib.I64LeS => Some(@lib.Instruction::i64_le_u())
+    @lib.I64GeS => Some(@lib.Instruction::i64_ge_u())
+    @lib.I64DivS if rhs_raw != 0L => Some(@lib.Instruction::i64_div_u())
+    @lib.I64RemS if rhs_raw != 0L => Some(@lib.Instruction::i64_rem_u())
+    @lib.I64ShrS => Some(@lib.Instruction::i64_shr_u())
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_f32_can_negate_for_sub(
+  raw : Float,
+) -> Bool {
+  let bits = raw.reinterpret_as_uint()
+  let magnitude = bits & 0x7FFFFFFFU
+  magnitude != 0U && (bits & 0x7F800000U) != 0x7F800000U
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
+  raw : Double,
+) -> Bool {
+  let bits = raw.reinterpret_as_uint64()
+  let magnitude = bits & 0x7FFFFFFFFFFFFFFFUL
+  magnitude != 0UL && (bits & 0x7FF0000000000000UL) != 0x7FF0000000000000UL
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    if i + 4 < instrs.length() {
+      match
+        (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
+        (
+          @lib.F64Const(@lib.F64(div_lhs_raw)),
+          @lib.F64Const(@lib.F64(div_rhs_raw)),
+          @lib.F64Div,
+          @lib.F64Const(@lib.F64(sub_rhs_raw)),
+          @lib.F64Sub,
+        ) if div_rhs_raw == 2.0 &&
+          run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
+            div_lhs_raw,
+          ) &&
+          run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
+            sub_rhs_raw,
+          ) => {
+          rewritten.push(@lib.Instruction::f64_const(@lib.F64(div_lhs_raw)))
+          rewritten.push(@lib.Instruction::f64_const(@lib.F64(0.5)))
+          rewritten.push(@lib.Instruction::f64_mul())
+          rewritten.push(@lib.Instruction::f64_const(@lib.F64(-sub_rhs_raw)))
+          rewritten.push(@lib.Instruction::f64_add())
+          changed = true
+          i = i + 5
+          continue
+        }
+        _ => ()
+      }
+    }
+    if i + 2 < instrs.length() {
+      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (
+          @lib.I32Const(@lib.I32(lhs_raw)),
+          @lib.I32Const(@lib.I32(rhs_raw)),
+          instr,
+        ) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_i32_nonnegative_signed_spelling(
+              lhs_raw, rhs_raw, instr,
+            ) {
+            Some(unsigned_instr) => {
+              rewritten.push(@lib.Instruction::i32_const(@lib.I32(lhs_raw)))
+              rewritten.push(@lib.Instruction::i32_const(@lib.I32(rhs_raw)))
+              rewritten.push(unsigned_instr)
+              changed = true
+              i = i + 3
+              continue
+            }
+            None => ()
+          }
+        (
+          @lib.I64Const(@lib.I64(lhs_raw)),
+          @lib.I64Const(@lib.I64(rhs_raw)),
+          instr,
+        ) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_i64_nonnegative_signed_spelling(
+              lhs_raw, rhs_raw, instr,
+            ) {
+            Some(unsigned_instr) => {
+              rewritten.push(@lib.Instruction::i64_const(@lib.I64(lhs_raw)))
+              rewritten.push(@lib.Instruction::i64_const(@lib.I64(rhs_raw)))
+              rewritten.push(unsigned_instr)
+              changed = true
+              i = i + 3
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (@lib.F32Const(lhs), @lib.F32Const(@lib.F32(rhs_raw)), @lib.F32Sub) if run_hot_pipeline_raw_optimize_instructions_f32_can_negate_for_sub(
+            rhs_raw,
+          ) => {
+          rewritten.push(@lib.Instruction::f32_const(lhs))
+          rewritten.push(@lib.Instruction::f32_const(@lib.F32(-rhs_raw)))
+          rewritten.push(@lib.Instruction::f32_add())
+          changed = true
+          i = i + 3
+          continue
+        }
+        (@lib.F64Const(lhs), @lib.F64Const(@lib.F64(rhs_raw)), @lib.F64Sub) if run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
+            rhs_raw,
+          ) => {
+          rewritten.push(@lib.Instruction::f64_const(lhs))
+          rewritten.push(@lib.Instruction::f64_const(@lib.F64(-rhs_raw)))
+          rewritten.push(@lib.Instruction::f64_add())
+          changed = true
+          i = i + 3
+          continue
+        }
+        (
+          @lib.I32Const(@lib.I32(lhs_raw)),
+          @lib.I32Const(@lib.I32(rhs_raw)),
+          @lib.I32Add,
+        ) => {
+          let folded = @lib.I32(
+            (lhs_raw.reinterpret_as_uint() + rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
+          )
+          rewritten.push(@lib.Instruction::i32_const(folded))
+          changed = true
+          i = i + 3
+          continue
+        }
+        (
+          @lib.I32Const(@lib.I32(lhs_raw)),
+          @lib.I32Const(@lib.I32(rhs_raw)),
+          @lib.I32Sub,
+        ) => {
+          let folded = @lib.I32(
+            (lhs_raw.reinterpret_as_uint() - rhs_raw.reinterpret_as_uint()).reinterpret_as_int(),
+          )
+          rewritten.push(@lib.Instruction::i32_const(folded))
+          changed = true
+          i = i + 3
+          continue
+        }
+        (
+          @lib.I64Const(@lib.I64(lhs_raw)),
+          @lib.I64Const(@lib.I64(rhs_raw)),
+          @lib.I64Add,
+        ) => {
+          let folded = @lib.I64(
+            (lhs_raw.reinterpret_as_uint64() + rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
+          )
+          rewritten.push(@lib.Instruction::i64_const(folded))
+          changed = true
+          i = i + 3
+          continue
+        }
+        (
+          @lib.I64Const(@lib.I64(lhs_raw)),
+          @lib.I64Const(@lib.I64(rhs_raw)),
+          @lib.I64Sub,
+        ) => {
+          let folded = @lib.I64(
+            (lhs_raw.reinterpret_as_uint64() - rhs_raw.reinterpret_as_uint64()).reinterpret_as_int64(),
+          )
+          rewritten.push(@lib.Instruction::i64_const(folded))
+          changed = true
+          i = i + 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    if i + 1 < instrs.length() {
+      match (instrs[i], instrs[i + 1]) {
+        (@lib.I64Const(@lib.I64(raw)), @lib.I32WrapI64) => {
+          rewritten.push(
+            @lib.Instruction::i32_const(
+              run_hot_pipeline_raw_optimize_instructions_wrap_i64_const_to_i32(
+                raw,
+              ),
+            ),
+          )
+          changed = true
+          i = i + 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    let (expanded, instr_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
+      instrs[i],
+      module_ctx,
+    )
+    for item in expanded {
+      rewritten.push(item)
+    }
+    changed = changed || instr_changed
+    i = i + 1
+  }
+  (rewritten, changed)
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -22955,27 +23696,39 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(body)) = original
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  let (directized_body, directized_changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body(
+    body,
+  )
+  let (effectful_sibling_body, effectful_sibling_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+    directized_body, module_ctx,
+  )
+  let skipped_func = if directized_changed || effectful_sibling_changed {
+    @lib.Func::new(locals, @lib.Expr::new(effectful_sibling_body))
+  } else {
+    original
+  }
+  let skipped_unchanged = !directized_changed && !effectful_sibling_changed
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
   if locals.length() > 1024 {
     return Some({
       reason: "large-local-optimize-instructions",
-      func: original,
-      unchanged_original: true,
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
     })
   }
   if locals.length() > 64 && stats.instrs > 500 {
     return Some({
       reason: "large-lowered-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
     })
   }
-  let module_ctx = run_hot_pipeline_require_module_ctx(
-    mod_, module_state, options,
-  )
   let env = run_hot_pipeline_raw_simplify_locals_func_env(
     mod_, func_idx, module_ctx, locals,
   )
@@ -22993,8 +23746,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     ) {
     return Some({
       reason: "stack-carried-effect-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
     })
   }
@@ -23007,8 +23760,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     stats.local_writes >= 20 {
     return Some({
       reason: "structured-call-branch-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
     })
   }
@@ -23021,8 +23774,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     stats.local_writes >= 20 {
     return Some({
       reason: "block-return-call-branch-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
     })
   }
@@ -23034,8 +23787,8 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     stats.local_writes >= 4 {
     return Some({
       reason: "loop-branch-local-write-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
     })
   }
@@ -23044,16 +23797,16 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     !run_hot_pipeline_optimize_instructions_is_const_offset_load_then_call(body) {
     return Some({
       reason: "load-call-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
     })
   }
   if stats.calls > 0 && stats.local_writes > 0 {
     return Some({
       reason: "call-local-write-optimize-instructions-noop",
-      func: original,
-      unchanged_original: true,
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
     })
   }

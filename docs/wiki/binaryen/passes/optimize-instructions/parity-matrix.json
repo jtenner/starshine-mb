@@ -1,0 +1,1245 @@
+{
+  "schemaVersion": 1,
+  "kind": "starshine.optimize-instructions.parity-matrix",
+  "pass": "optimize-instructions",
+  "binaryenVersion": "version_130",
+  "lastReviewed": "2026-06-27",
+  "statusVocabulary": [
+    "covered",
+    "mismatch",
+    "intentional-boundary",
+    "blocked-surface",
+    "unsafe-gap",
+    "starshine-win-candidate"
+  ],
+  "priorityVocabulary": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "defaultOracleMode": "compare-pass: Binaryen wasm-opt --all-features --optimize-instructions versus Starshine --optimize-instructions, canonicalized and normalized WAT comparison",
+  "sources": [
+    "docs/wiki/raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md",
+    "docs/wiki/raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md",
+    "docs/wiki/binaryen/passes/optimize-instructions/index.md",
+    "docs/wiki/binaryen/passes/optimize-instructions/binaryen-strategy.md",
+    "docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md",
+    "docs/wiki/binaryen/passes/optimize-instructions/fuzzing.md",
+    "src/passes/optimize_instructions.mbt",
+    "src/passes/optimize_instructions_test.mbt",
+    "src/passes/pass_manager.mbt"
+  ],
+  "families": [
+    {
+      "id": "OI-D",
+      "title": "default arithmetic / compare / scalar identities",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp::visitBinary",
+        "OptimizeInstructions.cpp::optimizeBoolean",
+        "optimize-instructions-default.wast",
+        "optimize-instructions-mvp.wast",
+        "optimize-instructions-nontrapping-float-to-int.wast"
+      ]
+    },
+    {
+      "id": "OI-E",
+      "title": "LocalScanner maxBits / signExtBits / unsigned range facts",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp::LocalScanner",
+        "src/ir/bits.h",
+        "src/ir/properties.h",
+        "optimize-instructions-sign_ext.wast"
+      ]
+    },
+    {
+      "id": "OI-F",
+      "title": "boolean, if, select, ternary shell, branch-hint / no-fold / no-reorder boundaries",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp::visitIf",
+        "OptimizeInstructions.cpp::optimizeSelect",
+        "OptimizeInstructions.cpp::optimizeTernary",
+        "src/ir/branch-hints.h",
+        "optimize-instructions_branch-hints-fold.wast",
+        "optimize-instructions_idempotent.wast"
+      ]
+    },
+    {
+      "id": "OI-G",
+      "title": "memory, load/store, memory64, bulk-memory tiny copy/fill, trap-relaxed zero-size boundaries",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp::optimizeMemoryAccess",
+        "OptimizeInstructions.cpp::optimizeMemoryCopy",
+        "OptimizeInstructions.cpp::optimizeMemoryFill",
+        "optimize-instructions-bulk-memory.wast",
+        "optimize-instructions-memory64.wast",
+        "optimize-instructions-ignore-traps.wast"
+      ]
+    },
+    {
+      "id": "OI-H",
+      "title": "call_ref and return_call_ref directization",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp::visitCallRef",
+        "src/passes/call-utils.h",
+        "optimize-instructions-call_ref.wast",
+        "optimize-instructions-call_ref-roundtrip.wast"
+      ]
+    },
+    {
+      "id": "OI-I",
+      "title": "non-GC reference equality, null tests, basic casts/tests",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp::visitRefEq",
+        "OptimizeInstructions.cpp::visitRefIsNull",
+        "OptimizeInstructions.cpp::visitRefTest",
+        "OptimizeInstructions.cpp::visitRefCast",
+        "OptimizeInstructions.cpp::visitRefAs",
+        "optimize-instructions-gc.wast"
+      ]
+    },
+    {
+      "id": "OI-J",
+      "title": "descriptor, exactness, TNH/IIT cast boundaries",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp::skipCast",
+        "OptimizeInstructions.cpp::skipNonNullCast",
+        "OptimizeInstructions.cpp::trapOnNull",
+        "optimize-instructions-exact.wast",
+        "optimize-instructions-all-casts.wast",
+        "optimize-instructions-all-casts-exact.wast",
+        "optimize-instructions-desc.wast",
+        "optimize-instructions-gc-iit.wast",
+        "optimize-instructions-gc-tnh.wast"
+      ]
+    },
+    {
+      "id": "OI-K",
+      "title": "GC constructor, field, array, default, ordering surface",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp::visitStructNew",
+        "OptimizeInstructions.cpp::visitStructGet",
+        "OptimizeInstructions.cpp::visitArrayNew",
+        "OptimizeInstructions.cpp::visitArrayGet",
+        "OptimizeInstructions.cpp::visitArrayLen",
+        "optimize-instructions-gc.wast",
+        "optimize-instructions-gc-extern.wast"
+      ]
+    },
+    {
+      "id": "OI-L",
+      "title": "GC atomics, RMW, cmpxchg surface",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp GC RMW/cmpxchg visitors",
+        "optimize-instructions-gc-atomics.wast",
+        "optimize-instructions-struct-rmw.wast"
+      ]
+    },
+    {
+      "id": "OI-M",
+      "title": "tuple extraction and multivalue surface",
+      "upstreamOwners": [
+        "OptimizeInstructions.cpp::visitTupleExtract",
+        "optimize-instructions-multivalue.wast"
+      ]
+    }
+  ],
+  "genValidProfiles": [
+    {
+      "name": "pass-oi-default-scalar",
+      "status": "implemented-trigger-smoke-plus",
+      "families": [
+        "OI-D"
+      ],
+      "intent": "Seed-indexed OI-D scalar trigger-smoke modules covering direct scalar identities plus local-carried and local.tee/commuted add-zero variants; future work should replace the deterministic three-case selector with broader randomized trigger-biased scalar constructors and existing-producer wrappers.",
+      "featureRequirements": [
+        "mvp"
+      ],
+      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-default-scalar --out-dir .tmp/pass-fuzz-oi-default-scalar --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
+      "implementation": "src/validate/gen_valid.mbt special-cases this profile to emit one of three validating trigger-smoke modules selected by seed modulo 3: direct scalar, local-carried scalar, or local.tee/commuted scalar. src/validate/gen_valid_tests.mbt asserts both baseline opcode coverage and distinct seed-indexed trigger signatures.",
+      "lastCheckedEvidence": [
+        "src/validate/gen_valid.mbt::gen_valid_oi_default_scalar_profile_body and gen_valid_oi_trigger_profile_case (2026-06-27)",
+        "src/validate/gen_valid_tests.mbt::OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases failed red-first before implementation, then passed (2026-06-27)",
+        "moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt passed 96/96 (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 3 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-default-scalar --out-dir .tmp/oi-d-trigger-profile-cases-compare-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 3/3, raw mismatches 3, validation/generator/property/command failures 0 (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-D --execute --count 3 --starshine-bin target/native/release/build/cmd/cmd.exe: compared 3/3 with grouped OI-D transforms, raw mismatches 3, validation/generator/property/command failures 0 (2026-06-27)",
+        "src/fuzz/main.mbt + scripts/lib/pass-fuzz-compare-task.ts record OI profile_case_label metadata in GenValid manifests, result.json genValidProfileCaseCounts, summary strategy counters, and cases.jsonl (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 3 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-default-scalar --out-dir .tmp/oi-d-trigger-profile-cases-metadata-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 3/3, raw mismatches 3, profile case counts local-tee-commuted/direct/local-carried = 1 each, validation/generator/property/command failures 0 (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-D,OI-E --count 3 --out-dir .tmp/oi-parity-sweep-summary-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --execute: OI-D result summary grouped profile cases local-tee-commuted/direct/local-carried = 1 each and case-label statuses mismatch=1 each; compared 3/3, raw mismatches 3, validation/generator/property/command failures 0 (2026-06-27)"
+      ]
+    },
+    {
+      "name": "pass-oi-local-facts",
+      "status": "implemented-trigger-smoke-plus",
+      "families": [
+        "OI-E"
+      ],
+      "intent": "Seed-indexed OI-E local-fact trigger-smoke modules covering direct local.set/local.get sign-extension facts, local.tee carried add-zero, and local-carried mask use; future work should add randomized maxBits/signExt/nullness fact constructors and wrappers around existing producers.",
+      "featureRequirements": [
+        "mvp"
+      ],
+      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-local-facts --out-dir .tmp/pass-fuzz-oi-local-facts --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
+      "implementation": "src/validate/gen_valid.mbt special-cases this profile to emit one of three validating local-fact trigger-smoke modules selected by seed modulo 3: direct sign-extension facts, local.tee add-zero facts, or local mask facts. src/validate/gen_valid_tests.mbt asserts both baseline fact coverage and distinct seed-indexed trigger signatures.",
+      "lastCheckedEvidence": [
+        "src/validate/gen_valid.mbt::gen_valid_oi_local_facts_profile_body and gen_valid_oi_trigger_profile_case (2026-06-27)",
+        "src/validate/gen_valid_tests.mbt::OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases failed red-first before implementation, then passed (2026-06-27)",
+        "moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt passed 96/96 (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 3 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-local-facts --out-dir .tmp/oi-e-trigger-profile-cases-compare-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 3/3, raw mismatches 3, validation/generator/property/command failures 0 (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-E --execute --count 3 --starshine-bin target/native/release/build/cmd/cmd.exe: compared 3/3 with grouped OI-E transforms, raw mismatches 3, validation/generator/property/command failures 0 (2026-06-27)",
+        "src/fuzz/main.mbt + scripts/lib/pass-fuzz-compare-task.ts record OI profile_case_label metadata in GenValid manifests, result.json genValidProfileCaseCounts, summary strategy counters, and cases.jsonl (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 3 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-local-facts --out-dir .tmp/oi-e-trigger-profile-cases-metadata-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 3/3, raw mismatches 3, profile case counts local-carried-mask/direct-sign-extension/local-tee-add-zero = 1 each, validation/generator/property/command failures 0 (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-D,OI-E --count 3 --out-dir .tmp/oi-parity-sweep-summary-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --execute: OI-E result summary grouped profile cases local-carried-mask/direct-sign-extension/local-tee-add-zero = 1 each and case-label statuses mismatch=1 each; compared 3/3, raw mismatches 3, validation/generator/property/command failures 0 (2026-06-27)"
+      ]
+    },
+    {
+      "name": "pass-oi-boolean-select",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-F"
+      ],
+      "intent": "Boolean contexts, if/select condition normalization, identical arms, ternary shells, effectful/trapping condition boundaries, and branch-hint/no-fold representation blockers.",
+      "featureRequirements": [
+        "mvp"
+      ],
+      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --out-dir .tmp/pass-fuzz-oi-boolean-select --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
+      "implementation": "src/validate/gen_valid.mbt accepts this profile and maps it to a bounded Binaryen-oracle GenValid config; targeted trigger constructors remain future work."
+    },
+    {
+      "name": "pass-oi-memory-bulk",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-G"
+      ],
+      "intent": "Memory32/memory64 load/store offset folding, stored-value cleanup, tiny memory.copy/fill, zero-size trap-mode boundaries, and call/local/global carried operands.",
+      "featureRequirements": [
+        "memory",
+        "bulk-memory"
+      ],
+      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-memory-bulk --out-dir .tmp/pass-fuzz-oi-memory-bulk --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
+      "implementation": "src/validate/gen_valid.mbt accepts this profile and maps it to a bounded Binaryen-oracle GenValid config; targeted trigger constructors remain future work."
+    },
+    {
+      "name": "pass-oi-call-ref",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-H"
+      ],
+      "intent": "ref.func, table.get, select-of-target, fallthrough-known, call_ref, and return_call_ref directization with argument localization boundaries.",
+      "featureRequirements": [
+        "reference-types",
+        "typed-function-references"
+      ],
+      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-call-ref --out-dir .tmp/pass-fuzz-oi-call-ref --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
+      "implementation": "src/validate/gen_valid.mbt accepts this profile and maps it to a bounded Binaryen-oracle GenValid config; targeted trigger constructors remain future work."
+    },
+    {
+      "name": "pass-oi-ref-gc",
+      "status": "implemented-trigger-smoke-plus",
+      "families": [
+        "OI-I",
+        "OI-J",
+        "OI-K",
+        "OI-L"
+      ],
+      "intent": "Seed-indexed OI-I reference trigger-smoke modules covering branch-cast boundaries, direct null/test/cast/equality forms, and local-carried null/test/cast forms. Descriptor/exactness/TNH/IIT coverage remains a blocked OI-J follow-up because the previous broad descriptor-bearing profile produced wasm-tools baseline validation failures (malformed section id 14) in the compare-pass oracle lane.",
+      "featureRequirements": [
+        "reference-types",
+        "gc"
+      ],
+      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-ref-gc --out-dir .tmp/pass-fuzz-oi-ref-gc --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
+      "implementation": "src/validate/gen_valid.mbt now special-cases this profile to emit one of three validating trigger-smoke modules selected by seed modulo 3: branch-cast boundaries, direct null/test/cast/equality forms, or local-carried null/test/cast forms. src/validate/gen_valid_tests.mbt asserts the profile labels and distinct seed-indexed trigger signatures. Descriptor/TNH/IIT constructors are intentionally not represented by this smoke selector yet.",
+      "lastCheckedEvidence": [
+        "src/validate/gen_valid.mbt::gen_valid_oi_ref_gc_profile_body and gen_valid_oi_trigger_profile_case_label(PassOiRefGcProfile) (2026-06-27)",
+        "src/validate/gen_valid_tests.mbt::OI-I ref-gc trigger-smoke profile selects distinct seed-indexed reference cases failed red-first before implementation, then passed (2026-06-27)",
+        "moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt passed 97/97 (2026-06-27)",
+        "Initial grouped OI-I/OI-J pass-oi-ref-gc sweep at .tmp/oi-ref-gc-grouped-sweep-20260627 generated 0/6 comparable cases because descriptor-bearing inputs failed wasm-tools --features all with malformed section id 14 (2026-06-27)",
+        "After the trigger-smoke selector, .tmp/oi-ref-gc-trigger-grouped-sweep-20260627 OI-I compared 3/3 with generator failures 0, one match, and two raw mismatches grouped by oi-ref-gc case label (2026-06-27)",
+        "After the branch-cast fix, .tmp/oi-ref-gc-branch-cast-fix4-20260627 OI-I compared 3/3 with branch-cast-boundaries and local-carried-null-test-cast matching and only direct-null-test-cast-eq mismatching (2026-06-27)",
+        ".tmp/oi-ref-gc-direct-no-transform-triage-20260627 reran pass-oi-ref-gc without metamorphic transforms and still isolated direct-null-test-cast-eq as the one OI-I raw mismatch; sampled canonical size is Starshine 40 bytes vs Binaryen 48 bytes with both outputs validating (2026-06-27)",
+        "After the trigger-smoke selector, .tmp/oi-ref-gc-trigger-grouped-sweep-20260627 OI-J --include-disabled compared 3/3 with generator failures 0, one match, and two raw mismatches, but still does not exercise descriptor/exactness/TNH/IIT (2026-06-27)"
+      ]
+    },
+    {
+      "name": "pass-oi-tuple",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-M"
+      ],
+      "intent": "tuple.extract(tuple.make(...)), selected-lane, non-selected effectful/trapping sibling, tuple-scratch, and multivalue block surfaces.",
+      "featureRequirements": [
+        "multivalue"
+      ],
+      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-tuple --out-dir .tmp/pass-fuzz-oi-tuple --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
+      "implementation": "src/validate/gen_valid.mbt accepts this profile and maps it to a bounded Binaryen-oracle GenValid config; targeted trigger constructors remain future work."
+    }
+  ],
+  "metamorphicTransforms": [
+    {
+      "id": "oi-local-carried",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-D",
+        "OI-E",
+        "OI-G",
+        "OI-H",
+        "OI-I",
+        "OI-M"
+      ],
+      "intent": "Implemented smoke transform: prepend each defined function with an added i32 local, local.set/local.get, an i32.add carrier, and drop, preserving source semantics while exposing a local-carried scalar/fact surface. Future work should wrap existing producers and use local.tee/type-specific carriers instead of only adding a synthetic i32 carrier.",
+      "lastCheckedEvidence": [
+        "src/fuzz/metamorphic.mbt::OiLocalCarried",
+        "src/fuzz/metamorphic_wbtest.mbt::OI local-carried transform injects scalar local set/get drop variants",
+        "scripts/lib/oi-parity-sweep.ts::implementedOiMetamorphicTransforms",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt (2026-06-27)",
+        "bun test scripts/lib/oi-parity-sweep.test.ts (2026-06-27)"
+      ]
+    },
+    {
+      "id": "oi-local-tee-wrapped",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-D",
+        "OI-E",
+        "OI-G",
+        "OI-M"
+      ],
+      "intent": "Implemented smoke transform: prepend each defined function with an added i32 local, i32.const/local.tee/drop, then local.get/i32.add/drop, preserving source semantics while exposing a straight-line local.tee-carried scalar/fact surface. Future work should replace or wrap existing producers, cover non-i32 types, and bias toward actual LocalScanner fact triggers instead of only adding a synthetic i32 tee carrier.",
+      "lastCheckedEvidence": [
+        "src/fuzz/metamorphic.mbt::OiLocalTeeWrapped",
+        "src/fuzz/metamorphic_wbtest.mbt::OI local-tee-wrapped transform injects scalar local tee/drop variants",
+        "scripts/lib/oi-parity-sweep.ts::implementedOiMetamorphicTransforms",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt (2026-06-27)",
+        "bun test scripts/lib/oi-parity-sweep.test.ts (2026-06-27)",
+        "moon run src/fuzz -- --emit-gen-valid-batch --count=1 --seed=0x5eed --gen-valid-profile=pass-oi-local-facts --metamorphic-transform=oi-local-tee-wrapped (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-local-facts --gen-valid-metamorphic-transform oi-local-tee-wrapped --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)"
+      ]
+    },
+    {
+      "id": "oi-effectful-sibling",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-F",
+        "OI-G",
+        "OI-H",
+        "OI-M"
+      ],
+      "intent": "Implemented smoke transform: append a private mutable i32 global and prepend each defined function with stack-neutral global.set/global.get/drop, effectful if/else, select-sibling, and arithmetic-sibling shells. This preserves source-visible semantics because the new global is unexported, while giving OI-F/OI-G/OI-H/OI-M sweeps a first side-effect/no-reorder surface. Future work should wrap existing producers and typed/ref/memory/tuple operands instead of only adding synthetic global effects.",
+      "lastCheckedEvidence": [
+        "src/fuzz/metamorphic.mbt::OiEffectfulSibling",
+        "src/fuzz/metamorphic_wbtest.mbt::OI effectful-sibling transform injects private global side-effect shells",
+        "scripts/lib/oi-parity-sweep.ts::implementedOiMetamorphicTransforms",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt (2026-06-27)",
+        "bun test scripts/lib/oi-parity-sweep.test.ts (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --gen-valid-metamorphic-transform oi-effectful-sibling --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 1 dry-run forwards oi-if-select-shell, oi-effectful-sibling, and oi-commuted-operands (2026-06-27)"
+      ]
+    },
+    {
+      "id": "oi-trapping-sibling",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-F",
+        "OI-G",
+        "OI-J",
+        "OI-K",
+        "OI-M"
+      ],
+      "intent": "Implemented smoke transform: prepend each defined function with a stack-neutral dead if shell containing scalar div/rem-by-zero trap-shaped siblings plus a live i32 const/drop sibling. This preserves source-visible semantics because the may-trap forms are unreachable, while giving OI-F/OI-G/OI-J/OI-K/OI-M sweeps a first trap/no-reorder boundary surface. Future work should wrap existing producers, include live-but-preserved trap ordering, loads/memory64/ref/GC/tuple lanes, and avoid relying only on dead scalar shells.",
+      "lastCheckedEvidence": [
+        "src/fuzz/metamorphic.mbt::OiTrappingSibling implemented as a dead trap-shaped scalar sibling smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI trapping-sibling transform injects dead trap-shaped scalar siblings (2026-06-27)",
+        "scripts/lib/oi-parity-sweep.ts now forwards oi-trapping-sibling for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 1 dry-run forwards oi-if-select-shell, oi-effectful-sibling, oi-trapping-sibling, and oi-commuted-operands (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --gen-valid-metamorphic-transform oi-trapping-sibling --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)"
+      ]
+    },
+    {
+      "id": "oi-commuted-operands",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-D",
+        "OI-E",
+        "OI-F",
+        "OI-G"
+      ],
+      "intent": "Implemented smoke transform: prepend each defined function with stack-neutral commuted i32 constant pairs for add, and, and eq, preserving source semantics while exposing a first operand-order canonicalization surface. Future work should wrap existing producers, include i64/float/select/memory address operands, and add no-reorder/effectful sibling boundaries instead of only adding synthetic constants.",
+      "lastCheckedEvidence": [
+        "src/fuzz/metamorphic.mbt::OiCommutedOperands",
+        "src/fuzz/metamorphic_wbtest.mbt::OI commuted-operands transform injects scalar operand-order variants",
+        "scripts/lib/oi-parity-sweep.ts::implementedOiMetamorphicTransforms",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt (2026-06-27)",
+        "bun test scripts/lib/oi-parity-sweep.test.ts (2026-06-27)",
+        "moon run src/fuzz -- --emit-gen-valid-batch --count=1 --seed=0x5eed --gen-valid-profile=pass-oi-default-scalar --metamorphic-transform=oi-commuted-operands (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-default-scalar --gen-valid-metamorphic-transform oi-commuted-operands --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)"
+      ]
+    },
+    {
+      "id": "oi-if-select-shell",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-F"
+      ],
+      "intent": "Implemented smoke transform: prepend each defined function with stack-neutral i32-result if, void if/else, identical-arm select, and eqz-condition select shells. Future work should wrap existing producers, include effectful/trapping conditions, branch-hint/no-fold metadata surfaces, typed/reference/SIMD select lanes, and recursive ternary lifting instead of only synthetic constants.",
+      "lastCheckedEvidence": [
+        "src/fuzz/metamorphic.mbt::OiIfSelectShell",
+        "src/fuzz/metamorphic_wbtest.mbt::OI if-select-shell transform injects stack-neutral boolean shells",
+        "scripts/lib/oi-parity-sweep.test.ts command-shape coverage for oi-if-select-shell",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt (2026-06-27)",
+        "bun test scripts/lib/oi-parity-sweep.test.ts (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --gen-valid-metamorphic-transform oi-if-select-shell --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)"
+      ]
+    },
+    {
+      "id": "oi-memory-size-boundary",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-G"
+      ],
+      "intent": "Implemented first OI-G smoke transform: prepend a dead if shell containing memory.copy/memory.fill size constants 0, 1, 2, 3, 4, 5, 8, and 16 for the first i32 memory. Future work should extend this to live-but-semantics-preserving and memory64 variants.",
+      "lastCheckedEvidence": [
+        "src/fuzz/metamorphic.mbt::OiMemorySizeBoundary",
+        "src/fuzz/metamorphic_wbtest.mbt::OI memory-size-boundary transform injects dead memory.copy/fill size variants",
+        "scripts/lib/oi-parity-sweep.ts::implementedOiMetamorphicTransforms",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt (2026-06-27)",
+        "bun test scripts/lib/oi-parity-sweep.test.ts (2026-06-27)",
+        "moon run src/fuzz -- --emit-gen-valid-batch --count=1 --seed=0x5eed --gen-valid-profile=pass-oi-memory-bulk --metamorphic-transform=oi-memory-size-boundary (2026-06-27)"
+      ]
+    },
+    {
+      "id": "oi-call-ref-target-wrapper",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-H"
+      ],
+      "intent": "Appends a private no-op function/type and declarative elem, then prepends stack-neutral direct ref.func/call_ref, block-returned ref.func/call_ref, typed-select target/call_ref, and dead call_ref shells before each previously defined function. Smoke-only until it wraps existing call_ref producers, table.get targets, argument localization, return_call_ref, and multivalue lanes.",
+      "lastCheckedEvidence": [
+        "src/fuzz/metamorphic.mbt::OiCallRefTargetWrapper implemented as a private no-op call_ref target shell smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI call-ref target wrapper transform injects private call_ref shells",
+        "scripts/lib/oi-parity-sweep.test.ts expects oi-call-ref-target-wrapper forwarding (2026-06-27)"
+      ]
+    },
+    {
+      "id": "oi-tuple-selected-lane",
+      "status": "implemented-smoke",
+      "families": [
+        "OI-M"
+      ],
+      "intent": "Implemented smoke transform: append a multivalue block type returning i32/i64/f32/f64, add scratch locals for those lanes to each defined function, and prepend stack-neutral multivalue block / lane-store / selected-lane local.get/drop shells for each selected lane. Future work should wrap existing tuple producers, selected trapping lanes, multi-result effectful/trapping siblings, and tuple-scratch localization boundaries instead of only synthetic constants and scratch locals.",
+      "lastCheckedEvidence": [
+        "src/fuzz/metamorphic.mbt::OiTupleSelectedLane implemented as a synthetic multivalue selected-lane smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI tuple-selected-lane transform injects multivalue selected-lane smoke shells (2026-06-27)",
+        "scripts/lib/oi-parity-sweep.ts now forwards oi-tuple-selected-lane for rows that list it (2026-06-27)",
+        "one-case pass-oi-tuple + oi-tuple-selected-lane compare smoke: compared 1/1, raw mismatches 1, validation/generator/property/command failures 0 (2026-06-27)"
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "id": "OI-D-default-scalar-identities",
+      "family": "OI-D",
+      "title": "Default scalar arithmetic and compare identity breadth",
+      "upstreamOwner": "OptimizeInstructions.cpp::visitBinary plus optimize-instructions-default.wast / optimize-instructions-mvp.wast",
+      "litSources": [
+        "optimize-instructions-default.wast",
+        "optimize-instructions-mvp.wast",
+        "optimize-instructions-nontrapping-float-to-int.wast"
+      ],
+      "featureRequirements": [
+        "mvp"
+      ],
+      "binaryenOracleMode": "compare-pass: --pass optimize-instructions, all-features Binaryen oracle, normalized WAT",
+      "starshineStatus": "mismatch",
+      "priority": "P0",
+      "blockerBoundaryReason": "Starshine covers selected integer/eqz/compare/shift identities, but default scalar breadth is still underclassified and historically implemented one probe at a time.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md",
+        "docs/wiki/raw/research/1323-2026-06-26-optimize-instructions-oi-d-double-eqz.md",
+        "docs/wiki/raw/research/1331-2026-06-27-optimize-instructions-oi-d-eqz-float-eqne.md",
+        "src/passes/optimize_instructions_test.mbt",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiLocalCarried implemented as first local-carried smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-local-carried for rows that list it (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiLocalTeeWrapped implemented as first local.tee smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-local-tee-wrapped for rows that list it (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-D --execute --count 1 --starshine-bin target/native/release/build/cmd/cmd.exe: compared 1/1 with oi-local-carried, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiCommutedOperands implemented as first commuted scalar operand smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-commuted-operands for rows that list it (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-default-scalar --gen-valid-metamorphic-transform oi-commuted-operands --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1 with oi-commuted-operands, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)",
+        "src/validate/gen_valid.mbt::gen_valid_oi_default_scalar_profile_body now emits deterministic scalar trigger smoke coverage for pass-oi-default-scalar (2026-06-27)",
+        "src/validate/gen_valid_tests.mbt::OI-D and OI-E gen-valid profiles emit deterministic scalar and local-fact trigger shapes passed after red-first failure (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-default-scalar --out-dir .tmp/oi-d-trigger-profile-compare-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, raw mismatches 1, validation/generator/property/command failures 0; agent classification: open OI-D scalar parity gap/evidence, not semantic-safety proof (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-D --count 1 dry-run still groups the row and forwards pass-oi-default-scalar plus OI-D transforms (2026-06-27)",
+        "src/validate/gen_valid.mbt::gen_valid_oi_trigger_profile_case now seed-indexes pass-oi-default-scalar across direct, local-carried, and local.tee/commuted trigger-smoke cases (2026-06-27)",
+        "src/validate/gen_valid_tests.mbt::OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases passed after red-first failure (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 3 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-default-scalar --out-dir .tmp/oi-d-trigger-profile-cases-compare-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 3/3, raw mismatches 3, validation/generator/property/command failures 0; agent classification: open OI-D direct/local-carried/local.tee parity evidence, not semantic-safety proof (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-D --execute --count 3 --starshine-bin target/native/release/build/cmd/cmd.exe: grouped row executed with pass-oi-default-scalar plus OI-D transforms, compared 3/3, raw mismatches 3, validation/generator/property/command failures 0 (2026-06-27)",
+        "scripts/oi-parity-sweep.ts --summarize-existing / execute reporting now emits per-row result summaries, genValidProfileCaseCounts, and case-label status groups; OI-D summary smoke at .tmp/oi-parity-sweep-summary-smoke grouped all three trigger labels as raw mismatches (2026-06-27)",
+        "2026-06-27 classified all three .tmp/oi-parity-sweep-summary-smoke OI-D genValidProfileCaseLabel representatives; labels are mixed mismatches with a literal double-eqz missed-fixpoint candidate plus unmeasured Starshine extra-fold candidates.",
+        "src/passes/optimize_instructions_test.mbt::optimize-instructions folds literal double eqz to constant failed red-first, then passed after a narrow literal double-eqz final fold (2026-06-27)",
+        "moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt passed 525/525 after the literal double-eqz fix (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-D --execute --count 3 --out-dir .tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke --starshine-bin target/native/release/build/cmd/cmd.exe: compared 3/3, raw mismatches 3, validation/generator/property/command failures 0; literal double-eqz drift removed, residual mismatches are constant compare/sign-extension output-shape candidates (2026-06-27)",
+        "2026-06-27 measured residual OI-D count-3 failure dirs from .tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke: Starshine canonical wasm is smaller by 5 bytes for local-tee-commuted-add-zero and 2 bytes each for direct/local-carried-add-zero; all Binaryen and Starshine canonical outputs validate with wasm-tools --features all."
+      ],
+      "genValidProfiles": [
+        "pass-oi-default-scalar"
+      ],
+      "metamorphicTransforms": [
+        "oi-commuted-operands",
+        "oi-local-carried",
+        "oi-local-tee-wrapped"
+      ],
+      "sweep": {
+        "enabled": true,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-default-scalar",
+        "blockedUntilProfileExists": false
+      },
+      "notes": "pass-oi-default-scalar now emits three deterministic seed-indexed trigger-smoke cases for direct, local-carried, and local.tee/commuted OI-D shapes instead of one fixed module. The count-3 grouped OI-D sweep reaches comparison and reports three raw mismatches with no validation/generator/property/command failures; classify them as open scalar parity evidence until implemented or measured, not automatic semantic-safe drift. Future work should replace the seed-indexed smoke selector with randomized trigger-biased scalar constructors and wrappers around existing producers. The sweep runner prints result summaries (and can load them with --summarize-existing), so future OI-D/OI-E triage should start from profile-case and case-label status groups before opening individual WAT diffs. A 2026-06-27 representative diff pass classified the three trigger labels in classifiedCaseLabels. The narrow literal double-eqz final-folding candidate is now implemented and covered. The fresh count-3 OI-D sweep shows residual mismatches only from Starshine extra folds of constant compare and/or constant sign-extension shapes; those sampled residuals are measured smaller Starshine outputs (-5/-2/-2 canonical wasm bytes) and all outputs validate, but the row remains open until broader randomized trigger coverage and/or source-backed family policy decides whether to retain or align these output-shape wins.",
+      "classifiedCaseLabels": [
+        {
+          "label": "oi-default-scalar:local-tee-commuted-add-zero",
+          "transformId": "oi-commuted-operands",
+          "representativeFailureDir": ".tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke/oi-d/OI-D-default-scalar-identities/failures/case-000001-gen-valid-transform-oi-commuted-operands",
+          "status": "starshine-win-candidate",
+          "agentClassification": "measured size-winning Starshine output drift over pure constant compare and constant sign-extension folds",
+          "observedDiff": "Binaryen keeps one pure constant i32.eq and explicit constant sign-extension opcodes; Starshine folds both constant i32.eq forms and direct constant sign extensions to constants. After the literal double-eqz fix both sides agree on i32.const 1. The sampled Starshine canonical wasm is 91 bytes vs Binaryen 96 bytes (-5 bytes), and both canonical outputs validate.",
+          "nextAction": "Keep as a measured Starshine-win candidate unless broader randomized OI-D sweeps expose a semantic or size regression; otherwise source-back this constant-folding policy or align to Binaryen if the project decides output-shape parity is preferred.",
+          "lastCheckedEvidence": "2026-06-27 fresh OI-D count-3 sweep at .tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke; stat measured canonical wasm byte deltas; wasm-tools validate --features all passed for Binaryen and Starshine canonical outputs."
+        },
+        {
+          "label": "oi-default-scalar:direct",
+          "transformId": "oi-local-carried",
+          "representativeFailureDir": ".tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke/oi-d/OI-D-default-scalar-identities/failures/case-000002-gen-valid-transform-oi-local-carried",
+          "status": "starshine-win-candidate",
+          "agentClassification": "measured size-winning Starshine output drift over pure constant sign-extension folds",
+          "observedDiff": "Binaryen keeps direct constant sign-extension opcodes; Starshine folds those direct constant sign extensions to constants. After the literal double-eqz fix both sides agree on i32.const 1. The sampled Starshine canonical wasm is 63 bytes vs Binaryen 65 bytes (-2 bytes), and both canonical outputs validate.",
+          "nextAction": "Keep as a measured Starshine-win candidate unless broader randomized OI-D sweeps expose a semantic or size regression; otherwise source-back this constant-folding policy or align to Binaryen if the project decides output-shape parity is preferred.",
+          "lastCheckedEvidence": "2026-06-27 fresh OI-D count-3 sweep at .tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke; stat measured canonical wasm byte deltas; wasm-tools validate --features all passed for Binaryen and Starshine canonical outputs."
+        },
+        {
+          "label": "oi-default-scalar:local-carried-add-zero",
+          "transformId": "oi-local-tee-wrapped",
+          "representativeFailureDir": ".tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke/oi-d/OI-D-default-scalar-identities/failures/case-000003-gen-valid-transform-oi-local-tee-wrapped",
+          "status": "starshine-win-candidate",
+          "agentClassification": "measured size-winning Starshine output drift over pure constant sign-extension folds",
+          "observedDiff": "Binaryen and Starshine both fold local-carried add-zero and the literal double-eqz representative to constants. Residual drift is Binaryen keeping direct constant sign-extension opcodes while Starshine folds them to constants. The sampled Starshine canonical wasm is 71 bytes vs Binaryen 73 bytes (-2 bytes), and both canonical outputs validate.",
+          "nextAction": "Keep as a measured Starshine-win candidate unless broader randomized OI-D sweeps expose a semantic or size regression; otherwise source-back this constant-folding policy or align to Binaryen if the project decides output-shape parity is preferred.",
+          "lastCheckedEvidence": "2026-06-27 fresh OI-D count-3 sweep at .tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke; stat measured canonical wasm byte deltas; wasm-tools validate --features all passed for Binaryen and Starshine canonical outputs."
+        }
+      ]
+    },
+    {
+      "id": "OI-E-local-scanner-facts",
+      "family": "OI-E",
+      "title": "LocalScanner-style maxBits/signExtBits/unsigned range facts",
+      "upstreamOwner": "OptimizeInstructions.cpp::LocalScanner, src/ir/bits.h, src/ir/properties.h, optimize-instructions-sign_ext.wast",
+      "litSources": [
+        "optimize-instructions-sign_ext.wast",
+        "optimize-instructions-default.wast"
+      ],
+      "featureRequirements": [
+        "mvp"
+      ],
+      "binaryenOracleMode": "compare-pass plus focused local-carried oracle fixtures when generator support lands",
+      "starshineStatus": "mismatch",
+      "priority": "P0",
+      "blockerBoundaryReason": "A first straight-line fact layer exists, but the full Binaryen prescan and sign-extension fact lattice are not first-class Starshine infrastructure.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md",
+        "docs/wiki/raw/research/0902-2026-06-25-optimize-instructions-oi-d-local-maxbits.md",
+        "src/passes/optimize_instructions.mbt",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiLocalCarried implemented as first local-carried smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-local-carried for rows that list it (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiLocalTeeWrapped implemented as first local.tee smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-local-tee-wrapped for rows that list it (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-E --execute --count 1 --starshine-bin target/native/release/build/cmd/cmd.exe: compared 1/1 with OI local transforms enabled, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-local-facts --gen-valid-metamorphic-transform oi-local-tee-wrapped --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1 with oi-local-tee-wrapped, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiCommutedOperands implemented as first commuted scalar operand smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-commuted-operands for rows that list it (2026-06-27)",
+        "src/validate/gen_valid.mbt::gen_valid_oi_local_facts_profile_body now emits deterministic local.set/local.get sign-extension, local.tee, and local-carried mask trigger smoke coverage for pass-oi-local-facts (2026-06-27)",
+        "src/validate/gen_valid_tests.mbt::OI-D and OI-E gen-valid profiles emit deterministic scalar and local-fact trigger shapes passed after red-first failure (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-local-facts --out-dir .tmp/oi-e-trigger-profile-compare-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, raw mismatches 1, validation/generator/property/command failures 0; agent classification: open OI-E local-fact parity gap/evidence, not semantic-safety proof (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-E --count 1 dry-run still groups the row and forwards pass-oi-local-facts plus OI-E transforms (2026-06-27)",
+        "src/validate/gen_valid.mbt::gen_valid_oi_trigger_profile_case now seed-indexes pass-oi-local-facts across direct sign-extension, local.tee, and local-mask trigger-smoke cases (2026-06-27)",
+        "src/validate/gen_valid_tests.mbt::OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases passed after red-first failure (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 3 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-local-facts --out-dir .tmp/oi-e-trigger-profile-cases-compare-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 3/3, raw mismatches 3, validation/generator/property/command failures 0; agent classification: open OI-E direct/local.tee/local-mask parity evidence, not semantic-safety proof (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-E --execute --count 3 --starshine-bin target/native/release/build/cmd/cmd.exe: grouped row executed with pass-oi-local-facts plus OI-E transforms, compared 3/3, raw mismatches 3, validation/generator/property/command failures 0 (2026-06-27)",
+        "scripts/oi-parity-sweep.ts --summarize-existing / execute reporting now emits per-row result summaries, genValidProfileCaseCounts, and case-label status groups; OI-E summary smoke at .tmp/oi-parity-sweep-summary-smoke grouped all three trigger labels as raw mismatches (2026-06-27)",
+        "2026-06-27 classified all three .tmp/oi-parity-sweep-summary-smoke OI-E genValidProfileCaseLabel representatives; two are unmeasured Starshine local-fact cleanup candidates and one is mixed with OI-D scalar constant-compare drift."
+      ],
+      "genValidProfiles": [
+        "pass-oi-local-facts"
+      ],
+      "metamorphicTransforms": [
+        "oi-local-carried",
+        "oi-local-tee-wrapped",
+        "oi-commuted-operands"
+      ],
+      "sweep": {
+        "enabled": true,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-local-facts",
+        "blockedUntilProfileExists": false
+      },
+      "notes": "pass-oi-local-facts now emits three deterministic seed-indexed trigger-smoke cases for direct sign-extension facts, local.tee add-zero facts, and local-carried mask facts instead of one fixed module. The count-3 profile compare and grouped OI-E execute sweep both reach comparison and report three raw mismatches with no validation/generator/property/command failures; classify them as open LocalScanner parity gaps until inspected/implemented, not semantic-safe drift. Future work should replace the seed-indexed smoke selector with randomized maxBits/signExt/nullness fact constructors and existing-producer wrappers. The sweep runner now prints result summaries (and can load them with --summarize-existing), so future OI-D/OI-E triage should start from profile-case and case-label status groups before opening individual WAT diffs. A 2026-06-27 representative diff pass classified the three trigger labels in classifiedCaseLabels. The local-fact redundant sign-extension removals look like smaller Starshine output, but remain only Starshine-win candidates until measured or otherwise source-backed.",
+      "classifiedCaseLabels": [
+        {
+          "label": "oi-local-facts:local-carried-mask",
+          "transformId": "oi-local-carried",
+          "representativeFailureDir": ".tmp/oi-parity-sweep-summary-smoke/oi-e/OI-E-local-scanner-facts/failures/case-000001-gen-valid-transform-oi-local-carried",
+          "status": "starshine-win-candidate",
+          "agentClassification": "Starshine local-fact cleanup beyond Binaryen observed output",
+          "observedDiff": "Binaryen keeps i32.extend8_s(local.get) and i64.extend32_s(local.get) after preceding constant local.set facts; Starshine removes both redundant sign extensions and leaves the later mask unchanged.",
+          "nextAction": "Measure size/perf or add source-backed semantic proof for local-fact redundant sign-extension removal before accepting as intentional Starshine drift; otherwise consider narrowing the trigger or aligning to Binaryen.",
+          "lastCheckedEvidence": "2026-06-27 diff of binaryen.wat vs starshine.wat in the representative failure dir from .tmp/oi-parity-sweep-summary-smoke."
+        },
+        {
+          "label": "oi-local-facts:direct-sign-extension",
+          "transformId": "oi-local-tee-wrapped",
+          "representativeFailureDir": ".tmp/oi-parity-sweep-summary-smoke/oi-e/OI-E-local-scanner-facts/failures/case-000002-gen-valid-transform-oi-local-tee-wrapped",
+          "status": "starshine-win-candidate",
+          "agentClassification": "Starshine local-fact cleanup beyond Binaryen observed output",
+          "observedDiff": "Binaryen keeps redundant i32/i64 sign-extension opcodes over locals with constant set facts; Starshine removes the redundant extensions.",
+          "nextAction": "Promote to an accepted Starshine win only with measured size/perf/semantic evidence; otherwise keep as open classified mismatch and avoid treating the raw mismatch as safe by default.",
+          "lastCheckedEvidence": "2026-06-27 diff of binaryen.wat vs starshine.wat in the representative failure dir from .tmp/oi-parity-sweep-summary-smoke."
+        },
+        {
+          "label": "oi-local-facts:local-tee-add-zero",
+          "transformId": "oi-commuted-operands",
+          "representativeFailureDir": ".tmp/oi-parity-sweep-summary-smoke/oi-e/OI-E-local-scanner-facts/failures/case-000003-gen-valid-transform-oi-commuted-operands",
+          "status": "mismatch",
+          "agentClassification": "mixed Starshine-win candidate plus scalar constant-compare drift",
+          "observedDiff": "Binaryen keeps one constant i32.eq from the commuted transform and the redundant local sign-extension opcodes; Starshine folds that i32.eq to 0 and removes the redundant sign extensions.",
+          "nextAction": "Separate OI-D scalar constant-compare drift from OI-E local-fact sign-extension cleanup, then either measure and accept the smaller Starshine shapes or align the specific trigger expectations to Binaryen.",
+          "lastCheckedEvidence": "2026-06-27 diff of binaryen.wat vs starshine.wat in the representative failure dir from .tmp/oi-parity-sweep-summary-smoke."
+        }
+      ]
+    },
+    {
+      "id": "OI-F-boolean-select-ternary-shells",
+      "family": "OI-F",
+      "title": "Boolean/select/ternary-shell fold and no-reorder boundary sweep",
+      "upstreamOwner": "OptimizeInstructions.cpp::optimizeBoolean / visitIf / optimizeSelect / optimizeTernary plus branch-hints helpers",
+      "litSources": [
+        "optimize-instructions-default.wast",
+        "optimize-instructions_idempotent.wast",
+        "optimize-instructions_branch-hints-fold.wast"
+      ],
+      "featureRequirements": [
+        "mvp"
+      ],
+      "binaryenOracleMode": "compare-pass normalized WAT; branch-hint rows remain representation boundary until Starshine models code metadata",
+      "starshineStatus": "mismatch",
+      "priority": "P0",
+      "blockerBoundaryReason": "Starshine has many direct boolean/select probes, and the grouped OI-F transform sweep now has three classified mismatch labels plus one normalized match for the sampled private-global effectful-sibling representative. Pure synthetic if/select, dead-trap, and commuted-constant representatives remain measured Starshine-win candidates under their transform contracts. The private-global effectful-sibling representative is no longer a canonical size-losing sample after follow-up raw-skip scalar folding, signed-to-unsigned spelling cleanup for nonnegative constant compare/div/rem/shift forms, finite float sub-to-add-negative rewrites, and the sampled f64 div-by-two/sub spelling rewrite: Binaryen and Starshine normalized wasm are both 2893 bytes and the sampled float opcode counts now match. Raw Starshine remains larger (4135 vs Binaryen 2893), so raw encoder/structure size remains a separate classified residual rather than OI-F closure. Branch hints/no-fold/no-reorder metadata remain uncovered.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md",
+        "docs/wiki/raw/research/1218-2026-06-26-optimize-instructions-oi-f-identical-select-arms.md",
+        "docs/wiki/raw/research/1333-2026-06-27-optimize-instructions-oi-f-demorgan-and-eqz.md",
+        "docs/wiki/raw/research/1353-2026-06-27-optimize-instructions-oi-f-i64-compare-eqz-boolean-constants.md",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiCommutedOperands implemented as first commuted scalar operand smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-commuted-operands for rows that list it (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiIfSelectShell implemented as first boolean/select shell smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-if-select-shell for rows that list it (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --gen-valid-metamorphic-transform oi-if-select-shell --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 1 dry-run forwards oi-if-select-shell and oi-commuted-operands (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiEffectfulSibling implemented as first private-global side-effect smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-effectful-sibling for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --gen-valid-metamorphic-transform oi-effectful-sibling --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 1 dry-run forwards oi-if-select-shell, oi-effectful-sibling, and oi-commuted-operands (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiTrappingSibling implemented as a dead trap-shaped scalar sibling smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI trapping-sibling transform injects dead trap-shaped scalar siblings (2026-06-27)",
+        "scripts/lib/oi-parity-sweep.ts now forwards oi-trapping-sibling for rows that list it (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 1 dry-run forwards oi-if-select-shell, oi-effectful-sibling, oi-trapping-sibling, and oi-commuted-operands (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --gen-valid-metamorphic-transform oi-trapping-sibling --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, 0 validation/generator/command failures (2026-06-27)",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 4 --out-dir .tmp/oi-f-effectful-family-classify-20260627 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 4/4 with transform groups oi-if-select-shell/oi-effectful-sibling/oi-trapping-sibling/oi-commuted-operands all mismatching, validation/generator/property/command failures 0; wasm-tools validate --features all passed for both tools' raw and canonical outputs for each representative (2026-06-27)",
+        "src/passes/optimize_instructions_test.mbt::sinks same-global if set arms and ::folds dropped pure constant add failed red-first for the if-sink shape, then passed; src/passes/pass_manager.mbt raw skip now applies the same sampled private-global if/value rewrite and first dropped i32.const+i32.const add fold before skip (2026-06-27).",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 4 --out-dir .tmp/oi-f-effectful-family-fix2-20260627 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 4/4 with the same four transform-label mismatches and zero validation/generator/property/command failures; effectful-sibling representative now has equal global.set counts (10 vs 10), dropped i32.const 2+3 folded, canonical size Starshine 2919 vs Binaryen 2893 (+26), raw 4161 vs 2893, remaining i32.add count 2 vs 0; wasm-tools validate --features all passed for Binaryen and Starshine raw/canonical outputs (2026-06-27).",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 4 --out-dir .tmp/oi-f-effectful-family-fix3-20260627 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 4/4 with the same four transform-label mismatches and zero validation/generator/property/command failures; effectful-sibling representative now has equal global.set counts (10 vs 10), no i32.add residual (0 vs 0), canonical size Starshine 2913 vs Binaryen 2893 (+20), raw 4155 vs 2893, and all four Binaryen/Starshine raw/canonical outputs validate with wasm-tools validate --features all (2026-06-27).",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 4 --out-dir .tmp/oi-f-effectful-family-fix4-20260627 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 4/4 with the same four transform-label mismatches and zero validation/generator/property/command failures; effectful-sibling representative now has normalized wasm size parity (Binaryen 2893, Starshine 2893), raw size Starshine 4135 vs Binaryen 2893, equal global.set/i32.add/i32.sub/i64.add/i64.sub/i32.wrap_i64 counts for the sampled constants, and all Binaryen/Starshine raw/normalized outputs validate with wasm-tools validate --features all (2026-06-27).",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 4 --out-dir .tmp/oi-f-effectful-family-fix5-20260627 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 4/4 with the same four transform-label mismatches and zero validation/generator/property/command failures; effectful-sibling representative kept normalized wasm size parity (Binaryen 2893, Starshine 2893), raw size Starshine 4135 vs Binaryen 2893, and signed-to-unsigned compare/div/rem/shift counts now match for i32/i64 nonnegative constants (signed counts 0/0 and unsigned counts 4/4 per opcode family); residual float spelling drift remains (Binaryen f32.sub/f64.sub 0/0 vs Starshine 2/4, Binaryen f32.add/f64.add 4/6 vs Starshine 2/2, Binaryen f64.div/f64.mul 2/4 vs Starshine 4/2); all Binaryen/Starshine raw/normalized outputs validate with wasm-tools validate --features all (2026-06-27).",
+        "src/passes/optimize_instructions_test.mbt::raw skip rewrites finite float sub spellings and ::raw skip rewrites f64 div by two before finite sub failed red-first, then passed; src/passes/pass_manager.mbt raw skip now rewrites adjacent finite nonzero f32/f64 const sub to add-negative and the sampled finite f64 const / 2.0 then sub shape to mul 0.5 plus add-negative before skip (2026-06-27).",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 4 --out-dir .tmp/oi-f-effectful-family-fix7-20260627 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 4/4 with 1 normalized match and 3 raw mismatches; transform:oi-effectful-sibling is now the match, while oi-if-select-shell, oi-trapping-sibling, and oi-commuted-operands still mismatch; validation/generator/property/command failures 0 and Binaryen cache 4 hits/0 misses. Manual measurement of case 000002 input under .tmp/oi-f-effectful-family-fix7-20260627/effectful-measure keeps Binaryen/Starshine normalized size parity at 2893/2893 and raw size Binaryen 2893 vs Starshine 4135; sampled float counts now match exactly: f32.sub/add/div/mul 0/4/2/2 vs 0/4/2/2 and f64.sub/add/div/mul 0/6/2/4 vs 0/6/2/4. All measured raw/normalized outputs validate with wasm-tools validate --features all (2026-06-27)."
+      ],
+      "genValidProfiles": [
+        "pass-oi-boolean-select"
+      ],
+      "metamorphicTransforms": [
+        "oi-if-select-shell",
+        "oi-effectful-sibling",
+        "oi-trapping-sibling",
+        "oi-commuted-operands"
+      ],
+      "sweep": {
+        "enabled": true,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-boolean-select",
+        "blockedUntilProfileExists": false
+      },
+      "notes": "oi-if-select-shell, oi-effectful-sibling, oi-trapping-sibling, and oi-commuted-operands are implemented-smoke and forwarded by the sweep runner. The first grouped count-4 OI-F sweep classifies all four transform labels before one-off probes: pure if/select, dead trapping sibling, and commuted-constant representatives are sampled canonical-size Starshine-win candidates under their transform contracts. Follow-up red-first slices reduced oi-effectful-sibling by sinking same-global if arms to global.set(if(result ...)) in HOT and raw-skip paths, folding sampled dropped/nested integer constants, rewriting sampled raw-skipped nonnegative signed compare/div/rem/shift spellings to unsigned forms, and matching the sampled finite float sub/div spellings. The fix7 grouped sweep now has transform:oi-effectful-sibling as a normalized match, but OI-F stays open because the other three transform labels still mismatch and raw Starshine bytes for the effectful sample remain larger despite identical normalized size and opcode counts.",
+      "classifiedCaseLabels": [
+        {
+          "label": "transform:oi-if-select-shell",
+          "transformId": "oi-if-select-shell",
+          "representativeFailureDir": ".tmp/oi-f-effectful-family-classify-20260627/oi-f/OI-F-boolean-select-ternary-shells/failures/case-000001-gen-valid-transform-oi-if-select-shell",
+          "status": "starshine-win-candidate",
+          "agentClassification": "Measured sampled Starshine-win candidate for pure synthetic constant if/select shells, mixed with broad pass-oi-boolean-select scalar output-shape drift; not OI-F family signoff.",
+          "observedDiff": "Binaryen keeps two constant-condition if-result shells in the representative normalized WAT, while Starshine folds them to dropped constants and keeps a constant-select shell spelling difference. The transform inserts stack-neutral pure constant if/select shells, so these folded shells are side-effect-free for this sample. Both tools' raw and canonical outputs validate. Canonical wasm is Starshine 2732 bytes vs Binaryen 2844 bytes (-112); raw wasm is Starshine 3841 vs Binaryen 2844, so the raw encoder/local-section size gap remains separate.",
+          "nextAction": "Keep as a sampled candidate only under the pure synthetic transform contract. Before accepting more broadly, add trigger-biased existing-producer wrappers and branch-hint/no-fold metadata coverage; if canonical wins disappear or live effects/traps enter the shell, reopen as a parity gap.",
+          "lastCheckedEvidence": "2026-06-27 OI-F count-4 grouped sweep at .tmp/oi-f-effectful-family-classify-20260627; stat measured raw/canonical wasm sizes and wasm-tools validate --features all passed for Binaryen and Starshine raw/canonical outputs."
+        },
+        {
+          "label": "transform:oi-effectful-sibling",
+          "transformId": "oi-effectful-sibling",
+          "representativeFailureDir": ".tmp/oi-f-effectful-family-fix7-20260627/effectful-measure",
+          "status": "covered",
+          "agentClassification": "Sampled private-global effectful-sibling representative now normalized-matches Binaryen after red-first raw-skip float spelling cleanup; this closes the sampled canonical size-losing/floating-spelling residual for this transform label, but not broader OI-F family closure or the raw-byte size gap.",
+          "observedDiff": "The grouped fix7 sweep reports transform:oi-effectful-sibling as a normalized match. Manual measurement of the same case-000002 input shows Binaryen and Starshine normalized wasm are both 2893 bytes, while raw Starshine remains larger at 4135 vs Binaryen 2893. Opcode counts now match for the previously residual sampled families: global.set 10/10; i32/i64 signed lt/gt/le/ge/div/rem/shr counts 0/0 and unsigned counts 4/4 per opcode family; f32.sub/add/div/mul 0/4/2/2 vs 0/4/2/2; f64.sub/add/div/mul 0/6/2/4 vs 0/6/2/4. Both tools' raw and normalized outputs validate with wasm-tools validate --features all. The raw-byte loss is now classified as residual raw encoder/structure/local-section drift on an otherwise normalized-matching sample, not as a remaining OI-D/OI-F float spelling mismatch.",
+          "nextAction": "Do not generalize this sampled normalized match to OI-F closure. Keep raw-size loss visible as a separate encoder/structure follow-up if raw bytes become in-scope, and continue grouped work on the remaining OI-F mismatching labels: oi-if-select-shell, oi-trapping-sibling, and oi-commuted-operands. Keep live trap/effect ordering and branch-hint/no-fold/no-reorder metadata separate.",
+          "lastCheckedEvidence": "2026-06-27 follow-up at .tmp/oi-f-effectful-family-fix7-20260627 after red-first raw-skip finite float sub and f64 div-by-two/sub tests. Focused new tests passed, optimize_instructions_test.mbt passed 534/534, moon test src/passes passed 3575/3575, native build passed with existing warnings, grouped OI-F sweep compared 4/4 with transform:oi-effectful-sibling as the sole normalized match, and wasm-tools validate --features all passed for manually measured Binaryen and Starshine raw/normalized effectful-sibling outputs."
+        },
+        {
+          "label": "transform:oi-trapping-sibling",
+          "transformId": "oi-trapping-sibling",
+          "representativeFailureDir": ".tmp/oi-f-effectful-family-classify-20260627/oi-f/OI-F-boolean-select-ternary-shells/failures/case-000003-gen-valid-transform-oi-trapping-sibling",
+          "status": "starshine-win-candidate",
+          "agentClassification": "Measured sampled Starshine-win candidate for a dead synthetic trap shell plus broad scalar cleanup; not live trap-order coverage.",
+          "observedDiff": "The transform inserts scalar div/rem-by-zero trap-shaped siblings under a dead i32.const 0 if. Starshine removes/folds more of the dead shell and constant-control debris than Binaryen in the representative. Both tools' raw and canonical outputs validate. Canonical wasm is Starshine 2705 bytes vs Binaryen 2845 (-140); raw wasm is Starshine 3842 vs Binaryen 2845, so the raw size gap remains separate.",
+          "nextAction": "Keep as sampled only for dead synthetic trap siblings. Reopen as OI-F/OI-G/OI-J work for live-but-preserved trap ordering, memory/ref/GC trap lanes, or any validation/runtime evidence that dead-shell removal changes behavior.",
+          "lastCheckedEvidence": "2026-06-27 OI-F count-4 grouped sweep at .tmp/oi-f-effectful-family-classify-20260627; stat measured raw/canonical wasm sizes and wasm-tools validate --features all passed for Binaryen and Starshine raw/canonical outputs."
+        },
+        {
+          "label": "transform:oi-commuted-operands",
+          "transformId": "oi-commuted-operands",
+          "representativeFailureDir": ".tmp/oi-f-effectful-family-classify-20260627/oi-f/OI-F-boolean-select-ternary-shells/failures/case-000004-gen-valid-transform-oi-commuted-operands",
+          "status": "starshine-win-candidate",
+          "agentClassification": "Measured sampled Starshine-win candidate dominated by pure constant operand-order/scalar cleanup, with OI-D overlap; not a boolean/select shell closure.",
+          "observedDiff": "The representative has no remaining if/select/global.set/i32.add count difference after optimization, but normalized WAT still differs on broad scalar spelling from the pass-oi-boolean-select base profile plus the pure commuted-constant transform. Both tools' raw and canonical outputs validate. Canonical wasm is Starshine 2755 bytes vs Binaryen 2855 (-100); raw wasm is Starshine 3882 vs Binaryen 2855, so raw-size parity remains separate.",
+          "nextAction": "Route recurring scalar spelling to OI-D classification and keep OI-F focused on boolean/select/no-reorder triggers. Reopen if randomized commuted operands around live boolean/select producers produce size-losing or semantic drift.",
+          "lastCheckedEvidence": "2026-06-27 OI-F count-4 grouped sweep at .tmp/oi-f-effectful-family-classify-20260627; stat measured raw/canonical wasm sizes, opcode counts, and wasm-tools validate --features all passed for Binaryen and Starshine raw/canonical outputs."
+        }
+      ]
+    },
+    {
+      "id": "OI-G-memory-bulk-load-store",
+      "family": "OI-G",
+      "title": "Memory/load/store and bulk-memory tiny-lowering boundaries",
+      "upstreamOwner": "OptimizeInstructions.cpp::optimizeMemoryAccess / optimizeMemoryCopy / optimizeMemoryFill",
+      "litSources": [
+        "optimize-instructions-bulk-memory.wast",
+        "optimize-instructions-memory64.wast",
+        "optimize-instructions-ignore-traps.wast",
+        "optimize-instructions-atomics.wast"
+      ],
+      "featureRequirements": [
+        "memory",
+        "bulk-memory"
+      ],
+      "binaryenOracleMode": "compare-pass normalized WAT with all-features; focused rows must keep trap-relaxed zero-size mode separate",
+      "starshineStatus": "mismatch",
+      "priority": "P0",
+      "blockerBoundaryReason": "Some tiny copy/fill and load/store cleanups are now covered, but memory-size, memory64, dynamic operand, effect/trap, and raw-gate blockers are not classified as a complete family.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/research/0732-2026-06-19-optimize-instructions-oi-g-byte-bulk-memory.md",
+        "docs/wiki/raw/research/0858-2026-06-25-optimize-instructions-oi-g-parameterized-memory-copy.md",
+        "docs/wiki/raw/research/0872-2026-06-25-optimize-instructions-oi-g-zero-bulk-effects.md",
+        "src/passes/pass_manager.mbt",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiMemorySizeBoundary",
+        "src/fuzz/metamorphic_wbtest.mbt::OI memory-size-boundary transform injects dead memory.copy/fill size variants",
+        "scripts/lib/oi-parity-sweep.ts forwards implemented oi-memory-size-boundary to compare-pass",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt (2026-06-27)",
+        "bun test scripts/lib/oi-parity-sweep.test.ts (2026-06-27)",
+        "moon run src/fuzz -- --emit-gen-valid-batch --count=1 --seed=0x5eed --gen-valid-profile=pass-oi-memory-bulk --metamorphic-transform=oi-memory-size-boundary (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiCommutedOperands implemented as first commuted scalar operand smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-commuted-operands for rows that list it (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiEffectfulSibling implemented as first private-global side-effect smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-effectful-sibling for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiTrappingSibling implemented as a dead trap-shaped scalar sibling smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI trapping-sibling transform injects dead trap-shaped scalar siblings (2026-06-27)",
+        "scripts/lib/oi-parity-sweep.ts now forwards oi-trapping-sibling for rows that list it (2026-06-27)"
+      ],
+      "genValidProfiles": [
+        "pass-oi-memory-bulk"
+      ],
+      "metamorphicTransforms": [
+        "oi-memory-size-boundary",
+        "oi-local-carried",
+        "oi-effectful-sibling",
+        "oi-trapping-sibling",
+        "oi-commuted-operands"
+      ],
+      "sweep": {
+        "enabled": true,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-memory-bulk",
+        "blockedUntilProfileExists": false
+      },
+      "implementationNotes": [
+        "2026-06-27: oi-memory-size-boundary is implemented as a smoke metamorphic transform over dead memory.copy/memory.fill tiny-size variants for i32 memories; row remains mismatch pending live boundary, memory64, trigger-biased generator, and executed sweep evidence.",
+        "2026-06-27: oi-commuted-operands is implemented as a smoke metamorphic transform over synthetic i32 constant add/and/eq operand-order pairs; row remains mismatch pending memory-address/store-mask trigger wrappers and live memory boundary variants.",
+        "2026-06-27: oi-effectful-sibling is implemented as a smoke metamorphic transform over a private mutable i32 global and stack-neutral effectful shells; row remains mismatch pending live memory/bulk wrappers, memory64, dynamic operands, and trapping sibling variants."
+      ],
+      "notes": "Some tiny copy/fill and load/store cleanups are now covered, and oi-effectful-sibling plus oi-trapping-sibling provide first side-effect/dead-trap smoke surfaces, but memory-size, memory64, dynamic operand, live effect/trap ordering, and raw-gate blockers are not classified as a complete family."
+    },
+    {
+      "id": "OI-H-call-ref-directization",
+      "family": "OI-H",
+      "title": "call_ref / return_call_ref target directization",
+      "upstreamOwner": "OptimizeInstructions.cpp::visitCallRef and src/passes/call-utils.h",
+      "litSources": [
+        "optimize-instructions-call_ref.wast",
+        "optimize-instructions-call_ref-roundtrip.wast"
+      ],
+      "featureRequirements": [
+        "reference-types",
+        "typed-function-references"
+      ],
+      "binaryenOracleMode": "compare-pass normalized WAT; target-wrapper transform should group ref.func/table.get/select/block/local-carried variants",
+      "starshineStatus": "mismatch",
+      "priority": "P1",
+      "blockerBoundaryReason": "The profile-backed OI-H grouped smoke now validates and reaches comparison across oi-call-ref-target-wrapper, oi-local-carried, and oi-effectful-sibling transforms. All three sampled transformed outputs have 0 Starshine call_ref/return_call_ref/table.get residuals, matching Binaryen, so this sweep does not expose a remaining sampled OI-H target-spelling gap. The remaining raw mismatches are local-section/dropped-ref.func shape drift in the target-wrapper sample and cross-family local-section/dropped-null/effectful-sibling scalar/if-shape drift in the local-carried/effectful samples. Broader true live table-state known-target, return_call_ref, argument-localization, multivalue, and effect/trap target-boundary sweeps remain open.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md",
+        "docs/wiki/raw/research/0751-2026-06-19-optimize-instructions-oi-h-table-get-call-ref.md",
+        "docs/wiki/raw/research/0756-2026-06-20-optimize-instructions-oi-h-call-ref-boundaries.md",
+        "docs/wiki/raw/research/0843-2026-06-25-optimize-instructions-oi-h-multivalue-arg-call-ref-boundary.md",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiEffectfulSibling implemented as first private-global side-effect smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-effectful-sibling for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiCallRefTargetWrapper implemented as a private no-op call_ref target shell smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI call-ref target wrapper transform injects private call_ref shells",
+        "scripts/lib/oi-parity-sweep.ts now forwards oi-call-ref-target-wrapper for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after call_ref smoke implementation (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --out-dir .tmp/oi-call-ref-target-wrapper-default-compare-smoke --gen-valid-metamorphic-transform oi-call-ref-target-wrapper --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, no validation/generator/command failures; open OI-H parity evidence (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --out-dir .tmp/oi-call-ref-target-wrapper-compare-smoke2 --gen-valid-profile pass-oi-call-ref --gen-valid-metamorphic-transform oi-call-ref-target-wrapper --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: 1 generator failure because the pass-oi-call-ref base wasm failed wasm-tools validation with invalid value type at offset 0x63; superseded by the fixed-profile smoke below (2026-06-27)",
+        "moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt: pass-oi-call-ref regression now rejects stringref/exn value types in the wasm-tools oracle profile (2026-06-27)",
+        "moon run --target native --release src/fuzz -- --emit-gen-valid-batch --count 1 --seed 0x5eed --gen-valid-profile pass-oi-call-ref --metamorphic-transform oi-call-ref-target-wrapper --out-dir .tmp/oi-call-ref-target-wrapper-manual-fixed --manifest .tmp/oi-call-ref-target-wrapper-manual-fixed/manifest.json && wasm-tools validate --features all .tmp/oi-call-ref-target-wrapper-manual-fixed/gen-valid-000001.wasm: generated and validated 1/1 (2026-06-27)",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --out-dir .tmp/oi-call-ref-target-wrapper-compare-smoke-fixed --gen-valid-profile pass-oi-call-ref --gen-valid-metamorphic-transform oi-call-ref-target-wrapper --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, 1 raw mismatch, 0 validation/generator/property/command failures; open OI-H parity evidence, not semantic safety proof (2026-06-27)",
+        "2026-06-27 classified .tmp/oi-call-ref-target-wrapper-compare-smoke-fixed failure dir: Binaryen directizes inserted ref.func call_ref shells to direct calls, while Starshine leaves 40 call_ref opcodes and 25 ref.func occurrences; Binaryen canonical wasm is 554 bytes vs Starshine 9324 bytes, raw wasm 554 vs 12865, both outputs validate.",
+        "src/passes/pass_manager_wbtest.mbt::optimize-instructions raw directizes adjacent ref.func call_ref before skip and ::... constant select ref.func call_ref before skip failed red-first, then passed (2026-06-27).",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --out-dir .tmp/oi-call-ref-target-wrapper-compare-smoke-raw-directize2 --gen-valid-profile pass-oi-call-ref --gen-valid-metamorphic-transform oi-call-ref-target-wrapper --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, raw mismatches 1, validation/generator/property/command failures 0; Starshine target-wrapper directization improved from 40 call_ref/25 ref.func to 10 call_ref/0 ref.func and direct calls now match Binaryen call $5 count, but broader residual mismatch remains (2026-06-27).",
+        "src/passes/pass_manager_wbtest.mbt::optimize-instructions raw directizes dead local ref.func call_ref before skip failed red-first (`false` not true), then passed after the raw-skip helper learned to rewrite single-use local.set(ref.func)/local.get call_ref wrappers (2026-06-27).",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --out-dir .tmp/oi-call-ref-target-wrapper-compare-smoke-local-directize --gen-valid-profile pass-oi-call-ref --gen-valid-metamorphic-transform oi-call-ref-target-wrapper --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, raw mismatches 1, validation/generator/property/command failures 0; Starshine improved from the prior 10 call_ref residuals to 5 call_ref, 0 ref.func, 20 direct call $5, residual call_ref all table.get/ref.cast targets; Binaryen has 0 call_ref and 20 direct call $5 (2026-06-27).",
+        "src/passes/pass_manager_wbtest.mbt::optimize-instructions raw trims null as_non_null dead tail before skip failed red-first (`false` not true), then passed after raw-skip OI rewrote `ref.null; ref.as_non_null` tails to `unreachable` before skipped functions (2026-06-27).",
+        "src/passes/pass_manager_wbtest.mbt::optimize-instructions raw trims dropped unreachable block tail before skip failed red-first (`false` not true), then passed after raw-skip OI collapsed dropped unreachable result blocks to an immediate `unreachable` tail (2026-06-27).",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --out-dir .tmp/oi-call-ref-target-wrapper-compare-smoke-null-block-trim --gen-valid-profile pass-oi-call-ref --gen-valid-metamorphic-transform oi-call-ref-target-wrapper --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, raw mismatches 1, validation/generator/property/command failures 0; Starshine now has 0 call_ref, 0 table.get, 20 direct call $5, and 5 unreachable roots matching Binaryen counts, but raw size remains 718 vs Binaryen 554 due residual GC ref.test/ref.cast/br_on_cast cleanup and local-section drift (2026-06-27).",
+        "src/passes/pass_manager_wbtest.mbt::optimize-instructions raw folds dropped null ref test and nullable cast before skip and ::... trims dropped null non-null ref cast tail before skip failed red-first (`false` not true), then passed after the raw-skip helper learned dropped null ref.test/ref.cast cleanup and non-null ref.cast trap-tail truncation (2026-06-27).",
+        "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --out-dir .tmp/oi-call-ref-target-wrapper-compare-smoke-ref-null-cast-trim2 --gen-valid-profile pass-oi-call-ref --gen-valid-metamorphic-transform oi-call-ref-target-wrapper --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 1/1, raw mismatches 1, validation/generator/property/command failures 0; Starshine still has call_ref=0, return_call_ref=0, table.get=0, call $5=20, unreachable=5, and now also ref.test=0, ref.cast=0, br_on_cast=0, br_on_cast_fail=0, with raw size 572 vs Binaryen 554 and both raw outputs validating (2026-06-27).",
+        "scripts/lib/oi-parity-sweep.test.ts::summarizes transform ids when profile case labels are absent failed red-first with all cases grouped as <unlabeled>, then passed after the sweep summary fell back to transform:<id> labels for transformed GenValid cases without profile_case_label metadata (2026-06-27).",
+        "bun scripts/oi-parity-sweep.ts --family OI-H --execute --count 3 --out-dir .tmp/oi-h-target-wrapper-grouped-sweep-20260627 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 3/3, normalized 0, mismatches 3, validation/generator/property/command failures 0, selected pass-oi-call-ref=3, transform counts oi-call-ref-target-wrapper/local-carried/effectful-sibling=1 each, Binaryen cache 1 hit/2 misses (2026-06-27).",
+        "bun scripts/oi-parity-sweep.ts --family OI-H --summarize-existing --count 3 --out-dir .tmp/oi-h-target-wrapper-grouped-sweep-20260627 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: transform fallback grouping reported one mismatch each for transform:oi-call-ref-target-wrapper, transform:oi-local-carried, and transform:oi-effectful-sibling (2026-06-27).",
+        "wasm-tools validate --features all passed for Binaryen and Starshine raw outputs for all three .tmp/oi-h-target-wrapper-grouped-sweep-20260627 OI-H failure dirs (2026-06-27)."
+      ],
+      "genValidProfiles": [
+        "pass-oi-call-ref"
+      ],
+      "metamorphicTransforms": [
+        "oi-call-ref-target-wrapper",
+        "oi-local-carried",
+        "oi-effectful-sibling"
+      ],
+      "sweep": {
+        "enabled": true,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-call-ref",
+        "blockedUntilProfileExists": false
+      },
+      "notes": "oi-call-ref-target-wrapper is implemented-smoke and forwarded by the sweep runner: it appends a private no-op target and prepends direct ref.func/call_ref, block-returned ref.func/call_ref, typed-select target/call_ref, and dead call_ref shells to existing defined functions. A default GenValid one-case compare produced one raw mismatch with no validation/generator/command failures; the earlier pass-oi-call-ref seed-0x5eed validity blocker from stringref/exn ref pools is fixed and the profile-backed smoke now reaches comparison. The profile-backed representative first exposed a large size-losing OI-H parity gap where Binaryen directized synthetic ref.func call_ref wrappers while Starshine left call_ref/ref.func spelling. The raw skip path now directizes adjacent ref.func/block-ref.func, constant-select ref.func, and single-use local.set(ref.func)/local.get call_ref/return_call_ref wrappers, and it trims guaranteed null-as-non-null, dropped-unreachable-block, dropped null ref.test/ref.cast, and dropped non-null ref.cast trap tails before returning a skipped function, without widening the full HOT raw gate. The latest one-case target-wrapper smoke still mismatches, but OI-H call target spelling is no longer the sampled residual: Starshine and Binaryen both have 0 call_ref/table.get residuals, 20 direct `call $5` occurrences, 0 ref.test/ref.cast/br_on_cast/br_on_cast_fail, and five `unreachable` roots. The remaining 18-byte raw size gap is local-section/ref.func-drop output shape drift: Starshine drops the inserted `ref.func` uses while Binaryen keeps five dropped `ref.func` instructions. A follow-up count-3 grouped OI-H sweep at `.tmp/oi-h-target-wrapper-grouped-sweep-20260627` mixed the target-wrapper, local-carried, and effectful-sibling transforms; all three cases still mismatched, but every sampled Starshine and Binaryen output had call_ref=0, return_call_ref=0, and table.get=0. The target-wrapper case remains the local-section/ref.func-drop shape drift; the local-carried case is local-section/dropped-null shape drift after successful call_ref cleanup; the effectful-sibling case is cross-family effectful private-global if/scalar spelling drift after successful call_ref cleanup. Future OI-H work should run broader table/local/return_call_ref/multivalue sweeps to find true remaining call_ref directization gaps instead of over-mining these cross-family residuals.",
+      "classifiedCaseLabels": [
+        {
+          "label": "transform:oi-call-ref-target-wrapper",
+          "transformId": "oi-call-ref-target-wrapper",
+          "representativeFailureDir": ".tmp/oi-h-target-wrapper-grouped-sweep-20260627/oi-h/OI-H-call-ref-directization/failures/case-000001-gen-valid-transform-oi-call-ref-target-wrapper",
+          "status": "mismatch",
+          "agentClassification": "OI-H private ref.func target-wrapper directization is fixed for the grouped representative; remaining mismatch is local-section/dropped-ref.func output-shape drift rather than sampled call_ref target spelling",
+          "observedDiff": "Input had 44 call_ref, 4 return_call_ref, and 56 ref.func occurrences. Binaryen and Starshine outputs both have call_ref=0, return_call_ref=0, table.get=0, direct call $5=20, ref.test=0, ref.cast=0, br_on_cast=0, br_on_cast_fail=0, and unreachable=5. Binaryen keeps five dropped ref.func instructions and raw/canonical size 554 bytes; Starshine drops those uses, has raw 572 bytes and canonical 514 bytes. Both raw outputs validate.",
+          "nextAction": "Keep this residual classified separately from OI-H target directization. Only revisit dropped-ref.func/local-section shape if grouped sweeps show a material size/perf regression; otherwise prioritize true live table-state known targets, return_call_ref, argument localization, multivalue targets, and target-boundary sweeps.",
+          "lastCheckedEvidence": "2026-06-27 .tmp/oi-h-target-wrapper-grouped-sweep-20260627 case-000001 counts plus wasm-tools --features all validation."
+        },
+        {
+          "label": "transform:oi-local-carried",
+          "transformId": "oi-local-carried",
+          "representativeFailureDir": ".tmp/oi-h-target-wrapper-grouped-sweep-20260627/oi-h/OI-H-call-ref-directization/failures/case-000002-gen-valid-transform-oi-local-carried",
+          "status": "mismatch",
+          "agentClassification": "Grouped local-carried sample does not expose an OI-H target-spelling gap; call_ref/return_call_ref/table.get are eliminated on both sides, leaving cross-family local-section and dropped-null output-shape drift",
+          "observedDiff": "Input had 18 call_ref, 6 return_call_ref, and 26 ref.func occurrences. Binaryen and Starshine outputs both have call_ref=0, return_call_ref=0, table.get=0, ref.func=0, ref.test=0, ref.cast=0, br_on_cast=0, br_on_cast_fail=0, and unreachable=4. Binaryen raw/canonical size is 466 bytes; Starshine raw is 507 bytes and canonical is 448 bytes. Both raw outputs validate. The visible WAT drift is local-section compaction plus dropped ref.null/drop cleanup, not a remaining call_ref target miss.",
+          "nextAction": "Classify or fix the local-section/dropped-null shape under OI-I/raw cleanup or general output-shape measurement if it recurs; keep OI-H focused on live table-state and return_call_ref/argument-localization gaps.",
+          "lastCheckedEvidence": "2026-06-27 .tmp/oi-h-target-wrapper-grouped-sweep-20260627 case-000002 counts plus wasm-tools --features all validation."
+        },
+        {
+          "label": "transform:oi-effectful-sibling",
+          "transformId": "oi-effectful-sibling",
+          "representativeFailureDir": ".tmp/oi-h-target-wrapper-grouped-sweep-20260627/oi-h/OI-H-call-ref-directization/failures/case-000003-gen-valid-transform-oi-effectful-sibling",
+          "status": "mismatch",
+          "agentClassification": "Grouped effectful-sibling sample does not expose an OI-H target-spelling gap; call_ref/return_call_ref/table.get are eliminated on both sides, leaving cross-family effectful if/scalar and local-section drift",
+          "observedDiff": "Input had 30 call_ref, 6 return_call_ref, 45 ref.func occurrences, and private-global side-effect shells. Binaryen and Starshine outputs both have call_ref=0, return_call_ref=0, table.get=0, ref.func=0, ref.test=0, ref.cast=0, br_on_cast=0, br_on_cast_fail=0, and unreachable=8. Binaryen raw/canonical size is 1124 bytes; Starshine raw is 1194 bytes and canonical is 1110 bytes. Both raw outputs validate. The visible WAT drift is effectful private-global if-result vs if-with-arm-global.set spelling plus scalar add folding and local-section differences, not a remaining call_ref target miss.",
+          "nextAction": "Route this residual to OI-F/OI-D effectful-sibling classification if it matters; for OI-H, build stronger live effect/trap target-boundary generators that keep call_ref target semantics in scope.",
+          "lastCheckedEvidence": "2026-06-27 .tmp/oi-h-target-wrapper-grouped-sweep-20260627 case-000003 counts plus wasm-tools --features all validation."
+        }
+      ]
+    },
+    {
+      "id": "OI-I-ref-null-cast-basics",
+      "family": "OI-I",
+      "title": "Reference equality, null tests, and basic ref.test/ref.cast/ref.as_non_null",
+      "upstreamOwner": "OptimizeInstructions.cpp ref visitors plus GCTypeUtils cast classification",
+      "litSources": [
+        "optimize-instructions-gc.wast",
+        "optimize-instructions-gc-extern.wast"
+      ],
+      "featureRequirements": [
+        "reference-types",
+        "gc"
+      ],
+      "binaryenOracleMode": "compare-pass normalized WAT with GC/reference feature floors",
+      "starshineStatus": "mismatch",
+      "priority": "P1",
+      "blockerBoundaryReason": "Grouped pass-oi-ref-gc trigger-smoke evidence now covers direct, local-carried, and branch-cast reference basics. Local-carried null/test/cast and the sampled branch-cast boundary now match. The remaining direct-null/test/cast label is OI-I-owned even without metamorphic transforms, but the sampled diff is currently a measured Starshine-win candidate rather than a size-losing parity gap; broader direct-reference coverage still needs randomized producers and an explicit decision before row closure.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md",
+        "docs/wiki/raw/research/0769-2026-06-20-optimize-instructions-oi-i-null-nonnull-test-cast-surface.md",
+        "docs/wiki/raw/research/0787-2026-06-20-optimize-instructions-oi-i-effectful-ref-i31-miss-test-cast.md",
+        "docs/wiki/raw/research/0814-2026-06-20-optimize-instructions-oi-i-indexed-i31-aggregate-ref-eq.md",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiEffectfulSibling implemented as first private-global side-effect smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-effectful-sibling for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)",
+        "src/passes/pass_manager_wbtest.mbt::optimize-instructions raw folds dropped null ref test and nullable cast before skip and ::... trims dropped null non-null ref cast tail before skip failed red-first, then passed after raw-skip OI learned dropped null ref.test/ref.cast cleanup and non-null ref.cast trap-tail truncation (2026-06-27).",
+        ".tmp/oi-call-ref-target-wrapper-compare-smoke-ref-null-cast-trim2: OI-H sampled representative now has Starshine ref.test=0, ref.cast=0, br_on_cast=0, br_on_cast_fail=0 after OI-I cleanup; raw size improved 718 -> 572 bytes, both raw outputs validate, remaining mismatch is local-section/ref.func-drop shape drift (2026-06-27).",
+        "src/validate/gen_valid_tests.mbt::OI-I ref-gc trigger-smoke profile selects distinct seed-indexed reference cases failed red-first before implementation, then passed (2026-06-27).",
+        ".tmp/oi-ref-gc-grouped-sweep-20260627 initial grouped OI-I/OI-J attempt produced generator failures only because descriptor-bearing pass-oi-ref-gc inputs failed wasm-tools --features all with malformed section id 14 (2026-06-27).",
+        ".tmp/oi-ref-gc-trigger-grouped-sweep-20260627/oi-i/OI-I-ref-null-cast-basics: compared 3/3, normalized matches 1, raw mismatches 2, validation/generator/property/command failures 0; labels branch-cast-boundaries mismatch, direct-null-test-cast-eq mismatch, local-carried-null-test-cast match (2026-06-27).",
+        "wasm-tools validate --features all passed for Binaryen and Starshine raw outputs in the two OI-I failure dirs (2026-06-27).",
+        "src/passes/optimize_instructions_test.mbt::optimize-instructions narrows null br_on_cast block results and ::... collapses repeated dropped null trap blocks failed red-first, then passed after OI learned null-fed br_on_cast/br_on_cast_fail block-result narrowing, unreachable-guard cast branch collapse, dropped unreachable block collapse, and root dead-suffix trimming (2026-06-27).",
+        ".tmp/oi-ref-gc-branch-cast-fix4-20260627/oi-i/OI-I-ref-null-cast-basics: compared 3/3, normalized matches 2, raw mismatches 1, validation/generator/property/command failures 0; labels branch-cast-boundaries match, local-carried-null-test-cast match, direct-null-test-cast-eq mismatch (2026-06-27).",
+        ".tmp/oi-ref-gc-direct-no-transform-triage-20260627: direct pass-oi-ref-gc count-3 compare without metamorphic transforms still compared 3/3 with one raw mismatch on oi-ref-gc:direct-null-test-cast-eq and zero validation/generator/property/command failures, proving the residual direct-null/test/cast diff is OI-I-owned rather than caused only by oi-effectful-sibling OI-F/OI-D drift (2026-06-27).",
+        "wasm-tools validate --features all passed for Binaryen and Starshine raw and canonical outputs in .tmp/oi-ref-gc-direct-no-transform-triage-20260627/failures/case-000002-gen-valid; measured canonical wasm is Starshine 40 bytes vs Binaryen 48 bytes, raw wasm 48 bytes each (2026-06-27)."
+      ],
+      "genValidProfiles": [
+        "pass-oi-ref-gc"
+      ],
+      "metamorphicTransforms": [
+        "oi-local-carried",
+        "oi-effectful-sibling"
+      ],
+      "sweep": {
+        "enabled": true,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-ref-gc",
+        "blockedUntilProfileExists": false
+      },
+      "classifiedCaseLabels": [
+        {
+          "label": "pass-oi-call-ref:oi-call-ref-target-wrapper-null-ref-cast-debris",
+          "transformId": "oi-call-ref-target-wrapper",
+          "representativeFailureDir": ".tmp/oi-call-ref-target-wrapper-compare-smoke-ref-null-cast-trim2/failures/case-000001-gen-valid-transform-oi-call-ref-target-wrapper",
+          "status": "fixed-sampled-subshape",
+          "agentClassification": "Cross-family OI-I dropped null ref.test/ref.cast debris in the OI-H target-wrapper representative is fixed for the sampled smoke",
+          "observedDiff": "Before this slice, the target-wrapper smoke still contained Starshine ref.test/ref.cast/br_on_cast debris before unconditional traps and measured 718 raw bytes. After red-first raw-skip cleanup for dropped null ref.test/ref.cast and non-null ref.cast trap tails, the same seed/profile/transform has Starshine ref.test=0, ref.cast=0, br_on_cast=0, br_on_cast_fail=0, raw size 572 bytes, Binaryen raw size 554 bytes, and both raw outputs validate.",
+          "nextAction": "Run grouped pass-oi-ref-gc sweeps with OI-I/OI-J transforms to find live reference/cast cleanup gaps instead of continuing to mine the OI-H target-wrapper representative.",
+          "lastCheckedEvidence": "2026-06-27 pass_manager_wbtest red-first cleanup and .tmp/oi-call-ref-target-wrapper-compare-smoke-ref-null-cast-trim2 counts."
+        },
+        {
+          "label": "oi-ref-gc:local-carried-null-test-cast",
+          "transformId": "oi-local-carried",
+          "representativeFailureDir": null,
+          "status": "covered",
+          "agentClassification": "Sampled OI-I local-carried null/test/cast trigger matched Binaryen in the grouped count-3 smoke.",
+          "observedDiff": "No normalized diff for case 000003; compare-pass reported status match with validation/generator/property/command failures all zero.",
+          "nextAction": "Scale the local-carried ref trigger from this synthetic nullable-any smoke to existing reference producers, non-any heap types, and live nullable/non-null casts before declaring OI-I local-carried coverage complete.",
+          "lastCheckedEvidence": "2026-06-27 .tmp/oi-ref-gc-trigger-grouped-sweep-20260627 OI-I case 000003."
+        },
+        {
+          "label": "oi-ref-gc:branch-cast-boundaries",
+          "transformId": "oi-local-carried",
+          "representativeFailureDir": ".tmp/oi-ref-gc-branch-cast-fix4-20260627/oi-i/OI-I-ref-null-cast-basics/cases.jsonl",
+          "status": "covered",
+          "agentClassification": "Fixed sampled OI-I branch-cast output-shape parity gap for the non-descriptor trigger-smoke representative.",
+          "observedDiff": "Fresh grouped sweep now reports this label as a normalized match. Starshine narrows null-fed br_on_cast/br_on_cast_fail block results to nullref, preserves nullable versus non-null target spelling as Binaryen does, collapses unreachable cast-branch guards, and trims the repeated dropped trap-tail blocks to one unreachable. The row still has one mismatch, but it is the separate direct-null-test-cast-eq effectful-sibling case.",
+          "nextAction": "Scale beyond this synthetic null-source representative: add randomized branch-cast producers, non-any heap sources, existing-producer wrappers, and effect/trap siblings before treating OI-I branch-cast boundaries as broadly covered.",
+          "lastCheckedEvidence": "2026-06-27 .tmp/oi-ref-gc-branch-cast-fix4-20260627 OI-I case label oi-ref-gc:branch-cast-boundaries matched; focused optimize_instructions_test coverage passed."
+        },
+        {
+          "label": "oi-ref-gc:direct-null-test-cast-eq",
+          "transformId": null,
+          "representativeFailureDir": ".tmp/oi-ref-gc-direct-no-transform-triage-20260627/failures/case-000002-gen-valid",
+          "status": "starshine-win-candidate",
+          "agentClassification": "Reduced OI-I-owned direct null/test/cast/equality output-shape drift; sampled Starshine cleanup is semantically safe for the generated direct-null sequence and measured smaller after canonicalization, while the oi-effectful-sibling variant also carries separate OI-F/OI-D scalar/if spelling drift.",
+          "observedDiff": "Without metamorphic transforms, the same direct-null/test/cast trigger still mismatches: Binaryen keeps dropped ref.is_null(ref.null none) shells, keeps dropped nullable ref.null shells for nullable ref.test/ref.cast of null, then reaches the non-null ref.cast(null) unreachable; Starshine folds the dropped null tests to constants, removes one side-effect-free nullable ref.null shell before the guaranteed trap tail, and reaches the same unreachable. Both raw and canonical outputs validate; canonical wasm is Starshine 40 bytes vs Binaryen 48 bytes, raw wasm is 48 bytes each. The earlier oi-effectful-sibling representative remains mixed because it additionally differs on private-global if sinking and constant i32.add spelling.",
+          "nextAction": "Do not add a size-losing Binaryen-shape rewrite for this sampled pure dropped-null sequence unless broader randomized OI-I evidence shows a semantic, validation, or downstream regression. Next scale pass-oi-ref-gc direct-null/test/cast into randomized existing-producer wrappers and separately classify the oi-effectful-sibling scalar/if drift under OI-F/OI-D.",
+          "lastCheckedEvidence": "2026-06-27 .tmp/oi-ref-gc-direct-no-transform-triage-20260627 count-3 no-transform compare; wasm-tools validate --features all passed for both tools' raw and canonical outputs."
+        }
+      ]
+    },
+    {
+      "id": "OI-J-descriptor-exactness-trap-modes",
+      "family": "OI-J",
+      "title": "Descriptor/exactness/TNH/IIT cast boundary classification",
+      "upstreamOwner": "OptimizeInstructions.cpp skipCast/skipNonNullCast/trapOnNull plus exact/desc/TNH/IIT lit families",
+      "litSources": [
+        "optimize-instructions-exact.wast",
+        "optimize-instructions-all-casts.wast",
+        "optimize-instructions-all-casts-exact.wast",
+        "optimize-instructions-desc.wast",
+        "optimize-instructions-gc-iit.wast",
+        "optimize-instructions-gc-tnh.wast"
+      ],
+      "featureRequirements": [
+        "gc",
+        "reference-types"
+      ],
+      "binaryenOracleMode": "compare-pass normalized WAT where local mode support exists; otherwise focused Binaryen-only oracle rows until Starshine exposes trap-mode flags",
+      "starshineStatus": "blocked-surface",
+      "priority": "P1",
+      "blockerBoundaryReason": "Descriptor/exactness/TNH/IIT remains blocked for grouped compare-pass sweeps: the earlier broad pass-oi-ref-gc config generated descriptor-bearing modules that wasm-tools --features all rejected with malformed section id 14, and the new pass-oi-ref-gc trigger-smoke selector intentionally covers only non-descriptor OI-I reference basics. OI-J needs a dedicated descriptor/exactness profile or oracle/toolchain support before family signoff.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md",
+        "docs/wiki/raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md",
+        "docs/wiki/raw/research/0821-2026-06-20-optimize-instructions-oi-j-descriptor-cast-boundary.md",
+        "docs/wiki/binaryen/passes/optimize-instructions/gc-casts-call_ref-and-trap-sensitive-rewrites.md",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiTrappingSibling implemented as a dead trap-shaped scalar sibling smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI trapping-sibling transform injects dead trap-shaped scalar siblings (2026-06-27)",
+        "scripts/lib/oi-parity-sweep.ts now forwards oi-trapping-sibling for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)",
+        ".tmp/oi-ref-gc-grouped-sweep-20260627 initial grouped OI-J --include-disabled attempt produced 0/3 comparable cases because descriptor-bearing pass-oi-ref-gc inputs failed wasm-tools --features all with malformed section id 14 (2026-06-27).",
+        ".tmp/oi-ref-gc-trigger-grouped-sweep-20260627/oi-j/OI-J-descriptor-exactness-trap-modes: after pass-oi-ref-gc was narrowed to non-descriptor trigger-smoke, --include-disabled compared 3/3 with one match and two raw mismatches, but the run is not descriptor/exactness/TNH/IIT evidence (2026-06-27).",
+        "wasm-tools validate --features all passed for Binaryen and Starshine raw outputs in the two OI-J non-descriptor smoke failure dirs (2026-06-27).",
+        ".tmp/oi-ref-gc-branch-cast-fix4-20260627/oi-j/OI-J-descriptor-exactness-trap-modes: non-descriptor branch-cast label now matches after the OI-I fix, but the row remains blocked-surface for descriptor/exactness/TNH/IIT because pass-oi-ref-gc is still deliberately non-descriptor (2026-06-27)."
+      ],
+      "genValidProfiles": [
+        "pass-oi-ref-gc"
+      ],
+      "metamorphicTransforms": [
+        "oi-local-carried",
+        "oi-trapping-sibling"
+      ],
+      "sweep": {
+        "enabled": false,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-ref-gc",
+        "blockedUntilProfileExists": false
+      },
+      "classifiedCaseLabels": [
+        {
+          "label": "oi-ref-gc:local-carried-null-test-cast",
+          "transformId": "oi-local-carried",
+          "representativeFailureDir": null,
+          "status": "covered",
+          "agentClassification": "Non-descriptor local-carried reference smoke matched in the disabled OI-J run, but this is OI-I evidence and does not cover descriptor/exactness/TNH/IIT.",
+          "observedDiff": "No normalized diff for case 000003; compare-pass reported match with validation/generator/property/command failures all zero.",
+          "nextAction": "Keep OI-J blocked until a descriptor/exactness profile or compatible oracle path exists; do not treat this OI-I smoke match as OI-J coverage.",
+          "lastCheckedEvidence": "2026-06-27 .tmp/oi-ref-gc-trigger-grouped-sweep-20260627 OI-J case 000003."
+        },
+        {
+          "label": "oi-ref-gc:branch-cast-boundaries",
+          "transformId": "oi-local-carried",
+          "representativeFailureDir": ".tmp/oi-ref-gc-branch-cast-fix4-20260627/oi-j/OI-J-descriptor-exactness-trap-modes/cases.jsonl",
+          "status": "covered",
+          "agentClassification": "Non-descriptor branch-cast smoke now matches after the OI-I fix; still not OI-J descriptor/exactness/TNH/IIT coverage.",
+          "observedDiff": "Fresh disabled OI-J grouped run reports branch-cast-boundaries as a match with zero validation/generator/property/command failures. This only proves the shared non-descriptor OI-I branch-cast cleanup applies when the row is sampled under OI-J transforms.",
+          "nextAction": "Keep OI-J blocked until a descriptor/exactness-specific profile or compatible oracle path exists; do not close descriptor/exactness/TNH/IIT from this non-descriptor match.",
+          "lastCheckedEvidence": "2026-06-27 .tmp/oi-ref-gc-branch-cast-fix4-20260627 OI-J case label oi-ref-gc:branch-cast-boundaries matched."
+        },
+        {
+          "label": "oi-ref-gc:direct-null-test-cast-eq",
+          "transformId": "oi-trapping-sibling",
+          "representativeFailureDir": ".tmp/oi-ref-gc-trigger-grouped-sweep-20260627/oi-j/OI-J-descriptor-exactness-trap-modes/failures/case-000002-gen-valid-transform-oi-trapping-sibling",
+          "status": "starshine-win-candidate",
+          "agentClassification": "Sampled Starshine-win candidate for synthetic dead trapping sibling plus direct null/test/cast cleanup, not OI-J descriptor/exactness coverage.",
+          "observedDiff": "The transform inserts a dead if with scalar div/rem-by-zero siblings. Starshine removes that dead trap shell and folds more null/test/cast debris, producing raw/canonical sizes 54/43 bytes versus Binaryen 74/74 bytes. Both raw outputs validate. This classification relies on the transform contract that the trap siblings are under an i32.const 0 dead if.",
+          "nextAction": "If this recurs under OI-F/OI-D trap-boundary rows, measure broader size/semantic evidence before keeping the Starshine shape. For OI-J, add true descriptor/exactness/TNH/IIT trigger constructors instead.",
+          "lastCheckedEvidence": "2026-06-27 grouped OI-J case 000002; wasm-tools validate --features all passed for both raw outputs."
+        }
+      ]
+    },
+    {
+      "id": "OI-K-gc-constructors-fields-arrays",
+      "family": "OI-K",
+      "title": "GC constructor/field/array/default and ordering surface",
+      "upstreamOwner": "OptimizeInstructions.cpp struct/array/default visitor cluster",
+      "litSources": [
+        "optimize-instructions-gc.wast",
+        "optimize-instructions-gc-extern.wast"
+      ],
+      "featureRequirements": [
+        "gc"
+      ],
+      "binaryenOracleMode": "compare-pass normalized WAT with GC feature floor; allocation-trap boundaries must be replayed separately",
+      "starshineStatus": "mismatch",
+      "priority": "P2",
+      "blockerBoundaryReason": "Some constructor/default probes are covered or bounded, and oi-trapping-sibling now gives a first dead scalar trap-shape ordering surface, but the full GC aggregate allocation/default/trap ordering matrix is not family-complete.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/research/0823-2026-06-20-optimize-instructions-oi-k-struct-get-new.md",
+        "docs/wiki/raw/research/0826-2026-06-20-optimize-instructions-oi-k-array-get-new-fixed.md",
+        "docs/wiki/raw/research/0833-2026-06-21-optimize-instructions-oi-k-array-set-fresh.md",
+        "docs/wiki/raw/research/1319-2026-06-26-optimize-instructions-oi-k-array-new-default-get-large-len-boundary.md",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiEffectfulSibling implemented as first private-global side-effect smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-effectful-sibling for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiTrappingSibling implemented as a dead trap-shaped scalar sibling smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI trapping-sibling transform injects dead trap-shaped scalar siblings (2026-06-27)",
+        "scripts/lib/oi-parity-sweep.ts now forwards oi-trapping-sibling for rows that list it (2026-06-27)"
+      ],
+      "genValidProfiles": [
+        "pass-oi-ref-gc"
+      ],
+      "metamorphicTransforms": [
+        "oi-local-carried",
+        "oi-effectful-sibling",
+        "oi-trapping-sibling"
+      ],
+      "sweep": {
+        "enabled": true,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-ref-gc",
+        "blockedUntilProfileExists": false
+      }
+    },
+    {
+      "id": "OI-L-gc-atomics-rmw-cmpxchg",
+      "family": "OI-L",
+      "title": "GC atomics / RMW / cmpxchg surface",
+      "upstreamOwner": "OptimizeInstructions.cpp GC atomic RMW/cmpxchg visitors",
+      "litSources": [
+        "optimize-instructions-gc-atomics.wast",
+        "optimize-instructions-struct-rmw.wast"
+      ],
+      "featureRequirements": [
+        "gc",
+        "threads"
+      ],
+      "binaryenOracleMode": "compare-pass normalized WAT after Starshine text/core constructors and feature floors are confirmed",
+      "starshineStatus": "blocked-surface",
+      "priority": "P2",
+      "blockerBoundaryReason": "Starshine exposes some struct.atomic.get syntax but aggregate RMW/cmpxchg text/core constructors and unshared-lowering coverage are not a complete implemented surface.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md",
+        "docs/wiki/binaryen/passes/optimize-instructions/gc-casts-call_ref-and-trap-sensitive-rewrites.md",
+        "src/passes/optimize_instructions.mbt",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiEffectfulSibling implemented as first private-global side-effect smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-effectful-sibling for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)"
+      ],
+      "genValidProfiles": [
+        "pass-oi-ref-gc"
+      ],
+      "metamorphicTransforms": [
+        "oi-local-carried",
+        "oi-effectful-sibling"
+      ],
+      "sweep": {
+        "enabled": false,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-ref-gc",
+        "blockedUntilProfileExists": false
+      }
+    },
+    {
+      "id": "OI-M-tuple-multivalue-selected-lanes",
+      "family": "OI-M",
+      "title": "Tuple extraction / multivalue selected-lane and sibling localization",
+      "upstreamOwner": "OptimizeInstructions.cpp::visitTupleExtract and optimize-instructions-multivalue.wast",
+      "litSources": [
+        "optimize-instructions-multivalue.wast"
+      ],
+      "featureRequirements": [
+        "multivalue"
+      ],
+      "binaryenOracleMode": "compare-pass normalized WAT plus pass-oi-tuple profile and forwarded selected-lane/effect/trap metamorphic transforms",
+      "starshineStatus": "mismatch",
+      "priority": "P0",
+      "blockerBoundaryReason": "OI-M has extensive one-off boundary research through many effect-count rows; it now has forwarded selected-lane, effectful-sibling, dead trap-shaped sibling, and local-carried smoke transforms, but still needs trigger-biased tuple-profile constructors and existing-producer/effect/trap selected-lane wrappers to stop producing one boundary doc per lane/effect count.",
+      "lastCheckedEvidence": [
+        "docs/wiki/raw/research/0834-2026-06-21-optimize-instructions-oi-m-tuple-extract-make.md",
+        "docs/wiki/raw/research/0853-2026-06-25-optimize-instructions-oi-m-multiresult-selected-boundary.md",
+        "docs/wiki/raw/research/0859-2026-06-25-optimize-instructions-oi-m-tuple-optimization-boundary.md",
+        "docs/wiki/raw/research/1352-2026-06-27-optimize-instructions-oi-m-tuple-optimization-one-hundred-nine-effects-boundary.md",
+        "src/validate/gen_valid.mbt",
+        "src/validate/gen_valid_tests.mbt",
+        "src/fuzz/metamorphic.mbt::OiEffectfulSibling implemented as first private-global side-effect smoke transform (2026-06-27)",
+        "scripts/oi-parity-sweep.ts now forwards oi-effectful-sibling for rows that list it (2026-06-27)",
+        "moon test --package jtenner/starshine/fuzz --file metamorphic_wbtest.mbt and bun test scripts/lib/oi-parity-sweep.test.ts passed after implementation (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiTrappingSibling implemented as a dead trap-shaped scalar sibling smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI trapping-sibling transform injects dead trap-shaped scalar siblings (2026-06-27)",
+        "scripts/lib/oi-parity-sweep.ts now forwards oi-trapping-sibling for rows that list it (2026-06-27)",
+        "src/fuzz/metamorphic.mbt::OiTupleSelectedLane implemented as a synthetic multivalue selected-lane smoke transform (2026-06-27)",
+        "src/fuzz/metamorphic_wbtest.mbt::OI tuple-selected-lane transform injects multivalue selected-lane smoke shells (2026-06-27)",
+        "scripts/lib/oi-parity-sweep.ts now forwards oi-tuple-selected-lane for OI-M rows that list it (2026-06-27)",
+        "one-case pass-oi-tuple + oi-tuple-selected-lane compare smoke at .tmp/oi-tuple-selected-lane-compare-smoke: compared 1/1, raw mismatches 1, validation/generator/property/command failures 0 (2026-06-27)",
+        "agent classification: open OI-M parity gap/evidence, not semantic-safety proof (2026-06-27)",
+        "2026-06-27 classified .tmp/oi-tuple-selected-lane-compare-smoke failure dir: synthetic tuple-selected-lane smoke residual is representation drift over pure constant multivalue block lane extraction; Starshine canonical wasm is 4100 bytes vs Binaryen 4326 bytes (-226), raw wasm 3975 vs 4229 (-254), and both outputs validate with wasm-tools --features all."
+      ],
+      "genValidProfiles": [
+        "pass-oi-tuple"
+      ],
+      "metamorphicTransforms": [
+        "oi-tuple-selected-lane",
+        "oi-effectful-sibling",
+        "oi-trapping-sibling",
+        "oi-local-carried"
+      ],
+      "sweep": {
+        "enabled": true,
+        "count": 100,
+        "seed": "0x5eed",
+        "profile": "pass-oi-tuple",
+        "blockedUntilProfileExists": false
+      },
+      "notes": "OI-M has extensive one-off boundary research through many effect-count rows. The family workflow now provides forwarded selected-lane, effectful-sibling, dead trap-shaped sibling, and local-carried smoke transforms, but still needs trigger-biased tuple-profile constructors and existing-producer/effect/trap selected-lane wrappers to stop producing one boundary doc per lane/effect count. The first synthetic `oi-tuple-selected-lane` smoke mismatch is classified in `classifiedCaseLabels`: for pure constant multivalue block lane extraction, Starshine keeps nested block-expression localization while Binaryen scalarizes to more straight-line local sets; the sampled Starshine canonical/raw wasm is smaller and both outputs validate, so this is a sampled Starshine-win candidate, not a closure of the broader tuple-scratch reconstruction family.",
+      "classifiedCaseLabels": [
+        {
+          "label": "pass-oi-tuple:oi-tuple-selected-lane-smoke",
+          "transformId": "oi-tuple-selected-lane",
+          "representativeFailureDir": ".tmp/oi-tuple-selected-lane-compare-smoke/failures/case-000001-gen-valid-transform-oi-tuple-selected-lane",
+          "status": "starshine-win-candidate",
+          "agentClassification": "sampled size-winning representation drift over pure synthetic multivalue selected-lane smoke; broader OI-M tuple-scratch localization remains open",
+          "observedDiff": "The transform prepends pure constant multivalue block selected-lane shells. Binaryen scalarizes the shell into many straight-line local.set/local.tee operations; Starshine keeps nested block-result expressions around the selected lane. Starshine canonical wasm is 4100 bytes vs Binaryen 4326 bytes (-226), raw wasm is 3975 vs 4229 bytes (-254), and both canonical outputs validate.",
+          "nextAction": "Do not treat this smoke as OI-M signoff. Upgrade pass-oi-tuple / oi-tuple-selected-lane to wrap existing tuple producers with effectful/trapping siblings and selected-lane variants; preserve this sample as a Starshine-win candidate unless broader probes show semantic or size regressions.",
+          "lastCheckedEvidence": "2026-06-27 diff/stat/wasm-tools validate of .tmp/oi-tuple-selected-lane-compare-smoke/failures/case-000001-gen-valid-transform-oi-tuple-selected-lane."
+        }
+      ]
+    }
+  ],
+  "caseLabelClassificationSchema": {
+    "statusVocabularyRef": "statusVocabulary",
+    "fields": [
+      "label",
+      "transformId",
+      "representativeFailureDir",
+      "status",
+      "agentClassification",
+      "observedDiff",
+      "nextAction",
+      "lastCheckedEvidence"
+    ],
+    "rule": "For trigger-profile sweeps, classify one representative WAT diff per genValidProfileCaseLabel before opening behavior work; status is an agent judgment and is not inferred automatically from compare-pass."
+  }
+}

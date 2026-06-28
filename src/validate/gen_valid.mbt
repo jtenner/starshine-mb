@@ -708,6 +708,13 @@ pub enum GenValidProfile {
   SsaNomergeParityProfile
   SsaNomergeStressProfile
   SsaNomergeAllProfile
+  PassOiDefaultScalarProfile
+  PassOiLocalFactsProfile
+  PassOiBooleanSelectProfile
+  PassOiMemoryBulkProfile
+  PassOiCallRefProfile
+  PassOiRefGcProfile
+  PassOiTupleProfile
   RandomAllProfilesProfile
 } derive(Eq, Debug)
 
@@ -812,6 +819,13 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SsaNomergeParityProfile => "ssa-nomerge-parity"
     SsaNomergeStressProfile => "ssa-nomerge-stress"
     SsaNomergeAllProfile => "ssa-nomerge-all"
+    PassOiDefaultScalarProfile => "pass-oi-default-scalar"
+    PassOiLocalFactsProfile => "pass-oi-local-facts"
+    PassOiBooleanSelectProfile => "pass-oi-boolean-select"
+    PassOiMemoryBulkProfile => "pass-oi-memory-bulk"
+    PassOiCallRefProfile => "pass-oi-call-ref"
+    PassOiRefGcProfile => "pass-oi-ref-gc"
+    PassOiTupleProfile => "pass-oi-tuple"
     RandomAllProfilesProfile => "random-all-profiles"
   }
 }
@@ -1028,6 +1042,13 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SsaNomergeParityProfile,
     SsaNomergeStressProfile,
     SsaNomergeAllProfile,
+    PassOiDefaultScalarProfile,
+    PassOiLocalFactsProfile,
+    PassOiBooleanSelectProfile,
+    PassOiMemoryBulkProfile,
+    PassOiCallRefProfile,
+    PassOiRefGcProfile,
+    PassOiTupleProfile,
     RandomAllProfilesProfile,
   ]
 }
@@ -1095,6 +1116,14 @@ pub fn gen_valid_profile_by_name(
     "random-profiles" => Ok(RandomAllProfilesProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
+    "optimize-instructions" => Ok(PassOiDefaultScalarProfile)
+    "oi-default-scalar" => Ok(PassOiDefaultScalarProfile)
+    "oi-local-facts" => Ok(PassOiLocalFactsProfile)
+    "oi-boolean-select" => Ok(PassOiBooleanSelectProfile)
+    "oi-memory-bulk" => Ok(PassOiMemoryBulkProfile)
+    "oi-call-ref" => Ok(PassOiCallRefProfile)
+    "oi-ref-gc" => Ok(PassOiRefGcProfile)
+    "oi-tuple" => Ok(PassOiTupleProfile)
     _ =>
       Err(
         "unknown gen-valid profile '\{name}'; expected \{gen_valid_join_profile_names(gen_valid_profile_names())}",
@@ -1483,7 +1512,237 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | SsaNomergeStressProfile => gen_valid_ssa_nomerge_profile_config(profile)
     SsaNomergeAllProfile =>
       gen_valid_ssa_nomerge_profile_config(SsaNomergeCoverageProfile)
+    PassOiDefaultScalarProfile
+    | PassOiLocalFactsProfile
+    | PassOiBooleanSelectProfile
+    | PassOiMemoryBulkProfile
+    | PassOiCallRefProfile
+    | PassOiRefGcProfile
+    | PassOiTupleProfile => gen_valid_oi_profile_config(profile)
     RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
+  }
+}
+
+///|
+fn gen_valid_oi_profile_config(profile : GenValidProfile) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let scalar_only_features = GenValidFeatureToggles::{
+    ..base.features,
+    allow_imports: false,
+    allow_tables: false,
+    allow_mems: false,
+    allow_globals: false,
+    allow_tags: false,
+    allow_elems: false,
+    allow_datas: false,
+    allow_ref_types: false,
+    allow_v128: false,
+    allow_relaxed_simd: false,
+    allow_calls: false,
+    allow_call_indirect: false,
+    allow_tail_calls: false,
+    allow_branch_heavy_control: false,
+    allow_memory_limit_variants: false,
+    allow_table_limit_variants: false,
+    allow_shared_memories: false,
+    allow_memory64: false,
+    allow_atomics: false,
+    allow_subtyping_topology: false,
+    allow_name_custom_sections: false,
+    allow_typed_body_generator: true,
+  }
+  match profile {
+    PassOiDefaultScalarProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 1,
+        max_imports: 0,
+        max_defined_funcs: 2,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 2,
+        max_results: 1,
+        max_locals: 4,
+        max_body_statements: 14,
+        max_body_depth: 2,
+        features: scalar_only_features,
+      }
+    PassOiLocalFactsProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 1,
+        max_imports: 0,
+        max_defined_funcs: 2,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 3,
+        max_results: 1,
+        max_locals: 8,
+        max_body_statements: 16,
+        max_body_depth: 2,
+        features: scalar_only_features,
+      }
+    PassOiBooleanSelectProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 1,
+        max_imports: 0,
+        max_defined_funcs: 2,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 2,
+        max_results: 1,
+        max_locals: 6,
+        max_body_statements: 18,
+        max_body_depth: 4,
+        features: GenValidFeatureToggles::{
+          ..scalar_only_features,
+          allow_branch_heavy_control: true,
+        },
+      }
+    PassOiMemoryBulkProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 2,
+        max_imports: 0,
+        max_defined_funcs: 3,
+        max_tables: 0,
+        max_mems: 3,
+        max_globals: 1,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 6,
+        max_params: 3,
+        max_results: 1,
+        max_locals: 8,
+        max_body_statements: 20,
+        max_body_depth: 3,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: true,
+          allow_globals: true,
+          allow_tags: false,
+          allow_elems: false,
+          allow_datas: true,
+          allow_calls: false,
+          allow_call_indirect: false,
+          allow_tail_calls: false,
+          allow_branch_heavy_control: false,
+          allow_memory_limit_variants: true,
+          allow_table_limit_variants: false,
+          allow_shared_memories: true,
+          allow_memory64: true,
+          allow_atomics: true,
+          allow_ref_types: false,
+          allow_v128: false,
+          allow_relaxed_simd: false,
+          allow_subtyping_topology: false,
+          allow_name_custom_sections: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    PassOiCallRefProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 10,
+        max_imports: 0,
+        max_defined_funcs: 8,
+        max_tables: 2,
+        max_mems: 0,
+        max_globals: 2,
+        max_tags: 0,
+        max_elems: 3,
+        max_datas: 0,
+        max_params: 4,
+        max_results: 2,
+        max_locals: 6,
+        max_body_statements: 16,
+        max_body_depth: 3,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+          allow_tables: true,
+          allow_mems: false,
+          allow_globals: true,
+          allow_tags: false,
+          allow_elems: true,
+          allow_datas: false,
+          allow_ref_types: true,
+          allow_calls: true,
+          allow_call_indirect: true,
+          allow_tail_calls: true,
+          allow_branch_heavy_control: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_v128: false,
+          allow_relaxed_simd: false,
+          allow_subtyping_topology: true,
+          allow_name_custom_sections: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    PassOiRefGcProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 18,
+        max_imports: 0,
+        max_defined_funcs: 8,
+        max_tables: 2,
+        max_mems: 1,
+        max_globals: 6,
+        max_tags: 0,
+        max_elems: 2,
+        max_datas: 1,
+        max_params: 4,
+        max_results: 2,
+        max_locals: 8,
+        max_body_statements: 18,
+        max_body_depth: 4,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+          allow_tags: false,
+          allow_ref_types: true,
+          allow_subtyping_topology: true,
+          allow_v128: false,
+          allow_relaxed_simd: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    PassOiTupleProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 2,
+        max_imports: 0,
+        max_defined_funcs: 3,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 4,
+        max_results: 3,
+        max_locals: 8,
+        max_body_statements: 19,
+        max_body_depth: 4,
+        features: scalar_only_features,
+      }
+    _ => base
   }
 }
 
@@ -1972,6 +2231,13 @@ fn gen_valid_is_ssa_nomerge_smoke_config(config : GenValidConfig) -> Bool {
 ///|
 fn gen_valid_is_ssa_nomerge_parity_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(SsaNomergeParityProfile)
+}
+
+///|
+fn gen_valid_is_oi_trigger_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(PassOiDefaultScalarProfile) ||
+  config == GenValidConfig::for_profile(PassOiLocalFactsProfile) ||
+  config == GenValidConfig::for_profile(PassOiRefGcProfile)
 }
 
 ///|
@@ -2955,6 +3221,7 @@ pub fn gen_valid_stream_random_state(
 ///|
 struct GenValidContext {
   rnd : RandomState
+  root_seed : UInt64
   module_topology_rnd : RandomState
   type_rnd : RandomState
   func_rnd : RandomState
@@ -3419,6 +3686,7 @@ fn GenValidContext::new(
 ) -> GenValidContext {
   {
     rnd,
+    root_seed: 0UL,
     module_topology_rnd: rnd,
     type_rnd: rnd,
     func_rnd: rnd,
@@ -3442,6 +3710,7 @@ fn GenValidContext::new_streamed(
 ) -> GenValidContext {
   {
     rnd: gen_valid_stream_random_state(root_seed, ModuleTopologyStream),
+    root_seed,
     module_topology_rnd: gen_valid_stream_random_state(
       root_seed,
       ModuleTopologyStream,
@@ -4511,19 +4780,25 @@ fn GenValidContext::random_bool_from(
 
 ///|
 fn gen_valid_ref_valtype_pool(
+  ctx : GenValidContext,
   extra_ref_types : Array[ValType],
 ) -> Array[ValType] {
-  let refs : Array[ValType] = [
-    ValType::funcref(),
-    ValType::externref(),
-    ValType::stringref(),
-    ValType::ref_null_exn(),
-    ValType::ref_type(RefType::abs(AbsHeapType::any())),
-    ValType::ref_type(RefType::abs(AbsHeapType::eq())),
-    ValType::ref_type(RefType::abs(AbsHeapType::i31())),
-    ValType::ref_type(RefType::abs(AbsHeapType::struct_())),
-    ValType::ref_type(RefType::abs(AbsHeapType::array())),
-  ]
+  let refs : Array[ValType] = [ValType::funcref(), ValType::externref()]
+  // String references are intentionally tied to the richer const-expression
+  // surface for now. The Binaryen-oracle profiles keep that surface off and
+  // validate through wasm-tools --features all, which currently rejects
+  // stringref value types.
+  if ctx.config.features.allow_const_expr_variants {
+    refs.push(ValType::stringref())
+  }
+  if ctx.config.features.allow_tags {
+    refs.push(ValType::ref_null_exn())
+  }
+  refs.push(ValType::ref_type(RefType::abs(AbsHeapType::any())))
+  refs.push(ValType::ref_type(RefType::abs(AbsHeapType::eq())))
+  refs.push(ValType::ref_type(RefType::abs(AbsHeapType::i31())))
+  refs.push(ValType::ref_type(RefType::abs(AbsHeapType::struct_())))
+  refs.push(ValType::ref_type(RefType::abs(AbsHeapType::array())))
   for vt in extra_ref_types {
     refs.push(vt)
   }
@@ -4539,7 +4814,7 @@ fn gen_valid_valtype_with_extra_refs_from(
   let scalar_choice_count = 4 +
     gen_valid_bool_count(ctx.config.features.allow_v128)
   let ref_pool = if ctx.config.features.allow_ref_types {
-    gen_valid_ref_valtype_pool(extra_ref_types)
+    gen_valid_ref_valtype_pool(ctx, extra_ref_types)
   } else {
     []
   }
@@ -5162,8 +5437,15 @@ fn gen_valid_gc_type_defs(
 
   let defs : Array[RecType] = []
   let mut plan = gen_valid_gc_type_plan_empty()
-  plan.concrete_ref_types.push(ValType::stringref())
-  plan.concrete_ref_types.push(ValType::ref_null_exn())
+  // Keep oracle-oriented ref/GC plans inside the value-type surface accepted by
+  // the compare harness' wasm-tools validation. All-features/natural profiles
+  // still include stringref and exnref through their enabling feature surfaces.
+  if ctx.config.features.allow_const_expr_variants {
+    plan.concrete_ref_types.push(ValType::stringref())
+  }
+  if ctx.config.features.allow_tags {
+    plan.concrete_ref_types.push(ValType::ref_null_exn())
+  }
   let mut type_idx_cursor = next_type_idx
 
   let want_struct = ctx.config.mode == CoverageForced ||
@@ -14264,8 +14546,227 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_oi_trigger_profile_case(ctx : GenValidContext) -> Int {
+  if ctx.use_named_streams {
+    (ctx.root_seed % 3UL).to_int()
+  } else {
+    ctx.random_int_from(BodyStream, 3)
+  }
+}
+
+///|
+pub fn gen_valid_oi_trigger_profile_case_for_seed(seed : UInt64) -> Int {
+  (seed % 3UL).to_int()
+}
+
+///|
+pub fn gen_valid_oi_trigger_profile_case_label(
+  profile : GenValidProfile,
+  seed : UInt64,
+) -> String? {
+  let case = gen_valid_oi_trigger_profile_case_for_seed(seed)
+  match profile {
+    PassOiDefaultScalarProfile =>
+      match case {
+        1 => Some("oi-default-scalar:local-carried-add-zero")
+        2 => Some("oi-default-scalar:local-tee-commuted-add-zero")
+        _ => Some("oi-default-scalar:direct")
+      }
+    PassOiLocalFactsProfile =>
+      match case {
+        1 => Some("oi-local-facts:local-tee-add-zero")
+        2 => Some("oi-local-facts:local-carried-mask")
+        _ => Some("oi-local-facts:direct-sign-extension")
+      }
+    PassOiRefGcProfile =>
+      match case {
+        1 => Some("oi-ref-gc:local-carried-null-test-cast")
+        2 => Some("oi-ref-gc:branch-cast-boundaries")
+        _ => Some("oi-ref-gc:direct-null-test-cast-eq")
+      }
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_oi_default_scalar_profile_body(case : Int) -> Array[Instruction] {
+  let direct = [
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_add(),
+    Instruction::drop(),
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_eqz(),
+    Instruction::i32_eqz(),
+    Instruction::drop(),
+    Instruction::i64_const(I64(0L)),
+    Instruction::i64_eqz(),
+    Instruction::drop(),
+    Instruction::i32_const(I32(0x7f)),
+    Instruction::i32_extend8s(),
+    Instruction::drop(),
+    Instruction::i64_const(I64(0x7fffffffL)),
+    Instruction::i64_extend32s(),
+    Instruction::drop(),
+    Instruction::i32_const(I32(4)),
+    Instruction::i32_const(I32(2)),
+    Instruction::i32_shl(),
+    Instruction::drop(),
+  ]
+  match case {
+    1 => {
+      let out = [
+        Instruction::i32_const(I32(11)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_add(),
+        Instruction::drop(),
+      ]
+      out.append(direct)
+      out
+    }
+    2 => {
+      let out = [
+        Instruction::i32_const(I32(13)),
+        Instruction::local_tee(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_add(),
+        Instruction::drop(),
+        Instruction::i32_const(I32(0)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_add(),
+        Instruction::drop(),
+      ]
+      out.append(direct)
+      out
+    }
+    _ => direct
+  }
+}
+
+///|
+fn gen_valid_oi_local_facts_profile_body(case : Int) -> Array[Instruction] {
+  let direct_sign_ext = [
+    Instruction::i32_const(I32(0x7f)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_extend8s(),
+    Instruction::drop(),
+    Instruction::i64_const(I64(0x7fffffffL)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::i64_extend32s(),
+    Instruction::drop(),
+  ]
+  match case {
+    1 => {
+      let out = [
+        Instruction::i32_const(I32(8)),
+        Instruction::local_tee(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_add(),
+        Instruction::drop(),
+      ]
+      out.append(direct_sign_ext)
+      out
+    }
+    2 => {
+      let out : Array[Instruction] = []
+      out.append(direct_sign_ext)
+      out.append([
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_and(),
+        Instruction::drop(),
+      ])
+      out
+    }
+    _ => direct_sign_ext
+  }
+}
+
+///|
+fn gen_valid_oi_ref_gc_profile_body(case : Int) -> Array[Instruction] {
+  let any = HeapType::abs(AbsHeapType::any())
+  let eq = HeapType::abs(AbsHeapType::eq())
+  let out : Array[Instruction] = []
+  match case {
+    1 => {
+      out.push(Instruction::ref_null(any))
+      out.push(Instruction::local_set(LocalIdx::new(0U)))
+      out.push(Instruction::local_get(LocalIdx::new(0U)))
+      out.push(Instruction::ref_is_null())
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(LocalIdx::new(0U)))
+      out.push(Instruction::ref_test(true, any))
+      out.push(Instruction::drop())
+      out.push(Instruction::local_get(LocalIdx::new(0U)))
+      out.push(Instruction::ref_cast(true, any))
+      out.push(Instruction::drop())
+    }
+    2 => {
+      gen_valid_append_basic_ref_br_on_cast_pair(out, true, true)
+      gen_valid_append_basic_ref_br_on_cast_pair(out, true, false)
+      gen_valid_append_basic_ref_br_on_cast_pair(out, false, false)
+    }
+    _ => {
+      gen_valid_append_basic_ref_is_null(out, any)
+      gen_valid_append_basic_ref_is_null(
+        out,
+        HeapType::abs(AbsHeapType::none()),
+      )
+      gen_valid_append_basic_ref_test_cast_pair(out, any, any, true)
+      gen_valid_append_basic_ref_test_cast_pair(out, any, any, false)
+      out.push(Instruction::ref_null(eq))
+      out.push(Instruction::ref_null(eq))
+      out.push(Instruction::ref_eq())
+      out.push(Instruction::drop())
+      out.push(Instruction::i32_const(I32(31)))
+      out.push(Instruction::ref_i31())
+      out.push(Instruction::drop())
+    }
+  }
+  out
+}
+
+///|
+fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
+  let config = ctx.config
+  let local_facts = config ==
+    GenValidConfig::for_profile(PassOiLocalFactsProfile)
+  let ref_gc = config == GenValidConfig::for_profile(PassOiRefGcProfile)
+  let case = gen_valid_oi_trigger_profile_case(ctx)
+  let locals = if local_facts {
+    Locals::from_types([ValType::i32(), ValType::i64()])
+  } else if ref_gc && case == 1 {
+    Locals::from_types([
+      ValType::ref_type(RefType::new(true, HeapType::abs(AbsHeapType::any()))),
+    ])
+  } else if !ref_gc && (case == 1 || case == 2) {
+    Locals::from_types([ValType::i32()])
+  } else {
+    Locals::empty()
+  }
+  let body = if local_facts {
+    gen_valid_oi_local_facts_profile_body(case)
+  } else if ref_gc {
+    gen_valid_oi_ref_gc_profile_body(case)
+  } else {
+    gen_valid_oi_default_scalar_profile_body(case)
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(CodeSec::new([Func::new(locals, Expr::new(body))]))
+}
+
+///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_oi_trigger_profile_config(config) {
+    return gen_valid_oi_trigger_profile_module(ctx)
+  }
   if gen_valid_is_gsi_desc_cast_profile_config(config) {
     return gen_valid_gsi_desc_cast_profile_module(config)
   }

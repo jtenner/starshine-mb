@@ -1,4 +1,196 @@
 ///|
+test "optimize-instructions raw directizes adjacent ref.func call_ref before skip" {
+  // OI-H grouped-sweep follow-up: profile-backed `oi-call-ref-target-wrapper`
+  // classified a large size-losing raw-gate gap. The raw skip path may still
+  // safely rewrite adjacent `ref.func` / `call_ref` pairs without lifting the
+  // whole function through HOT.
+  let target = @lib.FuncIdx::new(7U)
+  let type_idx = @lib.TypeIdx::new(3U)
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
+      @lib.Instruction::i32_const(@lib.I32(99)),
+      @lib.Instruction::ref_func(target),
+      @lib.Instruction::call_ref(type_idx),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_type(@lib.RefType::abs(@lib.AbsHeapType::func())),
+        ),
+        @lib.Expr::new([@lib.Instruction::ref_func(target)]),
+      ),
+      @lib.Instruction::return_call_ref(type_idx),
+    ],
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(99)),
+    @lib.Instruction::call(target),
+    @lib.Instruction::return_call(target),
+  ])
+}
+
+///|
+test "optimize-instructions raw directizes constant select ref.func call_ref before skip" {
+  let left = @lib.FuncIdx::new(7U)
+  let right = @lib.FuncIdx::new(8U)
+  let type_idx = @lib.TypeIdx::new(3U)
+  let typed_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::abs(@lib.AbsHeapType::func()),
+  )
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
+      @lib.Instruction::ref_func(left),
+      @lib.Instruction::ref_func(right),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::select(types=Some([typed_func_ref])),
+      @lib.Instruction::call_ref(type_idx),
+    ],
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [@lib.Instruction::call(right)])
+}
+
+///|
+test "optimize-instructions raw directizes dead local ref.func call_ref before skip" {
+  // OI-H target-wrapper residuals include `local.set (ref.func f)` followed by
+  // a single `local.get` call_ref target. The raw skip path may remove the dead
+  // wrapper when the target local has no other reads.
+  let target = @lib.FuncIdx::new(7U)
+  let type_idx = @lib.TypeIdx::new(3U)
+  let target_local = @lib.LocalIdx::new(0U)
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
+      @lib.Instruction::i32_const(@lib.I32(99)),
+      @lib.Instruction::ref_func(target),
+      @lib.Instruction::local_set(target_local),
+      @lib.Instruction::local_get(target_local),
+      @lib.Instruction::call_ref(type_idx),
+      @lib.Instruction::drop(),
+    ],
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(99)),
+    @lib.Instruction::call(target),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+test "optimize-instructions raw trims null as_non_null dead tail before skip" {
+  // OI-H target-wrapper smoke residuals are not safely table-directizable yet:
+  // they sit in the tail after a guaranteed `ref.null; ref.as_non_null` trap.
+  // The raw skip path may collapse that trap to `unreachable` and remove the
+  // later dynamic `table.get` / `call_ref` debris without proving table state.
+  let type_idx = @lib.TypeIdx::new(3U)
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
+      @lib.Instruction::i32_const(@lib.I32(99)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+      @lib.Instruction::ref_as_non_null(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::table_get(@lib.TableIdx::new(1U)),
+      @lib.Instruction::ref_cast(false, @lib.HeapType::new(type_idx)),
+      @lib.Instruction::call_ref(type_idx),
+    ],
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(99)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::unreachable_(),
+  ])
+}
+
+///|
+test "optimize-instructions raw trims dropped unreachable block tail before skip" {
+  // The same OI-H smoke leaves folded `drop (unreachable)` debris when a
+  // guaranteed trap is nested under a result block. A dropped block whose body
+  // cannot reach its result is equivalent to an immediate unreachable tail.
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(
+          @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+        ),
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+      @lib.Instruction::drop(),
+    ],
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::unreachable_(),
+  ])
+}
+
+///|
+test "optimize-instructions raw folds dropped null ref test and nullable cast before skip" {
+  // OI-I residuals in the OI-H target-wrapper smoke include already-dead
+  // `drop (ref.test nullref (ref.null none))` and nullable `ref.cast` debris.
+  // Folding those while preserving the drops is local, stack-neutral cleanup
+  // and does not widen the full HOT raw gate.
+  let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
+      @lib.Instruction::ref_null(none_heap),
+      @lib.Instruction::ref_test(true, none_heap),
+      @lib.Instruction::drop(),
+      @lib.Instruction::ref_null(none_heap),
+      @lib.Instruction::ref_cast(true, none_heap),
+      @lib.Instruction::drop(),
+      @lib.Instruction::unreachable_(),
+    ],
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::ref_null(none_heap),
+    @lib.Instruction::drop(),
+    @lib.Instruction::unreachable_(),
+  ])
+}
+
+///|
+test "optimize-instructions raw trims dropped null non-null ref cast tail before skip" {
+  // A non-null ref.cast fed by ref.null is a guaranteed trap. The raw skip
+  // cleanup may replace the dropped cast with an immediate unreachable and
+  // truncate later GC branch debris in the same dead tail.
+  let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::ref_null(none_heap),
+      @lib.Instruction::ref_cast(false, none_heap),
+      @lib.Instruction::drop(),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::ref_null(none_heap)),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(none_heap),
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            false,
+            none_heap,
+            false,
+            none_heap,
+          ),
+        ]),
+      ),
+      @lib.Instruction::drop(),
+    ],
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::unreachable_(),
+  ])
+}
+
+///|
 test "ssa-nomerge fresh local helper handles already-appended scratch locals" {
   // Native artifact refresh for the remaining ssa-nomerge sampled bucket exposed
   // this crash: earlier cleanup stages can append scratch locals before the

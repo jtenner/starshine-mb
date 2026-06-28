@@ -876,6 +876,7 @@ describe("pass fuzz summary coverage report", () => {
       genValidManifestPath: "inputs/gen-valid/manifest.json",
       genValidTransformCounts: { identity: 2 },
       genValidSelectedProfileCounts: { "ssa-nomerge-smoke": 2 },
+      genValidProfileCaseCounts: { "oi-default-scalar:direct": 2 },
       externalValidators: ["wasm-tools"],
       runtimeExecution: "node",
       propertyMode: "idempotence",
@@ -935,6 +936,7 @@ describe("pass fuzz summary coverage report", () => {
       optional_generator_gen_valid: 2,
       optional_gen_valid_transform_identity: 2,
       "optional_gen_valid_selected_profile_ssa-nomerge-smoke": 2,
+      "optional_gen_valid_profile_case_oi-default-scalar_direct": 2,
       optional_property_idempotence_checked: 5,
       optional_property_idempotence_matched: 4,
     });

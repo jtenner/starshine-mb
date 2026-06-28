@@ -573,6 +573,7 @@ pub struct GenValidBatchManifestEntry {
   index : Int
   config_label : String
   selected_profile : String
+  profile_case_label : String?
   attempts : Int
   validated : Bool
   validation_error_message : String?
@@ -1161,6 +1162,15 @@ pub enum MetamorphicValidTransform {
   AddTrailingLoopWrappedNumericConstDropsToDefinedFunctions
   AddLeadingMemorySizeDropToDefinedFunctions
   AddTrailingMemorySizeDropToDefinedFunctions
+  OiLocalCarried
+  OiLocalTeeWrapped
+  OiCommutedOperands
+  OiIfSelectShell
+  OiEffectfulSibling
+  OiTrappingSibling
+  OiCallRefTargetWrapper
+  OiTupleSelectedLane
+  OiMemorySizeBoundary
   AddLeadingTableSizeDropToDefinedFunctions
   AddTrailingTableSizeDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions

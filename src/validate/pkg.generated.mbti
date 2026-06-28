@@ -72,6 +72,10 @@ pub fn gen_valid_module_with_config(@splitmix.RandomState, GenValidConfig) -> @l
 
 pub fn gen_valid_numtype(GenValidContext) -> @lib.NumType
 
+pub fn gen_valid_oi_trigger_profile_case_for_seed(UInt64) -> Int
+
+pub fn gen_valid_oi_trigger_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_profile_by_name(String) -> Result[GenValidProfile, String]
 
 pub fn gen_valid_profile_is_composite(GenValidProfile) -> Bool
@@ -1175,6 +1179,13 @@ pub enum GenValidProfile {
   SsaNomergeParityProfile
   SsaNomergeStressProfile
   SsaNomergeAllProfile
+  PassOiDefaultScalarProfile
+  PassOiLocalFactsProfile
+  PassOiBooleanSelectProfile
+  PassOiMemoryBulkProfile
+  PassOiCallRefProfile
+  PassOiRefGcProfile
+  PassOiTupleProfile
   RandomAllProfilesProfile
 } derive(Eq, @debug.Debug)
 

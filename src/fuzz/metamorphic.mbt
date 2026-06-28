@@ -448,6 +448,15 @@ pub enum MetamorphicValidTransform {
   AddTrailingLoopWrappedNumericConstDropsToDefinedFunctions
   AddLeadingMemorySizeDropToDefinedFunctions
   AddTrailingMemorySizeDropToDefinedFunctions
+  OiLocalCarried
+  OiLocalTeeWrapped
+  OiCommutedOperands
+  OiIfSelectShell
+  OiEffectfulSibling
+  OiTrappingSibling
+  OiCallRefTargetWrapper
+  OiTupleSelectedLane
+  OiMemorySizeBoundary
   AddLeadingTableSizeDropToDefinedFunctions
   AddTrailingTableSizeDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions
@@ -1351,6 +1360,15 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-memory-size-drop-to-defined-functions"
     AddTrailingMemorySizeDropToDefinedFunctions =>
       "add-trailing-memory-size-drop-to-defined-functions"
+    OiLocalCarried => "oi-local-carried"
+    OiLocalTeeWrapped => "oi-local-tee-wrapped"
+    OiCommutedOperands => "oi-commuted-operands"
+    OiIfSelectShell => "oi-if-select-shell"
+    OiEffectfulSibling => "oi-effectful-sibling"
+    OiTrappingSibling => "oi-trapping-sibling"
+    OiCallRefTargetWrapper => "oi-call-ref-target-wrapper"
+    OiTupleSelectedLane => "oi-tuple-selected-lane"
+    OiMemorySizeBoundary => "oi-memory-size-boundary"
     AddLeadingTableSizeDropToDefinedFunctions =>
       "add-leading-table-size-drop-to-defined-functions"
     AddTrailingTableSizeDropToDefinedFunctions =>
@@ -1828,6 +1846,19 @@ fn metamorphic_total_func_count(mod : @lib.Module) -> Int {
     None => ()
   }
   count
+}
+
+///|
+fn metamorphic_defined_func_count(mod : @lib.Module) -> Int {
+  match (mod.func_sec, mod.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
+      if type_idxs.length() < funcs.length() {
+        type_idxs.length()
+      } else {
+        funcs.length()
+      }
+    _ => 0
+  }
 }
 
 ///|
@@ -5496,6 +5527,873 @@ fn metamorphic_apply_memory_size_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_oi_local_carried_prefix(
+  local_idx : @lib.LocalIdx,
+) -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::local_set(local_idx),
+    @lib.Instruction::local_get(local_idx),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_oi_local_carried(mod : @lib.Module) -> @lib.Module {
+  let subtypes = metamorphic_flatten_types(mod)
+  let funcs = []
+  match (mod.func_sec, mod.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(existing))) =>
+      for def_idx = 0; def_idx < existing.length(); def_idx = def_idx + 1 {
+        match existing[def_idx] {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            if def_idx >= type_idxs.length() {
+              funcs.push(@lib.Func::new(locals, @lib.Expr::new(instrs)))
+              continue
+            }
+            let param_count = metamorphic_func_param_count(
+              subtypes,
+              type_idxs[def_idx],
+            )
+            let local_idx = @lib.LocalIdx::new(
+              (param_count + locals.length()).reinterpret_as_uint(),
+            )
+            let next_runs : Array[@lib.LocalRun] = []
+            for run in locals.runs() {
+              next_runs.push(run)
+            }
+            next_runs.push(@lib.LocalRun::new(1U, @lib.ValType::i32()))
+            let next_instrs = metamorphic_oi_local_carried_prefix(local_idx)
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(
+              @lib.Func::new(
+                @lib.Locals::from_decl_runs_preserving_groups(next_runs),
+                @lib.Expr::new(next_instrs),
+              ),
+            )
+          }
+        }
+      }
+    _ => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_oi_local_tee_wrapped_prefix(
+  local_idx : @lib.LocalIdx,
+) -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::local_tee(local_idx),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(local_idx),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_apply_oi_local_carried(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiLocalCarried)
+  if metamorphic_defined_func_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one defined function",
+    )
+  }
+  let transformed = metamorphic_add_oi_local_carried(mod)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_add_oi_local_tee_wrapped(mod : @lib.Module) -> @lib.Module {
+  let subtypes = metamorphic_flatten_types(mod)
+  let funcs = []
+  match (mod.func_sec, mod.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(existing))) =>
+      for def_idx = 0; def_idx < existing.length(); def_idx = def_idx + 1 {
+        match existing[def_idx] {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            if def_idx >= type_idxs.length() {
+              funcs.push(@lib.Func::new(locals, @lib.Expr::new(instrs)))
+              continue
+            }
+            let param_count = metamorphic_func_param_count(
+              subtypes,
+              type_idxs[def_idx],
+            )
+            let local_idx = @lib.LocalIdx::new(
+              (param_count + locals.length()).reinterpret_as_uint(),
+            )
+            let next_runs : Array[@lib.LocalRun] = []
+            for run in locals.runs() {
+              next_runs.push(run)
+            }
+            next_runs.push(@lib.LocalRun::new(1U, @lib.ValType::i32()))
+            let next_instrs = metamorphic_oi_local_tee_wrapped_prefix(local_idx)
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(
+              @lib.Func::new(
+                @lib.Locals::from_decl_runs_preserving_groups(next_runs),
+                @lib.Expr::new(next_instrs),
+              ),
+            )
+          }
+        }
+      }
+    _ => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_local_tee_wrapped(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiLocalTeeWrapped)
+  if metamorphic_defined_func_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one defined function",
+    )
+  }
+  let transformed = metamorphic_add_oi_local_tee_wrapped(mod)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_oi_commuted_operands_prefix() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(10),
+    @lib.Instruction::i32_const(20),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(20),
+    @lib.Instruction::i32_const(10),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(0x0f0f),
+    @lib.Instruction::i32_const(0x3333),
+    @lib.Instruction::i32_and(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(0x3333),
+    @lib.Instruction::i32_const(0x0f0f),
+    @lib.Instruction::i32_and(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(42),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_eq(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_const(42),
+    @lib.Instruction::i32_eq(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_oi_commuted_operands(mod : @lib.Module) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = metamorphic_oi_commuted_operands_prefix()
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_commuted_operands(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiCommutedOperands)
+  if metamorphic_defined_func_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one defined function",
+    )
+  }
+  let transformed = metamorphic_add_oi_commuted_operands(mod)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_oi_if_select_shell_prefix() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [@lib.Instruction::i32_const(11)],
+      Some([@lib.Instruction::i32_const(22)]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::i32_const(1), @lib.Instruction::drop()],
+      Some([@lib.Instruction::i32_const(2), @lib.Instruction::drop()]),
+    ),
+    @lib.Instruction::i32_const(33),
+    @lib.Instruction::i32_const(33),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::select(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(44),
+    @lib.Instruction::i32_const(55),
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::i32_eqz(),
+    @lib.Instruction::select(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_oi_if_select_shell(mod : @lib.Module) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = metamorphic_oi_if_select_shell_prefix()
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_if_select_shell(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiIfSelectShell)
+  if metamorphic_defined_func_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one defined function",
+    )
+  }
+  let transformed = metamorphic_add_oi_if_select_shell(mod)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_oi_effectful_sibling_prefix(
+  global_idx : @lib.GlobalIdx,
+) -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(101),
+    @lib.Instruction::global_set(global_idx),
+    @lib.Instruction::global_get(global_idx),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::i32_const(102),
+        @lib.Instruction::global_set(global_idx),
+      ],
+      Some([
+        @lib.Instruction::i32_const(103),
+        @lib.Instruction::global_set(global_idx),
+      ]),
+    ),
+    @lib.Instruction::i32_const(104),
+    @lib.Instruction::global_set(global_idx),
+    @lib.Instruction::i32_const(10),
+    @lib.Instruction::i32_const(105),
+    @lib.Instruction::global_set(global_idx),
+    @lib.Instruction::i32_const(20),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::select(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(106),
+    @lib.Instruction::global_set(global_idx),
+    @lib.Instruction::i32_const(2),
+    @lib.Instruction::i32_const(3),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_oi_effectful_sibling(mod : @lib.Module) -> @lib.Module {
+  let existing_defined_globals = match mod.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals.length().reinterpret_as_uint()
+    None => 0U
+  }
+  let global_idx = @lib.GlobalIdx::new(
+    metamorphic_imported_global_count(mod) + existing_defined_globals,
+  )
+  let globals = []
+  match mod.global_sec {
+    Some(@lib.GlobalSec(existing)) =>
+      for global in existing {
+        globals.push(global)
+      }
+    None => ()
+  }
+  globals.push(
+    @lib.Global::new(
+      @lib.GlobalType::new(@lib.ValType::i32(), true),
+      @lib.Expr::new([@lib.Instruction::i32_const(0)]),
+    ),
+  )
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = metamorphic_oi_effectful_sibling_prefix(
+              global_idx,
+            )
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod
+  .with_global_sec(@lib.GlobalSec::new(globals))
+  .with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_effectful_sibling(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiEffectfulSibling)
+  if metamorphic_defined_func_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one defined function",
+    )
+  }
+  let transformed = metamorphic_add_oi_effectful_sibling(mod)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_oi_trapping_sibling_prefix() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::i32_const(1),
+        @lib.Instruction::i32_const(0),
+        @lib.Instruction::i32_div_s(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(1),
+        @lib.Instruction::i32_const(0),
+        @lib.Instruction::i32_rem_u(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i64_const(1L),
+        @lib.Instruction::i64_const(0L),
+        @lib.Instruction::i64_div_u(),
+        @lib.Instruction::drop(),
+      ],
+      None,
+    ),
+    @lib.Instruction::i32_const(2),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_oi_trapping_sibling(mod : @lib.Module) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = metamorphic_oi_trapping_sibling_prefix()
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_trapping_sibling(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiTrappingSibling)
+  if metamorphic_defined_func_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one defined function",
+    )
+  }
+  let transformed = metamorphic_add_oi_trapping_sibling(mod)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_oi_call_ref_target_ref_type(
+  type_idx : @lib.TypeIdx,
+) -> @lib.RefType {
+  @lib.RefType::new(false, @lib.HeapType::new(type_idx))
+}
+
+///|
+fn metamorphic_oi_call_ref_target_ref_val_type(
+  type_idx : @lib.TypeIdx,
+) -> @lib.ValType {
+  @lib.ValType::ref_type(metamorphic_oi_call_ref_target_ref_type(type_idx))
+}
+
+///|
+fn metamorphic_oi_call_ref_target_wrapper_prefix(
+  type_idx : @lib.TypeIdx,
+  func_idx : @lib.FuncIdx,
+) -> Array[@lib.Instruction] {
+  let target_ref = metamorphic_oi_call_ref_target_ref_val_type(type_idx)
+  [
+    @lib.Instruction::ref_func(func_idx),
+    @lib.Instruction::call_ref(type_idx),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(target_ref),
+      @lib.Expr::new([@lib.Instruction::ref_func(func_idx)]),
+    ),
+    @lib.Instruction::call_ref(type_idx),
+    @lib.Instruction::ref_func(func_idx),
+    @lib.Instruction::ref_func(func_idx),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::select(types=Some([target_ref])),
+    @lib.Instruction::call_ref(type_idx),
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::ref_func(func_idx),
+        @lib.Instruction::call_ref(type_idx),
+      ],
+      None,
+    ),
+  ]
+}
+
+///|
+fn metamorphic_add_oi_call_ref_target_wrapper(mod : @lib.Module) -> @lib.Module {
+  let type_idx = @lib.TypeIdx::new(
+    metamorphic_flatten_types(mod).length().reinterpret_as_uint(),
+  )
+  let func_idx = @lib.FuncIdx::new(
+    metamorphic_total_func_count(mod).reinterpret_as_uint(),
+  )
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let types = []
+  match mod.type_sec {
+    Some(@lib.TypeSec(existing)) =>
+      for rec_type in existing {
+        types.push(rec_type)
+      }
+    None => ()
+  }
+  types.push(target_type)
+
+  let type_idxs = []
+  match mod.func_sec {
+    Some(@lib.FuncSec(existing)) =>
+      for existing_idx in existing {
+        type_idxs.push(existing_idx)
+      }
+    None => ()
+  }
+  type_idxs.push(type_idx)
+
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) => {
+      let prefix = metamorphic_oi_call_ref_target_wrapper_prefix(
+        type_idx, func_idx,
+      )
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            for instr in prefix {
+              next_instrs.push(instr)
+            }
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    }
+    None => return mod
+  }
+  funcs.push(
+    @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([@lib.Instruction::nop()]),
+    ),
+  )
+
+  let elems = []
+  match mod.elem_sec {
+    Some(@lib.ElemSec(existing)) =>
+      for elem in existing {
+        elems.push(elem)
+      }
+    None => ()
+  }
+  elems.push(
+    @lib.Elem::new(
+      @lib.ElemMode::declarative(),
+      @lib.ElemKind::funcs([func_idx]),
+    ),
+  )
+
+  mod
+  .with_type_sec(@lib.TypeSec::new(types))
+  .with_func_sec(@lib.FuncSec::new(type_idxs))
+  .with_elem_sec(@lib.ElemSec::new(elems))
+  .with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_call_ref_target_wrapper(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiCallRefTargetWrapper)
+  if metamorphic_defined_func_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one defined function",
+    )
+  }
+  let transformed = metamorphic_add_oi_call_ref_target_wrapper(mod)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_oi_tuple_selected_lane_result_types() -> Array[@lib.ValType] {
+  [
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+    @lib.ValType::f32(),
+    @lib.ValType::f64(),
+  ]
+}
+
+///|
+fn metamorphic_oi_tuple_selected_lane_block_body() -> @lib.Expr {
+  @lib.Expr::new([
+    @lib.Instruction::i32_const(11),
+    @lib.Instruction::i64_const(22L),
+    @lib.Instruction::f32_const(33.0F),
+    @lib.Instruction::f64_const(44.0),
+  ])
+}
+
+///|
+fn metamorphic_oi_tuple_selected_lane_prefix(
+  block_type_idx : @lib.TypeIdx,
+  i32_local_idx : @lib.LocalIdx,
+  i64_local_idx : @lib.LocalIdx,
+  f32_local_idx : @lib.LocalIdx,
+  f64_local_idx : @lib.LocalIdx,
+) -> Array[@lib.Instruction] {
+  let selected_locals = [
+    i32_local_idx, i64_local_idx, f32_local_idx, f64_local_idx,
+  ]
+  let instrs : Array[@lib.Instruction] = []
+  for selected_local in selected_locals {
+    instrs.push(
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(block_type_idx),
+        metamorphic_oi_tuple_selected_lane_block_body(),
+      ),
+    )
+    instrs.push(@lib.Instruction::local_set(f64_local_idx))
+    instrs.push(@lib.Instruction::local_set(f32_local_idx))
+    instrs.push(@lib.Instruction::local_set(i64_local_idx))
+    instrs.push(@lib.Instruction::local_set(i32_local_idx))
+    instrs.push(@lib.Instruction::local_get(selected_local))
+    instrs.push(@lib.Instruction::drop())
+  }
+  instrs
+}
+
+///|
+fn metamorphic_add_oi_tuple_selected_lane(mod : @lib.Module) -> @lib.Module {
+  let subtypes = metamorphic_flatten_types(mod)
+  let block_type_idx = @lib.TypeIdx::new(
+    subtypes.length().reinterpret_as_uint(),
+  )
+  let block_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([], metamorphic_oi_tuple_selected_lane_result_types()),
+    ),
+  )
+  let types = []
+  match mod.type_sec {
+    Some(@lib.TypeSec(existing)) =>
+      for rec_type in existing {
+        types.push(rec_type)
+      }
+    None => ()
+  }
+  types.push(block_type)
+
+  let funcs = []
+  match (mod.func_sec, mod.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(existing))) =>
+      for def_idx = 0; def_idx < existing.length(); def_idx = def_idx + 1 {
+        match existing[def_idx] {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            if def_idx >= type_idxs.length() {
+              funcs.push(@lib.Func::new(locals, @lib.Expr::new(instrs)))
+              continue
+            }
+            let param_count = metamorphic_func_param_count(
+              subtypes,
+              type_idxs[def_idx],
+            )
+            let first_local_idx = param_count + locals.length()
+            let i32_local_idx = @lib.LocalIdx::new(
+              first_local_idx.reinterpret_as_uint(),
+            )
+            let i64_local_idx = @lib.LocalIdx::new(
+              (first_local_idx + 1).reinterpret_as_uint(),
+            )
+            let f32_local_idx = @lib.LocalIdx::new(
+              (first_local_idx + 2).reinterpret_as_uint(),
+            )
+            let f64_local_idx = @lib.LocalIdx::new(
+              (first_local_idx + 3).reinterpret_as_uint(),
+            )
+            let next_runs : Array[@lib.LocalRun] = []
+            for run in locals.runs() {
+              next_runs.push(run)
+            }
+            next_runs.push(@lib.LocalRun::new(1U, @lib.ValType::i32()))
+            next_runs.push(@lib.LocalRun::new(1U, @lib.ValType::i64()))
+            next_runs.push(@lib.LocalRun::new(1U, @lib.ValType::f32()))
+            next_runs.push(@lib.LocalRun::new(1U, @lib.ValType::f64()))
+            let next_instrs = metamorphic_oi_tuple_selected_lane_prefix(
+              block_type_idx, i32_local_idx, i64_local_idx, f32_local_idx, f64_local_idx,
+            )
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(
+              @lib.Func::new(
+                @lib.Locals::from_decl_runs_preserving_groups(next_runs),
+                @lib.Expr::new(next_instrs),
+              ),
+            )
+          }
+        }
+      }
+    _ => return mod
+  }
+
+  mod
+  .with_type_sec(@lib.TypeSec::new(types))
+  .with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_tuple_selected_lane(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiTupleSelectedLane)
+  if metamorphic_defined_func_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one defined function",
+    )
+  }
+  let transformed = metamorphic_add_oi_tuple_selected_lane(mod)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_first_i32_memory_idx(mod : @lib.Module) -> @lib.MemIdx? {
+  let mut idx = 0U
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.MemExternType(mem_type)) =>
+            match mem_type {
+              @lib.MemType(@lib.I32Limits(_), _) =>
+                return Some(@lib.MemIdx::new(idx))
+              _ => idx += 1U
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.mem_sec {
+    Some(@lib.MemSec(mems)) =>
+      for mem in mems {
+        match mem {
+          @lib.MemType(@lib.I32Limits(_), _) =>
+            return Some(@lib.MemIdx::new(idx))
+          _ => idx += 1U
+        }
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn metamorphic_oi_memory_size_boundary_then_instrs(
+  mem_idx : @lib.MemIdx,
+) -> Array[@lib.Instruction] {
+  let instrs = []
+  let sizes = [0, 1, 2, 3, 4, 5, 8, 16]
+  for size in sizes {
+    instrs.push(@lib.Instruction::i32_const(0))
+    instrs.push(@lib.Instruction::i32_const(0))
+    instrs.push(@lib.Instruction::i32_const(size))
+    instrs.push(@lib.Instruction::memory_copy(mem_idx, mem_idx))
+    instrs.push(@lib.Instruction::i32_const(0))
+    instrs.push(@lib.Instruction::i32_const(255))
+    instrs.push(@lib.Instruction::i32_const(size))
+    instrs.push(@lib.Instruction::memory_fill(mem_idx))
+  }
+  instrs
+}
+
+///|
+fn metamorphic_add_oi_memory_size_boundary(
+  mod : @lib.Module,
+  mem_idx : @lib.MemIdx,
+) -> @lib.Module {
+  let funcs = []
+  let then_instrs = metamorphic_oi_memory_size_boundary_then_instrs(mem_idx)
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = [
+              @lib.Instruction::i32_const(0),
+              @lib.Instruction::if_(@lib.BlockType::void_(), then_instrs, None),
+            ]
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_memory_size_boundary(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiMemorySizeBoundary)
+  let mem_idx = match metamorphic_first_i32_memory_idx(mod) {
+    Some(idx) => idx
+    None =>
+      return Err(
+        "metamorphic transform \{transform_id} requires at least one i32 memory index",
+      )
+  }
+  let transformed = metamorphic_add_oi_memory_size_boundary(mod, mem_idx)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
 fn metamorphic_add_table_size_drop_to_defined_functions(
   mod : @lib.Module,
   leading : Bool,
@@ -6854,6 +7752,15 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingLoopWrappedNumericConstDropsToDefinedFunctions,
     AddLeadingMemorySizeDropToDefinedFunctions,
     AddTrailingMemorySizeDropToDefinedFunctions,
+    OiLocalCarried,
+    OiLocalTeeWrapped,
+    OiCommutedOperands,
+    OiIfSelectShell,
+    OiEffectfulSibling,
+    OiTrappingSibling,
+    OiCallRefTargetWrapper,
+    OiTupleSelectedLane,
+    OiMemorySizeBoundary,
     AddLeadingTableSizeDropToDefinedFunctions,
     AddTrailingTableSizeDropToDefinedFunctions,
     AddTrailingEmptyVoidBlockToDefinedFunctions,
@@ -6899,6 +7806,17 @@ pub fn metamorphic_apply_transform(
       return metamorphic_apply_memory_size_drop_to_defined_functions(mod, true)
     AddTrailingMemorySizeDropToDefinedFunctions =>
       return metamorphic_apply_memory_size_drop_to_defined_functions(mod, false)
+    OiLocalCarried => return metamorphic_apply_oi_local_carried(mod)
+    OiLocalTeeWrapped => return metamorphic_apply_oi_local_tee_wrapped(mod)
+    OiCommutedOperands => return metamorphic_apply_oi_commuted_operands(mod)
+    OiIfSelectShell => return metamorphic_apply_oi_if_select_shell(mod)
+    OiEffectfulSibling => return metamorphic_apply_oi_effectful_sibling(mod)
+    OiTrappingSibling => return metamorphic_apply_oi_trapping_sibling(mod)
+    OiCallRefTargetWrapper =>
+      return metamorphic_apply_oi_call_ref_target_wrapper(mod)
+    OiTupleSelectedLane => return metamorphic_apply_oi_tuple_selected_lane(mod)
+    OiMemorySizeBoundary =>
+      return metamorphic_apply_oi_memory_size_boundary(mod)
     AddLeadingTableSizeDropToDefinedFunctions =>
       return metamorphic_apply_table_size_drop_to_defined_functions(mod, true)
     AddTrailingTableSizeDropToDefinedFunctions =>
@@ -6906,6 +7824,15 @@ pub fn metamorphic_apply_transform(
     _ => ()
   }
   let transformed = match transform {
+    OiLocalCarried
+    | OiLocalTeeWrapped
+    | OiCommutedOperands
+    | OiIfSelectShell
+    | OiEffectfulSibling
+    | OiTrappingSibling
+    | OiCallRefTargetWrapper
+    | OiTupleSelectedLane
+    | OiMemorySizeBoundary => mod
     AddNonNameCustomSection => metamorphic_add_non_name_custom_section(mod)
     AddLeadingNonNameCustomSection =>
       metamorphic_add_leading_non_name_custom_section(mod)
@@ -9103,6 +10030,15 @@ fn metamorphic_transform_applicable(
     AddLeadingMemorySizeDropToDefinedFunctions
     | AddTrailingMemorySizeDropToDefinedFunctions =>
       metamorphic_total_memory_count(mod) > 0
+    OiLocalCarried
+    | OiLocalTeeWrapped
+    | OiCommutedOperands
+    | OiIfSelectShell
+    | OiEffectfulSibling
+    | OiTrappingSibling
+    | OiCallRefTargetWrapper
+    | OiTupleSelectedLane => metamorphic_defined_func_count(mod) > 0
+    OiMemorySizeBoundary => metamorphic_first_i32_memory_idx(mod).is_some()
     AddLeadingTableSizeDropToDefinedFunctions
     | AddTrailingTableSizeDropToDefinedFunctions =>
       metamorphic_total_table_count(mod) > 0

@@ -980,8 +980,10 @@ test "validate-valid-metamorphic suite is active and reports transform details" 
   @debug.assert_eq(results[0].attempts >= 1, true)
   match results[0].details_json {
     Some(details) => {
-      assert_true(details.contains("\"transformed\":478"))
+      assert_true(details.contains("\"transformed\":486"))
       assert_true(details.contains("add-non-name-custom-section"))
+      assert_true(details.contains("oi-local-carried"))
+      assert_true(details.contains("oi-tuple-selected-lane"))
       assert_true(
         details.contains("add-duplicate-equivalent-immutable-v128-global"),
       )
@@ -2462,6 +2464,66 @@ test "emit gen-valid heap-store-optimization profile records GC store opportunit
   assert_true(wat.contains("i32.const I32(153)"), msg=wat)
   assert_true(wat.contains("i32.const I32(154)"), msg=wat)
   assert_true(wat.contains("i32.const I32(155)"), msg=wat)
+}
+
+///|
+test "emit gen-valid optimize-instructions trigger profiles record selected OI case labels" {
+  let scalar_args = EmitGenValidBatchArgs::new(
+    3,
+    0x5eedUL,
+    "tmp/gen-valid-oi-scalar",
+    profile="pass-oi-default-scalar",
+    max_attempts=8,
+  )
+  let scalar = match emit_gen_valid_batch_selection(scalar_args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(scalar.manifest.length(), 3)
+  @debug.assert_eq(
+    scalar.manifest[0].profile_case_label,
+    Some("oi-default-scalar:local-tee-commuted-add-zero"),
+  )
+  @debug.assert_eq(
+    scalar.manifest[1].profile_case_label,
+    Some("oi-default-scalar:direct"),
+  )
+  @debug.assert_eq(
+    scalar.manifest[2].profile_case_label,
+    Some("oi-default-scalar:local-carried-add-zero"),
+  )
+
+  let local_args = EmitGenValidBatchArgs::new(
+    3,
+    0x5eedUL,
+    "tmp/gen-valid-oi-local",
+    profile="pass-oi-local-facts",
+    max_attempts=8,
+  )
+  let local_selection = match emit_gen_valid_batch_selection(local_args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(local_selection.manifest.length(), 3)
+  @debug.assert_eq(
+    local_selection.manifest[0].profile_case_label,
+    Some("oi-local-facts:local-carried-mask"),
+  )
+  @debug.assert_eq(
+    local_selection.manifest[1].profile_case_label,
+    Some("oi-local-facts:direct-sign-extension"),
+  )
+  @debug.assert_eq(
+    local_selection.manifest[2].profile_case_label,
+    Some("oi-local-facts:local-tee-add-zero"),
+  )
+
+  let manifest = format_gen_valid_batch_manifest_json(scalar_args, scalar)
+  assert_true(
+    manifest.contains(
+      "\"profile_case_label\":\"oi-default-scalar:local-tee-commuted-add-zero\"",
+    ),
+  )
 }
 
 ///|

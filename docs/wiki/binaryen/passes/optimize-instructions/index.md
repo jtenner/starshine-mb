@@ -510,6 +510,9 @@ related:
   - ../../../raw/research/0810-2026-06-20-optimize-instructions-oi-i-known-null-nonnull-target.md
   - ../../../raw/research/0812-2026-06-20-optimize-instructions-oi-i-i31-array-local-ref-eq.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
+  - ./parity-matrix.json
+  - ./sweep-report.md
+  - ../../../../../scripts/oi-parity-sweep.ts
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../precompute/index.md
@@ -602,6 +605,12 @@ What it actually is in `version_129`:
   - Current Starshine strategy overview for the implemented HOT subset, with exact registry, dispatcher, owner-file, test, and CLI replay code locations.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Exact MoonBit helper and code-map companion for the implemented HOT subset, plus the major upstream Binaryen behaviors the repo still does not model.
+- [`./parity-matrix.json`](./parity-matrix.json)
+  - Machine-readable OI-D through OI-M parity matrix with upstream owners, feature floors, oracle mode, Starshine status, priority, boundary reason, evidence, smoke profiles, and implemented/design transform metadata.
+- [`./sweep-report.md`](./sweep-report.md)
+  - Family-based parity sweep workflow and runner usage for replacing the old one-behavior / one-doc loop with grouped compare-pass discovery.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Compare-pass smoke lane plus OI-specific GenValid profiles and first-layer metamorphic smoke transforms used by the parity matrix.
 - [`../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md)
   - Immutable capture of the official Binaryen release, source, and lit-test URLs re-checked for this dossier on 2026-04-22.
 - [`../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md)
@@ -627,8 +636,9 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `optimize-instructions` parity and scheduler research.
+- Start grouped parity work from [`./parity-matrix.json`](./parity-matrix.json) and [`./sweep-report.md`](./sweep-report.md). Do not add another one-off OI behavior probe without linking it to a matrix row or using it to update a row's status/evidence.
 - Use Binaryen `version_130` as the release-gating O4z source/lit matrix for new implementation slices; use the older `version_129` dossier prose as historical explanatory material until fully refreshed.
-- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current integer / boolean / control-focused HOT subset.
+- Keep the Binaryen strategy page, Starshine strategy page, parity matrix, and fuzzing page in sync whenever the in-tree implementation grows beyond the current integer / boolean / control-focused HOT subset.
 - Keep the landing page honest about the ordered-artifact story:
   - slot `16` is retired
   - slot `44` is retired
@@ -664,7 +674,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0727-2026-06-19-optimize-instructions-oi-b-baseline.md`](../../../raw/research/0727-2026-06-19-optimize-instructions-oi-b-baseline.md) completes `[O4Z-AUDIT-OI-B]` with direct compare-pass and saved O4z slot16/slot44 replay evidence before behavior changes.
 - [`../../../raw/research/0728-2026-06-19-optimize-instructions-oi-c-raw-gates.md`](../../../raw/research/0728-2026-06-19-optimize-instructions-oi-c-raw-gates.md) completes `[O4Z-AUDIT-OI-C]` with raw no-op gate trace coverage, structured gate ordering repair, and outside-gate public cleanup evidence.
 - [`../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md`](../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md) completes `[O4Z-AUDIT-OI-D]` with default scalar arithmetic, float spelling, wrap-constant, and relational canonicalization coverage plus direct 10000 compare evidence.
-- [`../../../raw/research/1323-2026-06-26-optimize-instructions-oi-d-double-eqz.md`](../../../raw/research/1323-2026-06-26-optimize-instructions-oi-d-double-eqz.md) records the OI-D double-`eqz` rewrite slice: Starshine now rewrites direct `i32.eqz(i32.eqz(x))` and `i32.eqz(i64.eqz(x))` to the matching integer `ne` against zero, preserving the original operand.
+- [`../../../raw/research/1323-2026-06-26-optimize-instructions-oi-d-double-eqz.md`](../../../raw/research/1323-2026-06-26-optimize-instructions-oi-d-double-eqz.md) records the OI-D double-`eqz` rewrite slice: Starshine rewrites nonliteral direct `i32.eqz(i32.eqz(x))` and `i32.eqz(i64.eqz(x))` to the matching integer `ne` against zero, preserving the original operand; the 2026-06-27 family-matrix follow-up additionally folds literal double-`eqz` results to constants.
 - [`../../../raw/research/1325-2026-06-26-optimize-instructions-oi-d-zero-compare-eqz.md`](../../../raw/research/1325-2026-06-26-optimize-instructions-oi-d-zero-compare-eqz.md) records the OI-D zero-compare `eqz` inversion slice: Starshine now rewrites direct `eqz(ne(x, 0))` to integer `eqz(x)` and direct `eqz(eq(x, 0))` to integer `ne(x, 0)` for i32/i64 comparisons against exact zero constants.
 - [`../../../raw/research/1327-2026-06-26-optimize-instructions-oi-d-signed-domain-edge.md`](../../../raw/research/1327-2026-06-26-optimize-instructions-oi-d-signed-domain-edge.md) records the OI-D signed endpoint compare slice: Starshine now folds side-effect-free i32/i64 `lt_s`/`ge_s` against signed min and `gt_s`/`le_s` against signed max to constants, while preserving the Binaryen-observed effectful-call boundary.
 - [`../../../raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md`](../../../raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md) completes `[O4Z-AUDIT-OI-E]` with the first local scanner-style sign-extension facts, redundant sign-extension removal, shift-pair sign-extension idiom rewrites, focused tests, and direct 10000 compare evidence.

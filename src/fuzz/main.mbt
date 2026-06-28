@@ -3102,6 +3102,7 @@ pub struct GenValidBatchManifestEntry {
   index : Int
   config_label : String
   selected_profile : String
+  profile_case_label : String?
   attempts : Int
   validated : Bool
   validation_error_message : String?
@@ -3651,6 +3652,7 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
       index: selected,
       config_label: generated.config_label,
       selected_profile: generated.config_label,
+      profile_case_label: None,
       attempts: generated.attempts,
       validated: true,
       validation_error_message: None,
@@ -3789,6 +3791,10 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
         generated.config_label
       },
       selected_profile: selected_profile_label,
+      profile_case_label: gen_valid_oi_trigger_profile_case_label(
+        leaf_profile,
+        emit_gen_valid_batch_candidate_seed(seed, attempts),
+      ),
       attempts: generated.attempts,
       validated: true,
       validation_error_message: None,
@@ -3860,6 +3866,7 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
       index: i + 1,
       config_label: generated.config_label,
       selected_profile: generated.config_label,
+      profile_case_label: None,
       attempts: generated.attempts,
       validated: true,
       validation_error_message: None,
@@ -5210,8 +5217,12 @@ fn format_gen_valid_batch_manifest_json(
       Some(id) => "\"\{fuzz_json_escape(id)}\""
       None => "null"
     }
+    let profile_case_json = match item.profile_case_label {
+      Some(label) => "\"\{fuzz_json_escape(label)}\""
+      None => "null"
+    }
     out.write_string(
-      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"seed\":\{item.seed},\"index\":\{item.index},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(item.selected_profile)}\",\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"transform_id\":\{transform_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)}}",
+      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"seed\":\{item.seed},\"index\":\{item.index},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(item.selected_profile)}\",\"profile_case_label\":\{profile_case_json},\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"transform_id\":\{transform_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)}}",
     )
     i += 1
   }
@@ -5276,8 +5287,16 @@ fn format_gen_valid_batch_compact_manifest_json(
     } else {
       "null"
     }
+    let profile_case_json = match
+      gen_valid_oi_trigger_profile_case_label(
+        leaf_profile,
+        emit_gen_valid_batch_candidate_seed(args.seed, i),
+      ) {
+      Some(label) => "\"\{fuzz_json_escape(label)}\""
+      None => "null"
+    }
     out.write_string(
-      "{\"file_name\":\"gen-valid-\{fuzz_zero_pad_decimal(i, 6)}.wasm\",\"seed\":\{args.seed},\"index\":\{i},\"config_label\":\"\{fuzz_json_escape(config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(selected_profile_label)}\",\"attempts\":1,\"validated\":true,\"validation_error_message\":null,\"transform_id\":\{transform_json}}",
+      "{\"file_name\":\"gen-valid-\{fuzz_zero_pad_decimal(i, 6)}.wasm\",\"seed\":\{args.seed},\"index\":\{i},\"config_label\":\"\{fuzz_json_escape(config_label)}\",\"selected_profile\":\"\{fuzz_json_escape(selected_profile_label)}\",\"profile_case_label\":\{profile_case_json},\"attempts\":1,\"validated\":true,\"validation_error_message\":null,\"transform_id\":\{transform_json}}",
     )
     i += 1
   }
