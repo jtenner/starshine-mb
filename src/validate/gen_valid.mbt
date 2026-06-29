@@ -14897,7 +14897,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 24
-    PassOiTupleProfile => 12
+    PassOiTupleProfile => 13
     _ => 3
   }
 }
@@ -14974,7 +14974,8 @@ fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
     0x5ef6UL => 9
     0x5ef7UL => 10
     0x5ef8UL => 11
-    _ => (seed % 12UL).to_int()
+    0x5ef9UL => 12
+    _ => (seed % 13UL).to_int()
   }
 }
 
@@ -15062,6 +15063,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         9 => Some("oi-tuple:selected-effectful-lane")
         10 => Some("oi-tuple:effectful-select-operand-selected-lane")
         11 => Some("oi-tuple:trapping-select-operand-selected-lane")
+        12 => Some("oi-tuple:multi-selected-effectful-lanes")
         _ => Some("oi-tuple:direct-selected-lane")
       }
     PassOiMemoryBulkProfile =>
@@ -16411,7 +16413,7 @@ fn gen_valid_oi_tuple_block_body(case : Int) -> Expr {
       Instruction::f32_const(F32(Float::from_double(33.0))),
       Instruction::f64_const(F64(44.0)),
     ]
-  } else if case == 4 || case == 5 {
+  } else if case == 4 || case == 5 || case == 12 {
     [
       Instruction::i32_const(I32(11)),
       Instruction::call(FuncIdx::new(1U)),
@@ -16445,6 +16447,8 @@ fn gen_valid_oi_tuple_selected_lane_prefix(
   }
   let selected_locals = if case == 1 {
     [i32_local_idx, i64_local_idx, f32_local_idx, f64_local_idx]
+  } else if case == 12 {
+    [i32_local_idx, i64_local_idx]
   } else {
     [i32_local_idx]
   }
@@ -16468,7 +16472,7 @@ fn gen_valid_oi_tuple_selected_lane_prefix(
 ///|
 fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
   let func_type = gen_valid_precompute_void_func_type()
-  let helper_result_type = if case == 4 || case == 5 {
+  let helper_result_type = if case == 4 || case == 5 || case == 12 {
     ValType::i64()
   } else {
     ValType::i32()
@@ -16484,7 +16488,8 @@ fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
     case == 5 ||
     case == 9 ||
     case == 10 ||
-    case == 11
+    case == 11 ||
+    case == 12
   let type_defs = if has_helper {
     [func_type, helper_func_type, block_type]
   } else {
@@ -16501,7 +16506,7 @@ fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
     [TypeIdx::new(0U)]
   }
   let funcs = if has_helper {
-    let helper_body = if case == 4 {
+    let helper_body = if case == 4 || case == 12 {
       [
         Instruction::i64_const(I64(123L)),
         Instruction::global_set(GlobalIdx::new(0U)),
@@ -16557,9 +16562,13 @@ fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
     .with_type_sec(TypeSec::new(type_defs))
     .with_func_sec(FuncSec::new(func_types))
     .with_code_sec(CodeSec::new(funcs))
-  if case == 4 || case == 9 || case == 10 {
-    let global_type = if case == 4 { ValType::i64() } else { ValType::i32() }
-    let init = if case == 4 {
+  if case == 4 || case == 9 || case == 10 || case == 12 {
+    let global_type = if case == 4 || case == 12 {
+      ValType::i64()
+    } else {
+      ValType::i32()
+    }
+    let init = if case == 4 || case == 12 {
       Expr::new([Instruction::i64_const(I64(0L))])
     } else {
       Expr::new([Instruction::i32_const(I32(0))])
