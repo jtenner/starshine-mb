@@ -331,16 +331,21 @@
     },
     {
       "name": "pass-oi-tuple",
-      "status": "implemented-smoke",
+      "status": "implemented-trigger-smoke-plus",
       "families": [
         "OI-M"
       ],
-      "intent": "tuple.extract(tuple.make(...)), selected-lane, non-selected effectful/trapping sibling, tuple-scratch, and multivalue block surfaces.",
+      "intent": "Seed-indexed OI-M trigger-smoke modules covering direct multivalue selected-lane, local-carried selected-lane, and all-result selected-lane block shells; still needs existing tuple-producer wrappers, effectful/trapping sibling variants, tuple-scratch localization constructors, and randomized multivalue breadth before signoff.",
       "featureRequirements": [
         "multivalue"
       ],
       "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-tuple --out-dir .tmp/pass-fuzz-oi-tuple --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
-      "implementation": "src/validate/gen_valid.mbt accepts this profile and maps it to a bounded Binaryen-oracle GenValid config; targeted trigger constructors remain future work."
+      "implementation": "src/validate/gen_valid.mbt special-cases this profile to emit one of three validating multivalue selected-lane trigger-smoke modules selected by seed modulo 3: direct selected lane, all result lanes, or local-carried selected lane. src/validate/gen_valid_tests.mbt asserts stable labels, validation, and distinct seed-indexed signatures.",
+      "lastCheckedEvidence": [
+        "src/validate/gen_valid_tests.mbt::OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue cases failed red-first on missing pass-oi-tuple labels before implementation, then passed (2026-06-29)",
+        "bun scripts/pass-fuzz-compare.ts --count 3 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-tuple --out-dir .tmp/oi-m-tuple-trigger-profile-count3-20260629 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --max-failures 2000 --keep-going-after-command-failures: compared 3/3, normalized matches 0, mismatches 3, validation/generator/property/command failures 0; profile cases local-carried-selected-lane/direct-selected-lane/selected-lane-all-results = 1 each (2026-06-29)",
+        "bun scripts/oi-parity-sweep.ts --family OI-M --count 3 --out-dir .tmp/oi-m-tuple-trigger-profile-sweep-count3-20260629 --starshine-bin target/native/release/build/cmd/cmd.exe --execute -- --max-failures 2000 --keep-going-after-command-failures: compared 3/3, normalized matches 0, mismatches 3, validation/generator/property/command failures 0; profile cases local-carried-selected-lane/direct-selected-lane/selected-lane-all-results = 1 each (2026-06-29)"
+      ]
     }
   ],
   "metamorphicTransforms": [
@@ -2467,7 +2472,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT plus pass-oi-tuple profile and forwarded selected-lane/effect/trap metamorphic transforms",
       "starshineStatus": "mismatch",
       "priority": "P0",
-      "blockerBoundaryReason": "OI-M has extensive one-off boundary research through many effect-count rows; it now has forwarded selected-lane, effectful-sibling, dead trap-shaped sibling, and local-carried smoke transforms, but still needs trigger-biased tuple-profile constructors and existing-producer/effect/trap selected-lane wrappers to stop producing one boundary doc per lane/effect count.",
+      "blockerBoundaryReason": "OI-M has extensive one-off boundary research through many effect-count rows and now has a first seed-indexed pass-oi-tuple trigger-smoke profile plus forwarded selected-lane, effectful-sibling, dead trap-shaped sibling, and local-carried smoke transforms. It still needs trigger-biased existing-producer/effect/trap selected-lane wrappers, tuple-scratch localization constructors, and broader randomized multivalue coverage to stop producing one boundary doc per lane/effect count.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0834-2026-06-21-optimize-instructions-oi-m-tuple-extract-make.md",
         "docs/wiki/raw/research/0853-2026-06-25-optimize-instructions-oi-m-multiresult-selected-boundary.md",
@@ -2486,7 +2491,10 @@
         "scripts/lib/oi-parity-sweep.ts now forwards oi-tuple-selected-lane for OI-M rows that list it (2026-06-27)",
         "one-case pass-oi-tuple + oi-tuple-selected-lane compare smoke at .tmp/oi-tuple-selected-lane-compare-smoke: compared 1/1, raw mismatches 1, validation/generator/property/command failures 0 (2026-06-27)",
         "agent classification: open OI-M parity gap/evidence, not semantic-safety proof (2026-06-27)",
-        "2026-06-27 classified .tmp/oi-tuple-selected-lane-compare-smoke failure dir: synthetic tuple-selected-lane smoke residual is representation drift over pure constant multivalue block lane extraction; Starshine canonical wasm is 4100 bytes vs Binaryen 4326 bytes (-226), raw wasm 3975 vs 4229 (-254), and both outputs validate with wasm-tools --features all."
+        "2026-06-27 classified .tmp/oi-tuple-selected-lane-compare-smoke failure dir: synthetic tuple-selected-lane smoke residual is representation drift over pure constant multivalue block lane extraction; Starshine canonical wasm is 4100 bytes vs Binaryen 4326 bytes (-226), raw wasm 3975 vs 4229 (-254), and both outputs validate with wasm-tools --features all.",
+        "src/validate/gen_valid_tests.mbt::OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue cases failed red-first on missing pass-oi-tuple profile labels before implementation, then passed after src/validate/gen_valid.mbt added direct, all-result, and local-carried selected-lane trigger modules (2026-06-29)",
+        "bun scripts/pass-fuzz-compare.ts --count 3 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-tuple --out-dir .tmp/oi-m-tuple-trigger-profile-count3-20260629 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --max-failures 2000 --keep-going-after-command-failures: compared 3/3, normalized matches 0, mismatches 3, validation/generator/property/command failures 0; profile cases local-carried-selected-lane/direct-selected-lane/selected-lane-all-results = 1 each (2026-06-29)",
+        "bun scripts/oi-parity-sweep.ts --family OI-M --count 3 --out-dir .tmp/oi-m-tuple-trigger-profile-sweep-count3-20260629 --starshine-bin target/native/release/build/cmd/cmd.exe --execute -- --max-failures 2000 --keep-going-after-command-failures: compared 3/3, normalized matches 0, mismatches 3, validation/generator/property/command failures 0; manual validation checked all 12 Binaryen/Starshine raw/canonical wasm artifacts with zero validation failures; Starshine raw/canonical wasm was smaller in all three residual dirs, while normalized WAT was larger because Starshine keeps block-result expression spelling (2026-06-29)"
       ],
       "genValidProfiles": [
         "pass-oi-tuple"
@@ -2504,7 +2512,7 @@
         "profile": "pass-oi-tuple",
         "blockedUntilProfileExists": false
       },
-      "notes": "OI-M has extensive one-off boundary research through many effect-count rows. The family workflow now provides forwarded selected-lane, effectful-sibling, dead trap-shaped sibling, and local-carried smoke transforms, but still needs trigger-biased tuple-profile constructors and existing-producer/effect/trap selected-lane wrappers to stop producing one boundary doc per lane/effect count. The first synthetic `oi-tuple-selected-lane` smoke mismatch is classified in `classifiedCaseLabels`: for pure constant multivalue block lane extraction, Starshine keeps nested block-expression localization while Binaryen scalarizes to more straight-line local sets; the sampled Starshine canonical/raw wasm is smaller and both outputs validate, so this is a sampled Starshine-win candidate, not a closure of the broader tuple-scratch reconstruction family.",
+      "notes": "OI-M has extensive one-off boundary research through many effect-count rows. The family workflow now provides forwarded selected-lane, effectful-sibling, dead trap-shaped sibling, and local-carried smoke transforms, and now has first trigger-biased tuple-profile constructors, but still needs existing-producer/effect/trap selected-lane wrappers, tuple-scratch localization constructors, and randomized multivalue breadth to stop producing one boundary doc per lane/effect count. The first synthetic `oi-tuple-selected-lane` smoke mismatch is classified in `classifiedCaseLabels`: for pure constant multivalue block lane extraction, Starshine keeps nested block-expression localization while Binaryen scalarizes to more straight-line local sets; the sampled Starshine canonical/raw wasm is smaller and both outputs validate, so this is a sampled Starshine-win candidate, not a closure of the broader tuple-scratch reconstruction family.",
       "classifiedCaseLabels": [
         {
           "label": "pass-oi-tuple:oi-tuple-selected-lane-smoke",
@@ -2515,6 +2523,36 @@
           "observedDiff": "The transform prepends pure constant multivalue block selected-lane shells. Binaryen scalarizes the shell into many straight-line local.set/local.tee operations; Starshine keeps nested block-result expressions around the selected lane. Starshine canonical wasm is 4100 bytes vs Binaryen 4326 bytes (-226), raw wasm is 3975 vs 4229 bytes (-254), and both canonical outputs validate.",
           "nextAction": "Do not treat this smoke as OI-M signoff. Upgrade pass-oi-tuple / oi-tuple-selected-lane to wrap existing tuple producers with effectful/trapping siblings and selected-lane variants; preserve this sample as a Starshine-win candidate unless broader probes show semantic or size regressions.",
           "lastCheckedEvidence": "2026-06-27 diff/stat/wasm-tools validate of .tmp/oi-tuple-selected-lane-compare-smoke/failures/case-000001-gen-valid-transform-oi-tuple-selected-lane."
+        },
+        {
+          "label": "oi-tuple:local-carried-selected-lane",
+          "transformId": "oi-tuple-selected-lane",
+          "representativeFailureDir": ".tmp/oi-m-tuple-trigger-profile-sweep-count3-20260629/oi-m/OI-M-tuple-multivalue-selected-lanes/failures/case-000001-gen-valid-transform-oi-tuple-selected-lane",
+          "status": "starshine-win-candidate",
+          "agentClassification": "sampled size-winning multivalue selected-lane representation drift over a local-carried selected value; not tuple-scratch family closure",
+          "observedDiff": "Both tools eliminate tuple.make/tuple.extract. Binaryen scalarizes the generated local-carried multivalue selected-lane shells to straight-line local.set/local.tee traffic, while Starshine keeps block-result expressions. Raw wasm Starshine/Binaryen is 221/321 bytes and canonical wasm is 321/374 bytes; both raw/canonical outputs validate. Normalized WAT is larger for Starshine because of retained block-result spelling.",
+          "nextAction": "Keep as sampled Starshine-win candidate only. Reopen for validation failure, observable value/effect/trap ordering drift, Starshine-larger raw/canonical wasm, non-local-carried producer hazards, or Binaryen source evidence requiring scalarized tuple-scratch spelling. Broaden next with existing-producer/effect/trap tuple selected-lane wrappers.",
+          "lastCheckedEvidence": "2026-06-29 grouped count3 OI-M sweep at .tmp/oi-m-tuple-trigger-profile-sweep-count3-20260629 plus wasm-tools --features all validation and raw/canonical size review of the representative failure dir."
+        },
+        {
+          "label": "oi-tuple:direct-selected-lane",
+          "transformId": "oi-effectful-sibling",
+          "representativeFailureDir": ".tmp/oi-m-tuple-trigger-profile-sweep-count3-20260629/oi-m/OI-M-tuple-multivalue-selected-lanes/failures/case-000002-gen-valid-transform-oi-effectful-sibling",
+          "status": "starshine-win-candidate",
+          "agentClassification": "sampled size-winning direct selected-lane representation drift under the synthetic effectful sibling transform; not broad effectful tuple localization closure",
+          "observedDiff": "Both tools eliminate tuple.make/tuple.extract and preserve matching local.set/local.tee counts. Starshine retains four block-result shells where Binaryen keeps one; raw wasm Starshine/Binaryen is 127/150 bytes and canonical wasm is 150/155 bytes; all raw/canonical outputs validate. The effectful sibling smoke does not prove arbitrary effectful tuple child localization.",
+          "nextAction": "Keep as sampled Starshine-win candidate only. Reopen for validation failure, effect ordering drift, Starshine-larger raw/canonical wasm, source-visible tuple producer hazards, or Binaryen source evidence requiring scalarized spelling. Add true effectful tuple-child wrappers before OI-M closure.",
+          "lastCheckedEvidence": "2026-06-29 grouped count3 OI-M sweep at .tmp/oi-m-tuple-trigger-profile-sweep-count3-20260629 plus wasm-tools --features all validation and raw/canonical size review of the representative failure dir."
+        },
+        {
+          "label": "oi-tuple:selected-lane-all-results",
+          "transformId": "oi-trapping-sibling",
+          "representativeFailureDir": ".tmp/oi-m-tuple-trigger-profile-sweep-count3-20260629/oi-m/OI-M-tuple-multivalue-selected-lanes/failures/case-000003-gen-valid-transform-oi-trapping-sibling",
+          "status": "starshine-win-candidate",
+          "agentClassification": "sampled size-winning all-result selected-lane representation drift under the synthetic dead trapping sibling transform; not broad trapping tuple-sibling closure",
+          "observedDiff": "Both tools eliminate tuple.make/tuple.extract. Binaryen scalarizes the all-result selected-lane shells; Starshine keeps twelve block-result shells after optimization. Raw wasm Starshine/Binaryen is 195/287 bytes and canonical wasm is 287/328 bytes; all raw/canonical outputs validate. The trap siblings are synthetic dead shells, so this is not evidence for live trapping tuple children.",
+          "nextAction": "Keep as sampled Starshine-win candidate only. Reopen for validation failure, live trap-order drift, Starshine-larger raw/canonical wasm, non-dead trapping tuple child counterexamples, or Binaryen source evidence requiring scalarized spelling. Add live trapping selected-lane tuple wrappers before OI-M closure.",
+          "lastCheckedEvidence": "2026-06-29 grouped count3 OI-M sweep at .tmp/oi-m-tuple-trigger-profile-sweep-count3-20260629 plus wasm-tools --features all validation and raw/canonical size review of the representative failure dir."
         }
       ]
     }

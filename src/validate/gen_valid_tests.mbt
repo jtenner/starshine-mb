@@ -1945,6 +1945,10 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   @debug.assert_eq(gen_valid_config_label(oi_tuple), "pass-oi-tuple")
   assert_true(oi_tuple.features.allow_typed_body_generator)
   assert_true(oi_tuple.max_results >= 3)
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
+    Some("oi-tuple:selected-lane-all-results"),
+  )
 
   match gen_valid_profile_by_name("pass oi memory bulk") {
     Ok(profile) => @debug.assert_eq(profile, PassOiMemoryBulkProfile)
@@ -3391,6 +3395,78 @@ fn gen_valid_test_oi_memory_bulk_trigger_signature(
   } else {
     "direct-tiny"
   }
+}
+
+///|
+fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
+  let instrs = gen_valid_test_first_func_instrs(mod_)
+  if instrs.length() >= 28 {
+    "all-results"
+  } else if instrs.length() >= 3 {
+    match (instrs[0], instrs[1], instrs[2]) {
+      (I32Const(_), LocalSet(_), Block(_, Expr(body))) =>
+        match body[0] {
+          LocalGet(_) => "local-carried-selected"
+          _ => "direct-selected"
+        }
+      _ => "direct-selected"
+    }
+  } else {
+    "direct-selected"
+  }
+}
+
+///|
+test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue cases" {
+  let all_results = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let local_carried = match
+    gen_valid_module_result_from_seed(
+      0x5eeeUL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let direct = match
+    gen_valid_module_result_from_seed(
+      0x5eefUL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
+    Some("oi-tuple:selected-lane-all-results"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eeeUL),
+    Some("oi-tuple:local-carried-selected-lane"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eefUL),
+    Some("oi-tuple:direct-selected-lane"),
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(all_results.wasm_module),
+    "all-results",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(local_carried.wasm_module),
+    "local-carried-selected",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(direct.wasm_module),
+    "direct-selected",
+  )
 }
 
 ///|

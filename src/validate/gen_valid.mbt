@@ -2583,7 +2583,8 @@ fn gen_valid_is_oi_trigger_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(PassOiDefaultScalarProfile) ||
   config == GenValidConfig::for_profile(PassOiLocalFactsProfile) ||
   config == GenValidConfig::for_profile(PassOiRefGcProfile) ||
-  config == GenValidConfig::for_profile(PassOiMemoryBulkProfile)
+  config == GenValidConfig::for_profile(PassOiMemoryBulkProfile) ||
+  config == GenValidConfig::for_profile(PassOiTupleProfile)
 }
 
 ///|
@@ -14979,6 +14980,8 @@ fn gen_valid_oi_trigger_profile_for_config(
     PassOiLocalFactsProfile
   } else if config == GenValidConfig::for_profile(PassOiRefGcProfile) {
     PassOiRefGcProfile
+  } else if config == GenValidConfig::for_profile(PassOiTupleProfile) {
+    PassOiTupleProfile
   } else {
     PassOiDefaultScalarProfile
   }
@@ -15024,6 +15027,12 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         1 => Some("oi-ref-gc:local-carried-null-test-cast")
         2 => Some("oi-ref-gc:branch-cast-boundaries")
         _ => Some("oi-ref-gc:direct-null-test-cast-eq")
+      }
+    PassOiTupleProfile =>
+      match case {
+        1 => Some("oi-tuple:selected-lane-all-results")
+        2 => Some("oi-tuple:local-carried-selected-lane")
+        _ => Some("oi-tuple:direct-selected-lane")
       }
     PassOiMemoryBulkProfile =>
       match case {
@@ -16315,6 +16324,93 @@ fn gen_valid_dead_code_elimination_profile_module(
 }
 
 ///|
+fn gen_valid_oi_tuple_result_types() -> Array[ValType] {
+  [ValType::i32(), ValType::i64(), ValType::f32(), ValType::f64()]
+}
+
+///|
+fn gen_valid_oi_tuple_block_body(local_carried : Bool) -> Expr {
+  let body = if local_carried {
+    [
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::i64_const(I64(22L)),
+      Instruction::f32_const(F32(Float::from_double(33.0))),
+      Instruction::f64_const(F64(44.0)),
+    ]
+  } else {
+    [
+      Instruction::i32_const(I32(11)),
+      Instruction::i64_const(I64(22L)),
+      Instruction::f32_const(F32(Float::from_double(33.0))),
+      Instruction::f64_const(F64(44.0)),
+    ]
+  }
+  Expr::new(body)
+}
+
+///|
+fn gen_valid_oi_tuple_selected_lane_prefix(
+  case : Int,
+  block_type_idx : TypeIdx,
+) -> Array[Instruction] {
+  let i32_local_idx = LocalIdx::new(0U)
+  let i64_local_idx = LocalIdx::new(1U)
+  let f32_local_idx = LocalIdx::new(2U)
+  let f64_local_idx = LocalIdx::new(3U)
+  let instrs : Array[Instruction] = []
+  if case == 2 {
+    instrs.push(Instruction::i32_const(I32(99)))
+    instrs.push(Instruction::local_set(i32_local_idx))
+  }
+  let selected_locals = if case == 1 {
+    [i32_local_idx, i64_local_idx, f32_local_idx, f64_local_idx]
+  } else {
+    [i32_local_idx]
+  }
+  for selected_local in selected_locals {
+    instrs.push(
+      Instruction::block(
+        BlockType::type_idx(block_type_idx),
+        gen_valid_oi_tuple_block_body(case == 2),
+      ),
+    )
+    instrs.push(Instruction::local_set(f64_local_idx))
+    instrs.push(Instruction::local_set(f32_local_idx))
+    instrs.push(Instruction::local_set(i64_local_idx))
+    instrs.push(Instruction::local_set(i32_local_idx))
+    instrs.push(Instruction::local_get(selected_local))
+    instrs.push(Instruction::drop())
+  }
+  instrs
+}
+
+///|
+fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
+  let func_type = gen_valid_precompute_void_func_type()
+  let block_type = RecType::new(
+    SubType::comp_type(CompType::func([], gen_valid_oi_tuple_result_types())),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([func_type, block_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([
+          ValType::i32(),
+          ValType::i64(),
+          ValType::f32(),
+          ValType::f64(),
+        ]),
+        Expr::new(
+          gen_valid_oi_tuple_selected_lane_prefix(case, TypeIdx::new(1U)),
+        ),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let config = ctx.config
   let local_facts = config ==
@@ -16322,7 +16418,11 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let ref_gc = config == GenValidConfig::for_profile(PassOiRefGcProfile)
   let memory_bulk = config ==
     GenValidConfig::for_profile(PassOiMemoryBulkProfile)
+  let tuple = config == GenValidConfig::for_profile(PassOiTupleProfile)
   let case = gen_valid_oi_trigger_profile_case(ctx)
+  if tuple {
+    return gen_valid_oi_tuple_profile_module(case)
+  }
   if memory_bulk && case == 3 {
     return gen_valid_oi_memory_bulk_call_wrapped_module()
   }
