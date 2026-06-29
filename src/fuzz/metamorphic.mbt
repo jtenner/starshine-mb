@@ -6835,6 +6835,21 @@ fn metamorphic_add_private_nonzero_i32_memory(mod : @lib.Module) -> @lib.Module 
 }
 
 ///|
+fn metamorphic_add_private_nonzero_i64_memory(mod : @lib.Module) -> @lib.Module {
+  let mem_type = @lib.MemType::new(@lib.Limits::i64(1UL, None))
+  let mems = []
+  match mod.mem_sec {
+    Some(@lib.MemSec(existing)) =>
+      for mem in existing {
+        mems.push(mem)
+      }
+    None => ()
+  }
+  mems.push(mem_type)
+  mod.with_mem_sec(@lib.MemSec::new(mems))
+}
+
+///|
 fn metamorphic_oi_live_nonzero_memory_cross_copy_i32_prefix(
   src_mem : @lib.MemIdx,
   dst_mem : @lib.MemIdx,
@@ -6866,15 +6881,49 @@ fn metamorphic_oi_live_nonzero_memory_cross_copy_i32_prefix(
 }
 
 ///|
+fn metamorphic_oi_live_nonzero_memory_cross_copy_i64_prefix(
+  src_mem : @lib.MemIdx,
+  dst_mem : @lib.MemIdx,
+) -> Array[@lib.Instruction] {
+  let copy_then = []
+  for addr in [17L, 1024L, 49152L, 65535L] {
+    copy_then.push(@lib.Instruction::i64_const(addr))
+    copy_then.push(@lib.Instruction::i64_const(addr))
+    copy_then.push(@lib.Instruction::i64_const(1L))
+    copy_then.push(@lib.Instruction::memory_copy(dst_mem, src_mem))
+    copy_then.push(@lib.Instruction::i64_const(addr))
+    copy_then.push(
+      @lib.Instruction::i32_load8u(@lib.MemArg::new(0U, Some(dst_mem), 0UL)),
+    )
+    copy_then.push(@lib.Instruction::drop())
+  }
+  let dst_then = [
+    @lib.Instruction::memory_size(dst_mem),
+    @lib.Instruction::i64_const(0L),
+    @lib.Instruction::i64_ne(),
+    @lib.Instruction::if_(@lib.BlockType::void_(), copy_then, None),
+  ]
+  [
+    @lib.Instruction::memory_size(src_mem),
+    @lib.Instruction::i64_const(0L),
+    @lib.Instruction::i64_ne(),
+    @lib.Instruction::if_(@lib.BlockType::void_(), dst_then, None),
+  ]
+}
+
+///|
 fn metamorphic_add_oi_live_nonzero_memory_cross_copy_boundary(
   mod : @lib.Module,
   src_mem : @lib.MemIdx,
   dst_mem : @lib.MemIdx,
+  memory64 : Bool,
 ) -> @lib.Module {
   let funcs = []
-  let prefix = metamorphic_oi_live_nonzero_memory_cross_copy_i32_prefix(
-    src_mem, dst_mem,
-  )
+  let prefix = if memory64 {
+    metamorphic_oi_live_nonzero_memory_cross_copy_i64_prefix(src_mem, dst_mem)
+  } else {
+    metamorphic_oi_live_nonzero_memory_cross_copy_i32_prefix(src_mem, dst_mem)
+  }
   match mod.code_sec {
     Some(@lib.CodeSec(existing)) =>
       for func in existing {
@@ -6903,17 +6952,22 @@ fn metamorphic_apply_oi_live_nonzero_memory_cross_copy_boundary(
   let transform_id = metamorphic_valid_transform_id(
     OiLiveNonzeroMemoryCrossCopyBoundary,
   )
-  let src_mem = match metamorphic_first_i32_memory_idx(mod) {
-    Some(idx) => idx
+  let (source_mod, src_mem, memory64) = match
+    metamorphic_first_i32_memory_idx(mod) {
+    Some(idx) => (metamorphic_add_private_nonzero_i32_memory(mod), idx, false)
     None =>
-      return Err(
-        "metamorphic transform \{transform_id} requires at least one i32 memory index",
-      )
+      match metamorphic_first_i64_memory_idx(mod) {
+        Some(idx) =>
+          (metamorphic_add_private_nonzero_i64_memory(mod), idx, true)
+        None =>
+          return Err(
+            "metamorphic transform \{transform_id} requires at least one memory index",
+          )
+      }
   }
   let dst_mem = @lib.MemIdx::new(metamorphic_total_memory_count(mod).to_uint())
-  let with_private = metamorphic_add_private_nonzero_i32_memory(mod)
   let transformed = metamorphic_add_oi_live_nonzero_memory_cross_copy_boundary(
-    with_private, src_mem, dst_mem,
+    source_mod, src_mem, dst_mem, memory64,
   )
   match validate_module(transformed) {
     Ok(_) => Ok({ transform_id, wasm_module: transformed })
@@ -12230,7 +12284,8 @@ fn metamorphic_transform_applicable(
     OiLiveNonzeroMemorySecondCopyBoundary =>
       metamorphic_total_memory_count(mod) > 0
     OiLiveNonzeroMemoryCrossCopyBoundary =>
-      metamorphic_first_i32_memory_idx(mod).is_some()
+      metamorphic_first_i32_memory_idx(mod).is_some() ||
+      metamorphic_first_i64_memory_idx(mod).is_some()
     AddLeadingTableSizeDropToDefinedFunctions
     | AddTrailingTableSizeDropToDefinedFunctions =>
       metamorphic_total_table_count(mod) > 0
