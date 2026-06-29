@@ -466,6 +466,7 @@ pub enum MetamorphicValidTransform {
   OiLiveNonzeroMemorySecondCopyBoundary
   OiLiveNonzeroMemoryCrossCopyBoundary
   OiLiveNonzeroMemoryAtomicBoundary
+  OiLiveNonzeroMemorySecondAtomicBoundary
   OiLiveNonzeroMemoryAtomicRmwBoundary
   OiLiveNonzeroMemoryFillRestoreBoundary
   OiLiveNonzeroMemoryMidFillRestoreBoundary
@@ -1398,6 +1399,8 @@ pub fn metamorphic_valid_transform_id(
       "oi-live-nonzero-memory-cross-copy-boundary"
     OiLiveNonzeroMemoryAtomicBoundary =>
       "oi-live-nonzero-memory-atomic-boundary"
+    OiLiveNonzeroMemorySecondAtomicBoundary =>
+      "oi-live-nonzero-memory-second-atomic-boundary"
     OiLiveNonzeroMemoryAtomicRmwBoundary =>
       "oi-live-nonzero-memory-atomic-rmw-boundary"
     OiLiveNonzeroMemoryFillRestoreBoundary =>
@@ -7247,6 +7250,142 @@ fn metamorphic_apply_oi_live_nonzero_memory_atomic_boundary(
 }
 
 ///|
+fn metamorphic_oi_live_nonzero_memory_second_atomic_boundary_i32_then_instrs(
+  mem_idx : @lib.MemIdx,
+) -> Array[@lib.Instruction] {
+  let instrs = []
+  let memarg = @lib.MemArg::new(0U, Some(mem_idx), 0UL)
+  for addr in [17, 1024, 49152, 65535] {
+    instrs.push(@lib.Instruction::i32_const(addr))
+    instrs.push(@lib.Instruction::i32_atomic_load8_u(memarg))
+    instrs.push(@lib.Instruction::drop())
+  }
+  instrs
+}
+
+///|
+fn metamorphic_oi_live_nonzero_memory_second_atomic_boundary_i64_then_instrs(
+  mem_idx : @lib.MemIdx,
+) -> Array[@lib.Instruction] {
+  let instrs = []
+  let memarg = @lib.MemArg::new(0U, Some(mem_idx), 0UL)
+  for addr in [17L, 1024L, 49152L, 65535L] {
+    instrs.push(@lib.Instruction::i64_const(addr))
+    instrs.push(@lib.Instruction::i32_atomic_load8_u(memarg))
+    instrs.push(@lib.Instruction::drop())
+  }
+  instrs
+}
+
+///|
+fn metamorphic_oi_live_nonzero_memory_second_atomic_boundary_prefix(
+  mem_idx : @lib.MemIdx,
+  memory64 : Bool,
+) -> Array[@lib.Instruction] {
+  if memory64 {
+    [
+      @lib.Instruction::memory_size(mem_idx),
+      @lib.Instruction::i64_const(0L),
+      @lib.Instruction::i64_ne(),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        metamorphic_oi_live_nonzero_memory_second_atomic_boundary_i64_then_instrs(
+          mem_idx,
+        ),
+        None,
+      ),
+    ]
+  } else {
+    [
+      @lib.Instruction::memory_size(mem_idx),
+      @lib.Instruction::i32_const(0),
+      @lib.Instruction::i32_ne(),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        metamorphic_oi_live_nonzero_memory_second_atomic_boundary_i32_then_instrs(
+          mem_idx,
+        ),
+        None,
+      ),
+    ]
+  }
+}
+
+///|
+fn metamorphic_add_oi_live_nonzero_memory_second_atomic_boundary(
+  mod : @lib.Module,
+  mem_idx : @lib.MemIdx,
+  memory64 : Bool,
+) -> @lib.Module {
+  let funcs = []
+  let prefix = metamorphic_oi_live_nonzero_memory_second_atomic_boundary_prefix(
+    mem_idx, memory64,
+  )
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            for instr in prefix {
+              next_instrs.push(instr)
+            }
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_live_nonzero_memory_second_atomic_boundary(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(
+    OiLiveNonzeroMemorySecondAtomicBoundary,
+  )
+  let (source_mod, mem_idx, memory64) = match
+    metamorphic_nonprimary_i32_memory_idx(mod) {
+    Some(idx) => (mod, idx, false)
+    None =>
+      match metamorphic_nonprimary_i64_memory_idx(mod) {
+        Some(idx) => (mod, idx, true)
+        None => {
+          if metamorphic_total_memory_count(mod) == 0 {
+            return Err(
+              "metamorphic transform \{transform_id} requires at least one memory index",
+            )
+          }
+          let idx = @lib.MemIdx::new(
+            metamorphic_total_memory_count(mod).to_uint(),
+          )
+          match metamorphic_first_i64_memory_idx(mod) {
+            Some(_) =>
+              (metamorphic_add_private_nonzero_i64_memory(mod), idx, true)
+            None =>
+              (metamorphic_add_private_nonzero_i32_memory(mod), idx, false)
+          }
+        }
+      }
+  }
+  let transformed = metamorphic_add_oi_live_nonzero_memory_second_atomic_boundary(
+    source_mod, mem_idx, memory64,
+  )
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
 fn metamorphic_push_oi_live_nonzero_memory_atomic_rmw_op(
   instrs : Array[@lib.Instruction],
   addr : @lib.Instruction,
@@ -9943,6 +10082,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     OiLiveNonzeroMemorySecondCopyBoundary,
     OiLiveNonzeroMemoryCrossCopyBoundary,
     OiLiveNonzeroMemoryAtomicBoundary,
+    OiLiveNonzeroMemorySecondAtomicBoundary,
     OiLiveNonzeroMemoryAtomicRmwBoundary,
     OiLiveNonzeroMemoryFillRestoreBoundary,
     OiLiveNonzeroMemoryMidFillRestoreBoundary,
@@ -10021,6 +10161,10 @@ pub fn metamorphic_apply_transform(
       return metamorphic_apply_oi_live_nonzero_memory_cross_copy_boundary(mod)
     OiLiveNonzeroMemoryAtomicBoundary =>
       return metamorphic_apply_oi_live_nonzero_memory_atomic_boundary(mod)
+    OiLiveNonzeroMemorySecondAtomicBoundary =>
+      return metamorphic_apply_oi_live_nonzero_memory_second_atomic_boundary(
+        mod,
+      )
     OiLiveNonzeroMemoryAtomicRmwBoundary =>
       return metamorphic_apply_oi_live_nonzero_memory_atomic_rmw_boundary(mod)
     OiLiveNonzeroMemoryFillRestoreBoundary =>
@@ -10058,6 +10202,7 @@ pub fn metamorphic_apply_transform(
     | OiLiveNonzeroMemorySecondCopyBoundary
     | OiLiveNonzeroMemoryCrossCopyBoundary
     | OiLiveNonzeroMemoryAtomicBoundary
+    | OiLiveNonzeroMemorySecondAtomicBoundary
     | OiLiveNonzeroMemoryAtomicRmwBoundary
     | OiLiveNonzeroMemoryFillRestoreBoundary
     | OiLiveNonzeroMemoryMidFillRestoreBoundary
@@ -12275,6 +12420,7 @@ fn metamorphic_transform_applicable(
     | OiLiveNonzeroMemoryDynamicCopyBoundary
     | OiLiveNonzeroMemoryVariedCopyBoundary
     | OiLiveNonzeroMemoryAtomicBoundary
+    | OiLiveNonzeroMemorySecondAtomicBoundary
     | OiLiveNonzeroMemoryAtomicRmwBoundary
     | OiLiveNonzeroMemoryFillRestoreBoundary
     | OiLiveNonzeroMemoryMidFillRestoreBoundary

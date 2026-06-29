@@ -3561,6 +3561,7 @@ fn gen_valid_coverage_candidate_transform_applicable(
     | OiLiveNonzeroMemorySecondCopyBoundary
     | OiLiveNonzeroMemoryCrossCopyBoundary
     | OiLiveNonzeroMemoryAtomicBoundary
+    | OiLiveNonzeroMemorySecondAtomicBoundary
     | OiLiveNonzeroMemoryAtomicRmwBoundary
     | OiLiveNonzeroMemoryFillRestoreBoundary
     | OiLiveNonzeroMemoryMidFillRestoreBoundary

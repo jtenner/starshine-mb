@@ -6347,6 +6347,79 @@ test "OI live nonzero memory-atomic boundary transform guards reachable atomic l
 }
 
 ///|
+test "OI live nonzero second-memory atomic transform guards varied private-memory loads" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-second-atomic-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemorySecondAtomicBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-second-atomic-boundary",
+  )
+  match transformed.wasm_module.mem_sec {
+    Some(@lib.MemSec(mems)) => @debug.assert_eq(mems.length(), 2)
+    None => fail("expected transformed memory section")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let mem = @lib.MemIdx::new(1U)
+          let expected_then = []
+          for addr in [17, 1024, 49152, 65535] {
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(
+              @lib.Instruction::i32_atomic_load8_u(
+                @lib.MemArg::new(0U, Some(mem), 0UL),
+              ),
+            )
+            expected_then.push(@lib.Instruction::drop())
+          }
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::memory_size(mem))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 fn test_oi_atomic_rmw_expected_i32_op(
   expected_then : Array[@lib.Instruction],
   addr : Int,
