@@ -464,6 +464,7 @@ pub enum MetamorphicValidTransform {
   OiLiveNonzeroMemoryDynamicCopyBoundary
   OiLiveNonzeroMemoryVariedCopyBoundary
   OiLiveNonzeroMemorySecondCopyBoundary
+  OiLiveNonzeroMemoryCrossCopyBoundary
   OiLiveNonzeroMemoryAtomicBoundary
   OiLiveNonzeroMemoryAtomicRmwBoundary
   OiLiveNonzeroMemoryFillRestoreBoundary
@@ -1393,6 +1394,8 @@ pub fn metamorphic_valid_transform_id(
       "oi-live-nonzero-memory-varied-copy-boundary"
     OiLiveNonzeroMemorySecondCopyBoundary =>
       "oi-live-nonzero-memory-second-copy-boundary"
+    OiLiveNonzeroMemoryCrossCopyBoundary =>
+      "oi-live-nonzero-memory-cross-copy-boundary"
     OiLiveNonzeroMemoryAtomicBoundary =>
       "oi-live-nonzero-memory-atomic-boundary"
     OiLiveNonzeroMemoryAtomicRmwBoundary =>
@@ -6817,6 +6820,108 @@ fn metamorphic_add_private_i32_memory(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn metamorphic_add_private_nonzero_i32_memory(mod : @lib.Module) -> @lib.Module {
+  let mem_type = @lib.MemType::new(@lib.Limits::i32(1U, None))
+  let mems = []
+  match mod.mem_sec {
+    Some(@lib.MemSec(existing)) =>
+      for mem in existing {
+        mems.push(mem)
+      }
+    None => ()
+  }
+  mems.push(mem_type)
+  mod.with_mem_sec(@lib.MemSec::new(mems))
+}
+
+///|
+fn metamorphic_oi_live_nonzero_memory_cross_copy_i32_prefix(
+  src_mem : @lib.MemIdx,
+  dst_mem : @lib.MemIdx,
+) -> Array[@lib.Instruction] {
+  let copy_then = [
+    @lib.Instruction::i32_const(17),
+    @lib.Instruction::i32_const(17),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::memory_copy(dst_mem, src_mem),
+    @lib.Instruction::i32_const(17),
+    @lib.Instruction::i32_load8u(@lib.MemArg::new(0U, Some(dst_mem), 0UL)),
+    @lib.Instruction::drop(),
+  ]
+  let dst_then = [
+    @lib.Instruction::memory_size(dst_mem),
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::i32_ne(),
+    @lib.Instruction::if_(@lib.BlockType::void_(), copy_then, None),
+  ]
+  [
+    @lib.Instruction::memory_size(src_mem),
+    @lib.Instruction::i32_const(0),
+    @lib.Instruction::i32_ne(),
+    @lib.Instruction::if_(@lib.BlockType::void_(), dst_then, None),
+  ]
+}
+
+///|
+fn metamorphic_add_oi_live_nonzero_memory_cross_copy_boundary(
+  mod : @lib.Module,
+  src_mem : @lib.MemIdx,
+  dst_mem : @lib.MemIdx,
+) -> @lib.Module {
+  let funcs = []
+  let prefix = metamorphic_oi_live_nonzero_memory_cross_copy_i32_prefix(
+    src_mem, dst_mem,
+  )
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            for instr in prefix {
+              next_instrs.push(instr)
+            }
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_live_nonzero_memory_cross_copy_boundary(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(
+    OiLiveNonzeroMemoryCrossCopyBoundary,
+  )
+  let src_mem = match metamorphic_first_i32_memory_idx(mod) {
+    Some(idx) => idx
+    None =>
+      return Err(
+        "metamorphic transform \{transform_id} requires at least one i32 memory index",
+      )
+  }
+  let dst_mem = @lib.MemIdx::new(metamorphic_total_memory_count(mod).to_uint())
+  let with_private = metamorphic_add_private_nonzero_i32_memory(mod)
+  let transformed = metamorphic_add_oi_live_nonzero_memory_cross_copy_boundary(
+    with_private, src_mem, dst_mem,
+  )
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
 fn metamorphic_apply_oi_live_nonzero_memory_second_copy_boundary(
   mod : @lib.Module,
 ) -> Result[MetamorphicValidTransformResult, String] {
@@ -9779,6 +9884,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     OiLiveNonzeroMemoryDynamicCopyBoundary,
     OiLiveNonzeroMemoryVariedCopyBoundary,
     OiLiveNonzeroMemorySecondCopyBoundary,
+    OiLiveNonzeroMemoryCrossCopyBoundary,
     OiLiveNonzeroMemoryAtomicBoundary,
     OiLiveNonzeroMemoryAtomicRmwBoundary,
     OiLiveNonzeroMemoryFillRestoreBoundary,
@@ -9854,6 +9960,8 @@ pub fn metamorphic_apply_transform(
       return metamorphic_apply_oi_live_nonzero_memory_varied_copy_boundary(mod)
     OiLiveNonzeroMemorySecondCopyBoundary =>
       return metamorphic_apply_oi_live_nonzero_memory_second_copy_boundary(mod)
+    OiLiveNonzeroMemoryCrossCopyBoundary =>
+      return metamorphic_apply_oi_live_nonzero_memory_cross_copy_boundary(mod)
     OiLiveNonzeroMemoryAtomicBoundary =>
       return metamorphic_apply_oi_live_nonzero_memory_atomic_boundary(mod)
     OiLiveNonzeroMemoryAtomicRmwBoundary =>
@@ -9891,6 +9999,7 @@ pub fn metamorphic_apply_transform(
     | OiLiveNonzeroMemoryDynamicCopyBoundary
     | OiLiveNonzeroMemoryVariedCopyBoundary
     | OiLiveNonzeroMemorySecondCopyBoundary
+    | OiLiveNonzeroMemoryCrossCopyBoundary
     | OiLiveNonzeroMemoryAtomicBoundary
     | OiLiveNonzeroMemoryAtomicRmwBoundary
     | OiLiveNonzeroMemoryFillRestoreBoundary
@@ -12117,6 +12226,8 @@ fn metamorphic_transform_applicable(
       metamorphic_first_i64_memory_idx(mod).is_some()
     OiLiveNonzeroMemorySecondCopyBoundary =>
       metamorphic_total_memory_count(mod) > 0
+    OiLiveNonzeroMemoryCrossCopyBoundary =>
+      metamorphic_first_i32_memory_idx(mod).is_some()
     AddLeadingTableSizeDropToDefinedFunctions
     | AddTrailingTableSizeDropToDefinedFunctions =>
       metamorphic_total_table_count(mod) > 0

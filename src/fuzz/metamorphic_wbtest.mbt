@@ -6106,6 +6106,93 @@ test "OI live nonzero memory-second copy boundary transform guards reachable sec
 }
 
 ///|
+test "OI live nonzero cross-memory copy transform uses private destination memory" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-cross-copy-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryCrossCopyBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-cross-copy-boundary",
+  )
+  match transformed.wasm_module.mem_sec {
+    Some(@lib.MemSec(mems)) => @debug.assert_eq(mems.length(), 2)
+    None => fail("expected transformed memory section")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let src = @lib.MemIdx::new(0U)
+          let dst = @lib.MemIdx::new(1U)
+          let expected_copy_then = [
+            @lib.Instruction::i32_const(17),
+            @lib.Instruction::i32_const(17),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::memory_copy(dst, src),
+            @lib.Instruction::i32_const(17),
+            @lib.Instruction::i32_load8u(@lib.MemArg::new(0U, Some(dst), 0UL)),
+            @lib.Instruction::drop(),
+          ]
+          let expected_dst_then = [
+            @lib.Instruction::memory_size(dst),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_ne(),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              expected_copy_then,
+              None,
+            ),
+          ]
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::memory_size(src))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              expected_dst_then,
+              None,
+            ),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "OI live nonzero memory-atomic boundary transform guards reachable atomic load" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
