@@ -117,6 +117,64 @@ test "vacuum empty-then inversion preserves hot label ownership" {
 }
 
 ///|
+test "vacuum removes pure drops in root local set call hazards" {
+  let input =
+    #|(module
+    #|  (import "env" "tick" (func))
+    #|  (func (local i32)
+    #|    (drop (i32.add (i32.const 1) (i32.const 2)))
+    #|    (call 0)
+    #|    (local.set 0 (i32.const 4))
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected root-hazard vacuum pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected root-hazard vacuum output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
+test "vacuum removes raw nontrapping int division and sign extends in call hazards" {
+  let input =
+    #|(module
+    #|  (import "env" "tick" (func))
+    #|  (func (local i32)
+    #|    (drop (i32.div_s (i32.const 84) (i32.const 3)))
+    #|    (drop (i64.rem_u (i64.const 99) (i64.const 5)))
+    #|    (drop (i32.extend8_s (i32.const 127)))
+    #|    (call 0)
+    #|    (local.set 0 (i32.const 4))
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nontrapping raw vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nontrapping raw vacuum output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("div_s"), msg=pretty)
+  assert_false(pretty.contains("rem_u"), msg=pretty)
+  assert_false(pretty.contains("extend8_s"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped nontrapping local-read expressions" {
   let input = pass_test_module_from_wat(
     "(module (func (param i32) (local i32) (drop (i32.add (local.get 0) (i32.const 1))) (local.set 1 (i32.const 4))))",
@@ -252,7 +310,7 @@ test "vacuum skips branchy structured writes" {
 }
 
 ///|
-test "vacuum skips root stack/local-set call hazards" {
+test "vacuum raw-cleans root stack/local-set call hazards" {
   let trace : Array[String] = []
   let input =
     #|(module
@@ -270,23 +328,30 @@ test "vacuum skips root stack/local-set call hazards" {
     #|    i32.const 1
     #|    drop))
     #|
-  match
+  let optimized = match
     pass_test_run_pipeline(
       input,
       ["vacuum"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail("expected root stack/local-set vacuum hazard success, got \{err}")
   }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected root stack/local-set output to validate, got \{err}")
+  }
   assert_true(
     trace.any(fn(line) {
-      line.contains(
-        "pass[vacuum]:skip-hot reason=root-local-set-stack-hazard-noop",
-      )
+      line.contains("pass[vacuum]:skip-raw reason=raw-vacuum-preclean")
     }),
   )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
 }
 
 ///|

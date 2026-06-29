@@ -27553,13 +27553,220 @@ fn run_hot_pipeline_raw_vacuum_instr_is_pure_drop_leaf(
     | @lib.I64Const(_)
     | @lib.F32Const(_)
     | @lib.F64Const(_)
+    | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
     | @lib.RefNull(_)
     | @lib.RefFunc(_)
     | @lib.StringConst(_)
     | @lib.LocalGet(_)
-    | @lib.GlobalGet(_) => true
+    | @lib.GlobalGet(_)
+    | @lib.MemorySize(_)
+    | @lib.TableSize(_) => true
     _ => false
   }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_pure_instr_operand_count(
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.MemorySize(_)
+    | @lib.TableSize(_) => Some(0)
+    @lib.I32Eqz
+    | @lib.I64Eqz
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.RefIsNull => Some(1)
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign
+    | @lib.RefEq => Some(2)
+    @lib.Select(_) => Some(3)
+    _ => if vacuum_convert_is_nontrapping(Some(instr)) { Some(1) } else { None }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_pure_stack_expr_start(
+  instrs : Array[@lib.Instruction],
+  end_exclusive : Int,
+) -> Int? {
+  if end_exclusive <= 0 {
+    return None
+  }
+  let instr = instrs[end_exclusive - 1]
+  let operand_count = match
+    run_hot_pipeline_raw_vacuum_pure_instr_operand_count(instr) {
+    Some(count) => count
+    None => return None
+  }
+  let mut start = end_exclusive - 1
+  let mut remaining = operand_count
+  while remaining > 0 {
+    let operand_start = match
+      run_hot_pipeline_raw_vacuum_pure_stack_expr_start(instrs, start) {
+      Some(value) => value
+      None => return None
+    }
+    start = operand_start
+    remaining = remaining - 1
+  }
+  Some(start)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_pop_const_nontrapping_int_divrem(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() < 3 {
+    return false
+  }
+  let op = instrs[instrs.length() - 1]
+  let rhs = instrs[instrs.length() - 2]
+  let lhs = instrs[instrs.length() - 3]
+  let removable = match (lhs, rhs, op) {
+    (@lib.I32Const(@lib.I32(left)), @lib.I32Const(@lib.I32(right)), @lib.I32DivS
+    ) => right != 0 && !(left == -2147483648 && right == -1)
+    (@lib.I32Const(_), @lib.I32Const(@lib.I32(right)), @lib.I32DivU) =>
+      right != 0
+    (
+      @lib.I32Const(_),
+      @lib.I32Const(@lib.I32(right)),
+      @lib.I32RemS
+      | @lib.I32RemU,
+    ) => right != 0
+    (@lib.I64Const(@lib.I64(left)), @lib.I64Const(@lib.I64(right)), @lib.I64DivS
+    ) => right != 0L && !(left == -9223372036854775808L && right == -1L)
+    (@lib.I64Const(_), @lib.I64Const(@lib.I64(right)), @lib.I64DivU) =>
+      right != 0L
+    (
+      @lib.I64Const(_),
+      @lib.I64Const(@lib.I64(right)),
+      @lib.I64RemS
+      | @lib.I64RemU,
+    ) => right != 0L
+    _ => false
+  }
+  if !removable {
+    return false
+  }
+  ignore(instrs.pop())
+  ignore(instrs.pop())
+  ignore(instrs.pop())
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_try_pop_pure_stack_expr(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let start = match
+    run_hot_pipeline_raw_vacuum_pure_stack_expr_start(instrs, instrs.length()) {
+    Some(value) => value
+    None => return false
+  }
+  while instrs.length() > start {
+    ignore(instrs.pop())
+  }
+  true
 }
 
 ///|
@@ -27667,10 +27874,12 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
       _ => {
         match instr {
           @lib.Drop if rewritten.length() > 0 &&
-            run_hot_pipeline_raw_vacuum_instr_is_pure_drop_leaf(
-              rewritten[rewritten.length() - 1],
+            (
+              run_hot_pipeline_raw_vacuum_try_pop_const_nontrapping_int_divrem(
+                rewritten,
+              ) ||
+              run_hot_pipeline_raw_vacuum_try_pop_pure_stack_expr(rewritten)
             ) => {
-            ignore(rewritten.pop())
             changed = true
             idx = idx + 1
             continue
@@ -27710,6 +27919,46 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instr_has_stack_effect_hazard(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Call(_)
+    | @lib.CallIndirect(_, _)
+    | @lib.CallRef(_)
+    | @lib.MemoryCopy(_, _)
+    | @lib.MemoryFill(_) => true
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(body)
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(body)
+        None => false
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_raw_vacuum_instr_has_stack_effect_hazard(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -27732,10 +27981,23 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
   )
-  if instr_count <= 2048 {
+  let has_stack_effect = run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
+    instrs,
+  )
+  let guarded_hot_hazard = has_writes && has_stack_effect
+  if instr_count <= 2048 && !guarded_hot_hazard {
     return None
   }
-  if has_writes && has_structured_control && has_branches {
+  let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(instrs)
+  if guarded_hot_hazard && !changed {
+    return Some({
+      reason: "raw-vacuum-guarded-hazard",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if has_writes && has_structured_control && has_branches && !changed {
     return Some({
       reason: "raw-vacuum-structured-writes",
       func: original,
@@ -27743,7 +28005,6 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       trace_skip_raw: true,
     })
   }
-  let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(instrs)
   if !changed {
     return None
   }

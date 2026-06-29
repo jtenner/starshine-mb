@@ -979,7 +979,7 @@ test "raw vacuum preclean truncates dead tail after nonfallthrough" {
 }
 
 ///|
-test "raw vacuum preclean skips large structured functions with writes" {
+test "raw vacuum preclean removes pure drops in large structured functions with writes" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
   )
@@ -1013,8 +1013,30 @@ test "raw vacuum preclean skips large structured functions with writes" {
     Some(result) => result
     None => fail("expected raw vacuum structured-write skip result")
   }
-  assert_true(result.unchanged_original)
-  @debug.assert_eq(result.func, original_func)
+  assert_false(result.unchanged_original)
+  match result.func {
+    @lib.Func(_, @lib.Expr([@lib.LocalGet(_), @lib.If(_, cleaned_then, None)])) => {
+      @debug.assert_eq(cleaned_then.length(), 4)
+      @debug.assert_eq(
+        cleaned_then[0],
+        @lib.Instruction::i32_const(@lib.I32(1)),
+      )
+      @debug.assert_eq(
+        cleaned_then[1],
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      )
+      @debug.assert_eq(
+        cleaned_then[2],
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      )
+      @debug.assert_eq(
+        cleaned_then[3],
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+      )
+    }
+    other =>
+      fail("expected structured function shape, got \{@debug.to_string(other)}")
+  }
 }
 
 ///|
