@@ -14415,6 +14415,71 @@ fn gen_valid_test_instrs_contain_array_get(instrs : Array[Instruction]) -> Bool 
 }
 
 ///|
+test "vacuum gen-valid profile resolves dedicated cleanup lane" {
+  @debug.assert_eq(gen_valid_profile_name(VacuumProfile), "vacuum")
+  assert_true(gen_valid_profile_names().contains("vacuum"))
+  match gen_valid_profile_by_name("vacuum") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, VacuumProfile)
+      assert_false(gen_valid_profile_is_composite(profile))
+    }
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("vacuum-closeout") {
+    Ok(profile) => @debug.assert_eq(profile, VacuumProfile)
+    Err(msg) => fail(msg)
+  }
+  let config = GenValidConfig::for_profile(VacuumProfile)
+  @debug.assert_eq(gen_valid_config_label(config), "vacuum")
+  assert_true(config.features.allow_typed_body_generator)
+  assert_false(config.features.allow_imports)
+  assert_false(config.features.allow_calls)
+}
+
+///|
+test "vacuum gen-valid profile emits cleanup trigger families" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(VacuumProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match generated.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                Nop,
+                I32Const(_),
+                Drop,
+                I32Const(_),
+                If(_, _, Some(_)),
+                I32Const(_),
+                If(_, [], Some(_)),
+                Block(_, Expr([Unreachable])),
+                Block(_, Expr([])),
+                ..,
+              ]
+            )
+          ),
+          ..,
+        ]
+      )
+    ) => ()
+    _ =>
+      fail(
+        "expected vacuum profile to emit nop/drop/if/block/unreachable cleanup scaffolds",
+      )
+  }
+  assert_true(generated.facts.has_standalone_unreachable)
+}
+
+///|
 test "precompute gen-valid profiles resolve and expose replayable aggregate" {
   @debug.assert_eq(
     gen_valid_profile_name(PrecomputeScalarProfile),

@@ -646,6 +646,7 @@ pub enum GenValidProfile {
   PassFuzzStressProfile
   ValidatorStressProfile
   PassCleanupProfile
+  VacuumProfile
   PassDaeProfile
   PassInliningProfile
   PassMemoryProfile
@@ -799,6 +800,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PassFuzzStressProfile => "pass-fuzz-stress"
     ValidatorStressProfile => "validator-stress"
     PassCleanupProfile => "pass-cleanup"
+    VacuumProfile => "vacuum"
     PassDaeProfile => "pass-dae"
     PassInliningProfile => "pass-inlining"
     PassMemoryProfile => "pass-memory"
@@ -1185,6 +1187,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PassFuzzStressProfile,
     ValidatorStressProfile,
     PassCleanupProfile,
+    VacuumProfile,
     PassDaeProfile,
     PassInliningProfile,
     PassMemoryProfile,
@@ -1362,6 +1365,8 @@ pub fn gen_valid_profile_by_name(
     "precompute" => Ok(PrecomputeAllProfile)
     "precompute-closeout" => Ok(PrecomputeAllProfile)
     "precompute-all-profiles" => Ok(PrecomputeAllProfile)
+    "vacuum-closeout" => Ok(VacuumProfile)
+    "vacuum-all" => Ok(VacuumProfile)
     "pick-load-signs" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-closeout" => Ok(PickLoadSignsAllProfile)
     "pick-load-signs-all-profiles" => Ok(PickLoadSignsAllProfile)
@@ -1532,6 +1537,45 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         features: GenValidFeatureToggles::{
           ..base.features,
           allow_typed_body_generator: true,
+        },
+      }
+    }
+    VacuumProfile => {
+      let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 1,
+        max_imports: 0,
+        max_defined_funcs: 2,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 0,
+        max_results: 0,
+        max_locals: 0,
+        max_body_statements: 13,
+        max_body_depth: 3,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_globals: false,
+          allow_tags: false,
+          allow_elems: false,
+          allow_datas: false,
+          allow_calls: false,
+          allow_call_indirect: false,
+          allow_tail_calls: false,
+          allow_v128: false,
+          allow_relaxed_simd: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_typed_body_generator: true,
+          allow_name_custom_sections: false,
         },
       }
     }
@@ -15198,6 +15242,89 @@ fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_vacuum_profile_small_body() -> Array[Instruction] {
+  [
+    Instruction::nop(),
+    Instruction::i32_const(I32(7)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(8)), Instruction::drop()],
+      Some([Instruction::i32_const(I32(9)), Instruction::drop()]),
+    ),
+    Instruction::i32_const(I32(0)),
+    Instruction::if_(
+      BlockType::void_(),
+      [],
+      Some([Instruction::i32_const(I32(10)), Instruction::drop()]),
+    ),
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([Instruction::unreachable_()]),
+    ),
+    Instruction::block(BlockType::void_(), Expr::new([])),
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::nop(),
+        Instruction::i64_const(I64(11L)),
+        Instruction::drop(),
+        Instruction::f32_const(F32(1.0)),
+        Instruction::drop(),
+        Instruction::f64_const(F64(2.0)),
+        Instruction::drop(),
+        Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+        Instruction::drop(),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_vacuum_profile_large_body() -> Array[Instruction] {
+  let body : Array[Instruction] = []
+  let mut idx = 0
+  while idx < 128 {
+    body.push(Instruction::i32_const(I32(idx)))
+    body.push(Instruction::drop())
+    if idx % 8 == 0 {
+      body.push(Instruction::nop())
+    }
+    idx += 1
+  }
+  body.push(Instruction::i32_const(I32(1)))
+  body.push(
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(17)), Instruction::drop()],
+      Some([Instruction::i32_const(I32(18)), Instruction::drop()]),
+    ),
+  )
+  body
+}
+
+///|
+fn gen_valid_vacuum_profile_module() -> Module {
+  let void_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([void_func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new(gen_valid_vacuum_profile_small_body()),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new(gen_valid_vacuum_profile_large_body()),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_pick_load_signs_profile_kind(
   config : GenValidConfig,
 ) -> GenValidProfile {
@@ -21713,6 +21840,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_precompute_profile_config(config) {
     return gen_valid_precompute_profile_module(config)
+  }
+  if config == GenValidConfig::for_profile(VacuumProfile) {
+    return gen_valid_vacuum_profile_module()
   }
   if gen_valid_is_pick_load_signs_profile_config(config) {
     return gen_valid_pick_load_signs_profile_module(config)
