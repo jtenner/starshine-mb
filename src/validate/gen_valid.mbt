@@ -14549,21 +14549,22 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 ///|
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
-    PassOiMemoryBulkProfile => 7
+    PassOiMemoryBulkProfile => 8
     _ => 3
   }
 }
 
 ///|
 fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
-  match ((seed + 3UL) % 7UL).to_int() {
+  match ((seed + 3UL) % 8UL).to_int() {
     0 => 1
     1 => 2
     2 => 3
     3 => 4
     4 => 5
     5 => 0
-    _ => 6
+    6 => 6
+    _ => 7
   }
 }
 
@@ -14643,6 +14644,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         4 => Some("oi-memory-bulk:store-mask-boundaries")
         5 => Some("oi-memory-bulk:dynamic-i32-bulk-operands")
         6 => Some("oi-memory-bulk:multi-memory-bulk")
+        7 => Some("oi-memory-bulk:random-address-copy-read")
         _ => Some("oi-memory-bulk:direct-tiny-bulk")
       }
     _ => None
@@ -14903,6 +14905,28 @@ fn gen_valid_oi_memory_bulk_multi_memory_body() -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_oi_memory_bulk_random_address(seed : UInt64) -> Int {
+  ((seed * 1103515245UL + 12345UL) % 65519UL + 17UL).to_int()
+}
+
+///|
+fn gen_valid_oi_memory_bulk_random_address_body(
+  seed : UInt64,
+) -> Array[Instruction] {
+  let mem_idx = MemIdx::new(0U)
+  let addr = gen_valid_oi_memory_bulk_random_address(seed)
+  [
+    Instruction::i32_const(I32(addr)),
+    Instruction::i32_const(I32(addr)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_copy(mem_idx, mem_idx),
+    Instruction::i32_const(I32(addr)),
+    Instruction::i32_load8u(MemArg::new(0U, None, 0UL)),
+    Instruction::drop(),
+  ]
+}
+
+///|
 fn gen_valid_oi_memory_bulk_call_wrapped_module() -> Module {
   let i32_func_type = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32()])),
@@ -15009,6 +15033,7 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
       4 => gen_valid_oi_memory_bulk_store_mask_body()
       5 => gen_valid_oi_memory_bulk_dynamic_i32_body()
       6 => gen_valid_oi_memory_bulk_multi_memory_body()
+      7 => gen_valid_oi_memory_bulk_random_address_body(ctx.root_seed)
       _ => gen_valid_oi_memory_bulk_direct_body()
     }
   } else {
