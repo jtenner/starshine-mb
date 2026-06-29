@@ -14549,27 +14549,45 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 ///|
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
-    PassOiMemoryBulkProfile => 13
+    PassOiMemoryBulkProfile => 14
     _ => 3
   }
 }
 
 ///|
 fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
-  match (seed % 13UL).to_int() {
-    0 => 9
-    1 => 10
-    2 => 11
-    3 => 12
-    4 => 1
-    5 => 2
-    6 => 3
-    7 => 4
-    8 => 5
-    9 => 0
-    10 => 6
-    11 => 7
-    _ => 8
+  match seed {
+    0x5eedUL => 1
+    0x5eeeUL => 2
+    0x5eefUL => 3
+    0x5ef0UL => 4
+    0x5ef1UL => 5
+    0x5ef2UL => 0
+    0x5ef3UL => 6
+    0x5ef4UL => 7
+    0x5ef5UL => 8
+    0x5ef6UL => 9
+    0x5ef7UL => 10
+    0x5ef8UL => 11
+    0x5ef9UL => 12
+    0x5efaUL => 13
+    _ =>
+      match (seed % 14UL).to_int() {
+        0 => 9
+        1 => 10
+        2 => 11
+        3 => 12
+        4 => 13
+        5 => 1
+        6 => 2
+        7 => 3
+        8 => 4
+        9 => 5
+        10 => 0
+        11 => 6
+        12 => 7
+        _ => 8
+      }
   }
 }
 
@@ -14656,6 +14674,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
           Some("oi-memory-bulk:memory64-cross-memory-random-address-copy-read")
         11 => Some("oi-memory-bulk:cross-memory-restore-copy-read")
         12 => Some("oi-memory-bulk:memory64-cross-memory-restore-copy-read")
+        13 => Some("oi-memory-bulk:runtime-restore-copy-read")
         _ => Some("oi-memory-bulk:direct-tiny-bulk")
       }
     _ => None
@@ -15039,6 +15058,41 @@ fn gen_valid_oi_memory_bulk_memory64_cross_memory_restore_body(
 }
 
 ///|
+fn gen_valid_oi_memory_bulk_runtime_restore_addresses(
+  seed : UInt64,
+) -> (Int, Int) {
+  let src_addr = gen_valid_oi_memory_bulk_random_address(seed)
+  let dst_addr = if src_addr < 65000 { src_addr + 16 } else { src_addr - 16 }
+  (src_addr, dst_addr)
+}
+
+///|
+fn gen_valid_oi_memory_bulk_runtime_restore_body(
+  seed : UInt64,
+) -> Array[Instruction] {
+  let mem_idx = MemIdx::new(0U)
+  let (src_addr, dst_addr) = gen_valid_oi_memory_bulk_runtime_restore_addresses(
+    seed,
+  )
+  [
+    Instruction::i32_const(I32(dst_addr)),
+    Instruction::i32_load8u(MemArg::new(0U, None, 0UL)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(dst_addr)),
+    Instruction::i32_const(I32(src_addr)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_copy(mem_idx, mem_idx),
+    Instruction::i32_const(I32(dst_addr)),
+    Instruction::i32_load8u(MemArg::new(0U, None, 0UL)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::i32_const(I32(dst_addr)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_store8(MemArg::new(0U, None, 0UL)),
+    Instruction::local_get(LocalIdx::new(1U)),
+  ]
+}
+
+///|
 fn gen_valid_oi_memory_bulk_call_wrapped_module() -> Module {
   let i32_func_type = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32()])),
@@ -15129,6 +15183,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
     Locals::from_types([ValType::i64()])
   } else if memory_bulk && case == 12 {
     Locals::from_types([ValType::i64()])
+  } else if memory_bulk && case == 13 {
+    Locals::from_types([ValType::i32(), ValType::i32()])
   } else if memory_bulk && (case == 5 || case == 11) {
     Locals::from_types([ValType::i32()])
   } else if !ref_gc && !memory_bulk && (case == 1 || case == 2) {
@@ -15161,13 +15217,19 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
         gen_valid_oi_memory_bulk_memory64_cross_memory_restore_body(
           ctx.root_seed,
         )
+      13 => gen_valid_oi_memory_bulk_runtime_restore_body(ctx.root_seed)
       _ => gen_valid_oi_memory_bulk_direct_body()
     }
   } else {
     gen_valid_oi_default_scalar_profile_body(case)
   }
+  let func_type = if memory_bulk && case == 13 {
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
+  } else {
+    gen_valid_precompute_void_func_type()
+  }
   let mut mod = Module::new()
-    .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+    .with_type_sec(TypeSec::new([func_type]))
     .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
     .with_code_sec(CodeSec::new([Func::new(locals, Expr::new(body))]))
   if memory_bulk {
@@ -15199,6 +15261,37 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
           ),
         ]),
       )
+    } else if case == 13 {
+      let (src_addr, dst_addr) = gen_valid_oi_memory_bulk_runtime_restore_addresses(
+        ctx.root_seed,
+      )
+      mod = mod
+        .with_data_sec(
+          DataSec::new([
+            Data::new(
+              DataMode::active(
+                MemIdx::new(0U),
+                Expr::new([Instruction::i32_const(I32(src_addr))]),
+              ),
+              b"\x07",
+            ),
+            Data::new(
+              DataMode::active(
+                MemIdx::new(0U),
+                Expr::new([Instruction::i32_const(I32(dst_addr))]),
+              ),
+              b"\x0d",
+            ),
+          ]),
+        )
+        .with_export_sec(
+          ExportSec::new([
+            Export::new(
+              Name::from_string("run"),
+              ExternIdx::func(FuncIdx::new(0U)),
+            ),
+          ]),
+        )
     }
   }
   mod

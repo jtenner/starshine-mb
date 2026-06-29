@@ -223,7 +223,7 @@ canonical-size Starshine-win candidates with raw-size residuals, not OI-G family
 closure. All 20 fix4 raw/canonical outputs validate.
 
 `pass-oi-memory-bulk` is now stronger than a broad smoke config and stronger
-than the earlier three-case trigger smoke. It emits thirteen OI-G
+than the earlier three-case trigger smoke. It emits fourteen OI-G
 trigger-smoke-plus cases: live private-global plus dead-trap boundaries, direct
 i32 tiny-bulk and load/store lowering, memory64 dynamic/local-carried bulk
 operands, no-param-call/existing-producer-wrapped tiny bulk, narrow-store masks,
@@ -232,30 +232,40 @@ nonzero in-page copy/read addresses, seed-derived non-primary-memory in-page
 copy/read addresses, seed-derived private-destination cross-memory random-address
 copy/read addresses, seed-derived memory64 private-destination cross-memory
 random-address copy/read addresses, seed-derived source-visible cross-memory
-copy/read with destination-byte restore, and seed-derived memory64 source-visible
-cross-memory copy/read with destination-byte restore. The focused generator test failed
-red-first first on missing OI-G labels, then on the missing three expanded
-labels, then on the missing multi-memory label/signature, then on the missing
-random-address-copy-read label/signature, then on the missing
+copy/read with destination-byte restore, seed-derived memory64 source-visible
+cross-memory copy/read with destination-byte restore, and a Node-runtime-compatible
+single-memory restore/copy/read exported function with active data. The focused
+generator test failed red-first first on missing OI-G labels, then on the missing
+three expanded labels, then on the missing multi-memory label/signature, then on
+the missing random-address-copy-read label/signature, then on the missing
 multi-memory-random-address-copy-read, cross-memory-random-address,
-memory64-cross-memory-random-address, cross-memory-restore, and
-memory64-cross-memory-restore labels/signatures before implementation; it now
-passes. The latest post-memory64-restore grouped run at
-`.tmp/oi-g-memory64-cross-memory-restore-count312-20260629` compares 201/312
-transform-applicable cases with 179 normalized matches and zero validation,
-generator, property, or command failures;
-`oi-memory-bulk:memory64-cross-memory-restore-copy-read` has 11/11 matches and
-no memory64 source-visible destination-restore opcode drift. The prior
-count-288 root remains the first i32 source-visible restore evidence, the
-all-comparable count-264 root remains the latest pre-restore aggregate, and the
-count-198 root remains the first non-primary random-address evidence. A targeted
-`--runtime-execution node` follow-up at
+memory64-cross-memory-random-address, cross-memory-restore,
+memory64-cross-memory-restore, and runtime-compatible restore labels/signatures
+before implementation; it now passes. The latest grouped run at
+`.tmp/oi-g-runtime-restore-count336-20260629` compares 177/336
+transform-applicable cases with 155 normalized matches, 22 mismatches, and zero
+validation, generator, property, or command failures;
+`oi-memory-bulk:runtime-restore-copy-read` has 15/15 matches. The prior
+post-memory64-restore grouped run at
+`.tmp/oi-g-memory64-cross-memory-restore-count312-20260629` remains the latest
+memory64 source-visible restore aggregate: it compared 201/312 transform-applicable
+cases with 179 normalized matches, zero failures, and
+`oi-memory-bulk:memory64-cross-memory-restore-copy-read` 11/11 matches. Count-288
+remains the first i32 source-visible restore evidence, count-264 remains the latest
+pre-restore aggregate, and count-198 remains the first non-primary random-address
+evidence. A targeted `--runtime-execution node` follow-up at
 `.tmp/oi-g-memory64-cross-memory-restore-runtime-count65-20260629` compared
 65/65 with 60 normalized matches and zero runtime semantic failures, but the
 runtime matrix was blocked (`checked=36`, `unsupported=29`, `failed=0`). The
 exact singleton restore seeds `0x5ef8` and `0x5ef9` each normalized 1/1 and each
-reported `unsupported=1`, so runtime source-visible restore execution remains
-open until the modules are executable under a compatible adapter/export path.
+reported `unsupported=1`, so exact cross-memory runtime source-visible restore
+execution remains open until the modules are executable under a compatible
+adapter/export path. The new `.tmp/oi-g-runtime-restore-count14-20260629` direct
+runtime lane adds a separate executable restore contract: it compared 14/14 with
+13 normalized matches, one known store-mask mismatch, zero failures, and runtime
+matrix `equalResults=1`, `unsupportedRuntimes=8`, `semanticMismatches=0`; that is
+runtime-compatible same-memory restore evidence only, not exact cross-memory or
+memory64 runtime closure.
 The direct count-18 profile lane at `.tmp/oi-g-memory-bulk-expanded-profile-count18-20260628` sampled
 the first six labels, compared 18/18 with 14 normalized matches, four store-mask
 mismatches, and no validation, generator, property, or command failures. The
@@ -628,7 +638,14 @@ destination-byte restore evidence: direct count-65 samples
 `oi-memory-bulk:memory64-cross-memory-restore-copy-read` 3/3 matches, grouped
 count-312 samples it 11/11 matches, all 88 failure-dir raw/canonical outputs
 validate, there are zero canonical size-losing dirs, and seven unrelated
-raw-size-larger Starshine failure dirs remain.
+raw-size-larger Starshine failure dirs remain. The runtime-compatible restore
+count-336 slice adds a single-memory exported restore/copy/read case with active
+data: direct runtime count14 records one equal runtime result for the new label
+with zero semantic mismatches, and grouped count336 samples
+`oi-memory-bulk:runtime-restore-copy-read` 15/15 matches while the 22 unrelated
+failure dirs validate and show zero Starshine-larger raw or normalized-WAT dirs.
+This does not close exact cross-memory or memory64 runtime semantics because the
+exact restore seeds remain unsupported by the current Node adapter.
 The refreshed atomic variant evidence covers fixed byte-0, byte-16, and
 page-middle byte-32768 no-op integer RMW add/sub/and/or/xor and cmpxchg
 spellings, but still not xchg, wait/notify, randomized-address atomics, or
@@ -722,6 +739,8 @@ The first transform designs are:
 `oi-memory-bulk:cross-memory-restore-copy-read` is implemented as an OI-G trigger-smoke-plus profile case in `src/validate/gen_valid.mbt`. It defines two i32 memories, selects a seed-derived nonzero in-page address, saves the destination byte from memory 1 into a local, performs a length-1 `memory.copy` from source memory 0 to destination memory 1, byte-load/drops that destination byte, and restores the saved destination byte with `i32.store8`. The focused generator test failed red-first when seed `0x5ef8` still selected an older case, then passed after the profile grew to twelve cases while preserving the seed `0x5eed` through `0x5ef7` sequence. A direct count-60 profile compare at `.tmp/oi-g-cross-memory-restore-profile-count60-20260629` compares 60/60 with 55 normalized matches, five known store-mask mismatches, zero failures, and the new label matching 5/5. The grouped count-288 run `.tmp/oi-g-cross-memory-restore-count288-20260629` compares 149/288 transform-applicable cases with 128 normalized matches, 21 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 99/50. The new profile case samples 15 grouped cases and all 15 match; all 84 raw/canonical Binaryen/Starshine outputs from the unrelated 21 failure dirs validate with zero canonical size-losing dirs and zero raw-size-larger Starshine dirs. Treat this as seed-derived source-visible destination-restore cross-memory evidence only; it is not broad source-visible mutation closure, memory64 restore evidence, atomics, true live trap-order, OI-G closure, or descriptor-compatible OI-J evidence.
 
 `oi-memory-bulk:memory64-cross-memory-restore-copy-read` is implemented as an OI-G trigger-smoke-plus profile case in `src/validate/gen_valid.mbt`. It defines two memory64 memories, selects a seed-derived nonzero in-page i64 address, saves the destination byte from memory 1 into an i64 local, performs a length-1 `memory.copy` from source memory 0 to destination memory 1, byte-load/drops that destination byte, and restores the saved destination byte with `i64.store8`. The focused generator test failed red-first when seed `0x5ef9` still selected `memory64-dynamic-bulk`, then passed after the profile grew to thirteen cases while preserving the seed `0x5eed` through `0x5ef8` sequence. A direct count-65 profile compare at `.tmp/oi-g-memory64-cross-memory-restore-profile-count65-20260629` compares 65/65 with 60 normalized matches, five known store-mask mismatches, zero failures, and the new label matching 3/3. The grouped count-312 run `.tmp/oi-g-memory64-cross-memory-restore-count312-20260629` compares 201/312 transform-applicable cases with 179 normalized matches, 22 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 133/68. The new profile case samples 11 grouped cases and all 11 match; all 88 raw/canonical Binaryen/Starshine outputs from the unrelated 22 failure dirs validate with zero canonical size-losing dirs and seven raw-size-larger Starshine dirs. Treat this as seed-derived memory64 source-visible destination-restore cross-memory evidence only; it is not broad source-visible mutation closure, runtime execution evidence, atomics, true live trap-order, OI-G closure, or descriptor-compatible OI-J evidence.
+
+`oi-memory-bulk:runtime-restore-copy-read` is implemented as an OI-G trigger-smoke-plus profile case in `src/validate/gen_valid.mbt`. It defines one i32 memory, initializes a source byte and destination byte with active data, exports a no-arg `run` function returning i32, saves the destination byte, performs a length-1 same-memory `memory.copy` from source to destination, reads the copied byte into a local, restores the saved destination byte, and returns the copied byte. The focused generator test failed red-first when seed `0x5efa` still selected an older memory case, then passed after the profile grew to fourteen cases. A direct runtime count14 compare at `.tmp/oi-g-runtime-restore-count14-20260629` compares 14/14 with 13 normalized matches, one known store-mask mismatch, zero failures, and runtime matrix `equalResults=1`, `unsupportedRuntimes=8`, `semanticMismatches=0`; the new label samples 1/1 match. The grouped count336 run `.tmp/oi-g-runtime-restore-count336-20260629` compares 177/336 transform-applicable cases with 155 normalized matches, 22 mismatches, zero validation/generator/property/command failures, and the new label 15/15 matches. Manual validation/size review over all 22 failure dirs found zero validation failures and zero Starshine-larger raw or normalized-WAT failure dirs. Treat this as Node-runtime-compatible same-memory restore-contract evidence only; exact cross-memory and memory64 runtime restore semantics remain open because the exact restore singleton probes are still unsupported.
 
 `oi-live-nonzero-memory-cross-copy-boundary` is implemented as an OI-specific smoke transform. It appends a private nonzero destination memory matching the source address width, guards source and destination `memory.size != 0`, performs reachable length-1 `memory.copy` operations from the first source memory to that private destination memory at fixed in-page bytes 17, 1024, 49152, and 65535, and load/drops each private destination byte. The private destination keeps source-visible memory behavior stable while introducing real cross-memory copy mutation shapes. The original focused transform test failed red-first on the missing id/constructor; a later red-first test failed while the transform still emitted only byte 17, then passed after `src/fuzz/metamorphic.mbt` emitted all four fixed addresses. The latest red-first focused test failed because the transform required an i32 source memory, then passed after memory64-compatible source plus private memory64 destination support was added. The grouped count-240 run `.tmp/oi-g-cross-memory-random-address-count240-20260629` samples this transform 13 times and all 13 match; the grouped count-264 run `.tmp/oi-g-memory64-cross-memory-random-address-count264-20260629` samples it 14 times and all 14 match. The latest run has zero validation/generator/property/command failures and zero canonical size-losing failure dirs. The prior count-216 representative case 000211 remains useful fixed-address evidence: both tools lower all four i32 cross-memory copies to load8/store8 forms (`memory.copy` 0/0, `i32.load8_u` 8/8, `i32.store8` 5/5), with canonical Starshine/Binaryen sizes 156/161 and all outputs validating; that diff was unrelated `i64.store8` low-byte-mask cleanup. This is fixed-address private-destination cross-memory copy/read smoke evidence for memory32 and memory64, not source-visible cross-memory mutation, multi-memory atomics, live trap-order closure, or OI-J descriptor evidence.
 
