@@ -3451,8 +3451,23 @@ fn gen_valid_test_tuple_sibling_signature(mod_ : Module) -> String {
 }
 
 ///|
+fn gen_valid_test_tuple_body_has_select(body : Array[Instruction]) -> Bool {
+  for instr in body {
+    match instr {
+      Select(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
   fn classify_block_body(body : Array[Instruction]) -> String {
+    if gen_valid_test_tuple_body_has_select(body) &&
+      gen_valid_test_tuple_helper_has_effect(mod_) {
+      return "effectful-select-operand-selected"
+    }
     match body[0] {
       LocalGet(_) => "local-carried-selected"
       Call(_) =>
@@ -3580,6 +3595,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let effectful_select_operand = match
+    gen_valid_module_result_from_seed(
+      0x5ef7UL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -3622,6 +3645,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Some("oi-tuple:selected-effectful-lane"),
   )
   @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5ef7UL),
+    Some("oi-tuple:effectful-select-operand-selected-lane"),
+  )
+  @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(all_results.wasm_module),
     "all-results",
   )
@@ -3660,6 +3687,12 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(selected_effectful.wasm_module),
     "selected-effectful-lane",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(
+      effectful_select_operand.wasm_module,
+    ),
+    "effectful-select-operand-selected",
   )
 }
 
