@@ -2528,6 +2528,9 @@ fn gen_valid_test_oi_memory_bulk_trigger_signature(
 ) -> String raise {
   let instrs = gen_valid_test_first_func_instrs(mod_)
   if gen_valid_test_has_multi_memory(mod_) &&
+    gen_valid_test_instrs_have_random_address_copy_read(instrs) {
+    "multi-memory-random-address-copy-read"
+  } else if gen_valid_test_has_multi_memory(mod_) &&
     gen_valid_test_instrs_have_multi_memory_bulk(instrs) {
     "multi-memory-bulk"
   } else if gen_valid_test_has_memory64(mod_) &&
@@ -2614,11 +2617,19 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let multi_memory_random_address = match
+    gen_valid_module_result_from_seed(
+      0x5ef5UL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(memory64_dynamic.config_label, "pass-oi-memory-bulk")
   for
     generated in [
       memory64_dynamic, live_effect_trap, existing_producer, store_mask, dynamic_i32,
-      direct_tiny, multi_memory, random_address,
+      direct_tiny, multi_memory, random_address, multi_memory_random_address,
     ] {
     match validate_module(generated.wasm_module) {
       Ok(_) => ()
@@ -2658,6 +2669,10 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     Some("oi-memory-bulk:random-address-copy-read"),
   )
   @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5ef5UL),
+    Some("oi-memory-bulk:multi-memory-random-address-copy-read"),
+  )
+  @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(
       memory64_dynamic.wasm_module,
     ),
@@ -2694,6 +2709,12 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(random_address.wasm_module),
     "random-address-copy-read",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      multi_memory_random_address.wasm_module,
+    ),
+    "multi-memory-random-address-copy-read",
   )
   let (direct_copies, direct_fills) = gen_valid_test_instrs_count_memory_bulk_ops(
     gen_valid_test_first_func_instrs(direct_tiny.wasm_module),
