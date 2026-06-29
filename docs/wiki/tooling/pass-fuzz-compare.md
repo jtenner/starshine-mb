@@ -57,7 +57,7 @@ moon build --target native --release src/cmd
 bun fuzz compare-pass \
   --pass <canonical-pass>|--<pass-flag> [--pass ...] \
   --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
-  --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe \
   [--wasm-smith] [--generator wasm-smith|gen-valid] \
   [--gen-valid-profile <profile>] \
   [--require-feature <feature>] [--exclude-feature <feature>] \
@@ -83,6 +83,8 @@ bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-statu
 ```
 
 `bun scripts/pass-fuzz-compare.ts ...` is the same underlying implementation. `bun fuzz compare-pass` reaches it through [`scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), which treats compare-pass as a sibling command rather than a `src/fuzz` suite.
+
+Native binary path note: current Moon native release builds refresh `_build/native/release/build/cmd/cmd.exe`. Older docs and stale local worktrees may still contain `target/native/release/build/cmd/cmd.exe`; do not use that path for signoff unless you have just verified it is the freshly built binary. Prefer `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`.
 
 ## Input Generators
 
@@ -200,9 +202,9 @@ When `binaryen-command-failed` contains a BrOn-family assertion such as `Type::g
 
 ## Concurrency Rules
 
-`--jobs auto` uses host parallelism; `--jobs <n>` fixes worker count. Documentation and signoff commands should include `--jobs auto` and `--starshine-bin target/native/release/build/cmd/cmd.exe` together explicitly. Any effective worker count above `1` requires `--starshine-bin`.
+`--jobs auto` uses host parallelism; `--jobs <n>` fixes worker count. Documentation and signoff commands should include `--jobs auto` and `--starshine-bin _build/native/release/build/cmd/cmd.exe` together explicitly. Any effective worker count above `1` requires `--starshine-bin`.
 
-Reason: without a prebuilt Starshine binary, the harness invokes Starshine through `moon run --target native --release src/cmd -- ...`. Parallel `moon run` calls can contend on `_build/.moon-lock`, so the harness refuses that shape. Build `src/cmd` once and pass its native binary path for parallel lanes. The implementation also treats omitted `--jobs` with `--starshine-bin` as auto, but documented commands should keep both flags visible so copied signoff lanes are unambiguous.
+Reason: without a prebuilt Starshine binary, the harness invokes Starshine through `moon run --target native --release src/cmd -- ...`. Parallel `moon run` calls can contend on `_build/.moon-lock`, so the harness refuses that shape. Build `src/cmd` once and pass its native binary path for parallel lanes. The implementation also treats omitted `--jobs` with `--starshine-bin` as auto, but documented commands should keep both flags visible so copied signoff lanes are unambiguous. If a local `target/native/...` binary exists, treat it as an old compatibility artifact unless its timestamp/hash proves it matches the current `_build/native/...` output.
 
 ## Signoff Guidance
 
@@ -211,7 +213,7 @@ For a direct pass signoff:
 1. Run focused MoonBit tests for the pass and dispatcher/registry surface.
 2. Run a small default GenValid `--count <small>` smoke lane while iterating.
 3. Build `src/cmd` once with `moon build --target native --release src/cmd`.
-4. Run the repo-standard direct lane, usually `--count 10000 --seed 0x5eed`, with a stable `--out-dir`, explicit `--jobs auto`, and explicit `--starshine-bin target/native/release/build/cmd/cmd.exe`.
+4. Run the repo-standard direct lane, usually `--count 10000 --seed 0x5eed`, with a stable `--out-dir`, explicit `--jobs auto`, and explicit `--starshine-bin _build/native/release/build/cmd/cmd.exe`.
 5. If command failures dominate, rerun with `--keep-going-after-command-failures` and use `--min-compared` so the run still proves enough comparable cases.
 6. Classify any mismatch in the pass dossier with evidence. Do not call a mismatch semantically safe merely because both outputs validate.
 7. For DAE / generator-debris lanes, include `--normalize drop-consts --normalize unreachable-control-debris` so cleanup-normalized matches are counted separately from exact normalized matches.

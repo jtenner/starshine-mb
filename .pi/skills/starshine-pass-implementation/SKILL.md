@@ -125,25 +125,25 @@ A proper pass signoff must run and report these four separate lanes unless the u
 1. **Regular GenValid lane:** `100000` requested cases, seed `0x5eed`, no `--gen-valid-profile`.
 
    ```sh
-   bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name>-genvalid-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+   bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name>-genvalid-100000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
    ```
 
 2. **Explicit wasm-smith lane:** `10000` requested cases, seed `0x5eed`, with `--wasm-smith`.
 
    ```sh
-   bun scripts/pass-fuzz-compare.ts --wasm-smith --count 10000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name>-wasm-smith-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+   bun scripts/pass-fuzz-compare.ts --wasm-smith --count 10000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name>-wasm-smith-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
    ```
 
 3. **Specific pass GenValid profile lane:** `10000` requested cases, seed `0x5eed`, with the pass-owned profile that generates random examples expected to be optimized by this pass.
 
    ```sh
-   bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <canonical-name> --gen-valid-profile <pass-specific-profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-<pass-specific-profile>-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+   bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <canonical-name> --gen-valid-profile <pass-specific-profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-<pass-specific-profile>-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
    ```
 
 4. **Random all-profiles GenValid lane:** `10000` requested cases, seed `0x5555`, with the random all-profiles composite profile.
 
    ```sh
-   bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass <canonical-name> --gen-valid-profile <random-all-profiles-profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-all-profiles-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+   bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass <canonical-name> --gen-valid-profile <random-all-profiles-profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-all-profiles-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
    ```
 
 Report the four lanes separately. Include requested count, compared count, normalized matches, cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache hit/miss counters, profile name, and selected subprofile counts when the manifest has `selected_profile`.
@@ -185,7 +185,7 @@ Report dedicated-profile lanes separately from the general compare lane: request
 For DAE / `dae-optimizing` generated cleanup-debris lanes, add the documented compare normalizer so generated dropped-constant debris does not consume the mismatch budget:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-dae-optimizing --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-dae-optimizing --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
 Report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining `mismatchCount`, command-failure classes, and `result.json.cache` hit/miss counters separately.
