@@ -267,7 +267,9 @@ matrix `equalResults=1`, `unsupportedRuntimes=8`, `semanticMismatches=0`; that i
 runtime-compatible same-memory restore evidence only, not exact cross-memory or
 memory64 runtime closure.
 
-The latest grouped run after adding the non-primary/private-memory atomic-load transform is `.tmp/oi-g-second-atomic-count350-20260629`. It compares 192/350 transform-applicable cases with 172 normalized matches, 20 mismatches, zero validation/generator/property/command failures, and `oi-live-nonzero-memory-second-atomic-boundary` 10/10 matches. That transform uses an existing non-primary memory or appends a private nonzero memory, guards `memory.size != 0`, and performs byte atomic loads/drops at bytes 17, 1024, 49152, and 65535; it is non-mutating except for private memory creation, so it is sampled non-primary/private-memory atomic-load evidence only. Manual validation/size review of all 20 failure dirs found zero validation failures, zero normalized-WAT-larger Starshine dirs, and two unrelated raw-size-larger residual dirs under `oi-memory-size-boundary`/`oi-commuted-operands`. OI-G remains open for atomic RMW/cmpxchg on non-primary/randomized memories, xchg, wait/notify, true live trap/effect ordering, grouped mismatch reduction, raw-size policy, exact cross-memory runtime evidence where needed, and OI-J descriptor/exactness/TNH/IIT remains blocked.
+The grouped run after adding the non-primary/private-memory atomic-load transform is `.tmp/oi-g-second-atomic-count350-20260629`. It compares 192/350 transform-applicable cases with 172 normalized matches, 20 mismatches, zero validation/generator/property/command failures, and `oi-live-nonzero-memory-second-atomic-boundary` 10/10 matches. That transform uses an existing non-primary memory or appends a private nonzero memory, guards `memory.size != 0`, and performs byte atomic loads/drops at bytes 17, 1024, 49152, and 65535; it is non-mutating except for private memory creation, so it is sampled non-primary/private-memory atomic-load evidence only. Manual validation/size review of all 20 failure dirs found zero validation failures, zero normalized-WAT-larger Starshine dirs, and two unrelated raw-size-larger residual dirs under `oi-memory-size-boundary`/`oi-commuted-operands`.
+
+The latest grouped run is `.tmp/oi-g-default-memarg-canonical-count350-20260629`, which specifically reduces those raw-size-larger residuals. Red-first binary and pass tests failed while explicit default-memory memargs encoded as `0x40 0x00 0x00` and while raw partial tiny-copy lowering reintroduced explicit memidx-0 load/store memargs. After the encoder/helper fix, the count350 run compares 193/350 transform-applicable cases with 173 normalized matches, 20 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 107/86. Manual validation/size review validates all 80 Binaryen/Starshine raw/canonical failure artifacts and finds zero validation failures, zero raw-size-larger Starshine dirs, and zero normalized-WAT-larger Starshine dirs; the prior raw-size-larger case 000058 is now Starshine/Binaryen raw 230/234, and case 000100 is now 247/250. OI-G remains open for atomic RMW/cmpxchg on non-primary/randomized memories, xchg, wait/notify, true live trap/effect ordering, grouped mismatch reduction, raw-size policy beyond this fixed memarg-encoding residual, exact cross-memory runtime evidence where needed, and OI-J descriptor/exactness/TNH/IIT remains blocked.
 
 The direct count-18 profile lane at `.tmp/oi-g-memory-bulk-expanded-profile-count18-20260628` sampled
 the first six labels, compared 18/18 with 14 normalized matches, four store-mask
@@ -648,17 +650,24 @@ with zero semantic mismatches, and grouped count336 samples
 `oi-memory-bulk:runtime-restore-copy-read` 15/15 matches while the 22 unrelated
 failure dirs validate and show zero Starshine-larger raw or normalized-WAT dirs.
 This does not close exact cross-memory or memory64 runtime semantics because the
-exact restore seeds remain unsupported by the current Node adapter.
-The refreshed atomic variant evidence covers fixed byte-0, byte-16, and
-page-middle byte-32768 no-op integer RMW add/sub/and/or/xor and cmpxchg
-spellings, but still not xchg, wait/notify, randomized-address atomics, or
-multi-memory atomic address ordering. Broader source-visible restore shapes,
+exact restore seeds remain unsupported by the current Node adapter. The
+second-atomic count350 slice adds fixed-address non-primary/private-memory atomic
+load evidence, and the later default-memory memarg count350 slice removes the two
+raw-size-larger residuals from that distribution: grouped count350 now compares
+193/350 transform-applicable cases with 173 normalized matches, 20 mismatches,
+zero failures, zero raw-size-larger failure dirs, and zero normalized-WAT-larger
+failure dirs after validating all 80 failure artifacts. The refreshed atomic
+variant evidence covers fixed byte-0, byte-16, and page-middle byte-32768 no-op
+integer RMW add/sub/and/or/xor and cmpxchg spellings, plus non-primary/private
+atomic-load smoke, but still not xchg, wait/notify, randomized-address atomics,
+or multi-memory atomic address ordering. Broader source-visible restore shapes,
 atomic xchg/wait/notify and randomized operation variants, randomized live memory
 wrappers, store/address commutation, randomized multi-memory wrappers, raw-byte
-alignment, randomized memory64 coverage, true live trap/effect ordering, and
-grouped mismatch reduction remain open. OI-J descriptor/exactness/TNH/IIT remains
-blocked on true descriptor-compatible evidence; do not close it from these
-non-descriptor OI-G memory sweeps.
+alignment beyond the fixed default-memory memarg residual, randomized memory64
+coverage, true live trap/effect ordering, and grouped mismatch reduction remain
+open. OI-J descriptor/exactness/TNH/IIT remains blocked on true
+descriptor-compatible evidence; do not close it from these non-descriptor OI-G
+memory sweeps.
 
 ## Smoke profiles and transform coverage
 

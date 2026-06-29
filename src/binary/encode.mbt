@@ -1828,6 +1828,14 @@ pub impl Encode for Catch with fn encode(val, buf) {
 ///|
 pub impl Encode for MemArg with fn encode(val, buf) {
   match val {
+    MemArg(U32(n), Some(@lib.MemIdx(0U)), m) if n < 64 => {
+      if Encode::encode(@lib.U32(n), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(m, buf) is Err(t) {
+        return Err(t)
+      }
+    }
     MemArg(U32(n), Some(i), m) if n < 64 => {
       if Encode::encode(@lib.U32(n + 64), buf) is Err(t) {
         return Err(t)

@@ -2318,6 +2318,24 @@ test "generic list decode and encode propagate nested failures" {
 }
 
 ///|
+test "encode canonicalizes explicit default-memory memarg index" {
+  let buf = @buffer.new()
+  match Encode::encode(MemArg::new(0U, Some(MemIdx::new(0U)), 0UL), buf) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected explicit default-memory memarg to encode, got \{err}")
+  }
+  @debug.assert_eq(buf.to_bytes().to_array(), [0x00, 0x00])
+
+  let indexed = @buffer.new()
+  match Encode::encode(MemArg::new(0U, Some(MemIdx::new(1U)), 0UL), indexed) {
+    Ok(_) => ()
+    Err(err) => fail("expected non-default memory memarg to encode, got \{err}")
+  }
+  @debug.assert_eq(indexed.to_bytes().to_array(), [0x40, 0x01, 0x00])
+}
+
+///|
 test "encode rejects unsupported type/index forms" {
   assert_encode_err_contains(
     Encode::encode(TypeIdx::rec(0), @buffer.new()),

@@ -23693,7 +23693,9 @@ fn run_hot_pipeline_raw_optimize_instructions_ordered_const_i64_eq_ne(
 fn run_hot_pipeline_raw_optimize_instructions_memarg_for_mem_idx(
   mem_idx : @lib.MemIdx,
 ) -> @lib.MemArg {
-  @lib.MemArg::new(@lib.U32(0), Some(mem_idx), @lib.U64(0))
+  let @lib.MemIdx(raw_idx) = mem_idx
+  let encoded_mem = if raw_idx == 0U { None } else { Some(mem_idx) }
+  @lib.MemArg::new(@lib.U32(0), encoded_mem, @lib.U64(0))
 }
 
 ///|

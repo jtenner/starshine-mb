@@ -11605,6 +11605,27 @@ test "optimize-instructions drops narrow-store masks after dead bulk-memory raw 
     "i32.load8u", "i32.store8", "I32(4660)", "i32.store8", "I32(305419896)", "i32.store16",
     "I64(4660)", "i64.store8",
   ])
+  let wasm = match @binary.encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail("expected optimized raw-shell module to encode, got \{err}")
+  }
+  // Follow-up from `.tmp/oi-g-second-atomic-count350-20260629` case 000058:
+  // Starshine's raw output was larger only because the raw partial tiny-copy
+  // lowering emitted explicit memory-index-zero memargs (`0x40 0x00 0x00`) for
+  // default-memory load/store operations. Keep the raw-size fix grounded in the
+  // exact lowered byte spelling without claiming OI-G family closeout.
+  for i = 0; i + 3 < wasm.length(); i = i + 1 {
+    let opcode = wasm[i]
+    if (opcode == 0x2d || opcode == 0x3a) &&
+      wasm[i + 1] == 0x40 &&
+      wasm[i + 2] == 0x00 &&
+      wasm[i + 3] == 0x00 {
+      fail(
+        "expected default-memory load/store memargs to omit explicit memidx 0",
+      )
+    }
+  }
 }
 
 ///|
