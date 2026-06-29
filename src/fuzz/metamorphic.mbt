@@ -7767,7 +7767,97 @@ fn metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_i64_then_instrs(
 }
 
 ///|
+fn metamorphic_oi_atomic_module_derived_addr_from_func_count(
+  mod : @lib.Module,
+) -> Int {
+  let count = metamorphic_defined_func_count(mod)
+  if count <= 0 {
+    257
+  } else if count == 1 {
+    44129
+  } else if count == 2 {
+    12345
+  } else {
+    60013
+  }
+}
+
+///|
+fn metamorphic_oi_atomic_module_derived_addr_from_memory_count(
+  mod : @lib.Module,
+) -> Int {
+  let count = metamorphic_total_memory_count(mod)
+  if count <= 1 {
+    2049
+  } else if count == 2 {
+    49151
+  } else if count == 3 {
+    32767
+  } else {
+    65279
+  }
+}
+
+///|
+fn metamorphic_oi_live_nonzero_memory_atomic_rmw_module_i32_then_instrs(
+  mod : @lib.Module,
+  mem_idx : @lib.MemIdx,
+) -> Array[@lib.Instruction] {
+  let memarg8 = @lib.MemArg::new(0U, Some(mem_idx), 0UL)
+  let instrs : Array[@lib.Instruction] = []
+  for
+    addr in [
+      metamorphic_oi_atomic_module_derived_addr_from_func_count(mod),
+      metamorphic_oi_atomic_module_derived_addr_from_memory_count(mod),
+    ] {
+    metamorphic_push_oi_live_nonzero_memory_atomic_rmw_end_byte_ops(
+      instrs,
+      [@lib.Instruction::i32_const(addr)],
+      memarg8,
+    )
+  }
+  instrs
+}
+
+///|
+fn metamorphic_oi_live_nonzero_memory_atomic_rmw_module_i64_then_instrs(
+  mod : @lib.Module,
+  mem_idx : @lib.MemIdx,
+) -> Array[@lib.Instruction] {
+  let memarg8 = @lib.MemArg::new(0U, Some(mem_idx), 0UL)
+  let instrs : Array[@lib.Instruction] = []
+  for
+    addr in [
+      metamorphic_oi_atomic_module_derived_addr_from_func_count(mod),
+      metamorphic_oi_atomic_module_derived_addr_from_memory_count(mod),
+    ] {
+    metamorphic_push_oi_live_nonzero_memory_atomic_rmw_end_byte_ops(
+      instrs,
+      [@lib.Instruction::i64_const(addr.to_int64())],
+      memarg8,
+    )
+  }
+  instrs
+}
+
+///|
+fn metamorphic_oi_concat_instrs(
+  first : Array[@lib.Instruction],
+  second : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let instrs : Array[@lib.Instruction] = []
+  for instr in first {
+    instrs.push(instr)
+  }
+  for instr in second {
+    instrs.push(instr)
+  }
+  instrs
+}
+
+///|
 fn metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_prefix(
+  mod : @lib.Module,
   mem_idx : @lib.MemIdx,
   memory64 : Bool,
 ) -> Array[@lib.Instruction] {
@@ -7778,8 +7868,13 @@ fn metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_prefix(
       @lib.Instruction::i64_ne(),
       @lib.Instruction::if_(
         @lib.BlockType::void_(),
-        metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_i64_then_instrs(
-          mem_idx,
+        metamorphic_oi_concat_instrs(
+          metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_i64_then_instrs(
+            mem_idx,
+          ),
+          metamorphic_oi_live_nonzero_memory_atomic_rmw_module_i64_then_instrs(
+            mod, mem_idx,
+          ),
         ),
         None,
       ),
@@ -7791,8 +7886,13 @@ fn metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_prefix(
       @lib.Instruction::i32_ne(),
       @lib.Instruction::if_(
         @lib.BlockType::void_(),
-        metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_i32_then_instrs(
-          mem_idx,
+        metamorphic_oi_concat_instrs(
+          metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_i32_then_instrs(
+            mem_idx,
+          ),
+          metamorphic_oi_live_nonzero_memory_atomic_rmw_module_i32_then_instrs(
+            mod, mem_idx,
+          ),
         ),
         None,
       ),
@@ -7808,7 +7908,7 @@ fn metamorphic_add_oi_live_nonzero_memory_atomic_rmw_boundary(
 ) -> @lib.Module {
   let funcs = []
   let prefix = metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_prefix(
-    mem_idx, memory64,
+    mod, mem_idx, memory64,
   )
   match mod.code_sec {
     Some(@lib.CodeSec(existing)) =>

@@ -6750,6 +6750,13 @@ test "OI live nonzero memory-atomic RMW boundary transform guards reachable inte
             ),
           )
           expected_then.push(@lib.Instruction::drop())
+          for addr in [44129, 49151] {
+            metamorphic_push_oi_live_nonzero_memory_atomic_rmw_end_byte_ops(
+              expected_then,
+              [@lib.Instruction::i32_const(addr)],
+              memarg8,
+            )
+          }
           @debug.assert_eq(instrs.length(), 5)
           @debug.assert_eq(instrs[0], @lib.Instruction::memory_size(mem))
           @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
@@ -6812,6 +6819,14 @@ test "OI live nonzero memory-atomic RMW boundary transform uses private non-prim
           let expected_then = metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_i32_then_instrs(
             mem,
           )
+          let memarg8 = @lib.MemArg::new(0U, Some(mem), 0UL)
+          for addr in [44129, 49151] {
+            metamorphic_push_oi_live_nonzero_memory_atomic_rmw_end_byte_ops(
+              expected_then,
+              [@lib.Instruction::i32_const(addr)],
+              memarg8,
+            )
+          }
           @debug.assert_eq(instrs.length(), 5)
           @debug.assert_eq(instrs[0], @lib.Instruction::memory_size(mem))
           @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
@@ -6822,6 +6837,70 @@ test "OI live nonzero memory-atomic RMW boundary transform uses private non-prim
           )
           @debug.assert_eq(instrs[4], @lib.Instruction::nop())
         }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-atomic RMW boundary transform derives varied addresses from module shape" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(0U, None)),
+        @lib.MemType::new(@lib.Limits::i32(0U, None)),
+        @lib.MemType::new(@lib.Limits::i32(0U, None)),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-atomic-rmw-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) =>
+          match instrs[3] {
+            @lib.Instruction::If(_, then_instrs, _) => {
+              assert_true(
+                then_instrs.contains(@lib.Instruction::i32_const(12345)),
+              )
+              assert_true(
+                then_instrs.contains(@lib.Instruction::i32_const(32767)),
+              )
+            }
+            _ => fail("expected guarded atomic RMW if shell")
+          }
       }
     None => fail("expected transformed code section")
   }
