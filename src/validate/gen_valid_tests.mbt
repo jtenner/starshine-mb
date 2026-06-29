@@ -3407,6 +3407,12 @@ fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
       (I32Const(_), LocalSet(_), Block(_, Expr(body))) =>
         match body[0] {
           LocalGet(_) => "local-carried-selected"
+          Call(_) => "call-produced-selected"
+          _ => "direct-selected"
+        }
+      (Block(_, Expr(body)), _, _) =>
+        match body[0] {
+          Call(_) => "call-produced-selected"
           _ => "direct-selected"
         }
       _ => "direct-selected"
@@ -3442,6 +3448,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let call_produced = match
+    gen_valid_module_result_from_seed(
+      0x5ef0UL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -3456,6 +3470,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Some("oi-tuple:direct-selected-lane"),
   )
   @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5ef0UL),
+    Some("oi-tuple:call-produced-selected-lane"),
+  )
+  @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(all_results.wasm_module),
     "all-results",
   )
@@ -3466,6 +3484,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(direct.wasm_module),
     "direct-selected",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(call_produced.wasm_module),
+    "call-produced-selected",
   )
 }
 
