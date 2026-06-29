@@ -3426,40 +3426,38 @@ fn gen_valid_test_tuple_sibling_signature(mod_ : Module) -> String {
 
 ///|
 fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
+  fn classify_block_body(body : Array[Instruction]) -> String {
+    match body[0] {
+      LocalGet(_) => "local-carried-selected"
+      Call(_) => "call-produced-selected"
+      _ =>
+        if body.length() > 1 {
+          match body[1] {
+            LocalTee(_) => "localtee-produced-selected"
+            Call(_) => gen_valid_test_tuple_sibling_signature(mod_)
+            _ =>
+              if body.length() > 3 {
+                match body[3] {
+                  Select(_) => "select-produced-selected"
+                  _ => "direct-selected"
+                }
+              } else {
+                "direct-selected"
+              }
+          }
+        } else {
+          "direct-selected"
+        }
+    }
+  }
   let instrs = gen_valid_test_first_func_instrs(mod_)
   if instrs.length() >= 28 {
     "all-results"
   } else if instrs.length() >= 3 {
     match (instrs[0], instrs[1], instrs[2]) {
       (I32Const(_), LocalSet(_), Block(_, Expr(body))) =>
-        match body[0] {
-          LocalGet(_) => "local-carried-selected"
-          Call(_) => "call-produced-selected"
-          _ =>
-            if body.length() > 1 {
-              match body[1] {
-                LocalTee(_) => "localtee-produced-selected"
-                Call(_) => gen_valid_test_tuple_sibling_signature(mod_)
-                _ => "direct-selected"
-              }
-            } else {
-              "direct-selected"
-            }
-        }
-      (Block(_, Expr(body)), _, _) =>
-        match body[0] {
-          Call(_) => "call-produced-selected"
-          _ =>
-            if body.length() > 1 {
-              match body[1] {
-                LocalTee(_) => "localtee-produced-selected"
-                Call(_) => gen_valid_test_tuple_sibling_signature(mod_)
-                _ => "direct-selected"
-              }
-            } else {
-              "direct-selected"
-            }
-        }
+        classify_block_body(body)
+      (Block(_, Expr(body)), _, _) => classify_block_body(body)
       _ => "direct-selected"
     }
   } else {
@@ -3525,6 +3523,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let select_produced = match
+    gen_valid_module_result_from_seed(
+      0x5ef4UL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -3555,6 +3561,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Some("oi-tuple:localtee-produced-selected-lane"),
   )
   @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5ef4UL),
+    Some("oi-tuple:select-produced-selected-lane"),
+  )
+  @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(all_results.wasm_module),
     "all-results",
   )
@@ -3581,6 +3591,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(localtee_produced.wasm_module),
     "localtee-produced-selected",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(select_produced.wasm_module),
+    "select-produced-selected",
   )
 }
 
