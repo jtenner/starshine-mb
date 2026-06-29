@@ -922,6 +922,52 @@ test "raw vacuum preclean removes stacked pure local drops in one pass" {
 }
 
 ///|
+test "raw vacuum preclean collapses constant void if after debris cleanup" {
+  let instrs : Array[@lib.Instruction] = []
+  for i = 0; i < 2050; i = i + 1 {
+    instrs.push(@lib.Instruction::i32_const(@lib.I32(i)))
+    instrs.push(@lib.Instruction::drop())
+  }
+  instrs.push(@lib.Instruction::i32_const(@lib.I32(0)))
+  instrs.push(
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::i32_const(@lib.I32(9)), @lib.Instruction::drop()],
+      Some([@lib.Instruction::i32_const(@lib.I32(7)), @lib.Instruction::drop()]),
+    ),
+  )
+  instrs.push(@lib.Instruction::i32_const(@lib.I32(5)))
+  instrs.push(@lib.Instruction::drop())
+  let (cleaned, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(instrs)
+  assert_true(changed)
+  @debug.assert_eq(cleaned, [])
+}
+
+///|
+test "raw vacuum preclean collapses constant void if with nested block-local branch" {
+  let (cleaned, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs([
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+        ),
+      ],
+      Some([]),
+    ),
+  ])
+  assert_true(changed)
+  @debug.assert_eq(cleaned, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+    ),
+  ])
+}
+
+///|
 test "raw vacuum preclean truncates dead tail after nonfallthrough" {
   let (cleaned, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs([
     @lib.Instruction::unreachable_(),

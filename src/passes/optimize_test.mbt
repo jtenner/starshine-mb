@@ -335,6 +335,214 @@ test "vacuum flips empty then with live else" {
 }
 
 ///|
+test "vacuum collapses constant void if to taken arm" {
+  let input =
+    #|(module
+    #|  (func (local i32)
+    #|    (if
+    #|      (i32.const 1)
+    #|      (then
+    #|        (i32.const 7)
+    #|        (local.set 0)
+    #|      )
+    #|      (else
+    #|        (i32.const 8)
+    #|        (local.set 0)
+    #|      )
+    #|    )
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected constant-if vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected constant-if vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      ])
+    other =>
+      fail(
+        "expected constant-if vacuum output to keep only taken arm, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum collapses constant void if with nested block-local branch" {
+  let input =
+    #|(module
+    #|  (func
+    #|    (if
+    #|      (i32.const 1)
+    #|      (then
+    #|        (block
+    #|          (br 0)
+    #|        )
+    #|      )
+    #|      (else)
+    #|    )
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested-branch constant-if vacuum fixture success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested-branch constant-if vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+        ),
+      ])
+    other =>
+      fail(
+        "expected nested-branch constant-if vacuum output to keep taken block, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+fn vacuum_test_expected_branch_scaffold_instrs() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+      ]),
+    ),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+      ]),
+    ),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+    ),
+  ]
+}
+
+///|
+test "vacuum collapses generated branch scaffold constant if" {
+  let input =
+    #|(module
+    #|  (func
+    #|    (loop
+    #|      (br_if 0 (i32.const 1))
+    #|    )
+    #|    (block
+    #|      (br_if 0 (i32.const 0))
+    #|    )
+    #|    (if
+    #|      (i32.const 1)
+    #|      (then
+    #|        (block
+    #|          (br 0)
+    #|        )
+    #|      )
+    #|      (else
+    #|        (nop)
+    #|      )
+    #|    )
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected generated-scaffold constant-if vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected generated-scaffold constant-if output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, vacuum_test_expected_branch_scaffold_instrs())
+    other =>
+      fail(
+        "expected generated-scaffold constant-if output to keep loop/block/taken block, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+fn vacuum_test_make_large_const_if_scaffold() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func\n")
+  for i = 0; i < 2200; i = i + 1 {
+    out.write_string("  (drop (i32.const ")
+    out.write_string(i.to_string())
+    out.write_string("))\n")
+  }
+  out.write_string(
+    (
+      #|  (loop (br_if 0 (i32.const 1)))
+      #|  (block (br_if 0 (i32.const 0)))
+      #|  (if
+      #|    (i32.const 1)
+      #|    (then (block (br 0)))
+      #|    (else (nop)))
+      #|))
+      #|,
+    ),
+  )
+  out.to_string()
+}
+
+///|
+test "vacuum collapses large generated branch scaffold constant if" {
+  let optimized = match
+    pass_test_run_pipeline(vacuum_test_make_large_const_if_scaffold(), [
+      "vacuum",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected large generated-scaffold constant-if vacuum success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected large generated-scaffold constant-if output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, vacuum_test_expected_branch_scaffold_instrs())
+    other =>
+      fail(
+        "expected large generated-scaffold constant-if output to keep loop/block/taken block, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum removes empty void blocks" {
   let input = pass_test_module_from_wat(
     "(module (func (local i32) block end i32.const 5 local.set 0))",

@@ -446,6 +446,78 @@ fn vacuum_build_i32_eqz(func : @ir.HotFunc, operand : @ir.NodeId) -> @ir.NodeId 
 }
 
 ///|
+fn hot_pass_vacuum_i32_const_truthy(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, node.imm0) {
+        @ir.HotConstPayload::I32Const(@lib.I32(value)) => Some(value != 0)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn hot_pass_vacuum_label_is_used(
+  func : @ir.HotFunc,
+  label_id : @ir.LabelId,
+) -> Bool {
+  if label_id < 0 {
+    return false
+  }
+  for candidate_id = 0
+      candidate_id < @ir.hot_node_count(func)
+      candidate_id = candidate_id + 1 {
+    if !@ir.hot_node_is_live(func, candidate_id) {
+      continue
+    }
+    let candidate = @ir.hot_node_get(func, candidate_id)
+    match candidate.op {
+      @ir.HotOp::Br
+      | @ir.HotOp::BrIf
+      | @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail
+      | @ir.HotOp::Delegate if candidate.imm0 == label_id => return true
+      @ir.HotOp::BrTable => {
+        if @ir.hot_branch_table_default_target(func, candidate.imm0) == label_id {
+          return true
+        }
+        for target in @ir.hot_branch_table_targets(func, candidate.imm0) {
+          if target == label_id {
+            return true
+          }
+        }
+      }
+      @ir.HotOp::TryTable => {
+        let info = @ir.hot_catch_info_get(func, candidate.imm1)
+        for catch_ in info.catches {
+          let target = match catch_ {
+            @ir.HotCatchArm::CatchArm(_, label)
+            | @ir.HotCatchArm::CatchRefArm(_, label)
+            | @ir.HotCatchArm::CatchAllArm(label)
+            | @ir.HotCatchArm::CatchAllRefArm(label) => label
+          }
+          if target == label_id {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn hot_pass_vacuum_is_region_child_slot(op : @ir.HotOp, slot : Int) -> Bool {
   for info in @ir.hot_control_region_slot_info(op) {
     if info.slot == slot {
@@ -614,6 +686,56 @@ fn hot_pass_vacuum_flip_empty_then_if(
   @ir.hot_child_set(func, node_id, 2, -1)
   pass_mark_mutated(ctx, func)
   vacuum_delete_detached_non_control_nodes(ctx, func, [else_holder])
+  true
+}
+
+///|
+fn hot_pass_vacuum_collapse_constant_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_type_result_arity(func, node.ty) != 0 ||
+    @ir.hot_child_count(func, node_id) < 2 ||
+    hot_pass_vacuum_label_is_used(
+      func,
+      @ir.hot_control_node_label(func, node_id),
+    ) {
+    return false
+  }
+  let take_then = match
+    hot_pass_vacuum_i32_const_truthy(func, @ir.hot_child_get(func, node_id, 0)) {
+    Some(value) => value
+    None => return false
+  }
+  let selected_ref = if take_then {
+    @ir.hot_region_then_ref(func, node_id)
+  } else {
+    match @ir.hot_region_else_ref(func, node_id) {
+      Some(ref_) => ref_
+      None => {
+        let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
+        vacuum_delete_detached_non_control_nodes(ctx, func, removed)
+        return true
+      }
+    }
+  }
+  let selected_roots = vacuum_region_roots(func, selected_ref)
+  @ir.hot_region_replace_body(func, selected_ref, [])
+  let removed = pass_splice_region(
+    ctx, func, region_ref, idx, 1, selected_roots,
+  )
+  vacuum_delete_detached_non_control_nodes(ctx, func, removed)
   true
 }
 
@@ -845,6 +967,13 @@ fn hot_pass_remove_region_nops(
             changed = hot_pass_remove_region_nops(ctx, func, else_region, seen) ||
               changed
           None => ()
+        }
+        let collapsed = hot_pass_vacuum_collapse_constant_if(
+          ctx, func, region_ref, idx, node_id,
+        )
+        changed = collapsed || changed
+        if collapsed {
+          continue
         }
         changed = hot_pass_vacuum_flip_empty_then_if(ctx, func, node_id) ||
           changed
@@ -27149,6 +27278,77 @@ fn run_hot_pipeline_raw_rse(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_label_idx_depth(idx : @lib.LabelIdx) -> Int {
+  let @lib.LabelIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(
+  instr : @lib.Instruction,
+  owner_depth : Int,
+) -> Bool {
+  match instr {
+    @lib.Br(label)
+    | @lib.BrIf(label)
+    | @lib.BrOnNull(label)
+    | @lib.BrOnNonNull(label) =>
+      run_hot_pipeline_raw_vacuum_label_idx_depth(label) >= owner_depth
+    @lib.BrTable(labels, fallback) => {
+      if run_hot_pipeline_raw_vacuum_label_idx_depth(fallback) >= owner_depth {
+        return true
+      }
+      for label in labels {
+        if run_hot_pipeline_raw_vacuum_label_idx_depth(label) >= owner_depth {
+          return true
+        }
+      }
+      false
+    }
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
+        body,
+        owner_depth + 1,
+      )
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
+          then_body,
+          owner_depth + 1,
+        ) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
+            body,
+            owner_depth + 1,
+          )
+        None => false
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
+        body,
+        owner_depth + 1,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
+  body : Array[@lib.Instruction],
+  owner_depth : Int,
+) -> Bool {
+  for instr in body {
+    if run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(instr, owner_depth) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_instr_is_pure_drop_leaf(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -27231,7 +27431,42 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           None => (None, false)
         }
         changed = changed || then_changed || else_changed
-        rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
+        match block_type {
+          @lib.VoidBlockType if rewritten.length() > 0 =>
+            match rewritten[rewritten.length() - 1] {
+              @lib.I32Const(@lib.I32(value)) => {
+                let selected = if value != 0 {
+                  next_then
+                } else {
+                  match next_else {
+                    Some(body) => body
+                    None => []
+                  }
+                }
+                if !run_hot_pipeline_raw_vacuum_body_targets_if_or_outer(
+                    selected, 0,
+                  ) {
+                  ignore(rewritten.pop())
+                  for selected_instr in selected {
+                    rewritten.push(selected_instr)
+                  }
+                  changed = true
+                } else {
+                  rewritten.push(
+                    @lib.Instruction::if_(block_type, next_then, next_else),
+                  )
+                }
+              }
+              _ =>
+                rewritten.push(
+                  @lib.Instruction::if_(block_type, next_then, next_else),
+                )
+            }
+          _ =>
+            rewritten.push(
+              @lib.Instruction::if_(block_type, next_then, next_else),
+            )
+        }
       }
       _ => {
         match instr {
@@ -27260,14 +27495,18 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         rewritten.push(instr)
       }
     }
-    prev_may_fallthrough = match rewritten[rewritten.length() - 1] {
-      @lib.Unreachable
-      | @lib.Return
-      | @lib.ReturnCall(_)
-      | @lib.ReturnCallRef(_)
-      | @lib.Br(_)
-      | @lib.BrTable(_, _) => false
-      _ => true
+    prev_may_fallthrough = if rewritten.length() == 0 {
+      true
+    } else {
+      match rewritten[rewritten.length() - 1] {
+        @lib.Unreachable
+        | @lib.Return
+        | @lib.ReturnCall(_)
+        | @lib.ReturnCallRef(_)
+        | @lib.Br(_)
+        | @lib.BrTable(_, _) => false
+        _ => true
+      }
     }
     idx = idx + 1
   }
@@ -27324,7 +27563,8 @@ fn run_hot_pipeline_raw_vacuum_preclean(
 fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  for instr in instrs {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
     match instr {
       @lib.Nop | @lib.Drop => return true
       @lib.Block(block_type, @lib.Expr(body)) => {
@@ -27347,6 +27587,14 @@ fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
           return true
         }
       @lib.If(block_type, then_body, else_body) => {
+        match block_type {
+          @lib.VoidBlockType if idx > 0 =>
+            match instrs[idx - 1] {
+              @lib.I32Const(_) => return true
+              _ => ()
+            }
+          _ => ()
+        }
         match (block_type, then_body.length(), else_body) {
           (@lib.VoidBlockType, 0, Some(body)) if body.length() > 0 =>
             return true
