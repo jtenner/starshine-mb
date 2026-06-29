@@ -24713,6 +24713,46 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
             None => ()
           }
         }
+        (
+          @lib.I32Const(@lib.I32(dst_true)),
+          @lib.I32Const(@lib.I32(dst_false)),
+          @lib.I32Const(@lib.I32(dst_cond)),
+          @lib.Select(_),
+          @lib.I32Const(@lib.I32(value_true)),
+          @lib.I32Const(@lib.I32(value_false)),
+          @lib.I32Const(@lib.I32(value_cond)),
+          @lib.Select(_),
+          @lib.I32Const(@lib.I32(size_true)),
+          @lib.I32Const(@lib.I32(size_false)),
+          @lib.I32Const(@lib.I32(size_cond)),
+          @lib.Select(_),
+          @lib.MemoryFill(mem),
+        ) => {
+          let dst = if dst_cond == 0 { dst_false } else { dst_true }
+          let value = @lib.Instruction::i32_const(
+            @lib.I32(if value_cond == 0 { value_false } else { value_true }),
+          )
+          let size = if size_cond == 0 { size_false } else { size_true }
+          match
+            (
+              run_hot_pipeline_raw_optimize_instructions_fill_value_instr(
+                value, size,
+              ),
+              run_hot_pipeline_raw_optimize_instructions_fill_store_instr(
+                size, mem,
+              ),
+            ) {
+            (Some(fill_value), Some(store_instr)) => {
+              rewritten.push(@lib.Instruction::i32_const(@lib.I32(dst)))
+              rewritten.push(fill_value)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 13
+              continue
+            }
+            _ => ()
+          }
+        }
         _ => ()
       }
     }
