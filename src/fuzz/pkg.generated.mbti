@@ -1171,6 +1171,19 @@ pub enum MetamorphicValidTransform {
   OiCallRefTargetWrapper
   OiTupleSelectedLane
   OiMemorySizeBoundary
+  OiLiveZeroMemoryBoundary
+  OiLiveNonzeroMemoryCopyBoundary
+  OiLiveNonzeroMemoryMidCopyBoundary
+  OiLiveNonzeroMemoryEndCopyBoundary
+  OiLiveNonzeroMemoryDynamicCopyBoundary
+  OiLiveNonzeroMemoryVariedCopyBoundary
+  OiLiveNonzeroMemorySecondCopyBoundary
+  OiLiveNonzeroMemoryCrossCopyBoundary
+  OiLiveNonzeroMemoryAtomicBoundary
+  OiLiveNonzeroMemoryAtomicRmwBoundary
+  OiLiveNonzeroMemoryFillRestoreBoundary
+  OiLiveNonzeroMemoryMidFillRestoreBoundary
+  OiLiveNonzeroMemoryEndFillRestoreBoundary
   AddLeadingTableSizeDropToDefinedFunctions
   AddTrailingTableSizeDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions
