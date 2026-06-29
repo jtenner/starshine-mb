@@ -355,6 +355,7 @@ const implementedOiMetamorphicTransforms = new Set<string>([
   "oi-live-nonzero-memory-atomic-boundary",
   "oi-live-nonzero-memory-second-atomic-boundary",
   "oi-live-nonzero-memory-atomic-rmw-boundary",
+  "oi-live-nonzero-memory-atomic-wait-notify-boundary",
   "oi-live-nonzero-memory-fill-restore-boundary",
   "oi-live-nonzero-memory-mid-fill-restore-boundary",
   "oi-live-nonzero-memory-end-fill-restore-boundary",

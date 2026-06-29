@@ -980,10 +980,13 @@ test "validate-valid-metamorphic suite is active and reports transform details" 
   @debug.assert_eq(results[0].attempts >= 1, true)
   match results[0].details_json {
     Some(details) => {
-      assert_true(details.contains("\"transformed\":486"))
+      assert_true(details.contains("\"transformed\":487"))
       assert_true(details.contains("add-non-name-custom-section"))
       assert_true(details.contains("oi-local-carried"))
       assert_true(details.contains("oi-tuple-selected-lane"))
+      assert_true(
+        details.contains("oi-live-nonzero-memory-atomic-wait-notify-boundary"),
+      )
       assert_true(
         details.contains("add-duplicate-equivalent-immutable-v128-global"),
       )

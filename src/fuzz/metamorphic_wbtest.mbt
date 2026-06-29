@@ -6967,6 +6967,93 @@ test "OI live nonzero memory-atomic RMW boundary transform preserves bytes with 
 }
 
 ///|
+test "OI live nonzero memory atomic wait-notify transform appends private shared memory" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-atomic-wait-notify-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryAtomicWaitNotifyBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-atomic-wait-notify-boundary",
+  )
+  match transformed.wasm_module.mem_sec {
+    Some(@lib.MemSec(mems)) => {
+      @debug.assert_eq(mems.length(), 2)
+      @debug.assert_eq(
+        mems[1],
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      )
+    }
+    None => fail("expected transformed memory section")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let mem = @lib.MemIdx::new(1U)
+          let memarg32 = @lib.MemArg::new(2U, Some(mem), 0UL)
+          let memarg64 = @lib.MemArg::new(3U, Some(mem), 0UL)
+          let expected_then = [
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::memory_atomic_notify(memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::i64_const(0L),
+            @lib.Instruction::memory_atomic_wait32(memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(8),
+            @lib.Instruction::i64_const(1L),
+            @lib.Instruction::i64_const(0L),
+            @lib.Instruction::memory_atomic_wait64(memarg64),
+            @lib.Instruction::drop(),
+          ]
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::memory_size(mem))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "OI live nonzero memory-atomic RMW boundary transform derives varied addresses from module shape" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -14031,8 +14118,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 486)
-  @debug.assert_eq(stats.validated, 486)
+  @debug.assert_eq(stats.transformed, 487)
+  @debug.assert_eq(stats.validated, 487)
   assert_true(
     stats.transform_ids.contains(
       "wrap-defined-function-bodies-in-nested-identity-loops",
@@ -14046,6 +14133,11 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(stats.transform_ids.contains("oi-trapping-sibling"))
   assert_true(stats.transform_ids.contains("oi-call-ref-target-wrapper"))
   assert_true(stats.transform_ids.contains("oi-tuple-selected-lane"))
+  assert_true(
+    stats.transform_ids.contains(
+      "oi-live-nonzero-memory-atomic-wait-notify-boundary",
+    ),
+  )
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",

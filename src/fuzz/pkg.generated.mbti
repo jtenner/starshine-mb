@@ -1182,6 +1182,7 @@ pub enum MetamorphicValidTransform {
   OiLiveNonzeroMemoryAtomicBoundary
   OiLiveNonzeroMemorySecondAtomicBoundary
   OiLiveNonzeroMemoryAtomicRmwBoundary
+  OiLiveNonzeroMemoryAtomicWaitNotifyBoundary
   OiLiveNonzeroMemoryFillRestoreBoundary
   OiLiveNonzeroMemoryMidFillRestoreBoundary
   OiLiveNonzeroMemoryEndFillRestoreBoundary
