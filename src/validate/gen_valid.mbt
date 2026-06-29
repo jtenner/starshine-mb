@@ -14897,7 +14897,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 24
-    PassOiTupleProfile => 11
+    PassOiTupleProfile => 12
     _ => 3
   }
 }
@@ -14973,7 +14973,8 @@ fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
     0x5ef5UL => 8
     0x5ef6UL => 9
     0x5ef7UL => 10
-    _ => (seed % 11UL).to_int()
+    0x5ef8UL => 11
+    _ => (seed % 12UL).to_int()
   }
 }
 
@@ -15060,6 +15061,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         8 => Some("oi-tuple:selected-trapping-lane")
         9 => Some("oi-tuple:selected-effectful-lane")
         10 => Some("oi-tuple:effectful-select-operand-selected-lane")
+        11 => Some("oi-tuple:trapping-select-operand-selected-lane")
         _ => Some("oi-tuple:direct-selected-lane")
       }
     PassOiMemoryBulkProfile =>
@@ -16390,7 +16392,7 @@ fn gen_valid_oi_tuple_block_body(case : Int) -> Expr {
       Instruction::f32_const(F32(Float::from_double(33.0))),
       Instruction::f64_const(F64(44.0)),
     ]
-  } else if case == 10 {
+  } else if case == 10 || case == 11 {
     [
       Instruction::i32_const(I32(111)),
       Instruction::call(FuncIdx::new(1U)),
@@ -16481,7 +16483,8 @@ fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
     case == 4 ||
     case == 5 ||
     case == 9 ||
-    case == 10
+    case == 10 ||
+    case == 11
   let type_defs = if has_helper {
     [func_type, helper_func_type, block_type]
   } else {
@@ -16515,6 +16518,12 @@ fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
         Instruction::i32_const(I32(123)),
         Instruction::global_set(GlobalIdx::new(0U)),
         Instruction::i32_const(I32(77)),
+      ]
+    } else if case == 11 {
+      [
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_div_s(),
       ]
     } else {
       [Instruction::i32_const(I32(77))]
