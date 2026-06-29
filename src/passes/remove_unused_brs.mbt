@@ -1474,6 +1474,32 @@ fn remove_unused_brs_node_is_reorder_safe(
       if @ir.hot_node_result_arity(func, node_id) != 1 {
         return false
       }
+    @ir.HotOp::Simd =>
+      // RUB-S: exact v128 constants are side-effect-free payload values and may
+      // move across a pure switch selector for one-target br_table collapse.
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(
+          @lib.Instruction::V128Const(
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _
+          )
+        ) => ()
+        _ => return false
+      }
     _ => return false
   }
   let child_limit = match node.op {
@@ -2321,6 +2347,11 @@ fn remove_unused_brs_prune_dead_suffix_after_nonfallthrough(
   region_ref : @ir.HotRegionRef,
   label_refs : Array[Int],
 ) -> Bool {
+  // Intentional Starshine optimization: after RUB folds a side-effect-free
+  // branch/table to a nonfallthrough root, delete the now-dead root suffix
+  // rather than preserving Binaryen's structured trap/control shell.  Note
+  // 1392 and RUB-R limit this to root dead suffixes whose preceding root is
+  // proven nonfallthrough; result-typed functions keep required suffix values.
   if region_ref != @ir.HotRegionRef::root() {
     return false
   }
@@ -3297,6 +3328,44 @@ fn remove_unused_brs_collect_simple_branches_to_label(
 }
 
 ///|
+fn remove_unused_brs_branch_table_has_mostly_default_switch_shape(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::BrTable => ()
+    _ => return false
+  }
+  let default_target = @ir.hot_branch_table_default_target(func, node.imm0)
+  let mut targets = @ir.hot_branch_table_targets(func, node.imm0).copy()
+  while targets.length() > 0 && targets[targets.length() - 1] == default_target {
+    ignore(targets.pop())
+  }
+  let mut leading_defaults = 0
+  while leading_defaults < targets.length() &&
+        targets[leading_defaults] == default_target {
+    leading_defaults = leading_defaults + 1
+  }
+  if leading_defaults > 0 {
+    let shifted : Array[Int] = []
+    for i = leading_defaults; i < targets.length(); i = i + 1 {
+      shifted.push(targets[i])
+    }
+    targets = shifted
+  }
+  if targets.length() < 3 {
+    return false
+  }
+  for i = 1; i < targets.length() - 1; i = i + 1 {
+    if targets[i] != default_target {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn remove_unused_brs_branch_table_can_retarget_without_payload(
   func : @ir.HotFunc,
   node_id : Int,
@@ -3310,7 +3379,10 @@ fn remove_unused_brs_branch_table_can_retarget_without_payload(
     _ => return false
   }
   let table_targets = @ir.hot_branch_table_targets(func, node.imm0)
-  if table_targets.length() > 9 {
+  if table_targets.length() > 9 &&
+    remove_unused_brs_branch_table_has_mostly_default_switch_shape(
+      func, node_id,
+    ) {
     return false
   }
   let default_target = @ir.hot_branch_table_default_target(func, node.imm0)
@@ -4001,8 +4073,27 @@ fn remove_unused_brs_try_optimize_switch(
   } else {
     @ir.hot_child_get(func, br_table_id, selector_slot)
   }
+  let default_arity = @ir.hot_label_branch_arity(func, default_target)
   let values : Array[Int] = []
-  if !stack_selector {
+  if stack_selector {
+    if default_arity > 0 {
+      if idx < default_arity + 1 {
+        return false
+      }
+      let first_value_idx = idx - 1 - default_arity
+      for value_idx = first_value_idx
+          value_idx < idx - 1
+          value_idx = value_idx + 1 {
+        let value = @ir.hot_region_get(func, region_ref, value_idx)
+        if value < 0 ||
+          !@ir.hot_node_is_live(func, value) ||
+          @ir.hot_node_result_arity(func, value) != 1 {
+          return false
+        }
+        values.push(value)
+      }
+    }
+  } else {
     for i = 0; i < selector_slot; i = i + 1 {
       let value = @ir.hot_child_get(func, br_table_id, i)
       if value < 0 || !@ir.hot_node_is_live(func, value) {
@@ -4011,12 +4102,8 @@ fn remove_unused_brs_try_optimize_switch(
       values.push(value)
     }
   }
-  let default_arity = @ir.hot_label_branch_arity(func, default_target)
   let value_carrying = values.length() > 0 || default_arity != 0
-  if stack_selector && value_carrying {
-    // Child-less value-carrying br_table forms would need stack-payload root
-    // surgery around the selector. Keep that uncommon local shape conservative;
-    // ordinary lifted value switches carry payloads as br_table children.
+  if stack_selector && value_carrying && values.length() != default_arity {
     return false
   }
   for target in targets {
@@ -4044,9 +4131,21 @@ fn remove_unused_brs_try_optimize_switch(
       let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
         drop_selector, br,
       ])
-      let detached : Array[Int] = [block]
-      @ir.hot_replace_node(func, br_table_id, @ir.hot_node_get(func, block))
-      remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+      if stack_selector {
+        ignore(
+          @ir.hot_region_splice(
+            func,
+            region_ref,
+            idx - 1 - values.length(),
+            values.length() + 2,
+            [block],
+          ),
+        )
+      } else {
+        let detached : Array[Int] = [block]
+        @ir.hot_replace_node(func, br_table_id, @ir.hot_node_get(func, block))
+        remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+      }
       remove_unused_brs_mark_mutated(
         ctx, func, "optimize-switch-one-target-value",
       )
@@ -4060,13 +4159,25 @@ fn remove_unused_brs_try_optimize_switch(
         condition,
         values~,
       )
-      let detached : Array[Int] = [replacement]
-      @ir.hot_replace_node(
-        func,
-        br_table_id,
-        @ir.hot_node_get(func, replacement),
-      )
-      remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+      if stack_selector {
+        ignore(
+          @ir.hot_region_splice(
+            func,
+            region_ref,
+            idx - 1 - values.length(),
+            values.length() + 2,
+            [replacement],
+          ),
+        )
+      } else {
+        let detached : Array[Int] = [replacement]
+        @ir.hot_replace_node(
+          func,
+          br_table_id,
+          @ir.hot_node_get(func, replacement),
+        )
+        remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+      }
       remove_unused_brs_mark_mutated(ctx, func, "optimize-switch-value-targets")
       return true
     }

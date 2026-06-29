@@ -1249,6 +1249,45 @@ test "remove-unused-brs keeps result suffix after void nonfallthrough block" {
 }
 
 ///|
+test "remove-unused-brs boundary keeps result suffix after void return block" {
+  let func = pass_test_lift_first_func(
+    (
+      #|(module
+      #|  (func (result f64)
+      #|    block
+      #|      f64.const 29
+      #|      return
+      #|    end
+      #|    i32.const 0
+      #|    if (result f64)
+      #|      f64.const 19
+      #|    else
+      #|      f64.const 29
+      #|    end))
+      #|
+    ),
+  )
+
+  remove_unused_brs_test_run_hot_func(func)
+
+  // Boundary for RUB-S raw-size triage: the suffix is dead at runtime, but the
+  // preceding root is a void structured block in a result-typed function. Keep
+  // the suffix until RUB has a proof that pruning it cannot recreate the stale
+  // result-suffix validation failure covered above.
+  @debug.assert_eq(@ir.hot_root_count(func), 2)
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail("expected void structured return block to remain, got \{other}")
+  }
+  let suffix_root = @ir.hot_root_get(func, 1)
+  match @ir.hot_node_get(func, suffix_root).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected result suffix block to remain, got \{other}")
+  }
+}
+
+///|
 test "remove-unused-brs prunes suffix after br-table then unreachable block" {
   let optimized = match
     pass_test_run_pipeline(
@@ -4249,6 +4288,104 @@ test "remove-unused-brs drops selector for self-targeting br_table block" {
 }
 
 ///|
+test "remove-unused-brs makes constant br_if dead-shell deletion explicit" {
+  let source =
+    #|(module
+    #|  (func (export "main")
+    #|    (block
+    #|      (i32.const 1)
+    #|      (br_if 0))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs dead br_if shell cleanup success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs forwards same-target br_table payload through dead shell" {
+  let source =
+    #|(module
+    #|  (func (export "main") (result i32)
+    #|    (block (result i32)
+    #|      (i32.const 295)
+    #|      (i32.const 1)
+    #|      (br_table 0 0)
+    #|      (unreachable))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs same-target br_table payload cleanup success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("I32(295)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs forwards same-target br_table multivalue payload through dead shell" {
+  let source =
+    #|(module
+    #|  (func (export "main") (result i32 i64)
+    #|    (block (result i32 i64)
+    #|      (i32.const 7)
+    #|      (i64.const 9)
+    #|      (i32.const 0)
+    #|      (br_table 0 0)
+    #|      (unreachable))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs multivalue br_table payload cleanup success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I64(9)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs forwards same-target br_table v128 payload through dead shell" {
+  let source =
+    #|(module
+    #|  (func (export "main") (result v128)
+    #|    (block (result v128)
+    #|      (v128.const i32x4 0 0 0 0)
+    #|      (i32.const 2)
+    #|      (br_table 0 0)
+    #|      (unreachable))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs v128 br_table payload cleanup success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_true(
+    pretty.contains("v128.const") || pretty.contains("V128Const"),
+    msg=pretty,
+  )
+}
+
+///|
 test "remove-unused-brs rewrites repeated branch-target equality ladders into br_table" {
   let optimized = match
     pass_test_run_pipeline(
@@ -4656,11 +4793,10 @@ test "remove-unused-brs retargets medium br_table targets through one-child name
 }
 
 ///|
-test "remove-unused-brs boundary keeps ten-target br_table jump-threading conservative" {
-  // Boundary: the local JumpThreader table retargeter is intentionally capped
-  // at nine explicit targets. A broader probe regressed mostly-default switch
-  // cleanup, so larger tables stay unchanged until the predicate can separate
-  // shell-retarget-only cases from early optimizeSwitch candidates.
+test "remove-unused-brs retargets pure ten-target br_table shell" {
+  // Large-table retargeting may go beyond the older nine-target cap when the
+  // table is not the mostly-default switch-lowering shape that broad probes
+  // previously regressed.
   let source =
     #| (module
     #|   (func (param i32)
@@ -4674,7 +4810,41 @@ test "remove-unused-brs boundary keeps ten-target br_table jump-threading conser
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected remove-unused-brs ten-target br_table boundary success, got \{err}",
+        "expected remove-unused-brs ten-target br_table retarget success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected ten-target br_table to remain after shell retargeting")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets.length(), 10)
+  assert_eq(targets[0], outer_label)
+  assert_eq(targets[9], outer_label)
+}
+
+///|
+test "remove-unused-brs boundary keeps ten-target mostly-default br_table conservative" {
+  // Boundary: larger mostly-default tables stay unchanged until JumpThreader
+  // can be proven independent from early optimizeSwitch lowering expectations.
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (block $keep
+    #|           (br_table $inner $keep $keep $keep $keep $keep $keep $keep $keep $inner $keep (local.get 0))
+    #|           (drop (i32.const 9)))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs ten-target mostly-default boundary success, got \{err}",
       )
   }
 
@@ -4684,7 +4854,7 @@ test "remove-unused-brs boundary keeps ten-target br_table jump-threading conser
   let inner_label = @ir.hot_control_node_label(func, inner)
   let br_table = remove_unused_brs_test_first_live_br_table(func)
   if br_table < 0 {
-    fail("expected ten-target br_table to remain at the retargeting boundary")
+    fail("expected mostly-default ten-target br_table to remain conservative")
   }
   let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
   assert_eq(targets.length(), 10)

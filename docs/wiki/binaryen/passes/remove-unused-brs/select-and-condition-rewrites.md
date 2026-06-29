@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-06-29
 sources:
+  - ../../../raw/research/1397-2026-06-29-remove-unused-brs-rub-x-policy-closeout.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -173,7 +174,7 @@ The pass's select rules are conservative because the failures are easy to hide:
 
 That is why the select helpers are scattered through the traversal rather than centralized in one "selectify everything" phase.
 
-Binaryen also exposes `remove-unused-brs-never-unconditionalize` to disable rewrites that would execute a condition or hinted branch body unconditionally. Starshine does not currently expose a `--pass-arg`/pass-option equivalent, and it has no expression-level branch-hint metadata representation to protect. Until both surfaces exist, these rewrites are documented as ordinary direct-pass behavior rather than as configurable never-unconditionalize parity.
+Binaryen also exposes `remove-unused-brs-never-unconditionalize` to disable rewrites that would execute a condition or hinted branch body unconditionally. RUB-X rechecked current source in note `1397`: Starshine does not currently expose a `--pass-arg`/pass-option equivalent, and it has no expression-level branch-hint metadata representation to protect. Until both surfaces exist, these rewrites are documented as ordinary direct-pass behavior rather than as configurable never-unconditionalize parity.
 
 ## Practical Rule
 

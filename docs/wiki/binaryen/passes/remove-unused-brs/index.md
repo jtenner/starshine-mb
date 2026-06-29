@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-18
+last_reviewed: 2026-06-29
 sources:
   - ../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md
   - ../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md
@@ -15,6 +15,7 @@ sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
   - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../../../raw/research/1397-2026-06-29-remove-unused-brs-rub-x-policy-closeout.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -99,8 +100,9 @@ This makes RUB relevant to:
 - The pass also owns some EH and GC cleanup surface:
   - caught `throw` can become `br`
   - `br_on_null`, `br_on_non_null`, and `br_on_cast*` can simplify using fallthrough-type knowledge
-- Branch hints are part of the contract.
-- `never-unconditionalize` is part of the contract.
+- Branch hints are part of the upstream Binaryen contract.
+- `never-unconditionalize` is part of the upstream Binaryen contract.
+- Starshine documents those two surfaces as RUB-N/RUB-X metadata/pass-option blockers until expression-level code metadata and pass-arg plumbing exist locally.
 - `version_130` is now the local release oracle. The older JumpThreader type-equality relaxation and branch-to-trap behavior are part of that release baseline; a 2026-06-18 `version_130` versus `main` check found no drift in `RemoveUnusedBrs.cpp` or the requested helper headers, only narrow multivalue lit expectation-text drift.
 
 ## Biggest beginner correction
