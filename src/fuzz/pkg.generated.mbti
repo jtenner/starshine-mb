@@ -1180,6 +1180,7 @@ pub enum MetamorphicValidTransform {
   OiLiveNonzeroMemorySecondCopyBoundary
   OiLiveNonzeroMemoryCrossCopyBoundary
   OiLiveNonzeroMemoryAtomicBoundary
+  OiLiveNonzeroMemorySecondAtomicBoundary
   OiLiveNonzeroMemoryAtomicRmwBoundary
   OiLiveNonzeroMemoryFillRestoreBoundary
   OiLiveNonzeroMemoryMidFillRestoreBoundary
