@@ -290,6 +290,99 @@ test "vacuum skips root stack/local-set call hazards" {
 }
 
 ///|
+test "vacuum clears local-only void function bodies" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    (local.set 1 (i32.const 101))
+    #|    (drop (local.get 1))
+    #|    (drop (local.tee 1 (i32.const 7)))
+    #|    (local.set 2 (i32.const 0))
+    #|    (if
+    #|      (local.get 2)
+    #|      (then
+    #|        (local.set 1 (i32.const 1))
+    #|      )
+    #|      (else
+    #|        (local.set 1 (i32.const 2))
+    #|      )
+    #|    )
+    #|    (if
+    #|      (local.get 1)
+    #|      (then
+    #|        (local.set 1 (i32.const 7))
+    #|      )
+    #|    )
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-only vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected local-only vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
+    other =>
+      fail(
+        "expected local-only vacuum body to canonicalize to one nop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum clears branchy local-only void function bodies" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    (local.set 1 (i32.const 1))
+    #|    (block
+    #|      (local.get 0)
+    #|      (br_if 0)
+    #|      (local.set 1 (i32.const 9))
+    #|    )
+    #|    (drop
+    #|      (if (result i32)
+    #|        (local.get 0)
+    #|        (then
+    #|          (local.set 2 (i32.const 20))
+    #|          (i32.const 2)
+    #|        )
+    #|        (else
+    #|          (local.set 2 (i32.const 30))
+    #|          (i32.const 3)
+    #|        )
+    #|      )
+    #|    )
+    #|    (drop (local.tee 1 (i32.const 7)))
+    #|    (return)
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branchy local-only vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected branchy local-only vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
+    other =>
+      fail(
+        "expected branchy local-only vacuum body to canonicalize to one nop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum flips empty then with live else" {
   let input =
     #|(module

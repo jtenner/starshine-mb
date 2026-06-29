@@ -364,6 +364,24 @@ pub fn pipeline_verify_checkpoint(
 }
 
 ///|
+fn vacuum_binary_is_nontrapping(instr : @lib.Instruction?) -> Bool {
+  match instr {
+    Some(
+      @lib.Instruction::I32DivS
+      | @lib.Instruction::I32DivU
+      | @lib.Instruction::I32RemS
+      | @lib.Instruction::I32RemU
+      | @lib.Instruction::I64DivS
+      | @lib.Instruction::I64DivU
+      | @lib.Instruction::I64RemS
+      | @lib.Instruction::I64RemU
+    ) => false
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
 fn vacuum_convert_is_nontrapping(instr : @lib.Instruction?) -> Bool {
   match instr {
     Some(
@@ -435,6 +453,184 @@ fn vacuum_can_remove_dropped_node(
       return false
     }
   }
+  true
+}
+
+///|
+fn hot_pass_vacuum_can_remove_local_only_node(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let self_is_removable = match node.op {
+    @ir.HotOp::Nop
+    | @ir.HotOp::Const
+    | @ir.HotOp::LocalGet
+    | @ir.HotOp::LocalSet
+    | @ir.HotOp::LocalTee
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::TableSize
+    | @ir.HotOp::Unary
+    | @ir.HotOp::Compare
+    | @ir.HotOp::Drop
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefIsNull
+    | @ir.HotOp::RefFunc
+    | @ir.HotOp::Select
+    | @ir.HotOp::TupleMake
+    | @ir.HotOp::TupleExtract
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::Return
+    | @ir.HotOp::Block
+    | @ir.HotOp::If => true
+    @ir.HotOp::Binary =>
+      vacuum_binary_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    @ir.HotOp::Convert =>
+      vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    _ => false
+  }
+  if !self_is_removable {
+    return false
+  }
+  match node.op {
+    @ir.HotOp::Block =>
+      if !hot_pass_vacuum_can_remove_local_only_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return false
+      }
+    @ir.HotOp::If => {
+      if !hot_pass_vacuum_can_remove_local_only_region(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        return false
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          if !hot_pass_vacuum_can_remove_local_only_region(func, else_ref) {
+            return false
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if hot_pass_vacuum_is_region_child_slot(node.op, slot) {
+      continue
+    }
+    if !hot_pass_vacuum_can_remove_local_only_node(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn hot_pass_vacuum_can_remove_local_only_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  if @ir.hot_region_root_count(func, region_ref) == 0 {
+    return true
+  }
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if !hot_pass_vacuum_can_remove_local_only_node(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn hot_pass_vacuum_node_contains_local_tee(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalTee => return true
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      if hot_pass_vacuum_region_contains_local_tee(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return true
+      }
+    @ir.HotOp::If => {
+      if hot_pass_vacuum_region_contains_local_tee(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          if hot_pass_vacuum_region_contains_local_tee(func, else_ref) {
+            return true
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if hot_pass_vacuum_node_contains_local_tee(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_pass_vacuum_region_contains_local_tee(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hot_pass_vacuum_node_contains_local_tee(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_pass_vacuum_remove_local_only_void_body(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  let root_ref = @ir.HotRegionRef::root()
+  let root_count = @ir.hot_region_root_count(func, root_ref)
+  if root_count == 0 ||
+    !hot_pass_vacuum_region_contains_local_tee(func, root_ref) ||
+    !hot_pass_vacuum_can_remove_local_only_region(func, root_ref) {
+    return false
+  }
+  let removed = pass_splice_region(ctx, func, root_ref, 0, root_count, [])
+  vacuum_delete_detached_non_control_nodes(ctx, func, removed)
   true
 }
 
@@ -34617,6 +34813,8 @@ pub fn hot_pass_run(
           payload="reason=root-local-set-stack-hazard-noop",
         )
         HotPassResult::unchanged()
+      } else if hot_pass_vacuum_remove_local_only_void_body(ctx, func) {
+        HotPassResult::changed()
       } else if hot_pass_vacuum_should_skip_branchy_structured_writes(func) {
         HotPassResult::unchanged()
       } else if hot_pass_remove_region_nops(

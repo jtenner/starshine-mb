@@ -60,11 +60,12 @@ That exact code map is the main practical addition in this refresh: readers can 
 ## Current local implementation
 
 The current in-tree `vacuum` implementation is intentionally much smaller than upstream Binaryen, but it now includes the first Binaryen-parity cleanup slice beyond `nop` sweeping.
-The real rewrite logic is one recursive HOT helper in `src/passes/pass_manager.mbt`:
+The rewrite logic is currently centered on two HOT helpers in `src/passes/pass_manager.mbt`:
 
-- `hot_pass_remove_region_nops(ctx, func, region_ref)`
+- `hot_pass_vacuum_remove_local_only_void_body(ctx, func)`, which can canonicalize an otherwise side-effect-free/local-only void function body to Binaryen's single `nop` body when the body contains local-only tee/write/control debris and no calls, memory/table mutation, throwing/trapping operations, or externally observable state changes
+- `hot_pass_remove_region_nops(ctx, func, region_ref)`, which handles the ordinary recursive region cleanup
 
-That helper walks a region root list and now does five things:
+The recursive region helper walks a region root list and now handles these cleanup families:
 
 1. if the current root is `HotOp::Nop`, it splices that root out of the region and deletes the detached node
 2. if the current root is `drop` of a removable nontrapping pure scalar/ref/tuple expression, it removes the dropped expression while preserving potentially trapping conversions such as non-saturating float-to-int truncations
@@ -73,7 +74,7 @@ That helper walks a region root list and now does five things:
 5. if the current root is a void `if` with a constant `i32.const` condition and the selected arm can be spliced without branches to the removed `if` label, it replaces the `if` with the selected arm
 6. if the current root is a void `if` with an empty then arm and a live else arm, it moves the else payload into a one-armed then arm and wraps the condition in `i32.eqz`
 
-The hot-pipeline writeback path also has a `vacuum`-specific empty-function canonicalization shim: if an otherwise unchanged or lowered `vacuum` body is empty, Starshine emits Binaryen's single `nop` function body rather than serializing an empty expression list.
+The hot-pipeline writeback path also has a `vacuum`-specific empty-function canonicalization shim: if an otherwise unchanged or lowered `vacuum` body is empty, Starshine emits Binaryen's single `nop` function body rather than serializing an empty expression list. The local-only void-body cleanup intentionally feeds that canonicalization shape for functions where local writes, tees, and local-control flow have no observable effect.
 
 Then, if the current root owns nested regions, the helper recurses into them. For small functions it also traverses nested value-expression children so RSE-exposed pure debris and empty-arm shapes inside value-producing controls are cleaned before lowering.
 
@@ -181,6 +182,8 @@ The safest one-line contrast is:
 Direct oracle evidence for the current slice:
 
 - `.tmp/pass-fuzz-vacuum-audit-after-const-if-10000-current`: after the 2026-06-29 constant-condition void-`if` fix, direct GenValid `vacuum` replay compared `10000/10000` cases with `10000` normalized matches, `0` mismatches, `0` validation/property/generator/command failures, and Binaryen cache `1002` hits / `8998` misses. The command used `_build/native/release/build/cmd/cmd.exe` because the stale `target/native/...` copy did not refresh in this worktree.
+- `.tmp/pass-fuzz-vacuum-genvalid-vacuum-10000-after-local-only-safe-binary`: after adding the dedicated `vacuum` GenValid profile and the local-only void-body cleanup slice, the dedicated profile lane compared `10000/10000` cases with `10000` normalized matches, `0` cleanup-normalized matches, `0` mismatches/failures, Binaryen cache `10000` hits / `0` misses, and manifest selected-profile count `vacuum=10000`.
+- `.tmp/pass-fuzz-vacuum-wasm-smith-1000-after-local-only`: explicit wasm-smith smoke compared `997/1000` cases with `997` normalized matches, `0` mismatches, and `3` Binaryen/tool parser failures on empty recursion groups (`case-000029`, `case-000573`, `case-000662`).
 - `.tmp/pass-fuzz-vacuum-profile-smoke-100-ref`: after adding the dedicated `vacuum` GenValid profile, the profile smoke compared `100/100` cases with `100` normalized matches, `0` cleanup-normalized matches, `0` mismatches/failures, Binaryen cache `100` hits / `0` misses, and manifest selected-profile count `vacuum=100`. A traced sample recorded Starshine `pass:vacuum` total `924us` across the small and larger profile functions.
 - `.tmp/pass-fuzz-vacuum-large-nested-preclean`: after the 2026-05-11 large-function raw precleaner, mixed-generator direct `vacuum` replay reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen/tool command failures
 - `.tmp/pass-fuzz-vacuum-empty-then-final`: after the 2026-05-10 empty-then/live-else inversion, mixed-generator replay reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen empty-recursion-group parser/canonicalization command failures
@@ -189,7 +192,7 @@ Direct oracle evidence for the current slice:
 
 Current Starshine does **not** yet model upstream behaviors such as:
 
-- generalized effect-aware dropped-wrapper elimination beyond the current nontrapping pure scalar/ref/tuple subset and the lowered large-function pure leaf precleaner
+- generalized effect-aware dropped-wrapper elimination beyond the current nontrapping pure scalar/ref/tuple subset, local-only void-body pruning, and the lowered large-function pure leaf precleaner
 - multi-child effect preservation through dropped-child rebuilding
 - non-void and label-carried constant `if` collapse plus unreachable-condition `if` collapse
 - branch-hint metadata updates when an `if` is inverted
@@ -256,5 +259,5 @@ Its exact local implementation is now easy to follow:
 
 That makes the local subset easy to teach honestly:
 
-- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, collapse constant-condition void `if`s when branch-label safety is local, flip empty-then/live-else void `if`s, preclean large lowered functions with pure leaf `const`/`drop`, constant void-`if`, plus `nop` debris, and keep the pipeline safe
+- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, canonicalize side-effect-free/local-only void function bodies with tee/write/control debris to one `nop`, unwrap block-only `unreachable`, collapse constant-condition void `if`s when branch-label safety is local, flip empty-then/live-else void `if`s, preclean large lowered functions with pure leaf `const`/`drop`, constant void-`if`, plus `nop` debris, and keep the pipeline safe
 - **what it does not do yet:** the broader Binaryen `vacuum` rewrite family
