@@ -70,13 +70,14 @@ That helper walks a region root list and now does five things:
 2. if the current root is `drop` of a removable nontrapping pure scalar/ref/tuple expression, it removes the dropped expression while preserving potentially trapping conversions such as non-saturating float-to-int truncations
 3. if the current root is an empty `block` with zero result arity, it removes the block while preserving typed/result blocks
 4. if the current root is a `block` whose only payload is `unreachable`, it unwraps the block to the payload `unreachable`
-5. if the current root is a void `if` with an empty then arm and a live else arm, it moves the else payload into a one-armed then arm and wraps the condition in `i32.eqz`
+5. if the current root is a void `if` with a constant `i32.const` condition and the selected arm can be spliced without branches to the removed `if` label, it replaces the `if` with the selected arm
+6. if the current root is a void `if` with an empty then arm and a live else arm, it moves the else payload into a one-armed then arm and wraps the condition in `i32.eqz`
 
 The hot-pipeline writeback path also has a `vacuum`-specific empty-function canonicalization shim: if an otherwise unchanged or lowered `vacuum` body is empty, Starshine emits Binaryen's single `nop` function body rather than serializing an empty expression list.
 
 Then, if the current root owns nested regions, the helper recurses into them. For small functions it also traverses nested value-expression children so RSE-exposed pure debris and empty-arm shapes inside value-producing controls are cleaned before lowering.
 
-For large lowered functions, `src/passes/pass_manager.mbt` now runs a raw `vacuum` precleaner before HOT lift when the lowered instruction count exceeds the nested-child cleanup budget. That precleaner recursively removes lowered `nop`s and adjacent pure leaf `const`/`drop` pairs (`i32`/`i64`/`f32`/`f64` constants, `ref.null`, `ref.func`, and `string.const`) inside structured bodies. This keeps candidate-free functions on the existing `no-vacuum-candidates` raw skip path while letting large RSE-produced pure debris shrink without paying for a broad HOT child traversal.
+For large lowered functions, `src/passes/pass_manager.mbt` now runs a raw `vacuum` precleaner before HOT lift when the lowered instruction count exceeds the nested-child cleanup budget. That precleaner recursively removes lowered `nop`s and adjacent pure leaf `const`/`drop` pairs (`i32`/`i64`/`f32`/`f64` constants, `ref.null`, `ref.func`, and `string.const`) inside structured bodies, and it collapses void `if` scaffolds with an immediately preceding constant `i32` condition when the selected lowered arm does not branch to the removed `if` label or an outer label that would need depth rebasing. This keeps candidate-free functions on the existing `no-vacuum-candidates` raw skip path while letting large RSE-produced pure debris and generated branch scaffolds shrink without paying for a broad HOT child traversal.
 
 The HOT recursion surface is explicit and limited:
 
@@ -104,7 +105,7 @@ It already gives the repo a few concrete wins:
 - honest invalidation of broad HOT analyses after mutation
 - stable tracing and perf observability in the main hot pipeline
 - a practical replay boundary for validation/writeback issues found during generated-artifact audits
-- Binaryen-style cleanup of the empty-then/live-else `if` family without waiting for `remove-unused-brs`
+- Binaryen-style cleanup of constant-condition void `if` scaffolds and the empty-then/live-else `if` family without waiting for `remove-unused-brs`
 
 So the right teaching stance is not “this pass is fake.”
 It is:
@@ -126,6 +127,8 @@ The local tests are small but meaningful.
   - proves empty zero-result block residue is deleted and the resulting module still validates
 - `vacuum flips empty then with live else`
   - proves the Binaryen-style empty-then/live-else void `if` inversion and validates the lowered double-`eqz` form
+- `vacuum collapses constant void if to taken arm`, `vacuum collapses constant void if with nested block-local branch`, `vacuum collapses generated branch scaffold constant if`, and `vacuum collapses large generated branch scaffold constant if`
+  - prove the 2026-06-29 constant-condition void-`if` parity fix for both ordinary HOT cleanup and generated large-function scaffold shapes
 - `vacuum unwraps block that only contains unreachable`
   - proves the block-only-`unreachable` cleanup shape Binaryen emits on the generated scalar corpus
 - `vacuum matches Binaryen empty function nop canonicalization`
@@ -173,10 +176,11 @@ That is the concrete proof surface behind the older artifact notes that retired 
 The safest one-line contrast is:
 
 - **Binaryen `vacuum`:** effect-aware unused-result pruning plus structural cleanup, TNH handling, and mandatory refinalization
-- **Starshine `vacuum`:** recursive explicit-`nop` trimming, empty zero-result block removal, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, empty-then/live-else `if` inversion, Binaryen-style empty-function single-`nop` canonicalization, and pipeline-level validation/writeback hygiene around those rewrites
+- **Starshine `vacuum`:** recursive explicit-`nop` trimming, empty zero-result block removal, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, constant-condition void-`if` collapse, empty-then/live-else `if` inversion, Binaryen-style empty-function single-`nop` canonicalization, and pipeline-level validation/writeback hygiene around those rewrites
 
 Direct oracle evidence for the current slice:
 
+- `.tmp/pass-fuzz-vacuum-audit-after-const-if-10000-current`: after the 2026-06-29 constant-condition void-`if` fix, direct GenValid `vacuum` replay compared `10000/10000` cases with `10000` normalized matches, `0` mismatches, `0` validation/property/generator/command failures, and Binaryen cache `1002` hits / `8998` misses. The command used `_build/native/release/build/cmd/cmd.exe` because the stale `target/native/...` copy did not refresh in this worktree.
 - `.tmp/pass-fuzz-vacuum-large-nested-preclean`: after the 2026-05-11 large-function raw precleaner, mixed-generator direct `vacuum` replay reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen/tool command failures
 - `.tmp/pass-fuzz-vacuum-empty-then-final`: after the 2026-05-10 empty-then/live-else inversion, mixed-generator replay reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` validation failures, and `20` Binaryen empty-recursion-group parser/canonicalization command failures
 - `.tmp/pass-fuzz-vacuum-gen-valid`: `10000/10000` direct `gen-valid` normalized matches, `0` mismatches, `0` validation failures, `0` command failures after the empty-void-block cleanup landed
@@ -186,7 +190,7 @@ Current Starshine does **not** yet model upstream behaviors such as:
 
 - generalized effect-aware dropped-wrapper elimination beyond the current nontrapping pure scalar/ref/tuple subset and the lowered large-function pure leaf precleaner
 - multi-child effect preservation through dropped-child rebuilding
-- constant or unreachable `if` collapse
+- non-void and label-carried constant `if` collapse plus unreachable-condition `if` collapse
 - branch-hint metadata updates when an `if` is inverted
 - `drop(local.tee(...)) -> local.set(...)`
 - block-result popping with label-safety checks
@@ -228,11 +232,11 @@ For the current implementation, they are part of the honest contract.
 
 If Starshine wants closer Binaryen parity, the likely path is still staged:
 
-1. keep the current recursive `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, empty-then/live-else `if` inversion, and large lowered-function pure leaf precleaning slice green
+1. keep the current recursive `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, constant-condition void-`if`, empty-then/live-else `if` inversion, and large lowered-function pure leaf precleaning slice green
 2. move the pass into a dedicated owner file once the helper surface grows further
 3. broaden effect-aware dropped-wrapper elimination
 4. add the remaining easy structural cases
-   - constant / unreachable `if`
+   - non-void / label-carried constant `if` and unreachable-condition `if`
    - drop-of-tee to set
    - trivial block and loop cleanup beyond block-only `unreachable`
 5. add branch-result-aware and EH-aware cleanup only with explicit legality proofs
@@ -251,5 +255,5 @@ Its exact local implementation is now easy to follow:
 
 That makes the local subset easy to teach honestly:
 
-- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, flip empty-then/live-else void `if`s, preclean large lowered functions with pure leaf `const`/`drop` plus `nop` debris, and keep the pipeline safe
+- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, collapse constant-condition void `if`s when branch-label safety is local, flip empty-then/live-else void `if`s, preclean large lowered functions with pure leaf `const`/`drop`, constant void-`if`, plus `nop` debris, and keep the pipeline safe
 - **what it does not do yet:** the broader Binaryen `vacuum` rewrite family
