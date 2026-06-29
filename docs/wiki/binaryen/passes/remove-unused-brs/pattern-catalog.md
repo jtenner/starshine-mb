@@ -17,6 +17,8 @@ sources:
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
   - ../../../raw/research/0088-2026-04-13-remove-unused-brs-localset-heavy-value-if-mesh-hot-skip.md
+  - ../../../raw/research/1378-2026-06-29-remove-unused-brs-final-value-legality-audit.md
+  - ../../../raw/research/1382-2026-06-29-remove-unused-brs-final-optimizer-boundary-closeout.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
@@ -93,7 +95,7 @@ For this audit, WebAssembly 3.0 baseline features are assumed enabled by default
 - `run_hot_pipeline_raw_remove_unused_brs_has_nested_large_mostly_default_stack_switch(...)`
   Pierces the broad O4z `remove-unused-brs` raw no-op gate only for a strict nested void-block chain whose innermost body is exactly stack selector plus large mostly-default `br_table`, so the existing HOT switch optimizer can lower it without broadly rescanning arbitrary nested regions.
 - `run_hot_pipeline_raw_remove_unused_brs_has_throw(...)`
-  Lets the raw candidate gate lift `try_table` bodies that contain a `throw`, so HOT can perform the Binaryen `visitThrow(...)` caught-exception-to-branch cleanup without widening unrelated O4z no-op skip exceptions.
+  Lets the raw candidate gate lift `try_table` bodies that contain a `throw`, so HOT can perform the Binaryen `visitThrow(...)` caught-exception-to-branch cleanup without widening unrelated O4z no-op skip exceptions. The sibling catch-shell detector admits only one-child block shells whose inner body contains a `try_table` catch arm, letting HOT perform no-payload catch-target JumpThreader retargeting while keeping payload/catch-ref legality in HOT.
 - `run_hot_pipeline_instr_has_remove_unused_brs_candidate(...)`
   Final raw "anything interesting left?" gate. It now treats `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as candidates so the HOT GC cleanup subset can see them; this is a candidate admission, not a raw rewrite.
 
@@ -180,6 +182,7 @@ Detailed page:
   - `rewrites pure local.get ifs into select`
   - `keeps costly rem value ifs at speed shrink level`
   - `selectifies costly rem value ifs when shrinking`
+  - `remove-unused-brs boundary keeps condition-invalidated value if out of selectify`
 - `remove_unused_brs_try_rewrite_condition_child_value_if_to_select(...)`
   Selectifies a condition-child value-`if` that sits under a void outer `if`.
   Covered by:
@@ -196,11 +199,12 @@ Detailed page:
   - `folds constant br-if conditions`
   - `folds constant br-if with carried payloads`
 - `remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(...)`
-  Collapses Binaryen-style dense no-payload equality ladders to a `br_table` wrapped in a fresh default block. The matcher accepts `i32.eq` against unique nonnegative constants and `i32.eqz` as constant zero, shares a first `local.tee` selector through later matching `local.get`s, permits distinct branch targets, subtracts the minimum constant for nonzero ranges, and uses Binaryen's `MIN_NUM=3`, `MAX_RANGE=1024`, and `range <= arms * 3` profitability checks. Duplicate constants, sparse ranges, selector mismatches, negative / too-large constants, and value-carrying branches stay conservative.
+  Collapses Binaryen-style dense no-payload equality ladders to a `br_table` wrapped in a fresh default block. The matcher accepts `i32.eq` against unique nonnegative constants and `i32.eqz` as constant zero, shares a first `local.tee` selector through later matching `local.get`s, permits distinct branch targets, subtracts the minimum constant for nonzero ranges, and uses Binaryen's `MIN_NUM=3`, `MAX_RANGE=1024`, and `range <= arms * 3` profitability checks. Duplicate constants, sparse ranges, selector mismatches, negative / too-large constants, and value-carrying branches stay conservative. The value-carrying boundary is source-backed by Binaryen `version_130` `tablify(...)`, whose proper-`br_if` matcher rejects branches with a value.
   Covered by:
   - `rewrites repeated branch-target equality ladders into br_table`
   - `rewrites dense equality ladders with distinct targets into br_table`
   - `treats eqz as zero in equality ladder tablify`
+  - `remove-unused-brs boundary keeps value-carrying equality ladder out of tablify`
   - `keeps duplicate constants in equality ladder`
   - `keeps sparse equality ladder below tablify density`
 - `remove_unused_brs_try_restructure_self_branch_block_prefix(...)`
@@ -209,6 +213,7 @@ Detailed page:
   - `rebuilds self-targeting block br_if prefixes as one-arm ifs`
   - `rebuilds dropped value br_if prefixes as result ifs`
   - `selectifies side-effectful dropped value br_if prefixes when rest is pure`
+  - `remove-unused-brs boundary keeps dropped value br_if prefix when condition invalidates rest`
   - `keeps self-targeting br_if prefixes when block has another target use`
   - `keeps side-effectful dropped value br_if prefixes when rest has effects`
 - `remove_unused_brs_try_rewrite_one_sided_stack_tail_if_to_select(...)`
@@ -233,10 +238,28 @@ Detailed page:
   - `rewrites one-armed if break into br_if`
 - `remove_unused_brs_try_inline_single_br_if_block(...)`
   Inlines a void block that only contains a single `br` or `br_if` and whose label is otherwise unused.
-- `remove_unused_brs_try_thread_jump_through_block(...)`
-  Mirrors the safe no-payload conditional subset of Binaryen JumpThreader: `br_if` branches to a child named block can be retargeted through a one-child named block shell, and `br_if` branches to a child block can retarget to a following simple jump destination. Direct unconditional `br`, `br_table`, and payload-carrying sent-type cases remain fail-closed here because they interact with existing local branch-exit cleanup and broader `replacePossibleTarget` semantics.
+- `remove_unused_brs_try_thread_try_table_catches_through_one_child_block(...)` / `remove_unused_brs_try_thread_jump_through_block(...)`
+  Mirrors the safe no-payload subset of Binaryen JumpThreader: `br_if` branches to a child named block can be retargeted through a one-child named block shell, `br_if` branches to a child block can retarget to a following simple jump destination, direct childless `br` nodes are retargeted through the same one-child block shell when reached through ordinary body/child traversal, small/medium no-payload `br_table` target/default lists can be retargeted through one-child shells or child-to-following-simple-jump shapes, small child-form no-payload `br_table` targets are admitted through `if` then/else regions, no-payload `try_table` catch targets can retarget from a child block to a following simple jump destination, and no-payload `try_table` catch targets can retarget through one-child named block shells. The table subset now allows zero-child or one-selector-child HOT tables with at most nine explicit targets, covering audited stack-source WAT forms that lower to selector-child HOT tables plus the focused nine-target medium shell case in note `1375`. Direct `br` collection in `if` arms remains disabled because the audited direct shape is already normalized to `br_if` before retargeting and a broad direct-arm collector regressed branch-exit/carrier tests. Old-`try` catch regions remain representation-blocked by the public lowering path documented in note `1376`. Large mostly-default `br_table` retargeting beyond the `<= 9` guard is a documented local boundary after note `1381`: raising the guard broadly regressed existing switch-cleanup fixtures, and the ten-target boundary test keeps larger tables conservative until a precise predicate separates pure shell retargeting from early mostly-default switch candidates. Payload-carrying `br`, `br_if`, and `br_table` retargeting is a source-backed JumpThreader non-goal for Binaryen `version_130`: `JumpThreader::visitExpression(...)` records only scope-name uses whose sent type is `Type::none`, and Starshine protects result-typed shell cases with explicit boundaries.
   Covered by:
   - `remove-unused-brs retargets branches through one-child named block shells`
+  - `remove-unused-brs retargets direct branches through one-child named block shells`
+  - `remove-unused-brs retargets br_table targets through one-child named block shells`
+  - `remove-unused-brs retargets medium br_table targets through one-child named block shells`
+  - `remove-unused-brs boundary keeps ten-target br_table jump-threading conservative`
+  - `remove-unused-brs retargets br_table default target through one-child named block shells`
+  - `remove-unused-brs retargets br_table child block targets to a following simple jump`
+  - `remove-unused-brs retargets no-payload try_table catch targets through one-child named block shells`
+  - `remove-unused-brs retargets no-payload try_table catch targets to a following simple jump`
+  - `remove-unused-brs boundary keeps catch_ref jump-threading conservative`
+  - `remove-unused-brs retargets stack-source br_table targets through one-child named block shells`
+  - `remove-unused-brs retargets stack-source br_table child block targets to a following simple jump`
+  - `remove-unused-brs boundary keeps value-carrying stack-source br_table threading conservative`
+  - `remove-unused-brs boundary keeps value-carrying br_table jump-threading conservative`
+  - `remove-unused-brs boundary keeps value-carrying direct br jump-threading conservative`
+  - `remove-unused-brs boundary keeps value-carrying br_if jump-threading conservative`
+  - `remove-unused-brs retargets direct if-arm branches through one-child named block shells`
+  - `remove-unused-brs retargets if-arm br_table targets through one-child named block shells`
+  - `remove-unused-brs boundary keeps value-carrying if-arm br_table threading conservative`
   - `remove-unused-brs retargets child block branches to a following simple jump`
 - `remove_unused_brs_try_rewrite_branches_to_trap_block(...)`
   Mirrors the branch-to-trap subset of Binaryen JumpThreader: if a void block is immediately followed by `unreachable`, childless direct `br` nodes targeting that block are rewritten to `unreachable`. The matcher preserves conditional `br_if` and `br_table` targets, matching the `remove-unused-brs_trap.wast` boundary.
@@ -252,18 +275,29 @@ Detailed page:
   - `remove-unused-brs keeps tag-mismatched caught throws`
   - `remove-unused-brs keeps catch_ref caught throws as exnref transport`
   - `remove-unused-brs keeps catch_all_ref caught throws as exnref transport`
+  - `remove-unused-brs boundary: legacy try is lowered before caught-throw cleanup`
   - `remove-unused-brs keeps earlier catch_ref before later catch_all`
 - `remove_unused_brs_try_rewrite_gc_br_on_root(...)`
-  Mirrors the safe single-ref-child subset of Binaryen `optimizeGC(...)` for locally proven BrOn outcomes. It rewrites definitely-not-taken `br_on_null` to the fallthrough/drop value, definitely-taken `br_on_null` on `ref.null` to `drop` plus `br`, definitely-taken `br_on_non_null` to direct `br`, definitely-not-taken `br_on_non_null` on `ref.null` to `drop`, definitely-successful `br_on_cast` to direct `br`, and definitely-not-taken `br_on_cast_fail` to fallthrough/drop. It deliberately fails closed for payload/prefix children, nullable-cast splitting to `br_on_non_null` plus appended `ref.null`, descriptor BrOn variants not represented locally, broader fallthrough-type/cast insertion, and unreachable-input dropped-child construction.
+  Mirrors the safe local subset of Binaryen `optimizeGC(...)` for locally proven BrOn outcomes. It rewrites definitely-not-taken `br_on_null` to the fallthrough/drop value, definitely-taken `br_on_null` on `ref.null` to `drop` plus `br` or to a payload-carrying `br` for prefix payloads, definitely-taken `br_on_non_null` to direct `br`, definitely-not-taken `br_on_non_null` on `ref.null` to `drop`, definitely-successful `br_on_cast` to direct `br`, definitely-not-taken `br_on_cast_fail` to fallthrough/drop, no-payload non-null disjoint-family `br_on_cast` / `br_on_cast_fail` failures to Binaryen's `Failure` / flipped-`Success` outcomes, and the no-payload nullable-source/non-null-target `br_on_cast` `SuccessOnlyIfNonNull` shape to a `br_on_non_null` inside a result block followed by appended `ref.null`. `[O4Z-AUDIT-RUB-Q]` note `1372` also admits locally safe branch-taking prefix payloads for definite `br_on_non_null`, definite-success `br_on_cast`, and definite-failure `br_on_cast_fail`. Note `1373` documents the still-fail-closed fallthrough-producing payload split: Binaryen needs `ChildLocalizer`/scratch locals to move payloads into the inner `br_on_non_null` while still dropping them on the fallthrough path. Note `1374` adds the child-form ordinary `br_on_cast*` unreachable-input subset by dropping payload children before the replacement `unreachable`; note `1379` adds public stack-form unreachable-input `br_on_cast` boundary coverage while keeping that shape as a candidate-lowering/raw-proof boundary and descriptor BrOn variants as representation blockers. Note `1380` closes the remaining GC audit entries as exact blockers/non-goals: descriptor BrOn needs local instruction/binary/WAT/validator/HOT representation, broader fallthrough-type/local.tee cast insertion needs a localizer/refinalization proof, stack-form unreachable input needs raw proof or child-form exposure, fallthrough-producing payload splits need ChildLocalizer-style scratch repair, and nullable disjoint `SuccessOnlyIfNull` is a Binaryen `version_130` TODO. It deliberately fails closed for those cases rather than hiding them as no-ops.
   Covered by:
   - `remove-unused-brs removes definitely not taken br_on_null`
   - `remove-unused-brs rewrites definitely taken br_on_null to branch`
   - `remove-unused-brs rewrites definitely taken br_on_non_null to branch`
+  - `remove-unused-brs rewrites definitely taken br_on_non_null with payload`
   - `remove-unused-brs removes definitely not taken br_on_non_null`
   - `remove-unused-brs rewrites definitely successful br_on_cast to branch`
+  - `remove-unused-brs rewrites definitely successful br_on_cast with payload`
   - `remove-unused-brs removes definitely not taken br_on_cast_fail`
-  - `remove-unused-brs fail-closed keeps br_on payload children`
-  - `remove-unused-brs fail-closed keeps nullable cast split candidates`
+  - `remove-unused-brs splits nullable br_on_cast success-only-if-non-null`
+  - `remove-unused-brs boundary keeps fallthrough-producing payload br_on_cast split`
+  - `remove-unused-brs removes definitely failing non-null br_on_cast`
+  - `remove-unused-brs rewrites definitely failing non-null br_on_cast_fail to branch`
+  - `remove-unused-brs rewrites definitely failing non-null br_on_cast_fail with payload`
+  - `remove-unused-brs rewrites definitely taken br_on_null with payload`
+  - `remove-unused-brs boundary keeps nullable disjoint br_on_cast checks`
+  - `remove-unused-brs replaces child-form unreachable-input br_on_cast with unreachable`
+  - `remove-unused-brs drops payload children for child-form unreachable-input br_on_cast`
+  - `remove-unused-brs boundary keeps public stack-form unreachable-input br_on_cast`
   - `remove-unused-brs keeps unknown br_on_cast checks`
 - `remove_unused_brs_try_rewrite_region_local_set_copy_arm(...)`
   Rewrites `local.set (if cond then value else local.get same_local)` and its flipped-arm form into a one-armed `if` that only performs the `local.set` when needed. The helper also handles `local.tee` by wrapping the one-armed setter and trailing `local.get` in a result block.
@@ -272,9 +306,10 @@ Detailed page:
   - `flips then-copy local.set if arms into one-armed ifs`
   - `rewrites local.tee if copy arms through result blocks`
 - `remove_unused_brs_try_rewrite_region_local_set_br_arm(...)`
-  Rewrites `local.set (if cond then br else value)` and its flipped-arm form into `br_if` plus the surviving `local.set`; `local.tee` forms keep the surviving tee result. Region re-entry then recursively cleans nested set-if copy arms exposed by branch extraction.
+  Rewrites `local.set (if cond then br else value)` and its flipped-arm form into `br_if` plus the surviving `local.set`; `local.tee` forms keep the surviving tee result. Region re-entry then recursively cleans nested set-if copy arms exposed by branch extraction. Conditional `br_if` arms remain conservative, matching Binaryen `version_130`'s source TODO for conditional branch arms that need side-effect/order proof.
   Covered by:
   - `rewrites local.set if break arms into br_if plus set`
+  - `remove-unused-brs boundary keeps conditional br_if set-if arms conservative`
   - `flips else-break local.set if arms before extracting branches`
   - `recursively optimizes local.set ifs exposed after branch extraction`
 - `remove_unused_brs_try_rewrite_two_arm_branch_if(...)`
@@ -331,12 +366,13 @@ Detailed page:
   - `rewrites stack-style branch-payload result wrappers around br_if prefixes`
   - `rewrites sibling-carried branch payload wrappers around br_if prefixes`
 - `remove_unused_brs_try_optimize_switch(...)`
-  Mirrors the safe early subset of Binaryen's `optimizeSwitch(...)`: trims trailing explicit default targets, offsets leading explicit defaults by subtracting from the selector, preserves value-carrying payload children while applying those target-list cleanups, lowers no-payload default-only tables to a dropped selector plus branch, lowers no-payload one-explicit-target/two-option tables to branch-if structure, and lowers no-payload large mostly-default nested stack-style tables to nested `if` form once the narrow O4z raw-gate exception exposes the exact innermost stack-selector region. The RUB-P extension also covers Binaryen's late `FinalOptimizer::visitSwitch(...)` one-target value-switch collapse for lifted HOT value switches when the selector is a const/local.get and every payload value is locally reorder-safe, rewriting the table to `drop(selector); br payload`. Effectful selector/value pairs remain conservative, and child-less local stack-payload switch shapes stay conservative.
+  Mirrors the safe early subset of Binaryen's `optimizeSwitch(...)`: trims trailing explicit default targets, offsets leading explicit defaults by subtracting from the selector, preserves value-carrying payload children while applying those target-list cleanups, lowers no-payload default-only tables to a dropped selector plus branch, lowers no-payload one-explicit-target/two-option tables to branch-if structure, and lowers no-payload large mostly-default nested stack-style tables to nested `if` form once the narrow O4z raw-gate exception exposes the exact innermost stack-selector region. The RUB-P extension also covers Binaryen's late `FinalOptimizer::visitSwitch(...)` one-target value-switch collapse for lifted HOT value switches when the selector is a const/local.get and every payload value is locally reorder-safe, rewriting the table to `drop(selector); br payload`. Effectful selector/value pairs remain conservative. Child-less local stack-payload switch shapes also stay conservative; note `1379` locks the local representation boundary by proving public stack-style value-switch WAT lifts with payload and selector children before the one-target collapse.
   Covered by:
   - `remove-unused-brs trims trailing default br_table targets`
   - `remove-unused-brs offsets leading default br_table targets`
   - `remove-unused-brs trims trailing default value br_table targets`
   - `remove-unused-brs offsets leading default value br_table targets`
+  - `remove-unused-brs boundary represents public value br_table payloads as children`
   - `remove-unused-brs collapses one-target value br_table with local selector`
   - `remove-unused-brs keeps one-target value br_table when selector cannot move before value`
   - `remove-unused-brs keeps two-option value br_table instead of branch-if lowering`
@@ -399,17 +435,28 @@ Detailed page:
   Normalizes the one-arm `if (eqz cond) { suffix; br $loop }` shape exposed by earlier cleanup into Binaryen's `if cond then empty-exit else suffix/backedge` form.
   Covered by:
   - `moves loop backedge suffix behind single-use block-exit br_if`
-- `remove_unused_brs_try_merge_adjacent_br_ifs(...)`
-  Mirrors Binaryen's shrink-only adjacent same-target `br_if` merge for the no-payload safe subset. It handles both child-form and lifted stack-form branch conditions, builds an `i32.or` condition, and refuses target mismatches or later conditions that are not locally safe to speculate. The O4z raw gate admits only simple stack-condition candidates for this HOT rewrite; branch-hint `applyOrTo`, branch payloads, broad cost/effect modeling, and `never-unconditionalize` remain separate boundaries.
+- `remove_unused_brs_try_drop_redundant_self_br_if_value(...)` / `remove_unused_brs_try_drop_redundant_self_br_if_value_block(...)`
+  Mirrors the narrow local subset of Binaryen's late block-tail cleanup where a dropped `br_if` targets the current result block, sends the same value the block would otherwise return, and can therefore lose the redundant branch value while preserving `drop(condition)`. The local implementation covers repeated `local.get` and constant payload/fallthrough equality and reuses the local-read invalidation guard so a `local.tee` condition that writes the payload local stays conservative. Broader `ExpressionAnalyzer::equal(...)` parity remains reopenable when a focused fixture needs it.
   Covered by:
+  - `drops redundant self-target br_if value`
+  - `drops redundant self-target br_if constant value`
+  - `keeps self-target br_if value when condition invalidates payload`
+- `remove_unused_brs_try_merge_adjacent_br_ifs(...)`
+  Mirrors Binaryen's adjacent same-target no-payload branch cleanup. The unconditional second-branch case is not shrink-gated: child-form `br_if target cond; br target` and lifted stack-form `cond; br_if target; br target` become `drop(cond); br target`, preserving side effects/traps in the condition. The shrink-only `br_if`/`br_if` case still handles both child-form and lifted stack-form branch conditions, builds an `i32.or` condition, and refuses target mismatches or later conditions that are not locally safe to speculate. The O4z raw gate admits only simple stack-condition candidates for this HOT rewrite; branch-hint `applyOrTo`/`clear`, broad cost/effect modeling, and `never-unconditionalize` remain separate boundaries. The adjacent same-target value-carrying `br_if; br` merge remains conservative per Binaryen's no-value asserts; the separate same-value self-target block-tail value cleanup is handled by the helper above and note `1377`.
+  Covered by:
+  - `drops adjacent br_if condition before same-target unconditional branch`
+  - `drops stack-form adjacent br_if condition before same-target branch`
+  - `boundary keeps value-carrying adjacent br_if before same-target branch conservative`
   - `shrink merges adjacent br_if conditions to same target`
   - `keeps adjacent br_if separate without shrink`
   - `keeps adjacent br_if separate for target mismatch`
   - `keeps adjacent br_if separate when second condition has effects`
 - `remove_unused_brs_try_sink_single_if_exit_block(...)`
-  Mirrors the safe void subset of Binaryen `sinkBlocks(...)` for a named block whose sole child is an `if`: if the condition does not target the block label, exactly one multi-root arm uses the label, and the opposite arm does not, the block moves into the label-using arm. It deliberately leaves result-typed sinks, direct unreachable-condition sink assertions, and single-root branch-tail arms to existing cleanup/fail-closed behavior.
+  Mirrors the safe void/result-typed subset of Binaryen `sinkBlocks(...)` for a named block whose sole child is an `if`: if the condition does not target the block label, exactly one multi-root arm uses the label, the opposite arm does not, and the block/if result vectors match, the block moves into the label-using arm. Multi-result regions are handled through HOT repeated-root spans so the outer repeated block roots are replaced by repeated `if` roots while the sunk block carries the former target arm. It deliberately leaves direct unreachable-condition sink assertions and single-root branch-tail arms to existing cleanup/fail-closed behavior.
   Covered by:
   - `sinks single-if exit blocks into the label-using arm`
+  - `sinks result-typed single-if exit blocks into the label-using arm`
+  - `sinks multi-result single-if exit blocks into the label-using arm`
   - `keeps single-if exit blocks when the condition uses the label`
   - `keeps single-if exit blocks when both arms use the label`
 - `remove_unused_brs_try_sink_if_arm_self_branch_block(...)`

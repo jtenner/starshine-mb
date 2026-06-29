@@ -9352,6 +9352,80 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
 }
 
 ///|
+test "remove-unused-brs aggregate gen-valid profile resolves focused leaves" {
+  @debug.assert_eq(
+    gen_valid_profile_name(RemoveUnusedBrsAllProfile),
+    "remove-unused-brs-all",
+  )
+  assert_true(gen_valid_profile_names().contains("remove-unused-brs-all"))
+  match gen_valid_profile_by_name("remove-unused-brs") {
+    Ok(profile) => @debug.assert_eq(profile, RemoveUnusedBrsAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("remove-unused-brs-closeout") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, RemoveUnusedBrsAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      @debug.assert_eq(members.length(), 3)
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 3),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(RemoveUnusedBrsSwitchProfile, 2),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(RemoveUnusedBrsCleanupProfile, 1),
+        ),
+      )
+      assert_false(
+        members.contains(
+          GenValidProfileMember::new(RemoveUnusedBrsGcProfile, 1),
+        ),
+        msg="GC singleton currently covers accepted boundary-heavy shapes and is not in the closeout aggregate",
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+  let control_config = GenValidConfig::for_profile(
+    RemoveUnusedBrsControlProfile,
+  )
+  @debug.assert_eq(
+    gen_valid_config_label(control_config),
+    "remove-unused-brs-control",
+  )
+  assert_true(control_config.features.allow_branch_heavy_control)
+  assert_true(control_config.features.allow_typed_body_generator)
+}
+
+///|
+test "remove-unused-brs aggregate profile samples every current focused family" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 96 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      RemoveUnusedBrsAllProfile,
+      0x5eedUL,
+      index,
+    )
+    assert_false(gen_valid_profile_is_composite(leaf))
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(RemoveUnusedBrsControlProfile))
+  assert_true(seen.contains(RemoveUnusedBrsSwitchProfile))
+  assert_true(seen.contains(RemoveUnusedBrsCleanupProfile))
+  assert_false(seen.contains(RemoveUnusedBrsGcProfile))
+}
+
+///|
 test "random all-profiles gen-valid profile resolves stable compare-pass leaves" {
   @debug.assert_eq(
     gen_valid_profile_name(RandomAllProfilesProfile),

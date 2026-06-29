@@ -988,9 +988,91 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_throw(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, catches, @lib.Expr(body)) =>
+        if !catches.is_empty() ||
+          run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(body) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr([@lib.Block(_, @lib.Expr(body))])) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch(body) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(
+            body,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
+  if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(instrs) {
+    return true
+  }
   for instr in instrs {
     match instr {
       @lib.Nop
@@ -26998,8 +27080,13 @@ fn run_hot_pipeline_simplify_locals_lowered_instr_stops_following_body_instrs(
     | @lib.Throw(_)
     | @lib.ThrowRef
     | @lib.Unreachable => true
-    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+    @lib.Block(@lib.VoidBlockType, _) => false
+    @lib.Block(_, @lib.Expr(body)) =>
       run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(body)
+    @lib.Loop(@lib.VoidBlockType, _) => false
+    @lib.Loop(_, @lib.Expr(body)) =>
+      run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(body)
+    @lib.If(@lib.VoidBlockType, _, _) => false
     @lib.If(_, then_, Some(else_)) =>
       run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(then_) &&
       run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(else_)

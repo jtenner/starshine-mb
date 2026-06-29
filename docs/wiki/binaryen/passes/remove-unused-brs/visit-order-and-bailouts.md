@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-13
+last_reviewed: 2026-06-29
 sources:
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
@@ -84,9 +84,9 @@ That design is part of the pass contract.
 
 The raw layer also has to stay aligned with the real HOT legality surface.
 
-For `[O4Z-AUDIT-RUB-E]`, the raw candidate gate was extended narrowly: `try_table` bodies containing a `throw` now lift so the HOT EH-specific caught-throw cleanup can run. This is not a new raw no-op skip exception and not a broad nested RUB traversal; tag/catch/ref legality remains in the HOT matcher where catch order, exact tags, `catch_all`, and exnref-transport boundaries are represented.
+For `[O4Z-AUDIT-RUB-E]`, the raw candidate gate was extended narrowly: `try_table` bodies containing a `throw` now lift so the HOT EH-specific caught-throw cleanup can run. For `[O4Z-AUDIT-RUB-Q]`, a sibling detector admits only one-child block shells whose inner body contains a `try_table` catch arm, so HOT can retarget no-payload catch destinations through the shell. These are not raw rewrites and not broad nested RUB traversal; tag/catch/ref/payload legality remains in HOT where catch order, exact tags, `catch_all`, label arity, and exnref-transport boundaries are represented.
 
-For `[O4Z-AUDIT-RUB-F]`, the final raw candidate gate now treats `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as HOT candidates. This is also not a raw rewrite: the HOT matcher owns the nullability/cast proof and still fails closed for payload-bearing BrOn nodes and descriptor variants not represented by local `Instruction` / `HotOp`.
+For `[O4Z-AUDIT-RUB-F]`, the final raw candidate gate now treats `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` as HOT candidates. This is also not a raw rewrite: the HOT matcher owns the nullability/cast proof, including the later `[O4Z-AUDIT-RUB-Q]` no-payload nullable-source/non-null-target `br_on_cast` split to `br_on_non_null` plus appended `ref.null`, the non-null disjoint-family definite-failure `br_on_cast*` subset, selected branch-taking prefix-payload BrOn rewrites, and the child-form ordinary `br_on_cast*` unreachable-input subset. It still fails closed for fallthrough-producing payload cases, payload-bearing cast splits, nullable disjoint `SuccessOnlyIfNull`, descriptor variants not represented by local `Instruction` / `HotOp`, and public stack-form unreachable-input cleanup that does not expose a child-form HOT BrOn root. Note `1373` tightens that payload split boundary: public stack-payload `SuccessOnlyIfNonNull` shapes require a Binaryen-style `ChildLocalizer`/scratch-local repair, not a broader raw admission or a naive inner-block rewrite. Note `1374` keeps descriptor BrOn blocked on representation and keeps stack-form unreachable-input cleanup blocked on candidate-lowering/raw-proof work.
 
 For `[O4Z-AUDIT-RUB-H]`, the O4z raw no-op gate now admits only simple stack-form adjacent same-target `br_if` candidates whose two conditions are single decoded instructions such as `local.get` or `i32.const`. The raw layer does not merge them; it only avoids hiding the shrink-mode HOT `i32.or` rewrite. Broader condition safety, target equality after lift, payload rejection, and effect hazards remain in HOT.
 
@@ -202,7 +202,7 @@ Instead, it first checks root-local patterns in this rough order:
 
 Only after those direct opportunities are exhausted does the pass call `remove_unused_brs_visit_node(...)` on the surviving root.
 
-`TryTable` visitation has one EH-specific pre-step: before ordinary body cleanup, `remove_unused_brs_try_rewrite_caught_throws_in_node(...)` walks only the current try-table body with an explicit catcher stack and rewrites the first source-backed caught-`throw` it can prove safe. It returns after one mutation so later normal RUB cycles handle the newly exposed branch, preserving the existing mutation-churn and traversal discipline.
+`TryTable` visitation has one EH-specific pre-step: before ordinary body cleanup, `remove_unused_brs_try_rewrite_caught_throws_in_node(...)` walks only the current try-table body with an explicit catcher stack and rewrites the first source-backed caught-`throw` it can prove safe. It returns after one mutation so later normal RUB cycles handle the newly exposed branch, preserving the existing mutation-churn and traversal discipline. Legacy `try` source is not part of this traversal in the public pipeline: note `1376` shows the WAT lowerer converts it to synthetic block/unreachable roots before HOT RUB, so the pass has no live caught-throw `HotOp::Try` candidate to visit.
 
 That ordering is essential:
 

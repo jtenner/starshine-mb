@@ -1187,6 +1187,11 @@ pub enum GenValidProfile {
   DeadCodeEliminationEffectfulStructuredPrefixProfile
   DeadCodeEliminationAllProfile
   HeapStoreOptimizationProfile
+  RemoveUnusedBrsControlProfile
+  RemoveUnusedBrsSwitchProfile
+  RemoveUnusedBrsGcProfile
+  RemoveUnusedBrsCleanupProfile
+  RemoveUnusedBrsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile

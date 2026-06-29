@@ -1,4 +1,13 @@
 ///|
+fn remove_unused_brs_test_bytes_from_ints(values : Array[Int]) -> Bytes {
+  let out = @buffer.new(size_hint=values.length())
+  for value in values {
+    out.write_byte(value.to_byte())
+  }
+  out.to_bytes()
+}
+
+///|
 fn remove_unused_brs_test_first_live_br_table(func : @ir.HotFunc) -> Int {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -10,6 +19,41 @@ fn remove_unused_brs_test_first_live_br_table(func : @ir.HotFunc) -> Int {
     }
   }
   -1
+}
+
+///|
+fn remove_unused_brs_test_first_live_try_table(func : @ir.HotFunc) -> Int {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::TryTable => return node_id
+      _ => ()
+    }
+  }
+  -1
+}
+
+///|
+fn remove_unused_brs_test_try_table_first_catch_target(
+  func : @ir.HotFunc,
+  try_table_id : Int,
+) -> Int {
+  if try_table_id < 0 || !@ir.hot_node_is_live(func, try_table_id) {
+    abort("expected live try_table before reading catch target")
+  }
+  let node = @ir.hot_node_get(func, try_table_id)
+  let info = @ir.hot_catch_info_get(func, node.imm1)
+  if info.catches.is_empty() {
+    abort("expected try_table with at least one catch")
+  }
+  match info.catches[0] {
+    @ir.HotCatchArm::CatchArm(_, label_id)
+    | @ir.HotCatchArm::CatchRefArm(_, label_id)
+    | @ir.HotCatchArm::CatchAllArm(label_id)
+    | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
+  }
 }
 
 ///|
@@ -51,6 +95,15 @@ fn remove_unused_brs_test_has_childless_br_to_label(
   func : @ir.HotFunc,
   target_label : Int,
 ) -> Bool {
+  remove_unused_brs_test_has_br_to_label_with_child_count(func, target_label, 0)
+}
+
+///|
+fn remove_unused_brs_test_has_br_to_label_with_child_count(
+  func : @ir.HotFunc,
+  target_label : Int,
+  child_count : Int,
+) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -58,7 +111,38 @@ fn remove_unused_brs_test_has_childless_br_to_label(
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::Br if @ir.hot_branch_target(func, node_id) ==
         Some(target_label) &&
-        @ir.hot_child_count(func, node_id) == 0 => return true
+        @ir.hot_child_count(func, node_id) == child_count => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn remove_unused_brs_test_has_br_if_to_label(
+  func : @ir.HotFunc,
+  target_label : Int,
+) -> Bool {
+  remove_unused_brs_test_has_br_if_to_label_with_child_count(
+    func, target_label, -1,
+  )
+}
+
+///|
+fn remove_unused_brs_test_has_br_if_to_label_with_child_count(
+  func : @ir.HotFunc,
+  target_label : Int,
+  child_count : Int,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::BrIf if @ir.hot_branch_target(func, node_id) ==
+        Some(target_label) &&
+        (child_count < 0 || @ir.hot_child_count(func, node_id) == child_count) =>
+        return true
       _ => ()
     }
   }
@@ -153,7 +237,10 @@ fn remove_unused_brs_test_gc_module(
 fn remove_unused_brs_test_run_module_pretty(mod_ : @lib.Module) -> String {
   match @validate.validate_module(mod_) {
     Ok(_) => ()
-    Err(err) => abort("unexpected invalid RUB GC fixture: \{err}")
+    Err(err) =>
+      abort(
+        "unexpected invalid RUB GC fixture: \{@validate.validation_error_message(err)}",
+      )
   }
   let optimized = match
     run_hot_pipeline(mod_, HotPipelineOptions::new(), ["remove-unused-brs"]) {
@@ -232,6 +319,30 @@ test "remove-unused-brs rewrites definitely taken br_on_non_null to branch" {
 }
 
 ///|
+test "remove-unused-brs rewrites definitely taken br_on_non_null with payload" {
+  let i32_type = @lib.ValType::i32()
+  let i31_ref = remove_unused_brs_test_gc_ref(false, @lib.AbsHeapType::i31())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [i32_type, i31_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::ref_i31(),
+          @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_non_null"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("ref.i31"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs removes definitely not taken br_on_non_null" {
   let i31_ref = remove_unused_brs_test_gc_ref(false, @lib.AbsHeapType::i31())
   let pretty = remove_unused_brs_test_run_module_pretty(
@@ -283,6 +394,36 @@ test "remove-unused-brs rewrites definitely successful br_on_cast to branch" {
 }
 
 ///|
+test "remove-unused-brs rewrites definitely successful br_on_cast with payload" {
+  let i32_type = @lib.ValType::i32()
+  let i31_ref = remove_unused_brs_test_gc_ref(false, @lib.AbsHeapType::i31())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [i32_type, i31_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::ref_i31(),
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::any()),
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_cast"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("ref.i31"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs removes definitely not taken br_on_cast_fail" {
   let any_ref = remove_unused_brs_test_gc_ref(true, @lib.AbsHeapType::any())
   let pretty = remove_unused_brs_test_run_module_pretty(
@@ -312,7 +453,7 @@ test "remove-unused-brs removes definitely not taken br_on_cast_fail" {
 }
 
 ///|
-test "remove-unused-brs fail-closed keeps br_on payload children" {
+test "remove-unused-brs rewrites definitely taken br_on_null with payload" {
   let i32_type = @lib.ValType::i32()
   let pretty = remove_unused_brs_test_run_module_pretty(
     remove_unused_brs_test_gc_module([], [i32_type], [
@@ -329,12 +470,13 @@ test "remove-unused-brs fail-closed keeps br_on payload children" {
       ),
     ]),
   )
-  assert_true(pretty.contains("br_on_null"), msg=pretty)
+  assert_false(pretty.contains("br_on_null"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
 }
 
 ///|
-test "remove-unused-brs fail-closed keeps nullable cast split candidates" {
+test "remove-unused-brs splits nullable br_on_cast success-only-if-non-null" {
   let nullable_i31 = remove_unused_brs_test_gc_ref(
     true,
     @lib.AbsHeapType::i31(),
@@ -361,7 +503,380 @@ test "remove-unused-brs fail-closed keeps nullable cast split candidates" {
       ),
     ]),
   )
+  assert_false(pretty.contains("br_on_cast"), msg=pretty)
+  assert_true(pretty.contains("br_on_non_null"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs boundary keeps fallthrough-producing payload br_on_cast split" {
+  let i32_type = @lib.ValType::i32()
+  let nullable_i31 = remove_unused_brs_test_gc_ref(
+    true,
+    @lib.AbsHeapType::i31(),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_i31], [i32_type, nullable_i31]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [i32_type, nullable_i31]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_cast(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+                  false,
+                  @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32(9)),
+                @lib.Instruction::ref_null(
+                  @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let pretty = remove_unused_brs_test_run_module_pretty(mod_)
+  // Binaryen's SuccessOnlyIfNonNull payload split uses ChildLocalizer scratch
+  // locals to move the branch payload into the inner br_on_non_null block and
+  // still drop it on the fallthrough edge. Starshine keeps this exact
+  // fallthrough-producing stack-payload shape as a boundary until RUB has a
+  // localizer-backed rewrite that proves branch arity, fallthrough result type,
+  // evaluation order, and payload drop repair.
   assert_true(pretty.contains("br_on_cast"), msg=pretty)
+  assert_false(pretty.contains("br_on_non_null"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs removes definitely failing non-null br_on_cast" {
+  let i31_ref = remove_unused_brs_test_gc_ref(false, @lib.AbsHeapType::i31())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [i31_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(i31_ref),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+          ),
+          @lib.Instruction::ref_as_non_null(),
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::ref_i31(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_cast"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites definitely failing non-null br_on_cast_fail to branch" {
+  let any_ref = remove_unused_brs_test_gc_ref(true, @lib.AbsHeapType::any())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [any_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(any_ref),
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+          ),
+          @lib.Instruction::ref_as_non_null(),
+          @lib.Instruction::br_on_cast_fail(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_cast_fail"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites definitely failing non-null br_on_cast_fail with payload" {
+  let i32_type = @lib.ValType::i32()
+  let any_ref = remove_unused_brs_test_gc_ref(true, @lib.AbsHeapType::any())
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([], [i32_type, any_ref], [
+      @lib.Instruction::block(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+          ),
+          @lib.Instruction::ref_as_non_null(),
+          @lib.Instruction::br_on_cast_fail(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            false,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+  )
+  assert_false(pretty.contains("br_on_cast_fail"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs boundary keeps nullable disjoint br_on_cast checks" {
+  let nullable_i31 = remove_unused_brs_test_gc_ref(
+    true,
+    @lib.AbsHeapType::i31(),
+  )
+  let nullable_struct = remove_unused_brs_test_gc_ref(
+    true,
+    @lib.AbsHeapType::struct_(),
+  )
+  let pretty = remove_unused_brs_test_run_module_pretty(
+    remove_unused_brs_test_gc_module([nullable_struct], [nullable_i31], [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(nullable_i31),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::br_on_cast(
+            @lib.LabelIdx::new(0U),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            true,
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::ref_null(
+            @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+          ),
+        ]),
+      ),
+    ]),
+  )
+  // Binaryen leaves SuccessOnlyIfNull as a TODO in version_130; keep this
+  // nullable disjoint/source-only-null branch as an explicit local boundary.
+  assert_true(pretty.contains("br_on_cast"), msg=pretty)
+}
+
+///|
+fn remove_unused_brs_test_run_hot_func(func : @ir.HotFunc) -> Unit {
+  let ctx = HotPassContext::new(
+    remove_unused_brs_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_msg) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => abort("expected remove-unused-brs hot pass success, got \{err}")
+  }
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      abort("expected remove-unused-brs hot output to verify, got \{err}")
+  }
+}
+
+///|
+test "remove-unused-brs replaces child-form unreachable-input br_on_cast with unreachable" {
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let i31_ref = @lib.RefType::new(false, i31_heap)
+  let i31_val = @lib.ValType::ref_type(i31_ref)
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i31_val))
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::val_type(i31_val), [])
+  let target = @ir.hot_control_node_label(func, block_id)
+  let branch_payload = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(
+      @lib.Instruction::br_on_cast(
+        @lib.LabelIdx::new(0U),
+        true,
+        any_heap,
+        false,
+        i31_heap,
+      ),
+    ),
+  )
+  let br_on_cast = @ir.hot_build_node(
+    func,
+    @ir.HotOp::br_on_cast(),
+    @ir.hot_type_intern_value(func, any_ref),
+    imm0=target,
+    imm1=branch_payload,
+    children=[@ir.hot_build_unreachable(func)],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+    @ir.hot_build_drop(func, br_on_cast),
+    @ir.hot_build_ref_null(func, i31_ref),
+  ])
+  @ir.hot_root_append(func, block_id)
+
+  remove_unused_brs_test_run_hot_func(func)
+
+  let body = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 0)).op {
+    @ir.HotOp::Unreachable => ()
+    other => fail("expected unreachable replacement, got \{other}")
+  }
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::BrOnCast => fail("expected no live br_on_cast after rewrite")
+        _ => ()
+      }
+    }
+  }
+}
+
+///|
+test "remove-unused-brs boundary keeps public stack-form unreachable-input br_on_cast" {
+  let any_ref = remove_unused_brs_test_gc_ref(true, @lib.AbsHeapType::any())
+  let mod_ = remove_unused_brs_test_gc_module([], [], [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(any_ref),
+      @lib.Expr::new([
+        @lib.Instruction::unreachable_(),
+        @lib.Instruction::br_on_cast(
+          @lib.LabelIdx::new(0U),
+          true,
+          @lib.HeapType::abs(@lib.AbsHeapType::any()),
+          false,
+          @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+        ),
+        @lib.Instruction::drop(),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+  ])
+  let pretty = remove_unused_brs_test_run_module_pretty(mod_)
+  // Boundary: the HOT child-form cleanup below handles BrOn roots whose ref
+  // child is explicit `unreachable`. The public stack-form input still lowers
+  // through the stack pipeline; keep it conservative until RUB has a raw proof
+  // or a lift shape that exposes the unreachable ref as a BrOn child.
+  assert_true(pretty.contains("br_on_cast"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs drops payload children for child-form unreachable-input br_on_cast" {
+  let i32_type = @lib.ValType::i32()
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let i31_ref = @lib.RefType::new(false, i31_heap)
+  let i31_val = @lib.ValType::ref_type(i31_ref)
+  let func = @ir.HotFunc::new()
+  let results = [i32_type, i31_val]
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_results(func, results))
+  let block_id = @ir.hot_build_resolved_block(
+    func,
+    @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+    [],
+    results,
+    [],
+  )
+  let target = @ir.hot_control_node_label(func, block_id)
+  let branch_payload = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(
+      @lib.Instruction::br_on_cast(
+        @lib.LabelIdx::new(0U),
+        true,
+        any_heap,
+        false,
+        i31_heap,
+      ),
+    ),
+  )
+  let br_on_cast = @ir.hot_build_node(
+    func,
+    @ir.HotOp::br_on_cast(),
+    @ir.hot_type_intern_value(func, any_ref),
+    imm0=target,
+    imm1=branch_payload,
+    children=[
+      @ir.hot_build_const_i32(func, @lib.I32(7)),
+      @ir.hot_build_unreachable(func),
+    ],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+    @ir.hot_build_drop(func, br_on_cast),
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+    @ir.hot_build_ref_null(func, i31_ref),
+  ])
+  @ir.hot_root_append(func, block_id)
+
+  remove_unused_brs_test_run_hot_func(func)
+
+  let body = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 4)
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 0)).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected payload drop before unreachable, got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_region_get(func, body, 1)).op {
+    @ir.HotOp::Unreachable => ()
+    other => fail("expected unreachable after payload drop, got \{other}")
+  }
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::BrOnCast => fail("expected no live br_on_cast after rewrite")
+        _ => ()
+      }
+    }
+  }
 }
 
 ///|
@@ -521,6 +1036,38 @@ test "remove-unused-brs keeps catch_all_ref caught throws as exnref transport" {
 }
 
 ///|
+test "remove-unused-brs boundary: legacy try is lowered before caught-throw cleanup" {
+  // The public WAT path desugars legacy `try` into a synthetic block/unreachable
+  // before HOT RUB runs, so RUB cannot observe a `HotOp::Try` catch body to
+  // apply Binaryen's old-EH caught-throw cleanup here.
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func
+    #|    (try
+    #|      (do (throw $e))
+    #|      (catch $e))))
+  let func = pass_test_lift_first_func(source)
+  let mut saw_try = false
+  let mut saw_try_table = false
+  let mut saw_unreachable = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Try => saw_try = true
+      @ir.HotOp::TryTable => saw_try_table = true
+      @ir.HotOp::Unreachable => saw_unreachable = true
+      _ => ()
+    }
+  }
+  assert_false(saw_try)
+  assert_false(saw_try_table)
+  assert_true(saw_unreachable)
+}
+
+///|
 test "remove-unused-brs keeps earlier catch_ref before later catch_all" {
   let optimized = match
     pass_test_run_pipeline(
@@ -626,6 +1173,79 @@ test "remove-unused-brs drops void self-branch blocks inside constant ifs" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("br"), msg=pretty)
   assert_true(pretty.contains("if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs public pipeline keeps result suffix after void nonfallthrough block" {
+  let decoded = match
+    @binary.decode_module(
+      remove_unused_brs_test_bytes_from_ints([
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 0, 2, 127, 126, 3, 2, 1, 0, 10,
+        21, 1, 19, 2, 1, 127, 1, 126, 2, 64, 65, 1, 66, 2, 15, 0, 11, 32, 0, 32,
+        1, 11,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected binary decode success, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(decoded, HotPipelineOptions::new(), ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected result suffix preservation, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("Local 0"), msg=pretty)
+  assert_true(pretty.contains("Local 1"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps result suffix after void nonfallthrough block" {
+  let func = pass_test_lift_first_func(
+    (
+      #|(module
+      #|  (func (result i32 i64)
+      #|    (local i32 i64)
+      #|    block
+      #|      i32.const 1
+      #|      i64.const 2
+      #|      return
+      #|      unreachable
+      #|    end
+      #|    local.get 0
+      #|    local.get 1))
+      #|
+    ),
+  )
+
+  remove_unused_brs_test_run_hot_func(func)
+
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected first result suffix local.get, got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 2)).op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected second result suffix local.get, got \{other}")
+  }
+  let lowered = @ir.hot_lower_func_unverified_with_options(
+    func,
+    @ir.HotLowerOptions::new(
+      preserve_if_arm_single_nops=true,
+      preserve_dead_local_tee_drops=true,
+      preserve_nontrailing_nops=true,
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(lowered_body)) = lowered
+  @debug.assert_eq(lowered_body.length(), 3)
+  match lowered_body[1] {
+    @lib.LocalGet(_) => ()
+    other => fail("expected lowered first suffix local.get, got \{other}")
+  }
+  match lowered_body[2] {
+    @lib.LocalGet(_) => ()
+    other => fail("expected lowered second suffix local.get, got \{other}")
+  }
 }
 
 ///|
@@ -1184,6 +1804,26 @@ test "remove-unused-brs selectifies costly rem value ifs when shrinking" {
 }
 
 ///|
+test "remove-unused-brs boundary keeps condition-invalidated value if out of selectify" {
+  let source = "(module (func (result i32) (local i32) (local.set 0 (i32.const 10)) (if (result i32) (local.tee 0 (i32.const 1)) (then (local.get 0)) (else (i32.const 0)))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs invalidated-select boundary success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains("(if I32") || pretty.contains("(if (I32)"),
+    msg=pretty,
+  )
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites table.grow size child if into select" {
   let optimized = match
     pass_test_run_pipeline(
@@ -1357,6 +1997,35 @@ test "remove-unused-brs rewrites local.set if break arms into br_if plus set" {
 }
 
 ///|
+test "remove-unused-brs boundary keeps conditional br_if set-if arms conservative" {
+  let source =
+    #| (module
+    #|   (func (param i32 i32) (result i32) (local i32)
+    #|     (block $exit (result i32)
+    #|       (local.set 2
+    #|         (if (result i32)
+    #|           (local.get 0)
+    #|           (then
+    #|             (br_if $exit
+    #|               (i32.const 7)
+    #|               (local.get 1)))
+    #|           (else
+    #|             (i32.const 9))))
+    #|       (i32.const 0))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs conditional set-if boundary success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs flips then-copy local.set if arms into one-armed ifs" {
   let optimized = match
     pass_test_run_pipeline(
@@ -1453,7 +2122,7 @@ test "remove-unused-brs flattens block-local if chains when the else arm breaks"
 }
 
 ///|
-test "remove-unused-brs rewrites two-armed branch exits into br_if plus branch" {
+test "remove-unused-brs collapses two-armed same-target branch exits through adjacent br cleanup" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32) (block $outer (block $inner (if (local.get 0) (then (br $outer)) (else (br $inner))) unreachable))))",
@@ -1466,11 +2135,13 @@ test "remove-unused-brs rewrites two-armed branch exits into br_if plus branch" 
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(if"), msg=pretty)
-  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
 }
 
 ///|
-test "remove-unused-brs rewrites branch-exit ifs even when neither target is the immediate holder" {
+test "remove-unused-brs collapses non-holder branch-exit ifs through adjacent br cleanup" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32) (block $outer (block $other (block (if (local.get 0) (then (br $outer)) (else (br $other))) unreachable)))))",
@@ -1485,7 +2156,9 @@ test "remove-unused-brs rewrites branch-exit ifs even when neither target is the
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(if"), msg=pretty)
-  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
 }
 
 ///|
@@ -1919,6 +2592,62 @@ test "remove-unused-brs sinks single-if exit blocks into the label-using arm" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("if"), msg=pretty)
   assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs sinks result-typed single-if exit blocks into the label-using arm" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (block $exit (result i32) (if (result i32) (local.get 0) (then (drop (br_if $exit (i32.const 10) (local.get 1))) (i32.const 1)) (else (i32.const 2))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs result-typed single-if block sink success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let root = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::If | @ir.HotOp::Select => ()
+    other =>
+      fail("expected result-typed sink to remove the outer block, got \{other}")
+  }
+  assert_eq(@ir.hot_node_result_arity(func, root), 1)
+}
+
+///|
+test "remove-unused-brs sinks multi-result single-if exit blocks into the label-using arm" {
+  let source =
+    #| (module
+    #|   (func (param i32 i32) (result i32 i64)
+    #|     (block $exit (result i32 i64)
+    #|       (if (result i32 i64) (local.get 0)
+    #|         (then
+    #|           (drop (drop (br_if $exit (i32.const 10) (i64.const 20) (local.get 1))))
+    #|           (i32.const 1)
+    #|           (i64.const 2))
+    #|         (else
+    #|           (i32.const 3)
+    #|           (i64.const 4))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs multi-result sink success, got \{err}")
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let root = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::If => ()
+    other =>
+      fail(
+        "expected multi-result sink to remove the outer block, got \{other}; pretty=\{optimized.pretty_print_func(@lib.FuncIdx::new(0U))}",
+      )
+  }
+  assert_eq(@ir.hot_node_result_arity(func, root), 2)
 }
 
 ///|
@@ -3311,6 +4040,43 @@ test "remove-unused-brs offsets leading default value br_table targets" {
 }
 
 ///|
+test "remove-unused-brs boundary represents public value br_table payloads as children" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (block $default (result i32)
+    #|      (i32.const 42)
+    #|      (local.get 0)
+    #|      (br_table $default $default))
+    #|    drop))
+  let before = pass_test_module_from_wat(source)
+  let before_func = @ir.hot_lift_func(before, @lib.FuncIdx::new(0U))
+  let before_br_table = remove_unused_brs_test_first_live_br_table(before_func)
+  if before_br_table < 0 {
+    fail("expected pre-pass value br_table to lift for representation check")
+  }
+  // Boundary: Binaryen's AST `Switch` has an optional value plus condition,
+  // but public Starshine lift represents the branch payload and selector as
+  // br_table children. A child-less stack-payload HOT br_table would fail core
+  // verification today, so there is no safe public-path rewrite to add for
+  // that local-only shape.
+  @debug.assert_eq(
+    @ir.hot_node_get(before_func, before_br_table).child_count,
+    2,
+  )
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(
+      before_func,
+      @ir.hot_branch_table_default_target(
+        before_func,
+        @ir.hot_node_get(before_func, before_br_table).imm0,
+      ),
+    ),
+    1,
+  )
+}
+
+///|
 test "remove-unused-brs collapses one-target value br_table with local selector" {
   let source =
     #|(module
@@ -3320,6 +4086,17 @@ test "remove-unused-brs collapses one-target value br_table with local selector"
     #|      (local.get 0)
     #|      (br_table $default $default $default))
     #|    drop))
+  let before = pass_test_module_from_wat(source)
+  let before_func = @ir.hot_lift_func(before, @lib.FuncIdx::new(0U))
+  let before_br_table = remove_unused_brs_test_first_live_br_table(before_func)
+  if before_br_table < 0 {
+    fail("expected pre-pass value br_table to lift for representation check")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(before_func, before_br_table).child_count,
+    2,
+  )
+
   let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -3551,6 +4328,35 @@ test "remove-unused-brs treats eqz as zero in equality ladder tablify" {
 }
 
 ///|
+test "remove-unused-brs boundary keeps value-carrying equality ladder out of tablify" {
+  // Boundary: Binaryen version_130 FinalOptimizer::tablify only appends a
+  // branch to a dense run when the candidate br_if has no branch value.
+  // Value-carrying ladders can send distinct payloads and stay conservative.
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (block $exit (result i32)
+    #|      (drop (br_if $exit (i32.const 10) (i32.eq (local.get 0) (i32.const 0))))
+    #|      (drop (br_if $exit (i32.const 11) (i32.eq (local.get 0) (i32.const 1))))
+    #|      (drop (br_if $exit (i32.const 12) (i32.eq (local.get 0) (i32.const 2))))
+    #|      (i32.const 99))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs value-carrying tablify boundary success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_true(pretty.contains("I32(11)"), msg=pretty)
+  assert_true(pretty.contains("I32(12)"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs keeps duplicate constants in equality ladder" {
   let source =
     #|(module
@@ -3655,6 +4461,32 @@ test "remove-unused-brs selectifies side-effectful dropped value br_if prefixes 
 }
 
 ///|
+test "remove-unused-brs boundary keeps dropped value br_if prefix when condition invalidates rest" {
+  let source =
+    #| (module
+    #|   (func $value (result i32) (i32.const 7))
+    #|   (func (result i32) (local i32)
+    #|     (block $exit (result i32)
+    #|       (drop
+    #|         (br_if $exit
+    #|           (call $value)
+    #|           (local.tee 0 (i32.const 1))))
+    #|       (local.get 0))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs restructure invalidation boundary success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs keeps self-targeting br_if prefixes when block has another target use" {
   let source =
     #| (module
@@ -3719,6 +4551,617 @@ test "remove-unused-brs retargets branches through one-child named block shells"
 }
 
 ///|
+test "remove-unused-brs retargets direct branches through one-child named block shells" {
+  let source =
+    #| (module
+    #|   (func
+    #|     (block $outer
+    #|       (block $inner
+    #|         (block
+    #|           (br $inner)
+    #|           (drop (i32.const 9)))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs direct one-child JumpThreader success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let wrapper = @ir.hot_region_get(
+    func,
+    @ir.hot_region_body_ref(func, inner),
+    0,
+  )
+  let branch = @ir.hot_region_get(
+    func,
+    @ir.hot_region_body_ref(func, wrapper),
+    0,
+  )
+  match @ir.hot_node_get(func, branch).op {
+    @ir.HotOp::Br => ()
+    _ => fail("expected direct branch before target assertion")
+  }
+  assert_eq(@ir.hot_branch_target(func, branch), Some(outer_label))
+}
+
+///|
+test "remove-unused-brs retargets br_table targets through one-child named block shells" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (block $keep
+    #|           (br_table $inner $outer $keep $keep (local.get 0))
+    #|           (drop (i32.const 9)))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs br_table one-child JumpThreader success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected br_table to remain after one-child JumpThreader retarget")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets[0], outer_label)
+  assert_eq(targets[1], outer_label)
+}
+
+///|
+test "remove-unused-brs retargets medium br_table targets through one-child named block shells" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (block $keep
+    #|           (br_table $inner $keep $outer $keep $outer $keep $outer $keep $inner $keep (local.get 0))
+    #|           (drop (i32.const 9)))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs medium br_table one-child JumpThreader success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail(
+      "expected medium br_table to remain after one-child JumpThreader retarget",
+    )
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets.length(), 9)
+  assert_eq(targets[0], outer_label)
+  assert_eq(targets[8], outer_label)
+}
+
+///|
+test "remove-unused-brs boundary keeps ten-target br_table jump-threading conservative" {
+  // Boundary: the local JumpThreader table retargeter is intentionally capped
+  // at nine explicit targets. A broader probe regressed mostly-default switch
+  // cleanup, so larger tables stay unchanged until the predicate can separate
+  // shell-retarget-only cases from early optimizeSwitch candidates.
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (block $keep
+    #|           (br_table $inner $keep $outer $keep $outer $keep $outer $keep $outer $inner $keep (local.get 0))
+    #|           (drop (i32.const 9)))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs ten-target br_table boundary success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let inner_label = @ir.hot_control_node_label(func, inner)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected ten-target br_table to remain at the retargeting boundary")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets.length(), 10)
+  assert_eq(targets[0], inner_label)
+  assert_eq(targets[9], inner_label)
+}
+
+///|
+test "remove-unused-brs retargets br_table default target through one-child named block shells" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (block $keep
+    #|           (br_table $keep $inner $keep $inner (local.get 0))
+    #|           (drop (i32.const 9)))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs br_table default-target JumpThreader success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected br_table to remain after default-target retarget")
+  }
+  assert_eq(@ir.hot_branch_target(func, br_table), Some(outer_label))
+}
+
+///|
+test "remove-unused-brs retargets br_table child block targets to a following simple jump" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $child
+    #|         (block $keep
+    #|           (br_table $child $outer $keep $keep (local.get 0))
+    #|           (drop (i32.const 9)))
+    #|         (drop (i32.const 1)))
+    #|       (br $outer))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs br_table child-to-jump threading success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected br_table to remain after child-to-jump retarget")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets[0], outer_label)
+  assert_eq(targets[1], outer_label)
+}
+
+///|
+test "remove-unused-brs retargets no-payload try_table catch targets through one-child named block shells" {
+  let source =
+    #| (module
+    #|   (tag $e)
+    #|   (func $maythrow)
+    #|   (func
+    #|     (block $outer
+    #|       (block $inner
+    #|         (try_table (catch $e $inner)
+    #|           (call $maythrow))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs try_table catch one-child-shell threading success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(1U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let try_table = remove_unused_brs_test_first_live_try_table(func)
+  let catch_target = remove_unused_brs_test_try_table_first_catch_target(
+    func, try_table,
+  )
+  assert_eq(catch_target, outer_label)
+}
+
+///|
+test "remove-unused-brs retargets no-payload try_table catch targets to a following simple jump" {
+  let source =
+    #| (module
+    #|   (tag $e)
+    #|   (func $maythrow)
+    #|   (func
+    #|     (block $exit
+    #|       (block $outer
+    #|         (block $inner
+    #|           (try_table (catch $e $inner)
+    #|             (call $maythrow)))
+    #|         (br $exit)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs try_table catch child-to-jump success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(1U))
+  let exit = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let exit_label = @ir.hot_control_node_label(func, exit)
+  let try_table = remove_unused_brs_test_first_live_try_table(func)
+  let catch_target = remove_unused_brs_test_try_table_first_catch_target(
+    func, try_table,
+  )
+  assert_eq(catch_target, exit_label)
+}
+
+///|
+test "remove-unused-brs boundary keeps catch_ref jump-threading conservative" {
+  // Boundary: catch_ref sends an exnref to its target, so Binaryen's
+  // no-sent-value JumpThreader filter does not retarget it through result-typed
+  // shells.
+  let source =
+    #| (module
+    #|   (tag $e)
+    #|   (func $maythrow)
+    #|   (func (result exnref)
+    #|     (block $outer (result exnref)
+    #|       (block $inner (result exnref)
+    #|         (try_table (catch_ref $e $inner)
+    #|           (call $maythrow))
+    #|         (unreachable)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs catch_ref JumpThreader boundary success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(1U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let inner_label = @ir.hot_control_node_label(func, inner)
+  let try_table = remove_unused_brs_test_first_live_try_table(func)
+  let catch_target = remove_unused_brs_test_try_table_first_catch_target(
+    func, try_table,
+  )
+  assert_eq(catch_target, inner_label)
+}
+
+///|
+test "remove-unused-brs retargets stack-source br_table targets through one-child named block shells" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (block $other
+    #|           (block $keep
+    #|             (local.get 0)
+    #|             (br_table $inner $keep $other $outer $keep $other)
+    #|             (drop (i32.const 9))))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs stack-style br_table one-child JumpThreader success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected stack-source br_table to remain after one-child retarget")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets[0], outer_label)
+  @debug.assert_eq(@ir.hot_node_get(func, br_table).child_count, 1)
+}
+
+///|
+test "remove-unused-brs retargets stack-source br_table child block targets to a following simple jump" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $child
+    #|         (block $other
+    #|           (block $keep
+    #|             (local.get 0)
+    #|             (br_table $child $keep $other $outer $keep $other)
+    #|             (drop (i32.const 9))))
+    #|         (drop (i32.const 1)))
+    #|       (br $outer))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs stack-style br_table child-to-jump threading success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail(
+      "expected stack-source br_table to remain after child-to-jump retarget",
+    )
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets[0], outer_label)
+  @debug.assert_eq(@ir.hot_node_get(func, br_table).child_count, 1)
+}
+
+///|
+test "remove-unused-brs boundary keeps value-carrying stack-source br_table threading conservative" {
+  // Boundary: Binaryen JumpThreader only records scope uses whose sent type is
+  // none, so stack-source tables that send values stay outside the local
+  // retargeting subset.
+  let source =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (block $outer (result i32)
+    #|       (block $inner (result i32)
+    #|         (block $other (result i32)
+    #|           (block $keep (result i32)
+    #|             (i32.const 42)
+    #|             (local.get 0)
+    #|             (br_table $inner $keep $other $outer $keep $other)))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs value-carrying stack br_table boundary success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let inner_label = @ir.hot_control_node_label(func, inner)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected value-carrying stack-style br_table to remain at boundary")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets[0], inner_label)
+  @debug.assert_eq(@ir.hot_node_get(func, br_table).child_count, 2)
+}
+
+///|
+test "remove-unused-brs boundary keeps value-carrying br_table jump-threading conservative" {
+  // Boundary: Binaryen JumpThreader only records scope uses whose sent type is
+  // none, so this value-carrying table must keep its original inner target.
+  let source =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (block $outer (result i32)
+    #|       (block $inner (result i32)
+    #|         (block $keep (result i32)
+    #|           (br_table $inner $outer $keep $keep
+    #|             (i32.const 42)
+    #|             (local.get 0)))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs value-carrying br_table boundary success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let inner_label = @ir.hot_control_node_label(func, inner)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected value-carrying br_table to remain at boundary")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets[0], inner_label)
+  @debug.assert_eq(@ir.hot_node_get(func, br_table).child_count, 2)
+}
+
+///|
+test "remove-unused-brs boundary keeps value-carrying direct br jump-threading conservative" {
+  // Boundary: Binaryen's JumpThreader filters out branch uses with a non-none
+  // sent type; Starshine must not retarget payload-carrying direct branches
+  // through result-typed shells until a separate Binaryen source change adds
+  // that behavior.
+  let source =
+    #| (module
+    #|   (func (result i32)
+    #|     (block $outer (result i32)
+    #|       (block $inner (result i32)
+    #|         (block
+    #|           (br $inner (i32.const 42))
+    #|           (drop (i32.const 9)))
+    #|         (i32.const 7)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs value-carrying direct br boundary success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let inner_label = @ir.hot_control_node_label(func, inner)
+  assert_true(
+    remove_unused_brs_test_has_br_to_label_with_child_count(
+      func, inner_label, 1,
+    ),
+    msg="expected payload direct branch to keep its original result-typed target",
+  )
+}
+
+///|
+test "remove-unused-brs boundary keeps value-carrying br_if jump-threading conservative" {
+  // Boundary: br_if with a payload has child_count = payload arity + condition,
+  // so it is a non-none sent-type use in Binaryen and not a JumpThreader
+  // retargeting candidate.
+  let source =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (block $outer (result i32)
+    #|       (block $inner (result i32)
+    #|         (block
+    #|           (drop (br_if $inner (i32.const 42) (local.get 0)))
+    #|           (drop (i32.const 9)))
+    #|         (i32.const 7)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs value-carrying br_if boundary success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let inner_label = @ir.hot_control_node_label(func, inner)
+  assert_true(
+    remove_unused_brs_test_has_br_if_to_label_with_child_count(
+      func, inner_label, 2,
+    ),
+    msg="expected payload br_if to keep its original result-typed target",
+  )
+}
+
+///|
+test "remove-unused-brs retargets direct if-arm branches through one-child named block shells" {
+  let source =
+    #| (module
+    #|   (func (param i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (if (local.get 0)
+    #|           (then (br $inner))
+    #|           (else (drop (i32.const 3))))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs if-arm direct JumpThreader success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let inner_label = @ir.hot_control_node_label(func, inner)
+  assert_true(
+    remove_unused_brs_test_has_br_if_to_label(func, outer_label),
+    msg="expected if-arm branch to thread to outer label",
+  )
+  assert_false(
+    remove_unused_brs_test_has_br_if_to_label(func, inner_label),
+    msg="expected no remaining if-arm branch to inner label",
+  )
+}
+
+///|
+test "remove-unused-brs retargets if-arm br_table targets through one-child named block shells" {
+  let source =
+    #| (module
+    #|   (func (param i32 i32)
+    #|     (block $outer
+    #|       (block $inner
+    #|         (block $keep
+    #|           (if (local.get 0)
+    #|             (then
+    #|               (br_table $inner $outer $keep $keep (local.get 1)))
+    #|             (else (drop (i32.const 3)))))
+    #|         (drop (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs if-arm br_table JumpThreader success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_label = @ir.hot_control_node_label(func, outer)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected if-arm br_table to remain after retarget")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets[0], outer_label)
+  assert_eq(targets[1], outer_label)
+}
+
+///|
+test "remove-unused-brs boundary keeps value-carrying if-arm br_table threading conservative" {
+  // Boundary: even inside an if arm, Binaryen JumpThreader only records
+  // no-value table uses, so payload/sent-type table retargeting remains closed.
+  let source =
+    #| (module
+    #|   (func (param i32 i32) (result i32)
+    #|     (block $outer (result i32)
+    #|       (block $inner (result i32)
+    #|         (block $keep (result i32)
+    #|           (if (local.get 0)
+    #|             (then
+    #|               (br_table $inner $outer $keep $keep
+    #|                 (i32.const 42)
+    #|                 (local.get 1)))
+    #|             (else
+    #|               (i32.const 3)
+    #|               (br $outer))))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs value-carrying if-arm br_table boundary success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let inner = @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer), 0)
+  let inner_label = @ir.hot_control_node_label(func, inner)
+  let br_table = remove_unused_brs_test_first_live_br_table(func)
+  if br_table < 0 {
+    fail("expected value-carrying if-arm br_table to remain at boundary")
+  }
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  assert_eq(targets[0], inner_label)
+  @debug.assert_eq(@ir.hot_node_get(func, br_table).child_count, 2)
+}
+
+///|
 test "remove-unused-brs retargets child block branches to a following simple jump" {
   let source =
     #| (module
@@ -3767,6 +5210,151 @@ test "remove-unused-brs shrink merges adjacent br_if conditions to same target" 
   assert_true(pretty.contains("i32.or"), msg=pretty)
   assert_false(pretty.contains("br_if"), msg=pretty)
   assert_true(pretty.contains("if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs drops adjacent br_if condition before same-target unconditional branch" {
+  let source =
+    #| (module
+    #|   (func $side (result i32) (i32.const 1))
+    #|   (func
+    #|     (block $exit
+    #|       (br_if $exit (call $side))
+    #|       (br $exit)
+    #|       (drop (i32.const 9)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected same-target br_if/br cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs drops stack-form adjacent br_if condition before same-target branch" {
+  let source =
+    #| (module
+    #|   (func $side (result i32) (i32.const 1))
+    #|   (func
+    #|     (block $exit
+    #|       (call $side)
+    #|       br_if $exit
+    #|       br $exit
+    #|       (drop (i32.const 9)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected stack-form same-target br_if/br cleanup success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs drops redundant self-target br_if value" {
+  let source =
+    #| (module
+    #|   (func (param i32 i32) (result i32)
+    #|     (block $exit (result i32)
+    #|       (drop (i32.const 3))
+    #|       (drop (br_if $exit (local.get 0) (local.get 1)))
+    #|       (local.get 0))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected redundant self-target br_if value cleanup, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs drops redundant self-target br_if constant value" {
+  let source =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (block $exit (result i32)
+    #|       (drop (i32.const 3))
+    #|       (drop (br_if $exit (i32.const 42) (local.get 0)))
+    #|       (i32.const 42))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected constant redundant self-target br_if value cleanup, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(42)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps self-target br_if value when condition invalidates payload" {
+  let source =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (block $exit (result i32)
+    #|       (drop (i32.const 3))
+    #|       (drop
+    #|         (br_if $exit
+    #|           (local.get 0)
+    #|           (local.tee 0 (i32.const 9))))
+    #|       (local.get 0))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected invalidating self-target br_if boundary success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs boundary keeps value-carrying adjacent br_if before same-target branch conservative" {
+  // Binaryen version_130's adjacent br_if/br cleanup asserts that both branches
+  // have no values; this value-carrying form has different target payloads.
+  let source =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (block $exit (result i32)
+    #|       (drop (br_if $exit (i32.const 10) (local.get 0)))
+    #|       (br $exit (i32.const 20))
+    #|       (i32.const 30))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected value-carrying adjacent br_if/br boundary success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("I32(10)"), msg=pretty)
+  assert_true(pretty.contains("I32(20)"), msg=pretty)
 }
 
 ///|

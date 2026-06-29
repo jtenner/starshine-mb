@@ -716,6 +716,11 @@ pub enum GenValidProfile {
   DeadCodeEliminationEffectfulStructuredPrefixProfile
   DeadCodeEliminationAllProfile
   HeapStoreOptimizationProfile
+  RemoveUnusedBrsControlProfile
+  RemoveUnusedBrsSwitchProfile
+  RemoveUnusedBrsGcProfile
+  RemoveUnusedBrsCleanupProfile
+  RemoveUnusedBrsAllProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
   SsaNomergeParityProfile
@@ -848,6 +853,11 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
       "dead-code-elimination-effectful-structured-prefix"
     DeadCodeEliminationAllProfile => "dead-code-elimination-all"
     HeapStoreOptimizationProfile => "heap-store-optimization"
+    RemoveUnusedBrsControlProfile => "remove-unused-brs-control"
+    RemoveUnusedBrsSwitchProfile => "remove-unused-brs-switch"
+    RemoveUnusedBrsGcProfile => "remove-unused-brs-gc"
+    RemoveUnusedBrsCleanupProfile => "remove-unused-brs-cleanup"
+    RemoveUnusedBrsAllProfile => "remove-unused-brs-all"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
@@ -872,6 +882,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
     | DeadCodeEliminationAllProfile
+    | RemoveUnusedBrsAllProfile
     | SsaNomergeAllProfile
     | RandomAllProfilesProfile => true
     _ => false
@@ -969,6 +980,12 @@ pub fn gen_valid_profile_members(
           DeadCodeEliminationEffectfulStructuredPrefixProfile,
           1,
         ),
+      ]
+    RemoveUnusedBrsAllProfile =>
+      [
+        GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 3),
+        GenValidProfileMember::new(RemoveUnusedBrsSwitchProfile, 2),
+        GenValidProfileMember::new(RemoveUnusedBrsCleanupProfile, 1),
       ]
     SsaNomergeAllProfile =>
       [
@@ -1118,6 +1135,11 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     DeadCodeEliminationEffectfulStructuredPrefixProfile,
     DeadCodeEliminationAllProfile,
     HeapStoreOptimizationProfile,
+    RemoveUnusedBrsControlProfile,
+    RemoveUnusedBrsSwitchProfile,
+    RemoveUnusedBrsGcProfile,
+    RemoveUnusedBrsCleanupProfile,
+    RemoveUnusedBrsAllProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
@@ -1196,6 +1218,11 @@ pub fn gen_valid_profile_by_name(
     "dead-code-elimination" => Ok(DeadCodeEliminationAllProfile)
     "dead-code-elimination-closeout" => Ok(DeadCodeEliminationAllProfile)
     "hso" => Ok(HeapStoreOptimizationProfile)
+    "remove-unused-brs" => Ok(RemoveUnusedBrsAllProfile)
+    "remove-unused-brs-closeout" => Ok(RemoveUnusedBrsAllProfile)
+    "remove-unused-brs-all-profiles" => Ok(RemoveUnusedBrsAllProfile)
+    "rub" => Ok(RemoveUnusedBrsAllProfile)
+    "rub-closeout" => Ok(RemoveUnusedBrsAllProfile)
     "all-profiles" => Ok(RandomAllProfilesProfile)
     "random-profiles" => Ok(RandomAllProfilesProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
@@ -1607,6 +1634,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       )
     HeapStoreOptimizationProfile =>
       gen_valid_heap_store_optimization_profile_config()
+    RemoveUnusedBrsControlProfile
+    | RemoveUnusedBrsSwitchProfile
+    | RemoveUnusedBrsGcProfile
+    | RemoveUnusedBrsCleanupProfile =>
+      gen_valid_remove_unused_brs_profile_config(profile)
+    RemoveUnusedBrsAllProfile =>
+      gen_valid_remove_unused_brs_profile_config(RemoveUnusedBrsControlProfile)
     SsaNomergeCoverageProfile
     | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
@@ -2388,6 +2422,74 @@ fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
 }
 
 ///|
+fn gen_valid_remove_unused_brs_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let mut config = GenValidConfig::{
+    ..base,
+    max_type_defs: 6,
+    max_imports: 0,
+    max_defined_funcs: 2,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 1,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 2,
+    max_results: 1,
+    max_locals: 6,
+    max_body_statements: 10,
+    max_body_depth: 3,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: true,
+      allow_typed_body_generator: true,
+      allow_name_custom_sections: false,
+    },
+  }
+  match profile {
+    RemoveUnusedBrsSwitchProfile =>
+      config = GenValidConfig::{
+        ..config,
+        max_locals: 8,
+        max_body_statements: 14,
+        max_body_depth: 4,
+      }
+    RemoveUnusedBrsGcProfile =>
+      config = GenValidConfig::{
+        ..config,
+        max_type_defs: 10,
+        max_body_statements: 12,
+        features: GenValidFeatureToggles::{
+          ..config.features,
+          allow_ref_types: true,
+          allow_subtyping_topology: true,
+        },
+      }
+    RemoveUnusedBrsCleanupProfile =>
+      config = GenValidConfig::{
+        ..config,
+        max_defined_funcs: 3,
+        max_locals: 8,
+        max_body_statements: 14,
+      }
+    _ => ()
+  }
+  config
+}
+
+///|
 fn gen_valid_ssa_nomerge_profile_config(
   profile : GenValidProfile,
 ) -> GenValidConfig {
@@ -2455,6 +2557,15 @@ fn gen_valid_is_ssa_nomerge_family_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(SsaNomergeSmokeProfile) ||
   config == GenValidConfig::for_profile(SsaNomergeParityProfile) ||
   config == GenValidConfig::for_profile(SsaNomergeStressProfile)
+}
+
+///|
+fn gen_valid_is_remove_unused_brs_family_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(RemoveUnusedBrsControlProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsSwitchProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsCleanupProfile)
 }
 
 ///|
@@ -12949,7 +13060,8 @@ fn gen_valid_build_func(
   let body_instrs : Array[Instruction] = []
   if ctx.config.mode == CoverageForced &&
     !ctx.config.features.allow_ssa_nomerge_body_generator &&
-    !ctx.config.features.allow_heap_store_optimization_body_generator {
+    !ctx.config.features.allow_heap_store_optimization_body_generator &&
+    !gen_valid_is_remove_unused_brs_family_config(ctx.config) {
     gen_valid_append_coverage_prelude(body_instrs, ctx, env, returns)
   }
   let stmt_count = if ctx.config.mode == CoverageForced {

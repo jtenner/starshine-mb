@@ -2170,8 +2170,11 @@ fn hot_lower_impl_has_nonfallthrough_tail(body : Array[Instruction]) -> Bool {
 fn hot_lower_impl_instr_is_nonfallthrough(instr : Instruction) -> Bool {
   match instr {
     Return | Throw(_) | ThrowRef | Unreachable => true
-    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
-      hot_lower_impl_body_is_nonfallthrough(body)
+    Block(VoidBlockType, _) => false
+    Block(_, Expr(body)) => hot_lower_impl_body_is_nonfallthrough(body)
+    Loop(VoidBlockType, _) => false
+    Loop(_, Expr(body)) => hot_lower_impl_body_is_nonfallthrough(body)
+    If(VoidBlockType, _, _) => false
     If(_, then_, Some(else_)) =>
       hot_lower_impl_body_is_nonfallthrough(then_) &&
       hot_lower_impl_body_is_nonfallthrough(else_)
@@ -3457,10 +3460,13 @@ fn hot_lower_impl_instr_stops_following_body_instrs(
 ) -> Bool {
   match instr {
     Br(_) | BrTable(_, _) | Return | Throw(_) | ThrowRef | Unreachable => true
+    Block(VoidBlockType, _) => false
     Block(_, Expr(body)) =>
       hot_lower_impl_body_is_nonfallthrough(body) &&
       !hot_lower_impl_body_targets_removed_label(body, 0)
+    Loop(VoidBlockType, _) => false
     Loop(_, Expr(body)) => hot_lower_impl_body_is_nonfallthrough(body)
+    If(VoidBlockType, _, _) => false
     If(_, then_, Some(else_)) =>
       hot_lower_impl_body_is_nonfallthrough(then_) &&
       hot_lower_impl_body_is_nonfallthrough(else_)

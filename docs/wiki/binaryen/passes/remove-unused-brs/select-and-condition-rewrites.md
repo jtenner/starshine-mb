@@ -66,6 +66,7 @@ The pass supports more than trivial const arms. Current regressions cover:
 - local.get arms
 - i64 result arms
 - conditions containing `local.tee`
+- a boundary where a `local.tee` condition invalidates an arm local read, so selectification stays disabled
 - conditions involving calls when the ordering is still known to be safe
 - returned condition ladders with side-effect prefixes
 - costly integer `div`/`rem` arms staying as `if` at speed shrink level and becoming `select` under `shrink_level=1` when the cost threshold allows it
@@ -75,7 +76,7 @@ The crucial helper pair is:
 - `remove_unused_brs_build_region_value_expr(...)`
 - `remove_unused_brs_condition_is_select_safe_over_value_arms(...)`
 
-That pair is what keeps "selectify" from silently reordering side effects or local traffic.
+That pair is what keeps "selectify" from silently reordering side effects or local traffic. The 2026-06-29 value-legality audit in [`../../../raw/research/1378-2026-06-29-remove-unused-brs-final-value-legality-audit.md`](../../../raw/research/1378-2026-06-29-remove-unused-brs-final-value-legality-audit.md) added focused coverage for the local invalidation case and records unreachable-condition selectify as a HOT-lift tooling boundary until polymorphic unreachable conditions lift cleanly.
 
 ## Condition-Child Value-`if` Rewrites
 

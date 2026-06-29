@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-29
 sources:
   - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
@@ -10,6 +10,10 @@ sources:
   - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
+  - ../../../raw/research/1385-2026-06-29-remove-unused-brs-raw-gate-performance-refresh.md
+  - ../../../raw/research/1386-2026-06-29-remove-unused-brs-signoff-refresh.md
+  - ../../../raw/research/1387-2026-06-29-remove-unused-brs-dedicated-profile-and-final-regular.md
+  - ../../../raw/research/1388-2026-06-29-remove-unused-brs-dedicated-profile-validation-reduction.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -122,14 +126,14 @@ Those names are implementation details, but they are useful because they tie the
 
 The local pass does not yet model the upstream visitor families for:
 
-- the full GC `br_on_*` surface beyond the single-ref-child safe subset (`br_on_null`, `br_on_non_null`, successful `br_on_cast`, and not-taken `br_on_cast_fail`)
+- the full GC `br_on_*` surface beyond the current safe subset (`br_on_null`, `br_on_non_null`, successful/not-taken and non-null disjoint-failure `br_on_cast*`, selected branch-taking prefix payloads, the no-payload `SuccessOnlyIfNonNull` split, plus child-form ordinary unreachable-input `br_on_cast*` cleanup); note `1380` narrows the remaining GC entries to exact blockers/non-goals: the stack-payload fallthrough `SuccessOnlyIfNonNull` split needs `ChildLocalizer`/scratch-local repair, descriptor `br_on_cast_desc_eq*` needs local representation, broader fallthrough/local.tee cast insertion needs a localizer/refinalization proof, public stack-form unreachable-input cleanup remains blocked until child-form HOT exposure or raw proof exists, and nullable disjoint `SuccessOnlyIfNull` is a Binaryen `version_130` TODO
 - branch-hint propagation remains unsupported until Starshine grows expression-level code-metadata representation, parser/lowerer/binary policy, and pass-remap tests
-- the full `throw`/`try_table` cleanup family beyond the safe exact-catch and non-ref `catch_all` subset
-- final-optimizer behavior outside the completed `tablify` dense-ladder, late one-target value-switch collapse, direct `selectify`, local `restructureIf` self-branch, and local `optimizeSetIf` slices; metadata-aware variants are blocked on the branch-hint representation boundary
-- broader helper-driven motion checks around label scopes and unconditionalization
+- the full `throw`/`try_table` cleanup family beyond the safe exact-catch and non-ref `catch_all` subset; legacy old-`try` remains a representation/candidate-exposure boundary because public WAT lowering turns it into synthetic block/unreachable forms before RUB (note `1376`)
+- final-optimizer behavior outside the completed `tablify` dense-ladder, late one-target value-switch collapse, direct `selectify`, local `restructureIf` self-branch, local `optimizeSetIf`, the note `1377` same-value self-target `br_if` tail subset, the note `1378` value-legality boundary audit, the note `1379` stack-representation boundary audit, and the note `1382` final adjacent/self-target closeout; metadata-aware variants, unreachable-condition HOT-lift support, child-less stack-payload switch representation, and broader expression-equality/effect variants are accepted branch-hint/helper-proof/tooling boundaries with note `1383` reopening criteria
+- broader helper-driven motion checks around label scopes and unconditionalization, including JumpThreader table retargeting beyond the current nine-target guard after a broad 32-target probe regressed mostly-default switch cleanup; note `1381` adds a ten-target guard test and note `1383` keeps reopening criteria limited to a predicate that separates pure shell retargeting from early mostly-default switch cleanup
 - a literal AST-postwalk implementation inside one owner file
 
-That gap is intentional and documented so readers do not mistake the current local pass for a full upstream port.
+That gap is intentional and documented so readers do not mistake the current local pass for a full upstream port. As of notes `1385`-`1388`, RUB-Q is no longer open for a broad transform-family inventory, and the regular final `100000` direct compare lane is now complete and green. It remains open for one closeout blocker: the new `remove-unused-brs-all` dedicated GenValid profile is wired, but its compact control/switch/cleanup leaves expose a Starshine validation-failure family before comparison. Note `1388` reduced the first sample to a value-returning function whose full command path removes the trailing result suffix after a void structured block with stack-form `return`; focused HOT/lowering coverage was added, but the public CLI repro and dedicated `1000` rerun still fail. The current non-dedicated normalized progress lanes are mismatch-free, the completed regular `100000` lane is mismatch-free, and the bounded timing lane is pass-local faster than Binaryen on the O4z startup repro; fix the remaining full-pipeline dedicated-profile validation family before declaring final closeout.
 
 ## How to read this with the rest of the folder
 
