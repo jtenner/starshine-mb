@@ -27566,6 +27566,89 @@ fn run_hot_pipeline_raw_vacuum_instr_is_pure_drop_leaf(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instr_is_terminal_unreachable_debris(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Nop
+    | @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_) => true
+    @lib.Block(_, @lib.Expr([@lib.Unreachable])) => true
+    @lib.TryTable(@lib.VoidBlockType, _, @lib.Expr([])) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_pop_terminal_unreachable_debris(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut changed = false
+  let mut keep_going = true
+  while keep_going && instrs.length() > 0 {
+    let last_idx = instrs.length() - 1
+    if run_hot_pipeline_raw_vacuum_instr_is_terminal_unreachable_debris(
+        instrs[last_idx],
+      ) {
+      ignore(instrs.pop())
+      changed = true
+    } else {
+      keep_going = false
+    }
+  }
+  changed
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_has_terminal_unreachable_debris(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(body)
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(
+          then_body,
+        ) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(
+            body,
+          )
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    if idx > 0 &&
+      instr is @lib.Unreachable &&
+      run_hot_pipeline_raw_vacuum_instr_is_terminal_unreachable_debris(
+        instrs[idx - 1],
+      ) {
+      return true
+    }
+    if run_hot_pipeline_raw_vacuum_instr_has_terminal_unreachable_debris(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_pure_instr_operand_count(
   instr : @lib.Instruction,
 ) -> Int? {
@@ -27871,6 +27954,13 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             )
         }
       }
+      @lib.Unreachable => {
+        changed = run_hot_pipeline_raw_vacuum_pop_terminal_unreachable_debris(
+            rewritten,
+          ) ||
+          changed
+        rewritten.push(instr)
+      }
       _ => {
         match instr {
           @lib.Drop if rewritten.length() > 0 &&
@@ -27985,7 +28075,10 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     instrs,
   )
   let guarded_hot_hazard = has_writes && has_stack_effect
-  if instr_count <= 2048 && !guarded_hot_hazard {
+  let has_terminal_debris = run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(
+    instrs,
+  )
+  if instr_count <= 2048 && !guarded_hot_hazard && !has_terminal_debris {
     return None
   }
   let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(instrs)

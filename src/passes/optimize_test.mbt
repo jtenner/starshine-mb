@@ -1415,6 +1415,122 @@ test "vacuum cleans simplify-locals structured return residue in the late cleanu
 }
 
 ///|
+fn vacuum_test_raw_func_module(
+  results : Array[@lib.ValType],
+  locals : @lib.Locals,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], results)),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([@lib.Func::new(locals, @lib.Expr::new(body))]),
+  )
+}
+
+///|
+test "vacuum removes pure scalar stack debris before root unreachable" {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(
+        "(module (func (result i64) (local i32 f32) nop i32.const 2129477294 f32.const 0 unreachable))",
+      ),
+      HotPipelineOptions::new(),
+      ["vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected vacuum scalar/unreachable cleanup success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar/unreachable module to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("nop"), msg=pretty)
+  assert_false(pretty.contains("i32.const 2129477294"), msg=pretty)
+  assert_false(pretty.contains("f32.const"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "vacuum removes pure scalar typed block debris before root unreachable" {
+  let optimized = match
+    run_hot_pipeline(
+      vacuum_test_raw_func_module([@lib.ValType::i32()], @lib.Locals::empty(), [
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i64()),
+          @lib.Expr::new([
+            @lib.Instruction::f64_const(@lib.F64(0.0)),
+            @lib.Instruction::unreachable_(),
+          ]),
+        ),
+        @lib.Instruction::unreachable_(),
+      ]),
+      HotPipelineOptions::new(),
+      ["vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail(
+        "expected vacuum typed-block/unreachable cleanup success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected typed-block/unreachable module to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.const I32(0)"), msg=pretty)
+  assert_false(pretty.contains("f64.const"), msg=pretty)
+  assert_false(pretty.contains("block I64"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "vacuum removes empty try_table debris before root unreachable" {
+  let optimized = match
+    run_hot_pipeline(
+      vacuum_test_raw_func_module([], @lib.Locals::empty(), [
+        @lib.Instruction::f32_const(@lib.F32(0.0)),
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [
+            @lib.Catch::all(@lib.LabelIdx::new(0U)),
+            @lib.Catch::all(@lib.LabelIdx::new(0U)),
+          ],
+          @lib.Expr::new([]),
+        ),
+        @lib.Instruction::unreachable_(),
+      ]),
+      HotPipelineOptions::new(),
+      ["vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected vacuum try_table/unreachable cleanup success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected try_table/unreachable module to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("f32.const"), msg=pretty)
+  assert_false(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
 test "vacuum roundtrips dead simd prefixes before unreachable" {
   let optimized = match
     run_hot_pipeline(
