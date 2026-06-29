@@ -3398,6 +3398,33 @@ fn gen_valid_test_oi_memory_bulk_trigger_signature(
 }
 
 ///|
+fn gen_valid_test_tuple_helper_has_trap(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      if funcs.length() > 1 {
+        let Func(_, Expr(body)) = funcs[1]
+        for instr in body {
+          match instr {
+            I64DivS | I64DivU | I32DivS | I32DivU => return true
+            _ => ()
+          }
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_tuple_sibling_signature(mod_ : Module) -> String {
+  if gen_valid_test_tuple_helper_has_trap(mod_) {
+    "trapping-sibling-selected"
+  } else {
+    "effectful-sibling-selected"
+  }
+}
+
+///|
 fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
   let instrs = gen_valid_test_first_func_instrs(mod_)
   if instrs.length() >= 28 {
@@ -3411,7 +3438,7 @@ fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
           _ =>
             if body.length() > 1 {
               match body[1] {
-                Call(_) => "effectful-sibling-selected"
+                Call(_) => gen_valid_test_tuple_sibling_signature(mod_)
                 _ => "direct-selected"
               }
             } else {
@@ -3424,7 +3451,7 @@ fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
           _ =>
             if body.length() > 1 {
               match body[1] {
-                Call(_) => "effectful-sibling-selected"
+                Call(_) => gen_valid_test_tuple_sibling_signature(mod_)
                 _ => "direct-selected"
               }
             } else {
@@ -3480,6 +3507,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let trapping_sibling = match
+    gen_valid_module_result_from_seed(
+      0x5ef2UL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -3502,6 +3537,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Some("oi-tuple:effectful-sibling-selected-lane"),
   )
   @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5ef2UL),
+    Some("oi-tuple:trapping-sibling-selected-lane"),
+  )
+  @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(all_results.wasm_module),
     "all-results",
   )
@@ -3520,6 +3559,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(effectful_sibling.wasm_module),
     "effectful-sibling-selected",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(trapping_sibling.wasm_module),
+    "trapping-sibling-selected",
   )
 }
 

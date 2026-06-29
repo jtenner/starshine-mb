@@ -14897,7 +14897,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 24
-    PassOiTupleProfile => 5
+    PassOiTupleProfile => 6
     _ => 3
   }
 }
@@ -14967,7 +14967,8 @@ fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
     0x5eefUL => 0
     0x5ef0UL => 3
     0x5ef1UL => 4
-    _ => (seed % 5UL).to_int()
+    0x5ef2UL => 5
+    _ => (seed % 6UL).to_int()
   }
 }
 
@@ -15048,6 +15049,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         2 => Some("oi-tuple:local-carried-selected-lane")
         3 => Some("oi-tuple:call-produced-selected-lane")
         4 => Some("oi-tuple:effectful-sibling-selected-lane")
+        5 => Some("oi-tuple:trapping-sibling-selected-lane")
         _ => Some("oi-tuple:direct-selected-lane")
       }
     PassOiMemoryBulkProfile =>
@@ -16360,7 +16362,7 @@ fn gen_valid_oi_tuple_block_body(case : Int) -> Expr {
       Instruction::f32_const(F32(Float::from_double(33.0))),
       Instruction::f64_const(F64(44.0)),
     ]
-  } else if case == 4 {
+  } else if case == 4 || case == 5 {
     [
       Instruction::i32_const(I32(11)),
       Instruction::call(FuncIdx::new(1U)),
@@ -16417,7 +16419,7 @@ fn gen_valid_oi_tuple_selected_lane_prefix(
 ///|
 fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
   let func_type = gen_valid_precompute_void_func_type()
-  let helper_result_type = if case == 4 {
+  let helper_result_type = if case == 4 || case == 5 {
     ValType::i64()
   } else {
     ValType::i32()
@@ -16428,7 +16430,7 @@ fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
   let block_type = RecType::new(
     SubType::comp_type(CompType::func([], gen_valid_oi_tuple_result_types())),
   )
-  let has_helper = case == 3 || case == 4
+  let has_helper = case == 3 || case == 4 || case == 5
   let type_defs = if has_helper {
     [func_type, helper_func_type, block_type]
   } else {
@@ -16450,6 +16452,12 @@ fn gen_valid_oi_tuple_profile_module(case : Int) -> Module {
         Instruction::i64_const(I64(123L)),
         Instruction::global_set(GlobalIdx::new(0U)),
         Instruction::i64_const(I64(22L)),
+      ]
+    } else if case == 5 {
+      [
+        Instruction::i64_const(I64(1L)),
+        Instruction::i64_const(I64(0L)),
+        Instruction::i64_div_s(),
       ]
     } else {
       [Instruction::i32_const(I32(77))]
