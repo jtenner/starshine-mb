@@ -2271,7 +2271,7 @@ test "gen-valid batch applies OI memory-size-boundary to memory64 candidates" {
   }
   let manifest = format_gen_valid_batch_manifest_json(args, selection)
   assert_true(manifest.contains("\"transform_id\":\"oi-memory-size-boundary\""))
-  assert_true(manifest.contains("oi-memory-bulk:memory64-dynamic-bulk"))
+  assert_true(manifest.contains("oi-memory-bulk:memory64-fill-restore-read"))
 }
 
 ///|

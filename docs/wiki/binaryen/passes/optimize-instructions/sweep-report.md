@@ -223,7 +223,7 @@ canonical-size Starshine-win candidates with raw-size residuals, not OI-G family
 closure. All 20 fix4 raw/canonical outputs validate.
 
 `pass-oi-memory-bulk` is now stronger than a broad smoke config and stronger
-than the earlier three-case trigger smoke. It emits fifteen OI-G
+than the earlier three-case trigger smoke. It emits seventeen OI-G
 trigger-smoke-plus cases: live private-global plus dead-trap boundaries, direct
 i32 tiny-bulk and load/store lowering, memory64 dynamic/local-carried bulk
 operands, no-param-call/existing-producer-wrapped tiny bulk, narrow-store masks,
@@ -234,39 +234,32 @@ copy/read addresses, seed-derived memory64 private-destination cross-memory
 random-address copy/read addresses, seed-derived source-visible cross-memory
 copy/read with destination-byte restore, seed-derived memory64 source-visible
 cross-memory copy/read with destination-byte restore, a Node-runtime-compatible
-single-memory restore/copy/read exported function with active data, and a source-visible
-shared-memory wait/notify/load exported function. The focused
-generator test failed red-first first on missing OI-G labels, then on the missing
-three expanded labels, then on the missing multi-memory label/signature, then on
-the missing random-address-copy-read label/signature, then on the missing
+single-memory restore/copy/read exported function with active data, a source-visible
+shared-memory wait/notify/load exported function, a Node-runtime-compatible
+single-memory fill/restore/read exported function with active data, and a
+memory64 fill/restore/read function with active data. The focused generator test
+failed red-first first on missing OI-G labels, then on the missing three expanded
+labels, then on the missing multi-memory label/signature, then on the missing
+random-address-copy-read label/signature, then on the missing
 multi-memory-random-address-copy-read, cross-memory-random-address,
 memory64-cross-memory-random-address, cross-memory-restore,
-memory64-cross-memory-restore, and runtime-compatible restore labels/signatures
-before implementation; it now passes. The latest runtime-restore grouped run at
-`.tmp/oi-g-runtime-restore-count336-20260629` compares 177/336
-transform-applicable cases with 155 normalized matches, 22 mismatches, and zero
-validation, generator, property, or command failures;
-`oi-memory-bulk:runtime-restore-copy-read` has 15/15 matches. The prior
-post-memory64-restore grouped run at
-`.tmp/oi-g-memory64-cross-memory-restore-count312-20260629` remains the latest
-memory64 source-visible restore aggregate: it compared 201/312 transform-applicable
-cases with 179 normalized matches, zero failures, and
-`oi-memory-bulk:memory64-cross-memory-restore-copy-read` 11/11 matches. Count-288
-remains the first i32 source-visible restore evidence, count-264 remains the latest
-pre-restore aggregate, and count-198 remains the first non-primary random-address
-evidence. A targeted `--runtime-execution node` follow-up at
-`.tmp/oi-g-memory64-cross-memory-restore-runtime-count65-20260629` compared
-65/65 with 60 normalized matches and zero runtime semantic failures, but the
-runtime matrix was blocked (`checked=36`, `unsupported=29`, `failed=0`). The
-exact singleton restore seeds `0x5ef8` and `0x5ef9` each normalized 1/1 and each
-reported `unsupported=1`, so exact cross-memory runtime source-visible restore
-execution remains open until the modules are executable under a compatible
-adapter/export path. The new `.tmp/oi-g-runtime-restore-count14-20260629` direct
-runtime lane adds a separate executable restore contract: it compared 14/14 with
-13 normalized matches, one known store-mask mismatch, zero failures, and runtime
-matrix `equalResults=1`, `unsupportedRuntimes=8`, `semanticMismatches=0`; that is
-runtime-compatible same-memory restore evidence only, not exact cross-memory or
-memory64 runtime closure.
+memory64-cross-memory-restore, runtime-compatible restore, shared-wait-notify,
+runtime-compatible fill/restore, and memory64 fill/restore labels/signatures
+before implementation; it now passes. The latest grouped run at
+`.tmp/oi-g-memory64-fill-restore-count459-20260629` compares 459/459 cases with
+411 normalized matches, 48 mismatches, and zero validation, generator, property,
+or command failures. The new `oi-memory-bulk:memory64-fill-restore-read` label
+samples 28 grouped cases with 27 matches; the one residual is the known
+`oi-commuted-operands` dropped pure reverse `i32.eq(42, 7)` cleanup rather than
+memory64 fill/load/store/restore drift. Direct count17 at
+`.tmp/oi-g-memory64-fill-restore-count17-20260629` normalizes 17/17 with zero
+failures. Manual validation/size review over the 48 grouped failure dirs
+validates 192 Binaryen/Starshine raw/normalized wasm artifacts and finds zero
+validation failures and zero Starshine-larger raw, canonical-wasm, or
+normalized-WAT dirs. The prior `.tmp/oi-g-runtime-fill-restore-count425-20260629`
+remains the runtime-compatible single-memory fill/restore evidence; exact
+cross-memory or memory64 runtime execution remains open until those modules are
+executable under a compatible adapter/export path.
 
 The grouped run after adding the non-primary/private-memory atomic-load transform is `.tmp/oi-g-second-atomic-count350-20260629`. It compares 192/350 transform-applicable cases with 172 normalized matches, 20 mismatches, zero validation/generator/property/command failures, and `oi-live-nonzero-memory-second-atomic-boundary` 10/10 matches. That transform uses an existing non-primary memory or appends a private nonzero memory, guards `memory.size != 0`, and performs byte atomic loads/drops at bytes 17, 1024, 49152, and 65535; it is non-mutating except for private memory creation, so it is sampled non-primary/private-memory atomic-load evidence only. Manual validation/size review of all 20 failure dirs found zero validation failures, zero normalized-WAT-larger Starshine dirs, and two unrelated raw-size-larger residual dirs under `oi-memory-size-boundary`/`oi-commuted-operands`.
 
@@ -284,6 +277,8 @@ The `.tmp/oi-g-memory-commuted-operands-fix-count400-20260629` refresh adds `oi-
 The `.tmp/oi-g-shared-wait-notify-profile-count375-20260629` refresh adds the fifteenth `pass-oi-memory-bulk` profile case, `oi-memory-bulk:shared-wait-notify`, as source-visible shared-memory wait/notify/load source evidence. The focused generator test failed red-first at seed `0x5efb` because the seed still selected the old multi-memory case, then passed after `src/validate/gen_valid.mbt` added a shared memory with `min=max=1`, exported `run` and `memory`, emitted `memory.atomic.notify`, nonblocking `memory.atomic.wait32`/`wait64` with mismatching expected values and timeout `0`, and reloaded the shared memory. Direct runtime count15 at `.tmp/oi-g-shared-wait-notify-profile-count15-20260629` compared 15/15 with 15 normalized matches, zero mismatches/failures, and sampled the new label 1/1; runtime remained blocked by unsupported cases (`checked=8`, `unsupported=7`, `failed=0`). Grouped count375 compared 375/375 with 329 normalized matches, 46 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 172/203. The new label sampled 25 cases with 22 matches and three residuals, all from `oi-commuted-operands` dropped pure reverse `i32.eq(42, 7)` cleanup rather than wait/notify, shared-memory, export, or memory-index drift. Manual validation/size review over all 46 failure dirs found zero validation failures and zero Starshine-larger raw or normalized-WAT dirs. This is not true shared-memory ordering/concurrency, blocking wait behavior, source-visible imported-memory closure, OI-G closure, or OI-J descriptor evidence.
 
 The `.tmp/oi-g-runtime-fill-restore-count425-20260629` refresh adds the sixteenth `pass-oi-memory-bulk` profile case, `oi-memory-bulk:runtime-fill-restore-read`, as Node-runtime-compatible single-memory `memory.fill` restore evidence. The focused generator test failed red-first at seed `0x5efc` because the case label/body did not exist, then passed after `src/validate/gen_valid.mbt` added an exported no-arg `run` function that saves a destination byte, performs length-1 `memory.fill`, reads the filled byte, restores the saved byte, and returns the filled value. Direct runtime count16 compared 16/16 with 15 normalized matches, one known store-mask mismatch, zero validation/generator/property/command/runtime semantic failures, runtime counters `checked=9`, `unsupported=7`, `failed=0`, and the new label 1/1 matched. Grouped count425 compared 425/425 with 377 normalized matches, 48 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 222/203. The new label sampled 26 cases with 24 matches and two residuals, both `oi-commuted-operands` dropped pure reverse `i32.eq(42, 7)` cleanup; representative case 000026 has no `memory.fill`, load, store, export, or restore drift. Manual validation/size review over all 48 failure dirs validated 192 Binaryen/Starshine raw/normalized wasm artifacts and found zero validation failures, zero raw-size-larger Starshine dirs, and zero normalized-WAT-larger Starshine dirs. This is runtime-compatible single-memory fill/restore/read evidence only, not multi-memory/memory64 fill runtime closure, broad source-visible mutation closure, true live trap-order closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
+
+The `.tmp/oi-g-memory64-fill-restore-count459-20260629` refresh adds the seventeenth `pass-oi-memory-bulk` profile case, `oi-memory-bulk:memory64-fill-restore-read`, as memory64 fill/restore/read source evidence. The focused generator test failed red-first at seed `0x5efd` because the label/body did not exist, then passed after `src/validate/gen_valid.mbt` added a memory64 active-data function that saves a destination byte, performs length-1 `memory.fill` with i64 address/size operands, reads the filled byte, restores it with `i64.store8`, and returns the filled value. Direct count17 compared 17/17 with 17 normalized matches and zero validation/generator/property/command failures. Grouped count459 compared 459/459 with 411 normalized matches, 48 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 244/215. The new label sampled 28 cases with 27 matches and one residual, an `oi-commuted-operands` dropped pure reverse `i32.eq(42, 7)` cleanup; representative case 000194 preserves memory64 active data plus fill/read/restore behavior on both tools. Manual validation/size review over all 48 failure dirs validated 192 Binaryen/Starshine raw/normalized wasm artifacts and found zero validation failures and zero Starshine-larger raw, canonical-wasm, or normalized-WAT dirs. This is sampled memory64 fill/restore/read evidence only, not multi-memory fill runtime closure, broad source-visible mutation closure, true live trap-order closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
 
 A classification refresh of the atomic wait/notify root used `--summarize-existing` plus representative WAT/size inspection to pin that residual shape before choosing another code change. Profile-case grouping is now explicit: store-mask-boundaries is 13/13 mismatches; memory64-dynamic-bulk is 7/9 matches with two commuted residuals; memory64-cross-memory-random-address-copy-read is 12/14 with two commuted residuals; multi-memory-bulk is 13/15 with two commuted residuals; multi-memory-random-address-copy-read is 13/16 with three commuted residuals; all other sampled profile cases match. The store-mask representatives differ only by Binaryen retaining `i64.and 255` before `i64.store8` while Starshine stores the same low byte directly, including atomic/fill/trap wrappers without atomic opcode or memory-index drift. The commuted representatives differ only by Starshine folding a dropped pure reverse `i32.eq(42, 7)` to `i32.const 0` while Binaryen keeps it. These remain sampled Starshine-win candidates with reopening criteria, not family closure.
 
