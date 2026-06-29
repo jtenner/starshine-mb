@@ -217,7 +217,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   @debug.assert_eq(tuple.name, "tuple-optimization")
   @debug.assert_eq(@ir.hot_pass_requires(tuple), [@ir.HotAnalysis::use_def()])
   @debug.assert_eq(hso.name, "heap-store-optimization")
-  assert_true(@ir.hot_pass_requires(hso).contains(@ir.HotAnalysis::effects()))
+  @debug.assert_eq(@ir.hot_pass_requires(hso), [])
   @debug.assert_eq(h2l.name, "heap2local")
   @debug.assert_eq(@ir.hot_pass_requires(h2l), [@ir.HotAnalysis::use_def()])
   @debug.assert_eq(oc.name, "optimize-casts")

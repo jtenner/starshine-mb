@@ -1,8 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-25
+last_reviewed: 2026-06-29
 sources:
+  - ../../../raw/research/1357-2026-06-29-heap-store-optimization-final-closeout.md
+  - ../../../raw/research/1356-2026-06-29-heap-store-optimization-raw-plain-fastpath.md
+  - ../../../raw/research/1355-2026-06-29-heap-store-optimization-tiny-plain-fastpath.md
+  - ../../../raw/research/1354-2026-06-29-heap-store-optimization-hot-candidate-speed-rerun.md
   - ../../../raw/research/1139-2026-06-25-heap-store-optimization-hot-candidate-benchmark.md
   - ../../../raw/research/1138-2026-06-25-heap-store-optimization-final-closeout.md
   - ../../../raw/research/1137-2026-06-25-heap-store-optimization-final-compare-matrix.md
@@ -354,9 +358,9 @@ It is a narrow GC constructor/store cleanup pass.
 
 ## Current closeout status
 
-- Direct `heap-store-optimization` closeout is reopened by `1139`. The `1138` closeout is retained as historical validation/compare/O4z evidence, but its speed conclusion was too narrow because it relied on raw complete-default-chain skip behavior.
-- Proper HOT-path candidate benchmarking in `1139` uses a 2000-function plain `struct.new` fixture that does not raw-skip. Starshine pass-local median was `10.738ms` versus Binaryen `1.036ms`, about `10.365x` slower and only `0.096x` Binaryen speed. The user's `0.95x` speed target would require about `<=1.091ms` Starshine median on this fixture.
-- Behavior-parity and validation evidence from `1109`, `1113`, `1136`, and `1137` remains useful, but HSO-I/HOT-path performance and HSO-J final closeout are active again until a proper candidate-running benchmark meets the speed target or the user explicitly accepts a narrower speed scope.
+- Direct `heap-store-optimization` is closed again by `1357` for the current Binaryen `version_130` audit scope. The `1138` closeout remains historical evidence but is superseded by `1139` for its original speed conclusion; `1357` supersedes that reopened status with fresh speed and compare evidence.
+- The reopened HOT-path benchmark uses `.tmp/hso-hot-plain-struct-new-candidates-2000-20260625.wat`, a 2000-function plain `struct.new` candidate fixture that does not raw-skip. `1139` measured Starshine median `10.738ms` versus Binaryen `1.036ms`; `1354` reconfirmed the blocker; `1355` improved to `6.881ms` versus Binaryen `1.110ms`; and `1356` closed the blocker with a raw/lowered exact plain-chain path at Starshine `0.781ms` versus Binaryen `1.366ms`, meeting the user's `0.95x` target while reporting raw-skip `no` and keeping normalized/canonical outputs equal.
+- Behavior-parity and validation evidence from `1109`, `1113`, `1136`, `1137`, and the refreshed `1357` full compare matrix is green. Reopen only for a new HSO-owned mismatch/validation failure, Binaryen source drift, a broader speed-family miss, or a future raw-fast-path widening without equivalent safety proof.
 
 ## Why this pass matters
 

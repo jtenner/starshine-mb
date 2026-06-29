@@ -2,7 +2,8 @@
 pub fn heap_store_optimization_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
     "heap-store-optimization",
-    requires=[@ir.HotAnalysis::effects()],
+    // Effects are required lazily after the tiny pure root fast path misses.
+    requires=[],
     invalidates=[
       @ir.HotAnalysis::cfg(),
       @ir.HotAnalysis::dominance(),
@@ -3673,12 +3674,86 @@ fn hso_region_roots(
 }
 
 ///|
+fn hso_fast_chain_leaf(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if @ir.hot_child_count(func, node_id) != 0 {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Const | @ir.HotOp::RefNull => true
+    _ => false
+  }
+}
+
+///|
+fn hso_try_fold_pure_plain_struct_set_chain(
+  func : @ir.HotFunc,
+  roots : Array[Int],
+  idx : Int,
+  root_id : Int,
+  local_id : Int,
+  struct_new_id : Int,
+  type_idx : @lib.TypeIdx,
+) -> (Array[Int], Int)? {
+  let exact_type_idx = match @ir.hot_node_exact_instr(func, struct_new_id) {
+    Some(@lib.Instruction::StructNew(exact_type_idx)) => exact_type_idx
+    _ => return None
+  }
+  if exact_type_idx != type_idx {
+    return None
+  }
+  let field_count = @ir.hot_child_count(func, struct_new_id)
+  if field_count == 0 {
+    return None
+  }
+  for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
+    if !hso_fast_chain_leaf(
+        func,
+        @ir.hot_child_get(func, struct_new_id, field_idx),
+      ) {
+      return None
+    }
+  }
+  let replacements : Array[Int] = Array::make(field_count, -1)
+  let mut next_idx = idx + 1
+  let mut set_count = 0
+  while next_idx < roots.length() {
+    let (field_idx, _, value_id) = match
+      hso_struct_set_for_local(func, roots[next_idx], local_id, type_idx) {
+      Some(parts) => parts
+      None => break
+    }
+    if field_idx < 0 || field_idx >= field_count {
+      return None
+    }
+    if !hso_fast_chain_leaf(func, value_id) {
+      return None
+    }
+    replacements[field_idx] = value_id
+    set_count = set_count + 1
+    next_idx = next_idx + 1
+  }
+  if set_count < 2 {
+    return None
+  }
+  for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
+    if replacements[field_idx] >= 0 {
+      @ir.hot_child_set(func, struct_new_id, field_idx, replacements[field_idx])
+    }
+  }
+  Some(([root_id], next_idx))
+}
+
+///|
 fn hso_try_fold_pure_default_struct_set_chain(
   type_cache : HsoTypeCache,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext?,
   roots : Array[Int],
   idx : Int,
+  root_id : Int,
   local_id : Int,
   struct_new_id : Int,
   type_idx : @lib.TypeIdx,
@@ -3712,12 +3787,8 @@ fn hso_try_fold_pure_default_struct_set_chain(
     if field_idx < 0 || field_idx >= field_count {
       return None
     }
-    if @ir.hot_child_count(func, value_id) != 0 {
+    if !hso_fast_chain_leaf(func, value_id) {
       return None
-    }
-    match @ir.hot_node_get(func, value_id).op {
-      @ir.HotOp::Const | @ir.HotOp::RefNull => ()
-      _ => return None
     }
     if replacements[field_idx] < 0 {
       missing_count = missing_count - 1
@@ -3756,7 +3827,85 @@ fn hso_try_fold_pure_default_struct_set_chain(
     @lib.Instruction::struct_new(type_idx),
   )
   ignore(@ir.hot_replace_child_span(func, struct_new_id, children))
-  Some(([roots[idx]], next_idx))
+  Some(([root_id], next_idx))
+}
+
+///|
+fn hso_plain_local_set_struct_new_fast(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> (Int, Int, @lib.TypeIdx, Int)? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return None
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let struct_new_id = @ir.hot_child_get(func, node_id, 0)
+  let type_idx = match @ir.hot_node_exact_instr(func, struct_new_id) {
+    Some(@lib.Instruction::StructNew(type_idx)) => type_idx
+    _ => return None
+  }
+  let field_count = @ir.hot_child_count(func, struct_new_id)
+  if field_count == 0 {
+    return None
+  }
+  for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
+    if !hso_fast_chain_leaf(
+        func,
+        @ir.hot_child_get(func, struct_new_id, field_idx),
+      ) {
+      return None
+    }
+  }
+  Some((node.imm0, struct_new_id, type_idx, field_count))
+}
+
+///|
+fn hso_try_fold_tiny_pure_plain_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  if @ir.hot_region_root_count(func, region_ref) != 3 {
+    return false
+  }
+  let root0 = @ir.hot_region_get(func, region_ref, 0)
+  let root1 = @ir.hot_region_get(func, region_ref, 1)
+  let root2 = @ir.hot_region_get(func, region_ref, 2)
+  let (local_id, struct_new_id, type_idx, field_count) = match
+    hso_plain_local_set_struct_new_fast(func, root0) {
+    Some(parts) => parts
+    None => return false
+  }
+  let (field_idx1, _, value_id1) = match
+    hso_struct_set_for_local(func, root1, local_id, type_idx) {
+    Some(parts) => parts
+    None => return false
+  }
+  let (field_idx2, _, value_id2) = match
+    hso_struct_set_for_local(func, root2, local_id, type_idx) {
+    Some(parts) => parts
+    None => return false
+  }
+  if field_idx1 < 0 ||
+    field_idx1 >= field_count ||
+    field_idx2 < 0 ||
+    field_idx2 >= field_count {
+    return false
+  }
+  if !hso_fast_chain_leaf(func, value_id1) ||
+    !hso_fast_chain_leaf(func, value_id2) {
+    return false
+  }
+  @ir.hot_child_set(func, struct_new_id, field_idx1, value_id1)
+  @ir.hot_child_set(func, struct_new_id, field_idx2, value_id2)
+  ignore(@ir.hot_region_splice(func, region_ref, 1, 2, []))
+  true
 }
 
 ///|
@@ -3777,8 +3926,16 @@ fn hso_process_local_set_chain(
   external_roots : Array[Int],
 ) -> (Array[Int], Int, Bool) {
   match
+    hso_try_fold_pure_plain_struct_set_chain(
+      func, roots, idx, root_id, local_id, struct_new_id, type_idx,
+    ) {
+    Some((segment_roots, next_idx)) => return (segment_roots, next_idx, true)
+    None => ()
+  }
+  match
     hso_try_fold_pure_default_struct_set_chain(
-      type_cache, func, module_ctx, roots, idx, local_id, struct_new_id, type_idx,
+      type_cache, func, module_ctx, roots, idx, root_id, local_id, struct_new_id,
+      type_idx,
     ) {
     Some((segment_roots, next_idx)) => return (segment_roots, next_idx, true)
     None => ()
@@ -3932,6 +4089,9 @@ fn hso_process_region(
   owner_id : Int?,
   external_roots : Array[Int],
 ) -> Bool {
+  if hso_try_fold_tiny_pure_plain_region(func, region_ref) {
+    return true
+  }
   let roots = hso_region_roots(func, region_ref)
   let mut changed = false
 
@@ -4064,6 +4224,10 @@ fn heap_store_optimization_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  if hso_try_fold_tiny_pure_plain_region(func, @ir.HotRegionRef::root()) {
+    pass_mark_mutated(ctx, func)
+    return HotPassResult::changed()
+  }
   let effects = pass_require_effects(ctx, func)
   let predicate_cache = hso_new_predicate_cache()
   let type_cache = hso_new_type_cache()

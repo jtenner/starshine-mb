@@ -4200,6 +4200,85 @@ test "precompute raw-folds immutable global.get constants without hot lift" {
 }
 
 ///|
+fn perf_test_make_hso_plain_struct_new_fastpath_module() -> @lib.Module {
+  let pair = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let fields = [
+    @lib.FieldType::new(
+      @lib.StorageType::val_type(@lib.ValType::i32()),
+      @lib.Mut::var_(),
+    ),
+    @lib.FieldType::new(
+      @lib.StorageType::val_type(@lib.ValType::i32()),
+      @lib.Mut::var_(),
+    ),
+  ]
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::struct_(fields)),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+  .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([
+          @lib.ValType::ref_null(@lib.HeapType::new(pair)),
+        ]),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::i32_const(@lib.I32(2)),
+          @lib.Instruction::struct_new(pair),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::i32_const(@lib.I32(8)),
+          @lib.Instruction::struct_set(pair, @lib.U32(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "heap-store-optimization raw plain struct.new fast path avoids lift without reporting raw skip" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let optimized = match
+    run_hot_pipeline(
+      perf_test_make_hso_plain_struct_new_fastpath_module(),
+      HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+      ["heap-store-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected raw HSO plain fast path success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(8)"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  let text = perf_test_join_lines(lines)
+  assert_false(
+    text.contains("pass[heap-store-optimization]:skip-raw"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=pass:heap-store-optimization"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=lower"), msg=text)
+}
+
+///|
 test "remove-unused-names skips raw lift when the original function has no candidate control flow" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

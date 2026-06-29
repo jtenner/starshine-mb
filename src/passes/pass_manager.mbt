@@ -7212,6 +7212,113 @@ fn run_hot_pipeline_hso_raw_simple_value(
 }
 
 ///|
+fn run_hot_pipeline_raw_heap_store_optimization_plain_struct_new_chain(
+  mod_ : @lib.Module,
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool)? {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut cursor = 0
+  let mut scan_idx = 0
+  let mut changed = false
+  while scan_idx + 1 < instrs.length() {
+    match (instrs[scan_idx], instrs[scan_idx + 1]) {
+      (
+        @lib.StructNew(type_idx),
+        @lib.LocalSet(@lib.LocalIdx(local_raw)) as local_set,
+      ) => {
+        let field_count = match
+          run_hot_pipeline_hso_raw_struct_field_count(mod_, type_idx) {
+          Some(count) if count > 0 => count
+          _ => {
+            scan_idx = scan_idx + 1
+            continue
+          }
+        }
+        let value_start = scan_idx - field_count
+        if value_start < cursor {
+          scan_idx = scan_idx + 1
+          continue
+        }
+        let values : Array[@lib.Instruction?] = Array::make(field_count, None)
+        let mut simple_constructor = true
+        for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
+          match
+            run_hot_pipeline_hso_raw_simple_value(
+              instrs[value_start + field_idx],
+            ) {
+            Some(value) => values[field_idx] = Some(value)
+            None => simple_constructor = false
+          }
+        }
+        if !simple_constructor {
+          scan_idx = scan_idx + 1
+          continue
+        }
+        let mut chain_idx = scan_idx + 2
+        let mut consumed_sets = 0
+        while chain_idx + 2 < instrs.length() {
+          match
+            (instrs[chain_idx], instrs[chain_idx + 1], instrs[chain_idx + 2]) {
+            (
+              @lib.LocalGet(@lib.LocalIdx(read_raw)),
+              value_instr,
+              @lib.StructSet(set_type_idx, @lib.U32(raw_field_idx)),
+            ) if read_raw == local_raw && set_type_idx == type_idx => {
+              let field_idx = raw_field_idx.reinterpret_as_int()
+              if field_idx < 0 || field_idx >= field_count {
+                break
+              }
+              match run_hot_pipeline_hso_raw_simple_value(value_instr) {
+                Some(value) => {
+                  values[field_idx] = Some(value)
+                  consumed_sets = consumed_sets + 1
+                  chain_idx = chain_idx + 3
+                  continue
+                }
+                None => break
+              }
+            }
+            _ => break
+          }
+        }
+        if consumed_sets >= 2 {
+          for idx = cursor; idx < value_start; idx = idx + 1 {
+            rewritten.push(instrs[idx])
+          }
+          for field_idx = 0; field_idx < field_count; field_idx = field_idx + 1 {
+            match values[field_idx] {
+              Some(value) => rewritten.push(value)
+              None => return None
+            }
+          }
+          rewritten.push(@lib.Instruction::struct_new(type_idx))
+          rewritten.push(local_set)
+          cursor = chain_idx
+          scan_idx = chain_idx
+          changed = true
+          continue
+        }
+      }
+      _ => ()
+    }
+    scan_idx = scan_idx + 1
+  }
+  if !changed {
+    return None
+  }
+  for idx = cursor; idx < instrs.length(); idx = idx + 1 {
+    rewritten.push(instrs[idx])
+  }
+  let (has_local_writes, has_struct_alloc, has_struct_set) = run_hot_pipeline_hso_candidate_scan(
+    rewritten,
+  )
+  if has_local_writes && has_struct_alloc && has_struct_set {
+    return None
+  }
+  Some((rewritten, true))
+}
+
+///|
 fn run_hot_pipeline_raw_heap_store_optimization_complete_default_chain(
   mod_ : @lib.Module,
   instrs : Array[@lib.Instruction],
@@ -23818,12 +23925,36 @@ fn run_hot_pipeline_raw_heap_store_optimization(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "heap-store-optimization" {
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let plain_start_us = perf_start_timer_opt(
+    options.perf,
+    "pass:heap-store-optimization",
+  )
+  match
+    run_hot_pipeline_raw_heap_store_optimization_plain_struct_new_chain(
+      mod_, instrs,
+    ) {
+    Some((rewritten, changed)) => {
+      perf_stop_timer_opt(
+        options.perf,
+        "pass:heap-store-optimization",
+        plain_start_us,
+      )
+      return Some({
+        reason: "raw-plain-struct-new-heap-store-chain",
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+        unchanged_original: !changed,
+        trace_skip_raw: false,
+      })
+    }
+    None => ()
+  }
   match
     run_hot_pipeline_raw_heap_store_optimization_complete_default_chain(
       mod_, instrs,
@@ -26040,7 +26171,9 @@ fn run_hot_pipeline_func(
     None => ()
   }
   match
-    run_hot_pipeline_raw_heap_store_optimization(mod_, func_idx, descriptor) {
+    run_hot_pipeline_raw_heap_store_optimization(
+      mod_, func_idx, descriptor, options,
+    ) {
     Some(result) => return Ok(result)
     None => ()
   }
