@@ -1302,7 +1302,13 @@ fn parse_env_overlay(
       None => ()
     }
   }
-  if !cli.ignore_implicit_traps && !config.ignore_implicit_traps {
+  let cli_traps_never_fixed = match cli.trap_mode {
+    Some(mode) => mode == TrapMode::never()
+    None => false
+  }
+  if !cli_traps_never_fixed &&
+    !cli.ignore_implicit_traps &&
+    !config.ignore_implicit_traps {
     match (io.get_env)("STARSHINE_IGNORE_IMPLICIT_TRAPS") {
       Some(raw) =>
         match parse_bool_string(raw) {
