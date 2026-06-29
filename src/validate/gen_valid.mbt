@@ -14549,7 +14549,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 ///|
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
-    PassOiMemoryBulkProfile => 14
+    PassOiMemoryBulkProfile => 15
     _ => 3
   }
 }
@@ -14571,21 +14571,23 @@ fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
     0x5ef8UL => 11
     0x5ef9UL => 12
     0x5efaUL => 13
+    0x5efbUL => 14
     _ =>
-      match (seed % 14UL).to_int() {
+      match (seed % 15UL).to_int() {
         0 => 9
         1 => 10
         2 => 11
         3 => 12
         4 => 13
-        5 => 1
-        6 => 2
-        7 => 3
-        8 => 4
-        9 => 5
-        10 => 0
-        11 => 6
-        12 => 7
+        5 => 14
+        6 => 1
+        7 => 2
+        8 => 3
+        9 => 4
+        10 => 5
+        11 => 0
+        12 => 6
+        13 => 7
         _ => 8
       }
   }
@@ -14675,6 +14677,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         11 => Some("oi-memory-bulk:cross-memory-restore-copy-read")
         12 => Some("oi-memory-bulk:memory64-cross-memory-restore-copy-read")
         13 => Some("oi-memory-bulk:runtime-restore-copy-read")
+        14 => Some("oi-memory-bulk:shared-wait-notify")
         _ => Some("oi-memory-bulk:direct-tiny-bulk")
       }
     _ => None
@@ -15093,6 +15096,34 @@ fn gen_valid_oi_memory_bulk_runtime_restore_body(
 }
 
 ///|
+fn gen_valid_oi_memory_bulk_shared_wait_notify_body() -> Array[Instruction] {
+  let memarg32 = MemArg::new(2U, None, 0UL)
+  let memarg64 = MemArg::new(3U, None, 0UL)
+  [
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_atomic_notify(memarg32),
+    Instruction::drop(),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::i64_const(I64(0L)),
+    Instruction::memory_atomic_wait32(memarg32),
+    Instruction::drop(),
+    Instruction::i32_const(I32(8)),
+    Instruction::i64_const(I64(1L)),
+    Instruction::i64_const(I64(0L)),
+    Instruction::memory_atomic_wait64(memarg64),
+    Instruction::drop(),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load(memarg32),
+    Instruction::drop(),
+    Instruction::i32_const(I32(8)),
+    Instruction::i64_load(memarg64),
+    Instruction::drop(),
+  ]
+}
+
+///|
 fn gen_valid_oi_memory_bulk_call_wrapped_module() -> Module {
   let i32_func_type = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32()])),
@@ -15218,6 +15249,7 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
           ctx.root_seed,
         )
       13 => gen_valid_oi_memory_bulk_runtime_restore_body(ctx.root_seed)
+      14 => gen_valid_oi_memory_bulk_shared_wait_notify_body()
       _ => gen_valid_oi_memory_bulk_direct_body()
     }
   } else {
@@ -15248,6 +15280,10 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
           MemType::new(Limits::i32(1U, None)),
           MemType::new(Limits::i32(1U, None)),
         ]),
+      )
+    } else if case == 14 {
+      mod.with_mem_sec(
+        MemSec::new([MemType::new(Limits::i32(1U, Some(1U)), shared=true)]),
       )
     } else {
       mod.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
@@ -15292,6 +15328,19 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
             ),
           ]),
         )
+    } else if case == 14 {
+      mod = mod.with_export_sec(
+        ExportSec::new([
+          Export::new(
+            Name::from_string("run"),
+            ExternIdx::func(FuncIdx::new(0U)),
+          ),
+          Export::new(
+            Name::from_string("memory"),
+            ExternIdx::mem(MemIdx::new(0U)),
+          ),
+        ]),
+      )
     }
   }
   mod

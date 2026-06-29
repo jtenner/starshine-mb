@@ -2760,11 +2760,61 @@ fn gen_valid_test_instrs_have_multi_memory_bulk(
 }
 
 ///|
+fn gen_valid_test_instrs_have_atomic_wait_notify(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut saw_notify = false
+  let mut saw_wait32 = false
+  let mut saw_wait64 = false
+  for instr in instrs {
+    match instr {
+      MemoryAtomicNotify(_) => saw_notify = true
+      MemoryAtomicWait32(_) => saw_wait32 = true
+      MemoryAtomicWait64(_) => saw_wait64 = true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_atomic_wait_notify(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_atomic_wait_notify(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_atomic_wait_notify(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  saw_notify && saw_wait32 && saw_wait64
+}
+
+///|
+fn gen_valid_test_has_shared_memory(mod_ : Module) -> Bool {
+  match mod_.mem_sec {
+    Some(MemSec(mems)) =>
+      for mem in mems {
+        let MemType(_, shared) = mem
+        if shared {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 fn gen_valid_test_oi_memory_bulk_trigger_signature(
   mod_ : Module,
 ) -> String raise {
   let instrs = gen_valid_test_first_func_instrs(mod_)
-  if gen_valid_test_instrs_have_runtime_restore_copy_read(instrs) &&
+  if gen_valid_test_has_shared_memory(mod_) &&
+    gen_valid_test_instrs_have_atomic_wait_notify(instrs) {
+    "shared-wait-notify"
+  } else if gen_valid_test_instrs_have_runtime_restore_copy_read(instrs) &&
     gen_valid_test_has_func_export(mod_, "run") {
     "runtime-restore-copy-read"
   } else if gen_valid_test_has_memory64(mod_) &&
@@ -2921,13 +2971,21 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let shared_wait_notify = match
+    gen_valid_module_result_from_seed(
+      0x5efbUL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(memory64_dynamic.config_label, "pass-oi-memory-bulk")
   for
     generated in [
       memory64_dynamic, live_effect_trap, existing_producer, store_mask, dynamic_i32,
       direct_tiny, multi_memory, random_address, multi_memory_random_address, cross_memory_random_address,
       memory64_cross_memory_random_address, cross_memory_restore, memory64_cross_memory_restore,
-      runtime_restore,
+      runtime_restore, shared_wait_notify,
     ] {
     match validate_module(generated.wasm_module) {
       Ok(_) => ()
@@ -2989,6 +3047,10 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5efaUL),
     Some("oi-memory-bulk:runtime-restore-copy-read"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5efbUL),
+    Some("oi-memory-bulk:shared-wait-notify"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(
@@ -3061,6 +3123,12 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(runtime_restore.wasm_module),
     "runtime-restore-copy-read",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      shared_wait_notify.wasm_module,
+    ),
+    "shared-wait-notify",
   )
   let (direct_copies, direct_fills) = gen_valid_test_instrs_count_memory_bulk_ops(
     gen_valid_test_first_func_instrs(direct_tiny.wasm_module),
