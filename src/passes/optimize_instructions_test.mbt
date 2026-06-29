@@ -11629,6 +11629,67 @@ test "optimize-instructions drops narrow-store masks after dead bulk-memory raw 
 }
 
 ///|
+test "optimize-instructions raw partial lowers commuted constant memory addresses" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func
+        #|    i32.const 0
+        #|    if
+        #|      i32.const 0
+        #|      i32.const 0
+        #|      i32.const 1
+        #|      memory.copy
+        #|    end
+        #|    i32.const 5
+        #|    i32.const 7
+        #|    i32.add
+        #|    i32.const 63
+        #|    i32.const 255
+        #|    i32.and
+        #|    i32.store8
+        #|    i32.const 5
+        #|    i32.const 7
+        #|    i32.add
+        #|    i32.const 7
+        #|    i32.const 5
+        #|    i32.add
+        #|    i32.const 1
+        #|    memory.copy))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected raw commuted-address optimize success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=raw-partial-optimize-instructions",
+      )
+    }),
+    msg="expected dead bulk-memory shell to exercise raw partial path, trace=\{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Follow-up from `.tmp/oi-g-memory-commuted-operands-count400-20260629`:
+  // the OI-G memory-commuted transform exposed raw-partial residuals where
+  // Binaryen lowered the folded same-address size-1 `memory.copy` and removed
+  // the reversed redundant `i32.and 255` store mask. Keep this scoped to pure
+  // constant address arithmetic and size-1 copies.
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "I32(12)", "I32(63)", "i32.store8", "I32(12)", "I32(12)", "i32.load8u", "i32.store8",
+  ])
+}
+
+///|
 test "optimize-instructions expands tiny constant memory.fill to store" {
   let optimized = match
     pass_test_run_pipeline(

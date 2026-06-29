@@ -338,6 +338,7 @@ const implementedOiMetamorphicTransforms = new Set<string>([
   "oi-local-carried",
   "oi-local-tee-wrapped",
   "oi-commuted-operands",
+  "oi-memory-commuted-operands",
   "oi-if-select-shell",
   "oi-effectful-sibling",
   "oi-trapping-sibling",

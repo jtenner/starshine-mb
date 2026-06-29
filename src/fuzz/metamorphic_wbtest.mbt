@@ -4899,6 +4899,76 @@ test "OI commuted-operands transform injects scalar operand-order variants" {
 }
 
 ///|
+test "OI memory-commuted-operands transform injects private memory address variants" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let by_id = match
+    metamorphic_valid_transform_by_id("oi-memory-commuted-operands") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(by_id, OiMemoryCommutedOperands)
+  let transformed = match metamorphic_apply_transform(base, by_id) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-memory-commuted-operands")
+  match transformed.wasm_module.mem_sec {
+    Some(@lib.MemSec(mems)) => {
+      @debug.assert_eq(mems.length(), 1)
+      @debug.assert_eq(mems[0], @lib.MemType::new(@lib.Limits::i32(1U, None)))
+    }
+    None => fail("expected private memory section")
+  }
+  let memarg = @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL)
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 38)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(5))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(7))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_add())
+          @debug.assert_eq(instrs[3], @lib.Instruction::i32_load8u(memarg))
+          @debug.assert_eq(instrs[4], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[5], @lib.Instruction::i32_const(7))
+          @debug.assert_eq(instrs[6], @lib.Instruction::i32_const(5))
+          @debug.assert_eq(instrs[7], @lib.Instruction::i32_add())
+          @debug.assert_eq(instrs[8], @lib.Instruction::i32_load8u(memarg))
+          @debug.assert_eq(instrs[9], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[15], @lib.Instruction::i32_and())
+          @debug.assert_eq(instrs[16], @lib.Instruction::i32_store8(memarg))
+          @debug.assert_eq(
+            instrs[31],
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          )
+          @debug.assert_eq(instrs[37], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "OI if-select-shell transform injects stack-neutral boolean shells" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -14118,8 +14188,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 487)
-  @debug.assert_eq(stats.validated, 487)
+  @debug.assert_eq(stats.transformed, 488)
+  @debug.assert_eq(stats.validated, 488)
   assert_true(
     stats.transform_ids.contains(
       "wrap-defined-function-bodies-in-nested-identity-loops",
@@ -14128,6 +14198,7 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(stats.transform_ids.contains("oi-local-carried"))
   assert_true(stats.transform_ids.contains("oi-local-tee-wrapped"))
   assert_true(stats.transform_ids.contains("oi-commuted-operands"))
+  assert_true(stats.transform_ids.contains("oi-memory-commuted-operands"))
   assert_true(stats.transform_ids.contains("oi-if-select-shell"))
   assert_true(stats.transform_ids.contains("oi-effectful-sibling"))
   assert_true(stats.transform_ids.contains("oi-trapping-sibling"))

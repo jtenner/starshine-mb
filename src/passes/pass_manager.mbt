@@ -24309,6 +24309,94 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
         _ => ()
       }
     }
+    if i + 7 < instrs.length() {
+      match
+        (
+          instrs[i],
+          instrs[i + 1],
+          instrs[i + 2],
+          instrs[i + 3],
+          instrs[i + 4],
+          instrs[i + 5],
+          instrs[i + 6],
+          instrs[i + 7],
+          run_hot_pipeline_raw_optimize_instructions_memory_size(instrs[i + 6]),
+        ) {
+        (
+          @lib.I32Const(@lib.I32(dst_lhs)),
+          @lib.I32Const(@lib.I32(dst_rhs)),
+          @lib.I32Add,
+          @lib.I32Const(@lib.I32(src_lhs)),
+          @lib.I32Const(@lib.I32(src_rhs)),
+          @lib.I32Add,
+          _,
+          @lib.MemoryCopy(dst_mem, src_mem),
+          Some(size),
+        ) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+              size, src_mem, dst_mem,
+            ) {
+            Some((load_instr, store_instr)) => {
+              let dst = @lib.I32(
+                (dst_lhs.reinterpret_as_uint() + dst_rhs.reinterpret_as_uint()).reinterpret_as_int(),
+              )
+              let src = @lib.I32(
+                (src_lhs.reinterpret_as_uint() + src_rhs.reinterpret_as_uint()).reinterpret_as_int(),
+              )
+              rewritten.push(@lib.Instruction::i32_const(dst))
+              rewritten.push(@lib.Instruction::i32_const(src))
+              rewritten.push(load_instr)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 8
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    if i + 6 < instrs.length() {
+      match
+        (
+          instrs[i],
+          instrs[i + 1],
+          instrs[i + 2],
+          instrs[i + 3],
+          instrs[i + 4],
+          instrs[i + 5],
+          instrs[i + 6],
+        ) {
+        (
+          @lib.I32Const(@lib.I32(addr_lhs)),
+          @lib.I32Const(@lib.I32(addr_rhs)),
+          @lib.I32Add,
+          lhs,
+          rhs,
+          and_instr,
+          store_instr,
+        ) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_drop_store_mask(
+              lhs, rhs, and_instr, store_instr,
+            ) {
+            Some(value) => {
+              let addr = @lib.I32(
+                (addr_lhs.reinterpret_as_uint() + addr_rhs.reinterpret_as_uint()).reinterpret_as_int(),
+              )
+              rewritten.push(@lib.Instruction::i32_const(addr))
+              rewritten.push(value)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 7
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
     if i + 4 < instrs.length() {
       match
         (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {

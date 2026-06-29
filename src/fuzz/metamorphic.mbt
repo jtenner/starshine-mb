@@ -451,6 +451,7 @@ pub enum MetamorphicValidTransform {
   OiLocalCarried
   OiLocalTeeWrapped
   OiCommutedOperands
+  OiMemoryCommutedOperands
   OiIfSelectShell
   OiEffectfulSibling
   OiTrappingSibling
@@ -1378,6 +1379,7 @@ pub fn metamorphic_valid_transform_id(
     OiLocalCarried => "oi-local-carried"
     OiLocalTeeWrapped => "oi-local-tee-wrapped"
     OiCommutedOperands => "oi-commuted-operands"
+    OiMemoryCommutedOperands => "oi-memory-commuted-operands"
     OiIfSelectShell => "oi-if-select-shell"
     OiEffectfulSibling => "oi-effectful-sibling"
     OiTrappingSibling => "oi-trapping-sibling"
@@ -5786,6 +5788,104 @@ fn metamorphic_apply_oi_commuted_operands(
     )
   }
   let transformed = metamorphic_add_oi_commuted_operands(mod)
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_oi_memory_commuted_operands_prefix(
+  mem_idx : @lib.MemIdx,
+) -> Array[@lib.Instruction] {
+  let memarg = @lib.MemArg::new(0U, Some(mem_idx), 0UL)
+  [
+    @lib.Instruction::i32_const(5),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_load8u(memarg),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_const(5),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_load8u(memarg),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(5),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_const(0xff),
+    @lib.Instruction::i32_const(0x3f),
+    @lib.Instruction::i32_and(),
+    @lib.Instruction::i32_store8(memarg),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_const(5),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_const(0x3f),
+    @lib.Instruction::i32_const(0xff),
+    @lib.Instruction::i32_and(),
+    @lib.Instruction::i32_store8(memarg),
+    @lib.Instruction::i32_const(5),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_const(5),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_const(1),
+    @lib.Instruction::memory_copy(mem_idx, mem_idx),
+    @lib.Instruction::i32_const(7),
+    @lib.Instruction::i32_const(5),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_load8u(memarg),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_oi_memory_commuted_operands(
+  mod : @lib.Module,
+  mem_idx : @lib.MemIdx,
+) -> @lib.Module {
+  let funcs = []
+  let prefix = metamorphic_oi_memory_commuted_operands_prefix(mem_idx)
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            for instr in prefix {
+              next_instrs.push(instr)
+            }
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_oi_memory_commuted_operands(
+  mod : @lib.Module,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform_id = metamorphic_valid_transform_id(OiMemoryCommutedOperands)
+  if metamorphic_defined_func_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one defined function",
+    )
+  }
+  let mem_idx = @lib.MemIdx::new(metamorphic_total_memory_count(mod).to_uint())
+  let source_mod = metamorphic_add_private_nonzero_i32_memory(mod)
+  let transformed = metamorphic_add_oi_memory_commuted_operands(
+    source_mod, mem_idx,
+  )
   match validate_module(transformed) {
     Ok(_) => Ok({ transform_id, wasm_module: transformed })
     Err(err) =>
@@ -10312,6 +10412,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     OiLocalCarried,
     OiLocalTeeWrapped,
     OiCommutedOperands,
+    OiMemoryCommutedOperands,
     OiIfSelectShell,
     OiEffectfulSibling,
     OiTrappingSibling,
@@ -10381,6 +10482,8 @@ pub fn metamorphic_apply_transform(
     OiLocalCarried => return metamorphic_apply_oi_local_carried(mod)
     OiLocalTeeWrapped => return metamorphic_apply_oi_local_tee_wrapped(mod)
     OiCommutedOperands => return metamorphic_apply_oi_commuted_operands(mod)
+    OiMemoryCommutedOperands =>
+      return metamorphic_apply_oi_memory_commuted_operands(mod)
     OiIfSelectShell => return metamorphic_apply_oi_if_select_shell(mod)
     OiEffectfulSibling => return metamorphic_apply_oi_effectful_sibling(mod)
     OiTrappingSibling => return metamorphic_apply_oi_trapping_sibling(mod)
@@ -10437,6 +10540,7 @@ pub fn metamorphic_apply_transform(
     OiLocalCarried
     | OiLocalTeeWrapped
     | OiCommutedOperands
+    | OiMemoryCommutedOperands
     | OiIfSelectShell
     | OiEffectfulSibling
     | OiTrappingSibling
@@ -12658,6 +12762,7 @@ fn metamorphic_transform_applicable(
     OiLocalCarried
     | OiLocalTeeWrapped
     | OiCommutedOperands
+    | OiMemoryCommutedOperands
     | OiIfSelectShell
     | OiEffectfulSibling
     | OiTrappingSibling

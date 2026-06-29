@@ -1165,6 +1165,7 @@ pub enum MetamorphicValidTransform {
   OiLocalCarried
   OiLocalTeeWrapped
   OiCommutedOperands
+  OiMemoryCommutedOperands
   OiIfSelectShell
   OiEffectfulSibling
   OiTrappingSibling
