@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-06-27
+last_reviewed: 2026-06-28
 sources:
   - ./parity-matrix.json
   - ./fuzzing.md
@@ -188,7 +188,419 @@ unsigned scalar spelling counts, and matching sampled float opcode counts
 (`f32.sub/add/div/mul` 0/4/2/2 and `f64.sub/add/div/mul` 0/6/2/4 for both tools).
 The label is no longer a sampled normalized OI-D/OI-F mismatch, but raw-byte size
 remains a separate encoder/structure residual and OI-F stays open on the other
-three grouped labels.
+three grouped labels. A follow-up `--summarize-existing` review of the same fix7
+root refreshed those three labels without changing their classification: all raw
+and canonical outputs validate, the pure if/select shell remains a sampled
+canonical Starshine win at 2732 vs 2844 bytes, the dead trapping shell remains a
+sampled canonical Starshine win at 2705 vs 2845 bytes, and the commuted-constant
+shell remains a sampled canonical Starshine win at 2755 vs 2855 bytes. Raw
+Starshine bytes are still larger for those first and third labels, so the matrix
+keeps them sampled candidates rather than OI-F closure or raw-size parity.
+
+The first grouped OI-G transform run was `.tmp/oi-g-memory-family-classify-20260628`.
+It compared 5/5 with five raw mismatches and no validation, generator, property,
+or command failures, grouped by `transform:<id>` for `oi-memory-size-boundary`,
+`oi-local-carried`, `oi-effectful-sibling`, `oi-trapping-sibling`, and
+`oi-commuted-operands`. The memory-size-boundary label was classified as an
+OI-G-owned tiny bulk-memory lowering parity gap, not a safe representation
+difference: Binaryen lowered sampled size `1`/`2`/`4`/`8`/`16`
+`memory.copy`/`memory.fill` variants while Starshine left all 20 copy plus 20
+fill operations. A red-first fix now covers dead-if/raw-skipped shells and lowers
+those tiny copy/fill variants while preserving zero-size and size-3/5 spellings.
+The grouped fix4 sweep at `.tmp/oi-g-memory-family-fix4-20260628` still compares
+5/5 with five raw mismatches and no validation, generator, property, or command
+failures, but `oi-memory-size-boundary` now has matching 10 copy / 10 fill and
+v128 load/store counts on both tools. Follow-up WAT and section inspection
+classifies the remaining memory-size-boundary diff as structural/code-section
+drift rather than unlowered bulk-memory: Starshine folds more constant
+ordinary/atomic memory addresses into offsets (186 offset-bearing memory ops vs
+Binaryen 104), keeps one fewer i32 local in function 0, and all section-size
+deltas are isolated to code (raw code Starshine/Binaryen 6162/6100; canonical
+code 6080/6108). The sample remains a canonical Starshine-win candidate
+(6209/6237 bytes) with raw-byte residual (6291/6229). The remaining four labels
+still have matching sampled memory opcode counts; after fix4 they are sampled
+canonical-size Starshine-win candidates with raw-size residuals, not OI-G family
+closure. All 20 fix4 raw/canonical outputs validate.
+
+`pass-oi-memory-bulk` is now stronger than a broad smoke config and stronger
+than the earlier three-case trigger smoke. It emits seven OI-G trigger-smoke-plus
+cases: live private-global plus dead-trap boundaries, direct i32 tiny-bulk and
+load/store lowering, memory64 dynamic/local-carried bulk operands,
+no-param-call/existing-producer-wrapped tiny bulk, narrow-store masks,
+dynamic i32 local.tee bulk operands, and multi-memory bulk operations. The focused generator test failed red-first
+first on missing OI-G labels, then on the missing three expanded labels, and then
+on the missing multi-memory label/signature before implementation; it now passes.
+The direct count-18 profile lane at
+`.tmp/oi-g-memory-bulk-expanded-profile-count18-20260628` sampled the first six labels,
+compared 18/18 with 14 normalized matches, four store-mask mismatches, and no
+validation, generator, property, or command failures. The no-transform
+store-mask residual is a sampled Starshine-win candidate for the store-truncation
+contract: Binaryen removes the i32.store8/i32.store16 masks but keeps the
+redundant `i64.and 255` before `i64.store8`, while Starshine removes it too;
+raw/canonical Starshine/Binaryen size is 56/60 and all outputs validate.
+
+The grouped count-6 OI-G sweep at
+`.tmp/oi-g-memory-family-expanded-profile-20260628` compared 6/6 with two
+normalized matches and four mismatches. Dynamic-i32 plus
+`oi-memory-size-boundary` and direct-tiny plus `oi-local-carried` matched. The
+previous memory64/effectful, direct-tiny/trapping, and memory64/commuted
+residuals retain their earlier classifications. The new store-mask plus
+`oi-memory-size-boundary` residual was size-losing, not safe drift: Starshine
+left the i32 store masks that Binaryen removes in the dead-shell/raw path, with
+raw Starshine/Binaryen 258/234 and canonical 243/234; all raw/canonical failure
+outputs validated. A red-first pass/raw-shell test now covers that profile case,
+and the raw partial path removes redundant i32/i64 low-bit masks after the dead
+memory-size-boundary shell. The direct rerun
+`.tmp/oi-g-memory-bulk-store-mask-raw-fix-count18-20260628` still has the four
+known no-transform store-mask mismatches, and grouped rerun
+`.tmp/oi-g-memory-family-store-mask-raw-fix-20260628` still compares 6/6 with two
+normalized matches and four mismatches, but the grouped store-mask representative
+is reduced to the known low-byte-store residual: Binaryen keeps only the
+`i64.store8` mask, Starshine removes it, raw Starshine/Binaryen size is 245/234,
+wasm-opt no-pass canonical size is 230/234, and all measured outputs validate.
+The broader grouped count>=11 blocker is now fixed in the transform/generator
+layer. `oi-memory-size-boundary` previously accepted only i32 memories, so the
+sweep aborted before `result.json` when that transform reached a later
+memory64-only trigger case. Red-first `metamorphic_wbtest.mbt` and
+`main_wbtest.mbt` coverage now prove memory64-only modules get an i64
+address/size dead copy/fill shell and batch selection emits those candidates.
+Grouped reruns completed: count 11 at
+`.tmp/oi-g-memory-family-memory64-boundary-fix-count11-20260628b` compared 11/11
+with 4 normalized matches and 7 mismatches, count 12 at
+`.tmp/oi-g-memory-family-memory64-boundary-fix-count12-20260628` compared 12/12
+with 4 normalized matches and 8 mismatches, and the first count 18 at
+`.tmp/oi-g-memory-family-memory64-boundary-fix-count18-20260628` compared 18/18
+with 6 normalized matches and 12 mismatches; all three had zero
+validation/generator/property/command failures. The new memory64 +
+`oi-memory-size-boundary` representative keeps memory.copy/fill counts matching
+at 4/4 and canonical size parity at 234/234, while raw Starshine/Binaryen is
+249/234 because Starshine folds `i64.load offset=24` with `i64.const 8` where
+Binaryen keeps `i64.const 32`; all raw/canonical outputs validate.
+
+A follow-up count-18 classification found one remaining canonical size-losing
+sample: `oi-memory-bulk:live-effect-trap-boundaries + oi-commuted-operands`
+kept a raw-skipped ordered const equality compare that Binaryen folds. Red-first
+`src/passes/optimize_instructions_test.mbt` coverage now locks the sampled raw
+fallback contract, and `src/passes/pass_manager.mbt` folds adjacent ordered
+`i32`/`i64` const eq/ne in raw-skipped functions while preserving the reverse
+spelling observed in the Binaryen probe. Fresh grouped reruns at
+`.tmp/oi-g-memory-family-raw-const-eq-fix-count18-20260628` and
+`.tmp/oi-g-memory-family-raw-const-eq-fix-count24-20260628` compare 18/18 and
+24/24 with 7 and 9 normalized matches, 11 and 15 mismatches, and zero
+validation/generator/property/command failures. The live-effect label now matches
+2/2 at count 18 and 3/3 at count 24. Manual size review of all count-18/count-24
+failure dirs found zero remaining canonical size-losing mismatches, and all 44
+count-18 plus 60 count-24 Binaryen/Starshine raw/canonical outputs validate.
+
+A bounded count-30 scale-up at `.tmp/oi-g-memory-family-count30-20260628`
+compares 30/30 with 10 normalized matches, 20 mismatches, and zero
+validation/generator/property/command failures. It still has no canonical
+size-losing failure dirs: all 80 Binaryen/Starshine raw/canonical failure outputs
+validate. The new groups did not expose an OI-G memory-opcode drift. Dynamic-i32
++ `oi-commuted-operands` keeps matching memory.copy/fill/load counts and differs
+only because Starshine folds a dropped pure reverse const equality that Binaryen
+keeps (raw/canonical 89/92 Starshine/Binaryen). Memory64 +
+`oi-trapping-sibling` keeps matching memory.copy/fill/i64.load counts and differs
+because Starshine removes a dead if-false trap shell that Binaryen leaves
+(raw 66/86, canonical 63/86). New store-mask effectful/commuted representatives
+extend the known low-byte-store contract: memory store counts match, Starshine
+removes `i64.and 255` before `i64.store8`, and the commuted case also folds a
+dropped pure const equality (canonical 112/116 and 86/93).
+
+A follow-up count-36 scale-up at `.tmp/oi-g-memory-family-count36-20260628`
+compares 36/36 with 13 normalized matches, 23 mismatches, and zero
+validation/generator/property/command failures. Manual review again found zero
+canonical size-losing failure dirs, and all 92 Binaryen/Starshine raw/canonical
+failure outputs validate. The six new samples stayed within existing
+classifications: live-effect is now 4/4 matched; existing-producer gained one
+`oi-effectful-sibling` match; the three new mismatches are another memory64
+`oi-memory-size-boundary` offset-folding representative with matching memory
+op counts and canonical parity (234/234), another direct-tiny
+`oi-trapping-sibling` representative with matching tiny bulk/memory counts and
+canonical parity (243/243) but dead scalar div spelling plus offset-folding/raw
+residuals, and another memory64 `oi-commuted-operands` dropped reverse const-eq
+Starshine win (raw/canonical 90/93 Starshine/Binaryen).
+
+A count-42 scale-up at `.tmp/oi-g-memory-family-count42-20260628` compares 42/42
+with 17 normalized matches, 25 mismatches, and zero validation/generator/property/command failures. Manual review found zero canonical size-losing failure dirs,
+and all 100 Binaryen/Starshine raw/canonical failure outputs validate. The six new
+samples stayed within existing classifications: live-effect is now 6/6 matched;
+existing-producer gained `oi-local-carried` and `oi-memory-size-boundary` matches;
+the two new mismatches are another existing-producer `oi-trapping-sibling`
+representative with equal memory load/store counts, dead-helper trap-shell
+trimming, and raw/canonical Starshine/Binaryen 116/151 and 105/151, plus another
+store-mask `oi-local-carried` representative where Starshine removes the redundant
+`i64.and 255` before `i64.store8` that Binaryen keeps (raw/canonical 68/72).
+
+A count-48 requested scale-up at `.tmp/oi-g-memory-family-count48-20260628`
+generated and compared 45/48 transform-balanced cases with 18 normalized matches,
+27 mismatches, and zero validation/generator/property/command failures. Manual
+review found zero canonical size-losing failure dirs, and all 108
+Binaryen/Starshine raw/canonical failure outputs validate. The new case-000044
+live-effect + `oi-trapping-sibling` mismatch keeps memory load/store counts equal
+and differs only in a sampled dead scalar trap shell (`i32.div_s` vs Binaryen's
+`i32.div_u` spelling): raw Starshine/Binaryen 101/98, canonical 98/98. The new
+case-000045 memory64 + `oi-commuted-operands` mismatch repeats the pure dropped
+reverse const-eq fold with memory.copy/fill/i64.load counts equal and
+raw/canonical Starshine/Binaryen 90/93.
+
+A count-54 requested saturation check at `.tmp/oi-g-memory-family-count54-20260628`
+compared the same 45 transform-balanced cases as count 48: 18 normalized
+matches, 27 mismatches, zero validation/generator/property/command failures, and
+Binaryen cache hits/misses 45/0. Manual review again found zero canonical
+size-losing failure dirs, and all 108 Binaryen/Starshine raw/canonical failure
+outputs validate. Because increasing the requested count from 48 to 54 produced
+no new comparable cases, further OI-G scale-up needed generator/transform
+scheduling breadth rather than only a higher requested count.
+
+The multi-memory generator-breadth slice supplied that new breadth. A direct
+count-7 compare at `.tmp/oi-g-memory-bulk-multimemory-count7-20260628` compared
+7/7 with six normalized matches, one known store-mask mismatch, zero
+validation/generator/property/command failures, and the new multi-memory case
+matching. A grouped count-63 sweep at
+`.tmp/oi-g-memory-family-multimemory-count63-20260628` compared 53/63
+transform-balanced cases with 27 normalized matches, 26 mismatches, zero
+validation/generator/property/command failures, and Binaryen cache hits/misses
+45/8. The profile cases were multi-memory=6, dynamic-i32=10, store-mask=5,
+existing-producer=12, live-effect=4, direct-tiny=9, and memory64=7. Manual review
+validated all 104 Binaryen/Starshine raw/canonical failure outputs and found zero
+canonical size-losing failure dirs; nine failure dirs remained raw-size-larger for
+Starshine. The only multi-memory mismatch was case-000049 under
+`oi-trapping-sibling`: direct/no-transform multi-memory matched, five of six
+grouped multi-memory samples matched, and the lone residual had no remaining
+`memory.copy`/`memory.fill` in either normalized output, differing only by dead
+scalar trap spelling (`i32.div_s` vs Binaryen `i32.div_u`) with raw
+Starshine/Binaryen 95/94 and canonical 94/94.
+
+A follow-up red-first raw-spelling slice removed that residual. Binaryen
+`version_130` prints nonnegative signed integer `div`/`rem` by constant zero as
+unsigned spellings because both signed and unsigned forms trap before producing a
+value. The focused raw-skip test failed until `src/passes/pass_manager.mbt` stopped
+excluding zero divisors from this spelling rewrite. The fresh grouped baseline at
+`.tmp/oi-g-memory-family-divzero-spelling-fix-count63-20260628` compares 63/63
+with 39 normalized matches, 24 mismatches, zero validation/generator/property/
+command failures, and Binaryen cache hits/misses 63/0. Profile-case statuses are
+multi-memory=6 all matching, live-effect=4 all matching, dynamic-i32=13 with one
+commuted dropped-compare mismatch, store-mask=5 mismatches, existing-producer=17
+with four commuted dropped-compare mismatches, direct-tiny=9 with five offset-
+folding/raw residuals, and memory64=9 mismatches. Manual review validated all 96
+Binaryen/Starshine raw/canonical failure outputs and found zero canonical
+size-losing failure dirs; seven failure dirs remain raw-size-larger for Starshine.
+
+A live zero-size boundary slice then added `oi-live-zero-memory-boundary`, a
+reachable no-op bulk-memory transform that prepends zero-size `memory.copy` and
+`memory.fill` operations to each defined function. The red-first metamorphic test
+failed while the transform id/constructor was missing and passed after
+implementation. The grouped run at `.tmp/oi-g-live-zero-memory-boundary-count70-20260628`
+compares 70/70 with 49 normalized matches, 21 mismatches, zero
+validation/generator/property/command failures, and Binaryen cache hits/misses
+61/9. All 11 sampled `oi-live-zero-memory-boundary` cases match: direct-tiny=3,
+dynamic-i32=3, existing-producer=4, and memory64=1. Manual review of the 21
+failure dirs validates all 84 Binaryen/Starshine raw/canonical outputs, finds zero
+canonical size-losing failure dirs, and leaves seven raw-size-larger Starshine
+dirs as raw-byte residuals. The new transform adds live zero-size evidence, but it
+is not live trap-order, atomics, or randomized memory closure.
+
+A live nonzero copy/read slice then added `oi-live-nonzero-memory-copy-boundary`,
+a guarded reachable length-1 `memory.copy` from address 0 to itself plus byte
+`load`/`drop` transform. The focused transform test failed red-first on the
+missing id/constructor, then passed after `src/fuzz/metamorphic.mbt` and
+`scripts/lib/oi-parity-sweep.ts` wiring. The first count-77 grouped run at
+`.tmp/oi-g-live-nonzero-copy-boundary-count77-20260628` compared 57/77 with 30
+normalized matches, 27 mismatches, and zero validation/generator/property/command
+failures, but all eight sampled live-nonzero cases mismatched because raw-skipped
+Starshine kept `i32.ne(memory.size, 0)` as an if condition where Binaryen prints
+`memory.size`. Red-first `src/passes/optimize_instructions_test.mbt` coverage
+now guards that raw partial condition-context rewrite, and
+`src/passes/pass_manager.mbt` simplifies the sampled raw-skipped shell to
+Binaryen's spelling. The post-fix run at
+`.tmp/oi-g-live-nonzero-copy-boundary-raw-if-fix-count77-20260628` compares 66/77
+with 43 normalized matches, 23 mismatches, zero validation/generator/property/
+command failures, and Binaryen cache hits/misses 66/0. Multi-memory, dynamic-i32,
+and live-effect labels all match in this run; live-nonzero samples are six matches
+and three direct-tiny mismatches. Manual validation/size review of all 23 failure
+dirs validates 92 Binaryen/Starshine raw/canonical outputs, finds zero canonical
+size-losing dirs, and leaves nine raw-size-larger Starshine dirs. The remaining
+live-nonzero direct-tiny residuals are offset-folding/raw-size cases with
+canonical size parity 238/238, not live memory opcode drift.
+
+A fixed page-middle live nonzero copy/read slice then added
+`oi-live-nonzero-memory-mid-copy-boundary`, a guarded reachable length-1
+`memory.copy` from byte 32768 to itself followed by a byte `load`/`drop` at the
+same address. The focused transform test failed red-first on the missing
+id/constructor and passed after `src/fuzz/metamorphic.mbt`, `src/fuzz/main.mbt`,
+and `scripts/lib/oi-parity-sweep.ts` wiring. The grouped count-110 run at
+`.tmp/oi-g-live-nonzero-mid-copy-boundary-count110-20260628` compares 110/110
+with 62 normalized matches, 48 mismatches, zero validation/generator/property/
+command failures, and Binaryen cache hits/misses 100/10. Every forwarded
+transform sampled ten cases. The new mid-copy transform samples ten cases: six
+match, two memory64 residuals repeat the existing `i64.load offset=24` versus
+`i64.const 32` offset-folding/raw drift at canonical parity 90/90, and two
+direct-tiny residuals repeat i32 load/store offset-folding/raw drift at canonical
+parity 244/244. Manual validation/size review of all 48 failure dirs validates
+192 Binaryen/Starshine raw/canonical outputs, finds zero canonical size-losing
+dirs, and leaves 27 raw-size-larger Starshine dirs. This is fixed page-middle
+copy/read evidence only, not randomized-address, atomics, true live trap-order,
+OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
+
+A live nonzero fill/read slice then added
+`oi-live-nonzero-memory-fill-restore-boundary`, a guarded reachable length-1
+`memory.fill` that restores byte 0 by loading the current byte as the fill value,
+then load/drops byte 0. The focused transform test failed red-first on the
+missing id/constructor and passed after `src/fuzz/metamorphic.mbt`,
+`src/fuzz/main.mbt`, and `scripts/lib/oi-parity-sweep.ts` wiring. The grouped
+count-84 run at `.tmp/oi-g-live-nonzero-fill-restore-boundary-count84-20260628`
+compares 84/84 with 58 normalized matches, 26 mismatches, zero
+validation/generator/property/command failures, and Binaryen cache hits/misses
+78/6. The new fill-restore transform samples ten cases: eight match and two
+memory64 cases mismatch only on the existing i64.load offset-folding/raw-size
+residual. In the representative both tools keep `memory.fill=1`,
+`memory.copy=1`, `i32.load8_u=2`, `memory.size=1`, and `i64.ne=1`; raw
+Starshine/Binaryen is 87/84 and canonical size parity is 84/84. Manual
+validation/size review of all 26 failure dirs validates 104 Binaryen/Starshine
+raw/canonical outputs, finds zero canonical size-losing dirs, and leaves eleven
+raw-size-larger Starshine dirs.
+
+A live nonzero nonzero-address fill/read slice then added
+`oi-live-nonzero-memory-end-fill-restore-boundary`, a guarded reachable
+end-byte `memory.fill` restore/read transform. It computes the address as
+`memory.size * 65536 - 1`, restores that byte from its current value, and then
+load/drops it. The focused transform test failed red-first on the missing
+id/constructor and passed after `src/fuzz/metamorphic.mbt`, `src/fuzz/main.mbt`,
+and `scripts/lib/oi-parity-sweep.ts` wiring. The first grouped count-91 run at
+`.tmp/oi-g-live-nonzero-end-fill-restore-boundary-count91-full-20260628`
+compared 91/91 with 48 normalized matches, 43 mismatches, zero failures, and
+Binaryen cache hits/misses 89/2, but manual size review found ten canonical
+size-losing end-fill residuals where Starshine kept raw-skipped
+`memory.size * 65536` while Binaryen printed `memory.size << 16`. A red-first
+pass test now covers that gap, and `src/passes/pass_manager.mbt` rewrites
+non-constant-lhs i32/i64 power-of-two multiplies to shifts in raw-skipped OI
+functions. The post-fix grouped run at
+`.tmp/oi-g-live-nonzero-end-fill-restore-boundary-raw-shift-fix-count91-20260628`
+compares 91/91 with 54 normalized matches, 37 mismatches, zero failures, and
+Binaryen cache hits/misses 91/0. The new end-fill transform samples ten cases:
+six match and four mismatch only on existing memory64/direct-tiny offset-folding
+or raw-size residuals, with canonical size parity (102/102 or 256/256). Manual
+validation/size review of all 37 failure dirs validates 148 Binaryen/Starshine
+raw/canonical outputs, finds zero canonical size-losing dirs, and leaves eighteen
+raw-size-larger Starshine dirs.
+
+A fixed page-middle live nonzero fill/read slice then added
+`oi-live-nonzero-memory-mid-fill-restore-boundary`, a guarded reachable
+`memory.fill` restore/read transform for byte 32768 in the first page. The
+focused transform test failed red-first on the missing id/constructor and passed
+after `src/fuzz/metamorphic.mbt`, `src/fuzz/main.mbt`, and
+`scripts/lib/oi-parity-sweep.ts` wiring. The grouped count-100 run at
+`.tmp/oi-g-live-nonzero-mid-fill-restore-boundary-count100-20260628` compares
+100/100 with 61 normalized matches, 39 mismatches, zero validation/generator/
+property/command failures, and Binaryen cache hits/misses 91/9. Every forwarded
+transform sampled ten cases. The new mid-fill transform samples ten cases: five
+match, one direct-tiny residual is existing offset-folding/raw drift at canonical
+parity 244/244, and four store-mask residuals are the known low-byte-mask
+Starshine-win candidates with canonical Starshine/Binaryen size 83/87. Manual
+validation/size review of all 39 failure dirs validates 156 Binaryen/Starshine
+raw/canonical outputs, finds zero canonical size-losing dirs, and leaves sixteen
+raw-size-larger Starshine dirs. This is fixed-address page-middle evidence only,
+not randomized-address, atomics, true live trap-order, OI-G closure, or OI-J
+descriptor/exactness/TNH/IIT evidence.
+
+A red-first raw fallback slice then targeted the count-110 offset-folding residuals
+instead of classifying them away. `src/passes/optimize_instructions_test.mbt` now
+covers raw-skipped memory32 load/store and memory64 load/store forms with
+constant addresses plus nonzero static offsets; the focused test failed before the
+implementation and passed after `src/passes/pass_manager.mbt` folded nonnegative
+memory32 `const + offset` and non-overflowing memory64 `const + offset` to
+Binaryen's zero-offset/folded-address spelling. The fresh grouped run at
+`.tmp/oi-g-raw-const-mem-offset-fix-count110-20260628` compares 110/110 with 89
+normalized matches, 21 mismatches, zero validation/generator/property/command
+failures, and Binaryen cache hits/misses 110/0. This reduces the previous
+count-110 baseline from 48 mismatches to 21. Manual validation/size review of all
+21 failure dirs validates 84 Binaryen/Starshine raw and normalized outputs, finds
+zero normalized/canonical size-losing dirs, and leaves only two raw-size-larger
+Starshine dirs, both remaining store-mask plus `oi-memory-size-boundary` raw
+residuals. Direct-tiny profile samples are now 15/15 matches; live-effect,
+trapping-sibling, live-nonzero mid-copy, and live-nonzero end-fill transforms all
+match every sampled case in this run. Remaining mismatches are store-mask
+low-byte-mask Starshine-win candidates and commuted dropped-compare Starshine-win
+candidates under existing-producer, memory64, dynamic-i32, or multi-memory
+wrappers, not memory.copy/fill opcode drift or the prior direct-tiny/memory64
+constant-offset residuals.
+
+A red-first transform-breadth slice then added first live atomic evidence instead
+of treating atomics as implied by ordinary load/store coverage.
+`src/fuzz/metamorphic_wbtest.mbt` failed on the missing
+`oi-live-nonzero-memory-atomic-boundary` id/constructor, then passed after
+`src/fuzz/metamorphic.mbt` added a guarded `memory.size != 0` prefix that executes
+a reachable `i32.atomic.load8_u` at byte 0 and drops the result for memory32 or
+memory64 modules. `scripts/lib/oi-parity-sweep.ts` now forwards the transform for
+OI-G rows. The grouped count-120 run at
+`.tmp/oi-g-live-atomic-boundary-count120-20260628` compares 120/120 with 99
+normalized matches, 21 mismatches, zero validation/generator/property/command
+failures, and Binaryen cache hits/misses 115/5. The new atomic transform samples
+ten cases: eight match and two store-mask cases repeat the known low-byte-store
+mask residual; both tools keep the same `i32.atomic.load8_u` count. Manual
+validation/size review of all 21 failure dirs validates 84 Binaryen/Starshine raw
+and canonical outputs, finds zero canonical size-losing dirs, and leaves five
+raw-size-larger Starshine dirs. That residual set was still store-mask
+low-byte-mask candidates or commuted dropped-compare candidates; no atomic opcode
+or validation drift was found.
+
+A follow-up red-first transform-breadth slice added first live no-op atomic
+store/RMW/cmpxchg evidence instead of closing atomics from the atomic-load probe.
+`src/fuzz/metamorphic_wbtest.mbt` failed on the missing
+`oi-live-nonzero-memory-atomic-rmw-boundary` id/constructor, then passed after
+`src/fuzz/metamorphic.mbt` added a guarded `memory.size != 0` prefix that
+preserves byte 0 while executing atomic store8 of the currently loaded byte,
+`i32.atomic.rmw.add` with value 0, and `i32.atomic.rmw.cmpxchg` with
+expected/replacement 0 for memory32 or memory64 modules. Later red-first
+extensions of the same test failed until the transform also included no-op
+`i32_8`/`i32_16`/`i64`/`i64_8`/`i64_16`/`i64_32` atomic RMW add variants, an
+`i64.atomic.rmw.cmpxchg` 0->0 spelling, the same sequence at byte 16, the same
+sequence at page-middle byte 32768, no-op full/narrow i32/i64
+`atomic.rmw.sub`/`or`/`xor` by zero plus `atomic.rmw.and` by all-ones, and then a
+dynamic end-byte `memory.size * 65536 - 1` byte-width sequence under the same
+`memory.size != 0` guard. The end-byte sequence intentionally uses only byte-width
+atomics to avoid full-width alignment traps: store8 of the loaded byte,
+i32/i64 `atomic.rmw8` add/sub/or/xor by zero, i32/i64 `atomic.rmw8.and` by
+all-ones, and i32/i64 `atomic.rmw8.cmpxchg` 0->0. The grouped count-130 run at
+`.tmp/oi-g-live-atomic-rmw-boundary-count130-20260628` compared 130/130 with 108
+normalized matches, 22 mismatches, zero validation/generator/property/command
+failures, and Binaryen cache hits/misses 123/7. The integer-variant run at
+`.tmp/oi-g-live-atomic-rmw-variants-count130-20260628`, the byte-16 refresh at
+`.tmp/oi-g-live-atomic-rmw-nonzero-address-count130-20260628`, the byte-32768
+refresh at `.tmp/oi-g-live-atomic-rmw-midpage-count130-20260628`, the no-op
+operation refresh at `.tmp/oi-g-live-atomic-rmw-noop-variants-count130-20260628`,
+and the dynamic end-byte refresh at
+`.tmp/oi-g-live-atomic-rmw-end-byte-count130-20260628` all compare 130/130 with
+108 normalized matches, 22 mismatches, zero failures, and Binaryen cache
+hits/misses 125/5 for the latest runs. The broadened transform samples ten cases
+and all ten match; the prior atomic-load transform also samples ten cases and all
+ten match in this run. Manual validation/size review of all 22 latest failure
+dirs validates 88 Binaryen/Starshine raw and canonical outputs, finds zero
+canonical size-losing dirs, and leaves two raw-size-larger Starshine dirs. The
+latest residual set is still store-mask low-byte-mask candidates or commuted
+dropped-compare candidates; no atomic opcode or validation drift was found.
+
+Remaining grouped residuals are sampled candidates with explicit reopening
+criteria, not OI-G closure: store-mask low-byte-store mask removal remains a
+canonical Starshine-win candidate with raw-size residuals still open;
+existing-producer, memory64, multi-memory, dynamic-i32, and direct-tiny residuals
+in the latest count-130 run are commuted dropped-compare or store-mask candidates
+with memory opcode counts aligned or irrelevant to the diff; live atomic-load and
+live atomic store/RMW/cmpxchg samples all match in the latest grouped run. The
+dynamic end-byte atomic evidence is still smoke-level single-memory evidence, not
+xchg, wait/notify, randomized multi-memory atomic ordering, or live trap-order
+closure.
+The refreshed atomic variant evidence covers fixed byte-0, byte-16, and
+page-middle byte-32768 no-op integer RMW add/sub/and/or/xor and cmpxchg
+spellings, but still not xchg, wait/notify, randomized-address atomics, or
+multi-memory atomic address ordering. Broader atomic xchg/wait/notify and
+randomized operation variants, randomized live memory wrappers, store/address
+commutation, randomized multi-memory wrappers, raw-byte alignment, randomized
+memory64 coverage, true live trap/effect ordering, and grouped mismatch
+reduction remain open. OI-J descriptor/exactness/TNH/IIT remains blocked on true
+descriptor-compatible evidence; do not close it from these non-descriptor OI-G
+memory sweeps.
 
 ## Smoke profiles and transform coverage
 
@@ -202,7 +614,7 @@ three grouped labels.
 - `pass-oi-ref-gc` for OI-I through OI-L; and
 - `pass-oi-tuple` for OI-M.
 
-These profiles are accepted by `--gen-valid-profile` and have stable labels. `pass-oi-default-scalar`, `pass-oi-local-facts`, and `pass-oi-ref-gc` now emit deterministic seed-indexed trigger smoke modules, so they are no longer only broad bounded configs or one fixed trigger module; the remaining profiles are still smoke configs. GenValid manifests and compare-pass result artifacts now expose `profile_case_label` / `genValidProfileCaseCounts` / `genValidProfileCaseLabel` metadata for OI-D/OI-E/OI-I, letting agents group raw mismatches by direct, local-carried, local.tee, local-mask, branch-cast, and direct null/test/cast trigger cases without manually opening every WAT first. The next generator-quality slice should turn the seed-indexed OI-D/OI-E/OI-I selectors into randomized trigger-biased constructors and make the other high-churn profiles emit OI-specific opportunities more reliably. The current `pass-oi-ref-gc` selector is deliberately non-descriptor because the previous descriptor-bearing broad config produced wasm-tools baseline validation failures in compare-pass; OI-J descriptor/exactness/TNH/IIT remains blocked pending a dedicated profile or compatible oracle path.
+These profiles are accepted by `--gen-valid-profile` and have stable labels. `pass-oi-default-scalar`, `pass-oi-local-facts`, `pass-oi-memory-bulk`, and `pass-oi-ref-gc` now emit trigger smoke modules, so they are no longer only broad bounded configs or one fixed trigger module; the remaining profiles are still smoke configs. OI-G is the first of these to move beyond three labels: its profile now includes memory64 dynamic/live boundary/direct tiny-bulk, existing-producer call-wrapped bulk, store-mask, and dynamic-i32 bulk labels. GenValid manifests and compare-pass result artifacts expose `profile_case_label` / `genValidProfileCaseCounts` / `genValidProfileCaseLabel` metadata for OI-D/OI-E/OI-G/OI-I, letting agents group raw mismatches without manually opening every WAT first. The next generator-quality slice should turn the remaining seed-indexed OI-D/OI-E/OI-I selectors into randomized trigger-biased constructors and fix/triage the OI-G grouped store-mask/dead-shell and memory64+memory-size-boundary transform issues before scaling counts. The current `pass-oi-ref-gc` selector is deliberately non-descriptor because the previous descriptor-bearing broad config produced wasm-tools baseline validation failures in compare-pass; OI-J descriptor/exactness/TNH/IIT remains blocked pending a dedicated profile or compatible oracle path.
 
 The first transform designs are:
 
@@ -213,6 +625,18 @@ The first transform designs are:
 - `oi-commuted-operands`;
 - `oi-if-select-shell`;
 - `oi-memory-size-boundary`;
+- `oi-live-zero-memory-boundary`;
+- `oi-live-nonzero-memory-copy-boundary`;
+- `oi-live-nonzero-memory-mid-copy-boundary`;
+- `oi-live-nonzero-memory-end-copy-boundary`;
+- `oi-live-nonzero-memory-dynamic-copy-boundary`;
+- `oi-live-nonzero-memory-varied-copy-boundary`;
+- `oi-live-nonzero-memory-second-copy-boundary`;
+- `oi-live-nonzero-memory-atomic-boundary`;
+- `oi-live-nonzero-memory-atomic-rmw-boundary`;
+- `oi-live-nonzero-memory-fill-restore-boundary`;
+- `oi-live-nonzero-memory-mid-fill-restore-boundary`;
+- `oi-live-nonzero-memory-end-fill-restore-boundary`;
 - `oi-call-ref-target-wrapper`; and
 - `oi-tuple-selected-lane`.
 
@@ -234,11 +658,33 @@ The first transform designs are:
 
 `oi-trapping-sibling` is implemented as an OI-specific smoke transform. It prepends a stack-neutral dead `if` shell containing scalar div/rem-by-zero trap-shaped siblings plus a live `i32.const` / `drop` sibling before each defined function body. The runner forwards this id to compare-pass for rows that list it; a one-case `pass-oi-boolean-select` compare smoke found 1 raw mismatch with no validation/generator/command failures, so the result is open OI-F parity evidence, not semantic-safety proof. Future work should upgrade it from dead scalar trap shapes to existing-producer wrappers, live-but-preserved trap ordering, memory/ref/GC/tuple trap lanes, and family-specific trigger-biased profiles.
 
-`oi-memory-size-boundary` is implemented as an OI-specific smoke transform. It prepends a dead `if` containing `memory.copy` / `memory.fill` size variants `0`, `1`, `2`, `3`, `4`, `5`, `8`, and `16` for the first i32 memory. The runner forwards this id to compare-pass. Future memory work should extend this smoke layer to live-but-equivalent, effect/trap sibling, dynamic-operand, and memory64 variants before claiming OI-G family coverage.
+`oi-memory-size-boundary` is implemented as an OI-specific smoke transform. It prepends a dead `if` containing `memory.copy` / `memory.fill` size variants `0`, `1`, `2`, `3`, `4`, `5`, `8`, and `16` for the first memory, using i32 operands for memory32 and i64 operands for memory64-only modules. The runner forwards this id to compare-pass. Future memory work should extend this smoke layer to live-but-equivalent, effect/trap sibling, dynamic-operand, broader atomic, and multi-memory variants before claiming OI-G family coverage.
+
+`oi-live-zero-memory-boundary` is implemented as an OI-specific smoke transform. It prepends reachable zero-size `memory.copy` / `memory.fill` operations for the first memory to each defined function, using i32 operands for memory32 and i64 operands for memory64-only modules. The runner forwards this id to compare-pass for OI-G rows that list it. The first grouped count-70 run with this transform matched all 11 sampled live-zero cases and had zero validation/generator/property/command failures; it is live zero-size evidence only, not trap-order or atomics signoff.
+
+`oi-live-nonzero-memory-mid-copy-boundary` is implemented as an OI-specific smoke transform. It guards `memory.size != 0`, then performs a reachable length-1 `memory.copy` from byte 32768 to itself plus a byte load/drop at the same address, using i32 operands for memory32 and i64 operands for memory64-only modules. The runner forwards this id to compare-pass for OI-G rows that list it. The first grouped count-110 run samples ten mid-copy cases with six matches and four offset-folding/raw residuals at canonical parity, with zero validation/generator/property/command failures and zero canonical size-losing failure dirs. It is fixed page-middle copy/read evidence only, not randomized-address, atomics, or trap-order closure.
+
+`oi-live-nonzero-memory-end-copy-boundary` is implemented as an OI-specific smoke transform. It guards `memory.size != 0`, computes the last byte as `memory.size * 65536 - 1`, performs a reachable length-1 `memory.copy` from that address to itself, and load/drops the same byte, using i32 operands for memory32 and i64 operands for memory64-only modules. The runner forwards this id to compare-pass for OI-G rows that list it. The grouped count-140 run `.tmp/oi-g-live-end-copy-boundary-count140-20260628` samples ten end-copy cases with nine matches and one known store-mask low-byte-mask residual, compares 140/140 with 119 normalized matches and 21 mismatches overall, has zero validation/generator/property/command failures, and has zero canonical size-losing failure dirs after manual validation/size review. It is dynamic end-byte copy/read evidence only, not randomized-address, atomics, live trap-order, or family closure.
+
+`oi-live-nonzero-memory-dynamic-copy-boundary` is implemented as an OI-specific smoke transform. It guards `memory.size != 0`, computes a dynamic interior byte address as `memory.size * 32768`, performs a reachable length-1 `memory.copy` from that address to itself, and load/drops the same byte, using i32 operands for memory32 and i64 operands for memory64-only modules. The runner forwards this id to compare-pass for OI-G rows that list it. The initial grouped count-150 run exposed a raw OI parity gap: Starshine kept the dynamic self-copy and then kept the multiply spelling while Binaryen lowered to load/store and printed `memory.size << 15`. Red-first pass coverage now fixes both raw fallback gaps. The fresh fix2 count-150 run `.tmp/oi-g-live-dynamic-copy-boundary-fix2-count150-20260628` samples ten dynamic-copy cases and all ten match; the whole row compares 150/150 with 129 normalized matches, 21 mismatches, zero validation/generator/property/command failures, zero canonical size-losing failure dirs, and three raw-size-larger Starshine dirs. This is sampled dynamic interior-address copy/read evidence only; randomized-address, multi-memory-specific ordering, live trap-order, and OI-G closure remain open.
+
+`oi-live-nonzero-memory-varied-copy-boundary` is implemented as an OI-specific smoke transform. It guards `memory.size != 0`, then performs reachable length-1 self `memory.copy` plus byte `load`/`drop` at bytes 17, 1024, 49152, and 65535. The runner forwards this id to compare-pass for OI-G rows that list it. The grouped count-170 run `.tmp/oi-g-live-varied-copy-boundary-count170-20260629` compares 170/170 with 145 normalized matches, 25 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 164/6. The transform samples ten cases with eight matches. Its two residuals are classified as the known store-mask low-byte-mask candidate, not varied-address copy/read drift: representative WAT inspection shows both tools lower all varied self-copies to load8/store8 forms (`memory.copy` 0/0, `i32.load8_u` 8/8, `i32.store8` 5/5), and the diff is the unrelated `i64.store8` low-byte mask where Binaryen keeps `i64.and 255` and Starshine removes it. Manual review validates all 100 failure-dir raw/canonical outputs, finds zero canonical size-losing dirs, and leaves six raw-size-larger Starshine dirs. Treat this as fixed varied-address copy/read smoke evidence only; it is not randomized-address, atomics, true live trap-order, cross-memory mutation, OI-G closure, or descriptor-compatible OI-J evidence.
+
+`oi-live-nonzero-memory-second-copy-boundary` is implemented as an OI-specific smoke transform. It guards a non-primary `memory.size != 0`, performs a reachable length-1 `memory.copy` from byte 0 of that non-primary memory to itself, and load/drops the same byte. When the input already has a non-primary memory, it uses that memory with its i32/i64 address type; when the input has only one memory, it appends a private second i32 memory so grouped transform scheduling remains applicable without changing exported memory behavior. The focused transform test failed red-first on the missing id/constructor, and the first grouped count-160 attempt failed before comparison because the non-primary-only transform stalled on single-memory profile positions. The private-second-memory applicability fix removed that generator stall. The grouped count-160 run `.tmp/oi-g-live-second-copy-boundary-fix-count160-20260628` compares 160/160 with 138 normalized matches, 22 mismatches, zero validation/generator/property/command failures, Binaryen cache hits/misses 153/7, zero canonical size-losing failure dirs, and two raw-size-larger Starshine dirs. The new transform samples ten cases: nine match and one repeats the known store-mask low-byte-mask residual; in that representative both tools lower the non-primary self-copy to `i32.load8_u` plus `i32.store8` under the same memory.size guard. This is non-primary-memory copy/read smoke evidence only, not cross-memory copy mutation, randomized-address, atomics, live trap-order closure, or OI-J descriptor evidence.
+
+`oi-live-nonzero-memory-atomic-boundary` is implemented as an OI-specific smoke transform. It guards `memory.size != 0`, then performs a reachable `i32.atomic.load8_u` from byte 0 and drops the result, using i32 operands for memory32 and i64 operands for memory64-only modules. The runner forwards this id to compare-pass for OI-G rows that list it. The first grouped count-120 run samples ten atomic cases with eight matches and two known store-mask low-byte-mask residuals; both tools keep the same atomic-load opcode count. The later grouped count-130 run samples the atomic-load transform ten times and all ten match. It is atomic-load evidence only, not broader atomic RMW/cmpxchg, store-address commutation, randomized-address, trap-order, or family closure.
+
+`oi-live-nonzero-memory-atomic-rmw-boundary` is implemented as an OI-specific smoke transform. It guards `memory.size != 0`, then preserves byte 0, byte 16, and byte 32768 while executing atomic store8 of the currently loaded byte, no-op full/narrow i32/i64 `atomic.rmw.add`/`sub`/`or`/`xor` variants with value 0, no-op full/narrow i32/i64 `atomic.rmw.and` variants with all-ones values, and i32/i64 `atomic.rmw.cmpxchg` with expected/replacement 0, using i32 operands for memory32 and i64 operands for memory64-only modules. It also computes dynamic end byte `memory.size * 65536 - 1` and emits byte-width store8/load8, i32/i64 `atomic.rmw8` add/sub/or/xor by zero, i32/i64 `atomic.rmw8.and` by all-ones, and i32/i64 `atomic.rmw8.cmpxchg` 0->0 there so the last-byte probe does not introduce full-width alignment traps. The runner forwards this id to compare-pass for OI-G rows that list it. The first grouped count-130 run samples ten atomic RMW/store cases and all ten match, with zero validation/generator/property/command failures and zero canonical size-losing failure dirs. The refreshed `.tmp/oi-g-live-atomic-rmw-end-byte-count130-20260628` run keeps the byte-0/byte-16/byte-32768/dynamic-end-byte transform at 10/10 matches, compares 130/130 with 108 normalized matches and 22 mismatches, and has zero validation/generator/property/command failures or canonical size-losing failure dirs. This is fixed-address plus single dynamic end-byte no-op integer atomic store/RMW/cmpxchg evidence, not xchg, wait/notify, randomized multi-memory atomic ordering, live trap-order, or OI-G closure.
+
+`oi-live-nonzero-memory-fill-restore-boundary` is implemented as an OI-specific smoke transform. It guards `memory.size != 0`, then performs a reachable length-1 `memory.fill` that restores byte 0 from its current value plus a byte load/drop, using i32 operands for memory32 and i64 operands for memory64-only modules. The runner forwards this id to compare-pass for OI-G rows that list it. The first grouped count-84 run sampled ten fill-restore cases with eight matches and two memory64 offset-folding/raw residual mismatches; it is live nonzero fill/read evidence, not broader atomics, randomized-address, trap-order, or family closure.
+
+`oi-live-nonzero-memory-mid-fill-restore-boundary` is implemented as an OI-specific smoke transform. It guards `memory.size != 0`, restores byte 32768 with a reachable length-1 `memory.fill` using the current byte value, and load/drops the same address, using i32 operands for memory32 and i64 operands for memory64-only modules. The runner forwards this id to compare-pass for OI-G rows that list it. The first grouped count-100 run samples ten mid-fill cases with five matches, one direct-tiny offset-folding/raw residual at canonical parity, and four known store-mask low-byte-mask Starshine-win candidates; it is fixed-address page-middle fill/read evidence, not randomized-address, atomics, trap-order, or family closure.
+
+`oi-live-nonzero-memory-end-fill-restore-boundary` is implemented as an OI-specific smoke transform. It guards `memory.size != 0`, computes the last byte address as `memory.size * 65536 - 1`, performs a reachable length-1 `memory.fill` restoring that byte from its current value, and load/drops the same address, using i32 operands for memory32 and i64 operands for memory64-only modules. The runner forwards this id to compare-pass for OI-G rows that list it. The first grouped count-91 run exposed ten canonical size-losing raw `memory.size * 65536` residuals; a red-first raw mul-to-shl fix removed those size losses. The post-fix count-91 run samples ten end-fill cases with six matches and four offset-folding/raw residual mismatches at canonical parity; it is live nonzero nonzero-address fill/read evidence, not atomics, full randomized-address, trap-order, or family closure.
 
 `oi-call-ref-target-wrapper` is implemented as an OI-specific smoke transform. It appends a private no-op function/type plus a declarative element segment and prepends direct `ref.func` / `call_ref`, block-returned target, typed-select target, and dead `call_ref` shells before each previously defined function. The runner forwards this id to compare-pass for rows that list it; this is first OI-H target-wrapper coverage, not family signoff. A one-case default GenValid compare smoke produced one raw mismatch with no validation/generator/command failures, so the result is open OI-H parity evidence. The first `pass-oi-call-ref` compare smoke hit a generator failure from a wasm-tools-invalid base module; that was narrowed to stringref/exn value types leaking into the wasm-tools oracle lane and fixed by keeping stringref behind const-expression-rich profiles and exnref behind tag-enabled profiles. The fixed seed-0x5eed `pass-oi-call-ref` + `oi-call-ref-target-wrapper` smoke now compares 1/1 with 1 raw mismatch and 0 validation/generator/property/command failures. Its representative first exposed a size-losing OI-H parity gap: Binaryen directized the synthetic direct `ref.func` / `call_ref` wrappers to direct calls, leaving 0 `call_ref` opcodes in normalized WAT; Starshine initially left 40 `call_ref` opcodes and 25 `ref.func` occurrences, with Starshine raw output over 12KB vs Binaryen 554 bytes. The raw skip path now has focused red-first coverage for adjacent `ref.func`, block-returned `ref.func`, constant-select `ref.func`, single-use `local.set(ref.func)` / `local.get` call_ref/return_call_ref pairs, guaranteed `ref.null; ref.as_non_null` trap tails, dropped result blocks whose body is already unreachable, dropped null `ref.test` / nullable `ref.cast`, and dropped non-null `ref.cast` trap tails before skip. The fresh `.tmp/oi-call-ref-target-wrapper-compare-smoke-ref-null-cast-trim2` representative still mismatches, but the sampled OI-H target spelling and sampled GC cast/test debris have been eliminated: Starshine and Binaryen both have `call_ref=0`, `return_call_ref=0`, `table.get=0`, 20 direct `call $5` occurrences, `ref.test=0`, `ref.cast=0`, `br_on_cast=0`, `br_on_cast_fail=0`, and five `unreachable` roots; both raw outputs validate. Starshine raw size is now 572 bytes vs Binaryen 554 bytes, so the remaining size-losing diff is local-section / dropped-`ref.func` output shape drift, not another sampled `call_ref` target-wrapper miss. A grouped OI-H count-3 sweep at `.tmp/oi-h-target-wrapper-grouped-sweep-20260627` then exercised `oi-call-ref-target-wrapper`, `oi-local-carried`, and `oi-effectful-sibling` together. It compared 3/3 with three raw mismatches and no validation/generator/property/command failures, but every sampled Starshine and Binaryen output had `call_ref=0`, `return_call_ref=0`, and `table.get=0`; `--summarize-existing` now groups those cases as `transform:oi-call-ref-target-wrapper`, `transform:oi-local-carried`, and `transform:oi-effectful-sibling`. The target-wrapper group remains local-section/dropped-`ref.func` drift, while the local-carried and effectful-sibling groups are cross-family dropped-null/local-section and effectful-if/scalar spelling drift after successful call_ref cleanup. Future OI-H work should run broader table-state, `return_call_ref`, argument-localization, multivalue, and effect/trap target-boundary sweeps, while OI-I/OI-J and OI-F/OI-D work should use grouped sweeps to classify their own live reference/effect/scalar residuals beyond these fixed sampled OI-H target forms.
 
-`oi-tuple-selected-lane` is implemented as an OI-specific smoke transform. It appends a multivalue block type returning `i32`, `i64`, `f32`, and `f64`, adds one scratch local per lane to each defined function, and prepends stack-neutral multivalue block / lane-store / selected-lane `local.get` / `drop` shells for each selected lane. The runner forwards this id to compare-pass for OI-M rows that list it; this is first OI-M machine-generated selected-lane coverage, not tuple-scratch family signoff. A one-case `pass-oi-tuple` compare smoke compared 1/1 and found 1 raw mismatch with 0 validation/generator/property/command failures. The representative is now classified in the matrix as a sampled Starshine-win candidate for this pure synthetic shell: Binaryen scalarizes through straight-line locals, Starshine keeps nested block-result expressions, Starshine canonical wasm is 4100 bytes vs Binaryen 4326 bytes (-226), raw wasm is 3975 vs 4229 bytes (-254), and both outputs validate. Future OI-M work should upgrade it from synthetic constants and scratch locals to existing-producer tuple wrappers, selected trapping lanes, multi-result effectful/trapping siblings, and trigger-biased `pass-oi-tuple` constructors. All first-layer OI-specific transform ids are now implemented; future design-only `oi-*` ids should remain filtered until their MoonBit transform exists.
+`oi-tuple-selected-lane` is implemented as an OI-specific smoke transform. It appends a multivalue block type returning `i32`, `i64`, `f32`, and `f64`, adds one scratch local per lane to each defined function, and prepends stack-neutral multivalue block / lane-store / selected-lane `local.get` / `drop` shells for each selected lane. The runner forwards this id to compare-pass for OI-M rows that list it; this is first OI-M machine-generated selected-lane coverage, not tuple-scratch family signoff. A one-case `pass-oi-tuple` compare smoke compared 1/1 and found 1 raw mismatch with 0 validation/generator/property/command failures. The representative is now classified in the matrix as a sampled Starshine-win candidate for this pure synthetic shell: Binaryen scalarizes through straight-line locals, Starshine keeps nested block-result expressions, Starshine canonical wasm is 4100 bytes vs Binaryen 4326 bytes (-226), raw wasm is 3975 vs 4229 bytes (-254), and both outputs validate. Future OI-M work should upgrade it from synthetic constants and scratch locals to existing-producer tuple wrappers, selected trapping lanes, multi-result effectful/trapping siblings, and trigger-biased `pass-oi-tuple` constructors. All first-layer OI-specific transform ids plus the current live-nonzero OI-G follow-ups are now implemented; future design-only `oi-*` ids should remain filtered until their MoonBit transform exists.
 
 ## Family-first triage loop
 
@@ -264,11 +710,11 @@ or using it to update a row's status.
 
 After the smoke profiles and first smoke transforms, implement trigger-biased constructors or stronger metamorphic transforms for three highest-churn lanes:
 
-1. use the runner `Result summaries` / `--summarize-existing` output to classify OI-D/OI-E/OI-I raw mismatch dirs mechanically by `genValidProfileCaseLabel`, then scale `pass-oi-default-scalar` / `pass-oi-local-facts` / `pass-oi-ref-gc` from deterministic seed-indexed trigger smokes into randomized direct scalar identities, type-specific local-carried/local.tee, local-mask, commuted-operand, branch-cast, and direct reference wrappers around existing producers;
+1. use the runner `Result summaries` / `--summarize-existing` output to classify OI-D/OI-E/OI-G/OI-I raw mismatch dirs mechanically by `genValidProfileCaseLabel`, then scale `pass-oi-default-scalar` / `pass-oi-local-facts` / `pass-oi-memory-bulk` / `pass-oi-ref-gc` from deterministic seed-indexed trigger smokes into randomized direct scalar identities, type-specific local-carried/local.tee, local-mask, commuted-operand, memory wrappers, branch-cast, and direct reference wrappers around existing producers;
 2. split a true OI-J descriptor/exactness/TNH/IIT profile or oracle path from the current non-descriptor `pass-oi-ref-gc` smoke so grouped OI-J sweeps no longer rely on descriptor-bearing modules that wasm-tools rejects or on non-descriptor OI-I evidence;
 3. `pass-oi-boolean-select` with if/select wrappers around existing producers plus typed effectful/trapping/no-fold condition siblings beyond the current synthetic if/select and private-global effect smoke transforms;
 4. `pass-oi-call-ref` scale-up and trigger hardening: the seed-0x5eed stringref/exn oracle validity blocker is fixed, but OI-H still needs existing-producer/table/local target wrappers, `return_call_ref`, argument localization, multivalue variants, and effect/trap target-boundary cases beyond the current private no-op target smoke transform;
-5. `pass-oi-memory-bulk` with live memory-size boundary, memory64, commuted store/address operands, and tiny copy/fill variants beyond the current dead-branch smoke transform; and
+5. `pass-oi-memory-bulk` next should keep reducing/classifying the remaining grouped count-160 mismatches after the raw ordered const eq/ne, multi-memory generator-breadth, raw div/rem-by-zero, raw constant-offset, live atomic-load, live no-op atomic store/RMW/cmpxchg, dynamic end-byte copy/read, dynamic interior-address copy/read, and non-primary-memory copy/read slices, then broaden the generator/transform scheduler again with randomized memory64/multi-memory wrappers, commuted store/address operands, broader atomic variants/wait/notify, true live memory/trap-order evidence, and tiny copy/fill variants beyond the current smoke transforms; keep the store-mask residuals classified as sampled low-byte-store Starshine-win candidates with raw-byte residual and reopen them on validation, truncation-contract, raw-byte-parity, or canonical size-regression evidence; and
 6. `pass-oi-tuple` with trigger-biased selected-lane constructors, existing-producer tuple wrappers, and effect/trap sibling variants beyond the current synthetic multivalue selected-lane smoke transform.
 
 Those target the current highest-churn areas: scalar/default rewrites, boolean/select shells, memory-size boundaries, and tuple selected-lane boundaries.

@@ -5499,6 +5499,1271 @@ test "OI memory-size-boundary transform injects dead memory.copy/fill size varia
 }
 
 ///|
+test "OI memory-size-boundary transform supports memory64-only modules" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i64(1UL, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id("oi-memory-size-boundary") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) =>
+          match instrs[1] {
+            @lib.If(@lib.VoidBlockType, then_instrs, None) => {
+              @debug.assert_eq(then_instrs.length(), 64)
+              @debug.assert_eq(then_instrs[0], @lib.Instruction::i64_const(0L))
+              @debug.assert_eq(then_instrs[1], @lib.Instruction::i64_const(0L))
+              @debug.assert_eq(then_instrs[2], @lib.Instruction::i64_const(0L))
+              @debug.assert_eq(
+                then_instrs[3],
+                @lib.Instruction::memory_copy(
+                  @lib.MemIdx::new(0U),
+                  @lib.MemIdx::new(0U),
+                ),
+              )
+              @debug.assert_eq(then_instrs[4], @lib.Instruction::i64_const(0L))
+              @debug.assert_eq(then_instrs[5], @lib.Instruction::i32_const(255))
+              @debug.assert_eq(then_instrs[6], @lib.Instruction::i64_const(0L))
+              @debug.assert_eq(
+                then_instrs[7],
+                @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+              )
+              @debug.assert_eq(then_instrs[56], @lib.Instruction::i64_const(0L))
+              @debug.assert_eq(
+                then_instrs[58],
+                @lib.Instruction::i64_const(16L),
+              )
+              @debug.assert_eq(
+                then_instrs[62],
+                @lib.Instruction::i64_const(16L),
+              )
+            }
+            _ =>
+              fail("expected dead if shell around memory64 copy/fill variants")
+          }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live zero memory-boundary transform injects reachable zero-size copy fill" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id("oi-live-zero-memory-boundary") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveZeroMemoryBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "oi-live-zero-memory-boundary")
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 9)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[5], @lib.Instruction::i32_const(255))
+          @debug.assert_eq(instrs[6], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(
+            instrs[7],
+            @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[8], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-copy boundary transform guards reachable copy and load" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id("oi-live-nonzero-memory-copy-boundary") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryCopyBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-copy-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let expected_then = [
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+            @lib.Instruction::drop(),
+          ]
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-mid copy boundary transform guards reachable page-middle copy and load" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-mid-copy-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryMidCopyBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-mid-copy-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let expected_then = [
+            @lib.Instruction::i32_const(32768),
+            @lib.Instruction::i32_const(32768),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+            @lib.Instruction::i32_const(32768),
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+            @lib.Instruction::drop(),
+          ]
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-end copy boundary transform guards reachable end-byte copy and load" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-end-copy-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryEndCopyBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-end-copy-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let end_addr = [
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::i32_const(65536),
+            @lib.Instruction::i32_mul(),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::i32_sub(),
+          ]
+          let expected_then = []
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(@lib.Instruction::i32_const(1))
+          expected_then.push(
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          )
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+          )
+          expected_then.push(@lib.Instruction::drop())
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-dynamic copy boundary transform guards reachable dynamic copy and load" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-dynamic-copy-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryDynamicCopyBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-dynamic-copy-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let dynamic_addr = [
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::i32_const(32768),
+            @lib.Instruction::i32_mul(),
+          ]
+          let expected_then = []
+          for instr in dynamic_addr {
+            expected_then.push(instr)
+          }
+          for instr in dynamic_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(@lib.Instruction::i32_const(1))
+          expected_then.push(
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          )
+          for instr in dynamic_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+          )
+          expected_then.push(@lib.Instruction::drop())
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-varied copy boundary transform guards reachable varied address copies and loads" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-varied-copy-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryVariedCopyBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-varied-copy-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let mem = @lib.MemIdx::new(0U)
+          let expected_then = []
+          for addr in [17, 1024, 49152, 65535] {
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_const(1))
+            expected_then.push(@lib.Instruction::memory_copy(mem, mem))
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(
+              @lib.Instruction::i32_load8u(@lib.MemArg::new(0U, Some(mem), 0UL)),
+            )
+            expected_then.push(@lib.Instruction::drop())
+          }
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::memory_size(mem))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-second copy boundary transform guards reachable second memory copy and load" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(0U, None)),
+        @lib.MemType::new(@lib.Limits::i32(0U, None)),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-second-copy-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemorySecondCopyBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-second-copy-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let mem = @lib.MemIdx::new(1U)
+          let expected_then = [
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::memory_copy(mem, mem),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_load8u(@lib.MemArg::new(0U, Some(mem), 0UL)),
+            @lib.Instruction::drop(),
+          ]
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::memory_size(mem))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-atomic boundary transform guards reachable atomic load" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id("oi-live-nonzero-memory-atomic-boundary") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryAtomicBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-atomic-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let expected_then = [
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_atomic_load8_u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+            @lib.Instruction::drop(),
+          ]
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+fn test_oi_atomic_rmw_expected_i32_op(
+  expected_then : Array[@lib.Instruction],
+  addr : Int,
+  value : @lib.Instruction,
+  op : @lib.AtomicRmwOp,
+  memarg : @lib.MemArg,
+) -> Unit {
+  expected_then.push(@lib.Instruction::i32_const(addr))
+  expected_then.push(value)
+  expected_then.push(@lib.Instruction::atomic_rmw(op, memarg))
+  expected_then.push(@lib.Instruction::drop())
+}
+
+///|
+test "OI live nonzero memory-atomic RMW boundary transform guards reachable integer RMW variants" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-atomic-rmw-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryAtomicRmwBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-atomic-rmw-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let memarg8 = @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL)
+          let memarg16 = @lib.MemArg::new(1U, Some(@lib.MemIdx::new(0U)), 0UL)
+          let memarg32 = @lib.MemArg::new(2U, Some(@lib.MemIdx::new(0U)), 0UL)
+          let memarg64 = @lib.MemArg::new(3U, Some(@lib.MemIdx::new(0U)), 0UL)
+          let expected_then : Array[@lib.Instruction] = []
+          for addr in [0, 16, 32768] {
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_atomic_load8_u(memarg8))
+            expected_then.push(@lib.Instruction::i32_atomic_store8(memarg8))
+            for
+              op in [
+                @lib.AtomicRmwOp::i32_add(),
+                @lib.AtomicRmwOp::i32_sub(),
+                @lib.AtomicRmwOp::i32_or(),
+                @lib.AtomicRmwOp::i32_xor(),
+              ] {
+              test_oi_atomic_rmw_expected_i32_op(
+                expected_then,
+                addr,
+                @lib.Instruction::i32_const(0),
+                op,
+                memarg32,
+              )
+            }
+            test_oi_atomic_rmw_expected_i32_op(
+              expected_then,
+              addr,
+              @lib.Instruction::i32_const(-1),
+              @lib.AtomicRmwOp::i32_and(),
+              memarg32,
+            )
+            for
+              op in [
+                @lib.AtomicRmwOp::i32_8_add_u(),
+                @lib.AtomicRmwOp::i32_8_sub_u(),
+                @lib.AtomicRmwOp::i32_8_or_u(),
+                @lib.AtomicRmwOp::i32_8_xor_u(),
+              ] {
+              test_oi_atomic_rmw_expected_i32_op(
+                expected_then,
+                addr,
+                @lib.Instruction::i32_const(0),
+                op,
+                memarg8,
+              )
+            }
+            test_oi_atomic_rmw_expected_i32_op(
+              expected_then,
+              addr,
+              @lib.Instruction::i32_const(-1),
+              @lib.AtomicRmwOp::i32_8_and_u(),
+              memarg8,
+            )
+            for
+              op in [
+                @lib.AtomicRmwOp::i32_16_add_u(),
+                @lib.AtomicRmwOp::i32_16_sub_u(),
+                @lib.AtomicRmwOp::i32_16_or_u(),
+                @lib.AtomicRmwOp::i32_16_xor_u(),
+              ] {
+              test_oi_atomic_rmw_expected_i32_op(
+                expected_then,
+                addr,
+                @lib.Instruction::i32_const(0),
+                op,
+                memarg16,
+              )
+            }
+            test_oi_atomic_rmw_expected_i32_op(
+              expected_then,
+              addr,
+              @lib.Instruction::i32_const(-1),
+              @lib.AtomicRmwOp::i32_16_and_u(),
+              memarg16,
+            )
+            for
+              op in [
+                @lib.AtomicRmwOp::i64_add(),
+                @lib.AtomicRmwOp::i64_sub(),
+                @lib.AtomicRmwOp::i64_or(),
+                @lib.AtomicRmwOp::i64_xor(),
+              ] {
+              test_oi_atomic_rmw_expected_i32_op(
+                expected_then,
+                addr,
+                @lib.Instruction::i64_const(0L),
+                op,
+                memarg64,
+              )
+            }
+            test_oi_atomic_rmw_expected_i32_op(
+              expected_then,
+              addr,
+              @lib.Instruction::i64_const(-1L),
+              @lib.AtomicRmwOp::i64_and(),
+              memarg64,
+            )
+            for
+              op in [
+                @lib.AtomicRmwOp::i64_8_add_u(),
+                @lib.AtomicRmwOp::i64_8_sub_u(),
+                @lib.AtomicRmwOp::i64_8_or_u(),
+                @lib.AtomicRmwOp::i64_8_xor_u(),
+              ] {
+              test_oi_atomic_rmw_expected_i32_op(
+                expected_then,
+                addr,
+                @lib.Instruction::i64_const(0L),
+                op,
+                memarg8,
+              )
+            }
+            test_oi_atomic_rmw_expected_i32_op(
+              expected_then,
+              addr,
+              @lib.Instruction::i64_const(-1L),
+              @lib.AtomicRmwOp::i64_8_and_u(),
+              memarg8,
+            )
+            for
+              op in [
+                @lib.AtomicRmwOp::i64_16_add_u(),
+                @lib.AtomicRmwOp::i64_16_sub_u(),
+                @lib.AtomicRmwOp::i64_16_or_u(),
+                @lib.AtomicRmwOp::i64_16_xor_u(),
+              ] {
+              test_oi_atomic_rmw_expected_i32_op(
+                expected_then,
+                addr,
+                @lib.Instruction::i64_const(0L),
+                op,
+                memarg16,
+              )
+            }
+            test_oi_atomic_rmw_expected_i32_op(
+              expected_then,
+              addr,
+              @lib.Instruction::i64_const(-1L),
+              @lib.AtomicRmwOp::i64_16_and_u(),
+              memarg16,
+            )
+            for
+              op in [
+                @lib.AtomicRmwOp::i64_32_add_u(),
+                @lib.AtomicRmwOp::i64_32_sub_u(),
+                @lib.AtomicRmwOp::i64_32_or_u(),
+                @lib.AtomicRmwOp::i64_32_xor_u(),
+              ] {
+              test_oi_atomic_rmw_expected_i32_op(
+                expected_then,
+                addr,
+                @lib.Instruction::i64_const(0L),
+                op,
+                memarg32,
+              )
+            }
+            test_oi_atomic_rmw_expected_i32_op(
+              expected_then,
+              addr,
+              @lib.Instruction::i64_const(-1L),
+              @lib.AtomicRmwOp::i64_32_and_u(),
+              memarg32,
+            )
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_const(0))
+            expected_then.push(@lib.Instruction::i32_const(0))
+            expected_then.push(
+              @lib.Instruction::atomic_cmpxchg(
+                @lib.AtomicCmpxchgOp::i32(),
+                memarg32,
+              ),
+            )
+            expected_then.push(@lib.Instruction::drop())
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i64_const(0L))
+            expected_then.push(@lib.Instruction::i64_const(0L))
+            expected_then.push(
+              @lib.Instruction::atomic_cmpxchg(
+                @lib.AtomicCmpxchgOp::i64(),
+                memarg64,
+              ),
+            )
+            expected_then.push(@lib.Instruction::drop())
+          }
+          let end_addr = [
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::i32_const(65536),
+            @lib.Instruction::i32_mul(),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::i32_sub(),
+          ]
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(@lib.Instruction::i32_atomic_load8_u(memarg8))
+          expected_then.push(@lib.Instruction::i32_atomic_store8(memarg8))
+          for
+            op in [
+              @lib.AtomicRmwOp::i32_8_add_u(),
+              @lib.AtomicRmwOp::i32_8_sub_u(),
+              @lib.AtomicRmwOp::i32_8_or_u(),
+              @lib.AtomicRmwOp::i32_8_xor_u(),
+            ] {
+            for instr in end_addr {
+              expected_then.push(instr)
+            }
+            expected_then.push(@lib.Instruction::i32_const(0))
+            expected_then.push(@lib.Instruction::atomic_rmw(op, memarg8))
+            expected_then.push(@lib.Instruction::drop())
+          }
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(@lib.Instruction::i32_const(-1))
+          expected_then.push(
+            @lib.Instruction::atomic_rmw(
+              @lib.AtomicRmwOp::i32_8_and_u(),
+              memarg8,
+            ),
+          )
+          expected_then.push(@lib.Instruction::drop())
+          for
+            op in [
+              @lib.AtomicRmwOp::i64_8_add_u(),
+              @lib.AtomicRmwOp::i64_8_sub_u(),
+              @lib.AtomicRmwOp::i64_8_or_u(),
+              @lib.AtomicRmwOp::i64_8_xor_u(),
+            ] {
+            for instr in end_addr {
+              expected_then.push(instr)
+            }
+            expected_then.push(@lib.Instruction::i64_const(0L))
+            expected_then.push(@lib.Instruction::atomic_rmw(op, memarg8))
+            expected_then.push(@lib.Instruction::drop())
+          }
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(@lib.Instruction::i64_const(-1L))
+          expected_then.push(
+            @lib.Instruction::atomic_rmw(
+              @lib.AtomicRmwOp::i64_8_and_u(),
+              memarg8,
+            ),
+          )
+          expected_then.push(@lib.Instruction::drop())
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(@lib.Instruction::i32_const(0))
+          expected_then.push(@lib.Instruction::i32_const(0))
+          expected_then.push(
+            @lib.Instruction::atomic_cmpxchg(
+              @lib.AtomicCmpxchgOp::i32_8_u(),
+              memarg8,
+            ),
+          )
+          expected_then.push(@lib.Instruction::drop())
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(@lib.Instruction::i64_const(0L))
+          expected_then.push(@lib.Instruction::i64_const(0L))
+          expected_then.push(
+            @lib.Instruction::atomic_cmpxchg(
+              @lib.AtomicCmpxchgOp::i64_8_u(),
+              memarg8,
+            ),
+          )
+          expected_then.push(@lib.Instruction::drop())
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-fill restore boundary transform guards reachable fill and load" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-fill-restore-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryFillRestoreBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-fill-restore-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let expected_then = [
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+            @lib.Instruction::drop(),
+          ]
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-mid fill restore boundary transform guards reachable page-middle fill and load" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-mid-fill-restore-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryMidFillRestoreBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-mid-fill-restore-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let expected_then = [
+            @lib.Instruction::i32_const(32768),
+            @lib.Instruction::i32_const(32768),
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+            @lib.Instruction::i32_const(32768),
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+            @lib.Instruction::drop(),
+          ]
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-end fill restore boundary transform guards reachable end-byte fill and load" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-end-fill-restore-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryEndFillRestoreBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "oi-live-nonzero-memory-end-fill-restore-boundary",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let end_addr = [
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::i32_const(65536),
+            @lib.Instruction::i32_mul(),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::i32_sub(),
+          ]
+          let expected_then = []
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+          )
+          expected_then.push(@lib.Instruction::i32_const(1))
+          expected_then.push(
+            @lib.Instruction::memory_fill(@lib.MemIdx::new(0U)),
+          )
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(
+            @lib.Instruction::i32_load8u(
+              @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL),
+            ),
+          )
+          expected_then.push(@lib.Instruction::drop())
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic trailing memory.size drop transform skips modules without memories" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),

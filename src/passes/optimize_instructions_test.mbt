@@ -1734,6 +1734,246 @@ test "optimize-instructions raw skip folds nested pure constant add" {
 }
 
 ///|
+test "optimize-instructions raw skip simplifies memory.size nonzero if conditions" {
+  // Follow-up from `.tmp/oi-g-live-nonzero-copy-boundary-count77-20260628`:
+  // the new live nonzero memory-copy transform exposed a raw-skip mismatch where
+  // Binaryen uses `memory.size` directly as an if condition, while Starshine kept
+  // the equivalent `i32.ne (memory.size) (i32.const 0)` shell. This is only a
+  // condition-context rewrite; value-producing `i32.ne` still has 0/1 semantics.
+  let source = StringBuilder::new()
+  source.write_string("(module (memory 1) (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") memory.size i32.const 0 i32.ne if i32.const 0 i32.const 0 i32.const 1 memory.copy i32.const 0 i32.load8_u drop end))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_false(pretty.contains("i32.ne"), msg=pretty)
+}
+
+///|
+test "optimize-instructions raw skip folds constant memory access offsets" {
+  // Grouped OI-G follow-up from
+  // `.tmp/oi-g-live-nonzero-mid-copy-boundary-count110-20260628`: the sampled
+  // live page-middle copy/read residuals no longer differ in memory.copy/fill
+  // opcode counts or canonical size, but large-local/raw-skipped functions still
+  // kept Starshine's `const + static-offset` load/store spelling while Binaryen
+  // folds the static offset into the constant address. Mirror that narrow raw
+  // fallback for nonnegative constant memory32 addresses and non-overflowing
+  // memory64 addresses; nonconstant address folding remains out of scope.
+  let source32 = StringBuilder::new()
+  source32.write_string("(module (memory 1) (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source32.write_string(" i32")
+  }
+  source32.write_string(
+    ") i32.const 4 i32.load offset=12 drop i32.const 8 i32.const 9 i32.store offset=16))",
+  )
+  let trace32 : Array[String] = []
+  let optimized32 = match
+    pass_test_run_pipeline(
+      source32.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(
+        trace=Some(fn(line) { trace32.push(line) }),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected optimize-instructions memory32 raw skip success, got \{err}",
+      )
+  }
+  assert_true(
+    trace32.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected memory32 large-local raw skip in \{trace32}",
+  )
+  let pretty32 = optimized32.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty32.contains("I32(16)"), msg=pretty32)
+  assert_true(pretty32.contains("I32(24)"), msg=pretty32)
+  assert_false(pretty32.contains("offset=U64(12)"), msg=pretty32)
+  assert_false(pretty32.contains("offset=U64(16)"), msg=pretty32)
+  assert_false(pretty32.contains("I32(4)"), msg=pretty32)
+  assert_false(pretty32.contains("I32(8)"), msg=pretty32)
+
+  let func_type64 = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let input64 = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type64]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i64(1UL, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1025U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i64_const(@lib.I64(8L)),
+            @lib.Instruction::i64_load(
+              @lib.MemArg::new(@lib.U32(3), None, @lib.U64(24UL)),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i64_const(@lib.I64(12L)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::i32_store8(
+              @lib.MemArg::new(@lib.U32(0), None, @lib.U64(20UL)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input64) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid memory64 raw skip input, got \{err}")
+  }
+  let trace64 : Array[String] = []
+  let optimized64 = match
+    run_hot_pipeline(
+      input64,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace64.push(line) })),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected optimize-instructions memory64 raw skip success, got \{err}",
+      )
+  }
+  assert_true(
+    trace64.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected memory64 large-local raw skip in \{trace64}",
+  )
+  let pretty64 = optimized64.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty64, "I64(32)"),
+    2,
+  )
+  assert_false(pretty64.contains("offset=U64(24)"), msg=pretty64)
+  assert_false(pretty64.contains("offset=U64(20)"), msg=pretty64)
+  assert_false(pretty64.contains("I64(8)"), msg=pretty64)
+  assert_false(pretty64.contains("I64(12)"), msg=pretty64)
+}
+
+///|
+test "optimize-instructions raw skip rewrites memory.size page-byte multiply to shift" {
+  // Follow-up from
+  // `.tmp/oi-g-live-nonzero-end-fill-restore-boundary-count91-full-20260628`:
+  // the live end-byte fill/read transform exposed canonical size-losing raw-skip
+  // drift where Binaryen rewrites `memory.size * 65536` to `memory.size << 16`
+  // inside the guarded end-byte address expression. Keep this as a narrow raw
+  // fallback for adjacent memory.size / power-of-two multiply spellings.
+  let source = StringBuilder::new()
+  source.write_string("(module (memory 1) (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") memory.size i32.const 0 i32.ne if memory.size i32.const 65536 i32.mul i32.const 1 i32.sub memory.size i32.const 65536 i32.mul i32.const 1 i32.sub i32.load8_u i32.store8 end))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.mul"), msg=pretty)
+  assert_true(pretty.contains("i32.shl"), msg=pretty)
+  assert_true(pretty.contains("I32(16)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions raw skip folds ordered const eq ne" {
+  // Grouped OI-G count-18 follow-up from
+  // `.tmp/oi-g-memory-family-memory64-boundary-fix-count18-20260628`: the
+  // `live-effect-trap-boundaries + oi-commuted-operands` representative was a
+  // canonical size-losing raw-skip mismatch because Binaryen folds the sampled
+  // ordered adjacent const equality spelling (`7 == 42`) to `i32.const 0`, while
+  // keeping the reverse spelling (`42 == 7`). Mirror that narrow raw fallback
+  // contract without claiming broader dropped-compare cleanup.
+  let source = StringBuilder::new()
+  source.write_string("(module (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") i32.const 42 i32.const 7 i32.eq drop i32.const 7 i32.const 42 i32.eq drop i64.const 42 i64.const 7 i64.ne drop i64.const 7 i64.const 42 i64.ne drop))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.eq"), msg=pretty)
+  assert_true(pretty.contains("i64.ne"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions raw skip folds scalar sub i64 add sub and wrap constants" {
   // Follow-up from `.tmp/oi-f-effectful-family-fix3-20260627`: the remaining
   // size-losing `oi-effectful-sibling` representative still kept raw-skipped
@@ -1784,8 +2024,9 @@ test "optimize-instructions raw skip rewrites nonnegative signed scalar spelling
   // private-global `oi-effectful-sibling` representative no longer loses
   // normalized size, but raw-skip OI still keeps signed compare/div/rem/shift
   // spellings for nonnegative constants where Binaryen prints unsigned forms.
-  // Keep this narrow: adjacent constants, nonnegative operands, and nonzero
-  // div/rem divisors.
+  // Keep this narrow: adjacent constants and nonnegative operands; zero
+  // div/rem divisors are included only because signed and unsigned integer
+  // div/rem both trap before producing a value.
   let source = StringBuilder::new()
   source.write_string("(module (func (local i32")
   for i = 0; i < 1024; i = i + 1 {
@@ -1793,7 +2034,7 @@ test "optimize-instructions raw skip rewrites nonnegative signed scalar spelling
     source.write_string(" i32")
   }
   source.write_string(
-    ") i32.const 11 i32.const 3 i32.lt_s drop i32.const 11 i32.const 3 i32.gt_s drop i32.const 11 i32.const 3 i32.le_s drop i32.const 11 i32.const 3 i32.ge_s drop i32.const 84 i32.const 3 i32.div_s drop i32.const 84 i32.const 3 i32.rem_s drop i32.const 84 i32.const 3 i32.shr_s drop i64.const 11 i64.const 3 i64.lt_s drop i64.const 11 i64.const 3 i64.gt_s drop i64.const 11 i64.const 3 i64.le_s drop i64.const 11 i64.const 3 i64.ge_s drop i64.const 84 i64.const 3 i64.div_s drop i64.const 84 i64.const 3 i64.rem_s drop i64.const 84 i64.const 3 i64.shr_s drop))",
+    ") i32.const 11 i32.const 3 i32.lt_s drop i32.const 11 i32.const 3 i32.gt_s drop i32.const 11 i32.const 3 i32.le_s drop i32.const 11 i32.const 3 i32.ge_s drop i32.const 84 i32.const 3 i32.div_s drop i32.const 84 i32.const 3 i32.rem_s drop i32.const 84 i32.const 3 i32.shr_s drop i32.const 1 i32.const 0 i32.div_s drop i32.const 1 i32.const 0 i32.rem_s drop i64.const 11 i64.const 3 i64.lt_s drop i64.const 11 i64.const 3 i64.gt_s drop i64.const 11 i64.const 3 i64.le_s drop i64.const 11 i64.const 3 i64.ge_s drop i64.const 84 i64.const 3 i64.div_s drop i64.const 84 i64.const 3 i64.rem_s drop i64.const 84 i64.const 3 i64.shr_s drop i64.const 1 i64.const 0 i64.div_s drop i64.const 1 i64.const 0 i64.rem_s drop))",
   )
   let trace : Array[String] = []
   let optimized = match
@@ -11115,6 +11356,255 @@ test "optimize-instructions keeps global dynamic-size bulk-memory" {
   assert_false(pretty.contains("i64.store"), msg=pretty)
   assert_false(pretty.contains("v128.load"), msg=pretty)
   assert_false(pretty.contains("v128.store"), msg=pretty)
+}
+
+///|
+test "optimize-instructions expands tiny bulk-memory inside dead if shells" {
+  let trace : Array[String] = []
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param $dst i32) (param $src i32) (local
+      #|,
+    ),
+  )
+  for i = 0; i < 65; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    (
+      #|)
+      #|    i32.const 0
+      #|    if
+      #|      local.get $dst
+      #|      local.get $src
+      #|      i32.const 0
+      #|      memory.copy
+      #|      local.get $dst
+      #|      i32.const 255
+      #|      i32.const 0
+      #|      memory.fill
+      #|      local.get $dst
+      #|      local.get $src
+      #|      i32.const 1
+      #|      memory.copy
+      #|      local.get $dst
+      #|      i32.const 255
+      #|      i32.const 1
+      #|      memory.fill
+      #|      local.get $dst
+      #|      local.get $src
+      #|      i32.const 2
+      #|      memory.copy
+      #|      local.get $dst
+      #|      i32.const 255
+      #|      i32.const 2
+      #|      memory.fill
+      #|      local.get $dst
+      #|      local.get $src
+      #|      i32.const 3
+      #|      memory.copy
+      #|      local.get $dst
+      #|      i32.const 255
+      #|      i32.const 3
+      #|      memory.fill
+      #|      local.get $dst
+      #|      local.get $src
+      #|      i32.const 4
+      #|      memory.copy
+      #|      local.get $dst
+      #|      i32.const 255
+      #|      i32.const 4
+      #|      memory.fill
+      #|      local.get $dst
+      #|      local.get $src
+      #|      i32.const 5
+      #|      memory.copy
+      #|      local.get $dst
+      #|      i32.const 255
+      #|      i32.const 5
+      #|      memory.fill
+      #|      local.get $dst
+      #|      local.get $src
+      #|      i32.const 8
+      #|      memory.copy
+      #|      local.get $dst
+      #|      i32.const 255
+      #|      i32.const 8
+      #|      memory.fill
+      #|      local.get $dst
+      #|      local.get $src
+      #|      i32.const 16
+      #|      memory.copy
+      #|      local.get $dst
+      #|      i32.const 255
+      #|      i32.const 16
+      #|      memory.fill
+      #|    end
+      #|,
+    ),
+  )
+  for i = 0; i < 260; i = i + 1 {
+    let _ = i
+    source.write_string(" i32.const 0 drop")
+  }
+  source.write_string("))")
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dead bulk-memory shell optimize success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-lowered-optimize-instructions-noop",
+      )
+    }),
+    msg="expected dead tiny bulk-memory shell to exercise raw-skip path, trace=\{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // OI-G grouped evidence `.tmp/oi-g-memory-family-classify-20260628` shows
+  // Binaryen lowers sizes 1/2/4/8/16 inside this synthetic dead shell while
+  // preserving zero-size and size-3/5 bulk spellings. This red-first guard is
+  // deliberately scoped to the smoke transform contract, not OI-G family closeout.
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "memory.copy"),
+    3,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "memory.fill"),
+    3,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
+  assert_true(pretty.contains("i32.load16u"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(pretty.contains("i64.load"), msg=pretty)
+  assert_true(pretty.contains("v128.load"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+  assert_true(pretty.contains("i32.store16"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("i64.store"), msg=pretty)
+  assert_true(pretty.contains("v128.store"), msg=pretty)
+}
+
+///|
+test "optimize-instructions expands dynamic self tiny memory.copy" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func
+        #|    memory.size
+        #|    i32.const 0
+        #|    i32.ne
+        #|    if
+        #|      memory.size
+        #|      i32.const 32768
+        #|      i32.mul
+        #|      memory.size
+        #|      i32.const 32768
+        #|      i32.mul
+        #|      i32.const 1
+        #|      memory.copy
+        #|      memory.size
+        #|      i32.const 32768
+        #|      i32.mul
+        #|      i32.load8_u
+        #|      drop
+        #|    end))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dynamic self-copy optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // OI-G dynamic-copy grouped evidence uses a reachable length-1 self-copy at
+  // `memory.size * 32768`. Binaryen lowers the copy to load/store while keeping
+  // the dynamic address, so this guards the same behavior without claiming
+  // randomized-address or live trap-order closure.
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("I32(32768)"), msg=pretty)
+  assert_true(pretty.contains("I32(15)"), msg=pretty)
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+}
+
+///|
+test "optimize-instructions drops narrow-store masks after dead bulk-memory raw shell" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func
+        #|    i32.const 0
+        #|    if
+        #|      i32.const 0
+        #|      i32.const 0
+        #|      i32.const 1
+        #|      memory.copy
+        #|      i32.const 0
+        #|      i32.const 255
+        #|      i32.const 1
+        #|      memory.fill
+        #|    end
+        #|    i32.const 0
+        #|    i32.const 4660
+        #|    i32.const 255
+        #|    i32.and
+        #|    i32.store8
+        #|    i32.const 2
+        #|    i32.const 305419896
+        #|    i32.const 65535
+        #|    i32.and
+        #|    i32.store16
+        #|    i32.const 4
+        #|    i64.const 4660
+        #|    i64.const 255
+        #|    i64.and
+        #|    i64.store8))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected raw-shell narrow-store optimize success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=raw-partial-optimize-instructions",
+      )
+    }),
+    msg="expected dead memory-size-boundary-like shell to exercise raw partial path, trace=\{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // OI-G grouped evidence `.tmp/oi-g-memory-family-expanded-profile-20260628`
+  // exposed this exact store-mask profile case after `oi-memory-size-boundary`:
+  // Binaryen removes the i32 masks in the raw shell, and Starshine's direct HOT
+  // path already removes both i32 and i64 redundant low-byte masks.
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("i64.and"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "i32.load8u", "i32.store8", "I32(4660)", "i32.store8", "I32(305419896)", "i32.store16",
+    "I64(4660)", "i64.store8",
+  ])
 }
 
 ///|

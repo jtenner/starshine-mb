@@ -3551,6 +3551,14 @@ fn gen_valid_coverage_candidate_transform_applicable(
     AddLeadingTableSizeDropToDefinedFunctions
     | AddTrailingTableSizeDropToDefinedFunctions =>
       metamorphic_total_table_count(mod) > 0
+    OiMemorySizeBoundary
+    | OiLiveZeroMemoryBoundary
+    | OiLiveNonzeroMemoryCopyBoundary
+    | OiLiveNonzeroMemoryMidCopyBoundary
+    | OiLiveNonzeroMemoryFillRestoreBoundary
+    | OiLiveNonzeroMemoryMidFillRestoreBoundary
+    | OiLiveNonzeroMemoryEndFillRestoreBoundary =>
+      metamorphic_transform_applicable(mod, transform)
     _ => true
   }
 }

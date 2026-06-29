@@ -344,6 +344,18 @@ const implementedOiMetamorphicTransforms = new Set<string>([
   "oi-call-ref-target-wrapper",
   "oi-tuple-selected-lane",
   "oi-memory-size-boundary",
+  "oi-live-zero-memory-boundary",
+  "oi-live-nonzero-memory-copy-boundary",
+  "oi-live-nonzero-memory-mid-copy-boundary",
+  "oi-live-nonzero-memory-end-copy-boundary",
+  "oi-live-nonzero-memory-dynamic-copy-boundary",
+  "oi-live-nonzero-memory-varied-copy-boundary",
+  "oi-live-nonzero-memory-second-copy-boundary",
+  "oi-live-nonzero-memory-atomic-boundary",
+  "oi-live-nonzero-memory-atomic-rmw-boundary",
+  "oi-live-nonzero-memory-fill-restore-boundary",
+  "oi-live-nonzero-memory-mid-fill-restore-boundary",
+  "oi-live-nonzero-memory-end-fill-restore-boundary",
 ]);
 
 function isForwardableMetamorphicTransform(transform: string): boolean {

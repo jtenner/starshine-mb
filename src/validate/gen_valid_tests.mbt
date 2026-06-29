@@ -2278,6 +2278,382 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
 }
 
 ///|
+fn gen_valid_test_instrs_count_memory_bulk_ops(
+  instrs : Array[Instruction],
+) -> (Int, Int) {
+  let mut copies = 0
+  let mut fills = 0
+  for instr in instrs {
+    match instr {
+      MemoryCopy(_, _) => copies += 1
+      MemoryFill(_) => fills += 1
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) => {
+        let (nested_copies, nested_fills) = gen_valid_test_instrs_count_memory_bulk_ops(
+          body,
+        )
+        copies += nested_copies
+        fills += nested_fills
+      }
+      If(_, then_body, else_body) => {
+        let (then_copies, then_fills) = gen_valid_test_instrs_count_memory_bulk_ops(
+          then_body,
+        )
+        copies += then_copies
+        fills += then_fills
+        match else_body {
+          Some(body) => {
+            let (else_copies, else_fills) = gen_valid_test_instrs_count_memory_bulk_ops(
+              body,
+            )
+            copies += else_copies
+            fills += else_fills
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  (copies, fills)
+}
+
+///|
+fn gen_valid_test_instrs_have_i64_local_carried_bulk(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 5 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+      ) {
+      (
+        I64Const(_),
+        LocalSet(LocalIdx(set_idx)),
+        LocalGet(LocalIdx(dst_idx)),
+        I64Const(_),
+        LocalGet(LocalIdx(size_idx)),
+        MemoryCopy(_, _),
+      ) if set_idx == dst_idx && set_idx == size_idx => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_global_effect_boundary(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      GlobalSet(_) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_global_effect_boundary(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_global_effect_boundary(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_global_effect_boundary(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_call(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      Call(_) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_call(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_call(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_call(body) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_store_mask(instrs : Array[Instruction]) -> Bool {
+  for i = 0; i + 4 < instrs.length(); i = i + 1 {
+    match
+      (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
+      (I32Const(_), I32Const(_), I32Const(_), I32And, I32Store8(_)) =>
+        return true
+      (I32Const(_), I32Const(_), I32Const(_), I32And, I32Store16(_)) =>
+        return true
+      (I32Const(_), I64Const(_), I64Const(_), I64And, I64Store8(_)) =>
+        return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_i32_dynamic_bulk(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 5 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+      ) {
+      (
+        I32Const(_),
+        LocalTee(LocalIdx(tee_idx)),
+        I32Const(_),
+        LocalGet(LocalIdx(size_idx)),
+        MemoryCopy(_, _),
+        LocalGet(LocalIdx(fill_idx)),
+      ) if tee_idx == size_idx && tee_idx == fill_idx => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_multi_memory(mod_ : Module) -> Bool {
+  let mut count = 0
+  match mod_.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        let Import(_, _, extern_type) = import_
+        match extern_type {
+          MemExternType(_) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.mem_sec {
+    Some(MemSec(mems)) => count += mems.length()
+    None => ()
+  }
+  count > 1
+}
+
+///|
+fn gen_valid_test_instrs_have_multi_memory_bulk(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      MemoryCopy(MemIdx(dst), MemIdx(src)) if dst != src => return true
+      MemoryFill(mem_idx) if gen_valid_test_idx_is_nonzero_mem(mem_idx) =>
+        return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_multi_memory_bulk(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_multi_memory_bulk(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_multi_memory_bulk(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_oi_memory_bulk_trigger_signature(
+  mod_ : Module,
+) -> String raise {
+  let instrs = gen_valid_test_first_func_instrs(mod_)
+  if gen_valid_test_has_multi_memory(mod_) &&
+    gen_valid_test_instrs_have_multi_memory_bulk(instrs) {
+    "multi-memory-bulk"
+  } else if gen_valid_test_has_memory64(mod_) &&
+    gen_valid_test_instrs_have_i64_local_carried_bulk(instrs) {
+    "memory64-dynamic"
+  } else if gen_valid_test_instrs_have_global_effect_boundary(instrs) {
+    "live-effect-trap"
+  } else if gen_valid_test_instrs_have_call(instrs) {
+    "existing-producer-wrapped"
+  } else if gen_valid_test_instrs_have_store_mask(instrs) {
+    "store-mask"
+  } else if gen_valid_test_instrs_have_i32_dynamic_bulk(instrs) {
+    "dynamic-i32-bulk"
+  } else {
+    "direct-tiny"
+  }
+}
+
+///|
+test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memory cases" {
+  let memory64_dynamic = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let live_effect_trap = match
+    gen_valid_module_result_from_seed(
+      0x5eeeUL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let existing_producer = match
+    gen_valid_module_result_from_seed(
+      0x5eefUL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let store_mask = match
+    gen_valid_module_result_from_seed(
+      0x5ef0UL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let dynamic_i32 = match
+    gen_valid_module_result_from_seed(
+      0x5ef1UL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let direct_tiny = match
+    gen_valid_module_result_from_seed(
+      0x5ef2UL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let multi_memory = match
+    gen_valid_module_result_from_seed(
+      0x5ef3UL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(memory64_dynamic.config_label, "pass-oi-memory-bulk")
+  for
+    generated in [
+      memory64_dynamic, live_effect_trap, existing_producer, store_mask, dynamic_i32,
+      direct_tiny, multi_memory,
+    ] {
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+  }
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5eedUL),
+    Some("oi-memory-bulk:memory64-dynamic-bulk"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5eeeUL),
+    Some("oi-memory-bulk:live-effect-trap-boundaries"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5eefUL),
+    Some("oi-memory-bulk:existing-producer-wrapped-bulk"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5ef0UL),
+    Some("oi-memory-bulk:store-mask-boundaries"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5ef1UL),
+    Some("oi-memory-bulk:dynamic-i32-bulk-operands"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5ef2UL),
+    Some("oi-memory-bulk:direct-tiny-bulk"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5ef3UL),
+    Some("oi-memory-bulk:multi-memory-bulk"),
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      memory64_dynamic.wasm_module,
+    ),
+    "memory64-dynamic",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      live_effect_trap.wasm_module,
+    ),
+    "live-effect-trap",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      existing_producer.wasm_module,
+    ),
+    "existing-producer-wrapped",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(store_mask.wasm_module),
+    "store-mask",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(dynamic_i32.wasm_module),
+    "dynamic-i32-bulk",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(direct_tiny.wasm_module),
+    "direct-tiny",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(multi_memory.wasm_module),
+    "multi-memory-bulk",
+  )
+  let (direct_copies, direct_fills) = gen_valid_test_instrs_count_memory_bulk_ops(
+    gen_valid_test_first_func_instrs(direct_tiny.wasm_module),
+  )
+  assert_true(direct_copies >= 8, msg="expected direct tiny memory.copy sizes")
+  assert_true(direct_fills >= 8, msg="expected direct tiny memory.fill sizes")
+}
+
+///|
 test "OI-I ref-gc trigger-smoke profile selects distinct seed-indexed reference cases" {
   let local_carried = match
     gen_valid_module_result_from_seed(

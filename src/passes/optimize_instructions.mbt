@@ -3403,6 +3403,24 @@ fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
 }
 
 ///|
+fn optimize_instructions_const_memory_size_exact(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int? {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, node.imm0) {
+        @ir.HotConstPayload::I32Const(@lib.I32(raw)) if raw >= 0 => Some(raw)
+        @ir.HotConstPayload::I64Const(@lib.I64(raw)) if raw >= 0L &&
+          raw <= 2147483647L => Some(raw.to_int())
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_const_memory_size(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -3414,8 +3432,30 @@ fn optimize_instructions_const_memory_size(
       match optimize_instructions_i64_const(func, dead, node_id) {
         Some(@lib.I64(raw)) if raw >= 0L && raw <= 2147483647L =>
           Some(raw.to_int())
+        _ => optimize_instructions_const_memory_size_exact(func, node_id)
+      }
+  }
+}
+
+///|
+fn optimize_instructions_i32_const_for_memory_fill(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> @lib.I32? {
+  match optimize_instructions_i32_const(func, dead, node_id) {
+    Some(value) => Some(value)
+    None => {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::Const =>
+          match @ir.hot_const_get(func, node.imm0) {
+            @ir.HotConstPayload::I32Const(value) => Some(value)
+            _ => None
+          }
         _ => None
       }
+    }
   }
 }
 
@@ -4902,7 +4942,7 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
   match size {
     1 => {
       let stored_id = match
-        optimize_instructions_i32_const(func, dead, value_id) {
+        optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
         Some(@lib.I32(raw)) =>
           match optimize_instructions_repeated_fill_i32(raw, 1) {
             Some(value) => @ir.hot_build_const_i32(func, value)
@@ -4921,7 +4961,7 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
     }
     2 | 4 => {
       let repeated_id = match
-        optimize_instructions_i32_const(func, dead, value_id) {
+        optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
         Some(@lib.I32(raw)) =>
           match optimize_instructions_repeated_fill_i32(raw, size) {
             Some(value) => @ir.hot_build_const_i32(func, value)
@@ -4961,7 +5001,7 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
     }
     8 => {
       let repeated_id = match
-        optimize_instructions_i32_const(func, dead, value_id) {
+        optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
         Some(@lib.I32(raw)) =>
           @ir.hot_build_const_i64(
             func,
@@ -4991,7 +5031,7 @@ fn optimize_instructions_try_expand_tiny_memory_fill(
     }
     16 => {
       let repeated_id = match
-        optimize_instructions_i32_const(func, dead, value_id) {
+        optimize_instructions_i32_const_for_memory_fill(func, dead, value_id) {
         Some(@lib.I32(raw)) =>
           optimize_instructions_build_repeated_fill_v128_const(func, raw)
         _ => return false
@@ -12429,6 +12469,49 @@ fn optimize_instructions_try_rewrite_compare_eqz(
 }
 
 ///|
+fn optimize_instructions_visit_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  region : @ir.HotRegionRef,
+  seen : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+) -> Bool {
+  let mut changed = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, region); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region, idx)
+    if root_id < 0 {
+      continue
+    }
+    if optimize_instructions_node_is_live(func, dead, root_id) {
+      changed = optimize_instructions_visit_node(
+          ctx, func, dead, root_id, seen, scratch,
+        ) ||
+        changed
+    } else {
+      // OI-G dead-shell parity: Binaryen still applies tiny bulk-memory lowering
+      // inside syntactically unreachable if bodies. Keep this intentionally
+      // narrow to the memory.copy/fill lowering helpers so dead-region traversal
+      // does not broadly enable unrelated rewrites without red-first coverage.
+      changed = match @ir.hot_node_get(func, root_id).op {
+        @ir.HotOp::MemoryCopy =>
+          optimize_instructions_try_expand_tiny_memory_copy(
+            ctx, func, dead, root_id,
+          ) ||
+          changed
+        @ir.HotOp::MemoryFill =>
+          optimize_instructions_try_expand_tiny_memory_fill(
+            ctx, func, dead, root_id,
+          ) ||
+          changed
+        _ => changed
+      }
+    }
+  }
+  changed
+}
+
+///|
 fn optimize_instructions_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -12459,6 +12542,37 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, child_id, seen, scratch,
       ) ||
       changed
+  }
+  changed = match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      optimize_instructions_visit_region(
+        ctx,
+        func,
+        dead,
+        @ir.hot_region_body_ref(func, node_id),
+        seen,
+        scratch,
+      ) ||
+      changed
+    @ir.HotOp::If => {
+      let then_changed = optimize_instructions_visit_region(
+        ctx,
+        func,
+        dead,
+        @ir.hot_region_then_ref(func, node_id),
+        seen,
+        scratch,
+      )
+      let else_changed = match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          optimize_instructions_visit_region(
+            ctx, func, dead, else_region, seen, scratch,
+          )
+        None => false
+      }
+      then_changed || else_changed || changed
+    }
+    _ => changed
   }
   let local_changed = match node.op {
     @ir.HotOp::Unary =>

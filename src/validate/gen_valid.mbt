@@ -2237,7 +2237,8 @@ fn gen_valid_is_ssa_nomerge_parity_config(config : GenValidConfig) -> Bool {
 fn gen_valid_is_oi_trigger_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(PassOiDefaultScalarProfile) ||
   config == GenValidConfig::for_profile(PassOiLocalFactsProfile) ||
-  config == GenValidConfig::for_profile(PassOiRefGcProfile)
+  config == GenValidConfig::for_profile(PassOiRefGcProfile) ||
+  config == GenValidConfig::for_profile(PassOiMemoryBulkProfile)
 }
 
 ///|
@@ -14546,11 +14547,61 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
-fn gen_valid_oi_trigger_profile_case(ctx : GenValidContext) -> Int {
-  if ctx.use_named_streams {
-    (ctx.root_seed % 3UL).to_int()
+fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
+  match profile {
+    PassOiMemoryBulkProfile => 7
+    _ => 3
+  }
+}
+
+///|
+fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
+  match ((seed + 3UL) % 7UL).to_int() {
+    0 => 1
+    1 => 2
+    2 => 3
+    3 => 4
+    4 => 5
+    5 => 0
+    _ => 6
+  }
+}
+
+///|
+fn gen_valid_oi_trigger_profile_case_for_profile_seed(
+  profile : GenValidProfile,
+  seed : UInt64,
+) -> Int {
+  match profile {
+    PassOiMemoryBulkProfile => gen_valid_oi_memory_bulk_case_for_seed(seed)
+    _ =>
+      (seed % gen_valid_oi_trigger_profile_case_modulus(profile).to_uint64()).to_int()
+  }
+}
+
+///|
+fn gen_valid_oi_trigger_profile_for_config(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(PassOiMemoryBulkProfile) {
+    PassOiMemoryBulkProfile
+  } else if config == GenValidConfig::for_profile(PassOiLocalFactsProfile) {
+    PassOiLocalFactsProfile
+  } else if config == GenValidConfig::for_profile(PassOiRefGcProfile) {
+    PassOiRefGcProfile
   } else {
-    ctx.random_int_from(BodyStream, 3)
+    PassOiDefaultScalarProfile
+  }
+}
+
+///|
+fn gen_valid_oi_trigger_profile_case(ctx : GenValidContext) -> Int {
+  let profile = gen_valid_oi_trigger_profile_for_config(ctx.config)
+  let modulus = gen_valid_oi_trigger_profile_case_modulus(profile)
+  if ctx.use_named_streams {
+    gen_valid_oi_trigger_profile_case_for_profile_seed(profile, ctx.root_seed)
+  } else {
+    ctx.random_int_from(BodyStream, modulus)
   }
 }
 
@@ -14564,7 +14615,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
   profile : GenValidProfile,
   seed : UInt64,
 ) -> String? {
-  let case = gen_valid_oi_trigger_profile_case_for_seed(seed)
+  let case = gen_valid_oi_trigger_profile_case_for_profile_seed(profile, seed)
   match profile {
     PassOiDefaultScalarProfile =>
       match case {
@@ -14583,6 +14634,16 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         1 => Some("oi-ref-gc:local-carried-null-test-cast")
         2 => Some("oi-ref-gc:branch-cast-boundaries")
         _ => Some("oi-ref-gc:direct-null-test-cast-eq")
+      }
+    PassOiMemoryBulkProfile =>
+      match case {
+        1 => Some("oi-memory-bulk:memory64-dynamic-bulk")
+        2 => Some("oi-memory-bulk:live-effect-trap-boundaries")
+        3 => Some("oi-memory-bulk:existing-producer-wrapped-bulk")
+        4 => Some("oi-memory-bulk:store-mask-boundaries")
+        5 => Some("oi-memory-bulk:dynamic-i32-bulk-operands")
+        6 => Some("oi-memory-bulk:multi-memory-bulk")
+        _ => Some("oi-memory-bulk:direct-tiny-bulk")
       }
     _ => None
   }
@@ -14687,6 +14748,186 @@ fn gen_valid_oi_local_facts_profile_body(case : Int) -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_oi_memory_bulk_direct_body() -> Array[Instruction] {
+  let out : Array[Instruction] = []
+  let mem_idx = MemIdx::new(0U)
+  let sizes = [0, 1, 2, 3, 4, 5, 8, 16]
+  for size in sizes {
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(size)))
+    out.push(Instruction::memory_copy(mem_idx, mem_idx))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(7)))
+    out.push(Instruction::i32_const(I32(size)))
+    out.push(Instruction::memory_fill(mem_idx))
+  }
+  out.push(Instruction::i32_const(I32(4)))
+  out.push(Instruction::i32_load(MemArg::new(2U, None, 12UL)))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(8)))
+  out.push(Instruction::i32_const(I32(9)))
+  out.push(Instruction::i32_store(MemArg::new(2U, None, 16UL)))
+  out
+}
+
+///|
+fn gen_valid_oi_memory_bulk_memory64_body() -> Array[Instruction] {
+  let mem_idx = MemIdx::new(0U)
+  [
+    Instruction::i64_const(I64(1L)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i64_const(I64(0L)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::memory_copy(mem_idx, mem_idx),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(7)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::memory_fill(mem_idx),
+    Instruction::i64_const(I64(8L)),
+    Instruction::i64_load(MemArg::new(3U, None, 24UL)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_oi_memory_bulk_live_effect_trap_body() -> Array[Instruction] {
+  let mem_idx = MemIdx::new(0U)
+  [
+    Instruction::i32_const(I32(1)),
+    Instruction::global_set(GlobalIdx::new(0U)),
+    Instruction::global_get(GlobalIdx::new(0U)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_copy(mem_idx, mem_idx),
+    Instruction::i32_const(I32(0)),
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_div_u(),
+        Instruction::drop(),
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_const(I32(9)),
+        Instruction::i32_const(I32(1)),
+        Instruction::memory_fill(mem_idx),
+      ],
+      None,
+    ),
+    Instruction::global_get(GlobalIdx::new(0U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_oi_memory_bulk_call_wrapped_body() -> Array[Instruction] {
+  let mem_idx = MemIdx::new(0U)
+  [
+    Instruction::call(FuncIdx::new(1U)),
+    Instruction::call(FuncIdx::new(2U)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_copy(mem_idx, mem_idx),
+    Instruction::call(FuncIdx::new(1U)),
+    Instruction::i32_const(I32(0x7f)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_fill(mem_idx),
+    Instruction::call(FuncIdx::new(2U)),
+    Instruction::call(FuncIdx::new(1U)),
+    Instruction::i32_const(I32(8)),
+    Instruction::memory_copy(mem_idx, mem_idx),
+  ]
+}
+
+///|
+fn gen_valid_oi_memory_bulk_store_mask_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0x1234)),
+    Instruction::i32_const(I32(0xff)),
+    Instruction::i32_and(),
+    Instruction::i32_store8(MemArg::new(0U, None, 0UL)),
+    Instruction::i32_const(I32(2)),
+    Instruction::i32_const(I32(0x12345678)),
+    Instruction::i32_const(I32(0xffff)),
+    Instruction::i32_and(),
+    Instruction::i32_store16(MemArg::new(1U, None, 0UL)),
+    Instruction::i32_const(I32(4)),
+    Instruction::i64_const(I64(0x1234L)),
+    Instruction::i64_const(I64(0xffL)),
+    Instruction::i64_and(),
+    Instruction::i64_store8(MemArg::new(0U, None, 0UL)),
+  ]
+}
+
+///|
+fn gen_valid_oi_memory_bulk_dynamic_i32_body() -> Array[Instruction] {
+  let mem_idx = MemIdx::new(0U)
+  [
+    Instruction::i32_const(I32(2)),
+    Instruction::local_tee(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(0)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::memory_copy(mem_idx, mem_idx),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(0xaa)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::memory_fill(mem_idx),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_load8u(MemArg::new(0U, None, 0UL)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_oi_memory_bulk_multi_memory_body() -> Array[Instruction] {
+  let mem0 = MemIdx::new(0U)
+  let mem1 = MemIdx::new(1U)
+  [
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_copy(mem1, mem0),
+    Instruction::i32_const(I32(2)),
+    Instruction::i32_const(I32(0x7f)),
+    Instruction::i32_const(I32(2)),
+    Instruction::memory_fill(mem1),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load8u(MemArg::new(0U, Some(mem1), 0UL)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(4)),
+    Instruction::i32_const(I32(0xaa)),
+    Instruction::i32_store8(MemArg::new(0U, Some(mem1), 0UL)),
+  ]
+}
+
+///|
+fn gen_valid_oi_memory_bulk_call_wrapped_module() -> Module {
+  let i32_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([gen_valid_precompute_void_func_type(), i32_func_type]),
+  )
+  .with_func_sec(
+    FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U), TypeIdx::new(1U)]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new(gen_valid_oi_memory_bulk_call_wrapped_body()),
+      ),
+      Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(0))])),
+      Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(8))])),
+    ]),
+  )
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+}
+
+///|
 fn gen_valid_oi_ref_gc_profile_body(case : Int) -> Array[Instruction] {
   let any = HeapType::abs(AbsHeapType::any())
   let eq = HeapType::abs(AbsHeapType::eq())
@@ -14736,14 +14977,23 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let local_facts = config ==
     GenValidConfig::for_profile(PassOiLocalFactsProfile)
   let ref_gc = config == GenValidConfig::for_profile(PassOiRefGcProfile)
+  let memory_bulk = config ==
+    GenValidConfig::for_profile(PassOiMemoryBulkProfile)
   let case = gen_valid_oi_trigger_profile_case(ctx)
+  if memory_bulk && case == 3 {
+    return gen_valid_oi_memory_bulk_call_wrapped_module()
+  }
   let locals = if local_facts {
     Locals::from_types([ValType::i32(), ValType::i64()])
   } else if ref_gc && case == 1 {
     Locals::from_types([
       ValType::ref_type(RefType::new(true, HeapType::abs(AbsHeapType::any()))),
     ])
-  } else if !ref_gc && (case == 1 || case == 2) {
+  } else if memory_bulk && case == 1 {
+    Locals::from_types([ValType::i64()])
+  } else if memory_bulk && case == 5 {
+    Locals::from_types([ValType::i32()])
+  } else if !ref_gc && !memory_bulk && (case == 1 || case == 2) {
     Locals::from_types([ValType::i32()])
   } else {
     Locals::empty()
@@ -14752,13 +15002,47 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
     gen_valid_oi_local_facts_profile_body(case)
   } else if ref_gc {
     gen_valid_oi_ref_gc_profile_body(case)
+  } else if memory_bulk {
+    match case {
+      1 => gen_valid_oi_memory_bulk_memory64_body()
+      2 => gen_valid_oi_memory_bulk_live_effect_trap_body()
+      4 => gen_valid_oi_memory_bulk_store_mask_body()
+      5 => gen_valid_oi_memory_bulk_dynamic_i32_body()
+      6 => gen_valid_oi_memory_bulk_multi_memory_body()
+      _ => gen_valid_oi_memory_bulk_direct_body()
+    }
   } else {
     gen_valid_oi_default_scalar_profile_body(case)
   }
-  Module::new()
-  .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
-  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-  .with_code_sec(CodeSec::new([Func::new(locals, Expr::new(body))]))
+  let mut mod = Module::new()
+    .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(CodeSec::new([Func::new(locals, Expr::new(body))]))
+  if memory_bulk {
+    mod = if case == 1 {
+      mod.with_mem_sec(MemSec::new([MemType::new(Limits::i64(1UL, None))]))
+    } else if case == 6 {
+      mod.with_mem_sec(
+        MemSec::new([
+          MemType::new(Limits::i32(1U, None)),
+          MemType::new(Limits::i32(1U, None)),
+        ]),
+      )
+    } else {
+      mod.with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+    }
+    if case == 2 {
+      mod = mod.with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(ValType::i32(), true),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
+        ]),
+      )
+    }
+  }
+  mod
 }
 
 ///|

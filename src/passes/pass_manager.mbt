@@ -23559,8 +23559,8 @@ fn run_hot_pipeline_raw_optimize_instructions_i32_nonnegative_signed_spelling(
     @lib.I32GtS => Some(@lib.Instruction::i32_gt_u())
     @lib.I32LeS => Some(@lib.Instruction::i32_le_u())
     @lib.I32GeS => Some(@lib.Instruction::i32_ge_u())
-    @lib.I32DivS if rhs_raw != 0 => Some(@lib.Instruction::i32_div_u())
-    @lib.I32RemS if rhs_raw != 0 => Some(@lib.Instruction::i32_rem_u())
+    @lib.I32DivS => Some(@lib.Instruction::i32_div_u())
+    @lib.I32RemS => Some(@lib.Instruction::i32_rem_u())
     @lib.I32ShrS => Some(@lib.Instruction::i32_shr_u())
     _ => None
   }
@@ -23580,8 +23580,8 @@ fn run_hot_pipeline_raw_optimize_instructions_i64_nonnegative_signed_spelling(
     @lib.I64GtS => Some(@lib.Instruction::i64_gt_u())
     @lib.I64LeS => Some(@lib.Instruction::i64_le_u())
     @lib.I64GeS => Some(@lib.Instruction::i64_ge_u())
-    @lib.I64DivS if rhs_raw != 0L => Some(@lib.Instruction::i64_div_u())
-    @lib.I64RemS if rhs_raw != 0L => Some(@lib.Instruction::i64_rem_u())
+    @lib.I64DivS => Some(@lib.Instruction::i64_div_u())
+    @lib.I64RemS => Some(@lib.Instruction::i64_rem_u())
     @lib.I64ShrS => Some(@lib.Instruction::i64_shr_u())
     _ => None
   }
@@ -23606,6 +23606,483 @@ fn run_hot_pipeline_raw_optimize_instructions_f64_can_negate_for_sub(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_i32_power_of_two_shift(
+  raw : Int,
+) -> Int? {
+  if raw <= 0 || (raw & (raw - 1)) != 0 {
+    return None
+  }
+  let mut shift = 0
+  let mut value = raw
+  while value > 1 {
+    value = value >> 1
+    shift = shift + 1
+  }
+  Some(shift)
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_i64_power_of_two_shift(
+  raw : Int64,
+) -> Int64? {
+  if raw <= 0L || (raw & (raw - 1L)) != 0L {
+    return None
+  }
+  let mut shift = 0L
+  let mut value = raw
+  while value > 1L {
+    value = value >> 1
+    shift = shift + 1L
+  }
+  Some(shift)
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_is_i32_const(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_is_i64_const(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I64Const(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_ordered_const_i32_eq_ne(
+  lhs_raw : Int,
+  rhs_raw : Int,
+  instr : @lib.Instruction,
+) -> @lib.I32? {
+  if lhs_raw > rhs_raw {
+    return None
+  }
+  match instr {
+    @lib.I32Eq => Some(@lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }))
+    @lib.I32Ne => Some(@lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_ordered_const_i64_eq_ne(
+  lhs_raw : Int64,
+  rhs_raw : Int64,
+  instr : @lib.Instruction,
+) -> @lib.I32? {
+  if lhs_raw > rhs_raw {
+    return None
+  }
+  match instr {
+    @lib.I64Eq => Some(@lib.I32(if lhs_raw == rhs_raw { 1 } else { 0 }))
+    @lib.I64Ne => Some(@lib.I32(if lhs_raw != rhs_raw { 1 } else { 0 }))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_memarg_for_mem_idx(
+  mem_idx : @lib.MemIdx,
+) -> @lib.MemArg {
+  @lib.MemArg::new(@lib.U32(0), Some(mem_idx), @lib.U64(0))
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
+  address : @lib.Instruction,
+  memarg : @lib.MemArg,
+) -> (@lib.Instruction, @lib.MemArg)? {
+  let @lib.MemArg(align, mem, @lib.U64(offset)) = memarg
+  if offset == 0UL {
+    return None
+  }
+  let folded_address = match address {
+    @lib.I32Const(@lib.I32(raw)) => {
+      if raw < 0 {
+        return None
+      }
+      let raw_u = raw.reinterpret_as_uint()
+      if raw_u > 2147483647U {
+        return None
+      }
+      let sum = raw_u.to_uint64() + offset
+      if sum > 2147483647UL {
+        return None
+      }
+      @lib.Instruction::i32_const(@lib.I32(sum.to_uint().reinterpret_as_int()))
+    }
+    @lib.I64Const(@lib.I64(raw)) => {
+      let raw_u = raw.reinterpret_as_uint64()
+      if raw_u > 18446744073709551615UL - offset {
+        return None
+      }
+      let sum = raw_u + offset
+      @lib.Instruction::i64_const(@lib.I64(sum.reinterpret_as_int64()))
+    }
+    _ => return None
+  }
+  Some((folded_address, @lib.MemArg::new(align, mem, @lib.U64(0UL))))
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
+  instr : @lib.Instruction,
+  memarg : @lib.MemArg,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.I32Load(_) => Some(@lib.Instruction::i32_load(memarg))
+    @lib.I64Load(_) => Some(@lib.Instruction::i64_load(memarg))
+    @lib.F32Load(_) => Some(@lib.Instruction::f32_load(memarg))
+    @lib.F64Load(_) => Some(@lib.Instruction::f64_load(memarg))
+    @lib.I32Load8S(_) => Some(@lib.Instruction::i32_load8s(memarg))
+    @lib.I32Load8U(_) => Some(@lib.Instruction::i32_load8u(memarg))
+    @lib.I32Load16S(_) => Some(@lib.Instruction::i32_load16s(memarg))
+    @lib.I32Load16U(_) => Some(@lib.Instruction::i32_load16u(memarg))
+    @lib.I64Load8S(_) => Some(@lib.Instruction::i64_load8s(memarg))
+    @lib.I64Load8U(_) => Some(@lib.Instruction::i64_load8u(memarg))
+    @lib.I64Load16S(_) => Some(@lib.Instruction::i64_load16s(memarg))
+    @lib.I64Load16U(_) => Some(@lib.Instruction::i64_load16u(memarg))
+    @lib.I64Load32S(_) => Some(@lib.Instruction::i64_load32s(memarg))
+    @lib.I64Load32U(_) => Some(@lib.Instruction::i64_load32u(memarg))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_store_with_memarg(
+  instr : @lib.Instruction,
+  memarg : @lib.MemArg,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.I32Store(_) => Some(@lib.Instruction::i32_store(memarg))
+    @lib.I64Store(_) => Some(@lib.Instruction::i64_store(memarg))
+    @lib.F32Store(_) => Some(@lib.Instruction::f32_store(memarg))
+    @lib.F64Store(_) => Some(@lib.Instruction::f64_store(memarg))
+    @lib.I32Store8(_) => Some(@lib.Instruction::i32_store8(memarg))
+    @lib.I32Store16(_) => Some(@lib.Instruction::i32_store16(memarg))
+    @lib.I64Store8(_) => Some(@lib.Instruction::i64_store8(memarg))
+    @lib.I64Store16(_) => Some(@lib.Instruction::i64_store16(memarg))
+    @lib.I64Store32(_) => Some(@lib.Instruction::i64_store32(memarg))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_fold_const_load_offset(
+  address : @lib.Instruction,
+  load_instr : @lib.Instruction,
+) -> (@lib.Instruction, @lib.Instruction)? {
+  let memarg = match load_instr {
+    @lib.I32Load(memarg) => memarg
+    @lib.I64Load(memarg) => memarg
+    @lib.F32Load(memarg) => memarg
+    @lib.F64Load(memarg) => memarg
+    @lib.I32Load8S(memarg) => memarg
+    @lib.I32Load8U(memarg) => memarg
+    @lib.I32Load16S(memarg) => memarg
+    @lib.I32Load16U(memarg) => memarg
+    @lib.I64Load8S(memarg) => memarg
+    @lib.I64Load8U(memarg) => memarg
+    @lib.I64Load16S(memarg) => memarg
+    @lib.I64Load16U(memarg) => memarg
+    @lib.I64Load32S(memarg) => memarg
+    @lib.I64Load32U(memarg) => memarg
+    _ => return None
+  }
+  let (folded_address, folded_memarg) = match
+    run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
+      address, memarg,
+    ) {
+    Some(result) => result
+    None => return None
+  }
+  let folded_load = match
+    run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
+      load_instr, folded_memarg,
+    ) {
+    Some(instr) => instr
+    None => return None
+  }
+  Some((folded_address, folded_load))
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
+  address : @lib.Instruction,
+  store_instr : @lib.Instruction,
+) -> (@lib.Instruction, @lib.Instruction)? {
+  let memarg = match store_instr {
+    @lib.I32Store(memarg) => memarg
+    @lib.I64Store(memarg) => memarg
+    @lib.F32Store(memarg) => memarg
+    @lib.F64Store(memarg) => memarg
+    @lib.I32Store8(memarg) => memarg
+    @lib.I32Store16(memarg) => memarg
+    @lib.I64Store8(memarg) => memarg
+    @lib.I64Store16(memarg) => memarg
+    @lib.I64Store32(memarg) => memarg
+    _ => return None
+  }
+  let (folded_address, folded_memarg) = match
+    run_hot_pipeline_raw_optimize_instructions_const_address_with_memarg_offset(
+      address, memarg,
+    ) {
+    Some(result) => result
+    None => return None
+  }
+  let folded_store = match
+    run_hot_pipeline_raw_optimize_instructions_store_with_memarg(
+      store_instr, folded_memarg,
+    ) {
+    Some(instr) => instr
+    None => return None
+  }
+  Some((folded_address, folded_store))
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_memory_size(
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.I32Const(@lib.I32(raw)) => Some(raw)
+    @lib.I64Const(@lib.I64(raw)) if raw >= 0L && raw <= 2147483647L =>
+      Some(raw.to_int())
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_store_bits(
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.I32Store8(_) | @lib.I64Store8(_) => Some(8)
+    @lib.I32Store16(_) | @lib.I64Store16(_) => Some(16)
+    @lib.I64Store32(_) => Some(32)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_store_is_i64(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I64Store8(_) | @lib.I64Store16(_) | @lib.I64Store32(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_drop_store_mask(
+  lhs : @lib.Instruction,
+  rhs : @lib.Instruction,
+  and_instr : @lib.Instruction,
+  store_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let bits = match
+    run_hot_pipeline_raw_optimize_instructions_store_bits(store_instr) {
+    Some(bits) => bits
+    None => return None
+  }
+  if run_hot_pipeline_raw_optimize_instructions_store_is_i64(store_instr) {
+    match and_instr {
+      @lib.I64And => ()
+      _ => return None
+    }
+    let required_mask = (1L << bits) - 1L
+    match (lhs, rhs) {
+      (@lib.I64Const(@lib.I64(mask)), value) if (mask & required_mask) ==
+        required_mask => Some(value)
+      (value, @lib.I64Const(@lib.I64(mask))) if (mask & required_mask) ==
+        required_mask => Some(value)
+      _ => None
+    }
+  } else {
+    match and_instr {
+      @lib.I32And => ()
+      _ => return None
+    }
+    let required_mask = (1 << bits) - 1
+    match (lhs, rhs) {
+      (@lib.I32Const(@lib.I32(mask)), value) if (mask & required_mask) ==
+        required_mask => Some(value)
+      (value, @lib.I32Const(@lib.I32(mask))) if (mask & required_mask) ==
+        required_mask => Some(value)
+      _ => None
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_repeated_fill_i32(
+  raw : Int,
+  size : Int,
+) -> @lib.I32? {
+  let byte = raw.reinterpret_as_uint() & 0xff
+  match size {
+    1 => Some(@lib.I32(byte.reinterpret_as_int()))
+    2 => Some(@lib.I32((byte | (byte << 8)).reinterpret_as_int()))
+    4 =>
+      Some(
+        @lib.I32(
+          (byte | (byte << 8) | (byte << 16) | (byte << 24)).reinterpret_as_int(),
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_repeated_fill_i64(
+  raw : Int,
+) -> @lib.I64 {
+  let byte = (raw.reinterpret_as_uint() & 0xff).to_uint64()
+  @lib.I64(
+    (byte |
+    (byte << 8) |
+    (byte << 16) |
+    (byte << 24) |
+    (byte << 32) |
+    (byte << 40) |
+    (byte << 48) |
+    (byte << 56)).reinterpret_as_int64(),
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_repeated_fill_v128(
+  raw : Int,
+) -> @lib.Instruction {
+  let byte = (raw.reinterpret_as_uint() & 0xff).to_byte()
+  @lib.Instruction::v128_const(
+    byte, byte, byte, byte, byte, byte, byte, byte, byte, byte, byte, byte, byte,
+    byte, byte, byte,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+  size : Int,
+  src_mem : @lib.MemIdx,
+  dst_mem : @lib.MemIdx,
+) -> (@lib.Instruction, @lib.Instruction)? {
+  let src_memarg = run_hot_pipeline_raw_optimize_instructions_memarg_for_mem_idx(
+    src_mem,
+  )
+  let dst_memarg = run_hot_pipeline_raw_optimize_instructions_memarg_for_mem_idx(
+    dst_mem,
+  )
+  match size {
+    1 =>
+      Some(
+        (
+          @lib.Instruction::i32_load8u(src_memarg),
+          @lib.Instruction::i32_store8(dst_memarg),
+        ),
+      )
+    2 =>
+      Some(
+        (
+          @lib.Instruction::i32_load16u(src_memarg),
+          @lib.Instruction::i32_store16(dst_memarg),
+        ),
+      )
+    4 =>
+      Some(
+        (
+          @lib.Instruction::i32_load(src_memarg),
+          @lib.Instruction::i32_store(dst_memarg),
+        ),
+      )
+    8 =>
+      Some(
+        (
+          @lib.Instruction::i64_load(src_memarg),
+          @lib.Instruction::i64_store(dst_memarg),
+        ),
+      )
+    16 =>
+      Some(
+        (
+          @lib.Instruction::v128_load(src_memarg),
+          @lib.Instruction::v128_store(dst_memarg),
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_fill_value_instr(
+  value : @lib.Instruction,
+  size : Int,
+) -> @lib.Instruction? {
+  match size {
+    1 => Some(value)
+    2 | 4 =>
+      match value {
+        @lib.I32Const(@lib.I32(raw)) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_repeated_fill_i32(
+              raw, size,
+            ) {
+            Some(repeated) => Some(@lib.Instruction::i32_const(repeated))
+            None => None
+          }
+        _ => None
+      }
+    8 =>
+      match value {
+        @lib.I32Const(@lib.I32(raw)) =>
+          Some(
+            @lib.Instruction::i64_const(
+              run_hot_pipeline_raw_optimize_instructions_repeated_fill_i64(raw),
+            ),
+          )
+        _ => None
+      }
+    16 =>
+      match value {
+        @lib.I32Const(@lib.I32(raw)) =>
+          Some(
+            run_hot_pipeline_raw_optimize_instructions_repeated_fill_v128(raw),
+          )
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_fill_store_instr(
+  size : Int,
+  mem : @lib.MemIdx,
+) -> @lib.Instruction? {
+  let memarg = run_hot_pipeline_raw_optimize_instructions_memarg_for_mem_idx(
+    mem,
+  )
+  match size {
+    1 => Some(@lib.Instruction::i32_store8(memarg))
+    2 => Some(@lib.Instruction::i32_store16(memarg))
+    4 => Some(@lib.Instruction::i32_store(memarg))
+    8 => Some(@lib.Instruction::i64_store(memarg))
+    16 => Some(@lib.Instruction::v128_store(memarg))
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -23614,7 +24091,241 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
+    if i + 7 < instrs.length() {
+      match
+        (
+          instrs[i],
+          instrs[i + 1],
+          instrs[i + 2],
+          instrs[i + 3],
+          instrs[i + 4],
+          instrs[i + 5],
+          instrs[i + 6],
+          instrs[i + 7],
+        ) {
+        (
+          @lib.MemorySize(dst_size_mem),
+          @lib.I32Const(@lib.I32(dst_shift)),
+          @lib.I32Shl,
+          @lib.MemorySize(src_size_mem),
+          @lib.I32Const(@lib.I32(src_shift)),
+          @lib.I32Shl,
+          @lib.I32Const(@lib.I32(size_raw)),
+          @lib.MemoryCopy(dst_mem, src_mem),
+        ) if dst_shift == 15 &&
+          src_shift == 15 &&
+          dst_size_mem == dst_mem &&
+          src_size_mem == src_mem =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+              size_raw, src_mem, dst_mem,
+            ) {
+            Some((load_instr, store_instr)) => {
+              rewritten.push(instrs[i])
+              rewritten.push(instrs[i + 1])
+              rewritten.push(instrs[i + 2])
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              rewritten.push(instrs[i + 5])
+              rewritten.push(load_instr)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 8
+              continue
+            }
+            None => ()
+          }
+        (
+          @lib.MemorySize(dst_size_mem),
+          @lib.I32Const(@lib.I32(dst_factor)),
+          @lib.I32Mul,
+          @lib.MemorySize(src_size_mem),
+          @lib.I32Const(@lib.I32(src_factor)),
+          @lib.I32Mul,
+          @lib.I32Const(@lib.I32(size_raw)),
+          @lib.MemoryCopy(dst_mem, src_mem),
+        ) if dst_factor == 32768 &&
+          src_factor == 32768 &&
+          dst_size_mem == dst_mem &&
+          src_size_mem == src_mem =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+              size_raw, src_mem, dst_mem,
+            ) {
+            Some((load_instr, store_instr)) => {
+              rewritten.push(instrs[i])
+              rewritten.push(@lib.Instruction::i32_const(@lib.I32(15)))
+              rewritten.push(@lib.Instruction::i32_shl())
+              rewritten.push(instrs[i + 3])
+              rewritten.push(@lib.Instruction::i32_const(@lib.I32(15)))
+              rewritten.push(@lib.Instruction::i32_shl())
+              rewritten.push(load_instr)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 8
+              continue
+            }
+            None => ()
+          }
+        (
+          @lib.MemorySize(dst_size_mem),
+          @lib.I64Const(@lib.I64(dst_shift)),
+          @lib.I64Shl,
+          @lib.MemorySize(src_size_mem),
+          @lib.I64Const(@lib.I64(src_shift)),
+          @lib.I64Shl,
+          @lib.I64Const(@lib.I64(size_raw)),
+          @lib.MemoryCopy(dst_mem, src_mem),
+        ) if dst_shift == 15L &&
+          src_shift == 15L &&
+          dst_size_mem == dst_mem &&
+          src_size_mem == src_mem &&
+          size_raw >= 0L &&
+          size_raw <= 2147483647L =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+              size_raw.to_int(),
+              src_mem,
+              dst_mem,
+            ) {
+            Some((load_instr, store_instr)) => {
+              rewritten.push(instrs[i])
+              rewritten.push(instrs[i + 1])
+              rewritten.push(instrs[i + 2])
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              rewritten.push(instrs[i + 5])
+              rewritten.push(load_instr)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 8
+              continue
+            }
+            None => ()
+          }
+        (
+          @lib.MemorySize(dst_size_mem),
+          @lib.I64Const(@lib.I64(dst_factor)),
+          @lib.I64Mul,
+          @lib.MemorySize(src_size_mem),
+          @lib.I64Const(@lib.I64(src_factor)),
+          @lib.I64Mul,
+          @lib.I64Const(@lib.I64(size_raw)),
+          @lib.MemoryCopy(dst_mem, src_mem),
+        ) if dst_factor == 32768L &&
+          src_factor == 32768L &&
+          dst_size_mem == dst_mem &&
+          src_size_mem == src_mem &&
+          size_raw >= 0L &&
+          size_raw <= 2147483647L =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+              size_raw.to_int(),
+              src_mem,
+              dst_mem,
+            ) {
+            Some((load_instr, store_instr)) => {
+              rewritten.push(instrs[i])
+              rewritten.push(@lib.Instruction::i64_const(@lib.I64(15L)))
+              rewritten.push(@lib.Instruction::i64_shl())
+              rewritten.push(instrs[i + 3])
+              rewritten.push(@lib.Instruction::i64_const(@lib.I64(15L)))
+              rewritten.push(@lib.Instruction::i64_shl())
+              rewritten.push(load_instr)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 8
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    if i + 3 < instrs.length() {
+      match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+        (@lib.MemorySize(_), @lib.I32Const(@lib.I32(raw)), @lib.I32Ne, if_instr) if raw ==
+          0 => {
+          let (next_if_instrs, if_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
+            if_instr, module_ctx,
+          )
+          rewritten.push(instrs[i])
+          for next_if in next_if_instrs {
+            rewritten.push(next_if)
+          }
+          let _ = if_changed
+          changed = true
+          i = i + 4
+          continue
+        }
+        _ => ()
+      }
+      match
+        (
+          instrs[i],
+          instrs[i + 1],
+          instrs[i + 2],
+          instrs[i + 3],
+          run_hot_pipeline_raw_optimize_instructions_memory_size(instrs[i + 2]),
+        ) {
+        (dst, src, _, @lib.MemoryCopy(dst_mem, src_mem), Some(size)) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+              size, src_mem, dst_mem,
+            ) {
+            Some((load_instr, store_instr)) => {
+              rewritten.push(dst)
+              rewritten.push(src)
+              rewritten.push(load_instr)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 4
+              continue
+            }
+            None => ()
+          }
+        (dst, value, _, @lib.MemoryFill(mem), Some(size)) =>
+          match
+            (
+              run_hot_pipeline_raw_optimize_instructions_fill_value_instr(
+                value, size,
+              ),
+              run_hot_pipeline_raw_optimize_instructions_fill_store_instr(
+                size, mem,
+              ),
+            ) {
+            (Some(fill_value), Some(store_instr)) => {
+              rewritten.push(dst)
+              rewritten.push(fill_value)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 4
+              continue
+            }
+            _ => ()
+          }
+        _ => ()
+      }
+    }
     if i + 4 < instrs.length() {
+      match
+        (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
+        (addr, lhs, rhs, and_instr, store_instr) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_drop_store_mask(
+              lhs, rhs, and_instr, store_instr,
+            ) {
+            Some(value) => {
+              rewritten.push(addr)
+              rewritten.push(value)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 5
+              continue
+            }
+            None => ()
+          }
+      }
       match
         (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
         (
@@ -23644,11 +24355,40 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
     }
     if i + 2 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (address, value, store_instr) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
+              address, store_instr,
+            ) {
+            Some((folded_address, folded_store)) => {
+              rewritten.push(folded_address)
+              rewritten.push(value)
+              rewritten.push(folded_store)
+              changed = true
+              i = i + 3
+              continue
+            }
+            None => ()
+          }
+      }
+      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
         (
           @lib.I32Const(@lib.I32(lhs_raw)),
           @lib.I32Const(@lib.I32(rhs_raw)),
           instr,
-        ) =>
+        ) => {
+          match
+            run_hot_pipeline_raw_optimize_instructions_ordered_const_i32_eq_ne(
+              lhs_raw, rhs_raw, instr,
+            ) {
+            Some(result) => {
+              rewritten.push(@lib.Instruction::i32_const(result))
+              changed = true
+              i = i + 3
+              continue
+            }
+            None => ()
+          }
           match
             run_hot_pipeline_raw_optimize_instructions_i32_nonnegative_signed_spelling(
               lhs_raw, rhs_raw, instr,
@@ -23663,11 +24403,24 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
             }
             None => ()
           }
+        }
         (
           @lib.I64Const(@lib.I64(lhs_raw)),
           @lib.I64Const(@lib.I64(rhs_raw)),
           instr,
-        ) =>
+        ) => {
+          match
+            run_hot_pipeline_raw_optimize_instructions_ordered_const_i64_eq_ne(
+              lhs_raw, rhs_raw, instr,
+            ) {
+            Some(result) => {
+              rewritten.push(@lib.Instruction::i32_const(result))
+              changed = true
+              i = i + 3
+              continue
+            }
+            None => ()
+          }
           match
             run_hot_pipeline_raw_optimize_instructions_i64_nonnegative_signed_spelling(
               lhs_raw, rhs_raw, instr,
@@ -23682,9 +24435,44 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
             }
             None => ()
           }
+        }
         _ => ()
       }
       match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (lhs, @lib.I32Const(@lib.I32(raw)), @lib.I32Mul) if !run_hot_pipeline_raw_optimize_instructions_is_i32_const(
+            lhs,
+          ) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_i32_power_of_two_shift(
+              raw,
+            ) {
+            Some(shift) => {
+              rewritten.push(lhs)
+              rewritten.push(@lib.Instruction::i32_const(@lib.I32(shift)))
+              rewritten.push(@lib.Instruction::i32_shl())
+              changed = true
+              i = i + 3
+              continue
+            }
+            None => ()
+          }
+        (lhs, @lib.I64Const(@lib.I64(raw)), @lib.I64Mul) if !run_hot_pipeline_raw_optimize_instructions_is_i64_const(
+            lhs,
+          ) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_i64_power_of_two_shift(
+              raw,
+            ) {
+            Some(shift) => {
+              rewritten.push(lhs)
+              rewritten.push(@lib.Instruction::i64_const(@lib.I64(shift)))
+              rewritten.push(@lib.Instruction::i64_shl())
+              changed = true
+              i = i + 3
+              continue
+            }
+            None => ()
+          }
         (@lib.F32Const(lhs), @lib.F32Const(@lib.F32(rhs_raw)), @lib.F32Sub) if run_hot_pipeline_raw_optimize_instructions_f32_can_negate_for_sub(
             rhs_raw,
           ) => {
@@ -23761,6 +24549,22 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       }
     }
     if i + 1 < instrs.length() {
+      match (instrs[i], instrs[i + 1]) {
+        (address, load_instr) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_fold_const_load_offset(
+              address, load_instr,
+            ) {
+            Some((folded_address, folded_load)) => {
+              rewritten.push(folded_address)
+              rewritten.push(folded_load)
+              changed = true
+              i = i + 2
+              continue
+            }
+            None => ()
+          }
+      }
       match (instrs[i], instrs[i + 1]) {
         (@lib.I64Const(@lib.I64(raw)), @lib.I32WrapI64) => {
           rewritten.push(
@@ -23914,6 +24718,14 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       reason: "call-local-write-optimize-instructions-noop",
       func: skipped_func,
       unchanged_original: skipped_unchanged,
+      trace_skip_raw: true,
+    })
+  }
+  if stats.ifs > 0 && (directized_changed || effectful_sibling_changed) {
+    return Some({
+      reason: "raw-partial-optimize-instructions",
+      func: skipped_func,
+      unchanged_original: false,
       trace_skip_raw: true,
     })
   }

@@ -2252,6 +2252,25 @@ test "gen-valid batch applies table-size transforms once table index exists" {
 }
 
 ///|
+test "gen-valid batch applies OI memory-size-boundary to memory64 candidates" {
+  let args = EmitGenValidBatchArgs::new(
+    10,
+    0x5eedUL,
+    "tmp/gen-valid",
+    profile="pass-oi-memory-bulk",
+    max_attempts=30,
+    metamorphic_transform_ids=["oi-memory-size-boundary"],
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  assert_true(manifest.contains("\"transform_id\":\"oi-memory-size-boundary\""))
+  assert_true(manifest.contains("oi-memory-bulk:memory64-dynamic-bulk"))
+}
+
+///|
 test "gen-valid batch manifest reports requested and applied metamorphic transforms" {
   let args = EmitGenValidBatchArgs::new(
     2,
