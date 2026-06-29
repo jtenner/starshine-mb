@@ -2691,6 +2691,55 @@ fn gen_valid_test_instrs_have_runtime_restore_copy_read(
 }
 
 ///|
+fn gen_valid_test_instrs_have_runtime_fill_restore_read(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 13 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+        instrs[i + 10],
+        instrs[i + 11],
+        instrs[i + 12],
+        instrs[i + 13],
+      ) {
+      (
+        I32Const(I32(saved_addr)),
+        I32Load8U(MemArg(_, None, _)),
+        LocalSet(LocalIdx(0U)),
+        I32Const(I32(dst_addr)),
+        I32Const(I32(fill_value)),
+        I32Const(I32(1)),
+        MemoryFill(MemIdx(fill_mem)),
+        I32Const(I32(load_addr)),
+        I32Load8U(MemArg(_, None, _)),
+        LocalSet(LocalIdx(1U)),
+        I32Const(I32(restore_addr)),
+        LocalGet(LocalIdx(0U)),
+        I32Store8(MemArg(_, None, _)),
+        LocalGet(LocalIdx(1U)),
+      ) if saved_addr == dst_addr &&
+        dst_addr == load_addr &&
+        dst_addr == restore_addr &&
+        dst_addr > 16 &&
+        fill_value == 0x2a &&
+        fill_mem == 0U => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_has_func_export(mod_ : Module, name : String) -> Bool {
   let expected = Name::from_string(name)
   match mod_.export_sec {
@@ -2814,6 +2863,9 @@ fn gen_valid_test_oi_memory_bulk_trigger_signature(
   if gen_valid_test_has_shared_memory(mod_) &&
     gen_valid_test_instrs_have_atomic_wait_notify(instrs) {
     "shared-wait-notify"
+  } else if gen_valid_test_instrs_have_runtime_fill_restore_read(instrs) &&
+    gen_valid_test_has_func_export(mod_, "run") {
+    "runtime-fill-restore-read"
   } else if gen_valid_test_instrs_have_runtime_restore_copy_read(instrs) &&
     gen_valid_test_has_func_export(mod_, "run") {
     "runtime-restore-copy-read"
@@ -2979,13 +3031,21 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let runtime_fill_restore = match
+    gen_valid_module_result_from_seed(
+      0x5efcUL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(memory64_dynamic.config_label, "pass-oi-memory-bulk")
   for
     generated in [
       memory64_dynamic, live_effect_trap, existing_producer, store_mask, dynamic_i32,
       direct_tiny, multi_memory, random_address, multi_memory_random_address, cross_memory_random_address,
       memory64_cross_memory_random_address, cross_memory_restore, memory64_cross_memory_restore,
-      runtime_restore, shared_wait_notify,
+      runtime_restore, shared_wait_notify, runtime_fill_restore,
     ] {
     match validate_module(generated.wasm_module) {
       Ok(_) => ()
@@ -3051,6 +3111,10 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5efbUL),
     Some("oi-memory-bulk:shared-wait-notify"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5efcUL),
+    Some("oi-memory-bulk:runtime-fill-restore-read"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(
@@ -3129,6 +3193,12 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
       shared_wait_notify.wasm_module,
     ),
     "shared-wait-notify",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      runtime_fill_restore.wasm_module,
+    ),
+    "runtime-fill-restore-read",
   )
   let (direct_copies, direct_fills) = gen_valid_test_instrs_count_memory_bulk_ops(
     gen_valid_test_first_func_instrs(direct_tiny.wasm_module),
