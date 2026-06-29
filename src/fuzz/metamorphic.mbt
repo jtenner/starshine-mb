@@ -7838,19 +7838,32 @@ fn metamorphic_apply_oi_live_nonzero_memory_atomic_rmw_boundary(
   let transform_id = metamorphic_valid_transform_id(
     OiLiveNonzeroMemoryAtomicRmwBoundary,
   )
-  let (mem_idx, memory64) = match metamorphic_first_i32_memory_idx(mod) {
-    Some(idx) => (idx, false)
+  let (source_mod, mem_idx, memory64) = match
+    metamorphic_nonprimary_i32_memory_idx(mod) {
+    Some(idx) => (mod, idx, false)
     None =>
-      match metamorphic_first_i64_memory_idx(mod) {
-        Some(idx) => (idx, true)
-        None =>
-          return Err(
-            "metamorphic transform \{transform_id} requires at least one memory index",
+      match metamorphic_nonprimary_i64_memory_idx(mod) {
+        Some(idx) => (mod, idx, true)
+        None => {
+          if metamorphic_total_memory_count(mod) == 0 {
+            return Err(
+              "metamorphic transform \{transform_id} requires at least one memory index",
+            )
+          }
+          let idx = @lib.MemIdx::new(
+            metamorphic_total_memory_count(mod).to_uint(),
           )
+          match metamorphic_first_i64_memory_idx(mod) {
+            Some(_) =>
+              (metamorphic_add_private_nonzero_i64_memory(mod), idx, true)
+            None =>
+              (metamorphic_add_private_nonzero_i32_memory(mod), idx, false)
+          }
+        }
       }
   }
   let transformed = metamorphic_add_oi_live_nonzero_memory_atomic_rmw_boundary(
-    mod, mem_idx, memory64,
+    source_mod, mem_idx, memory64,
   )
   match validate_module(transformed) {
     Ok(_) => Ok({ transform_id, wasm_module: transformed })

@@ -6442,7 +6442,10 @@ test "OI live nonzero memory-atomic RMW boundary transform guards reachable inte
     .with_type_sec(@lib.TypeSec::new([func_type]))
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
     .with_mem_sec(
-      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(0U, None)),
+        @lib.MemType::new(@lib.Limits::i32(0U, None)),
+      ]),
     )
     .with_code_sec(
       @lib.CodeSec::new([
@@ -6472,10 +6475,11 @@ test "OI live nonzero memory-atomic RMW boundary transform guards reachable inte
     Some(@lib.CodeSec(funcs)) =>
       match funcs[0] {
         @lib.Func(_, @lib.Expr(instrs)) => {
-          let memarg8 = @lib.MemArg::new(0U, Some(@lib.MemIdx::new(0U)), 0UL)
-          let memarg16 = @lib.MemArg::new(1U, Some(@lib.MemIdx::new(0U)), 0UL)
-          let memarg32 = @lib.MemArg::new(2U, Some(@lib.MemIdx::new(0U)), 0UL)
-          let memarg64 = @lib.MemArg::new(3U, Some(@lib.MemIdx::new(0U)), 0UL)
+          let mem = @lib.MemIdx::new(1U)
+          let memarg8 = @lib.MemArg::new(0U, Some(mem), 0UL)
+          let memarg16 = @lib.MemArg::new(1U, Some(mem), 0UL)
+          let memarg32 = @lib.MemArg::new(2U, Some(mem), 0UL)
+          let memarg64 = @lib.MemArg::new(3U, Some(mem), 0UL)
           let expected_then : Array[@lib.Instruction] = []
           for addr in [0, 16, 32768] {
             expected_then.push(@lib.Instruction::i32_const(addr))
@@ -6658,7 +6662,7 @@ test "OI live nonzero memory-atomic RMW boundary transform guards reachable inte
             expected_then.push(@lib.Instruction::drop())
           }
           let end_addr = [
-            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            @lib.Instruction::memory_size(mem),
             @lib.Instruction::i32_const(65536),
             @lib.Instruction::i32_mul(),
             @lib.Instruction::i32_const(1),
@@ -6747,10 +6751,69 @@ test "OI live nonzero memory-atomic RMW boundary transform guards reachable inte
           )
           expected_then.push(@lib.Instruction::drop())
           @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::memory_size(mem))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
           @debug.assert_eq(
-            instrs[0],
-            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+            instrs[3],
+            @lib.Instruction::if_(@lib.BlockType::void_(), expected_then, None),
           )
+          @debug.assert_eq(instrs[4], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-atomic RMW boundary transform uses private non-primary memory" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-atomic-rmw-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transform, OiLiveNonzeroMemoryAtomicRmwBoundary)
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.mem_sec {
+    Some(@lib.MemSec(mems)) => @debug.assert_eq(mems.length(), 2)
+    None => fail("expected transformed memory section")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          let mem = @lib.MemIdx::new(1U)
+          let expected_then = metamorphic_oi_live_nonzero_memory_atomic_rmw_boundary_i32_then_instrs(
+            mem,
+          )
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::memory_size(mem))
           @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(0))
           @debug.assert_eq(instrs[2], @lib.Instruction::i32_ne())
           @debug.assert_eq(
