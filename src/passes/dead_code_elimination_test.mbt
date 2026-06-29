@@ -129,6 +129,280 @@ test "dead-code-elimination skips loop bodies that branch to an outer block" {
 }
 
 ///|
+test "dead-code-elimination removes arms when the if condition is unreachable" {
+  // Binaryen v130 DCE replaces an if whose condition is already unreachable
+  // with the condition itself. Starshine handles this before HOT lifting so the
+  // stack-polymorphic condition does not block the DCE pass.
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) unreachable if (result i32) i32.const 1 else i32.const 2 end))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected unreachable-if-condition DCE success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("if"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims block suffixes after first unreachable root" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func block i32.const 1 drop unreachable i32.const 2 drop end))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected block suffix trim success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination collapses unbranched result blocks ending unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) block (result i32) unreachable end))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected unbranched result block collapse success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination keeps targeted result block type when branch can reach label" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) block (result i32) i32.const 42 local.get 0 br_if 0 unreachable end))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected targeted result block boundary success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(block I32"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("I32(42)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination replaces literal unreachable loop bodies" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) loop (result i32) unreachable end))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected literal-unreachable loop DCE success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("loop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination replaces void literal unreachable loop bodies" {
+  let optimized = match
+    pass_test_run_pipeline("(module (func loop unreachable end))", [
+      "dead-code-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected void literal-unreachable loop DCE success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("loop"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination keeps loops with live backedges as loop-boundary" {
+  let optimized = match
+    pass_test_run_pipeline("(module (func loop br 0 end))", [
+      "dead-code-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected loop-backedge boundary success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination keeps loops with branch-to-loop labels as loop-boundary" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) loop local.get 0 br_if 0 unreachable end))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected conditional loop branch boundary success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination voidifies modern try_table with literal unreachable body" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) try_table (result i32) unreachable end))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected literal-unreachable try_table DCE success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("try_table I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination trims modern try_table reachable catch body suffix" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (tag $e (param i32)) (func (param i32) (result i32) (block $h (result i32) (try_table (result i32) (catch $e $h) (throw $e (local.get 0)) (i32.const 2)))))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected try_table catch-suffix DCE success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("throw"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_false(pretty.contains("try_table I32"), msg=pretty)
+  assert_false(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination voidifies if result when both arms are unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) local.get 0 if (result i32) unreachable else unreachable end))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected both-arms-unreachable if success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves pure prefix before first unreachable root" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func i32.const 1 drop unreachable i32.const 2 drop))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected non-control first-unreachable prefix DCE success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves effectful prefix before first unreachable root" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type (func)) (import \"env\" \"tick\" (func (type 0))) (func call 0 unreachable i32.const 2 drop))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful non-control prefix DCE success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves pure select prefix before first unreachable child" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func i32.const 1 unreachable i32.const 0 select (result i32) drop))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected non-control first-unreachable child DCE success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination preserves effectful select prefix before first unreachable child" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type (func (result i32))) (import \"env\" \"tick\" (func (type 0))) (func call 0 unreachable i32.const 0 select (result i32) drop))",
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful first-unreachable child DCE success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+}
+
+///|
 test "dead-code-elimination preserves pure drop roots for oracle parity" {
   let optimized = match
     pass_test_run_pipeline(
@@ -573,6 +847,29 @@ test "dead-code-elimination removes dead unreachable tails from split payload wr
   assert_false(pretty.contains("(block $block10 (result i32)"), msg=pretty)
   assert_false(pretty.contains("(br $block10"), msg=pretty)
   assert_false(pretty.contains("(if I32"), msg=pretty)
+}
+
+///|
+test "dead-code-elimination voidifies generated split local.set wrapper payload if" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32 i32) (local.set 2 (block $outer (result i32) (block $exit (br $outer (block $mid (result i32) (block $cont (local.set 3 (local.get 1)) (br $mid (if (result i32) (local.get 0) (then (local.set 3 (i32.const 7)) (br $cont)) (else (local.set 3 (i32.const 9)) (br $exit))))) (local.get 3)))) (i32.const 1))) (local.get 2)))",
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination generated split local.set wrapper success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(local.get (Local 3))"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg="\{trace}\n\{pretty}")
+  assert_false(pretty.contains("(br $mid (if"), msg="\{trace}\n\{pretty}")
 }
 
 ///|

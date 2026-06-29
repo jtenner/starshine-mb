@@ -9660,6 +9660,569 @@ test "precompute gen-valid profiles resolve and expose replayable aggregate" {
 }
 
 ///|
+test "dead-code-elimination gen-valid profiles resolve and expose replayable aggregate" {
+  @debug.assert_eq(
+    gen_valid_profile_name(DeadCodeEliminationAllProfile),
+    "dead-code-elimination-all",
+  )
+  assert_true(gen_valid_profile_names().contains("dead-code-elimination-all"))
+  match gen_valid_profile_by_name("dead-code-elimination") {
+    Ok(profile) => @debug.assert_eq(profile, DeadCodeEliminationAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("dce") {
+    Ok(profile) => @debug.assert_eq(profile, DeadCodeEliminationAllProfile)
+    Err(msg) => fail(msg)
+  }
+  assert_true(gen_valid_profile_is_composite(DeadCodeEliminationAllProfile))
+  let members = gen_valid_profile_members(DeadCodeEliminationAllProfile)
+  @debug.assert_eq(members.length(), 12)
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(DeadCodeEliminationNonControlProfile, 1),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(DeadCodeEliminationBlockSuffixProfile, 1),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(DeadCodeEliminationIfBothArmsProfile, 1),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(DeadCodeEliminationIfConditionProfile, 1),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(DeadCodeEliminationLoopBodyProfile, 1),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(DeadCodeEliminationTryTableProfile, 1),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(DeadCodeEliminationTryTableCatchRefProfile, 1),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(
+        DeadCodeEliminationBranchPayloadForwarderProfile,
+        1,
+      ),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(
+        DeadCodeEliminationPrefixBranchPayloadProfile,
+        1,
+      ),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(
+        DeadCodeEliminationSplitLocalSetWrapperProfile,
+        1,
+      ),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(DeadCodeEliminationStructuredPrefixProfile, 1),
+    ),
+  )
+  assert_true(
+    members.contains(
+      GenValidProfileMember::new(
+        DeadCodeEliminationEffectfulStructuredPrefixProfile,
+        1,
+      ),
+    ),
+  )
+}
+
+///|
+test "dead-code-elimination aggregate profile samples every current DCE leaf" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 120 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      DeadCodeEliminationAllProfile,
+      0x5eedUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(DeadCodeEliminationNonControlProfile))
+  assert_true(seen.contains(DeadCodeEliminationBlockSuffixProfile))
+  assert_true(seen.contains(DeadCodeEliminationIfBothArmsProfile))
+  assert_true(seen.contains(DeadCodeEliminationIfConditionProfile))
+  assert_true(seen.contains(DeadCodeEliminationLoopBodyProfile))
+  assert_true(seen.contains(DeadCodeEliminationTryTableProfile))
+  assert_true(seen.contains(DeadCodeEliminationTryTableCatchRefProfile))
+  assert_true(seen.contains(DeadCodeEliminationBranchPayloadForwarderProfile))
+  assert_true(seen.contains(DeadCodeEliminationPrefixBranchPayloadProfile))
+  assert_true(seen.contains(DeadCodeEliminationSplitLocalSetWrapperProfile))
+  assert_true(seen.contains(DeadCodeEliminationStructuredPrefixProfile))
+  assert_true(
+    seen.contains(DeadCodeEliminationEffectfulStructuredPrefixProfile),
+  )
+}
+
+///|
+test "dead-code-elimination gen-valid leaves emit validating unreachable cleanup shapes" {
+  let non_control = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(DeadCodeEliminationNonControlProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    non_control.config_label,
+    "dead-code-elimination-non-control",
+  )
+  match validate_module(non_control.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(non_control.facts.has_standalone_unreachable)
+  assert_true(non_control.facts.has_typed_select)
+
+  let block_suffix = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(DeadCodeEliminationBlockSuffixProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    block_suffix.config_label,
+    "dead-code-elimination-block-suffix",
+  )
+  match validate_module(block_suffix.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(block_suffix.facts.has_standalone_unreachable)
+  assert_true(block_suffix.facts.exact_opcode_counts.i32_const > 0)
+
+  let if_both_arms = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(DeadCodeEliminationIfBothArmsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    if_both_arms.config_label,
+    "dead-code-elimination-if-both-arms",
+  )
+  match validate_module(if_both_arms.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(if_both_arms.facts.has_standalone_unreachable)
+  assert_true(if_both_arms.facts.exact_opcode_counts.i32_const > 0)
+
+  let if_condition = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(DeadCodeEliminationIfConditionProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    if_condition.config_label,
+    "dead-code-elimination-if-condition",
+  )
+  match validate_module(if_condition.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match if_condition.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr([Unreachable, If(_, [I32Const(_)], Some([I32Const(_)])), Drop])
+          ),
+        ]
+      )
+    ) => ()
+    _ => fail("expected DCE if-condition leaf to emit unreachable condition")
+  }
+  assert_true(if_condition.facts.has_standalone_unreachable)
+  assert_true(if_condition.facts.exact_opcode_counts.i32_const > 0)
+
+  let loop_body = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(DeadCodeEliminationLoopBodyProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(loop_body.config_label, "dead-code-elimination-loop-body")
+  match validate_module(loop_body.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(loop_body.facts.has_standalone_unreachable)
+  assert_true(loop_body.facts.exact_opcode_counts.unreachable_opcode > 0)
+
+  let try_table = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(DeadCodeEliminationTryTableProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(try_table.config_label, "dead-code-elimination-try-table")
+  match validate_module(try_table.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match try_table.wasm_module.code_sec {
+    Some(CodeSec([Func(_, Expr([TryTable(_, _, Expr([Unreachable]))]))])) => ()
+    _ =>
+      fail("expected DCE try_table leaf to emit literal-unreachable try_table")
+  }
+  assert_true(try_table.facts.has_standalone_unreachable)
+
+  let try_table_catch_ref = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(DeadCodeEliminationTryTableCatchRefProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    try_table_catch_ref.config_label,
+    "dead-code-elimination-try-table-catch-ref",
+  )
+  match validate_module(try_table_catch_ref.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match try_table_catch_ref.wasm_module.type_sec {
+    Some(TypeSec([_, _])) => ()
+    _ => fail("expected DCE catch_ref leaf to define tag and func types")
+  }
+  match try_table_catch_ref.wasm_module.tag_sec {
+    Some(TagSec([_])) => ()
+    _ => fail("expected DCE catch_ref leaf to define one tag")
+  }
+  match try_table_catch_ref.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                Block(
+                  _,
+                  Expr(
+                    [
+                      TryTable(
+                        _,
+                        [CatchRef(_, LabelIdx(0))],
+                        Expr([Throw(_), RefNull(_)])
+                      ),
+                    ]
+                  )
+                ),
+                Drop,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ => fail("expected DCE catch_ref leaf to emit throw plus dead suffix")
+  }
+  assert_true(try_table_catch_ref.facts.has_standalone_unreachable == false)
+  assert_true(try_table_catch_ref.facts.has_tags)
+  assert_true(try_table_catch_ref.facts.uses_ref_types)
+
+  let branch_payload_forwarder = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(
+        DeadCodeEliminationBranchPayloadForwarderProfile,
+      ),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    branch_payload_forwarder.config_label,
+    "dead-code-elimination-branch-payload-forwarder",
+  )
+  match validate_module(branch_payload_forwarder.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match branch_payload_forwarder.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                Block(
+                  _,
+                  Expr(
+                    [
+                      Block(
+                        _,
+                        Expr(
+                          [
+                            Block(
+                              _,
+                              Expr([LocalGet(_), Br(LabelIdx(0)), Unreachable])
+                            ),
+                            Br(LabelIdx(1)),
+                            Unreachable,
+                          ]
+                        )
+                      ),
+                      Unreachable,
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail("expected DCE branch-payload leaf to emit nested forwarding branch")
+  }
+  assert_true(branch_payload_forwarder.facts.has_standalone_unreachable)
+
+  let prefix_branch_payload = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(DeadCodeEliminationPrefixBranchPayloadProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    prefix_branch_payload.config_label,
+    "dead-code-elimination-prefix-branch-payload",
+  )
+  match validate_module(prefix_branch_payload.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match prefix_branch_payload.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                Block(
+                  _,
+                  Expr(
+                    [
+                      Block(_, Expr([I32Const(_), Drop])),
+                      I32Const(_),
+                      Br(LabelIdx(0)),
+                      Unreachable,
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail(
+        "expected DCE prefix-payload leaf to emit prefix block before branch",
+      )
+  }
+  assert_true(prefix_branch_payload.facts.has_standalone_unreachable)
+
+  let split_local_set = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(
+        DeadCodeEliminationSplitLocalSetWrapperProfile,
+      ),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    split_local_set.config_label,
+    "dead-code-elimination-split-local-set-wrapper",
+  )
+  match validate_module(split_local_set.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match split_local_set.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                Block(
+                  _,
+                  Expr(
+                    [
+                      Block(
+                        _,
+                        Expr(
+                          [
+                            Block(_, Expr([Block(_, _), LocalGet(_)])),
+                            Br(LabelIdx(1)),
+                          ]
+                        )
+                      ),
+                      I32Const(_),
+                    ]
+                  )
+                ),
+                LocalSet(_),
+                LocalGet(_),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail(
+        "expected DCE split local.set leaf to emit local.set-wrapped branch payload",
+      )
+  }
+  assert_true(split_local_set.facts.has_standalone_unreachable)
+
+  let structured_prefix = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(DeadCodeEliminationStructuredPrefixProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    structured_prefix.config_label,
+    "dead-code-elimination-structured-prefix",
+  )
+  match validate_module(structured_prefix.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match structured_prefix.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(
+            _,
+            Expr(
+              [
+                I32Const(_),
+                Drop,
+                Block(_, Expr([I32Const(_), Drop])),
+                I32Const(_),
+                Unreachable,
+                I32Const(_),
+                Drop,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ =>
+      fail(
+        "expected DCE structured-prefix leaf to emit multiple prefixes before unreachable",
+      )
+  }
+  assert_true(structured_prefix.facts.has_standalone_unreachable)
+  assert_true(structured_prefix.facts.exact_opcode_counts.i32_const >= 4)
+
+  let effectful_structured_prefix = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(
+        DeadCodeEliminationEffectfulStructuredPrefixProfile,
+      ),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    effectful_structured_prefix.config_label,
+    "dead-code-elimination-effectful-structured-prefix",
+  )
+  match validate_module(effectful_structured_prefix.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match effectful_structured_prefix.wasm_module.mem_sec {
+    Some(_) => ()
+    None =>
+      fail("expected DCE effectful structured-prefix leaf to define memory")
+  }
+  match effectful_structured_prefix.wasm_module.code_sec {
+    Some(CodeSec([Func(_, Expr(body))])) =>
+      match body {
+        [
+          I32Const(_),
+          MemoryGrow(_),
+          Drop,
+          Block(_, Expr([I32Const(_), I32Load(_), Drop])),
+          I32Const(_),
+          Unreachable,
+          I32Const(_),
+          Drop,
+        ] => ()
+        _ =>
+          fail(
+            "expected DCE effectful structured-prefix leaf to emit memory.grow/load prefixes before unreachable",
+          )
+      }
+    _ =>
+      fail("expected DCE effectful structured-prefix leaf to emit one function")
+  }
+  assert_true(effectful_structured_prefix.facts.has_standalone_unreachable)
+}
+
+///|
 test "precompute aggregate profile samples every current precompute family" {
   let seen : Array[GenValidProfile] = []
   let mut index = 1

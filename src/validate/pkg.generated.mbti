@@ -1173,6 +1173,19 @@ pub enum GenValidProfile {
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
+  DeadCodeEliminationNonControlProfile
+  DeadCodeEliminationBlockSuffixProfile
+  DeadCodeEliminationIfBothArmsProfile
+  DeadCodeEliminationIfConditionProfile
+  DeadCodeEliminationLoopBodyProfile
+  DeadCodeEliminationTryTableProfile
+  DeadCodeEliminationTryTableCatchRefProfile
+  DeadCodeEliminationBranchPayloadForwarderProfile
+  DeadCodeEliminationPrefixBranchPayloadProfile
+  DeadCodeEliminationSplitLocalSetWrapperProfile
+  DeadCodeEliminationStructuredPrefixProfile
+  DeadCodeEliminationEffectfulStructuredPrefixProfile
+  DeadCodeEliminationAllProfile
   HeapStoreOptimizationProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile

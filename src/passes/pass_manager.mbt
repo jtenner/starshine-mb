@@ -6362,6 +6362,342 @@ fn run_hot_pipeline_dce_raw_instr_is_call(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_instr_static_result_arity(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Int {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.LocalGet(_)
+    | @lib.LocalTee(_)
+    | @lib.GlobalGet(_)
+    | @lib.TableGet(_)
+    | @lib.I32Load(_)
+    | @lib.I64Load(_)
+    | @lib.F32Load(_)
+    | @lib.F64Load(_)
+    | @lib.I32Load8S(_)
+    | @lib.I32Load8U(_)
+    | @lib.I32Load16S(_)
+    | @lib.I32Load16U(_)
+    | @lib.I64Load8S(_)
+    | @lib.I64Load8U(_)
+    | @lib.I64Load16S(_)
+    | @lib.I64Load16U(_)
+    | @lib.I64Load32S(_)
+    | @lib.I64Load32U(_)
+    | @lib.MemorySize(_)
+    | @lib.MemoryGrow(_) => 1
+    @lib.Call(func_idx) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(_, results)) => results.length()
+        None => 0
+      }
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(_, results)) => results.length()
+        None => 0
+      }
+    @lib.Block(block_type, _)
+    | @lib.Loop(block_type, _)
+    | @lib.TryTable(block_type, _, _) =>
+      match block_type {
+        @lib.ValTypeBlockType(_) => 1
+        @lib.TypeIdxBlockType(_) => 1
+        @lib.VoidBlockType => 0
+      }
+    @lib.If(block_type, _, _) =>
+      match block_type {
+        @lib.ValTypeBlockType(_) => 1
+        @lib.TypeIdxBlockType(_) => 1
+        @lib.VoidBlockType => 0
+      }
+    _ => 0
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_preserve_prefix_before_unreachable_child_instrs(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_preserve_prefix_before_unreachable_child_instrs(
+          body, module_ctx,
+        )
+        normalized.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        changed = changed || body_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_preserve_prefix_before_unreachable_child_instrs(
+          body, module_ctx,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        changed = changed || body_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_preserve_prefix_before_unreachable_child_instrs(
+          body, module_ctx,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (rewritten_then, then_changed) = run_hot_pipeline_dce_raw_preserve_prefix_before_unreachable_child_instrs(
+          then_body, module_ctx,
+        )
+        let rewritten_else = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, else_changed) = run_hot_pipeline_dce_raw_preserve_prefix_before_unreachable_child_instrs(
+              else_body, module_ctx,
+            )
+            changed = changed || else_changed
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+        )
+        changed = changed || then_changed
+      }
+      _ => normalized.push(instr)
+    }
+  }
+
+  let rewritten : Array[@lib.Instruction] = []
+  let mut prev_may_fallthrough = true
+  for idx = 0; idx < normalized.length(); idx = idx + 1 {
+    if !prev_may_fallthrough {
+      changed = true
+      break
+    }
+    let instr = normalized[idx]
+    match instr {
+      @lib.Unreachable if idx > 0 => {
+        let prev = normalized[idx - 1]
+        if run_hot_pipeline_dce_raw_instr_static_result_arity(prev, module_ctx) ==
+          1 {
+          rewritten.push(@lib.Instruction::drop())
+          changed = true
+        }
+        rewritten.push(instr)
+      }
+      _ => rewritten.push(instr)
+    }
+    prev_may_fallthrough = run_hot_pipeline_dce_raw_instr_may_fallthrough(instr)
+  }
+  (rewritten, changed)
+}
+
+///|
+fn run_hot_pipeline_dce_raw_preserve_prefix_before_unreachable_child_func(
+  original : @lib.Func,
+  module_ctx : @ir.HotModuleContext,
+) -> @lib.Func? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let (rewritten_instrs, changed) = run_hot_pipeline_dce_raw_preserve_prefix_before_unreachable_child_instrs(
+    instrs, module_ctx,
+  )
+  if !changed {
+    return None
+  }
+  Some(@lib.Func::new(locals.copy(), @lib.Expr::new(rewritten_instrs)))
+}
+
+///|
+fn run_hot_pipeline_dce_raw_trim_try_table_body_suffix(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    out.push(instr)
+    if !run_hot_pipeline_dce_raw_instr_may_fallthrough(instr) {
+      if idx + 1 < instrs.length() {
+        changed = true
+      }
+      break
+    }
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_dce_raw_void_try_table_type_if_nonfallthrough(
+  block_type : @lib.BlockType,
+  body : Array[@lib.Instruction],
+) -> (@lib.BlockType, Bool) {
+  if run_hot_pipeline_dce_raw_body_may_fallthrough(body) {
+    return (block_type, false)
+  }
+  match block_type {
+    @lib.ValTypeBlockType(_) => (@lib.BlockType::void_(), true)
+    _ => (block_type, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_instrs(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        changed = changed || body_changed
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_instrs(
+          body,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body)),
+        )
+        changed = changed || body_changed
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (rewritten_then, then_changed) = run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_instrs(
+          then_body,
+        )
+        let rewritten_else = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, else_changed) = run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_instrs(
+              else_body,
+            )
+            changed = changed || else_changed
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+        )
+        changed = changed || then_changed
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten_body, body_changed) = run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_instrs(
+          body,
+        )
+        let (trimmed_body, trim_changed) = run_hot_pipeline_dce_raw_trim_try_table_body_suffix(
+          rewritten_body,
+        )
+        let (rewritten_type, type_changed) = run_hot_pipeline_dce_raw_void_try_table_type_if_nonfallthrough(
+          block_type, trimmed_body,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            rewritten_type,
+            catches,
+            @lib.Expr::new(trimmed_body),
+          ),
+        )
+        changed = changed || body_changed || trim_changed || type_changed
+      }
+      _ => normalized.push(instr)
+    }
+  }
+
+  let rewritten : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 1 < normalized.length() {
+      match (normalized[idx], normalized[idx + 1]) {
+        (@lib.Unreachable, @lib.If(_, _, _)) => {
+          rewritten.push(@lib.Instruction::unreachable_())
+          changed = true
+          break
+        }
+        (@lib.If(_, then_body, Some(else_body)), @lib.Br(_)) =>
+          if !run_hot_pipeline_dce_raw_body_may_fallthrough(then_body) &&
+            !run_hot_pipeline_dce_raw_body_may_fallthrough(else_body) {
+            rewritten.push(
+              @lib.Instruction::if_(
+                @lib.BlockType::void_(),
+                then_body,
+                Some(else_body),
+              ),
+            )
+            rewritten.push(@lib.Instruction::unreachable_())
+            changed = true
+            break
+          }
+        _ => ()
+      }
+    }
+    match normalized[idx] {
+      @lib.TryTable(@lib.VoidBlockType, _, @lib.Expr(body)) =>
+        if !run_hot_pipeline_dce_raw_body_may_fallthrough(body) {
+          rewritten.push(normalized[idx])
+          if idx + 1 < normalized.length() {
+            match normalized[idx + 1] {
+              @lib.Unreachable => {
+                rewritten.push(normalized[idx + 1])
+                idx = idx + 1
+              }
+              _ => {
+                rewritten.push(@lib.Instruction::unreachable_())
+                changed = true
+              }
+            }
+            if idx + 1 < normalized.length() {
+              changed = true
+            }
+          } else {
+            rewritten.push(@lib.Instruction::unreachable_())
+            changed = true
+          }
+          break
+        } else {
+          rewritten.push(normalized[idx])
+        }
+      _ => rewritten.push(normalized[idx])
+    }
+    idx = idx + 1
+  }
+  (rewritten, changed)
+}
+
+///|
+fn run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_func(
+  original : @lib.Func,
+) -> @lib.Func? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let (rewritten_instrs, changed) = run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_instrs(
+    instrs,
+  )
+  if !changed {
+    return None
+  }
+  Some(@lib.Func::new(locals.copy(), @lib.Expr::new(rewritten_instrs)))
+}
+
+///|
 fn run_hot_pipeline_dce_raw_has_load_call_set_hazard(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -6498,6 +6834,76 @@ fn run_hot_pipeline_dce_raw_has_loop_outer_branch(
         match else_body {
           Some(else_body) =>
             if run_hot_pipeline_dce_raw_has_loop_outer_branch(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dce_raw_has_try_table(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TryTable(_, _, _) => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_try_table(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_has_try_table(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_has_try_table(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_dce_raw_has_literal_unreachable_loop_body(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(_, @lib.Expr(body)) => {
+        if body.length() == 1 {
+          match body[0] {
+            @lib.Unreachable => return true
+            _ => ()
+          }
+        }
+        if run_hot_pipeline_dce_raw_has_literal_unreachable_loop_body(body) {
+          return true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_literal_unreachable_loop_body(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_has_literal_unreachable_loop_body(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_has_literal_unreachable_loop_body(
+                else_body,
+              ) {
               return true
             }
           None => ()
@@ -6897,6 +7303,50 @@ fn run_hot_pipeline_dce_raw_live_typed_control_only(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_has_stack_polymorphic_if_before_br(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.If(_, then_body, Some(else_body)), @lib.Br(_)) =>
+          if !run_hot_pipeline_dce_raw_body_may_fallthrough(then_body) &&
+            !run_hot_pipeline_dce_raw_body_may_fallthrough(else_body) {
+            return true
+          }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_stack_polymorphic_if_before_br(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_has_stack_polymorphic_if_before_br(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_has_stack_polymorphic_if_before_br(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_dce_can_skip_raw(
   original : @lib.Func,
   module_ctx : @ir.HotModuleContext,
@@ -6918,6 +7368,12 @@ fn run_hot_pipeline_dce_can_skip_raw(
       abort(
         "hot pipeline raw dead-code-elimination skip requires the function type to resolve",
       )
+  }
+  if run_hot_pipeline_dce_raw_has_literal_unreachable_loop_body(instrs) ||
+    run_hot_pipeline_dce_raw_has_try_table(instrs) ||
+    run_hot_pipeline_dce_raw_has_stack_polymorphic_if_before_br(instrs) ||
+    has_dead_tail_after_nonfallthrough {
+    return false
   }
   let straight_line_noop = !has_structured_control &&
     run_hot_pipeline_dce_raw_straight_line_noop(instrs)
@@ -21474,6 +21930,37 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   }
   if descriptor.name == "dead-code-elimination" {
     let @lib.Func(_, @lib.Expr(instrs)) = original
+    match run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_func(original) {
+      Some(rewritten) =>
+        return Some({
+          reason: "dce-stack-polymorphic-raw-cleanup",
+          func: rewritten,
+          unchanged_original: false,
+          trace_skip_raw: true,
+        })
+      None => ()
+    }
+    let (_, has_structured_control, _, _, _, _) = run_hot_pipeline_instr_scan(
+      instrs,
+    )
+    if !has_structured_control {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      match
+        run_hot_pipeline_dce_raw_preserve_prefix_before_unreachable_child_func(
+          original, module_ctx,
+        ) {
+        Some(rewritten) =>
+          return Some({
+            reason: "dce-prefix-before-unreachable-child",
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        None => ()
+      }
+    }
     if run_hot_pipeline_dce_raw_has_load_call_set_hazard(instrs) {
       return Some({
         reason: "load-call-set-dce-noop",
@@ -27553,9 +28040,6 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
       ) {
       return Some("invalid-escape-carrier")
     }
-    if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(result.func) {
-      return Some("suspicious-escape-carrier")
-    }
     if run_hot_pipeline_lowered_func_exceeds_local_limit(result.func) {
       return Some("local-limit")
     }
@@ -28042,9 +28526,11 @@ fn run_hot_pipeline_apply_hot_pass(
           continue
         }
         if descriptor.name == "dead-code-elimination" {
+          let @lib.Func(locals, @lib.Expr(instrs)) = defs[code_idx]
           if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
               defs[code_idx],
-            ) {
+            ) &&
+            !run_hot_pipeline_dce_raw_has_stack_polymorphic_if_before_br(instrs) {
             pipeline_trace_hook(
               options.trace,
               descriptor.name,
@@ -28053,7 +28539,6 @@ fn run_hot_pipeline_apply_hot_pass(
             )
             continue
           }
-          let @lib.Func(locals, _) = defs[code_idx]
           if locals.length() > 1000 {
             pipeline_trace_hook(
               options.trace,
@@ -28410,9 +28895,11 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
           continue
         }
         if descriptor.name == "dead-code-elimination" {
+          let @lib.Func(locals, @lib.Expr(instrs)) = defs[code_idx]
           if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
               defs[code_idx],
-            ) {
+            ) &&
+            !run_hot_pipeline_dce_raw_has_stack_polymorphic_if_before_br(instrs) {
             pipeline_trace_hook(
               options.trace,
               descriptor.name,
@@ -28421,7 +28908,6 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
             )
             continue
           }
-          let @lib.Func(locals, _) = defs[code_idx]
           if locals.length() > 1000 {
             pipeline_trace_hook(
               options.trace,

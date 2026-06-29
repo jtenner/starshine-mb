@@ -218,6 +218,80 @@ describe("pass-fuzz compare normalizers", () => {
     );
   });
 
+  test("local-cleanup-debris normalizes dropped local.tee writes to local.set", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local $1 i32)
+  (drop
+   (local.tee $1
+    (i32.const 120)
+   )
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (local $1 i32)
+  (local.set $1
+   (i32.const 120)
+  )
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["local-cleanup-debris"]),
+    );
+  });
+
+  test("local-cleanup-debris normalizes dropped resultful if pure result values", () => {
+    const binaryenWat = `(module
+ (func $0 (param $0 i32)
+  (drop
+   (if (result i32)
+    (local.get $0)
+    (then
+     (local.set $0
+      (i32.const 7)
+     )
+     (i32.const 1)
+    )
+    (else
+     (local.set $0
+      (i32.const 9)
+     )
+     (i32.const 2)
+    )
+   )
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0 (param $0 i32)
+  (if
+   (local.get $0)
+   (then
+    (local.set $0
+     (i32.const 7)
+    )
+   )
+   (else
+    (local.set $0
+     (i32.const 9)
+    )
+   )
+  )
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["local-cleanup-debris"]),
+    );
+  });
+
   test("local-cleanup-debris erases single-use br_if result drop temps", () => {
     const binaryenWat = `(module
  (func $0 (param $0 i32) (result i32)

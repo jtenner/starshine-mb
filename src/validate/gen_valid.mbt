@@ -702,6 +702,19 @@ pub enum GenValidProfile {
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
+  DeadCodeEliminationNonControlProfile
+  DeadCodeEliminationBlockSuffixProfile
+  DeadCodeEliminationIfBothArmsProfile
+  DeadCodeEliminationIfConditionProfile
+  DeadCodeEliminationLoopBodyProfile
+  DeadCodeEliminationTryTableProfile
+  DeadCodeEliminationTryTableCatchRefProfile
+  DeadCodeEliminationBranchPayloadForwarderProfile
+  DeadCodeEliminationPrefixBranchPayloadProfile
+  DeadCodeEliminationSplitLocalSetWrapperProfile
+  DeadCodeEliminationStructuredPrefixProfile
+  DeadCodeEliminationEffectfulStructuredPrefixProfile
+  DeadCodeEliminationAllProfile
   HeapStoreOptimizationProfile
   SsaNomergeCoverageProfile
   SsaNomergeSmokeProfile
@@ -813,6 +826,27 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingMultiSetGlobalGetWindowProfile =>
       "code-pushing-multi-set-global-get-window"
     CodePushingAllProfile => "code-pushing-all"
+    DeadCodeEliminationNonControlProfile => "dead-code-elimination-non-control"
+    DeadCodeEliminationBlockSuffixProfile =>
+      "dead-code-elimination-block-suffix"
+    DeadCodeEliminationIfBothArmsProfile => "dead-code-elimination-if-both-arms"
+    DeadCodeEliminationIfConditionProfile =>
+      "dead-code-elimination-if-condition"
+    DeadCodeEliminationLoopBodyProfile => "dead-code-elimination-loop-body"
+    DeadCodeEliminationTryTableProfile => "dead-code-elimination-try-table"
+    DeadCodeEliminationTryTableCatchRefProfile =>
+      "dead-code-elimination-try-table-catch-ref"
+    DeadCodeEliminationBranchPayloadForwarderProfile =>
+      "dead-code-elimination-branch-payload-forwarder"
+    DeadCodeEliminationPrefixBranchPayloadProfile =>
+      "dead-code-elimination-prefix-branch-payload"
+    DeadCodeEliminationSplitLocalSetWrapperProfile =>
+      "dead-code-elimination-split-local-set-wrapper"
+    DeadCodeEliminationStructuredPrefixProfile =>
+      "dead-code-elimination-structured-prefix"
+    DeadCodeEliminationEffectfulStructuredPrefixProfile =>
+      "dead-code-elimination-effectful-structured-prefix"
+    DeadCodeEliminationAllProfile => "dead-code-elimination-all"
     HeapStoreOptimizationProfile => "heap-store-optimization"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
     SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
@@ -837,6 +871,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
+    | DeadCodeEliminationAllProfile
     | SsaNomergeAllProfile
     | RandomAllProfilesProfile => true
     _ => false
@@ -901,6 +936,39 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingMultiSetDropWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetLocalGetWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetGlobalGetWindowProfile, 1),
+      ]
+    DeadCodeEliminationAllProfile =>
+      [
+        GenValidProfileMember::new(DeadCodeEliminationNonControlProfile, 1),
+        GenValidProfileMember::new(DeadCodeEliminationBlockSuffixProfile, 1),
+        GenValidProfileMember::new(DeadCodeEliminationIfBothArmsProfile, 1),
+        GenValidProfileMember::new(DeadCodeEliminationIfConditionProfile, 1),
+        GenValidProfileMember::new(DeadCodeEliminationLoopBodyProfile, 1),
+        GenValidProfileMember::new(DeadCodeEliminationTryTableProfile, 1),
+        GenValidProfileMember::new(
+          DeadCodeEliminationTryTableCatchRefProfile,
+          1,
+        ),
+        GenValidProfileMember::new(
+          DeadCodeEliminationBranchPayloadForwarderProfile,
+          1,
+        ),
+        GenValidProfileMember::new(
+          DeadCodeEliminationPrefixBranchPayloadProfile,
+          1,
+        ),
+        GenValidProfileMember::new(
+          DeadCodeEliminationSplitLocalSetWrapperProfile,
+          1,
+        ),
+        GenValidProfileMember::new(
+          DeadCodeEliminationStructuredPrefixProfile,
+          1,
+        ),
+        GenValidProfileMember::new(
+          DeadCodeEliminationEffectfulStructuredPrefixProfile,
+          1,
+        ),
       ]
     SsaNomergeAllProfile =>
       [
@@ -1036,6 +1104,19 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingMultiSetLocalGetWindowProfile,
     CodePushingMultiSetGlobalGetWindowProfile,
     CodePushingAllProfile,
+    DeadCodeEliminationNonControlProfile,
+    DeadCodeEliminationBlockSuffixProfile,
+    DeadCodeEliminationIfBothArmsProfile,
+    DeadCodeEliminationIfConditionProfile,
+    DeadCodeEliminationLoopBodyProfile,
+    DeadCodeEliminationTryTableProfile,
+    DeadCodeEliminationTryTableCatchRefProfile,
+    DeadCodeEliminationBranchPayloadForwarderProfile,
+    DeadCodeEliminationPrefixBranchPayloadProfile,
+    DeadCodeEliminationSplitLocalSetWrapperProfile,
+    DeadCodeEliminationStructuredPrefixProfile,
+    DeadCodeEliminationEffectfulStructuredPrefixProfile,
+    DeadCodeEliminationAllProfile,
     HeapStoreOptimizationProfile,
     SsaNomergeCoverageProfile,
     SsaNomergeSmokeProfile,
@@ -1111,6 +1192,9 @@ pub fn gen_valid_profile_by_name(
     "code-pushing" => Ok(CodePushingAllProfile)
     "code-pushing-closeout" => Ok(CodePushingAllProfile)
     "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
+    "dce" => Ok(DeadCodeEliminationAllProfile)
+    "dead-code-elimination" => Ok(DeadCodeEliminationAllProfile)
+    "dead-code-elimination-closeout" => Ok(DeadCodeEliminationAllProfile)
     "hso" => Ok(HeapStoreOptimizationProfile)
     "all-profiles" => Ok(RandomAllProfilesProfile)
     "random-profiles" => Ok(RandomAllProfilesProfile)
@@ -1504,6 +1588,23 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
+    DeadCodeEliminationNonControlProfile
+    | DeadCodeEliminationBlockSuffixProfile
+    | DeadCodeEliminationIfBothArmsProfile
+    | DeadCodeEliminationIfConditionProfile
+    | DeadCodeEliminationLoopBodyProfile
+    | DeadCodeEliminationTryTableProfile
+    | DeadCodeEliminationTryTableCatchRefProfile
+    | DeadCodeEliminationBranchPayloadForwarderProfile
+    | DeadCodeEliminationPrefixBranchPayloadProfile
+    | DeadCodeEliminationSplitLocalSetWrapperProfile
+    | DeadCodeEliminationStructuredPrefixProfile
+    | DeadCodeEliminationEffectfulStructuredPrefixProfile =>
+      gen_valid_dead_code_elimination_profile_config(profile)
+    DeadCodeEliminationAllProfile =>
+      gen_valid_dead_code_elimination_profile_config(
+        DeadCodeEliminationNonControlProfile,
+      )
     HeapStoreOptimizationProfile =>
       gen_valid_heap_store_optimization_profile_config()
     SsaNomergeCoverageProfile
@@ -2112,6 +2213,139 @@ fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
   GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile) ||
   config ==
   GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile)
+}
+
+///|
+fn gen_valid_dead_code_elimination_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if profile == DeadCodeEliminationTryTableCatchRefProfile {
+      2
+    } else {
+      1
+    },
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: if profile == DeadCodeEliminationTryTableCatchRefProfile {
+      1
+    } else {
+      0
+    },
+    max_elems: 0,
+    max_datas: 0,
+    max_params: if profile == DeadCodeEliminationBranchPayloadForwarderProfile {
+      1
+    } else if profile == DeadCodeEliminationSplitLocalSetWrapperProfile {
+      2
+    } else {
+      0
+    },
+    max_results: if profile == DeadCodeEliminationBranchPayloadForwarderProfile ||
+      profile == DeadCodeEliminationPrefixBranchPayloadProfile ||
+      profile == DeadCodeEliminationSplitLocalSetWrapperProfile {
+      1
+    } else {
+      0
+    },
+    max_locals: if profile == DeadCodeEliminationSplitLocalSetWrapperProfile {
+      2
+    } else {
+      0
+    },
+    max_body_statements: if profile == DeadCodeEliminationBlockSuffixProfile {
+      4
+    } else if profile == DeadCodeEliminationIfBothArmsProfile {
+      5
+    } else if profile == DeadCodeEliminationIfConditionProfile {
+      3
+    } else if profile == DeadCodeEliminationLoopBodyProfile {
+      1
+    } else if profile == DeadCodeEliminationTryTableProfile {
+      2
+    } else if profile == DeadCodeEliminationTryTableCatchRefProfile {
+      3
+    } else if profile == DeadCodeEliminationBranchPayloadForwarderProfile ||
+      profile == DeadCodeEliminationPrefixBranchPayloadProfile {
+      1
+    } else if profile == DeadCodeEliminationSplitLocalSetWrapperProfile {
+      3
+    } else {
+      6
+    },
+    max_body_depth: if profile == DeadCodeEliminationBlockSuffixProfile ||
+      profile == DeadCodeEliminationIfBothArmsProfile ||
+      profile == DeadCodeEliminationIfConditionProfile ||
+      profile == DeadCodeEliminationLoopBodyProfile ||
+      profile == DeadCodeEliminationTryTableProfile ||
+      profile == DeadCodeEliminationTryTableCatchRefProfile ||
+      profile == DeadCodeEliminationBranchPayloadForwarderProfile ||
+      profile == DeadCodeEliminationPrefixBranchPayloadProfile ||
+      profile == DeadCodeEliminationStructuredPrefixProfile ||
+      profile == DeadCodeEliminationEffectfulStructuredPrefixProfile {
+      1
+    } else if profile == DeadCodeEliminationSplitLocalSetWrapperProfile {
+      4
+    } else {
+      0
+    },
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: profile == DeadCodeEliminationEffectfulStructuredPrefixProfile,
+      allow_globals: false,
+      allow_tags: profile == DeadCodeEliminationTryTableCatchRefProfile,
+      allow_elems: false,
+      allow_datas: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_ref_types: profile == DeadCodeEliminationTryTableCatchRefProfile,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_subtyping_topology: false,
+      allow_typed_body_generator: false,
+      allow_name_custom_sections: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_dead_code_elimination_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(DeadCodeEliminationNonControlProfile) ||
+  config == GenValidConfig::for_profile(DeadCodeEliminationBlockSuffixProfile) ||
+  config == GenValidConfig::for_profile(DeadCodeEliminationIfBothArmsProfile) ||
+  config == GenValidConfig::for_profile(DeadCodeEliminationIfConditionProfile) ||
+  config == GenValidConfig::for_profile(DeadCodeEliminationLoopBodyProfile) ||
+  config == GenValidConfig::for_profile(DeadCodeEliminationTryTableProfile) ||
+  config ==
+  GenValidConfig::for_profile(DeadCodeEliminationTryTableCatchRefProfile) ||
+  config ==
+  GenValidConfig::for_profile(DeadCodeEliminationBranchPayloadForwarderProfile) ||
+  config ==
+  GenValidConfig::for_profile(DeadCodeEliminationPrefixBranchPayloadProfile) ||
+  config ==
+  GenValidConfig::for_profile(DeadCodeEliminationSplitLocalSetWrapperProfile) ||
+  config ==
+  GenValidConfig::for_profile(DeadCodeEliminationStructuredPrefixProfile) ||
+  config ==
+  GenValidConfig::for_profile(
+    DeadCodeEliminationEffectfulStructuredPrefixProfile,
+  )
 }
 
 ///|
@@ -15193,6 +15427,391 @@ fn gen_valid_oi_ref_gc_profile_body(case : Int) -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_dead_code_elimination_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config ==
+    GenValidConfig::for_profile(DeadCodeEliminationBlockSuffixProfile) {
+    DeadCodeEliminationBlockSuffixProfile
+  } else if config ==
+    GenValidConfig::for_profile(DeadCodeEliminationIfBothArmsProfile) {
+    DeadCodeEliminationIfBothArmsProfile
+  } else if config ==
+    GenValidConfig::for_profile(DeadCodeEliminationIfConditionProfile) {
+    DeadCodeEliminationIfConditionProfile
+  } else if config ==
+    GenValidConfig::for_profile(DeadCodeEliminationLoopBodyProfile) {
+    DeadCodeEliminationLoopBodyProfile
+  } else if config ==
+    GenValidConfig::for_profile(DeadCodeEliminationTryTableProfile) {
+    DeadCodeEliminationTryTableProfile
+  } else if config ==
+    GenValidConfig::for_profile(DeadCodeEliminationTryTableCatchRefProfile) {
+    DeadCodeEliminationTryTableCatchRefProfile
+  } else if config ==
+    GenValidConfig::for_profile(
+      DeadCodeEliminationBranchPayloadForwarderProfile,
+    ) {
+    DeadCodeEliminationBranchPayloadForwarderProfile
+  } else if config ==
+    GenValidConfig::for_profile(DeadCodeEliminationPrefixBranchPayloadProfile) {
+    DeadCodeEliminationPrefixBranchPayloadProfile
+  } else if config ==
+    GenValidConfig::for_profile(DeadCodeEliminationSplitLocalSetWrapperProfile) {
+    DeadCodeEliminationSplitLocalSetWrapperProfile
+  } else if config ==
+    GenValidConfig::for_profile(DeadCodeEliminationStructuredPrefixProfile) {
+    DeadCodeEliminationStructuredPrefixProfile
+  } else if config ==
+    GenValidConfig::for_profile(
+      DeadCodeEliminationEffectfulStructuredPrefixProfile,
+    ) {
+    DeadCodeEliminationEffectfulStructuredPrefixProfile
+  } else {
+    DeadCodeEliminationNonControlProfile
+  }
+}
+
+///|
+fn gen_valid_dead_code_elimination_non_control_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(1)),
+    Instruction::unreachable_(),
+    Instruction::i32_const(I32(0)),
+    Instruction::select(types=Some([ValType::i32()])),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_block_suffix_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(1)),
+        Instruction::drop(),
+        Instruction::unreachable_(),
+        Instruction::i32_const(I32(2)),
+        Instruction::drop(),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_if_both_arms_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [Instruction::unreachable_()],
+      Some([Instruction::unreachable_()]),
+    ),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_if_condition_body() -> Array[Instruction] {
+  [
+    Instruction::unreachable_(),
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [Instruction::i32_const(I32(1))],
+      Some([Instruction::i32_const(I32(2))]),
+    ),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_loop_body_body() -> Array[Instruction] {
+  [
+    Instruction::loop_(
+      BlockType::void_(),
+      Expr::new([Instruction::unreachable_()]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_try_table_body() -> Array[Instruction] {
+  [
+    Instruction::try_table(
+      BlockType::val_type(ValType::i32()),
+      [],
+      Expr::new([Instruction::unreachable_()]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_try_table_catch_ref_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::block(
+      BlockType::val_type(ValType::ref_null_exn()),
+      Expr::new([
+        Instruction::try_table(
+          BlockType::val_type(ValType::ref_null_exn()),
+          [Catch::ref_(TagIdx::new(0U), LabelIdx::new(0U))],
+          Expr::new([
+            Instruction::throw_(TagIdx::new(0U)),
+            Instruction::ref_null(HeapType::abs(AbsHeapType::exn())),
+          ]),
+        ),
+      ]),
+    ),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_branch_payload_forwarder_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::block(
+              BlockType::val_type(ValType::i32()),
+              Expr::new([
+                Instruction::local_get(LocalIdx::new(0U)),
+                Instruction::br(LabelIdx::new(0U)),
+                Instruction::unreachable_(),
+              ]),
+            ),
+            Instruction::br(LabelIdx::new(1U)),
+            Instruction::unreachable_(),
+          ]),
+        ),
+        Instruction::unreachable_(),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_prefix_branch_payload_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::i32_const(I32(7)), Instruction::drop()]),
+        ),
+        Instruction::i32_const(I32(9)),
+        Instruction::br(LabelIdx::new(0U)),
+        Instruction::unreachable_(),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_split_local_set_wrapper_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::block(
+              BlockType::val_type(ValType::i32()),
+              Expr::new([
+                Instruction::block(
+                  BlockType::void_(),
+                  Expr::new([
+                    Instruction::local_get(LocalIdx::new(1U)),
+                    Instruction::local_set(LocalIdx::new(3U)),
+                    Instruction::local_get(LocalIdx::new(0U)),
+                    Instruction::if_(
+                      BlockType::val_type(ValType::i32()),
+                      [
+                        Instruction::i32_const(I32(7)),
+                        Instruction::local_set(LocalIdx::new(3U)),
+                        Instruction::br(LabelIdx::new(1U)),
+                      ],
+                      Some([
+                        Instruction::i32_const(I32(9)),
+                        Instruction::local_set(LocalIdx::new(3U)),
+                        Instruction::br(LabelIdx::new(3U)),
+                      ]),
+                    ),
+                    Instruction::br(LabelIdx::new(1U)),
+                    Instruction::unreachable_(),
+                  ]),
+                ),
+                Instruction::local_get(LocalIdx::new(3U)),
+              ]),
+            ),
+            Instruction::br(LabelIdx::new(1U)),
+          ]),
+        ),
+        Instruction::i32_const(I32(1)),
+      ]),
+    ),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(2U)),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_structured_prefix_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::i32_const(I32(1)),
+    Instruction::drop(),
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([Instruction::i32_const(I32(2)), Instruction::drop()]),
+    ),
+    Instruction::i32_const(I32(3)),
+    Instruction::unreachable_(),
+    Instruction::i32_const(I32(4)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_effectful_structured_prefix_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::i32_const(I32(1)),
+    Instruction::memory_grow(MemIdx::new(0U)),
+    Instruction::drop(),
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_load(MemArg::new(0U, None, 0UL)),
+        Instruction::drop(),
+      ]),
+    ),
+    Instruction::i32_const(I32(3)),
+    Instruction::unreachable_(),
+    Instruction::i32_const(I32(4)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_dead_code_elimination_profile_module(
+  config : GenValidConfig,
+) -> Module {
+  let kind = gen_valid_dead_code_elimination_profile_kind(config)
+  let body = match kind {
+    DeadCodeEliminationBlockSuffixProfile =>
+      gen_valid_dead_code_elimination_block_suffix_body()
+    DeadCodeEliminationIfBothArmsProfile =>
+      gen_valid_dead_code_elimination_if_both_arms_body()
+    DeadCodeEliminationIfConditionProfile =>
+      gen_valid_dead_code_elimination_if_condition_body()
+    DeadCodeEliminationLoopBodyProfile =>
+      gen_valid_dead_code_elimination_loop_body_body()
+    DeadCodeEliminationTryTableProfile =>
+      gen_valid_dead_code_elimination_try_table_body()
+    DeadCodeEliminationTryTableCatchRefProfile =>
+      gen_valid_dead_code_elimination_try_table_catch_ref_body()
+    DeadCodeEliminationBranchPayloadForwarderProfile =>
+      gen_valid_dead_code_elimination_branch_payload_forwarder_body()
+    DeadCodeEliminationPrefixBranchPayloadProfile =>
+      gen_valid_dead_code_elimination_prefix_branch_payload_body()
+    DeadCodeEliminationSplitLocalSetWrapperProfile =>
+      gen_valid_dead_code_elimination_split_local_set_wrapper_body()
+    DeadCodeEliminationStructuredPrefixProfile =>
+      gen_valid_dead_code_elimination_structured_prefix_body()
+    DeadCodeEliminationEffectfulStructuredPrefixProfile =>
+      gen_valid_dead_code_elimination_effectful_structured_prefix_body()
+    _ => gen_valid_dead_code_elimination_non_control_body()
+  }
+  if kind == DeadCodeEliminationBranchPayloadForwarderProfile {
+    let func_type = RecType::new(
+      SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+    )
+    return Module::new()
+      .with_type_sec(TypeSec::new([func_type]))
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+      .with_code_sec(
+        CodeSec::new([Func::new(Locals::empty(), Expr::new(body))]),
+      )
+  }
+  if kind == DeadCodeEliminationPrefixBranchPayloadProfile {
+    let func_type = RecType::new(
+      SubType::comp_type(CompType::func([], [ValType::i32()])),
+    )
+    return Module::new()
+      .with_type_sec(TypeSec::new([func_type]))
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+      .with_code_sec(
+        CodeSec::new([Func::new(Locals::empty(), Expr::new(body))]),
+      )
+  }
+  if kind == DeadCodeEliminationSplitLocalSetWrapperProfile {
+    let func_type = RecType::new(
+      SubType::comp_type(
+        CompType::func([ValType::i32(), ValType::i32()], [ValType::i32()]),
+      ),
+    )
+    return Module::new()
+      .with_type_sec(TypeSec::new([func_type]))
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::from_types([ValType::i32(), ValType::i32()]),
+            Expr::new(body),
+          ),
+        ]),
+      )
+  }
+  if kind == DeadCodeEliminationEffectfulStructuredPrefixProfile {
+    let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+    return Module::new()
+      .with_type_sec(TypeSec::new([func_type]))
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+      .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+      .with_code_sec(
+        CodeSec::new([Func::new(Locals::empty(), Expr::new(body))]),
+      )
+  }
+  if kind == DeadCodeEliminationTryTableCatchRefProfile {
+    let tag_func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+    let func_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+    return Module::new()
+      .with_type_sec(TypeSec::new([tag_func_type, func_type]))
+      .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+      .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+      .with_code_sec(
+        CodeSec::new([Func::new(Locals::empty(), Expr::new(body))]),
+      )
+  }
+  let func_type = if kind == DeadCodeEliminationTryTableProfile {
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
+  } else {
+    gen_valid_precompute_void_func_type()
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(CodeSec::new([Func::new(Locals::empty(), Expr::new(body))]))
+}
+
+///|
 fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let config = ctx.config
   let local_facts = config ==
@@ -15363,6 +15982,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_code_pushing_profile_config(config) {
     return gen_valid_code_pushing_profile_module(config)
+  }
+  if gen_valid_is_dead_code_elimination_profile_config(config) {
+    return gen_valid_dead_code_elimination_profile_module(config)
   }
   let import_budget = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,

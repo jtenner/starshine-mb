@@ -1618,6 +1618,110 @@ function normalizeSingleUseLocalCopyDropsInFunction(funcText: string): string {
   return normalized;
 }
 
+function collectCompleteWatExpression(lines: string[], startIndex: number): { exprLines: string[]; nextIndex: number } | null {
+  if (startIndex < 0 || startIndex >= lines.length) return null;
+  const exprLines = [lines[startIndex]];
+  let balance = parenDelta(lines[startIndex]);
+  let index = startIndex;
+  while (balance > 0 && index + 1 < lines.length) {
+    index += 1;
+    exprLines.push(lines[index]);
+    balance += parenDelta(lines[index]);
+  }
+  if (balance !== 0) return null;
+  return { exprLines, nextIndex: index + 1 };
+}
+
+function isPureDroppedIfResultValue(exprLines: string[]): boolean {
+  const exprText = exprLines.join("\n").trim();
+  if (/^\((?:i32|i64|f32|f64)\.const\b[\s\S]*\)$/.test(exprText)) return true;
+  if (/^\(ref\.null\s+[A-Za-z0-9_.$-]+\)$/.test(exprText)) return true;
+  if (/^\(local\.get\s+\$[A-Za-z0-9_.$-]+\)$/.test(exprText)) return true;
+  return false;
+}
+
+function stripTerminalPureDroppedIfValue(blockLines: string[]): string[] | null {
+  if (blockLines.length < 2) return null;
+  const outputExpressions: string[][] = [];
+  let index = 1;
+  while (index < blockLines.length - 1) {
+    const parsed = collectCompleteWatExpression(blockLines, index);
+    if (parsed === null || parsed.nextIndex > blockLines.length - 1) return null;
+    outputExpressions.push(parsed.exprLines);
+    index = parsed.nextIndex;
+  }
+  if (index !== blockLines.length - 1 || outputExpressions.length === 0) return null;
+  const terminal = outputExpressions[outputExpressions.length - 1];
+  if (!isPureDroppedIfResultValue(terminal)) return null;
+  return [blockLines[0], ...outputExpressions.slice(0, -1).flat(), blockLines[blockLines.length - 1]];
+}
+
+function normalizeDroppedIfResultValueDebrisExpression(exprLines: string[]): string[] | null {
+  if (exprLines.length < 7 || !/^\s*\(drop\s*$/.test(exprLines[0])) return null;
+  const ifMatch = exprLines[1].match(/^(\s*)\(if\s+\(result\s+[^)]+\)\s*$/);
+  if (ifMatch === null) return null;
+  let index = 2;
+  const condition = collectCompleteWatExpression(exprLines, index);
+  if (condition === null) return null;
+  index = condition.nextIndex;
+  const thenBlock = collectCompleteWatExpression(exprLines, index);
+  if (thenBlock === null || !/^\s*\(then\s*$/.test(thenBlock.exprLines[0])) return null;
+  index = thenBlock.nextIndex;
+  const elseBlock = collectCompleteWatExpression(exprLines, index);
+  if (elseBlock === null || !/^\s*\(else\s*$/.test(elseBlock.exprLines[0])) return null;
+  index = elseBlock.nextIndex;
+  if (index !== exprLines.length - 2) return null;
+  if (exprLines[index].trim() !== ")" || exprLines[index + 1].trim() !== ")") return null;
+  const normalizedThen = stripTerminalPureDroppedIfValue(thenBlock.exprLines);
+  const normalizedElse = stripTerminalPureDroppedIfValue(elseBlock.exprLines);
+  if (normalizedThen === null || normalizedElse === null) return null;
+  const dropIndent = exprLines[0].match(/^\s*/)?.[0] ?? "";
+  const shiftOutOfDrop = (line: string) => line.startsWith(" ") ? line.slice(1) : line;
+  return [
+    `${dropIndent}(if`,
+    ...condition.exprLines.map(shiftOutOfDrop),
+    ...normalizedThen.map(shiftOutOfDrop),
+    ...normalizedElse.map(shiftOutOfDrop),
+    `${dropIndent})`,
+  ];
+}
+
+function normalizeDroppedLocalTeeExpression(exprLines: string[]): string[] | null {
+  if (exprLines.length < 5 || !/^\s*\(drop\s*$/.test(exprLines[0])) return null;
+  const teeMatch = exprLines[1].match(/^(\s*)\(local\.tee\s+(\$[A-Za-z0-9_.$-]+)\s*$/);
+  if (teeMatch === null) return null;
+  if (exprLines[exprLines.length - 2].trim() !== ")" || exprLines[exprLines.length - 1].trim() !== ")") return null;
+  const dropIndent = exprLines[0].match(/^\s*/)?.[0] ?? "";
+  const valueLines = exprLines.slice(2, -2).map((line) => line.startsWith(" ") ? line.slice(1) : line);
+  return [`${dropIndent}(local.set ${teeMatch[2]}`, ...valueLines, `${dropIndent})`];
+}
+
+function normalizeDroppedLocalValueDebris(wat: string): string {
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trimStart().startsWith("(drop")) {
+      output.push(line);
+      continue;
+    }
+    const parsed = collectCompleteWatExpression(lines, index);
+    if (parsed === null) {
+      output.push(line);
+      continue;
+    }
+    const normalized = normalizeDroppedIfResultValueDebrisExpression(parsed.exprLines)
+      ?? normalizeDroppedLocalTeeExpression(parsed.exprLines);
+    if (normalized === null) {
+      output.push(...parsed.exprLines);
+    } else {
+      output.push(...normalized);
+    }
+    index = parsed.nextIndex - 1;
+  }
+  return output.join("\n");
+}
+
 function normalizeUnusedLocalDeclarations(wat: string): string {
   const lines = wat.split("\n");
   const output: string[] = [];
@@ -1641,7 +1745,7 @@ function normalizeUnusedLocalDeclarations(wat: string): string {
 }
 
 function normalizeLocalCleanupDebris(wat: string): string {
-  return normalizeStandaloneNops(normalizeUnusedLocalDeclarations(wat));
+  return normalizeStandaloneNops(normalizeUnusedLocalDeclarations(normalizeDroppedLocalValueDebris(wat)));
 }
 
 function orderedCompareNormalizers(normalizers: CompareNormalizer[]): CompareNormalizer[] {
