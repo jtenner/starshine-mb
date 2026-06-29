@@ -14549,24 +14549,25 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 ///|
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
-    PassOiMemoryBulkProfile => 10
+    PassOiMemoryBulkProfile => 11
     _ => 3
   }
 }
 
 ///|
 fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
-  match (seed % 10UL).to_int() {
-    1 => 1
-    2 => 2
-    3 => 3
-    4 => 4
-    5 => 5
-    6 => 0
-    7 => 6
-    8 => 7
-    9 => 8
-    _ => 9
+  match (seed % 11UL).to_int() {
+    0 => 9
+    1 => 10
+    2 => 1
+    3 => 2
+    4 => 3
+    5 => 4
+    6 => 5
+    7 => 0
+    8 => 6
+    9 => 7
+    _ => 8
   }
 }
 
@@ -14649,6 +14650,8 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         7 => Some("oi-memory-bulk:random-address-copy-read")
         8 => Some("oi-memory-bulk:multi-memory-random-address-copy-read")
         9 => Some("oi-memory-bulk:cross-memory-random-address-copy-read")
+        10 =>
+          Some("oi-memory-bulk:memory64-cross-memory-random-address-copy-read")
         _ => Some("oi-memory-bulk:direct-tiny-bulk")
       }
     _ => None
@@ -14966,6 +14969,24 @@ fn gen_valid_oi_memory_bulk_cross_memory_random_address_body(
 }
 
 ///|
+fn gen_valid_oi_memory_bulk_memory64_cross_memory_random_address_body(
+  seed : UInt64,
+) -> Array[Instruction] {
+  let src_mem = MemIdx::new(0U)
+  let dst_mem = MemIdx::new(1U)
+  let addr = gen_valid_oi_memory_bulk_random_address(seed).to_int64()
+  [
+    Instruction::i64_const(I64(addr)),
+    Instruction::i64_const(I64(addr)),
+    Instruction::i64_const(I64(1L)),
+    Instruction::memory_copy(dst_mem, src_mem),
+    Instruction::i64_const(I64(addr)),
+    Instruction::i64_load8u(MemArg::new(0U, Some(dst_mem), 0UL)),
+    Instruction::drop(),
+  ]
+}
+
+///|
 fn gen_valid_oi_memory_bulk_call_wrapped_module() -> Module {
   let i32_func_type = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32()])),
@@ -15077,6 +15098,10 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
         gen_valid_oi_memory_bulk_multi_memory_random_address_body(ctx.root_seed)
       9 =>
         gen_valid_oi_memory_bulk_cross_memory_random_address_body(ctx.root_seed)
+      10 =>
+        gen_valid_oi_memory_bulk_memory64_cross_memory_random_address_body(
+          ctx.root_seed,
+        )
       _ => gen_valid_oi_memory_bulk_direct_body()
     }
   } else {
@@ -15089,6 +15114,13 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   if memory_bulk {
     mod = if case == 1 {
       mod.with_mem_sec(MemSec::new([MemType::new(Limits::i64(1UL, None))]))
+    } else if case == 10 {
+      mod.with_mem_sec(
+        MemSec::new([
+          MemType::new(Limits::i64(1UL, None)),
+          MemType::new(Limits::i64(1UL, None)),
+        ]),
+      )
     } else if case == 6 || case == 8 || case == 9 {
       mod.with_mem_sec(
         MemSec::new([
