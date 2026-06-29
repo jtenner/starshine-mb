@@ -3438,6 +3438,7 @@ fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
           _ =>
             if body.length() > 1 {
               match body[1] {
+                LocalTee(_) => "localtee-produced-selected"
                 Call(_) => gen_valid_test_tuple_sibling_signature(mod_)
                 _ => "direct-selected"
               }
@@ -3451,6 +3452,7 @@ fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
           _ =>
             if body.length() > 1 {
               match body[1] {
+                LocalTee(_) => "localtee-produced-selected"
                 Call(_) => gen_valid_test_tuple_sibling_signature(mod_)
                 _ => "direct-selected"
               }
@@ -3515,6 +3517,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let localtee_produced = match
+    gen_valid_module_result_from_seed(
+      0x5ef3UL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -3541,6 +3551,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Some("oi-tuple:trapping-sibling-selected-lane"),
   )
   @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5ef3UL),
+    Some("oi-tuple:localtee-produced-selected-lane"),
+  )
+  @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(all_results.wasm_module),
     "all-results",
   )
@@ -3563,6 +3577,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(trapping_sibling.wasm_module),
     "trapping-sibling-selected",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(localtee_produced.wasm_module),
+    "localtee-produced-selected",
   )
 }
 

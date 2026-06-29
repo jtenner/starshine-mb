@@ -14968,7 +14968,8 @@ fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
     0x5ef0UL => 3
     0x5ef1UL => 4
     0x5ef2UL => 5
-    _ => (seed % 6UL).to_int()
+    0x5ef3UL => 6
+    _ => (seed % 7UL).to_int()
   }
 }
 
@@ -15050,6 +15051,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         3 => Some("oi-tuple:call-produced-selected-lane")
         4 => Some("oi-tuple:effectful-sibling-selected-lane")
         5 => Some("oi-tuple:trapping-sibling-selected-lane")
+        6 => Some("oi-tuple:localtee-produced-selected-lane")
         _ => Some("oi-tuple:direct-selected-lane")
       }
     PassOiMemoryBulkProfile =>
@@ -16358,6 +16360,14 @@ fn gen_valid_oi_tuple_block_body(case : Int) -> Expr {
   } else if case == 3 {
     [
       Instruction::call(FuncIdx::new(1U)),
+      Instruction::i64_const(I64(22L)),
+      Instruction::f32_const(F32(Float::from_double(33.0))),
+      Instruction::f64_const(F64(44.0)),
+    ]
+  } else if case == 6 {
+    [
+      Instruction::i32_const(I32(88)),
+      Instruction::local_tee(LocalIdx::new(0U)),
       Instruction::i64_const(I64(22L)),
       Instruction::f32_const(F32(Float::from_double(33.0))),
       Instruction::f64_const(F64(44.0)),
