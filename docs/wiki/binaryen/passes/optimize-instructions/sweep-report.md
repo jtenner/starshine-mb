@@ -223,7 +223,7 @@ canonical-size Starshine-win candidates with raw-size residuals, not OI-G family
 closure. All 20 fix4 raw/canonical outputs validate.
 
 `pass-oi-memory-bulk` is now stronger than a broad smoke config and stronger
-than the earlier three-case trigger smoke. It emits twenty-two OI-G
+than the earlier three-case trigger smoke. It emits twenty-three OI-G
 trigger-smoke-plus cases: live private-global plus dead-trap boundaries, direct
 i32 tiny-bulk and load/store lowering, memory64 dynamic/local-carried bulk
 operands, no-param-call/existing-producer-wrapped tiny bulk, narrow-store masks,
@@ -242,8 +242,9 @@ fill/restore/read function with active destination data, a memory64+multi-memory
 fill/restore/read function with active destination data on memory 1, and a
 Node-runtime-compatible call-produced single-memory fill/restore/read exported
 function, a Node-runtime-compatible call-produced single-memory
-copy/restore/read exported function, and a Node-runtime-compatible
-local.tee-produced single-memory copy/restore/read exported function. The focused generator test
+copy/restore/read exported function, a Node-runtime-compatible
+local.tee-produced single-memory copy/restore/read exported function, and a Node-runtime-compatible
+select-produced single-memory copy/restore/read exported function. The focused generator test
 failed red-first first on missing OI-G labels, then on the missing three expanded
 labels, then on the missing multi-memory label/signature, then on the missing
 random-address-copy-read label/signature, then on the missing
@@ -252,28 +253,29 @@ memory64-cross-memory-random-address, cross-memory-restore,
 memory64-cross-memory-restore, runtime-compatible restore, shared-wait-notify,
 runtime-compatible fill/restore, memory64 fill/restore, multi-memory
 fill/restore, memory64+multi-memory fill/restore, runtime-call fill/restore,
-runtime-call copy/restore, and runtime-localtee copy/restore labels/signatures before implementation; it now
-passes. The latest grouped run at
-`.tmp/oi-g-runtime-localtee-copy-restore-count594-20260629` compares 594/594
-cases with 537 normalized matches, 57 mismatches, and zero validation,
-generator, property, or command failures. The new
-`oi-memory-bulk:runtime-localtee-restore-copy-read` label samples 34 grouped
-cases with 32 matches; its two residuals preserve the `memory.copy`/load/store/restore
-contract and differ only by local.tee producer cleanup plus, in one residual, a
-dropped pure reverse `i32.eq(42, 7)` cleanup. Direct runtime count110 at
-`.tmp/oi-g-runtime-localtee-copy-restore-profile-count110-20260629` samples the
-new label 4/4 matches, compares 110/110 with 103 normalized matches, and has zero
-runtime semantic failures. Manual validation/size review over the 57 grouped
-failure dirs validates 228 Binaryen/Starshine raw/canonical wasm artifacts and
+runtime-call copy/restore, runtime-localtee copy/restore, and runtime-select
+copy/restore labels/signatures before implementation; it now passes. The latest
+grouped run at `.tmp/oi-g-runtime-select-copy-restore-fix-count621-20260629`
+compares 621/621 cases with 561 normalized matches, 60 mismatches, and zero
+validation, generator, property, or command failures. The new
+`oi-memory-bulk:runtime-select-restore-copy-read` label samples 26 grouped cases
+with 24 matches after the red-first raw fallback fix; its two residuals preserve
+the select-produced `memory.copy`/load/store/restore contract and differ only by
+dropped pure reverse `i32.eq(42, 7)` cleanup. Direct runtime count115 at
+`.tmp/oi-g-runtime-select-copy-restore-profile-fix-count115-20260629` samples the
+new label 7/7 matches, compares 115/115 with 108 normalized matches, and has zero
+runtime semantic failures. Manual validation/size review over the 60 grouped
+failure dirs validates 240 Binaryen/Starshine raw/canonical wasm artifacts and
 finds zero validation failures and zero Starshine-larger raw, canonical-wasm, or
-normalized-WAT dirs. The prior `.tmp/oi-g-runtime-call-copy-restore-count567-20260629`
-remains call-produced single-memory copy/restore evidence,
-`.tmp/oi-g-runtime-call-fill-restore-count540-20260629` remains call-produced
-single-memory fill/restore evidence, and `.tmp/oi-g-runtime-fill-restore-count425-20260629`
-remains direct runtime-compatible single-memory fill/restore evidence; exact
-multi-memory, memory64, or combined memory64+multi-memory runtime execution
-remains open until those modules are executable under a compatible adapter/export
-path.
+normalized-WAT dirs. The prior `.tmp/oi-g-runtime-localtee-copy-restore-count594-20260629`
+remains local.tee-produced single-memory copy/restore evidence,
+`.tmp/oi-g-runtime-call-copy-restore-count567-20260629` remains call-produced
+single-memory copy/restore evidence, `.tmp/oi-g-runtime-call-fill-restore-count540-20260629`
+remains call-produced single-memory fill/restore evidence, and
+`.tmp/oi-g-runtime-fill-restore-count425-20260629` remains direct runtime-compatible
+single-memory fill/restore evidence; exact multi-memory, memory64, or combined
+memory64+multi-memory runtime execution remains open until those modules are
+executable under a compatible adapter/export path.
 
 The grouped run after adding the non-primary/private-memory atomic-load transform is `.tmp/oi-g-second-atomic-count350-20260629`. It compares 192/350 transform-applicable cases with 172 normalized matches, 20 mismatches, zero validation/generator/property/command failures, and `oi-live-nonzero-memory-second-atomic-boundary` 10/10 matches. That transform uses an existing non-primary memory or appends a private nonzero memory, guards `memory.size != 0`, and performs byte atomic loads/drops at bytes 17, 1024, 49152, and 65535; it is non-mutating except for private memory creation, so it is sampled non-primary/private-memory atomic-load evidence only. Manual validation/size review of all 20 failure dirs found zero validation failures, zero normalized-WAT-larger Starshine dirs, and two unrelated raw-size-larger residual dirs under `oi-memory-size-boundary`/`oi-commuted-operands`.
 
@@ -307,6 +309,8 @@ The `.tmp/oi-g-runtime-call-fill-restore-count540-20260629` refresh adds a twent
 The `.tmp/oi-g-runtime-call-copy-restore-count567-20260629` refresh adds a twenty-first `pass-oi-memory-bulk` profile case, `oi-memory-bulk:runtime-call-restore-copy-read`, as Node-runtime-compatible call-produced single-memory copy/restore/read evidence. The focused generator test failed red-first at seed `0x5f01` before the label/body existed, then passed after `src/validate/gen_valid.mbt` added an exported `run` function whose destination address, source address, and copy size are produced by no-arg helper calls before length-1 `memory.copy`; it then reads the copied byte, restores the saved destination byte, and returns the copied value. Direct runtime count105 compared 105/105 with 95 normalized matches, ten known residuals, zero validation/generator/property/command/runtime semantic failures, runtime counters `checked=68`, `unsupported=37`, `failed=0`, and the new label 8/8 matches. Grouped count567 compared 567/567 with 505 normalized matches, 62 mismatches, zero failures, Binaryen cache hits/misses 290/277, and `runtime-call-restore-copy-read` 28/30 matches. Representative residual case 000131 preserves one `memory.copy`, two `i32.load8_u`, one `i32.store8`, and six helper calls on both tools; the diff is only Starshine folding a dropped pure reverse `i32.eq(42, 7)` to `i32.const 0` (raw 235/247, canonical 238/247). Representative residual case 000510 preserves one `memory.copy`, 18 `i32.load8_u`, 13 `i32.store8`, and six helper calls on both tools; the diff is only Starshine removing one Binaryen-retained `i32.and` before `i32.store8` (raw 326/333, canonical 329/333). Manual validation/size review over all 62 grouped failure dirs validated 248 Binaryen/Starshine raw/canonical wasm artifacts and found zero validation failures and zero Starshine-larger raw, canonical-wasm, or normalized-WAT dirs. The latest residual aggregate is 36 store8 low-byte-mask candidates and 26 dropped pure reverse `i32.eq(42, 7)` candidates. This broadens call-produced single-memory copy/restore runtime evidence only; OI-G remains open and OI-J descriptor/exactness/TNH/IIT remains blocked.
 
 The `.tmp/oi-g-runtime-localtee-copy-restore-count594-20260629` refresh adds a twenty-second `pass-oi-memory-bulk` profile case, `oi-memory-bulk:runtime-localtee-restore-copy-read`, as Node-runtime-compatible single-memory copy/restore/read evidence where `local.tee` existing-producer wrappers provide the destination address, source address, and copy size. The focused generator test failed red-first at seed `0x5f02` before the label/body existed, then passed after `src/validate/gen_valid.mbt` added an exported `run` function that saves a destination byte, uses local.tee-produced operands for length-1 `memory.copy`, reads the copied byte, restores the saved destination byte, and returns the copied value. Direct runtime count110 compared 110/110 with 103 normalized matches, seven known residuals, zero validation/generator/property/command/runtime semantic failures, runtime counters `checked=69`, `unsupported=41`, `failed=0`, and the new label 4/4 matches. Grouped count594 compared 594/594 with 537 normalized matches, 57 mismatches, zero failures, Binaryen cache hits/misses 309/285, and `runtime-localtee-restore-copy-read` 32/34 matches. Its residuals preserve the memory.copy/load/store/restore contract: case 000090 removes Binaryen-retained local.tee wrappers around constant source/size producers (raw 154/161, canonical 157/161), while case 000236 also folds a dropped pure reverse `i32.eq(42, 7)` (raw 129/139, canonical 132/139). Manual validation/size review over all 57 grouped failure dirs validated 228 Binaryen/Starshine raw/canonical wasm artifacts and found zero validation failures and zero Starshine-larger raw, canonical-wasm, or normalized-WAT dirs. The latest residual aggregate is 33 store8 low-byte-mask candidates (raw -148, canonical -136, normalized-WAT -1290 for Starshine), 23 dropped pure reverse compare candidates (raw -121, canonical -97, normalized-WAT -1162), and one pure local.tee producer-cleanup candidate (raw -7, canonical -4, normalized-WAT -46). This broadens local.tee-produced single-memory copy/restore runtime evidence only; OI-G remains open and OI-J descriptor/exactness/TNH/IIT remains blocked.
+
+The `.tmp/oi-g-runtime-select-copy-restore-fix-count621-20260629` refresh adds a twenty-third `pass-oi-memory-bulk` profile case, `oi-memory-bulk:runtime-select-restore-copy-read`, as Node-runtime-compatible single-memory copy/restore/read evidence where pure `select` wrappers produce the destination address, source address, copy size, and returned copied value. The focused generator test failed red-first at seed `0x5f03` before the label/body existed, then passed after `src/validate/gen_valid.mbt` added an exported `run` function that saves the destination byte, performs length-1 `memory.copy`, reads the copied byte, restores the destination byte, and returns the copied value through a constant-condition select. The first grouped count621 run exposed a real size-losing residual: Starshine kept select-produced size-1 `memory.copy` while Binaryen lowered it to `i32.load8_u`/`i32.store8`. Red-first `src/passes/optimize_instructions_test.mbt::optimize-instructions raw skip lowers select-wrapped tiny memory copy` failed on that raw-skipped shape, then passed after `src/passes/pass_manager.mbt` folded pure constant-condition selects and lowered select-wrapped size-1 memory.copy. Direct runtime fix count115 `.tmp/oi-g-runtime-select-copy-restore-profile-fix-count115-20260629` compared 115/115 with 108 normalized matches, seven known store-mask residuals, zero validation/generator/property/command/runtime semantic failures, runtime counters `checked=67`, `unsupported=48`, `failed=0`, and the new label 7/7 matches. Grouped fix count621 compared 621/621 with 561 normalized matches, 60 mismatches, zero failures, Binaryen cache hits/misses 621/0, and `runtime-select-restore-copy-read` 24/26 matches. Manual validation/size review over all 60 grouped failure dirs validated 240 Binaryen/Starshine raw/canonical wasm artifacts and found zero validation failures and zero Starshine-larger raw, canonical-wasm, or normalized-WAT dirs. Residuals split into 32 store8 low-byte-mask candidates (Starshine raw -147, canonical -135, normalized-WAT -1288 bytes), 26 dropped pure reverse `i32.eq(42, 7)` candidates (raw -143, canonical -104, normalized-WAT -1244), and two local.tee producer-cleanup candidates (raw -14, canonical -8, normalized-WAT -92). This broadens select-produced copy/restore runtime evidence and reduces a size-losing grouped mismatch; it is not OI-G family closure and it is not OI-J descriptor/exactness/TNH/IIT evidence.
 
 The direct count-18 profile lane at `.tmp/oi-g-memory-bulk-expanded-profile-count18-20260628` sampled
 the first six labels, compared 18/18 with 14 normalized matches, four store-mask

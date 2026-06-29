@@ -1734,6 +1734,49 @@ test "optimize-instructions raw skip folds nested pure constant add" {
 }
 
 ///|
+test "optimize-instructions raw skip lowers select-wrapped tiny memory copy" {
+  // Grouped OI-G follow-up from
+  // `.tmp/oi-g-runtime-select-copy-restore-count621-20260629`: select-produced
+  // constant destination/source/size operands made the raw-skipped path keep a
+  // size-1 `memory.copy` that Binaryen lowers to load8/store8. The rewrite is
+  // intentionally limited to pure constant select shells, preserving source and
+  // destination addresses plus the byte restore contract.
+  let source = StringBuilder::new()
+  source.write_string("(module (memory 1) (func (result i32) (local i32 i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") i32.const 64 i32.load8_u local.set 0 i32.const 64 i32.const 64 i32.const 1 select (result i32) i32.const 32 i32.const 32 i32.const 1 select (result i32) i32.const 1 i32.const 1 i32.const 0 select (result i32) memory.copy i32.const 64 i32.load8_u local.set 1 i32.const 64 local.get 0 i32.store8 local.get 1 i32.const 0 i32.const 1 select (result i32)))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.copy"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+}
+
+///|
 test "optimize-instructions raw skip simplifies memory.size nonzero if conditions" {
   // Follow-up from `.tmp/oi-g-live-nonzero-copy-boundary-count77-20260628`:
   // the new live nonzero memory-copy transform exposed a raw-skip mismatch where

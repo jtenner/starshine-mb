@@ -24662,6 +24662,60 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
+    if i + 12 < instrs.length() {
+      match
+        (
+          instrs[i],
+          instrs[i + 1],
+          instrs[i + 2],
+          instrs[i + 3],
+          instrs[i + 4],
+          instrs[i + 5],
+          instrs[i + 6],
+          instrs[i + 7],
+          instrs[i + 8],
+          instrs[i + 9],
+          instrs[i + 10],
+          instrs[i + 11],
+          instrs[i + 12],
+        ) {
+        (
+          @lib.I32Const(@lib.I32(dst_true)),
+          @lib.I32Const(@lib.I32(dst_false)),
+          @lib.I32Const(@lib.I32(dst_cond)),
+          @lib.Select(_),
+          @lib.I32Const(@lib.I32(src_true)),
+          @lib.I32Const(@lib.I32(src_false)),
+          @lib.I32Const(@lib.I32(src_cond)),
+          @lib.Select(_),
+          @lib.I32Const(@lib.I32(size_true)),
+          @lib.I32Const(@lib.I32(size_false)),
+          @lib.I32Const(@lib.I32(size_cond)),
+          @lib.Select(_),
+          @lib.MemoryCopy(dst_mem, src_mem),
+        ) => {
+          let dst = if dst_cond == 0 { dst_false } else { dst_true }
+          let src = if src_cond == 0 { src_false } else { src_true }
+          let size = if size_cond == 0 { size_false } else { size_true }
+          match
+            run_hot_pipeline_raw_optimize_instructions_copy_load_store_instrs(
+              size, src_mem, dst_mem,
+            ) {
+            Some((load_instr, store_instr)) => {
+              rewritten.push(@lib.Instruction::i32_const(@lib.I32(dst)))
+              rewritten.push(@lib.Instruction::i32_const(@lib.I32(src)))
+              rewritten.push(load_instr)
+              rewritten.push(store_instr)
+              changed = true
+              i = i + 13
+              continue
+            }
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
     if i + 7 < instrs.length() {
       match
         (
@@ -24815,6 +24869,17 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
     }
     if i + 3 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+        (true_value, false_value, @lib.I32Const(@lib.I32(cond)), @lib.Select(_)) if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+            true_value,
+          ) &&
+          run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+            false_value,
+          ) => {
+          rewritten.push(if cond == 0 { false_value } else { true_value })
+          changed = true
+          i = i + 4
+          continue
+        }
         (@lib.MemorySize(_), @lib.I32Const(@lib.I32(raw)), @lib.I32Ne, if_instr) if raw ==
           0 => {
           let (next_if_instrs, if_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
