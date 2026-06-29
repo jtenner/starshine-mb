@@ -6839,15 +6839,18 @@ fn metamorphic_oi_live_nonzero_memory_cross_copy_i32_prefix(
   src_mem : @lib.MemIdx,
   dst_mem : @lib.MemIdx,
 ) -> Array[@lib.Instruction] {
-  let copy_then = [
-    @lib.Instruction::i32_const(17),
-    @lib.Instruction::i32_const(17),
-    @lib.Instruction::i32_const(1),
-    @lib.Instruction::memory_copy(dst_mem, src_mem),
-    @lib.Instruction::i32_const(17),
-    @lib.Instruction::i32_load8u(@lib.MemArg::new(0U, Some(dst_mem), 0UL)),
-    @lib.Instruction::drop(),
-  ]
+  let copy_then = []
+  for addr in [17, 1024, 49152, 65535] {
+    copy_then.push(@lib.Instruction::i32_const(addr))
+    copy_then.push(@lib.Instruction::i32_const(addr))
+    copy_then.push(@lib.Instruction::i32_const(1))
+    copy_then.push(@lib.Instruction::memory_copy(dst_mem, src_mem))
+    copy_then.push(@lib.Instruction::i32_const(addr))
+    copy_then.push(
+      @lib.Instruction::i32_load8u(@lib.MemArg::new(0U, Some(dst_mem), 0UL)),
+    )
+    copy_then.push(@lib.Instruction::drop())
+  }
   let dst_then = [
     @lib.Instruction::memory_size(dst_mem),
     @lib.Instruction::i32_const(0),

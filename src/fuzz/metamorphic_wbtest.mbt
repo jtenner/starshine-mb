@@ -6106,7 +6106,7 @@ test "OI live nonzero memory-second copy boundary transform guards reachable sec
 }
 
 ///|
-test "OI live nonzero cross-memory copy transform uses private destination memory" {
+test "OI live nonzero cross-memory copy transform uses varied private destination addresses" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
   )
@@ -6150,15 +6150,18 @@ test "OI live nonzero cross-memory copy transform uses private destination memor
         @lib.Func(_, @lib.Expr(instrs)) => {
           let src = @lib.MemIdx::new(0U)
           let dst = @lib.MemIdx::new(1U)
-          let expected_copy_then = [
-            @lib.Instruction::i32_const(17),
-            @lib.Instruction::i32_const(17),
-            @lib.Instruction::i32_const(1),
-            @lib.Instruction::memory_copy(dst, src),
-            @lib.Instruction::i32_const(17),
-            @lib.Instruction::i32_load8u(@lib.MemArg::new(0U, Some(dst), 0UL)),
-            @lib.Instruction::drop(),
-          ]
+          let expected_copy_then = []
+          for addr in [17, 1024, 49152, 65535] {
+            expected_copy_then.push(@lib.Instruction::i32_const(addr))
+            expected_copy_then.push(@lib.Instruction::i32_const(addr))
+            expected_copy_then.push(@lib.Instruction::i32_const(1))
+            expected_copy_then.push(@lib.Instruction::memory_copy(dst, src))
+            expected_copy_then.push(@lib.Instruction::i32_const(addr))
+            expected_copy_then.push(
+              @lib.Instruction::i32_load8u(@lib.MemArg::new(0U, Some(dst), 0UL)),
+            )
+            expected_copy_then.push(@lib.Instruction::drop())
+          }
           let expected_dst_then = [
             @lib.Instruction::memory_size(dst),
             @lib.Instruction::i32_const(0),
