@@ -14897,7 +14897,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 24
-    PassOiTupleProfile => 8
+    PassOiTupleProfile => 9
     _ => 3
   }
 }
@@ -14970,7 +14970,8 @@ fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
     0x5ef2UL => 5
     0x5ef3UL => 6
     0x5ef4UL => 7
-    _ => (seed % 8UL).to_int()
+    0x5ef5UL => 8
+    _ => (seed % 9UL).to_int()
   }
 }
 
@@ -15054,6 +15055,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         5 => Some("oi-tuple:trapping-sibling-selected-lane")
         6 => Some("oi-tuple:localtee-produced-selected-lane")
         7 => Some("oi-tuple:select-produced-selected-lane")
+        8 => Some("oi-tuple:selected-trapping-lane")
         _ => Some("oi-tuple:direct-selected-lane")
       }
     PassOiMemoryBulkProfile =>
@@ -16380,6 +16382,15 @@ fn gen_valid_oi_tuple_block_body(case : Int) -> Expr {
       Instruction::i32_const(I32(222)),
       Instruction::local_get(LocalIdx::new(0U)),
       Instruction::select(types=Some([ValType::i32()])),
+      Instruction::i64_const(I64(22L)),
+      Instruction::f32_const(F32(Float::from_double(33.0))),
+      Instruction::f64_const(F64(44.0)),
+    ]
+  } else if case == 8 {
+    [
+      Instruction::i32_const(I32(1)),
+      Instruction::i32_const(I32(0)),
+      Instruction::i32_div_s(),
       Instruction::i64_const(I64(22L)),
       Instruction::f32_const(F32(Float::from_double(33.0))),
       Instruction::f64_const(F64(44.0)),
