@@ -2591,6 +2591,56 @@ fn gen_valid_test_instrs_have_cross_memory_restore_copy_read(
 }
 
 ///|
+fn gen_valid_test_instrs_have_memory64_cross_memory_restore_copy_read(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 12 < instrs.length(); i = i + 1 {
+    match
+      (
+        instrs[i],
+        instrs[i + 1],
+        instrs[i + 2],
+        instrs[i + 3],
+        instrs[i + 4],
+        instrs[i + 5],
+        instrs[i + 6],
+        instrs[i + 7],
+        instrs[i + 8],
+        instrs[i + 9],
+        instrs[i + 10],
+        instrs[i + 11],
+        instrs[i + 12],
+      ) {
+      (
+        I64Const(I64(saved_addr)),
+        I64Load8U(MemArg(_, Some(MemIdx(save_mem)), _)),
+        LocalSet(LocalIdx(0U)),
+        I64Const(I64(dst_addr)),
+        I64Const(I64(src_addr)),
+        I64Const(I64(1L)),
+        MemoryCopy(MemIdx(dst_mem), MemIdx(src_mem)),
+        I64Const(I64(load_addr)),
+        I64Load8U(MemArg(_, Some(MemIdx(load_mem)), _)),
+        Drop,
+        I64Const(I64(restore_addr)),
+        LocalGet(LocalIdx(0U)),
+        I64Store8(MemArg(_, Some(MemIdx(restore_mem)), _)),
+      ) if dst_mem != src_mem &&
+        save_mem == dst_mem &&
+        load_mem == dst_mem &&
+        restore_mem == dst_mem &&
+        saved_addr == dst_addr &&
+        dst_addr == src_addr &&
+        dst_addr == load_addr &&
+        dst_addr == restore_addr &&
+        dst_addr > 16L => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_has_multi_memory(mod_ : Module) -> Bool {
   let mut count = 0
   match mod_.import_sec {
@@ -2645,7 +2695,11 @@ fn gen_valid_test_oi_memory_bulk_trigger_signature(
   mod_ : Module,
 ) -> String raise {
   let instrs = gen_valid_test_first_func_instrs(mod_)
-  if gen_valid_test_has_multi_memory(mod_) &&
+  if gen_valid_test_has_memory64(mod_) &&
+    gen_valid_test_has_multi_memory(mod_) &&
+    gen_valid_test_instrs_have_memory64_cross_memory_restore_copy_read(instrs) {
+    "memory64-cross-memory-restore-copy-read"
+  } else if gen_valid_test_has_multi_memory(mod_) &&
     gen_valid_test_instrs_have_cross_memory_restore_copy_read(instrs) {
     "cross-memory-restore-copy-read"
   } else if gen_valid_test_has_memory64(mod_) &&
@@ -2779,12 +2833,20 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let memory64_cross_memory_restore = match
+    gen_valid_module_result_from_seed(
+      0x5ef9UL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(memory64_dynamic.config_label, "pass-oi-memory-bulk")
   for
     generated in [
       memory64_dynamic, live_effect_trap, existing_producer, store_mask, dynamic_i32,
       direct_tiny, multi_memory, random_address, multi_memory_random_address, cross_memory_random_address,
-      memory64_cross_memory_random_address, cross_memory_restore,
+      memory64_cross_memory_random_address, cross_memory_restore, memory64_cross_memory_restore,
     ] {
     match validate_module(generated.wasm_module) {
       Ok(_) => ()
@@ -2838,6 +2900,10 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5ef8UL),
     Some("oi-memory-bulk:cross-memory-restore-copy-read"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5ef9UL),
+    Some("oi-memory-bulk:memory64-cross-memory-restore-copy-read"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(
@@ -2900,6 +2966,12 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
       cross_memory_restore.wasm_module,
     ),
     "cross-memory-restore-copy-read",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      memory64_cross_memory_restore.wasm_module,
+    ),
+    "memory64-cross-memory-restore-copy-read",
   )
   let (direct_copies, direct_fills) = gen_valid_test_instrs_count_memory_bulk_ops(
     gen_valid_test_first_func_instrs(direct_tiny.wasm_module),

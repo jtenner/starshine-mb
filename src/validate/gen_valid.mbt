@@ -14549,26 +14549,27 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 ///|
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
-    PassOiMemoryBulkProfile => 12
+    PassOiMemoryBulkProfile => 13
     _ => 3
   }
 }
 
 ///|
 fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
-  match (seed % 12UL).to_int() {
-    0 => 11
-    1 => 1
-    2 => 2
-    3 => 3
-    4 => 4
-    5 => 5
-    6 => 0
-    7 => 6
-    8 => 7
-    9 => 8
-    10 => 9
-    _ => 10
+  match (seed % 13UL).to_int() {
+    0 => 9
+    1 => 10
+    2 => 11
+    3 => 12
+    4 => 1
+    5 => 2
+    6 => 3
+    7 => 4
+    8 => 5
+    9 => 0
+    10 => 6
+    11 => 7
+    _ => 8
   }
 }
 
@@ -14654,6 +14655,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         10 =>
           Some("oi-memory-bulk:memory64-cross-memory-random-address-copy-read")
         11 => Some("oi-memory-bulk:cross-memory-restore-copy-read")
+        12 => Some("oi-memory-bulk:memory64-cross-memory-restore-copy-read")
         _ => Some("oi-memory-bulk:direct-tiny-bulk")
       }
     _ => None
@@ -15013,6 +15015,30 @@ fn gen_valid_oi_memory_bulk_cross_memory_restore_body(
 }
 
 ///|
+fn gen_valid_oi_memory_bulk_memory64_cross_memory_restore_body(
+  seed : UInt64,
+) -> Array[Instruction] {
+  let src_mem = MemIdx::new(0U)
+  let dst_mem = MemIdx::new(1U)
+  let addr = gen_valid_oi_memory_bulk_random_address(seed).to_int64()
+  [
+    Instruction::i64_const(I64(addr)),
+    Instruction::i64_load8u(MemArg::new(0U, Some(dst_mem), 0UL)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::i64_const(I64(addr)),
+    Instruction::i64_const(I64(addr)),
+    Instruction::i64_const(I64(1L)),
+    Instruction::memory_copy(dst_mem, src_mem),
+    Instruction::i64_const(I64(addr)),
+    Instruction::i64_load8u(MemArg::new(0U, Some(dst_mem), 0UL)),
+    Instruction::drop(),
+    Instruction::i64_const(I64(addr)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i64_store8(MemArg::new(0U, Some(dst_mem), 0UL)),
+  ]
+}
+
+///|
 fn gen_valid_oi_memory_bulk_call_wrapped_module() -> Module {
   let i32_func_type = RecType::new(
     SubType::comp_type(CompType::func([], [ValType::i32()])),
@@ -15101,6 +15127,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
     ])
   } else if memory_bulk && case == 1 {
     Locals::from_types([ValType::i64()])
+  } else if memory_bulk && case == 12 {
+    Locals::from_types([ValType::i64()])
   } else if memory_bulk && (case == 5 || case == 11) {
     Locals::from_types([ValType::i32()])
   } else if !ref_gc && !memory_bulk && (case == 1 || case == 2) {
@@ -15129,6 +15157,10 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
           ctx.root_seed,
         )
       11 => gen_valid_oi_memory_bulk_cross_memory_restore_body(ctx.root_seed)
+      12 =>
+        gen_valid_oi_memory_bulk_memory64_cross_memory_restore_body(
+          ctx.root_seed,
+        )
       _ => gen_valid_oi_memory_bulk_direct_body()
     }
   } else {
@@ -15141,7 +15173,7 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   if memory_bulk {
     mod = if case == 1 {
       mod.with_mem_sec(MemSec::new([MemType::new(Limits::i64(1UL, None))]))
-    } else if case == 10 {
+    } else if case == 10 || case == 12 {
       mod.with_mem_sec(
         MemSec::new([
           MemType::new(Limits::i64(1UL, None)),
