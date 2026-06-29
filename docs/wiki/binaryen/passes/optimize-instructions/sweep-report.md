@@ -248,7 +248,14 @@ generator, property, or command failures;
 no memory64 source-visible destination-restore opcode drift. The prior
 count-288 root remains the first i32 source-visible restore evidence, the
 all-comparable count-264 root remains the latest pre-restore aggregate, and the
-count-198 root remains the first non-primary random-address evidence.
+count-198 root remains the first non-primary random-address evidence. A targeted
+`--runtime-execution node` follow-up at
+`.tmp/oi-g-memory64-cross-memory-restore-runtime-count65-20260629` compared
+65/65 with 60 normalized matches and zero runtime semantic failures, but the
+runtime matrix was blocked (`checked=36`, `unsupported=29`, `failed=0`). The
+exact singleton restore seeds `0x5ef8` and `0x5ef9` each normalized 1/1 and each
+reported `unsupported=1`, so runtime source-visible restore execution remains
+open until the modules are executable under a compatible adapter/export path.
 The direct count-18 profile lane at `.tmp/oi-g-memory-bulk-expanded-profile-count18-20260628` sampled
 the first six labels, compared 18/18 with 14 normalized matches, four store-mask
 mismatches, and no validation, generator, property, or command failures. The
