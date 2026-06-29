@@ -6486,6 +6486,26 @@ test "OI live nonzero memory-atomic RMW boundary transform guards reachable inte
             expected_then.push(@lib.Instruction::i32_const(addr))
             expected_then.push(@lib.Instruction::i32_atomic_load8_u(memarg8))
             expected_then.push(@lib.Instruction::i32_atomic_store8(memarg8))
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_atomic_load8_u(memarg8))
+            expected_then.push(
+              @lib.Instruction::atomic_rmw(
+                @lib.AtomicRmwOp::i32_8_xchg_u(),
+                memarg8,
+              ),
+            )
+            expected_then.push(@lib.Instruction::drop())
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i64_atomic_load8_u(memarg8))
+            expected_then.push(
+              @lib.Instruction::atomic_rmw(
+                @lib.AtomicRmwOp::i64_8_xchg_u(),
+                memarg8,
+              ),
+            )
+            expected_then.push(@lib.Instruction::drop())
             for
               op in [
                 @lib.AtomicRmwOp::i32_add(),
@@ -6676,6 +6696,34 @@ test "OI live nonzero memory-atomic RMW boundary transform guards reachable inte
           }
           expected_then.push(@lib.Instruction::i32_atomic_load8_u(memarg8))
           expected_then.push(@lib.Instruction::i32_atomic_store8(memarg8))
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(@lib.Instruction::i32_atomic_load8_u(memarg8))
+          expected_then.push(
+            @lib.Instruction::atomic_rmw(
+              @lib.AtomicRmwOp::i32_8_xchg_u(),
+              memarg8,
+            ),
+          )
+          expected_then.push(@lib.Instruction::drop())
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          for instr in end_addr {
+            expected_then.push(instr)
+          }
+          expected_then.push(@lib.Instruction::i64_atomic_load8_u(memarg8))
+          expected_then.push(
+            @lib.Instruction::atomic_rmw(
+              @lib.AtomicRmwOp::i64_8_xchg_u(),
+              memarg8,
+            ),
+          )
+          expected_then.push(@lib.Instruction::drop())
           for
             op in [
               @lib.AtomicRmwOp::i32_8_add_u(),
@@ -6837,6 +6885,78 @@ test "OI live nonzero memory-atomic RMW boundary transform uses private non-prim
           )
           @debug.assert_eq(instrs[4], @lib.Instruction::nop())
         }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "OI live nonzero memory-atomic RMW boundary transform preserves bytes with xchg smoke" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(0U, None)),
+        @lib.MemType::new(@lib.Limits::i32(0U, None)),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transform = match
+    metamorphic_valid_transform_by_id(
+      "oi-live-nonzero-memory-atomic-rmw-boundary",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) =>
+          match instrs[3] {
+            @lib.Instruction::If(_, then_instrs, _) => {
+              let memarg8 = @lib.MemArg::new(
+                0U,
+                Some(@lib.MemIdx::new(1U)),
+                0UL,
+              )
+              assert_true(
+                then_instrs.contains(
+                  @lib.Instruction::atomic_rmw(
+                    @lib.AtomicRmwOp::i32_8_xchg_u(),
+                    memarg8,
+                  ),
+                ),
+              )
+              assert_true(
+                then_instrs.contains(
+                  @lib.Instruction::atomic_rmw(
+                    @lib.AtomicRmwOp::i64_8_xchg_u(),
+                    memarg8,
+                  ),
+                ),
+              )
+            }
+            _ => fail("expected guarded atomic RMW if shell")
+          }
       }
     None => fail("expected transformed code section")
   }
