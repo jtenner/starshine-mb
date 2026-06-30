@@ -190,6 +190,67 @@ test "optimize-instructions public pipeline still cleans neutral add outside raw
 }
 
 ///|
+test "optimize-instructions raw skip removes local-carried add-zero before sign extensions" {
+  // OI-E grouped pass-oi-local-facts residual: the call/local-write raw skip
+  // path must still remove neutral add wrappers before sign-extension facts.
+  // This reduces Binaryen-vs-Starshine drift without claiming broad LocalScanner
+  // closure or any descriptor/exactness/TNH/IIT evidence.
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $g (mut i32) (i32.const 0))
+        #|  (func $make_i32 (result i32)
+        #|    i32.const 3
+        #|    global.set $g
+        #|    i32.const 127)
+        #|  (func $make_i64 (result i64)
+        #|    i32.const 4
+        #|    global.set $g
+        #|    i64.const 2147483647)
+        #|  (func (local $x i32) (local $y i64)
+        #|    call $make_i32
+        #|    local.set $x
+        #|    local.get $x
+        #|    i32.const 0
+        #|    i32.add
+        #|    i32.extend8_s
+        #|    drop
+        #|    call $make_i64
+        #|    local.set $y
+        #|    local.get $y
+        #|    i64.const 0
+        #|    i64.add
+        #|    i64.extend32_s
+        #|    drop))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=call-local-write-optimize-instructions-noop",
+      )
+    }),
+    msg="expected call/local-write raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_false(pretty.contains("i64.add"), msg=pretty)
+  assert_true(pretty.contains("i32.extend8s"), msg=pretty)
+  assert_true(pretty.contains("i64.extend32s"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions public pipeline canonicalizes simple stack-carried call operands" {
   let trace : Array[String] = []
   let optimized = match

@@ -25283,6 +25283,22 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
     }
     if i + 2 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (value, @lib.I32Const(@lib.I32(0)), @lib.I32Add)
+        | (value, @lib.I32Const(@lib.I32(0)), @lib.I32Sub)
+        | (@lib.I32Const(@lib.I32(0)), value, @lib.I32Add) => {
+          rewritten.push(value)
+          changed = true
+          i = i + 3
+          continue
+        }
+        (value, @lib.I64Const(@lib.I64(0L)), @lib.I64Add)
+        | (value, @lib.I64Const(@lib.I64(0L)), @lib.I64Sub)
+        | (@lib.I64Const(@lib.I64(0L)), value, @lib.I64Add) => {
+          rewritten.push(value)
+          changed = true
+          i = i + 3
+          continue
+        }
         (address, value, store_instr) =>
           match
             run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
