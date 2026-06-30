@@ -23894,6 +23894,17 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
     if i + 2 < instrs.length() {
       match (current, instrs[i + 1], instrs[i + 2]) {
         (
+          index,
+          @lib.Instruction::TableGet(table_idx),
+          @lib.Instruction::CallRef(type_idx),
+        ) => {
+          out.push(index)
+          out.push(@lib.Instruction::call_indirect(type_idx, table_idx))
+          changed = true
+          i += 3
+          continue
+        }
+        (
           @lib.Instruction::RefNull(_),
           @lib.Instruction::RefTest(nullable, _),
           @lib.Instruction::Drop,

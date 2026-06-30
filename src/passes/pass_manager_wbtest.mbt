@@ -28,6 +28,30 @@ test "optimize-instructions raw directizes adjacent ref.func call_ref before ski
 }
 
 ///|
+test "optimize-instructions raw lowers table.get call_ref to call_indirect before skip" {
+  // OI-H table-get-target residual: Binaryen lowers a table target consumed by
+  // call_ref to call_indirect. This is a local stack-equivalent rewrite and
+  // does not claim table-state known-target directization.
+  let table_idx = @lib.TableIdx::new(1U)
+  let type_idx = @lib.TypeIdx::new(3U)
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
+      @lib.Instruction::i32_const(@lib.I32(99)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::table_get(table_idx),
+      @lib.Instruction::call_ref(type_idx),
+      @lib.Instruction::drop(),
+    ],
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(99)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::call_indirect(type_idx, table_idx),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 test "optimize-instructions raw directizes constant select ref.func call_ref before skip" {
   let left = @lib.FuncIdx::new(7U)
   let right = @lib.FuncIdx::new(8U)
