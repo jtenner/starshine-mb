@@ -24691,6 +24691,25 @@ fn run_hot_pipeline_raw_optimize_instructions_fill_store_instr(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
+  body : Array[@lib.Instruction],
+) -> (@lib.Instruction, @lib.ValType)? {
+  if body.length() != 2 || body[1] != @lib.Instruction::drop() {
+    return None
+  }
+  let value = body[0]
+  if !run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+      value,
+    ) {
+    return None
+  }
+  match run_hot_pipeline_raw_simplify_locals_notee_const_type(value) {
+    Some(vt) => Some((value, vt))
+    None => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -24940,6 +24959,39 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
               continue
             }
             None => ()
+          }
+        _ => ()
+      }
+    }
+    if i + 1 < instrs.length() {
+      match (instrs[i], instrs[i + 1]) {
+        (condition, @lib.If(block_type, then_body, Some(else_body))) if block_type ==
+          @lib.BlockType::void_() =>
+          match
+            (
+              run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
+                then_body,
+              ),
+              run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
+                else_body,
+              ),
+            ) {
+            (Some((then_value, then_type)), Some((else_value, else_type))) if then_type ==
+              else_type => {
+              rewritten.push(condition)
+              rewritten.push(
+                @lib.Instruction::if_(
+                  @lib.BlockType::val_type(then_type),
+                  [then_value],
+                  Some([else_value]),
+                ),
+              )
+              rewritten.push(@lib.Instruction::drop())
+              changed = true
+              i = i + 2
+              continue
+            }
+            _ => ()
           }
         _ => ()
       }
