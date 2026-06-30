@@ -14896,7 +14896,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 ///|
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
-    PassOiMemoryBulkProfile => 33
+    PassOiMemoryBulkProfile => 34
     PassOiTupleProfile => 15
     _ => 3
   }
@@ -14938,8 +14938,9 @@ fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
     0x5f0bUL => 30
     0x5f0cUL => 31
     0x5f0dUL => 32
+    0x5f0eUL => 33
     _ =>
-      match (seed % 33UL).to_int() {
+      match (seed % 34UL).to_int() {
         0 => 9
         1 => 10
         2 => 11
@@ -14964,14 +14965,15 @@ fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
         21 => 30
         22 => 31
         23 => 32
-        24 => 1
-        25 => 2
-        26 => 3
-        27 => 4
-        28 => 5
-        29 => 0
-        30 => 6
-        31 => 7
+        24 => 33
+        25 => 1
+        26 => 2
+        27 => 3
+        28 => 4
+        29 => 5
+        30 => 0
+        31 => 6
+        32 => 7
         _ => 8
       }
   }
@@ -15124,6 +15126,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         30 => Some("oi-memory-bulk:shared-atomic-random-xor-restore")
         31 => Some("oi-memory-bulk:shared-atomic-random-or-restore")
         32 => Some("oi-memory-bulk:shared-atomic-random-and-restore")
+        33 => Some("oi-memory-bulk:shared-atomic-localtee-add-restore")
         _ => Some("oi-memory-bulk:direct-tiny-bulk")
       }
     _ => None
@@ -15901,6 +15904,39 @@ fn gen_valid_oi_memory_bulk_shared_atomic_random_add_restore_body(
     Instruction::i64_atomic_load(i64_memarg),
     Instruction::local_set(LocalIdx::new(1U)),
     Instruction::i32_const(I32(addr)),
+    Instruction::i64_const(I64(0L)),
+    Instruction::atomic_rmw(AtomicRmwOp::i64_add(), i64_memarg),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i64_extend_i32u(),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::i64_xor(),
+  ]
+}
+
+///|
+fn gen_valid_oi_memory_bulk_shared_atomic_localtee_add_restore_body(
+  seed : UInt64,
+) -> Array[Instruction] {
+  let addr = gen_valid_oi_memory_bulk_shared_atomic_random_address(seed)
+  let i32_memarg = MemArg::new(2U, None, 0UL)
+  let i64_memarg = MemArg::new(3U, None, 8UL)
+  [
+    Instruction::i32_const(I32(addr)),
+    Instruction::local_tee(LocalIdx::new(2U)),
+    Instruction::i32_atomic_load(i32_memarg),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(addr)),
+    Instruction::local_tee(LocalIdx::new(2U)),
+    Instruction::i32_const(I32(0)),
+    Instruction::atomic_rmw(AtomicRmwOp::i32_add(), i32_memarg),
+    Instruction::drop(),
+    Instruction::i32_const(I32(addr)),
+    Instruction::local_tee(LocalIdx::new(2U)),
+    Instruction::i64_atomic_load(i64_memarg),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::i32_const(I32(addr)),
+    Instruction::local_tee(LocalIdx::new(2U)),
     Instruction::i64_const(I64(0L)),
     Instruction::atomic_rmw(AtomicRmwOp::i64_add(), i64_memarg),
     Instruction::drop(),
@@ -17025,6 +17061,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
     ])
   } else if memory_bulk && (case == 22 || case == 23) {
     Locals::from_types([ValType::i32(), ValType::i32()])
+  } else if memory_bulk && case == 33 {
+    Locals::from_types([ValType::i32(), ValType::i64(), ValType::i32()])
   } else if memory_bulk &&
     (
       case == 24 ||
@@ -17126,6 +17164,10 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
         gen_valid_oi_memory_bulk_shared_atomic_random_and_restore_body(
           ctx.root_seed,
         )
+      33 =>
+        gen_valid_oi_memory_bulk_shared_atomic_localtee_add_restore_body(
+          ctx.root_seed,
+        )
       _ => gen_valid_oi_memory_bulk_direct_body()
     }
   } else {
@@ -17150,7 +17192,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
       case == 29 ||
       case == 30 ||
       case == 31 ||
-      case == 32
+      case == 32 ||
+      case == 33
     ) {
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i64()])))
   } else if memory_bulk && case == 25 {
@@ -17189,7 +17232,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
       case == 29 ||
       case == 30 ||
       case == 31 ||
-      case == 32 {
+      case == 32 ||
+      case == 33 {
       mod.with_mem_sec(
         MemSec::new([MemType::new(Limits::i32(1U, Some(1U)), shared=true)]),
       )
@@ -17311,14 +17355,16 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
       case == 29 ||
       case == 30 ||
       case == 31 ||
-      case == 32 {
+      case == 32 ||
+      case == 33 {
       let addr = if case == 26 ||
         case == 27 ||
         case == 28 ||
         case == 29 ||
         case == 30 ||
         case == 31 ||
-        case == 32 {
+        case == 32 ||
+        case == 33 {
         gen_valid_oi_memory_bulk_shared_atomic_random_address(ctx.root_seed)
       } else {
         64
