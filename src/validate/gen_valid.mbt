@@ -2689,6 +2689,7 @@ fn gen_valid_is_ssa_nomerge_parity_config(config : GenValidConfig) -> Bool {
 fn gen_valid_is_oi_trigger_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(PassOiDefaultScalarProfile) ||
   config == GenValidConfig::for_profile(PassOiLocalFactsProfile) ||
+  config == GenValidConfig::for_profile(PassOiCallRefProfile) ||
   config == GenValidConfig::for_profile(PassOiBooleanSelectProfile) ||
   config == GenValidConfig::for_profile(PassOiRefGcProfile) ||
   config == GenValidConfig::for_profile(PassOiMemoryBulkProfile) ||
@@ -15126,6 +15127,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
     PassOiTupleProfile => 16
     PassOiLocalFactsProfile => 11
     PassOiBooleanSelectProfile => 4
+    PassOiCallRefProfile => 4
     _ => 3
   }
 }
@@ -15289,6 +15291,17 @@ fn gen_valid_oi_boolean_select_case_for_seed(seed : UInt64) -> Int {
 }
 
 ///|
+fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int {
+  match seed {
+    0x5eedUL => 1
+    0x5eeeUL => 2
+    0x5eefUL => 3
+    0x5ef0UL => 0
+    _ => (seed % 4UL).to_int()
+  }
+}
+
+///|
 fn gen_valid_oi_trigger_profile_case_for_profile_seed(
   profile : GenValidProfile,
   seed : UInt64,
@@ -15299,6 +15312,7 @@ fn gen_valid_oi_trigger_profile_case_for_profile_seed(
     PassOiLocalFactsProfile => gen_valid_oi_local_facts_case_for_seed(seed)
     PassOiBooleanSelectProfile =>
       gen_valid_oi_boolean_select_case_for_seed(seed)
+    PassOiCallRefProfile => gen_valid_oi_call_ref_case_for_seed(seed)
     _ =>
       (seed % gen_valid_oi_trigger_profile_case_modulus(profile).to_uint64()).to_int()
   }
@@ -15314,6 +15328,8 @@ fn gen_valid_oi_trigger_profile_for_config(
     PassOiLocalFactsProfile
   } else if config == GenValidConfig::for_profile(PassOiBooleanSelectProfile) {
     PassOiBooleanSelectProfile
+  } else if config == GenValidConfig::for_profile(PassOiCallRefProfile) {
+    PassOiCallRefProfile
   } else if config == GenValidConfig::for_profile(PassOiRefGcProfile) {
     PassOiRefGcProfile
   } else if config == GenValidConfig::for_profile(PassOiTupleProfile) {
@@ -15376,6 +15392,13 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         2 => Some("oi-boolean-select:trapping-dead-if-arm")
         3 => Some("oi-boolean-select:value-if-drop-shell")
         _ => Some("oi-boolean-select:direct-if-select-shell")
+      }
+    PassOiCallRefProfile =>
+      match case {
+        1 => Some("oi-call-ref:local-carried-target")
+        2 => Some("oi-call-ref:block-produced-target")
+        3 => Some("oi-call-ref:return-call-ref-target")
+        _ => Some("oi-call-ref:direct-target-wrapper")
       }
     PassOiRefGcProfile =>
       match case {
@@ -18861,12 +18884,94 @@ fn gen_valid_oi_boolean_select_profile_module(case : Int) -> Module {
 }
 
 ///|
+fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
+  let run_type = gen_valid_precompute_void_func_type()
+  let target_type = if case == 3 {
+    gen_valid_precompute_void_func_type()
+  } else {
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
+  }
+  let target_type_idx = TypeIdx::new(1U)
+  let target_func_idx = FuncIdx::new(1U)
+  let target_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(target_type_idx)),
+  )
+  let body = match case {
+    1 =>
+      [
+        Instruction::ref_func(target_func_idx),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::call_ref(target_type_idx),
+        Instruction::drop(),
+      ]
+    2 =>
+      [
+        Instruction::block(
+          BlockType::val_type(target_ref),
+          Expr::new([Instruction::ref_func(target_func_idx)]),
+        ),
+        Instruction::call_ref(target_type_idx),
+        Instruction::drop(),
+      ]
+    3 =>
+      [
+        Instruction::block(
+          BlockType::val_type(target_ref),
+          Expr::new([Instruction::ref_func(target_func_idx)]),
+        ),
+        Instruction::return_call_ref(target_type_idx),
+      ]
+    _ =>
+      [
+        Instruction::ref_func(target_func_idx),
+        Instruction::call_ref(target_type_idx),
+        Instruction::drop(),
+      ]
+  }
+  let locals = if case == 1 {
+    Locals::from_types([target_ref])
+  } else {
+    Locals::empty()
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([run_type, target_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), target_type_idx]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(ElemMode::declarative(), ElemKind::funcs([target_func_idx])),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(locals, Expr::new(body)),
+      Func::new(
+        Locals::empty(),
+        Expr::new(
+          if case == 3 {
+            []
+          } else {
+            [Instruction::i32_const(I32(42))]
+          },
+        ),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let config = ctx.config
   let local_facts = config ==
     GenValidConfig::for_profile(PassOiLocalFactsProfile)
   let boolean_select = config ==
     GenValidConfig::for_profile(PassOiBooleanSelectProfile)
+  let call_ref = config == GenValidConfig::for_profile(PassOiCallRefProfile)
   let ref_gc = config == GenValidConfig::for_profile(PassOiRefGcProfile)
   let memory_bulk = config ==
     GenValidConfig::for_profile(PassOiMemoryBulkProfile)
@@ -18877,6 +18982,9 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   }
   if boolean_select {
     return gen_valid_oi_boolean_select_profile_module(case)
+  }
+  if call_ref {
+    return gen_valid_oi_call_ref_profile_module(case)
   }
   if local_facts && case == 3 {
     return gen_valid_oi_local_facts_existing_producer_module()

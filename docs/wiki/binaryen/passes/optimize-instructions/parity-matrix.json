@@ -392,7 +392,7 @@
     },
     {
       "name": "pass-oi-call-ref",
-      "status": "implemented-smoke",
+      "status": "implemented-trigger-smoke-plus",
       "families": [
         "OI-H"
       ],
@@ -402,7 +402,10 @@
         "typed-function-references"
       ],
       "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-call-ref --out-dir .tmp/pass-fuzz-oi-call-ref --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
-      "implementation": "src/validate/gen_valid.mbt accepts this profile and maps it to a bounded Binaryen-oracle GenValid config; targeted trigger constructors remain future work."
+      "implementation": "src/validate/gen_valid.mbt maps pass-oi-call-ref to four seed-indexed trigger-smoke modules: local-carried call_ref target, block-produced call_ref target, void return_call_ref target, and direct ref.func call_ref wrapper. src/validate/gen_valid_tests.mbt and src/fuzz/main_wbtest.mbt cover labels and manifest metadata.",
+      "lastCheckedEvidence": [
+        "2026-06-30: src/validate/gen_valid_tests.mbt::OI-H call-ref trigger-smoke profile selects source-backed cases failed red-first with profile label None for seed 0x5eed, then passed after pass-oi-call-ref became a trigger-smoke-plus profile with four seed-indexed labels."
+      ]
     },
     {
       "name": "pass-oi-ref-gc",
@@ -3029,7 +3032,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT; target-wrapper transform should group ref.func/table.get/select/block/local-carried variants",
       "starshineStatus": "mismatch",
       "priority": "P1",
-      "blockerBoundaryReason": "The profile-backed OI-H grouped smoke now validates and reaches comparison across oi-call-ref-target-wrapper, oi-local-carried, and oi-effectful-sibling transforms. All three sampled transformed outputs have 0 Starshine call_ref/return_call_ref/table.get residuals, matching Binaryen, so this sweep does not expose a remaining sampled OI-H target-spelling gap. The remaining raw mismatches are local-section/dropped-ref.func shape drift in the target-wrapper sample and cross-family local-section/dropped-null/effectful-sibling scalar/if-shape drift in the local-carried/effectful samples. Broader true live table-state known-target, return_call_ref, argument-localization, multivalue, and effect/trap target-boundary sweeps remain open.",
+      "blockerBoundaryReason": "The profile-backed OI-H grouped smoke now has source-backed pass-oi-call-ref trigger labels for local-carried, block-produced, return_call_ref, and direct target wrappers. The 2026-06-30 count16b lane validates and reaches comparison across oi-call-ref-target-wrapper, oi-local-carried, and oi-effectful-sibling transforms with all four profile cases sampled. The residuals do not expose a Starshine target-spelling gap in the sampled lane: aggregate residual WAT counts are call_ref 4/0, return_call_ref 0/0, table.get 0/0, call_indirect 0/0, and return_call_indirect 0/0 for Binaryen/Starshine, with ref.func 23/0 and direct/tail calls preserved or increased by directization. Residuals remain output-shape/cross-family drift and one direct-target wrapper bucket is raw-size-losing (+2 raw, -26 canonical, -164 WAT), while other buckets are raw/canonical/WAT smaller for Starshine. Broader live table-state known-target, non-void return_call_ref, argument-localization, multivalue, and effect/trap target-boundary sweeps remain open.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md",
         "docs/wiki/raw/research/0751-2026-06-19-optimize-instructions-oi-h-table-get-call-ref.md",
@@ -3067,7 +3070,10 @@
         "2026-06-30 timeout-conscious OI-H count6 refresh .tmp/oi-h-focused-count6-20260630 compared 6/6 with 0 normalized matches, 6 raw mismatches, and zero validation/generator/property/command failures. Transform groups each sampled two residuals; manual wasm-tools validate --features all accepted all 24 residual raw/canonical artifacts. All representative outputs still have call_ref=0, return_call_ref=0, table.get=0, call_indirect=0, and return_call_indirect=0 on both sides. Aggregate deltas by transform: target-wrapper raw/canonical/WAT +25/-101/-3619 with Binaryen/Starshine ref.func 11/0; local-carried +91/-57/-2535; effectful-sibling +44/-95/-3764. This reinforces the current classification as raw-size-losing output-shape/cross-family drift after sampled OI-H target cleanup, not broad OI-H closure.",
         "2026-06-30 bounded OI-H count8 attempt at .tmp/oi-h-bounded-count8-20260630 timed out after 300s before result.json summary emission, writing four residual failure dirs; it is recorded as a harness/runtime risk, not semantic evidence. A smaller follow-up count4 lane at .tmp/oi-h-bounded-count4-20260630 completed and is the authoritative fresh bounded classification.",
         "bun scripts/oi-parity-sweep.ts --family OI-H --count 4 --out-dir .tmp/oi-h-bounded-count4-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute -- --max-failures 2000 --keep-going-after-command-failures: compared 4/4 with 0 normalized matches, 4 raw mismatches, zero validation/generator/property/command failures, and Binaryen cache 4/0; transform labels target-wrapper=2, local-carried=1, effectful-sibling=1 (2026-06-30).",
-        "Manual wasm-tools validate --features all accepted all 16 residual raw/canonical artifacts from .tmp/oi-h-bounded-count4-20260630; sampled outputs remain OI-H target-clean with call_ref=0, return_call_ref=0, table.get=0, call_indirect=0, and return_call_indirect=0 on both sides. Deltas: target-wrapper +25/-101/-3619 with ref.func 11/0 and direct calls 44/44; local-carried +41/-18/-618; effectful-sibling +28/-54/-2291 with global.set 40/40 and if/block/unreachable counts aligned 8/8 (2026-06-30)."
+        "Manual wasm-tools validate --features all accepted all 16 residual raw/canonical artifacts from .tmp/oi-h-bounded-count4-20260630; sampled outputs remain OI-H target-clean with call_ref=0, return_call_ref=0, table.get=0, call_indirect=0, and return_call_indirect=0 on both sides. Deltas: target-wrapper +25/-101/-3619 with ref.func 11/0 and direct calls 44/44; local-carried +41/-18/-618; effectful-sibling +28/-54/-2291 with global.set 40/40 and if/block/unreachable counts aligned 8/8 (2026-06-30).",
+        "2026-06-30: src/validate/gen_valid_tests.mbt::OI-H call-ref trigger-smoke profile selects source-backed cases failed red-first with pass-oi-call-ref label None at seed 0x5eed, then passed after src/validate/gen_valid.mbt added four source-backed trigger modules/labels for local-carried call_ref, block-produced call_ref, void return_call_ref, and direct ref.func call_ref wrappers; src/fuzz/main_wbtest.mbt manifest metadata coverage also passed.",
+        "bun scripts/oi-parity-sweep.ts --family OI-H --count 16 --out-dir .tmp/oi-h-call-ref-profile-count16b-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute -- --max-failures 2000 --keep-going-after-command-failures: compared 16/16 with 3 normalized matches, 13 raw mismatches, zero validation/generator/property/command failures, Binaryen cache 12/4, and all four pass-oi-call-ref labels sampled four times each (2026-06-30).",
+        "Manual wasm-tools validate --features all accepted all 26 residual raw artifacts from .tmp/oi-h-call-ref-profile-count16b-20260630. Residual split: local-carried-target n=4 deltas raw/canonical/WAT -24/-66/-474, block-produced-target n=4 -12/-47/-273, return-call-ref-target n=3 0/-37/-220, direct-target-wrapper n=2 +2/-26/-164. Aggregate residual opcodes preserve direct/effect/control structure while Starshine has call_ref=0, return_call_ref=0, table.get=0, call_indirect=0, return_call_indirect=0; do not claim broad OI-H closure or OI-J descriptor/exactness/TNH/IIT evidence (2026-06-30)."
       ],
       "genValidProfiles": [
         "pass-oi-call-ref"

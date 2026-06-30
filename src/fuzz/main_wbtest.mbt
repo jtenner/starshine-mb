@@ -2544,6 +2544,32 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
     )
   }
 
+  let call_ref_args = EmitGenValidBatchArgs::new(
+    4,
+    0x5eedUL,
+    "tmp/gen-valid-oi-call-ref",
+    profile="pass-oi-call-ref",
+    max_attempts=12,
+  )
+  let call_ref_selection = match emit_gen_valid_batch_selection(call_ref_args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(call_ref_selection.manifest.length(), 4)
+  let call_ref_manifest = format_gen_valid_batch_manifest_json(
+    call_ref_args, call_ref_selection,
+  )
+  for
+    label in [
+      "oi-call-ref:local-carried-target", "oi-call-ref:block-produced-target", "oi-call-ref:return-call-ref-target",
+      "oi-call-ref:direct-target-wrapper",
+    ] {
+    assert_true(
+      call_ref_manifest.contains(label),
+      msg="expected call-ref manifest to contain \{label}: \{call_ref_manifest}",
+    )
+  }
+
   let tuple_args = EmitGenValidBatchArgs::new(
     3,
     0x5eedUL,
