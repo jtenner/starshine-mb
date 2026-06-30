@@ -28078,6 +28078,113 @@ fn run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_prefix_block_starts_call_result_local_set(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  non_nops.length() == 5 &&
+  non_nops[0] is @lib.LocalGet(_) &&
+  non_nops[1] is @lib.Call(_) &&
+  non_nops[2] is @lib.LocalSet(_) &&
+  non_nops[3] is @lib.LocalGet(_) &&
+  non_nops[4] is @lib.Call(_)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_condition_prefix_has_call(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 3 {
+    return false
+  }
+  for idx = 1; idx + 1 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Call(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_is_top_level_outer_branch(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Br(label)
+    | @lib.BrIf(label)
+    | @lib.BrOnNull(label)
+    | @lib.BrOnNonNull(label) =>
+      run_hot_pipeline_raw_vacuum_label_depth(label) > 0
+    @lib.BrTable(labels, fallback) => {
+      if run_hot_pipeline_raw_vacuum_label_depth(fallback) > 0 {
+        return true
+      }
+      for label in labels {
+        if run_hot_pipeline_raw_vacuum_label_depth(label) > 0 {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_top_level_outer_branch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for instr in body {
+    if run_hot_pipeline_raw_vacuum_instr_is_top_level_outer_branch(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(_, _, Some(_)) => true
+    @lib.If(_, then_body, None) =>
+      run_hot_pipeline_raw_vacuum_body_has_top_level_outer_branch(then_body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_local_set_leading_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
+      body,
+    ) {
+    return false
+  }
+  let prefix_body = match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => prefix_body
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_prefix_block_starts_call_result_local_set(
+    prefix_body,
+  ) &&
+  run_hot_pipeline_raw_vacuum_condition_prefix_has_call(body) &&
+  run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(body)
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_is_terminal_unreachable_block_wrapper_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -28540,6 +28647,9 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
               body,
             ) &&
+            !run_hot_pipeline_raw_vacuum_body_is_local_set_leading_prefix_if_preserve_candidate(
+              body,
+            ) &&
             !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0) => {
             let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
@@ -28560,6 +28670,24 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         )
         changed = changed || body_changed
         match block_type {
+          @lib.VoidBlockType if body.length() == 1 &&
+            next_body.length() == 1 &&
+            (match next_body[0] {
+              @lib.Block(@lib.VoidBlockType, @lib.Expr(protected_body)) =>
+                run_hot_pipeline_raw_vacuum_body_is_local_set_leading_prefix_if_preserve_candidate(
+                  protected_body,
+                )
+              _ => false
+            }) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
           @lib.VoidBlockType if body.length() == 1 &&
             body[0] is @lib.Block(@lib.VoidBlockType, _) &&
             run_hot_pipeline_raw_vacuum_body_is_recursive_call_prefix_if_wrapper_candidate(
