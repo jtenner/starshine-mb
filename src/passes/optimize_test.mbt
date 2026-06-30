@@ -1332,6 +1332,88 @@ test "vacuum raw-unwraps side-effect if wrapper child blocks" {
 }
 
 ///|
+test "vacuum preserves local-set-leading side-effect child wrappers" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "side" (func $side (param i32)))
+      #|  (import "m" "make" (func $make (param i32) (result i32)))
+      #|  (import "m" "pred" (func $pred (param i32) (result i32)))
+      #|  (func (param i32) (local i32 i32)
+      #|    (block
+      #|      (block
+      #|        (block
+      #|          nop nop nop nop nop nop nop nop
+      #|          nop nop nop nop nop nop nop nop
+      #|          (local.set 1 (call $make (local.get 0)))
+      #|          (call $side (local.get 1))
+      #|          (if (i32.eq (call $pred (local.get 1)) (i32.const 1))
+      #|            (then
+      #|              (local.set 2 (local.get 1))
+      #|              (br 3)
+      #|            )
+      #|          )
+      #|        )
+      #|      )
+      #|      (call $side (i32.const 7))
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected local-set-leading wrapper vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+                    @lib.Instruction::i32_const(@lib.I32::new(1)),
+                    @lib.Instruction::i32_eq(),
+                    @lib.Instruction::if_(
+                      @lib.BlockType::void_(),
+                      [
+                        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                        @lib.Instruction::br(@lib.LabelIdx::new(3U)),
+                      ],
+                      None,
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32::new(7)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ])
+    other =>
+      fail(
+        "expected local-set-leading side-effect child wrapper to stay wrapped, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum raw-unwraps terminal unreachable block wrappers with outer branches" {
   let input = pass_test_module_from_wat(
     (

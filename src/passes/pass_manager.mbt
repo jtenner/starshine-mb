@@ -28043,6 +28043,8 @@ fn run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
   }
   let mut saw_local_set = false
   let mut call_count = 0
+  let mut standalone_call_before_first_set = false
+  let mut first_local_set_consumed_call = false
   for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
     if !run_hot_pipeline_raw_vacuum_instr_can_prefix_side_effect_if_wrapper(
         body[idx],
@@ -28050,12 +28052,29 @@ fn run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
       return false
     }
     match body[idx] {
-      @lib.LocalSet(_) => saw_local_set = true
-      @lib.Call(_) => call_count = call_count + 1
+      @lib.LocalSet(_) => {
+        if !saw_local_set {
+          first_local_set_consumed_call = idx > 0 &&
+            body[idx - 1] is @lib.Call(_)
+        }
+        saw_local_set = true
+      }
+      @lib.Call(_) => {
+        call_count = call_count + 1
+        if !saw_local_set {
+          let consumed_by_set = idx + 1 < body.length() &&
+            body[idx + 1] is @lib.LocalSet(_)
+          if !consumed_by_set {
+            standalone_call_before_first_set = true
+          }
+        }
+      }
       _ => ()
     }
   }
-  saw_local_set && call_count >= 2
+  saw_local_set &&
+  call_count >= 2 &&
+  (standalone_call_before_first_set || !first_local_set_consumed_call)
 }
 
 ///|
