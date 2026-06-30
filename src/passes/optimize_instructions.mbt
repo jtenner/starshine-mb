@@ -1541,6 +1541,16 @@ fn optimize_instructions_i64_power_of_two_shift(raw : Int64) -> Int64? {
 }
 
 ///|
+fn optimize_instructions_i32_mask_is_low_ones(raw : Int) -> Bool {
+  raw >= 0 && (raw & (raw + 1)) == 0
+}
+
+///|
+fn optimize_instructions_i64_mask_is_low_ones(raw : Int64) -> Bool {
+  raw >= 0L && (raw & (raw + 1L)) == 0L
+}
+
+///|
 fn optimize_instructions_is_commutative_instr(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::I32Add
@@ -9482,6 +9492,70 @@ fn optimize_instructions_can_swap_leading_operands(
 }
 
 ///|
+fn optimize_instructions_try_remove_redundant_unsigned_mask(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  match instr {
+    @lib.Instruction::I32And => {
+      let (mask, value_id) = match
+        optimize_instructions_i32_const(func, dead, rhs_id) {
+        Some(@lib.I32(raw)) => (raw, lhs_id)
+        None =>
+          match optimize_instructions_i32_const(func, dead, lhs_id) {
+            Some(@lib.I32(raw)) => (raw, rhs_id)
+            None => return false
+          }
+      }
+      if !optimize_instructions_i32_mask_is_low_ones(mask) {
+        return false
+      }
+      match
+        optimize_instructions_i32_unsigned_max(func, dead, scratch, value_id) {
+        Some(max_value) if max_value <= mask => {
+          optimize_instructions_replace_with_node_id(
+            ctx, func, node_id, value_id,
+          )
+          true
+        }
+        _ => false
+      }
+    }
+    @lib.Instruction::I64And => {
+      let (mask, value_id) = match
+        optimize_instructions_i64_const(func, dead, rhs_id) {
+        Some(@lib.I64(raw)) => (raw, lhs_id)
+        None =>
+          match optimize_instructions_i64_const(func, dead, lhs_id) {
+            Some(@lib.I64(raw)) => (raw, rhs_id)
+            None => return false
+          }
+      }
+      if !optimize_instructions_i64_mask_is_low_ones(mask) {
+        return false
+      }
+      match
+        optimize_instructions_i64_unsigned_max(func, dead, scratch, value_id) {
+        Some(max_value) if max_value <= mask => {
+          optimize_instructions_replace_with_node_id(
+            ctx, func, node_id, value_id,
+          )
+          true
+        }
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_try_rewrite_add_sub(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -12616,6 +12690,9 @@ fn optimize_instructions_visit_node(
           optimize_instructions_try_fold_absorbing_binary(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
+          optimize_instructions_try_remove_redundant_unsigned_mask(
+            ctx, func, dead, scratch, node_id, initial_instr, initial_lhs, initial_rhs,
+          ) ||
           optimize_instructions_try_canonicalize_signed_const_unsigned(
             ctx, func, dead, node_id, initial_instr, initial_lhs, initial_rhs,
           ) ||
@@ -12679,6 +12756,9 @@ fn optimize_instructions_visit_node(
           ) ||
           optimize_instructions_try_fold_absorbing_binary(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+          ) ||
+          optimize_instructions_try_remove_redundant_unsigned_mask(
+            ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
           ) ||
           optimize_instructions_try_fold_exact_const_binary(
             ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,

@@ -251,6 +251,42 @@ test "optimize-instructions raw skip removes local-carried add-zero before sign 
 }
 
 ///|
+test "optimize-instructions removes redundant local-carried unsigned mask facts" {
+  // OI-E wide local-carried mask residual: if LocalScanner facts prove an i32
+  // local is already within an all-ones mask, the mask is redundant. Keep the
+  // i64 mask whose local fact is wider than the mask.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (local $x i32) (local $y i64)
+        #|    i32.const 127
+        #|    local.set $x
+        #|    local.get $x
+        #|    i32.const 255
+        #|    i32.and
+        #|    drop
+        #|    i64.const 2147483647
+        #|    local.set $y
+        #|    local.get $y
+        #|    i64.const 65535
+        #|    i64.and
+        #|    drop))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions mask cleanup success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("i64.and"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions public pipeline canonicalizes simple stack-carried call operands" {
   let trace : Array[String] = []
   let optimized = match
