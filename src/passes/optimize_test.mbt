@@ -175,6 +175,44 @@ test "vacuum removes raw nontrapping int division and sign extends in call hazar
 }
 
 ///|
+test "vacuum preserves allocation barrier visit roots while cleaning debris" {
+  let input =
+    #|(module
+    #|  (import "rt" "alloc" (func $alloc (param i32) (result i32)))
+    #|  (import "rt" "barrier" (func $barrier (param i32 i32)))
+    #|  (import "rt" "visit" (func $visit (param i32)))
+    #|  (memory 1)
+    #|  (func (param $size i32) (local $obj i32) (local $field i32)
+    #|    (drop (i32.const 11))
+    #|    (local.set $obj (call $alloc (local.get $size)))
+    #|    (drop (i32.add (i32.const 1) (i32.const 2)))
+    #|    (local.set $field (call $alloc (i32.const 4)))
+    #|    (i32.store offset=8 (local.get $obj) (local.get $field))
+    #|    (call $barrier (local.get $obj) (local.get $field))
+    #|    (drop (i32.const 0))
+    #|    (call $visit (local.get $obj))
+    #|  )
+    #|)
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected allocation/barrier vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected allocation/barrier vacuum output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 2)"), msg=pretty)
+}
+
+///|
 test "vacuum removes dropped nontrapping local-read expressions" {
   let input = pass_test_module_from_wat(
     "(module (func (param i32) (local i32) (drop (i32.add (local.get 0) (i32.const 1))) (local.set 1 (i32.const 4))))",

@@ -127,6 +127,8 @@ The local tests are small but meaningful.
   - proves the effect-aware dropped-result slice removes pure arithmetic while preserving local writes
 - `vacuum removes pure drops in root local set call hazards`, `vacuum removes raw nontrapping int division and sign extends in call hazards`, and `vacuum raw-cleans root stack/local-set call hazards`
   - prove the raw guarded cleanup can remove Binaryen-style pure dropped stack expressions around call/local-set hazards while preserving calls, local writes, and the prior HOT-lowering safety boundary
+- `vacuum preserves allocation barrier visit roots while cleaning debris`
+  - covers the `[JSON-AS]002` runtime-corruption boundary with an allocation-shaped fixture: pure `const; drop` and `i32.add; drop` debris is removed while allocator calls, a field store, a write-barrier call, and a GC-visit call remain present and validating
 - `vacuum removes empty void blocks`
   - proves empty zero-result block residue is deleted and the resulting module still validates
 - `vacuum flips empty then with live else`
