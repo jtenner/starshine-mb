@@ -27954,6 +27954,50 @@ fn run_hot_pipeline_raw_vacuum_body_is_singleton_call_prefix_if_block(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_has_local_set_outer_br_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  if start_idx + 2 >= body.length() {
+    return false
+  }
+  match body[start_idx + 1] {
+    @lib.LocalSet(_) =>
+      match body[start_idx + 2] {
+        @lib.Br(label) => run_hot_pipeline_raw_vacuum_label_depth(label) > 0
+        _ => false
+      }
+    @lib.LocalGet(_) | @lib.I32Const(_) | @lib.I64Const(_) =>
+      if start_idx + 3 < body.length() {
+        match (body[start_idx + 2], body[start_idx + 3]) {
+          (@lib.LocalSet(_), @lib.Br(label)) =>
+            run_hot_pipeline_raw_vacuum_label_depth(label) > 0
+          _ => false
+        }
+      } else {
+        false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_artifact_call_prefix_parent_unwrap_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.length() == 1 &&
+  (match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+      run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(child_body) &&
+      run_hot_pipeline_raw_vacuum_body_has_call_prefix_before_final_if(
+        child_body,
+      ) &&
+      !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(child_body)
+    _ => false
+  })
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_drop_leading_empty_blocks(
   body : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction] {
@@ -28929,6 +28973,21 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
               rebased,
             )
             for next_instr in clean_rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+            idx = idx + 1
+            continue
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_artifact_call_prefix_parent_unwrap_candidate(
+              body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_local_set_outer_br_continuation(
+              instrs, idx,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(body, 0)
+            for next_instr in rebased {
               rewritten.push(next_instr)
             }
             changed = true

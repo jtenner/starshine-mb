@@ -1748,6 +1748,169 @@ test "vacuum raw-unwraps nested empty-block call-prefix parent wrappers" {
 }
 
 ///|
+test "vacuum raw-unwraps artifact continuation call-prefix parent wrappers" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "tag" (func $tag (param i32 i32)))
+      #|  (import "m" "alloc" (func $alloc (param i32) (result i32)))
+      #|  (import "m" "side" (func $side (param i32 i32 i32)))
+      #|  (import "m" "wrap" (func $wrap (param i32) (result i32)))
+      #|  (import "m" "pred" (func $pred (param i32) (result i32)))
+      #|  (import "m" "release" (func $release (param i32)))
+      #|  (memory 1)
+      #|  (func (param i32) (result i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+      #|    (block $block257
+      #|      (block $block256
+      #|        (block
+      #|          (block
+      #|            (call $side
+      #|              (i32.const 0)
+      #|              (i32.const 0)
+      #|              (i32.sub
+      #|                (call $wrap
+      #|                  (local.tee 1
+      #|                    (i32.load (local.get 0))
+      #|                  )
+      #|                )
+      #|                (i32.const 1)
+      #|              )
+      #|            )
+      #|            (if
+      #|              (i32.eq
+      #|                (call $pred
+      #|                  (local.tee 2
+      #|                    (call $wrap
+      #|                      (i32.load
+      #|                        (i32.add (i32.const 0) (local.get 1))
+      #|                      )
+      #|                    )
+      #|                  )
+      #|                )
+      #|                (i32.const 1)
+      #|              )
+      #|              (then
+      #|                (local.set 3 (i32.load8_u (local.get 2)))
+      #|                (call $release (local.get 2))
+      #|                (local.set 4 (local.get 3))
+      #|              )
+      #|              (else
+      #|                (call $release (local.get 0))
+      #|                (local.set 5 (local.get 2))
+      #|                (local.set 6 (i32.load (local.get 2)))
+      #|                (if
+      #|                  (i32.gt_s
+      #|                    (local.tee 7 (call $pred (local.get 2)))
+      #|                    (i32.const 1)
+      #|                  )
+      #|                  (then
+      #|                    (call $release (local.get 6))
+      #|                  )
+      #|                  (else
+      #|                    (if
+      #|                      (i32.eq (local.get 7) (i32.const 1))
+      #|                      (then
+      #|                        (call $release (local.get 5))
+      #|                      )
+      #|                    )
+      #|                  )
+      #|                )
+      #|                (local.set 8 (local.get 6))
+      #|                (br $block256)
+      #|              )
+      #|            )
+      #|          )
+      #|        )
+      #|        (local.set 9 (local.get 4))
+      #|        (br $block257)
+      #|      )
+      #|      (call $tag
+      #|        (local.tee 10 (call $alloc (i32.const 4)))
+      #|        (i32.const 256)
+      #|      )
+      #|      (i32.store (local.get 10) (local.get 8))
+      #|      (return (local.get 10))
+      #|    )
+      #|    (local.set 11 (local.get 9))
+      #|    (local.get 11)
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail(
+        "expected artifact continuation call-prefix vacuum success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected artifact continuation call-prefix vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      match instrs[0] {
+        @lib.Block(@lib.VoidBlockType, @lib.Expr(block257_body)) =>
+          match block257_body[0] {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(block256_body)) => {
+              match block256_body[0] {
+                @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => {
+                  match prefix_body[0] {
+                    @lib.Block(_, _) =>
+                      fail(
+                        "expected artifact-shaped call-prefix parent wrapper to be removed before the block256 continuation",
+                      )
+                    @lib.I32Const(@lib.I32(value)) => @debug.assert_eq(value, 0)
+                    other =>
+                      fail(
+                        "expected flattened artifact call-prefix to start with lowered side-call argument, got \{@debug.to_string(other)}",
+                      )
+                  }
+                  match prefix_body[prefix_body.length() - 1] {
+                    @lib.If(@lib.VoidBlockType, _, Some(_)) => ()
+                    other =>
+                      fail(
+                        "expected flattened artifact call-prefix to end with trailing void if, got \{@debug.to_string(other)}",
+                      )
+                  }
+                }
+                other =>
+                  fail(
+                    "expected artifact prefix block before block256 continuation, got \{@debug.to_string(other)}",
+                  )
+              }
+              match block256_body[block256_body.length() - 1] {
+                @lib.Br(_) => ()
+                other =>
+                  fail(
+                    "expected block256 continuation to branch to block257 after local-set lowering, got \{@debug.to_string(other)}",
+                  )
+              }
+            }
+            other =>
+              fail(
+                "expected block256 wrapper inside artifact fixture, got \{@debug.to_string(other)}",
+              )
+          }
+        other =>
+          fail(
+            "expected block257 wrapper for artifact fixture, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected one defined function for artifact continuation call-prefix test, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum flattens single-if wrappers without leading empty prefixes" {
   let input = pass_test_module_from_wat(
     (
