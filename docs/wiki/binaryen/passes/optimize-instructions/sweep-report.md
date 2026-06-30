@@ -223,7 +223,7 @@ canonical-size Starshine-win candidates with raw-size residuals, not OI-G family
 closure. All 20 fix4 raw/canonical outputs validate.
 
 `pass-oi-memory-bulk` is now stronger than a broad smoke config and stronger
-than the earlier three-case trigger smoke. It emits twenty-four OI-G
+than the earlier three-case trigger smoke. It emits twenty-five OI-G
 trigger-smoke-plus cases: live private-global plus dead-trap boundaries, direct
 i32 tiny-bulk and load/store lowering, memory64 dynamic/local-carried bulk
 operands, no-param-call/existing-producer-wrapped tiny bulk, narrow-store masks,
@@ -243,8 +243,10 @@ fill/restore/read function with active destination data on memory 1, and a
 Node-runtime-compatible call-produced single-memory fill/restore/read exported
 function, a Node-runtime-compatible call-produced single-memory
 copy/restore/read exported function, a Node-runtime-compatible
-local.tee-produced single-memory copy/restore/read exported function, and a Node-runtime-compatible
-select-produced single-memory copy/restore/read exported function. The focused generator test
+local.tee-produced single-memory copy/restore/read exported function, a Node-runtime-compatible
+select-produced single-memory copy/restore/read exported function, a Node-runtime-compatible
+select-produced single-memory fill/restore/read exported function, and a source-visible
+shared-memory full-width atomic xchg restore exported function. The focused generator test
 failed red-first first on missing OI-G labels, then on the missing three expanded
 labels, then on the missing multi-memory label/signature, then on the missing
 random-address-copy-read label/signature, then on the missing
@@ -253,29 +255,25 @@ memory64-cross-memory-random-address, cross-memory-restore,
 memory64-cross-memory-restore, runtime-compatible restore, shared-wait-notify,
 runtime-compatible fill/restore, memory64 fill/restore, multi-memory
 fill/restore, memory64+multi-memory fill/restore, runtime-call fill/restore,
-runtime-call copy/restore, runtime-localtee copy/restore, and runtime-select
-copy/restore labels/signatures before implementation; it now passes. The latest
-grouped run at `.tmp/oi-g-runtime-select-copy-restore-fix-count621-20260629`
-compares 621/621 cases with 561 normalized matches, 60 mismatches, and zero
-validation, generator, property, or command failures. The new
-`oi-memory-bulk:runtime-select-restore-copy-read` label samples 26 grouped cases
-with 24 matches after the red-first raw fallback fix; its two residuals preserve
-the select-produced `memory.copy`/load/store/restore contract and differ only by
-dropped pure reverse `i32.eq(42, 7)` cleanup. Direct runtime count115 at
-`.tmp/oi-g-runtime-select-copy-restore-profile-fix-count115-20260629` samples the
-new label 7/7 matches, compares 115/115 with 108 normalized matches, and has zero
-runtime semantic failures. Manual validation/size review over the 60 grouped
-failure dirs validates 240 Binaryen/Starshine raw/canonical wasm artifacts and
-finds zero validation failures and zero Starshine-larger raw, canonical-wasm, or
-normalized-WAT dirs. The prior `.tmp/oi-g-runtime-localtee-copy-restore-count594-20260629`
-remains local.tee-produced single-memory copy/restore evidence,
-`.tmp/oi-g-runtime-call-copy-restore-count567-20260629` remains call-produced
-single-memory copy/restore evidence, `.tmp/oi-g-runtime-call-fill-restore-count540-20260629`
-remains call-produced single-memory fill/restore evidence, and
-`.tmp/oi-g-runtime-fill-restore-count425-20260629` remains direct runtime-compatible
-single-memory fill/restore evidence; exact multi-memory, memory64, or combined
-memory64+multi-memory runtime execution remains open until those modules are
-executable under a compatible adapter/export path.
+runtime-call copy/restore, runtime-localtee copy/restore, runtime-select
+copy/restore, runtime-select fill/restore, and shared-atomic xchg restore
+labels/signatures before implementation; it now passes. The latest grouped run at
+`.tmp/oi-g-shared-atomic-xchg-count375-20260629` compares 175/375 transform-applicable
+cases with 152 normalized matches, 23 mismatches, and zero validation, generator,
+property, or command failures. The new `oi-memory-bulk:shared-atomic-xchg-restore`
+label samples five grouped cases and all five residuals are Starshine atomic-load
+offset-folding candidates, not xchg drift: both tools preserve the full-width
+i32/i64 `atomic.rmw.xchg` same-value restores, Starshine folds the preceding
+atomic loads to `offset=64/72` with zero address operands, raw/canonical wasm is
+5/2 bytes smaller per case, and WAT text is 18 bytes larger per case due offset
+spelling. Direct runtime count125 at `.tmp/oi-g-shared-atomic-xchg-profile-count125-20260629`
+samples the new label 2/2 with runtime equality and zero runtime semantic failures.
+Manual validation/size review over the 23 grouped failure dirs validates all raw/canonical
+Binaryen/Starshine artifacts; the non-xchg residuals are 18 known store8 low-byte-mask
+candidates. The prior runtime-select, runtime-localtee, runtime-call, direct runtime
+fill/restore, memory64, multi-memory, and memory64+multi-memory roots remain evidence
+for those source-visible restore shapes; exact multi-memory or memory64 runtime
+execution remains open until those modules are executable under a compatible adapter/export path.
 
 The grouped run after adding the non-primary/private-memory atomic-load transform is `.tmp/oi-g-second-atomic-count350-20260629`. It compares 192/350 transform-applicable cases with 172 normalized matches, 20 mismatches, zero validation/generator/property/command failures, and `oi-live-nonzero-memory-second-atomic-boundary` 10/10 matches. That transform uses an existing non-primary memory or appends a private nonzero memory, guards `memory.size != 0`, and performs byte atomic loads/drops at bytes 17, 1024, 49152, and 65535; it is non-mutating except for private memory creation, so it is sampled non-primary/private-memory atomic-load evidence only. Manual validation/size review of all 20 failure dirs found zero validation failures, zero normalized-WAT-larger Starshine dirs, and two unrelated raw-size-larger residual dirs under `oi-memory-size-boundary`/`oi-commuted-operands`.
 
@@ -285,7 +283,9 @@ The prior `.tmp/oi-g-randomized-atomic-rmw-count350-20260629` run broadened the 
 
 The prior grouped run `.tmp/oi-g-atomic-xchg-count350-20260629` broadened the same atomic RMW transform with byte-preserving xchg restore smoke. Red-first `metamorphic_wbtest.mbt` coverage failed while no `atomic.rmw*.xchg` probes were emitted, then passed after `src/fuzz/metamorphic.mbt` added `i32.atomic.rmw8.xchg_u` and `i64.atomic.rmw8.xchg_u` sequences that atomically load the target byte and exchange the same value back at fixed, dynamic end-byte, and module-shape-derived in-page addresses. The count350 run compares 196/350 transform-applicable cases with 175 normalized matches, 21 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 189/7; `oi-live-nonzero-memory-atomic-rmw-boundary` samples 10/10 matches, and sampled input case 000016 contains 24 xchg RMW opcodes. Manual validation/size review validates all 84 Binaryen/Starshine raw/canonical failure artifacts and finds zero validation failures, zero raw-size-larger Starshine dirs, zero canonical-WASM-larger dirs, and zero normalized-WAT-larger dirs. Remaining mismatches are store-mask low-byte-mask or commuted/synthetic cleanup candidates, not xchg or atomic-RMW drift. OI-G remained open for stronger seeded/randomized atomic addresses, wait/notify, full-width/source-visible xchg closure, true shared-memory ordering, true live trap/effect ordering, grouped mismatch reduction, raw-size policy beyond fixed encoder residuals, exact cross-memory runtime evidence where needed, and OI-J descriptor/exactness/TNH/IIT remains blocked.
 
-The latest grouped run `.tmp/oi-g-fullwidth-xchg-count350-20260629` narrows that full-width xchg blocker to sampled fixed-address evidence. Red-first `metamorphic_wbtest.mbt` xchg-smoke coverage failed after requiring full-width `i32.atomic.load`/`i32.atomic.rmw.xchg` and `i64.atomic.load`/`i64.atomic.rmw.xchg` restore pairs, then passed after `src/fuzz/metamorphic.mbt` added same-value full-width xchg restore pairs to fixed in-page atomic-RMW addresses. The count350 run compares 167/350 transform-applicable cases with 146 normalized matches, 21 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 159/8; `oi-live-nonzero-memory-atomic-rmw-boundary` samples 8/8 matches. Representative transformed input `gen-valid-000017.wasm` contains both byte-width xchg and full-width i32/i64 xchg pairs. Manual validation/size review validates all 84 residual raw/canonical artifacts and finds zero validation failures plus zero Starshine-larger raw/canonical/normalized-WAT dirs; aggregate residual deltas are Starshine raw -102 bytes, canonical -87 bytes, and normalized-WAT -894 bytes. Residuals are still sampled store8 low-byte-mask and dropped pure reverse-compare candidates, not xchg drift. OI-G remains open for source-visible full-width xchg semantics, randomized full-width xchg addresses, true shared-memory ordering, true live trap/effect ordering, exact runtime evidence where needed, and OI-J descriptor/exactness/TNH/IIT remains blocked.
+The prior grouped run `.tmp/oi-g-fullwidth-xchg-count350-20260629` narrows that full-width xchg blocker to sampled fixed-address evidence. Red-first `metamorphic_wbtest.mbt` xchg-smoke coverage failed after requiring full-width `i32.atomic.load`/`i32.atomic.rmw.xchg` and `i64.atomic.load`/`i64.atomic.rmw.xchg` restore pairs, then passed after `src/fuzz/metamorphic.mbt` added same-value full-width xchg restore pairs to fixed in-page atomic-RMW addresses. The count350 run compares 167/350 transform-applicable cases with 146 normalized matches, 21 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 159/8; `oi-live-nonzero-memory-atomic-rmw-boundary` samples 8/8 matches. Representative transformed input `gen-valid-000017.wasm` contains both byte-width xchg and full-width i32/i64 xchg pairs. Manual validation/size review validates all 84 residual raw/canonical artifacts and finds zero validation failures plus zero Starshine-larger raw/canonical/normalized-WAT dirs; aggregate residual deltas are Starshine raw -102 bytes, canonical -87 bytes, and normalized-WAT -894 bytes. Residuals are still sampled store8 low-byte-mask and dropped pure reverse-compare candidates, not xchg drift. OI-G remains open for source-visible full-width xchg semantics, randomized full-width xchg addresses, true shared-memory ordering, true live trap/effect ordering, exact runtime evidence where needed, and OI-J descriptor/exactness/TNH/IIT remains blocked.
+
+The latest `.tmp/oi-g-shared-atomic-xchg-count375-20260629` profile slice moves that xchg blocker from private/fixed-address metamorphic smoke to source-visible shared-memory profile evidence. Red-first `gen_valid_tests.mbt` coverage failed at seed `0x5f05` until `src/validate/gen_valid.mbt` added `oi-memory-bulk:shared-atomic-xchg-restore`: active shared memory data, exported `run` and `memory`, full-width `i32.atomic.load`/`i64.atomic.load`, same-value `i32.atomic.rmw.xchg`/`i64.atomic.rmw.xchg` restores, and an i64 return value. Direct runtime count125 compares 125/125 with 120 normalized matches and zero runtime semantic failures; the new label's two residuals are runtime-equal and raw/canonical smaller for Starshine. Grouped count375 compares 175/375 transform-applicable cases with 152 normalized matches, 23 mismatches, zero failures, and the new label 5/5 residuals all classified as the same atomic-load offset-folding Starshine-win candidate. This is source-visible full-width xchg restore evidence, not randomized shared-address coverage, true shared-memory ordering/concurrency closure, OI-G closure, or OI-J descriptor evidence.
 
 The prior grouped run `.tmp/oi-g-atomic-wait-notify-count350-20260629` adds `oi-live-nonzero-memory-atomic-wait-notify-boundary` as private shared-memory nonblocking wait/notify smoke. Red-first `metamorphic_wbtest.mbt` coverage failed while the transform id/constructor was absent, then passed after `src/fuzz/metamorphic.mbt` appended a private shared i32 memory with `min=max=1`, guarded `memory.size != 0`, emitted `memory.atomic.notify`, and emitted `memory.atomic.wait32`/`wait64` probes whose expected values differ from zero-initialized private memory and use timeout `0`. A direct emit smoke at `.tmp/oi-g-wait-notify-emit-smoke-20260629` validated and printed one notify, one wait32, and one wait64 opcode. The count350 run compares 182/350 transform-applicable cases with 160 normalized matches, 22 mismatches, zero validation/generator/property/command failures, and Binaryen cache hits/misses 81/101; the new wait-notify transform samples 9/9 matches, and `--summarize-existing` reconfirms the same result. Manual validation/size review validates all 88 Binaryen/Starshine raw/canonical failure artifacts and finds zero validation failures, zero raw-size-larger Starshine dirs, zero canonical-WASM-larger dirs, and zero normalized-WAT-larger dirs. Remaining mismatches are store-mask low-byte-mask or commuted/synthetic cleanup candidates, not wait/notify drift. This is private nonblocking wait/notify smoke only; OI-G remains open for broader wait/notify beyond private nonblocking smoke, true shared-memory ordering, source-visible shared-memory effects, blocking wait behavior, full-width/source-visible xchg closure, stronger seeded/random atomic addresses, true live trap/effect ordering, grouped mismatch reduction, and OI-J descriptor/exactness/TNH/IIT remains blocked.
 

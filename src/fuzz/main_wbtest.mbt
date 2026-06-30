@@ -2258,7 +2258,7 @@ test "gen-valid batch applies table-size transforms once table index exists" {
 ///|
 test "gen-valid batch applies OI memory-size-boundary to memory64 candidates" {
   let args = EmitGenValidBatchArgs::new(
-    10,
+    30,
     0x5eedUL,
     "tmp/gen-valid",
     profile="pass-oi-memory-bulk",
