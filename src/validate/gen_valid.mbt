@@ -14896,7 +14896,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 ///|
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
-    PassOiMemoryBulkProfile => 25
+    PassOiMemoryBulkProfile => 26
     PassOiTupleProfile => 15
     _ => 3
   }
@@ -14930,8 +14930,9 @@ fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
     0x5f03UL => 22
     0x5f04UL => 23
     0x5f05UL => 24
+    0x5f06UL => 25
     _ =>
-      match (seed % 25UL).to_int() {
+      match (seed % 26UL).to_int() {
         0 => 9
         1 => 10
         2 => 11
@@ -14948,14 +14949,15 @@ fn gen_valid_oi_memory_bulk_case_for_seed(seed : UInt64) -> Int {
         13 => 22
         14 => 23
         15 => 24
-        16 => 1
-        17 => 2
-        18 => 3
-        19 => 4
-        20 => 5
-        21 => 0
-        22 => 6
-        23 => 7
+        16 => 25
+        17 => 1
+        18 => 2
+        19 => 3
+        20 => 4
+        21 => 5
+        22 => 0
+        23 => 6
+        24 => 7
         _ => 8
       }
   }
@@ -15100,6 +15102,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         22 => Some("oi-memory-bulk:runtime-select-restore-copy-read")
         23 => Some("oi-memory-bulk:runtime-select-fill-restore-read")
         24 => Some("oi-memory-bulk:shared-atomic-xchg-restore")
+        25 => Some("oi-memory-bulk:runtime-store8-mask-restore-read")
         _ => Some("oi-memory-bulk:direct-tiny-bulk")
       }
     _ => None
@@ -15819,6 +15822,48 @@ fn gen_valid_oi_memory_bulk_shared_atomic_xchg_restore_body() -> Array[
     Instruction::local_get(LocalIdx::new(0U)),
     Instruction::i64_extend_i32u(),
     Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::i64_xor(),
+  ]
+}
+
+///|
+fn gen_valid_oi_memory_bulk_runtime_store8_mask_restore_body() -> Array[
+  Instruction,
+] {
+  [
+    Instruction::i32_const(I32(64)),
+    Instruction::i32_load8u(MemArg::new(0U, None, 0UL)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(64)),
+    Instruction::i32_const(I32(0x12342a)),
+    Instruction::i32_const(I32(0xff)),
+    Instruction::i32_and(),
+    Instruction::i32_store8(MemArg::new(0U, None, 0UL)),
+    Instruction::i32_const(I32(64)),
+    Instruction::i32_load8u(MemArg::new(0U, None, 0UL)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::i32_const(I32(72)),
+    Instruction::i64_load8u(MemArg::new(0U, None, 0UL)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::i32_const(I32(72)),
+    Instruction::i64_const(I64(0x1122334455667788L)),
+    Instruction::i64_const(I64(0xffL)),
+    Instruction::i64_and(),
+    Instruction::i64_store8(MemArg::new(0U, None, 0UL)),
+    Instruction::i32_const(I32(72)),
+    Instruction::i64_load8u(MemArg::new(0U, None, 0UL)),
+    Instruction::local_set(LocalIdx::new(3U)),
+    Instruction::i32_const(I32(64)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_store8(MemArg::new(0U, None, 0UL)),
+    Instruction::i32_const(I32(72)),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::i64_store8(MemArg::new(0U, None, 0UL)),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::i64_extend_i32u(),
+    Instruction::local_get(LocalIdx::new(3U)),
+    Instruction::i64_const(I64(8L)),
+    Instruction::i64_shl(),
     Instruction::i64_xor(),
   ]
 }
@@ -16750,6 +16795,13 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
     Locals::from_types([ValType::i32(), ValType::i32()])
   } else if memory_bulk && case == 24 {
     Locals::from_types([ValType::i32(), ValType::i64()])
+  } else if memory_bulk && case == 25 {
+    Locals::from_types([
+      ValType::i32(),
+      ValType::i32(),
+      ValType::i64(),
+      ValType::i64(),
+    ])
   } else if memory_bulk && (case == 13 || case == 15 || case == 17) {
     Locals::from_types([ValType::i32(), ValType::i32()])
   } else if memory_bulk && (case == 5 || case == 11) {
@@ -16803,6 +16855,7 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
       23 =>
         gen_valid_oi_memory_bulk_runtime_select_fill_restore_body(ctx.root_seed)
       24 => gen_valid_oi_memory_bulk_shared_atomic_xchg_restore_body()
+      25 => gen_valid_oi_memory_bulk_runtime_store8_mask_restore_body()
       _ => gen_valid_oi_memory_bulk_direct_body()
     }
   } else {
@@ -16819,6 +16872,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
     ) {
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
   } else if memory_bulk && case == 24 {
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i64()])))
+  } else if memory_bulk && case == 25 {
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i64()])))
   } else if memory_bulk && (case == 16 || case == 18) {
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i64()])))
@@ -16983,6 +17038,27 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
             Export::new(
               Name::from_string("memory"),
               ExternIdx::mem(MemIdx::new(0U)),
+            ),
+          ]),
+        )
+    } else if case == 25 {
+      mod = mod
+        .with_data_sec(
+          DataSec::new([
+            Data::new(
+              DataMode::active(
+                MemIdx::new(0U),
+                Expr::new([Instruction::i32_const(I32(64))]),
+              ),
+              b"\x0d\x00\x00\x00\x00\x00\x00\x00\x1e",
+            ),
+          ]),
+        )
+        .with_export_sec(
+          ExportSec::new([
+            Export::new(
+              Name::from_string("run"),
+              ExternIdx::func(FuncIdx::new(0U)),
             ),
           ]),
         )

@@ -2418,6 +2418,34 @@ fn gen_valid_test_instrs_have_store_mask(instrs : Array[Instruction]) -> Bool {
 }
 
 ///|
+fn gen_valid_test_instrs_have_runtime_store8_mask_restore_read(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut has_i32_mask_store = false
+  let mut has_i64_mask_store = false
+  let mut has_i32_load8 = false
+  let mut has_i64_load8 = false
+  for i = 0; i + 4 < instrs.length(); i = i + 1 {
+    match
+      (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
+      (I32Const(_), I32Const(_), I32Const(_), I32And, I32Store8(_)) =>
+        has_i32_mask_store = true
+      (I32Const(_), I64Const(_), I64Const(_), I64And, I64Store8(_)) =>
+        has_i64_mask_store = true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      I32Load8U(_) => has_i32_load8 = true
+      I64Load8U(_) => has_i64_load8 = true
+      _ => ()
+    }
+  }
+  has_i32_mask_store && has_i64_mask_store && has_i32_load8 && has_i64_load8
+}
+
+///|
 fn gen_valid_test_instrs_have_i32_dynamic_bulk(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -3359,7 +3387,10 @@ fn gen_valid_test_oi_memory_bulk_trigger_signature(
   mod_ : Module,
 ) -> String raise {
   let instrs = gen_valid_test_first_func_instrs(mod_)
-  if gen_valid_test_has_shared_memory(mod_) &&
+  if gen_valid_test_instrs_have_runtime_store8_mask_restore_read(instrs) &&
+    gen_valid_test_has_func_export(mod_, "run") {
+    "runtime-store8-mask-restore-read"
+  } else if gen_valid_test_has_shared_memory(mod_) &&
     gen_valid_test_instrs_have_atomic_xchg_restore(instrs) {
     "shared-atomic-xchg-restore"
   } else if gen_valid_test_has_shared_memory(mod_) &&
@@ -4072,6 +4103,14 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let runtime_store8_mask_restore = match
+    gen_valid_module_result_from_seed(
+      0x5f06UL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(memory64_dynamic.config_label, "pass-oi-memory-bulk")
   for
     generated in [
@@ -4081,7 +4120,7 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
       runtime_restore, shared_wait_notify, runtime_fill_restore, memory64_fill_restore,
       multi_memory_fill_restore, memory64_multi_memory_fill_restore, runtime_call_fill_restore,
       runtime_call_restore_copy, runtime_localtee_restore_copy, runtime_select_restore_copy,
-      runtime_select_fill_restore, shared_atomic_xchg_restore,
+      runtime_select_fill_restore, shared_atomic_xchg_restore, runtime_store8_mask_restore,
     ] {
     match validate_module(generated.wasm_module) {
       Ok(_) => ()
@@ -4187,6 +4226,10 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5f05UL),
     Some("oi-memory-bulk:shared-atomic-xchg-restore"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5f06UL),
+    Some("oi-memory-bulk:runtime-store8-mask-restore-read"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(
@@ -4326,9 +4369,21 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     ),
     "shared-atomic-xchg-restore",
   )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      runtime_store8_mask_restore.wasm_module,
+    ),
+    "runtime-store8-mask-restore-read",
+  )
   assert_true(
     gen_valid_test_has_func_export(
       shared_atomic_xchg_restore.wasm_module,
+      "run",
+    ),
+  )
+  assert_true(
+    gen_valid_test_has_func_export(
+      runtime_store8_mask_restore.wasm_module,
       "run",
     ),
   )
