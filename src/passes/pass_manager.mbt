@@ -28113,6 +28113,34 @@ fn run_hot_pipeline_raw_vacuum_condition_prefix_has_call(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_prefix_block_has_direct_call_local_set_and_later_call(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  for idx = 1; idx < non_nops.length(); idx = idx + 1 {
+    match non_nops[idx] {
+      @lib.LocalSet(_) if non_nops[idx - 1] is @lib.Call(_) =>
+        for tail_idx = idx + 1
+            tail_idx < non_nops.length()
+            tail_idx = tail_idx + 1 {
+          match non_nops[tail_idx] {
+            @lib.Call(_) => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_instr_is_top_level_outer_branch(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -28162,6 +28190,78 @@ fn run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
       run_hot_pipeline_raw_vacuum_body_has_top_level_outer_branch(then_body)
     _ => false
   }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_branchy_else_outer_branch(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.If(@lib.VoidBlockType, _, Some(else_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_top_level_outer_branch(
+            else_body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, Some(else_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_branchy_else_outer_branch(
+            then_body,
+          ) ||
+          run_hot_pipeline_raw_vacuum_body_has_branchy_else_outer_branch(
+            else_body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if run_hot_pipeline_raw_vacuum_body_has_branchy_else_outer_branch(
+            then_body,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(child_body))
+      | @lib.Loop(_, @lib.Expr(child_body))
+      | @lib.TryTable(_, _, @lib.Expr(child_body)) =>
+        if run_hot_pipeline_raw_vacuum_body_has_branchy_else_outer_branch(
+            child_body,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_branchy_local_set_call_prefix_parent_unwrap_candidate(
+  original_body : Array[@lib.Instruction],
+  protected_body : Array[@lib.Instruction],
+) -> Bool {
+  if !run_hot_pipeline_raw_vacuum_body_has_branchy_else_outer_branch(
+      original_body,
+    ) {
+    return false
+  }
+  if !run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
+      protected_body,
+    ) {
+    return false
+  }
+  if run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(protected_body) {
+    return false
+  }
+  let prefix_body = match protected_body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => prefix_body
+    _ => return false
+  }
+  run_hot_pipeline_raw_vacuum_prefix_block_has_direct_call_local_set_and_later_call(
+    prefix_body,
+  ) &&
+  run_hot_pipeline_raw_vacuum_condition_prefix_has_call(protected_body) &&
+  run_hot_pipeline_raw_vacuum_final_if_has_else_or_top_level_outer_branch(
+    protected_body,
+  )
 }
 
 ///|
@@ -28761,6 +28861,23 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                 ) ||
                 run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_parent_preserve_candidate(
                   protected_body,
+                )
+              _ => false
+            }) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if next_body.length() == 1 &&
+            (match next_body[0] {
+              @lib.Block(@lib.VoidBlockType, @lib.Expr(protected_body)) =>
+                run_hot_pipeline_raw_vacuum_body_is_branchy_local_set_call_prefix_parent_unwrap_candidate(
+                  body, protected_body,
                 )
               _ => false
             }) &&

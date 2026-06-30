@@ -1414,6 +1414,113 @@ test "vacuum preserves local-set-leading side-effect child wrappers" {
 }
 
 ///|
+test "vacuum raw-unwraps branchy local-set-call prefix parent wrappers" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pred (param i32) (result i32) (local.get 0))
+      #|  (func $release (param i32) (drop (local.get 0)))
+      #|  (func $make (param i32) (result i32) (local.get 0))
+      #|  (func $run (export "run")
+      #|    (local $x i32)
+      #|    (local $tmp i32)
+      #|    (block $outer
+      #|      (block
+      #|        (block
+      #|          (block
+      #|            (local.set $x (call $make (i32.const 0)))
+      #|            (call $release (i32.const 0))
+      #|          )
+      #|          (if (call $pred (local.tee $tmp (local.get $x)))
+      #|            (then
+      #|              (nop)
+      #|            )
+      #|            (else
+      #|              (br $outer)
+      #|            )
+      #|          )
+      #|        )
+      #|        (nop)
+      #|      )
+      #|      (unreachable)
+      #|    )
+      #|    (unreachable)
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected branchy local-set-call prefix vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected branchy local-set-call prefix vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[3] {
+        @lib.Func(_, @lib.Expr(instrs)) =>
+          match instrs[0] {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) => {
+              @debug.assert_eq(outer_body.length(), 2)
+              match outer_body[0] {
+                @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_if_body)) => {
+                  @debug.assert_eq(prefix_if_body.length(), 6)
+                  match prefix_if_body[0] {
+                    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => {
+                      @debug.assert_eq(prefix_body.length(), 5)
+                      match prefix_body[2] {
+                        @lib.LocalSet(@lib.LocalIdx(raw)) =>
+                          @debug.assert_eq(raw.reinterpret_as_int(), 0)
+                        other =>
+                          fail(
+                            "expected prefix block local.set fed by a direct call, got \{@debug.to_string(other)}",
+                          )
+                      }
+                    }
+                    @lib.Block(_, _) =>
+                      fail(
+                        "expected Binaryen-shaped single prefix block, got nested extra wrapper",
+                      )
+                    other =>
+                      fail(
+                        "expected flattened branchy local-set-call prefix block, got \{@debug.to_string(other)}",
+                      )
+                  }
+                  match prefix_if_body[5] {
+                    @lib.If(@lib.VoidBlockType, _, None) => ()
+                    other =>
+                      fail(
+                        "expected flipped branchy void if after prefix block, got \{@debug.to_string(other)}",
+                      )
+                  }
+                }
+                other =>
+                  fail(
+                    "expected branchy local-set-call parent wrapper to be unwrapped, got \{@debug.to_string(other)}",
+                  )
+              }
+            }
+            other =>
+              fail(
+                "expected outer block for branchy local-set-call prefix test, got \{@debug.to_string(other)}",
+              )
+          }
+      }
+    other =>
+      fail(
+        "expected four defined functions for branchy local-set-call prefix test, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum preserves local-set-leading prefix blocks before void ifs" {
   let input = pass_test_module_from_wat(
     (
