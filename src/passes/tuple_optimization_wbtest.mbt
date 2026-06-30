@@ -186,6 +186,12 @@ test "tuple-optimization perf detail timers attribute analysis and rewrite phase
   let text = lines.to_string()
   assert_true(
     text.contains(
+      "perf:timer name=detail:tuple-optimization:pre-collect-simple-drop-only-root-elision-fast-path",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
       "perf:timer name=detail:tuple-optimization:collect-seed-groups",
     ),
     msg=text,
@@ -193,6 +199,18 @@ test "tuple-optimization perf detail timers attribute analysis and rewrite phase
   assert_true(
     text.contains(
       "perf:timer name=detail:tuple-optimization:simple-drop-only-root-elision-fast-path",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:simple-drop-only-root-elision-fast-path:single-root-region-fast-path",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:simple-drop-only-root-elision-fast-path:validate-function-root-groups",
     ),
     msg=text,
   )
