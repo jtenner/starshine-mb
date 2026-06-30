@@ -27883,6 +27883,44 @@ fn run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instr_can_prefix_unreachable_if_wrapper(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Call(_)
+    | @lib.CallIndirect(_, _)
+    | @lib.CallRef(_)
+    | @lib.MemoryCopy(_, _)
+    | @lib.MemoryFill(_) => false
+    _ => run_hot_pipeline_raw_vacuum_instr_can_prefix_if_wrapper(instr)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_unreachable_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(@lib.VoidBlockType, _, _) => ()
+    _ => return false
+  }
+  if !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    if !run_hot_pipeline_raw_vacuum_instr_can_prefix_unreachable_if_wrapper(
+        body[idx],
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -27912,6 +27950,25 @@ fn run_hot_pipeline_raw_vacuum_body_is_terminal_unreachable_block_wrapper_candid
   body.length() == 2 &&
   body[0] is @lib.Block(@lib.VoidBlockType, _) &&
   body[1] is @lib.Unreachable
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_single_flipped_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(@lib.VoidBlockType, then_body, None) if then_body.length() > 0 => ()
+    _ => return false
+  }
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    if !run_hot_pipeline_raw_vacuum_instr_can_prefix_if_wrapper(body[idx]) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -28381,6 +28438,30 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             }
             changed = true
           }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_single_flipped_if_wrapper_candidate(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_unreachable_if_wrapper_candidate(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(
               next_body,
             ) &&
@@ -28436,6 +28517,13 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           None => (None, false)
         }
         changed = changed || then_changed || else_changed
+        let normalized_else = match next_else {
+          Some(body) if body.length() == 0 => {
+            changed = true
+            None
+          }
+          _ => next_else
+        }
         match block_type {
           @lib.VoidBlockType if rewritten.length() > 0 =>
             match rewritten[rewritten.length() - 1] {
@@ -28443,7 +28531,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                 let selected = if value != 0 {
                   next_then
                 } else {
-                  match next_else {
+                  match normalized_else {
                     Some(body) => body
                     None => []
                   }
@@ -28458,18 +28546,33 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
                   changed = true
                 } else {
                   rewritten.push(
-                    @lib.Instruction::if_(block_type, next_then, next_else),
+                    @lib.Instruction::if_(
+                      block_type, next_then, normalized_else,
+                    ),
                   )
                 }
               }
               _ =>
-                rewritten.push(
-                  @lib.Instruction::if_(block_type, next_then, next_else),
-                )
+                match normalized_else {
+                  Some(else_body) if next_then.length() == 0 &&
+                    else_body.length() > 0 => {
+                    rewritten.push(@lib.Instruction::i32_eqz())
+                    rewritten.push(
+                      @lib.Instruction::if_(block_type, else_body, None),
+                    )
+                    changed = true
+                  }
+                  _ =>
+                    rewritten.push(
+                      @lib.Instruction::if_(
+                        block_type, next_then, normalized_else,
+                      ),
+                    )
+                }
             }
           _ =>
             rewritten.push(
-              @lib.Instruction::if_(block_type, next_then, next_else),
+              @lib.Instruction::if_(block_type, next_then, normalized_else),
             )
         }
       }

@@ -531,6 +531,211 @@ test "vacuum flips empty then with live else" {
 }
 
 ///|
+test "vacuum raw-flips empty then with live else in guarded lowered functions" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "side" (func $side (param i32)))
+      #|  (func (param i32) (local i32)
+      #|    nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop
+      #|    (local.set 1 (local.get 0))
+      #|    (block
+      #|      (block
+      #|        (if (i32.eq (local.get 1) (i32.const 1))
+      #|          (then)
+      #|          (else
+      #|            (if (i32.eq (local.get 1) (i32.const 3))
+      #|              (then (call $side (local.get 1)))
+      #|              (else unreachable)
+      #|            )
+      #|          )
+      #|        )
+      #|      )
+      #|      (call $side (local.get 1))
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected raw empty-then vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected raw empty-then vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_eq(),
+            @lib.Instruction::i32_eqz(),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::i32_const(@lib.I32(3)),
+                @lib.Instruction::i32_eq(),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                  ],
+                  Some([@lib.Instruction::unreachable_()]),
+                ),
+              ],
+              None,
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ])
+    other =>
+      fail(
+        "expected raw empty-then if to be inverted, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum raw-unwraps single if wrappers that contain unreachable" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "side" (func $side (param i32)))
+      #|  (func (param i32) (local i32)
+      #|    nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop
+      #|    (local.set 1 (local.get 0))
+      #|    (block
+      #|      (block
+      #|        (if (local.get 1)
+      #|          (then
+      #|            (call $side (local.get 1))
+      #|            (br 2)
+      #|          )
+      #|          (else unreachable)
+      #|        )
+      #|      )
+      #|      (call $side (local.get 1))
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected raw single-if wrapper vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected raw single-if wrapper vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ],
+              Some([@lib.Instruction::unreachable_()]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ])
+    other =>
+      fail(
+        "expected raw single-if wrapper to be unwrapped and branches rebased, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum raw-drops empty else arms in lowered void ifs" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop
+      #|    (local.set 1 (local.get 0))
+      #|    (block
+      #|      (if (local.get 1)
+      #|        (then
+      #|          (local.set 1 (i32.const 2))
+      #|          (br 0)
+      #|        )
+      #|        (else nop)
+      #|      )
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected raw empty-else vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected raw empty-else vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+          ],
+          None,
+        ),
+      ])
+    other =>
+      fail(
+        "expected raw empty-else if to drop else arm, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum collapses constant void if to taken arm" {
   let input =
     #|(module
