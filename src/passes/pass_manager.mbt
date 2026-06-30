@@ -27883,6 +27883,96 @@ fn run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_has_call_prefix_before_final_if(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Call(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_empty_block_call_prefix_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let mut first_live_idx = 0
+  while first_live_idx < body.length() {
+    match body[first_live_idx] {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr([])) =>
+        first_live_idx = first_live_idx + 1
+      _ => break
+    }
+  }
+  if first_live_idx == 0 || first_live_idx >= body.length() {
+    return false
+  }
+  let cleaned : Array[@lib.Instruction] = []
+  for idx = first_live_idx; idx < body.length(); idx = idx + 1 {
+    cleaned.push(body[idx])
+  }
+  run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(cleaned) &&
+  run_hot_pipeline_raw_vacuum_body_has_call_prefix_before_final_if(cleaned)
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() != 1 {
+    return false
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+      run_hot_pipeline_raw_vacuum_body_is_empty_block_call_prefix_if_wrapper_candidate(
+        child_body,
+      ) ||
+      run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant(
+        child_body,
+      )
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_singleton_call_prefix_if_block(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.length() == 1 &&
+  (match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+      run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(child_body) &&
+      run_hot_pipeline_raw_vacuum_body_has_call_prefix_before_final_if(
+        child_body,
+      ) &&
+      !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(child_body)
+    _ => false
+  })
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_drop_leading_empty_blocks(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let cleaned : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < body.length() {
+    match body[idx] {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr([])) => idx = idx + 1
+      _ => break
+    }
+  }
+  while idx < body.length() {
+    cleaned.push(body[idx])
+    idx = idx + 1
+  }
+  cleaned
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_instr_can_prefix_unreachable_if_wrapper(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -28852,6 +28942,37 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         )
         changed = changed || body_changed
         match block_type {
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_empty_block_call_prefix_if_wrapper_candidate(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(next_body) => {
+            rewritten.push(
+              @lib.Instruction::block(
+                block_type,
+                @lib.Expr::new(
+                  run_hot_pipeline_raw_vacuum_drop_leading_empty_blocks(
+                    next_body,
+                  ),
+                ),
+              ),
+            )
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_singleton_call_prefix_if_block(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant(
+              body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
           @lib.VoidBlockType if body.length() == 1 &&
             next_body.length() == 1 &&
             (match next_body[0] {

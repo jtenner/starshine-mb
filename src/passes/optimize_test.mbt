@@ -1521,6 +1521,324 @@ test "vacuum raw-unwraps branchy local-set-call prefix parent wrappers" {
 }
 
 ///|
+test "vacuum raw-cleans empty-block call-prefix wrappers before void ifs" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "side" (func $side (param i32 i32 i32)))
+      #|  (import "m" "wrap" (func $wrap (param i32) (result i32)))
+      #|  (import "m" "pred" (func $pred (param i32) (result i32)))
+      #|  (import "m" "release" (func $release (param i32)))
+      #|  (memory 1)
+      #|  (func (param i32) (local i32 i32 i32)
+      #|    (block $outer
+      #|      (block
+      #|        (block
+      #|          (block
+      #|            (block)
+      #|            (call $side
+      #|              (i32.const 0)
+      #|              (i32.const 0)
+      #|              (i32.sub
+      #|                (call $wrap
+      #|                  (local.tee 1
+      #|                    (i32.load (local.get 0))
+      #|                  )
+      #|                )
+      #|                (i32.const 1)
+      #|              )
+      #|            )
+      #|            (if
+      #|              (i32.eq
+      #|                (call $pred
+      #|                  (local.tee 2
+      #|                    (call $wrap
+      #|                      (i32.load (local.get 1))
+      #|                    )
+      #|                  )
+      #|                )
+      #|                (i32.const 1)
+      #|              )
+      #|              (then
+      #|                (call $release (local.get 2))
+      #|              )
+      #|              (else
+      #|                (local.set 3 (i32.load (local.get 2)))
+      #|                (br $outer)
+      #|              )
+      #|            )
+      #|          )
+      #|        )
+      #|      )
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected empty-block call-prefix vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected empty-block call-prefix vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      match instrs[0] {
+        @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) =>
+          match outer_body[0] {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => {
+              let cleaned_body = match prefix_body[0] {
+                @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+                  child_body
+                _ => prefix_body
+              }
+              match cleaned_body[0] {
+                @lib.Block(@lib.VoidBlockType, @lib.Expr([])) =>
+                  fail(
+                    "expected leading empty child block to be removed from call-prefix wrapper",
+                  )
+                @lib.I32Const(@lib.I32(value)) => @debug.assert_eq(value, 0)
+                other =>
+                  fail(
+                    "expected call-prefix wrapper to start with lowered call argument after empty block cleanup, got \{@debug.to_string(other)}",
+                  )
+              }
+              match cleaned_body[cleaned_body.length() - 1] {
+                @lib.If(@lib.VoidBlockType, _, Some(_)) => ()
+                other =>
+                  fail(
+                    "expected cleaned call-prefix wrapper to end with the trailing void if, got \{@debug.to_string(other)}",
+                  )
+              }
+            }
+            other =>
+              fail(
+                "expected call-prefix wrapper to remain while leading empty child is cleaned, got \{@debug.to_string(other)}",
+              )
+          }
+        other =>
+          fail(
+            "expected outer block for empty-block call-prefix test, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected one defined function for empty-block call-prefix test, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum raw-unwraps nested empty-block call-prefix parent wrappers" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "side" (func $side (param i32 i32 i32)))
+      #|  (import "m" "wrap" (func $wrap (param i32) (result i32)))
+      #|  (import "m" "pred" (func $pred (param i32) (result i32)))
+      #|  (import "m" "release" (func $release (param i32)))
+      #|  (memory 1)
+      #|  (func (param i32) (local i32 i32 i32)
+      #|    (block $outer
+      #|      (block
+      #|        (block
+      #|          (block
+      #|            (block
+      #|              (block)
+      #|              (call $side
+      #|                (i32.const 0)
+      #|                (i32.const 0)
+      #|                (i32.sub
+      #|                  (call $wrap
+      #|                    (local.tee 1
+      #|                      (i32.load (local.get 0))
+      #|                    )
+      #|                  )
+      #|                  (i32.const 1)
+      #|                )
+      #|              )
+      #|              (if
+      #|                (i32.eq
+      #|                  (call $pred
+      #|                    (local.tee 2
+      #|                      (call $wrap
+      #|                        (i32.load (local.get 1))
+      #|                      )
+      #|                    )
+      #|                  )
+      #|                  (i32.const 1)
+      #|                )
+      #|                (then
+      #|                  (call $release (local.get 2))
+      #|                )
+      #|                (else
+      #|                  (local.set 3 (i32.load (local.get 2)))
+      #|                  (br $outer)
+      #|                )
+      #|              )
+      #|            )
+      #|          )
+      #|        )
+      #|      )
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected nested empty-block call-prefix vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested empty-block call-prefix vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      match instrs[0] {
+        @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) =>
+          match outer_body[0] {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => {
+              match prefix_body[0] {
+                @lib.Block(_, _) =>
+                  fail(
+                    "expected nested parent wrapper to be removed after empty-block call-prefix cleanup",
+                  )
+                @lib.I32Const(@lib.I32(value)) => @debug.assert_eq(value, 0)
+                other =>
+                  fail(
+                    "expected nested call-prefix wrapper to start with lowered call argument, got \{@debug.to_string(other)}",
+                  )
+              }
+              match prefix_body[prefix_body.length() - 1] {
+                @lib.If(@lib.VoidBlockType, _, Some(_)) => ()
+                other =>
+                  fail(
+                    "expected nested call-prefix wrapper to end with trailing void if, got \{@debug.to_string(other)}",
+                  )
+              }
+            }
+            other =>
+              fail(
+                "expected one Binaryen-shaped call-prefix wrapper after nested cleanup, got \{@debug.to_string(other)}",
+              )
+          }
+        other =>
+          fail(
+            "expected outer block for nested empty-block call-prefix test, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected one defined function for nested empty-block call-prefix test, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum flattens single-if wrappers without leading empty prefixes" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "make" (func $make (param i32) (result i32)))
+      #|  (import "m" "pred" (func $pred (param i32) (result i32)))
+      #|  (import "m" "release" (func $release (param i32)))
+      #|  (memory 1)
+      #|  (func (param i32) (local i32 i32 i32)
+      #|    (block
+      #|      (block $mid
+      #|        (block
+      #|          nop nop nop nop nop nop nop nop
+      #|          nop nop nop nop nop nop nop nop
+      #|          (if
+      #|            (i32.eq
+      #|              (local.tee 3
+      #|                (call $pred
+      #|                  (local.tee 1
+      #|                    (i32.load
+      #|                      (local.tee 2 (call $make (local.get 0)))
+      #|                    )
+      #|                  )
+      #|                )
+      #|              )
+      #|              (i32.const 4)
+      #|            )
+      #|            (then
+      #|              (call $release (local.get 1))
+      #|              (br $mid)
+      #|            )
+      #|            (else
+      #|              (call $release (local.get 2))
+      #|            )
+      #|          )
+      #|        )
+      #|      )
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected single-if wrapper vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected single-if wrapper vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      match instrs[0] {
+        @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) =>
+          match outer_body[0] {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(mid_body)) => {
+              match mid_body[0] {
+                @lib.Block(_, _) =>
+                  fail(
+                    "expected single-if wrapper without leading empty prefix to be flattened, got extra block",
+                  )
+                _ => ()
+              }
+              match mid_body[mid_body.length() - 1] {
+                @lib.If(@lib.VoidBlockType, _, Some(_)) => ()
+                other =>
+                  fail(
+                    "expected flattened single-if wrapper to end with if, got \{@debug.to_string(other)}",
+                  )
+              }
+            }
+            other =>
+              fail(
+                "expected middle block for single-if wrapper fixture, got \{@debug.to_string(other)}",
+              )
+          }
+        other =>
+          fail(
+            "expected outer block for single-if wrapper fixture, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected one defined function for single-if wrapper fixture, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum preserves local-set-leading prefix blocks before void ifs" {
   let input = pass_test_module_from_wat(
     (
