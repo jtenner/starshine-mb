@@ -1958,7 +1958,7 @@ test "raw simplify-locals skipped-carrier path applies pure suffix copy cleanup"
     run_hot_pipeline_raw_simplify_locals_rewrite_skipped_effectful_carriers(
       mod_,
       @lib.FuncIdx::new(0U),
-      { module_ctx: None },
+      HotPipelineModuleState::new(),
       @ir.HotPassDescriptor::new("simplify-locals"),
       HotPipelineOptions::new(),
       locals,
@@ -3080,7 +3080,7 @@ fn pass_manager_test_run_hot_pipeline_func(
     mod_,
     func_idx,
     descriptor,
-    { module_ctx: None },
+    HotPipelineModuleState::new(),
     { next_type_sec: mod_.type_sec, type_sec_changed: false },
     options,
   )
@@ -3115,7 +3115,7 @@ fn pass_manager_test_raw_simplify_locals_has_i32_pair_result(
   run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
     mod_,
     func_idx,
-    { module_ctx: None },
+    HotPipelineModuleState::new(),
     options,
   )
 }
@@ -4277,7 +4277,7 @@ test "raw simplify-locals gate accepts debug artifact Func 409" {
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
   )
-  let module_state = { module_ctx: None }
+  let module_state = HotPipelineModuleState::new()
   ignore(
     run_hot_pipeline_require_module_ctx(
       mod_,
@@ -4321,7 +4321,7 @@ test "raw simplify-locals gate accepts debug artifact Func 409" {
 test "raw simplify-locals gate still accepts debug artifact Func 409 with cached module ctx" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
   let func_idx = @lib.FuncIdx::new(409U)
-  let module_state = { module_ctx: None }
+  let module_state = HotPipelineModuleState::new()
   ignore(
     run_hot_pipeline_require_module_ctx(
       mod_,
@@ -4792,7 +4792,7 @@ test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
 #cfg(target="native")
 test "raw simplify-locals skips branchy structured debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
-  let module_state = { module_ctx: None }
+  let module_state = HotPipelineModuleState::new()
   ignore(
     run_hot_pipeline_require_module_ctx(
       mod_,
@@ -4829,7 +4829,7 @@ test "raw simplify-locals rewrites structured debug artifact Func 225" {
   let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
     mod_, func_idx,
   )
-  let module_state = { module_ctx: None }
+  let module_state = HotPipelineModuleState::new()
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_,
     module_state,
@@ -5087,7 +5087,7 @@ test "raw simplify-locals skips large structured call-heavy debug artifact funcs
 #cfg(target="native")
 test "raw simplify-locals skips read-only local debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
-  let module_state = { module_ctx: None }
+  let module_state = HotPipelineModuleState::new()
   ignore(
     run_hot_pipeline_require_module_ctx(
       mod_,
@@ -5135,7 +5135,7 @@ test "raw simplify-locals skips medium structured call-heavy debug artifact func
 #cfg(target="native")
 test "raw simplify-locals skips transformer structured call-heavy debug artifact funcs" {
   let mod_ = pass_manager_test_debug_artifact_native_module()
-  let module_state = { module_ctx: None }
+  let module_state = HotPipelineModuleState::new()
   ignore(
     run_hot_pipeline_require_module_ctx(
       mod_,

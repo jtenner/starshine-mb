@@ -164,6 +164,32 @@ pub fn perf_start_timer(session : HotPerfSession, name : String) -> UInt64 {
 }
 
 ///|
+fn perf_elapsed_since_start(
+  session : HotPerfSession,
+  start_us : UInt64,
+) -> UInt64 {
+  if !session.enabled || !session.trace_timings {
+    return 0UL
+  }
+  @lib.trace_elapsed_us_since(start_us)
+}
+
+///|
+fn perf_record_timer_elapsed(
+  session : HotPerfSession,
+  name : String,
+  elapsed_us : UInt64,
+) -> Unit {
+  if !session.enabled || !session.trace_timings {
+    return
+  }
+  let total_us = perf_timer_total_commit(session, name, elapsed_us)
+  (session.trace)(
+    "perf:timer name=\{name} elapsed_us=\{elapsed_us} total_us=\{total_us}",
+  )
+}
+
+///|
 pub fn perf_stop_timer(
   session : HotPerfSession,
   name : String,
@@ -172,10 +198,10 @@ pub fn perf_stop_timer(
   if !session.enabled || !session.trace_timings {
     return
   }
-  let elapsed_us = @lib.trace_elapsed_us_since(start_us)
-  let total_us = perf_timer_total_commit(session, name, elapsed_us)
-  (session.trace)(
-    "perf:timer name=\{name} elapsed_us=\{elapsed_us} total_us=\{total_us}",
+  perf_record_timer_elapsed(
+    session,
+    name,
+    perf_elapsed_since_start(session, start_us),
   )
 }
 

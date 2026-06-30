@@ -170,6 +170,29 @@ fn perf_emit_timer_total_opt(perf : HotPerfSession?, name : String) -> Unit {
 }
 
 ///|
+fn perf_elapsed_since_start_opt(
+  perf : HotPerfSession?,
+  start_us : UInt64,
+) -> UInt64 {
+  match perf {
+    Some(session) => perf_elapsed_since_start(session, start_us)
+    None => 0UL
+  }
+}
+
+///|
+fn perf_record_timer_elapsed_opt(
+  perf : HotPerfSession?,
+  name : String,
+  elapsed_us : UInt64,
+) -> Unit {
+  match perf {
+    Some(session) => perf_record_timer_elapsed(session, name, elapsed_us)
+    None => ()
+  }
+}
+
+///|
 fn perf_validation_checkpoint_opt(
   perf : HotPerfSession?,
   name : String,
@@ -8207,6 +8230,21 @@ priv struct HsoCandidateScanState {
 ///|
 priv struct HotPipelineModuleState {
   mut module_ctx : @ir.HotModuleContext?
+  mut vacuum_raw_preclean_elapsed_us : UInt64
+  mut vacuum_raw_preclean_count : Int
+  mut vacuum_no_candidate_elapsed_us : UInt64
+  mut vacuum_no_candidate_count : Int
+}
+
+///|
+fn HotPipelineModuleState::new() -> HotPipelineModuleState {
+  {
+    module_ctx: None,
+    vacuum_raw_preclean_elapsed_us: 0UL,
+    vacuum_raw_preclean_count: 0,
+    vacuum_no_candidate_elapsed_us: 0UL,
+    vacuum_no_candidate_count: 0,
+  }
 }
 
 ///|
@@ -33175,19 +33213,20 @@ fn run_hot_pipeline_func(
     match
       run_hot_pipeline_raw_vacuum_preclean(mod_, func_idx, descriptor, options) {
       Some(result) => {
-        perf_stop_timer_opt(
+        module_state.vacuum_raw_preclean_elapsed_us += perf_elapsed_since_start_opt(
           options.perf,
-          "raw:vacuum-preclean",
           preclean_start_us,
         )
+        module_state.vacuum_raw_preclean_count += 1
         return Ok(result)
       }
-      None =>
-        perf_stop_timer_opt(
+      None => {
+        module_state.vacuum_raw_preclean_elapsed_us += perf_elapsed_since_start_opt(
           options.perf,
-          "raw:vacuum-preclean",
           preclean_start_us,
         )
+        module_state.vacuum_raw_preclean_count += 1
+      }
     }
     let no_candidate_start_us = perf_start_timer_opt(
       options.perf,
@@ -33196,19 +33235,20 @@ fn run_hot_pipeline_func(
     match
       run_hot_pipeline_raw_vacuum_no_candidates(mod_, func_idx, descriptor) {
       Some(result) => {
-        perf_stop_timer_opt(
+        module_state.vacuum_no_candidate_elapsed_us += perf_elapsed_since_start_opt(
           options.perf,
-          "raw:vacuum-no-candidates",
           no_candidate_start_us,
         )
+        module_state.vacuum_no_candidate_count += 1
         return Ok(result)
       }
-      None =>
-        perf_stop_timer_opt(
+      None => {
+        module_state.vacuum_no_candidate_elapsed_us += perf_elapsed_since_start_opt(
           options.perf,
-          "raw:vacuum-no-candidates",
           no_candidate_start_us,
         )
+        module_state.vacuum_no_candidate_count += 1
+      }
     }
   }
   match
@@ -34225,7 +34265,7 @@ fn run_hot_pipeline_apply_hot_pass(
       }
     None => ()
   }
-  let module_state = { module_ctx: None }
+  let module_state = HotPipelineModuleState::new()
   let defer_this_vacuum_writeback_guard = defer_vacuum_writeback_guard &&
     descriptor.name == "vacuum"
   let mut current_mod = mod_
@@ -34415,6 +34455,22 @@ fn run_hot_pipeline_apply_hot_pass(
           payload="reason=raw-vacuum-preclean count=\{vacuum_raw_preclean_skip_count}",
         )
       }
+      if descriptor.name == "vacuum" {
+        if module_state.vacuum_raw_preclean_count > 0 {
+          perf_record_timer_elapsed_opt(
+            options.perf,
+            "raw:vacuum-preclean",
+            module_state.vacuum_raw_preclean_elapsed_us,
+          )
+        }
+        if module_state.vacuum_no_candidate_count > 0 {
+          perf_record_timer_elapsed_opt(
+            options.perf,
+            "raw:vacuum-no-candidates",
+            module_state.vacuum_no_candidate_elapsed_us,
+          )
+        }
+      }
       match lowered {
         Some(lowered) => Some(@lib.CodeSec::new(lowered))
         None => None
@@ -34499,7 +34555,7 @@ fn run_hot_pipeline_apply_hot_pass_stack(
   if descriptors.length() == 0 {
     return Ok(mod_)
   }
-  let module_state = { module_ctx: None }
+  let module_state = HotPipelineModuleState::new()
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
@@ -34669,7 +34725,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
     pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
     return Ok(mod_)
   }
-  let module_state = { module_ctx: None }
+  let module_state = HotPipelineModuleState::new()
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
@@ -34678,6 +34734,8 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
       let mut hso_raw_skip_count = 0
       let mut pls_raw_skip_count = 0
       let mut run_raw_skip_count = 0
+      let mut vacuum_no_candidate_skip_count = 0
+      let mut vacuum_raw_preclean_skip_count = 0
       for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
         if code_idx >= touched.length() || !touched[code_idx] {
           continue
@@ -34768,6 +34826,12 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
           } else if descriptor.name == "remove-unused-names" &&
             result.reason == "no-remove-unused-names-candidates" {
             run_raw_skip_count += 1
+          } else if descriptor.name == "vacuum" &&
+            result.reason == "no-vacuum-candidates" {
+            vacuum_no_candidate_skip_count += 1
+          } else if descriptor.name == "vacuum" &&
+            result.reason == "raw-vacuum-preclean" {
+            vacuum_raw_preclean_skip_count += 1
           } else {
             pipeline_trace_hook(
               options.trace,
@@ -34810,6 +34874,38 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
           "skip-raw",
           payload="reason=no-remove-unused-names-candidates count=\{run_raw_skip_count}",
         )
+      }
+      if vacuum_no_candidate_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-vacuum-candidates count=\{vacuum_no_candidate_skip_count}",
+        )
+      }
+      if vacuum_raw_preclean_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=raw-vacuum-preclean count=\{vacuum_raw_preclean_skip_count}",
+        )
+      }
+      if descriptor.name == "vacuum" {
+        if module_state.vacuum_raw_preclean_count > 0 {
+          perf_record_timer_elapsed_opt(
+            options.perf,
+            "raw:vacuum-preclean",
+            module_state.vacuum_raw_preclean_elapsed_us,
+          )
+        }
+        if module_state.vacuum_no_candidate_count > 0 {
+          perf_record_timer_elapsed_opt(
+            options.perf,
+            "raw:vacuum-no-candidates",
+            module_state.vacuum_no_candidate_elapsed_us,
+          )
+        }
       }
       match lowered {
         Some(lowered) => Some(@lib.CodeSec::new(lowered))

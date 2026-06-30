@@ -3689,9 +3689,15 @@ test "vacuum raw-skips functions with no cleanup candidates" {
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
 
+  let wat =
+    #|(module
+    #|  (func (result i32) i32.const 9)
+    #|  (func (result i32) i32.const 10)
+    #|  (func (result i32) i32.const 11)
+    #|)
   match
     pass_test_run_pipeline(
-      "(module (func (result i32) i32.const 9))",
+      wat,
       ["vacuum"],
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
     ) {
@@ -3701,15 +3707,21 @@ test "vacuum raw-skips functions with no cleanup candidates" {
 
   let text = perf_test_join_lines(lines)
   assert_true(
-    text.contains("pass[vacuum]:skip-raw reason=no-vacuum-candidates"),
+    text.contains("pass[vacuum]:skip-raw reason=no-vacuum-candidates count=3"),
     msg=text,
   )
   // Raw vacuum candidate scanning is timed so whole-command attribution cannot hide here,
-  // but the hot artifact path keeps one aggregate timer name instead of
-  // thousands of per-function timer names.
-  assert_true(
-    text.contains("perf:timer name=raw:vacuum-no-candidates"),
-    msg=text,
+  // but the hot artifact path emits one aggregate timing event per raw probe instead of
+  // thousands of per-function timing lines.
+  @debug.assert_eq(
+    perf_test_count_occurrences(
+      text, "perf:timer name=raw:vacuum-no-candidates",
+    ),
+    1,
+  )
+  @debug.assert_eq(
+    perf_test_count_occurrences(text, "perf:timer name=raw:vacuum-preclean"),
+    1,
   )
   assert_false(text.contains("perf:timer name=raw:vacuum-no-candidates:func"))
   assert_false(text.contains("perf:timer name=raw:vacuum-preclean:func"))
