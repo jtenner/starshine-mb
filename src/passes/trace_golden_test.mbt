@@ -23,8 +23,7 @@ test "pass test helpers capture deterministic vacuum trace lines" {
   @debug.assert_eq(
     pass_trace_join_lines(trace),
     pass_trace_join_lines([
-      "pipeline:start requested=1", "pass[vacuum]:func func_idx=(Func 0)", "pass[vacuum]:start",
-      "pass[vacuum]:mutated count=2 revision=7", "pass[vacuum]:done changed=true",
+      "pipeline:start requested=1", "pass[vacuum]:mutated count=2 revision=7", "pass[vacuum]:funcs count=1 changed=1",
       "pipeline:done",
     ]),
   )

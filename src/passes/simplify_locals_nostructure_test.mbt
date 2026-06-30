@@ -2457,7 +2457,7 @@ test "simplify-locals-nostructure exact slot replays code-pushing and tuple clea
   let starts = trace.filter(fn(line) {
     line.contains("pass[") && line.contains(":start")
   })
-  assert_true(starts.length() >= 5, msg=starts.to_string())
+  assert_true(starts.length() >= 4, msg=starts.to_string())
   assert_true(
     starts[0].contains("pass[code-pushing]:start"),
     msg=starts.to_string(),
@@ -2470,9 +2470,12 @@ test "simplify-locals-nostructure exact slot replays code-pushing and tuple clea
     starts[2].contains("pass[simplify-locals-nostructure]:start"),
     msg=starts.to_string(),
   )
-  assert_true(starts[3].contains("pass[vacuum]:start"), msg=starts.to_string())
   assert_true(
-    starts[4].contains("pass[reorder-locals]:start"),
+    trace.any(fn(line) { line.contains("pass[vacuum]:funcs") }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    starts[3].contains("pass[reorder-locals]:start"),
     msg=starts.to_string(),
   )
 

@@ -1066,8 +1066,11 @@ test "run_hot_pipeline emits trace markers for hot passes" {
     Ok(_) => ()
     Err(err) => fail("expected traced module to validate, got \{err}")
   }
-  assert_true(trace.any(fn(line) { line.contains("pass[vacuum]:start") }))
-  assert_true(trace.any(fn(line) { line.contains("pass[vacuum]:done") }))
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[vacuum]:funcs count=1 changed=1") }),
+  )
+  assert_false(trace.any(fn(line) { line.contains("pass[vacuum]:start") }))
+  assert_false(trace.any(fn(line) { line.contains("pass[vacuum]:done") }))
 }
 
 ///|

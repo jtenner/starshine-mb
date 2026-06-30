@@ -33258,12 +33258,14 @@ fn run_hot_pipeline_func(
     Some(result) => return Ok(result)
     None => ()
   }
-  pipeline_trace_hook(
-    options.trace,
-    descriptor.name,
-    "func",
-    payload="func_idx=\{func_idx}",
-  )
+  if descriptor.name != "vacuum" {
+    pipeline_trace_hook(
+      options.trace,
+      descriptor.name,
+      "func",
+      payload="func_idx=\{func_idx}",
+    )
+  }
   match
     run_hot_pipeline_raw_remove_unused_brs(mod_, func_idx, descriptor, options) {
     Some(result) => return Ok(result)
@@ -34278,6 +34280,8 @@ fn run_hot_pipeline_apply_hot_pass(
       let mut run_raw_skip_count = 0
       let mut vacuum_no_candidate_skip_count = 0
       let mut vacuum_raw_preclean_skip_count = 0
+      let mut vacuum_hot_func_count = 0
+      let mut vacuum_hot_changed_count = 0
       for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
@@ -34380,6 +34384,12 @@ fn run_hot_pipeline_apply_hot_pass(
             payload="raw reason=\{result.reason}",
           )
         }
+        if descriptor.name == "vacuum" && !result.trace_skip_raw {
+          vacuum_hot_func_count += 1
+          if !result.unchanged_original {
+            vacuum_hot_changed_count += 1
+          }
+        }
         if result.trace_skip_raw {
           if descriptor.name == "heap-store-optimization" &&
             result.reason == "no-heap-store-candidates" {
@@ -34453,6 +34463,14 @@ fn run_hot_pipeline_apply_hot_pass(
           descriptor.name,
           "skip-raw",
           payload="reason=raw-vacuum-preclean count=\{vacuum_raw_preclean_skip_count}",
+        )
+      }
+      if vacuum_hot_func_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "funcs",
+          payload="count=\{vacuum_hot_func_count} changed=\{vacuum_hot_changed_count}",
         )
       }
       if descriptor.name == "vacuum" {
@@ -34736,6 +34754,8 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
       let mut run_raw_skip_count = 0
       let mut vacuum_no_candidate_skip_count = 0
       let mut vacuum_raw_preclean_skip_count = 0
+      let mut vacuum_hot_func_count = 0
+      let mut vacuum_hot_changed_count = 0
       for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
         if code_idx >= touched.length() || !touched[code_idx] {
           continue
@@ -34816,6 +34836,12 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         if lower_state.type_sec_changed {
           current_mod = validation_mod
         }
+        if descriptor.name == "vacuum" && !result.trace_skip_raw {
+          vacuum_hot_func_count += 1
+          if !result.unchanged_original {
+            vacuum_hot_changed_count += 1
+          }
+        }
         if result.trace_skip_raw {
           if descriptor.name == "heap-store-optimization" &&
             result.reason == "no-heap-store-candidates" {
@@ -34889,6 +34915,14 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
           descriptor.name,
           "skip-raw",
           payload="reason=raw-vacuum-preclean count=\{vacuum_raw_preclean_skip_count}",
+        )
+      }
+      if vacuum_hot_func_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "funcs",
+          payload="count=\{vacuum_hot_func_count} changed=\{vacuum_hot_changed_count}",
         )
       }
       if descriptor.name == "vacuum" {
@@ -35822,7 +35856,9 @@ pub fn hot_pass_run(
 ) -> Result[HotPassResult, String] {
   let descriptor = ctx.descriptor
   pass_prepare_requirements(ctx, func)
-  pipeline_trace_hook(ctx.trace, descriptor.name, "start")
+  if descriptor.name != "vacuum" {
+    pipeline_trace_hook(ctx.trace, descriptor.name, "start")
+  }
   perf_dump_hot_func_opt(ctx.perf, func, "before-pass:\{descriptor.name}")
   let before_snapshot = perf_snapshot_hot_func(func)
   let before_revision = @ir.hot_revision_current(func)
@@ -35905,11 +35941,13 @@ pub fn hot_pass_run(
       payload="count=\{after_revision - before_revision} revision=\{after_revision}",
     )
   }
-  pipeline_trace_hook(
-    ctx.trace,
-    descriptor.name,
-    "done",
-    payload="changed=\{result.changed}",
-  )
+  if descriptor.name != "vacuum" {
+    pipeline_trace_hook(
+      ctx.trace,
+      descriptor.name,
+      "done",
+      payload="changed=\{result.changed}",
+    )
+  }
   Ok(result)
 }
