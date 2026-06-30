@@ -942,7 +942,8 @@
         "bun scripts/pass-fuzz-compare.ts --count 3 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-local-facts --out-dir .tmp/oi-e-trigger-profile-cases-compare-smoke --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto: compared 3/3, raw mismatches 3, validation/generator/property/command failures 0; agent classification: open OI-E direct/local.tee/local-mask parity evidence, not semantic-safety proof (2026-06-27)",
         "bun scripts/oi-parity-sweep.ts --family OI-E --execute --count 3 --starshine-bin target/native/release/build/cmd/cmd.exe: grouped row executed with pass-oi-local-facts plus OI-E transforms, compared 3/3, raw mismatches 3, validation/generator/property/command failures 0 (2026-06-27)",
         "scripts/oi-parity-sweep.ts --summarize-existing / execute reporting now emits per-row result summaries, genValidProfileCaseCounts, and case-label status groups; OI-E summary smoke at .tmp/oi-parity-sweep-summary-smoke grouped all three trigger labels as raw mismatches (2026-06-27)",
-        "2026-06-27 classified all three .tmp/oi-parity-sweep-summary-smoke OI-E genValidProfileCaseLabel representatives; two are unmeasured Starshine local-fact cleanup candidates and one is mixed with OI-D scalar constant-compare drift."
+        "2026-06-27 classified all three .tmp/oi-parity-sweep-summary-smoke OI-E genValidProfileCaseLabel representatives; two are unmeasured Starshine local-fact cleanup candidates and one is mixed with OI-D scalar constant-compare drift.",
+        "2026-06-30 measured the three .tmp/oi-parity-sweep-summary-smoke OI-E residual representatives and validated all 12 Binaryen/Starshine raw/canonical wasm artifacts. local-carried-mask and direct-sign-extension remove two redundant sign-extension opcodes each with Starshine canonical/WAT deltas -2/-49 and -2/-49; local-tee-add-zero also folds a pure constant compare to i32.const 0 and removes the same two sign-extension opcodes with raw/canonical/WAT deltas -5/-5/-85. These are measured sampled Starshine-win candidates, but the commuted case remains mixed with OI-D scalar drift and OI-E remains open for broad randomized LocalScanner facts."
       ],
       "genValidProfiles": [
         "pass-oi-local-facts"
@@ -959,37 +960,37 @@
         "profile": "pass-oi-local-facts",
         "blockedUntilProfileExists": false
       },
-      "notes": "pass-oi-local-facts now emits three deterministic seed-indexed trigger-smoke cases for direct sign-extension facts, local.tee add-zero facts, and local-carried mask facts instead of one fixed module. The count-3 profile compare and grouped OI-E execute sweep both reach comparison and report three raw mismatches with no validation/generator/property/command failures; classify them as open LocalScanner parity gaps until inspected/implemented, not semantic-safe drift. Future work should replace the seed-indexed smoke selector with randomized maxBits/signExt/nullness fact constructors and existing-producer wrappers. The sweep runner now prints result summaries (and can load them with --summarize-existing), so future OI-D/OI-E triage should start from profile-case and case-label status groups before opening individual WAT diffs. A 2026-06-27 representative diff pass classified the three trigger labels in classifiedCaseLabels. The local-fact redundant sign-extension removals look like smaller Starshine output, but remain only Starshine-win candidates until measured or otherwise source-backed.",
+      "notes": "pass-oi-local-facts now emits three deterministic seed-indexed trigger-smoke cases for direct sign-extension facts, local.tee add-zero facts, and local-carried mask facts instead of one fixed module. The count-3 profile compare and grouped OI-E execute sweep both reach comparison and report three raw mismatches with no validation/generator/property/command failures; classify them as open LocalScanner parity gaps until inspected/implemented, not semantic-safe drift. Future work should replace the seed-indexed smoke selector with randomized maxBits/signExt/nullness fact constructors and existing-producer wrappers. The sweep runner now prints result summaries (and can load them with --summarize-existing), so future OI-D/OI-E triage should start from profile-case and case-label status groups before opening individual WAT diffs. A 2026-06-27 representative diff pass classified the three trigger labels in classifiedCaseLabels. The local-fact redundant sign-extension removals are now measured sampled Starshine-win candidates in the count-3 representatives: local-carried-mask and direct-sign-extension each remove one i32.extend8_s and one i64.extend32_s with canonical/WAT deltas -2/-49, while local-tee-add-zero also folds a pure constant compare and has raw/canonical/WAT deltas -5/-5/-85. They are still not broad LocalScanner closure, and the commuted case remains mixed with OI-D scalar drift.",
       "classifiedCaseLabels": [
         {
           "label": "oi-local-facts:local-carried-mask",
           "transformId": "oi-local-carried",
           "representativeFailureDir": ".tmp/oi-parity-sweep-summary-smoke/oi-e/OI-E-local-scanner-facts/failures/case-000001-gen-valid-transform-oi-local-carried",
           "status": "starshine-win-candidate",
-          "agentClassification": "Starshine local-fact cleanup beyond Binaryen observed output",
-          "observedDiff": "Binaryen keeps i32.extend8_s(local.get) and i64.extend32_s(local.get) after preceding constant local.set facts; Starshine removes both redundant sign extensions and leaves the later mask unchanged.",
-          "nextAction": "Measure size/perf or add source-backed semantic proof for local-fact redundant sign-extension removal before accepting as intentional Starshine drift; otherwise consider narrowing the trigger or aligning to Binaryen.",
-          "lastCheckedEvidence": "2026-06-27 diff of binaryen.wat vs starshine.wat in the representative failure dir from .tmp/oi-parity-sweep-summary-smoke."
+          "agentClassification": "Measured sampled Starshine-win local-fact cleanup beyond Binaryen observed output",
+          "observedDiff": "Binaryen keeps i32.extend8_s(local.get) and i64.extend32_s(local.get) after preceding constant local.set facts; Starshine removes both redundant sign extensions and leaves the later mask unchanged. Both raw/canonical artifacts validate; raw size ties at 65 bytes, while Starshine canonical/WAT are 63/416 vs Binaryen 65/465.",
+          "nextAction": "Keep as a measured sampled Starshine-win candidate while broadening LocalScanner fact coverage to randomized masks, non-i32 carriers, and existing producers; do not treat it as OI-E closure.",
+          "lastCheckedEvidence": "2026-06-30 measured .tmp/oi-parity-sweep-summary-smoke OI-E case-000001: all four raw/canonical wasm artifacts validate; sign-extension counts drop 2->0, canonical delta -2 bytes, WAT delta -49 bytes, raw delta 0."
         },
         {
           "label": "oi-local-facts:direct-sign-extension",
           "transformId": "oi-local-tee-wrapped",
           "representativeFailureDir": ".tmp/oi-parity-sweep-summary-smoke/oi-e/OI-E-local-scanner-facts/failures/case-000002-gen-valid-transform-oi-local-tee-wrapped",
           "status": "starshine-win-candidate",
-          "agentClassification": "Starshine local-fact cleanup beyond Binaryen observed output",
-          "observedDiff": "Binaryen keeps redundant i32/i64 sign-extension opcodes over locals with constant set facts; Starshine removes the redundant extensions.",
-          "nextAction": "Promote to an accepted Starshine win only with measured size/perf/semantic evidence; otherwise keep as open classified mismatch and avoid treating the raw mismatch as safe by default.",
-          "lastCheckedEvidence": "2026-06-27 diff of binaryen.wat vs starshine.wat in the representative failure dir from .tmp/oi-parity-sweep-summary-smoke."
+          "agentClassification": "Measured sampled Starshine-win local-fact cleanup beyond Binaryen observed output",
+          "observedDiff": "Binaryen keeps redundant i32/i64 sign-extension opcodes over locals with constant set facts; Starshine removes the redundant extensions. Both raw/canonical artifacts validate; raw size ties at 60 bytes, while Starshine canonical/WAT are 58/365 vs Binaryen 60/414.",
+          "nextAction": "Keep as a measured sampled Starshine-win candidate while adding randomized direct/local.tee fact constructors and source-backed fact lattice coverage; do not treat it as broad LocalScanner closure.",
+          "lastCheckedEvidence": "2026-06-30 measured .tmp/oi-parity-sweep-summary-smoke OI-E case-000002: all four raw/canonical wasm artifacts validate; sign-extension counts drop 2->0, canonical delta -2 bytes, WAT delta -49 bytes, raw delta 0."
         },
         {
           "label": "oi-local-facts:local-tee-add-zero",
           "transformId": "oi-commuted-operands",
           "representativeFailureDir": ".tmp/oi-parity-sweep-summary-smoke/oi-e/OI-E-local-scanner-facts/failures/case-000003-gen-valid-transform-oi-commuted-operands",
-          "status": "mismatch",
-          "agentClassification": "mixed Starshine-win candidate plus scalar constant-compare drift",
-          "observedDiff": "Binaryen keeps one constant i32.eq from the commuted transform and the redundant local sign-extension opcodes; Starshine folds that i32.eq to 0 and removes the redundant sign extensions.",
-          "nextAction": "Separate OI-D scalar constant-compare drift from OI-E local-fact sign-extension cleanup, then either measure and accept the smaller Starshine shapes or align the specific trigger expectations to Binaryen.",
-          "lastCheckedEvidence": "2026-06-27 diff of binaryen.wat vs starshine.wat in the representative failure dir from .tmp/oi-parity-sweep-summary-smoke."
+          "status": "starshine-win-candidate",
+          "agentClassification": "Measured sampled Starshine-win candidate with mixed OI-E local-fact cleanup and OI-D scalar constant-compare drift",
+          "observedDiff": "Binaryen keeps one pure i32.eq(42, 7) plus redundant i32.extend8_s and i64.extend32_s local fact opcodes; Starshine folds the compare to i32.const 0 and removes both redundant sign extensions. All raw/canonical artifacts validate; Starshine raw/canonical/WAT are 82/82/544 vs Binaryen 87/87/629.",
+          "nextAction": "Separate the OI-D pure constant-compare fold from OI-E local-fact cleanup in a broader row/profile before accepting as intentional family drift; keep OI-E open for randomized LocalScanner facts and existing producers.",
+          "lastCheckedEvidence": "2026-06-30 measured .tmp/oi-parity-sweep-summary-smoke OI-E case-000003: all four raw/canonical wasm artifacts validate; sign-extension counts drop 2->0, i32.eq count drops 1->0, raw/canonical/WAT deltas -5/-5/-85."
         }
       ]
     },
