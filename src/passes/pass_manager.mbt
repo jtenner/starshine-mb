@@ -33168,18 +33168,16 @@ fn run_hot_pipeline_func(
     None => ()
   }
   if descriptor.name == "vacuum" {
-    let @lib.FuncIdx(raw_func_idx) = func_idx
-    let raw_func_label = raw_func_idx.reinterpret_as_int()
     let preclean_start_us = perf_start_timer_opt(
       options.perf,
-      "raw:vacuum-preclean:func:\{raw_func_label}",
+      "raw:vacuum-preclean",
     )
     match
       run_hot_pipeline_raw_vacuum_preclean(mod_, func_idx, descriptor, options) {
       Some(result) => {
         perf_stop_timer_opt(
           options.perf,
-          "raw:vacuum-preclean:func:\{raw_func_label}",
+          "raw:vacuum-preclean",
           preclean_start_us,
         )
         return Ok(result)
@@ -33187,20 +33185,20 @@ fn run_hot_pipeline_func(
       None =>
         perf_stop_timer_opt(
           options.perf,
-          "raw:vacuum-preclean:func:\{raw_func_label}",
+          "raw:vacuum-preclean",
           preclean_start_us,
         )
     }
     let no_candidate_start_us = perf_start_timer_opt(
       options.perf,
-      "raw:vacuum-no-candidates:func:\{raw_func_label}",
+      "raw:vacuum-no-candidates",
     )
     match
       run_hot_pipeline_raw_vacuum_no_candidates(mod_, func_idx, descriptor) {
       Some(result) => {
         perf_stop_timer_opt(
           options.perf,
-          "raw:vacuum-no-candidates:func:\{raw_func_label}",
+          "raw:vacuum-no-candidates",
           no_candidate_start_us,
         )
         return Ok(result)
@@ -33208,7 +33206,7 @@ fn run_hot_pipeline_func(
       None =>
         perf_stop_timer_opt(
           options.perf,
-          "raw:vacuum-no-candidates:func:\{raw_func_label}",
+          "raw:vacuum-no-candidates",
           no_candidate_start_us,
         )
     }

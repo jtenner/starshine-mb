@@ -3704,11 +3704,15 @@ test "vacuum raw-skips functions with no cleanup candidates" {
     text.contains("pass[vacuum]:skip-raw reason=no-vacuum-candidates"),
     msg=text,
   )
-  // Raw vacuum candidate scanning is timed so whole-command attribution cannot hide here.
+  // Raw vacuum candidate scanning is timed so whole-command attribution cannot hide here,
+  // but the hot artifact path keeps one aggregate timer name instead of
+  // thousands of per-function timer names.
   assert_true(
     text.contains("perf:timer name=raw:vacuum-no-candidates"),
     msg=text,
   )
+  assert_false(text.contains("perf:timer name=raw:vacuum-no-candidates:func"))
+  assert_false(text.contains("perf:timer name=raw:vacuum-preclean:func"))
   assert_false(text.contains("perf:timer name=lift"))
   assert_false(text.contains("perf:timer name=pass:vacuum"))
   assert_false(text.contains("perf:timer name=lower"))
