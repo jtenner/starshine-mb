@@ -15123,6 +15123,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 43
     PassOiTupleProfile => 15
+    PassOiLocalFactsProfile => 4
     _ => 3
   }
 }
@@ -15246,6 +15247,17 @@ fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
 }
 
 ///|
+fn gen_valid_oi_local_facts_case_for_seed(seed : UInt64) -> Int {
+  match seed {
+    0x5eedUL => 1
+    0x5eeeUL => 2
+    0x5eefUL => 0
+    0x5ef0UL => 3
+    _ => (seed % 4UL).to_int()
+  }
+}
+
+///|
 fn gen_valid_oi_trigger_profile_case_for_profile_seed(
   profile : GenValidProfile,
   seed : UInt64,
@@ -15253,6 +15265,7 @@ fn gen_valid_oi_trigger_profile_case_for_profile_seed(
   match profile {
     PassOiMemoryBulkProfile => gen_valid_oi_memory_bulk_case_for_seed(seed)
     PassOiTupleProfile => gen_valid_oi_tuple_case_for_seed(seed)
+    PassOiLocalFactsProfile => gen_valid_oi_local_facts_case_for_seed(seed)
     _ =>
       (seed % gen_valid_oi_trigger_profile_case_modulus(profile).to_uint64()).to_int()
   }
@@ -15308,6 +15321,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
       match case {
         1 => Some("oi-local-facts:local-tee-add-zero")
         2 => Some("oi-local-facts:local-carried-mask")
+        3 => Some("oi-local-facts:existing-producer-sign-extension")
         _ => Some("oi-local-facts:direct-sign-extension")
       }
     PassOiRefGcProfile =>
@@ -15481,6 +15495,51 @@ fn gen_valid_oi_local_facts_profile_body(case : Int) -> Array[Instruction] {
     }
     _ => direct_sign_ext
   }
+}
+
+///|
+fn gen_valid_oi_local_facts_existing_producer_module() -> Module {
+  let i32_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let i64_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
+  )
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      gen_valid_precompute_void_func_type(),
+      i32_func_type,
+      i64_func_type,
+    ]),
+  )
+  .with_func_sec(
+    FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U), TypeIdx::new(2U)]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([ValType::i32(), ValType::i64()]),
+        Expr::new([
+          Instruction::call(FuncIdx::new(1U)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::i32_extend8s(),
+          Instruction::drop(),
+          Instruction::call(FuncIdx::new(2U)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::i64_extend32s(),
+          Instruction::drop(),
+        ]),
+      ),
+      Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(0x7f))])),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::i64_const(I64(0x7fffffffL))]),
+      ),
+    ]),
+  )
 }
 
 ///|
@@ -18130,6 +18189,9 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let case = gen_valid_oi_trigger_profile_case(ctx)
   if tuple {
     return gen_valid_oi_tuple_profile_module(case, ctx.root_seed)
+  }
+  if local_facts && case == 3 {
+    return gen_valid_oi_local_facts_existing_producer_module()
   }
   if memory_bulk && case == 3 {
     return gen_valid_oi_memory_bulk_call_wrapped_module()

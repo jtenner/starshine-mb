@@ -2210,7 +2210,9 @@ fn gen_valid_test_oi_scalar_trigger_signature(
 fn gen_valid_test_oi_local_fact_trigger_signature(
   instrs : Array[Instruction],
 ) -> String {
-  if gen_valid_test_instrs_contain_oi_local_mask_candidate(instrs) {
+  if gen_valid_test_instrs_have_call(instrs) {
+    "existing-producer-sign-ext"
+  } else if gen_valid_test_instrs_contain_oi_local_mask_candidate(instrs) {
     "local-mask"
   } else if gen_valid_test_instrs_contain_oi_scalar_local_tee(instrs) {
     "local-tee"
@@ -2422,6 +2424,18 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let local_fact_existing = match
+    gen_valid_module_result_from_seed(
+      0x5ef0UL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef0UL),
+    Some("oi-local-facts:existing-producer-sign-extension"),
+  )
   @debug.assert_eq(
     gen_valid_test_oi_local_fact_trigger_signature(
       gen_valid_test_first_func_instrs(local_fact_tee.wasm_module),
@@ -2439,6 +2453,12 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
       gen_valid_test_first_func_instrs(local_fact_direct.wasm_module),
     ),
     "direct-sign-ext",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_local_fact_trigger_signature(
+      gen_valid_test_first_func_instrs(local_fact_existing.wasm_module),
+    ),
+    "existing-producer-sign-ext",
   )
 }
 
