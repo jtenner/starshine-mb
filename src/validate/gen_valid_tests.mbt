@@ -2472,6 +2472,14 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let local_fact_effectful_local_carried_existing = match
+    gen_valid_module_result_from_seed(
+      0x5ef6UL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef0UL),
     Some("oi-local-facts:existing-producer-sign-extension"),
@@ -2495,6 +2503,12 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef5UL),
     Some("oi-local-facts:local-carried-existing-producer-sign-extension"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef6UL),
+    Some(
+      "oi-local-facts:effectful-local-carried-existing-producer-sign-extension",
+    ),
   )
   @debug.assert_eq(
     gen_valid_test_oi_local_fact_trigger_signature(
@@ -2580,6 +2594,30 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
     gen_valid_test_oi_local_fact_trigger_signature(
       gen_valid_test_first_func_instrs(
         local_fact_local_carried_existing.wasm_module,
+      ),
+    ),
+    "existing-producer-sign-ext",
+  )
+  assert_true(
+    gen_valid_test_module_has_global_set(
+      local_fact_effectful_local_carried_existing.wasm_module,
+    ),
+    msg="expected effectful local-carried existing-producer helper",
+  )
+  assert_true(
+    local_fact_effectful_local_carried_existing.facts.exact_opcode_counts.i32_add >
+    0,
+    msg="expected effectful local-carried i32 wrapper around existing producer",
+  )
+  assert_true(
+    local_fact_effectful_local_carried_existing.facts.exact_opcode_counts.i64_add >
+    0,
+    msg="expected effectful local-carried i64 wrapper around existing producer",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_local_fact_trigger_signature(
+      gen_valid_test_first_func_instrs(
+        local_fact_effectful_local_carried_existing.wasm_module,
       ),
     ),
     "existing-producer-sign-ext",
