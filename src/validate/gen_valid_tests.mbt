@@ -2432,9 +2432,21 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let local_fact_effectful_existing = match
+    gen_valid_module_result_from_seed(
+      0x5ef1UL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef0UL),
     Some("oi-local-facts:existing-producer-sign-extension"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef1UL),
+    Some("oi-local-facts:effectful-existing-producer-sign-extension"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_local_fact_trigger_signature(
@@ -2457,6 +2469,20 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
   @debug.assert_eq(
     gen_valid_test_oi_local_fact_trigger_signature(
       gen_valid_test_first_func_instrs(local_fact_existing.wasm_module),
+    ),
+    "existing-producer-sign-ext",
+  )
+  assert_true(
+    gen_valid_test_module_has_global_set(
+      local_fact_effectful_existing.wasm_module,
+    ),
+    msg="expected effectful existing-producer local-fact helper",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_local_fact_trigger_signature(
+      gen_valid_test_first_func_instrs(
+        local_fact_effectful_existing.wasm_module,
+      ),
     ),
     "existing-producer-sign-ext",
   )
@@ -2577,6 +2603,47 @@ fn gen_valid_test_instrs_have_call(instrs : Array[Instruction]) -> Bool {
       }
       _ => ()
     }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_have_global_set(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      GlobalSet(_) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_global_set(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_global_set(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_global_set(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_global_set(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        match func {
+          Func(_, Expr(body)) if gen_valid_test_instrs_have_global_set(body) =>
+            return true
+          _ => ()
+        }
+      }
+    None => ()
   }
   false
 }
