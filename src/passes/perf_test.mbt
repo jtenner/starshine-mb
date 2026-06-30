@@ -3620,9 +3620,11 @@ test "run hot pipeline emits perf timing and checkpoint lines while dumps stay o
   }
 
   let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=pipeline"))
   assert_true(text.contains("perf:timer name=lift"))
   assert_true(text.contains("perf:timer name=pass:vacuum"))
   assert_true(text.contains("perf:timer name=lower"))
+  assert_true(text.contains("perf:timer name=guard:vacuum-writeback"))
   assert_true(text.contains("perf:timer name=validate:final-module"))
   assert_true(text.contains("perf:checkpoint name=verify after lift"))
   assert_true(text.contains("perf:counters label=pipeline:done"))
@@ -3673,6 +3675,11 @@ test "vacuum raw-skips functions with no cleanup candidates" {
   let text = perf_test_join_lines(lines)
   assert_true(
     text.contains("pass[vacuum]:skip-raw reason=no-vacuum-candidates"),
+    msg=text,
+  )
+  // Raw vacuum candidate scanning is timed so whole-command attribution cannot hide here.
+  assert_true(
+    text.contains("perf:timer name=raw:vacuum-no-candidates"),
     msg=text,
   )
   assert_false(text.contains("perf:timer name=lift"))

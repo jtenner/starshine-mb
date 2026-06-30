@@ -30,15 +30,17 @@ describe("self-optimize compare timing parsing", () => {
 
   test("separates raw pass timers from pass-local timers", () => {
     const summary = parseStarshinePerfTimingSummary([
+      "perf:timer name=pipeline elapsed_us=61005400 total_us=61005400",
       "perf:timer name=raw:ssa-nomerge:func:5539 elapsed_us=61000000 total_us=61000000",
       "perf:timer name=pass:ssa-nomerge elapsed_us=367 total_us=367",
+      "perf:timer name=guard:vacuum-writeback:func:27 elapsed_us=400 total_us=400",
       "perf:timer name=validate:final-module elapsed_us=5000 total_us=5000",
       "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
     ].join("\n"));
 
     expect(summary.passElapsedMs).toBe(0.367);
     expect(summary.rawElapsedMs).toBe(61000);
-    expect(summary.otherTimedElapsedMs).toBe(5);
+    expect(summary.otherTimedElapsedMs).toBeCloseTo(5.4);
     expect(summary.passSkippedRaw).toBe(true);
   });
 });

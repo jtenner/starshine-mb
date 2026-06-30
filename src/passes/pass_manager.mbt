@@ -33167,14 +33167,51 @@ fn run_hot_pipeline_func(
     Some(result) => return Ok(result)
     None => ()
   }
-  match
-    run_hot_pipeline_raw_vacuum_preclean(mod_, func_idx, descriptor, options) {
-    Some(result) => return Ok(result)
-    None => ()
-  }
-  match run_hot_pipeline_raw_vacuum_no_candidates(mod_, func_idx, descriptor) {
-    Some(result) => return Ok(result)
-    None => ()
+  if descriptor.name == "vacuum" {
+    let @lib.FuncIdx(raw_func_idx) = func_idx
+    let raw_func_label = raw_func_idx.reinterpret_as_int()
+    let preclean_start_us = perf_start_timer_opt(
+      options.perf,
+      "raw:vacuum-preclean:func:\{raw_func_label}",
+    )
+    match
+      run_hot_pipeline_raw_vacuum_preclean(mod_, func_idx, descriptor, options) {
+      Some(result) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "raw:vacuum-preclean:func:\{raw_func_label}",
+          preclean_start_us,
+        )
+        return Ok(result)
+      }
+      None =>
+        perf_stop_timer_opt(
+          options.perf,
+          "raw:vacuum-preclean:func:\{raw_func_label}",
+          preclean_start_us,
+        )
+    }
+    let no_candidate_start_us = perf_start_timer_opt(
+      options.perf,
+      "raw:vacuum-no-candidates:func:\{raw_func_label}",
+    )
+    match
+      run_hot_pipeline_raw_vacuum_no_candidates(mod_, func_idx, descriptor) {
+      Some(result) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "raw:vacuum-no-candidates:func:\{raw_func_label}",
+          no_candidate_start_us,
+        )
+        return Ok(result)
+      }
+      None =>
+        perf_stop_timer_opt(
+          options.perf,
+          "raw:vacuum-no-candidates:func:\{raw_func_label}",
+          no_candidate_start_us,
+        )
+    }
   }
   match
     run_hot_pipeline_raw_remove_unused_names(
@@ -34177,6 +34214,13 @@ fn run_hot_pipeline_apply_hot_pass(
         } else {
           current_mod
         }
+        let @lib.FuncIdx(raw_guard_func_idx) = func_idx
+        let guard_timer_name = "guard:\{descriptor.name}-writeback:func:\{raw_guard_func_idx.reinterpret_as_int()}"
+        let guard_start_us = if descriptor.name == "vacuum" {
+          perf_start_timer_opt(options.perf, guard_timer_name)
+        } else {
+          0UL
+        }
         let skip_invalid_lower_reason = run_hot_pipeline_skip_invalid_lower_reason(
           current_mod,
           validation_mod,
@@ -34184,6 +34228,9 @@ fn run_hot_pipeline_apply_hot_pass(
           descriptor.name,
           result,
         )
+        if descriptor.name == "vacuum" {
+          perf_stop_timer_opt(options.perf, guard_timer_name, guard_start_us)
+        }
         if skip_invalid_lower_reason != None {
           pipeline_trace_hook(
             options.trace,

@@ -1957,7 +1957,7 @@ export function starshinePassSkippedRaw(stderr: string): boolean {
 export function parseStarshinePerfTimingSummary(stderr: string): StarshinePerfTimingSummary {
   const passElapsedMs = parseStarshinePassElapsedMs(stderr);
   const rawElapsedMs = sumStarshinePerfTimersMs(stderr, (name) => name.startsWith("raw:"));
-  const totalTimedElapsedMs = sumStarshinePerfTimersMs(stderr, () => true);
+  const totalTimedElapsedMs = sumStarshinePerfTimersMs(stderr, (name) => name !== "pipeline");
   const otherTimedElapsedMs = Math.max(0, totalTimedElapsedMs - passElapsedMs - rawElapsedMs);
   return {
     passElapsedMs,

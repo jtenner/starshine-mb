@@ -654,6 +654,7 @@ pub fn run_hot_pipeline(
     Err(err) => return Err(err)
   }
   (options.trace)("pipeline:start requested=\{requested_passes.length()}")
+  let pipeline_start_us = perf_start_timer_opt(options.perf, "pipeline")
   let mut current = mod_
   let pending_hot_passes : Array[HotPassRegistryEntry] = []
   let flush_hot_passes = fn() -> Result[Unit, String] {
@@ -738,6 +739,7 @@ pub fn run_hot_pipeline(
           "validate:final-module",
           validate_start_us,
         )
+        perf_stop_timer_opt(options.perf, "pipeline", pipeline_start_us)
         run_hot_pipeline_dump_invalid_module(current)
         return Err(
           run_hot_pipeline_format_final_validate_error(mod_, current, err),
@@ -745,6 +747,7 @@ pub fn run_hot_pipeline(
       }
     }
   }
+  perf_stop_timer_opt(options.perf, "pipeline", pipeline_start_us)
   perf_emit_counters_opt(options.perf, "pipeline:done")
   (options.trace)("pipeline:done")
   Ok(current)
