@@ -1820,6 +1820,53 @@ test "optimize-instructions raw skip lowers select-wrapped byte memory fill" {
 }
 
 ///|
+test "optimize-instructions raw skip folds constant eqz select shells" {
+  // OI-F count40 follow-up from
+  // `.tmp/oi-f-effectful-family-count40-20260630`: the remaining
+  // `oi-if-select-shell` residuals include size-losing raw-skipped select
+  // shells where a literal condition is wrapped in `i32.eqz`. Keep this narrow:
+  // direct i32 literal `eqz` conditions with pure stack operands only. The
+  // adjacent no-result `if` shell remains a separate parity gap because Binaryen
+  // reshapes it to a dropped value-if rather than deleting branch bodies.
+  let source = StringBuilder::new()
+  source.write_string("(module (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") i32.const 0 if i32.const 1 drop else i32.const 2 drop end i32.const 44 i32.const 55 i32.const 0 i32.eqz select drop))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("i32.eqz"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+  assert_true(pretty.contains("I32(44)"), msg=pretty)
+  assert_false(pretty.contains("I32(55)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions raw skip simplifies memory.size nonzero if conditions" {
   // Follow-up from `.tmp/oi-g-live-nonzero-copy-boundary-count77-20260628`:
   // the new live nonzero memory-copy transform exposed a raw-skip mismatch where

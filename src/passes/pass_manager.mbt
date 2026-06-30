@@ -24944,6 +24944,29 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
         _ => ()
       }
     }
+    if i + 4 < instrs.length() {
+      match
+        (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
+        (
+          true_value,
+          false_value,
+          @lib.I32Const(@lib.I32(cond)),
+          @lib.I32Eqz,
+          @lib.Select(_),
+        ) if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+            true_value,
+          ) &&
+          run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+            false_value,
+          ) => {
+          rewritten.push(if cond == 0 { true_value } else { false_value })
+          changed = true
+          i = i + 5
+          continue
+        }
+        _ => ()
+      }
+    }
     if i + 3 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
         (true_value, false_value, @lib.I32Const(@lib.I32(cond)), @lib.Select(_)) if run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
