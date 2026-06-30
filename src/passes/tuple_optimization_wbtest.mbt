@@ -141,7 +141,7 @@ test "tuple-optimization reuses analysis use-def during rewrite" {
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
   match
     pass_test_run_pipeline(
-      "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 11 i64.const 13 end local.set 1 local.set 0 local.get 0 drop local.get 1 drop))",
+      "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 11 i64.const 13 end local.set 1 local.tee 0 drop local.get 0 drop local.get 1 drop))",
       ["tuple-optimization"],
       options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
     ) {
@@ -192,103 +192,35 @@ test "tuple-optimization perf detail timers attribute analysis and rewrite phase
   )
   assert_true(
     text.contains(
+      "perf:timer name=detail:tuple-optimization:simple-drop-only-root-elision-fast-path",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
       "perf:timer name=detail:tuple-optimization:build-query-summary",
     ),
     msg=text,
   )
-  assert_true(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:link-copy-groups:no-copy-payload-fast-path",
-    ),
+  assert_false(
+    text.contains("perf:timer name=detail:tuple-optimization:link-copy-groups"),
     msg=text,
   )
   assert_false(
     text.contains(
-      "perf:timer name=detail:tuple-optimization:link-copy-groups elapsed_us=",
-    ),
-    msg=text,
-  )
-  assert_true(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:link-result-block-copy-groups:no-single-result-block-fast-path",
+      "perf:timer name=detail:tuple-optimization:build-rewrite-mask",
     ),
     msg=text,
   )
   assert_false(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:link-result-block-copy-groups elapsed_us=",
-    ),
-    msg=text,
-  )
-  assert_true(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:link-scalar-forward-copy-groups:no-scalar-forward-fast-path",
-    ),
-    msg=text,
-  )
-  assert_false(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:link-scalar-forward-copy-groups elapsed_us=",
-    ),
-    msg=text,
-  )
-  assert_false(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:rebuild-local-groups-after-scalar-links",
-    ),
-    msg=text,
-  )
-  assert_true(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:build-rewrite-mask:no-copy-fast-path",
-    ),
-    msg=text,
-  )
-  assert_true(
     text.contains(
       "perf:timer name=detail:tuple-optimization:precompute-drop-only-elision-mask",
     ),
     msg=text,
   )
-  assert_true(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:ensure-split-locals",
-    ),
-    msg=text,
-  )
-  assert_true(
+  assert_false(
     text.contains(
       "perf:timer name=detail:tuple-optimization:rewrite-group-defs",
-    ),
-    msg=text,
-  )
-  assert_true(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:source",
-    ),
-    msg=text,
-  )
-  assert_true(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
-    ),
-    msg=text,
-  )
-  assert_false(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:can-elide",
-    ),
-    msg=text,
-  )
-  assert_true(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
-    ),
-    msg=text,
-  )
-  assert_false(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs",
     ),
     msg=text,
   )
@@ -320,21 +252,24 @@ test "tuple-optimization rewrite detail timers aggregate many source groups" {
         #|  (func (type 0) (local i32 i64 i32 i64 i32 i64)
         #|    block (type 1) i32.const 11 i64.const 13 end
         #|    local.set 1
-        #|    local.set 0
+        #|    local.tee 0
+        #|    drop
         #|    local.get 0
         #|    drop
         #|    local.get 1
         #|    drop
         #|    block (type 1) i32.const 17 i64.const 19 end
         #|    local.set 3
-        #|    local.set 2
+        #|    local.tee 2
+        #|    drop
         #|    local.get 2
         #|    drop
         #|    local.get 3
         #|    drop
         #|    block (type 1) i32.const 23 i64.const 29 end
         #|    local.set 5
-        #|    local.set 4
+        #|    local.tee 4
+        #|    drop
         #|    local.get 4
         #|    drop
         #|    local.get 5
@@ -375,11 +310,11 @@ test "tuple-optimization rewrite detail timers aggregate many source groups" {
     ),
     1,
   )
-  assert_false(
-    text.contains(
-      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs",
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(
+      text, "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs elapsed_us=",
     ),
-    msg=text,
+    1,
   )
   assert_false(
     text.contains(
