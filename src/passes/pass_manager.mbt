@@ -23905,6 +23905,17 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
           continue
         }
         (
+          index,
+          @lib.Instruction::TableGet(table_idx),
+          @lib.Instruction::ReturnCallRef(type_idx),
+        ) => {
+          out.push(index)
+          out.push(@lib.Instruction::return_call_indirect(type_idx, table_idx))
+          changed = true
+          i += 3
+          continue
+        }
+        (
           @lib.Instruction::RefNull(_),
           @lib.Instruction::RefTest(nullable, _),
           @lib.Instruction::Drop,

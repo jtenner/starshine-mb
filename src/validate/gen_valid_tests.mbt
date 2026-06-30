@@ -8377,6 +8377,55 @@ fn gen_valid_test_has_table_call_ref_source(
 }
 
 ///|
+fn gen_valid_test_has_table_return_call_ref_source(
+  instrs : Array[Instruction],
+) -> Bool {
+  for i = 0; i + 2 < instrs.length(); i = i + 1 {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (I32Const(_), TableGet(_), ReturnCallRef(_)) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    match instr {
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_has_table_return_call_ref_source(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_has_table_return_call_ref_source(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_has_table_return_call_ref_source(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_module_has_table_return_call_ref_source(
+  mod_ : Module,
+) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_has_table_return_call_ref_source(instrs) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 fn gen_valid_test_module_has_call_ref_source_variants(mod_ : Module) -> Bool {
   match mod_.code_sec {
     Some(CodeSec(funcs)) => {
@@ -11153,10 +11202,10 @@ test "coverage-forced GenValid routes exact refs through locals and block result
 
 ///|
 test "OI-H call-ref trigger-smoke profile selects source-backed cases" {
-  let seeds = [0x5eedUL, 0x5eeeUL, 0x5eefUL, 0x5ef0UL, 0x5ef1UL]
+  let seeds = [0x5eedUL, 0x5eeeUL, 0x5eefUL, 0x5ef0UL, 0x5ef1UL, 0x5ef2UL]
   let expected_labels = [
     "oi-call-ref:local-carried-target", "oi-call-ref:block-produced-target", "oi-call-ref:return-call-ref-target",
-    "oi-call-ref:direct-target-wrapper", "oi-call-ref:table-get-target",
+    "oi-call-ref:direct-target-wrapper", "oi-call-ref:table-get-target", "oi-call-ref:return-table-get-target",
   ]
   for i = 0; i < seeds.length(); i = i + 1 {
     let seed = seeds[i]
@@ -11191,6 +11240,12 @@ test "OI-H call-ref trigger-smoke profile selects source-backed cases" {
     } else if expected_labels[i] == "oi-call-ref:table-get-target" {
       assert_true(
         gen_valid_test_module_has_table_call_ref_source(generated.wasm_module),
+      )
+    } else if expected_labels[i] == "oi-call-ref:return-table-get-target" {
+      assert_true(
+        gen_valid_test_module_has_table_return_call_ref_source(
+          generated.wasm_module,
+        ),
       )
     } else {
       assert_true(

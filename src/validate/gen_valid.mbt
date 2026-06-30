@@ -15127,7 +15127,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
     PassOiTupleProfile => 16
     PassOiLocalFactsProfile => 11
     PassOiBooleanSelectProfile => 4
-    PassOiCallRefProfile => 5
+    PassOiCallRefProfile => 6
     _ => 3
   }
 }
@@ -15298,7 +15298,8 @@ fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int {
     0x5eefUL => 3
     0x5ef0UL => 0
     0x5ef1UL => 4
-    _ => (seed % 5UL).to_int()
+    0x5ef2UL => 5
+    _ => (seed % 6UL).to_int()
   }
 }
 
@@ -15400,6 +15401,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         2 => Some("oi-call-ref:block-produced-target")
         3 => Some("oi-call-ref:return-call-ref-target")
         4 => Some("oi-call-ref:table-get-target")
+        5 => Some("oi-call-ref:return-table-get-target")
         _ => Some("oi-call-ref:direct-target-wrapper")
       }
     PassOiRefGcProfile =>
@@ -18887,7 +18889,11 @@ fn gen_valid_oi_boolean_select_profile_module(case : Int) -> Module {
 
 ///|
 fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
-  let run_type = gen_valid_precompute_void_func_type()
+  let run_type = if case == 5 {
+    RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
+  } else {
+    gen_valid_precompute_void_func_type()
+  }
   let target_type = if case == 3 {
     gen_valid_precompute_void_func_type()
   } else {
@@ -18931,6 +18937,12 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
         Instruction::call_ref(target_type_idx),
         Instruction::drop(),
       ]
+    5 =>
+      [
+        Instruction::i32_const(I32(0)),
+        Instruction::table_get(TableIdx::new(0U)),
+        Instruction::return_call_ref(target_type_idx),
+      ]
     _ =>
       [
         Instruction::ref_func(target_func_idx),
@@ -18971,7 +18983,7 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
         ),
       ]),
     )
-  if case == 4 {
+  if case == 4 || case == 5 {
     mod = mod.with_table_sec(
       TableSec::new([
         Table::new(
