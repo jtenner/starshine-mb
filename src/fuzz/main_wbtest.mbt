@@ -2563,7 +2563,7 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
     label in [
       "oi-call-ref:local-carried-target", "oi-call-ref:block-produced-target", "oi-call-ref:return-call-ref-target",
       "oi-call-ref:direct-target-wrapper", "oi-call-ref:table-get-target", "oi-call-ref:return-table-get-target",
-      "oi-call-ref:argument-direct-target",
+      "oi-call-ref:argument-direct-target", "oi-call-ref:argument-local-target",
     ] {
     assert_true(
       call_ref_manifest.contains(label),
