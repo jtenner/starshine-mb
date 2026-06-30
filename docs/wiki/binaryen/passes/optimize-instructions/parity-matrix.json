@@ -3239,7 +3239,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT where local mode support exists; otherwise focused Binaryen-only oracle rows until Starshine exposes trap-mode flags",
       "starshineStatus": "blocked-surface",
       "priority": "P1",
-      "blockerBoundaryReason": "Descriptor/exactness/TNH/IIT remains blocked for grouped compare-pass sweeps: the earlier broad pass-oi-ref-gc config generated descriptor-bearing modules that wasm-tools --features all rejected with malformed section id 14, and the current pass-oi-ref-gc trigger-smoke selector intentionally covers only non-descriptor OI-I reference basics. A 2026-06-30 disabled OI-J count18 run again sampled only those non-descriptor labels: local-carried matched 8/8, direct-null/test/cast and branch-cast residuals mirrored classified OI-I output drift with validation plus size/opcode evidence, and no descriptor/exactness/TNH/IIT forms were generated. OI-J needs a dedicated descriptor/exactness profile or compatible oracle/toolchain path before family signoff.",
+      "blockerBoundaryReason": "Descriptor/exactness/TNH/IIT remains blocked for grouped compare-pass sweeps: the earlier broad pass-oi-ref-gc config generated descriptor-bearing modules that wasm-tools --features all rejected with malformed section id 14, and the current pass-oi-ref-gc trigger-smoke selector intentionally covers only non-descriptor OI-I reference basics. A 2026-06-30 post-OI-F disabled OI-J count24 run again sampled only those non-descriptor labels: local-carried matched 10/10, direct-null/test/cast and branch-cast residuals mirrored classified OI-I output drift with validation plus size/opcode evidence, and no descriptor/exactness/TNH/IIT forms were generated. OI-J needs a dedicated descriptor/exactness profile or compatible oracle/toolchain path before family signoff.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md",
         "docs/wiki/raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md",
@@ -3256,7 +3256,8 @@
         "wasm-tools validate --features all passed for Binaryen and Starshine raw outputs in the two OI-J non-descriptor smoke failure dirs (2026-06-27).",
         ".tmp/oi-ref-gc-branch-cast-fix4-20260627/oi-j/OI-J-descriptor-exactness-trap-modes: non-descriptor branch-cast label now matches after the OI-I fix, but the row remains blocked-surface for descriptor/exactness/TNH/IIT because pass-oi-ref-gc is still deliberately non-descriptor (2026-06-27).",
         "bun scripts/oi-parity-sweep.ts --family OI-J --include-disabled --count 15 --out-dir .tmp/oi-j-nondescriptor-boundary-count15-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 15/15 with 9 normalized matches, 6 raw mismatches, zero validation/generator/property/command failures, profile cases branch-cast-boundaries=5, direct-null-test-cast-eq=4, local-carried-null-test-cast=6. Manual wasm-tools validate --features all accepted all 24 residual raw/canonical artifacts. local-carried matched 6/6; direct-null/test/cast residuals had Starshine deltas -12/-28/-344 with ref.is_null 8/4, drop 38/30, unreachable 4/4; branch-cast residuals had deltas -8/0/-8 with br_on_cast 4/4, br_on_cast_fail 4/4, drop 16/16, unreachable 2/2. This remains non-descriptor OI-I evidence only and does not unblock OI-J descriptor/exactness/TNH/IIT (2026-06-30).",
-        "bun scripts/oi-parity-sweep.ts --family OI-J --include-disabled --count 18 --out-dir .tmp/oi-j-nondescriptor-boundary-count18-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 18/18 with 11 normalized matches, 7 raw mismatches, zero validation/generator/property/command failures, profile cases branch-cast-boundaries=5, direct-null-test-cast-eq=5, local-carried-null-test-cast=8. Manual wasm-tools validate --features all accepted all 28 residual raw/canonical artifacts. local-carried matched 8/8; direct-null/test/cast residuals had Starshine deltas -18/-34/-406 with ref.is_null 10/6, drop 49/39, local.get 2/2, unreachable 5/5; branch-cast residuals had deltas -8/0/-8 with br_on_cast 8/8, br_on_cast_fail 4/4, drop 16/16, unreachable 2/2. This remains non-descriptor OI-I evidence only and does not unblock OI-J descriptor/exactness/TNH/IIT (2026-06-30)."
+        "bun scripts/oi-parity-sweep.ts --family OI-J --include-disabled --count 18 --out-dir .tmp/oi-j-nondescriptor-boundary-count18-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 18/18 with 11 normalized matches, 7 raw mismatches, zero validation/generator/property/command failures, profile cases branch-cast-boundaries=5, direct-null-test-cast-eq=5, local-carried-null-test-cast=8. Manual wasm-tools validate --features all accepted all 28 residual raw/canonical artifacts. local-carried matched 8/8; direct-null/test/cast residuals had Starshine deltas -18/-34/-406 with ref.is_null 10/6, drop 49/39, local.get 2/2, unreachable 5/5; branch-cast residuals had deltas -8/0/-8 with br_on_cast 8/8, br_on_cast_fail 4/4, drop 16/16, unreachable 2/2. This remains non-descriptor OI-I evidence only and does not unblock OI-J descriptor/exactness/TNH/IIT (2026-06-30).",
+        "bun scripts/oi-parity-sweep.ts --family OI-J --include-disabled --count 24 --out-dir .tmp/oi-j-nondescriptor-post-oif-count24-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute -- --max-failures 2000 --keep-going-after-command-failures: compared 24/24 with 13 normalized matches, 11 raw mismatches, zero validation/generator/property/command failures, profile cases branch-cast-boundaries=6, direct-null-test-cast-eq=8, local-carried-null-test-cast=10. Manual wasm-tools validate --features all accepted all 44 residual raw/canonical artifacts. Residual deltas: direct-null/test/cast -30/-54/-640 over eight residuals; branch-cast -12/0/-12 over three residuals. This is still non-descriptor OI-I smoke evidence, not OI-J descriptor/exactness/TNH/IIT coverage (2026-06-30)."
       ],
       "genValidProfiles": [
         "pass-oi-ref-gc"
@@ -3278,33 +3279,33 @@
           "transformId": "oi-local-carried",
           "representativeFailureDir": null,
           "status": "covered",
-          "agentClassification": "Non-descriptor local-carried null/test/cast smoke matched 6/6 in the disabled OI-J count15 refresh after the OI-I known-null local cleanup; this is OI-I evidence only and does not cover descriptor/exactness/TNH/IIT.",
-          "observedDiff": "No normalized diff for six local-carried cases; compare-pass reported match with validation/generator/property/command failures all zero.",
+          "agentClassification": "Non-descriptor local-carried null/test/cast smoke matched 10/10 in the disabled OI-J count24 refresh after the OI-I known-null local cleanup; this is OI-I evidence only and does not cover descriptor/exactness/TNH/IIT.",
+          "observedDiff": "No normalized diff for ten local-carried cases; compare-pass reported match with validation/generator/property/command failures all zero.",
           "nextAction": "Keep OI-J blocked until a descriptor/exactness-specific profile or compatible oracle path exists; do not treat this OI-I smoke match as OI-J coverage.",
-          "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-boundary-count15-20260630: oi-ref-gc:local-carried-null-test-cast matched 6/6."
+          "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-post-oif-count24-20260630: oi-ref-gc:local-carried-null-test-cast matched 10/10."
         },
         {
           "label": "oi-ref-gc:branch-cast-boundaries",
           "transformId": "oi-local-carried",
-          "representativeFailureDir": ".tmp/oi-ref-gc-branch-cast-fix4-20260627/oi-j/OI-J-descriptor-exactness-trap-modes/cases.jsonl",
+          "representativeFailureDir": ".tmp/oi-j-nondescriptor-post-oif-count24-20260630/oi-j/OI-J-descriptor-exactness-trap-modes/failures",
           "status": "starshine-win-candidate",
           "agentClassification": "Non-descriptor branch-cast structural drift under the disabled OI-J row mirrors OI-I evidence; sampled canonical-neutral/raw-smaller output drift, not descriptor/exactness/TNH/IIT coverage.",
-          "observedDiff": "Two branch-cast residuals validate in raw/canonical form. Both tools preserve branch/effect/control structure with br_on_cast 4/4, br_on_cast_fail 4/4, drop 16/16, unreachable 2/2, and i32.const 12/12; aggregate Starshine deltas are raw/canonical/WAT -8/0/-8.",
+          "observedDiff": "Three branch-cast residuals validate in raw/canonical form. Both tools preserve branch/control structure with br_on_cast 12/12, br_on_cast_fail 6/6, drop 24/24, unreachable 3/3, and i32.const 18/18; aggregate Starshine deltas are raw/canonical/WAT -12/0/-12.",
           "nextAction": "Keep as non-descriptor OI-I structural evidence only. For OI-J, add true descriptor/exactness/TNH/IIT trigger constructors or an oracle path before changing the blocked-surface status.",
-          "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-boundary-count15-20260630 branch-cast residual measurement and wasm-tools validation."
+          "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-post-oif-count24-20260630 branch-cast residual measurement and wasm-tools validation."
         },
         {
           "label": "oi-ref-gc:direct-null-test-cast-eq",
           "transformId": "oi-trapping-sibling",
-          "representativeFailureDir": ".tmp/oi-ref-gc-trigger-grouped-sweep-20260627/oi-j/OI-J-descriptor-exactness-trap-modes/failures/case-000002-gen-valid-transform-oi-trapping-sibling",
+          "representativeFailureDir": ".tmp/oi-j-nondescriptor-post-oif-count24-20260630/oi-j/OI-J-descriptor-exactness-trap-modes/failures",
           "status": "starshine-win-candidate",
           "agentClassification": "Non-descriptor direct null/test/cast output drift under the disabled OI-J row mirrors OI-I sampled Starshine-win cleanup; not descriptor/exactness/TNH/IIT coverage.",
-          "observedDiff": "Four direct-null/test/cast residuals validate in raw/canonical form. Starshine removes more dropped null-test/drop debris while preserving local/control/trap structure: ref.is_null 8/4, local.get 2/2, drop 38/30, unreachable 4/4; aggregate Starshine deltas are raw/canonical/WAT -12/-28/-344.",
+          "observedDiff": "Eight direct-null/test/cast residuals validate in raw/canonical form. Starshine removes more dropped null-test/drop debris while preserving local/control/trap structure: ref.is_null 16/10, local.get 3/3, drop 79/63, unreachable 8/8, and i32.const 52/58; aggregate Starshine deltas are raw/canonical/WAT -30/-54/-640.",
           "nextAction": "Keep as non-descriptor OI-I evidence only. Reopen under OI-J only with descriptor-compatible inputs that exercise exactness/TNH/IIT semantics.",
-          "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-boundary-count15-20260630 direct-null/test/cast residual measurement and wasm-tools validation."
+          "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-post-oif-count24-20260630 direct-null/test/cast residual measurement and wasm-tools validation."
         }
       ],
-      "notes": "Keep OI-J open. The 2026-06-30 include-disabled count15 lane is useful only as a guardrail proving the row still routes to non-descriptor pass-oi-ref-gc smoke: compared 15/15, normalized 9, mismatches 6, failures 0. It adds no descriptor-compatible evidence. Future OI-J work must build a true descriptor/exactness/TNH/IIT profile or oracle path, then validate and classify those descriptor-bearing outputs separately from OI-I ref basics."
+      "notes": "The post-OI-F OI-J include-disabled count24 refresh at .tmp/oi-j-nondescriptor-post-oif-count24-20260630 still exercises only the deliberately non-descriptor pass-oi-ref-gc profile, so the row remains blocked-surface for descriptor/exactness/TNH/IIT. It compared 24/24 with 13 normalized matches and 11 raw mismatches, zero failures, and all residual raw/canonical artifacts validated. Local-carried-null-test-cast matched 10/10; direct-null/test/cast remains sampled Starshine-win output drift across eight residuals with deltas -30/-54/-640; branch-cast remains canonical-neutral/raw-smaller structural drift across three residuals with deltas -12/0/-12. No descriptor-compatible evidence exists yet."
     },
     {
       "id": "OI-K-gc-constructors-fields-arrays",
