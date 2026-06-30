@@ -4234,6 +4234,9 @@ fn gen_valid_test_tuple_body_has_select(body : Array[Instruction]) -> Bool {
 ///|
 fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
   if gen_valid_test_has_func_export(mod_, "run") {
+    if gen_valid_test_tuple_helper_has_effect(mod_) {
+      return "runtime-effectful-selected-lane"
+    }
     return "runtime-selected-lane"
   }
   fn classify_block_body(body : Array[Instruction]) -> String {
@@ -4427,6 +4430,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let runtime_effectful_selected = match
+    gen_valid_module_result_from_seed(
+      0x5efcUL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -4491,6 +4502,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5efbUL),
     Some("oi-tuple:runtime-selected-lane"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5efcUL),
+    Some("oi-tuple:runtime-effectful-selected-lane"),
   )
   assert_true(
     gen_valid_test_tuple_first_block_i32_const(
@@ -4574,8 +4589,26 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     gen_valid_test_tuple_selected_lane_signature(runtime_selected.wasm_module),
     "runtime-selected-lane",
   )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(
+      runtime_effectful_selected.wasm_module,
+    ),
+    "runtime-effectful-selected-lane",
+  )
   assert_true(
     gen_valid_test_has_func_export(runtime_selected.wasm_module, "run"),
+  )
+  assert_true(
+    gen_valid_test_has_func_export(
+      runtime_effectful_selected.wasm_module,
+      "run",
+    ),
+  )
+  assert_true(
+    gen_valid_test_tuple_helper_has_effect(
+      runtime_effectful_selected.wasm_module,
+    ),
+    msg="expected runtime-exported effectful tuple selected-lane helper",
   )
 }
 
