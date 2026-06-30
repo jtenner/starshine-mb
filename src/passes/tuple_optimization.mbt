@@ -6,6 +6,7 @@ struct HotTupleOptimizationGroup {
   mut host_lane : Int?
   mut copy_source : Int?
   mut copy_payload_locals : Array[Int]?
+  has_copy_payload_candidate : Bool
   mut uses : Int
   mut valid_uses : Int
   neighbors : Array[Int]
@@ -98,6 +99,9 @@ pub impl Show for HotTupleOptimizationGroup with fn output(self, logger) {
     Some(copy_payload_locals) => copy_payload_locals.output(logger)
     None => logger.write_string("None")
   }
+  logger.write_string(", ")
+  logger.write_string("has_copy_payload_candidate=")
+  self.has_copy_payload_candidate.output(logger)
   logger.write_string(", ")
   logger.write_string("uses=")
   self.uses.output(logger)
@@ -209,6 +213,9 @@ fn tuple_optimization_collect_seed_group(
     host_lane,
     copy_source: None,
     copy_payload_locals: None,
+    has_copy_payload_candidate: tuple_optimization_block_has_copy_payload_candidate(
+      func, producer, result_arity,
+    ),
     uses: 1 + tee_defs,
     valid_uses: 1 + tee_defs,
     neighbors: [],
@@ -242,6 +249,50 @@ fn tuple_optimization_collect_seed_groups(
     }
   }
   groups
+}
+
+///|
+fn tuple_optimization_block_has_copy_payload_candidate(
+  func : @ir.HotFunc,
+  producer : Int,
+  lane_count : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, producer).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, producer)
+  let mut remaining_lanes = lane_count
+  let mut slot = @ir.hot_region_root_count(func, body_ref) - 1
+  while remaining_lanes > 0 {
+    if slot < 0 {
+      return false
+    }
+    let payload_root = @ir.hot_region_get(func, body_ref, slot)
+    let root_arity = @ir.hot_node_result_arity(func, payload_root)
+    if root_arity <= 0 || root_arity > remaining_lanes {
+      return false
+    }
+    match tuple_optimization_try_payload_source_read(func, payload_root) {
+      Some(_) => ()
+      None => return false
+    }
+    remaining_lanes = remaining_lanes - root_arity
+    slot = slot - 1
+  }
+  true
+}
+
+///|
+fn tuple_optimization_groups_have_copy_payload_candidate(
+  groups : Array[HotTupleOptimizationGroup],
+) -> Bool {
+  for group in groups {
+    if group.has_copy_payload_candidate {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -721,6 +772,7 @@ fn tuple_optimization_collect_result_block_copy_group(
               host_lane: None,
               copy_source: Some(source_group),
               copy_payload_locals: Some(resolved_source_locals),
+              has_copy_payload_candidate: false,
               uses: tuple_optimization_count_tee_defs(func, defining_nodes),
               valid_uses: tuple_optimization_count_tee_defs(
                 func, defining_nodes,
@@ -850,6 +902,7 @@ fn tuple_optimization_collect_result_block_copy_group(
         host_lane: None,
         copy_source: Some(source_group),
         copy_payload_locals: Some(resolved_source_locals),
+        has_copy_payload_candidate: false,
         uses: tuple_optimization_count_tee_defs(func, defining_nodes),
         valid_uses: tuple_optimization_count_tee_defs(func, defining_nodes),
         neighbors: [source_group],
@@ -1044,6 +1097,7 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
         host_lane: source.host_lane,
         copy_source: Some(source_group_id),
         copy_payload_locals: Some(source_payload_locals),
+        has_copy_payload_candidate: false,
         uses: tuple_optimization_count_tee_defs(func, defining_nodes),
         valid_uses: tuple_optimization_count_tee_defs(func, defining_nodes),
         neighbors: [source_group_id],
@@ -1979,15 +2033,25 @@ fn tuple_optimization_analyze_with_groups(
   )
   let copy_read_nodes = @bitset.BitSet::new(@ir.hot_node_count(func))
   let copy_write_nodes = @bitset.BitSet::new(@ir.hot_node_count(func))
-  let link_copy_start_us = perf_start_timer_opt(
-    perf, "detail:tuple-optimization:link-copy-groups",
-  )
-  tuple_optimization_link_copy_groups(
-    func, query_summary, groups, local_group_ids, copy_read_nodes, copy_write_nodes,
-  )
-  perf_stop_timer_opt(
-    perf, "detail:tuple-optimization:link-copy-groups", link_copy_start_us,
-  )
+  if tuple_optimization_groups_have_copy_payload_candidate(groups) {
+    let link_copy_start_us = perf_start_timer_opt(
+      perf, "detail:tuple-optimization:link-copy-groups",
+    )
+    tuple_optimization_link_copy_groups(
+      func, query_summary, groups, local_group_ids, copy_read_nodes, copy_write_nodes,
+    )
+    perf_stop_timer_opt(
+      perf, "detail:tuple-optimization:link-copy-groups", link_copy_start_us,
+    )
+  } else {
+    let link_copy_fast_start_us = perf_start_timer_opt(
+      perf, "detail:tuple-optimization:link-copy-groups:no-copy-payload-fast-path",
+    )
+    perf_stop_timer_opt(
+      perf, "detail:tuple-optimization:link-copy-groups:no-copy-payload-fast-path",
+      link_copy_fast_start_us,
+    )
+  }
   if query_summary.has_single_result_block_copy_candidate {
     let link_result_start_us = perf_start_timer_opt(
       perf, "detail:tuple-optimization:link-result-block-copy-groups",

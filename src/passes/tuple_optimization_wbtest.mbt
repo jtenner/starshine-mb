@@ -198,6 +198,18 @@ test "tuple-optimization perf detail timers attribute analysis and rewrite phase
   )
   assert_true(
     text.contains(
+      "perf:timer name=detail:tuple-optimization:link-copy-groups:no-copy-payload-fast-path",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:link-copy-groups elapsed_us=",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
       "perf:timer name=detail:tuple-optimization:link-result-block-copy-groups:no-single-result-block-fast-path",
     ),
     msg=text,
