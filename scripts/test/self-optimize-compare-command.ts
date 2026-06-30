@@ -220,6 +220,8 @@ process.exit(0);
   const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
     passFlags: string[];
     binaryenPassFlags: string[];
+    starshineRawSize: number;
+    binaryenRawSize: number;
     starshineSize: number;
     binaryenSize: number;
     wasmEqual: boolean;
@@ -246,6 +248,8 @@ process.exit(0);
     ]),
     `unexpected summary Binaryen pass flags:\n${JSON.stringify(summary, null, 2)}`,
   );
+  assert(summary.starshineRawSize === "starshine-wasm".length, `unexpected raw Starshine size: ${summary.starshineRawSize}`);
+  assert(summary.binaryenRawSize === "binaryen-wasm".length, `unexpected raw Binaryen size: ${summary.binaryenRawSize}`);
   assert(summary.starshineSize === "binaryen-wasm".length, `unexpected Starshine size: ${summary.starshineSize}`);
   assert(summary.binaryenSize === "binaryen-wasm".length, `unexpected Binaryen size: ${summary.binaryenSize}`);
   assert(summary.wasmEqual === true, "expected canonical wasm equality");
@@ -280,6 +284,10 @@ process.exit(0);
   );
   assert(result.stdout.includes("Starshine runtime (ms):"), `expected Starshine runtime in stdout:\n${result.stdout}`);
   assert(result.stdout.includes("Binaryen runtime (ms):"), `expected Binaryen runtime in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine raw wasm size: 14"), `expected raw Starshine size in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Binaryen raw wasm size: 13"), `expected raw Binaryen size in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Starshine canonical wasm size: 13"), `expected canonical Starshine size in stdout:\n${result.stdout}`);
+  assert(result.stdout.includes("Binaryen canonical wasm size: 13"), `expected canonical Binaryen size in stdout:\n${result.stdout}`);
   assert(
     result.stdout.includes("Starshine at least as fast: no"),
     `expected runtime parity verdict in stdout:\n${result.stdout}`,

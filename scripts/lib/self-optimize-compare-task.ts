@@ -39,6 +39,8 @@ type ComparisonSummary = {
   timingOnly: boolean;
   starshineCommand: string[];
   binaryenCommand: string[];
+  starshineRawSize: number;
+  binaryenRawSize: number;
   starshineSize: number;
   binaryenSize: number;
   wasmEqual: boolean;
@@ -2414,6 +2416,8 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     timingOnly: options.timingOnly,
     starshineCommand: [starshineInvocation.command, ...starshineArgs],
     binaryenCommand: [options.wasmOptBin, ...binaryenArgs],
+    starshineRawSize: fs.statSync(starshineRawOutputPath).size,
+    binaryenRawSize: fs.statSync(binaryenRawOutputPath).size,
     starshineSize: fs.statSync(starshineOutputPath).size,
     binaryenSize: fs.statSync(binaryenOutputPath).size,
     wasmEqual,
@@ -2465,6 +2469,10 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     process.stdout.write(`Binaryen normalized WAT: ${binaryenWatPath}\n`);
   }
   process.stdout.write(`Canonical wasm equal: ${summary.wasmEqual ? "yes" : "no"}\n`);
+  process.stdout.write(`Starshine raw wasm size: ${summary.starshineRawSize}\n`);
+  process.stdout.write(`Binaryen raw wasm size: ${summary.binaryenRawSize}\n`);
+  process.stdout.write(`Starshine canonical wasm size: ${summary.starshineSize}\n`);
+  process.stdout.write(`Binaryen canonical wasm size: ${summary.binaryenSize}\n`);
   process.stdout.write(`Starshine runtime (ms): ${summary.starshineElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Binaryen runtime (ms): ${summary.binaryenElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine at least as fast: ${summary.starshineAtLeastAsFast ? "yes" : "no"}\n`);
