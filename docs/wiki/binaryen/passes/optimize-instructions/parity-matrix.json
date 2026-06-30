@@ -3011,7 +3011,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT where local mode support exists; otherwise focused Binaryen-only oracle rows until Starshine exposes trap-mode flags",
       "starshineStatus": "blocked-surface",
       "priority": "P1",
-      "blockerBoundaryReason": "Descriptor/exactness/TNH/IIT remains blocked for grouped compare-pass sweeps: the earlier broad pass-oi-ref-gc config generated descriptor-bearing modules that wasm-tools --features all rejected with malformed section id 14, and the new pass-oi-ref-gc trigger-smoke selector intentionally covers only non-descriptor OI-I reference basics. OI-J needs a dedicated descriptor/exactness profile or oracle/toolchain support before family signoff.",
+      "blockerBoundaryReason": "Descriptor/exactness/TNH/IIT remains blocked for grouped compare-pass sweeps: the earlier broad pass-oi-ref-gc config generated descriptor-bearing modules that wasm-tools --features all rejected with malformed section id 14, and the current pass-oi-ref-gc trigger-smoke selector intentionally covers only non-descriptor OI-I reference basics. A 2026-06-30 disabled OI-J count15 run sampled only those non-descriptor labels: local-carried matched 6/6, direct-null/test/cast and branch-cast residuals mirrored classified OI-I output drift with validation and size/opcode evidence, and no descriptor/exactness/TNH/IIT forms were generated. OI-J needs a dedicated descriptor/exactness profile or compatible oracle/toolchain path before family signoff.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md",
         "docs/wiki/raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md",
@@ -3026,7 +3026,8 @@
         ".tmp/oi-ref-gc-grouped-sweep-20260627 initial grouped OI-J --include-disabled attempt produced 0/3 comparable cases because descriptor-bearing pass-oi-ref-gc inputs failed wasm-tools --features all with malformed section id 14 (2026-06-27).",
         ".tmp/oi-ref-gc-trigger-grouped-sweep-20260627/oi-j/OI-J-descriptor-exactness-trap-modes: after pass-oi-ref-gc was narrowed to non-descriptor trigger-smoke, --include-disabled compared 3/3 with one match and two raw mismatches, but the run is not descriptor/exactness/TNH/IIT evidence (2026-06-27).",
         "wasm-tools validate --features all passed for Binaryen and Starshine raw outputs in the two OI-J non-descriptor smoke failure dirs (2026-06-27).",
-        ".tmp/oi-ref-gc-branch-cast-fix4-20260627/oi-j/OI-J-descriptor-exactness-trap-modes: non-descriptor branch-cast label now matches after the OI-I fix, but the row remains blocked-surface for descriptor/exactness/TNH/IIT because pass-oi-ref-gc is still deliberately non-descriptor (2026-06-27)."
+        ".tmp/oi-ref-gc-branch-cast-fix4-20260627/oi-j/OI-J-descriptor-exactness-trap-modes: non-descriptor branch-cast label now matches after the OI-I fix, but the row remains blocked-surface for descriptor/exactness/TNH/IIT because pass-oi-ref-gc is still deliberately non-descriptor (2026-06-27).",
+        "bun scripts/oi-parity-sweep.ts --family OI-J --include-disabled --count 15 --out-dir .tmp/oi-j-nondescriptor-boundary-count15-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 15/15 with 9 normalized matches, 6 raw mismatches, zero validation/generator/property/command failures, profile cases branch-cast-boundaries=5, direct-null-test-cast-eq=4, local-carried-null-test-cast=6. Manual wasm-tools validate --features all accepted all 24 residual raw/canonical artifacts. local-carried matched 6/6; direct-null/test/cast residuals had Starshine deltas -12/-28/-344 with ref.is_null 8/4, drop 38/30, unreachable 4/4; branch-cast residuals had deltas -8/0/-8 with br_on_cast 4/4, br_on_cast_fail 4/4, drop 16/16, unreachable 2/2. This remains non-descriptor OI-I evidence only and does not unblock OI-J descriptor/exactness/TNH/IIT (2026-06-30)."
       ],
       "genValidProfiles": [
         "pass-oi-ref-gc"
@@ -3048,32 +3049,33 @@
           "transformId": "oi-local-carried",
           "representativeFailureDir": null,
           "status": "covered",
-          "agentClassification": "Non-descriptor local-carried reference smoke matched in the disabled OI-J run, but this is OI-I evidence and does not cover descriptor/exactness/TNH/IIT.",
-          "observedDiff": "No normalized diff for case 000003; compare-pass reported match with validation/generator/property/command failures all zero.",
-          "nextAction": "Keep OI-J blocked until a descriptor/exactness profile or compatible oracle path exists; do not treat this OI-I smoke match as OI-J coverage.",
-          "lastCheckedEvidence": "2026-06-27 .tmp/oi-ref-gc-trigger-grouped-sweep-20260627 OI-J case 000003."
+          "agentClassification": "Non-descriptor local-carried null/test/cast smoke matched 6/6 in the disabled OI-J count15 refresh after the OI-I known-null local cleanup; this is OI-I evidence only and does not cover descriptor/exactness/TNH/IIT.",
+          "observedDiff": "No normalized diff for six local-carried cases; compare-pass reported match with validation/generator/property/command failures all zero.",
+          "nextAction": "Keep OI-J blocked until a descriptor/exactness-specific profile or compatible oracle path exists; do not treat this OI-I smoke match as OI-J coverage.",
+          "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-boundary-count15-20260630: oi-ref-gc:local-carried-null-test-cast matched 6/6."
         },
         {
           "label": "oi-ref-gc:branch-cast-boundaries",
           "transformId": "oi-local-carried",
           "representativeFailureDir": ".tmp/oi-ref-gc-branch-cast-fix4-20260627/oi-j/OI-J-descriptor-exactness-trap-modes/cases.jsonl",
-          "status": "covered",
-          "agentClassification": "Non-descriptor branch-cast smoke now matches after the OI-I fix; still not OI-J descriptor/exactness/TNH/IIT coverage.",
-          "observedDiff": "Fresh disabled OI-J grouped run reports branch-cast-boundaries as a match with zero validation/generator/property/command failures. This only proves the shared non-descriptor OI-I branch-cast cleanup applies when the row is sampled under OI-J transforms.",
-          "nextAction": "Keep OI-J blocked until a descriptor/exactness-specific profile or compatible oracle path exists; do not close descriptor/exactness/TNH/IIT from this non-descriptor match.",
-          "lastCheckedEvidence": "2026-06-27 .tmp/oi-ref-gc-branch-cast-fix4-20260627 OI-J case label oi-ref-gc:branch-cast-boundaries matched."
+          "status": "starshine-win-candidate",
+          "agentClassification": "Non-descriptor branch-cast structural drift under the disabled OI-J row mirrors OI-I evidence; sampled canonical-neutral/raw-smaller output drift, not descriptor/exactness/TNH/IIT coverage.",
+          "observedDiff": "Two branch-cast residuals validate in raw/canonical form. Both tools preserve branch/effect/control structure with br_on_cast 4/4, br_on_cast_fail 4/4, drop 16/16, unreachable 2/2, and i32.const 12/12; aggregate Starshine deltas are raw/canonical/WAT -8/0/-8.",
+          "nextAction": "Keep as non-descriptor OI-I structural evidence only. For OI-J, add true descriptor/exactness/TNH/IIT trigger constructors or an oracle path before changing the blocked-surface status.",
+          "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-boundary-count15-20260630 branch-cast residual measurement and wasm-tools validation."
         },
         {
           "label": "oi-ref-gc:direct-null-test-cast-eq",
           "transformId": "oi-trapping-sibling",
           "representativeFailureDir": ".tmp/oi-ref-gc-trigger-grouped-sweep-20260627/oi-j/OI-J-descriptor-exactness-trap-modes/failures/case-000002-gen-valid-transform-oi-trapping-sibling",
           "status": "starshine-win-candidate",
-          "agentClassification": "Sampled Starshine-win candidate for synthetic dead trapping sibling plus direct null/test/cast cleanup, not OI-J descriptor/exactness coverage.",
-          "observedDiff": "The transform inserts a dead if with scalar div/rem-by-zero siblings. Starshine removes that dead trap shell and folds more null/test/cast debris, producing raw/canonical sizes 54/43 bytes versus Binaryen 74/74 bytes. Both raw outputs validate. This classification relies on the transform contract that the trap siblings are under an i32.const 0 dead if.",
-          "nextAction": "If this recurs under OI-F/OI-D trap-boundary rows, measure broader size/semantic evidence before keeping the Starshine shape. For OI-J, add true descriptor/exactness/TNH/IIT trigger constructors instead.",
-          "lastCheckedEvidence": "2026-06-27 grouped OI-J case 000002; wasm-tools validate --features all passed for both raw outputs."
+          "agentClassification": "Non-descriptor direct null/test/cast output drift under the disabled OI-J row mirrors OI-I sampled Starshine-win cleanup; not descriptor/exactness/TNH/IIT coverage.",
+          "observedDiff": "Four direct-null/test/cast residuals validate in raw/canonical form. Starshine removes more dropped null-test/drop debris while preserving local/control/trap structure: ref.is_null 8/4, local.get 2/2, drop 38/30, unreachable 4/4; aggregate Starshine deltas are raw/canonical/WAT -12/-28/-344.",
+          "nextAction": "Keep as non-descriptor OI-I evidence only. Reopen under OI-J only with descriptor-compatible inputs that exercise exactness/TNH/IIT semantics.",
+          "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-boundary-count15-20260630 direct-null/test/cast residual measurement and wasm-tools validation."
         }
-      ]
+      ],
+      "notes": "Keep OI-J open. The 2026-06-30 include-disabled count15 lane is useful only as a guardrail proving the row still routes to non-descriptor pass-oi-ref-gc smoke: compared 15/15, normalized 9, mismatches 6, failures 0. It adds no descriptor-compatible evidence. Future OI-J work must build a true descriptor/exactness/TNH/IIT profile or oracle path, then validate and classify those descriptor-bearing outputs separately from OI-I ref basics."
     },
     {
       "id": "OI-K-gc-constructors-fields-arrays",
