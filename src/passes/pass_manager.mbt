@@ -27992,6 +27992,73 @@ fn run_hot_pipeline_raw_vacuum_body_is_recursive_call_prefix_if_wrapper_candidat
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instr_can_prefix_side_effect_if_wrapper(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.GlobalSet(_)
+    | @lib.TableSet(_)
+    | @lib.I32Store(_)
+    | @lib.I64Store(_)
+    | @lib.F32Store(_)
+    | @lib.F64Store(_)
+    | @lib.I32Store8(_)
+    | @lib.I32Store16(_)
+    | @lib.I64Store8(_)
+    | @lib.I64Store16(_)
+    | @lib.I64Store32(_)
+    | @lib.MemoryCopy(_, _)
+    | @lib.MemoryFill(_)
+    | @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
+    | @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Unreachable
+    | @lib.Block(_, _)
+    | @lib.Loop(_, _)
+    | @lib.If(_, _, _)
+    | @lib.TryTable(_, _, _) => false
+    _ => true
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 2 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(@lib.VoidBlockType, _, _) => ()
+    _ => return false
+  }
+  if run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  let mut saw_local_set = false
+  let mut call_count = 0
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    if !run_hot_pipeline_raw_vacuum_instr_can_prefix_side_effect_if_wrapper(
+        body[idx],
+      ) {
+      return false
+    }
+    match body[idx] {
+      @lib.LocalSet(_) => saw_local_set = true
+      @lib.Call(_) => call_count = call_count + 1
+      _ => ()
+    }
+  }
+  saw_local_set && call_count >= 2
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_is_terminal_unreachable_block_wrapper_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -28480,6 +28547,21 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
               next_body,
             ) &&
             !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(next_body) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
+              body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
+              next_body,
+            ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
             let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
               next_body, 0,
