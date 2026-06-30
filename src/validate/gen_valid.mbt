@@ -702,6 +702,10 @@ pub enum GenValidProfile {
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
+  TupleOptimizationSpillProfile
+  TupleOptimizationCopyChainProfile
+  TupleOptimizationTeeProfile
+  TupleOptimizationAllProfile
   DeadCodeEliminationNonControlProfile
   DeadCodeEliminationBlockSuffixProfile
   DeadCodeEliminationIfBothArmsProfile
@@ -831,6 +835,10 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingMultiSetGlobalGetWindowProfile =>
       "code-pushing-multi-set-global-get-window"
     CodePushingAllProfile => "code-pushing-all"
+    TupleOptimizationSpillProfile => "tuple-optimization-spill"
+    TupleOptimizationCopyChainProfile => "tuple-optimization-copy-chain"
+    TupleOptimizationTeeProfile => "tuple-optimization-tee"
+    TupleOptimizationAllProfile => "tuple-optimization-all"
     DeadCodeEliminationNonControlProfile => "dead-code-elimination-non-control"
     DeadCodeEliminationBlockSuffixProfile =>
       "dead-code-elimination-block-suffix"
@@ -881,6 +889,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
+    | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
     | RemoveUnusedBrsAllProfile
     | SsaNomergeAllProfile
@@ -947,6 +956,12 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingMultiSetDropWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetLocalGetWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetGlobalGetWindowProfile, 1),
+      ]
+    TupleOptimizationAllProfile =>
+      [
+        GenValidProfileMember::new(TupleOptimizationSpillProfile, 3),
+        GenValidProfileMember::new(TupleOptimizationCopyChainProfile, 2),
+        GenValidProfileMember::new(TupleOptimizationTeeProfile, 1),
       ]
     DeadCodeEliminationAllProfile =>
       [
@@ -1121,6 +1136,10 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingMultiSetLocalGetWindowProfile,
     CodePushingMultiSetGlobalGetWindowProfile,
     CodePushingAllProfile,
+    TupleOptimizationSpillProfile,
+    TupleOptimizationCopyChainProfile,
+    TupleOptimizationTeeProfile,
+    TupleOptimizationAllProfile,
     DeadCodeEliminationNonControlProfile,
     DeadCodeEliminationBlockSuffixProfile,
     DeadCodeEliminationIfBothArmsProfile,
@@ -1214,6 +1233,9 @@ pub fn gen_valid_profile_by_name(
     "code-pushing" => Ok(CodePushingAllProfile)
     "code-pushing-closeout" => Ok(CodePushingAllProfile)
     "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
+    "tuple-optimization" => Ok(TupleOptimizationAllProfile)
+    "tuple-optimization-closeout" => Ok(TupleOptimizationAllProfile)
+    "tuple-optimization-all-profiles" => Ok(TupleOptimizationAllProfile)
     "dce" => Ok(DeadCodeEliminationAllProfile)
     "dead-code-elimination" => Ok(DeadCodeEliminationAllProfile)
     "dead-code-elimination-closeout" => Ok(DeadCodeEliminationAllProfile)
@@ -1615,6 +1637,12 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
+    TupleOptimizationSpillProfile
+    | TupleOptimizationCopyChainProfile
+    | TupleOptimizationTeeProfile =>
+      gen_valid_tuple_optimization_profile_config(profile)
+    TupleOptimizationAllProfile =>
+      gen_valid_tuple_optimization_profile_config(TupleOptimizationSpillProfile)
     DeadCodeEliminationNonControlProfile
     | DeadCodeEliminationBlockSuffixProfile
     | DeadCodeEliminationIfBothArmsProfile
@@ -2247,6 +2275,85 @@ fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
   GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile) ||
   config ==
   GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile)
+}
+
+///|
+fn gen_valid_tuple_optimization_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 2,
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 0,
+    max_results: 0,
+    max_locals: if profile == TupleOptimizationCopyChainProfile {
+      4
+    } else {
+      2
+    },
+    max_body_statements: match profile {
+      TupleOptimizationCopyChainProfile => 12
+      TupleOptimizationTeeProfile => 8
+      _ => 7
+    },
+    max_body_depth: 1,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_tuple_optimization_profile_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(TupleOptimizationSpillProfile) ||
+  config == GenValidConfig::for_profile(TupleOptimizationCopyChainProfile) ||
+  config == GenValidConfig::for_profile(TupleOptimizationTeeProfile)
+}
+
+///|
+pub fn gen_valid_tuple_optimization_trigger_profile_case_label(
+  profile : GenValidProfile,
+  _seed : UInt64,
+) -> String? {
+  match profile {
+    TupleOptimizationSpillProfile => Some("tuple-optimization:spill")
+    TupleOptimizationCopyChainProfile => Some("tuple-optimization:copy-chain")
+    TupleOptimizationTeeProfile => Some("tuple-optimization:tee")
+    _ => None
+  }
 }
 
 ///|
@@ -14894,6 +15001,124 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_tuple_optimization_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(TupleOptimizationCopyChainProfile) {
+    TupleOptimizationCopyChainProfile
+  } else if config == GenValidConfig::for_profile(TupleOptimizationTeeProfile) {
+    TupleOptimizationTeeProfile
+  } else {
+    TupleOptimizationSpillProfile
+  }
+}
+
+///|
+fn gen_valid_tuple_optimization_multivalue_type() -> RecType {
+  RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
+  )
+}
+
+///|
+fn gen_valid_tuple_optimization_spill_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(1U)),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::i64_const(I64(9L)),
+      ]),
+    ),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_tuple_optimization_copy_chain_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(1U)),
+      Expr::new([
+        Instruction::i32_const(I32(11)),
+        Instruction::i64_const(I64(13L)),
+      ]),
+    ),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(1U)),
+      Expr::new([
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ]),
+    ),
+    Instruction::local_set(LocalIdx::new(3U)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(3U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_tuple_optimization_tee_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(1U)),
+      Expr::new([
+        Instruction::i32_const(I32(17)),
+        Instruction::i64_const(I64(19L)),
+      ]),
+    ),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_tee(LocalIdx::new(0U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_tuple_optimization_profile_module(
+  config : GenValidConfig,
+) -> Module {
+  let kind = gen_valid_tuple_optimization_profile_kind(config)
+  let body = match kind {
+    TupleOptimizationCopyChainProfile =>
+      gen_valid_tuple_optimization_copy_chain_body()
+    TupleOptimizationTeeProfile => gen_valid_tuple_optimization_tee_body()
+    _ => gen_valid_tuple_optimization_spill_body()
+  }
+  let func_type = gen_valid_precompute_void_func_type()
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([func_type, gen_valid_tuple_optimization_multivalue_type()]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types(
+          if kind == TupleOptimizationCopyChainProfile {
+            [ValType::i32(), ValType::i64(), ValType::i32(), ValType::i64()]
+          } else {
+            [ValType::i32(), ValType::i64()]
+          },
+        ),
+        Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 41
@@ -18208,6 +18433,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_code_pushing_profile_config(config) {
     return gen_valid_code_pushing_profile_module(config)
+  }
+  if gen_valid_is_tuple_optimization_profile_config(config) {
+    return gen_valid_tuple_optimization_profile_module(config)
   }
   if gen_valid_is_dead_code_elimination_profile_config(config) {
     return gen_valid_dead_code_elimination_profile_module(config)

@@ -104,13 +104,12 @@ fn tuple_optimization_test_ctx() -> HotPassContext {
 fn tuple_optimization_test_rewrite(text : String) -> @ir.IrTestHotFixture {
   let fixture = @ir.ir_test_build_hot_from_wat(text)
   let ctx = tuple_optimization_test_ctx()
-  let analysis = tuple_optimization_analyze(
-    fixture.hot_func,
-    @ir.use_def_build(fixture.hot_func),
-  )
+  let use_def = @ir.use_def_build(fixture.hot_func)
+  let analysis = tuple_optimization_analyze(fixture.hot_func, use_def)
   if !tuple_optimization_rewrite_good_components(
       ctx,
       fixture.hot_func,
+      use_def,
       analysis,
     ) {
     abort("expected tuple rewrite fixture to change")
@@ -133,6 +132,441 @@ fn tuple_optimization_test_pipeline_pretty(
       abort("expected tuple-optimization pipeline success, got \{err}")
   }
   optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+}
+
+///|
+test "tuple-optimization reuses analysis use-def during rewrite" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  match
+    pass_test_run_pipeline(
+      "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 11 i64.const 13 end local.set 1 local.set 0 local.get 0 drop local.get 1 drop))",
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "expected tuple-optimization use-def reuse fixture success, got \{err}",
+      )
+  }
+  let text = lines.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:build-rewrite-mask",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-use-def-build",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "tuple-optimization perf detail timers attribute analysis and rewrite phases" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  match
+    pass_test_run_pipeline(
+      "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 11 i64.const 13 end local.set 1 local.set 0 local.get 0 drop local.get 1 drop))",
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "expected tuple-optimization perf-detail fixture success, got \{err}",
+      )
+  }
+  let text = lines.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:collect-seed-groups",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:build-query-summary",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:link-result-block-copy-groups:no-single-result-block-fast-path",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:link-result-block-copy-groups elapsed_us=",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:link-scalar-forward-copy-groups:no-scalar-forward-fast-path",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:link-scalar-forward-copy-groups elapsed_us=",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rebuild-local-groups-after-scalar-links",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:build-rewrite-mask:no-copy-fast-path",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:precompute-drop-only-elision-mask",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:ensure-split-locals",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-group-defs",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:source",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:can-elide",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "tuple-optimization rewrite detail timers aggregate many source groups" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type (func))
+        #|  (type (func (result i32 i64)))
+        #|  (func (type 0) (local i32 i64 i32 i64 i32 i64)
+        #|    block (type 1) i32.const 11 i64.const 13 end
+        #|    local.set 1
+        #|    local.set 0
+        #|    local.get 0
+        #|    drop
+        #|    local.get 1
+        #|    drop
+        #|    block (type 1) i32.const 17 i64.const 19 end
+        #|    local.set 3
+        #|    local.set 2
+        #|    local.get 2
+        #|    drop
+        #|    local.get 3
+        #|    drop
+        #|    block (type 1) i32.const 23 i64.const 29 end
+        #|    local.set 5
+        #|    local.set 4
+        #|    local.get 4
+        #|    drop
+        #|    local.get 5
+        #|    drop))
+        #|,
+      ),
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "expected tuple-optimization multi-source perf fixture success, got \{err}",
+      )
+  }
+  let text = lines.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:source-only-elide-fast-path",
+    ),
+    msg=text,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(
+      text, "perf:timer name=detail:tuple-optimization:rewrite-group-defs:source elapsed_us=",
+    ),
+    1,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(
+      text, "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source elapsed_us=",
+    ),
+    1,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(
+      text, "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path elapsed_us=",
+    ),
+    1,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:payload",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "tuple-optimization batched root removal skips nop prune for pure drop-only elision" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type (func))
+        #|  (type (func (result i32 i64)))
+        #|  (func (type 0) (local i32 i64 i32 i64)
+        #|    block (type 1) i32.const 11 i64.const 13 end
+        #|    local.set 1
+        #|    local.set 0
+        #|    local.get 0
+        #|    drop
+        #|    local.get 1
+        #|    drop
+        #|    block (type 1) i32.const 17 i64.const 19 end
+        #|    local.set 3
+        #|    local.set 2
+        #|    local.get 2
+        #|    drop
+        #|    local.get 3
+        #|    drop))
+        #|,
+      ),
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "expected tuple-optimization batched root-removal fixture success, got \{err}",
+      )
+  }
+  let text = lines.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots:targeted-regions",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots:scan-all-regions",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:prune-nops",
+    ),
+    msg=text,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(
+      text, "pass[tuple-optimization]:mutated revision=",
+    ),
+    1,
+  )
+}
+
+///|
+test "tuple-optimization drop-local-tee cleanup fast-skips when analysis saw no tees" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  match
+    pass_test_run_pipeline(
+      "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 11 i64.const 13 end local.set 1 local.set 0 local.get 0 drop local.get 1 drop))",
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "expected tuple-optimization no-local-tee cleanup fast-skip fixture success, got \{err}",
+      )
+  }
+  let text = lines.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:drop-local-tees:no-local-tee-fast-path",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:drop-local-tees elapsed_us=",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "tuple-optimization unused-body-local cleanup fast-skips when rewrite appended no locals" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  match
+    pass_test_run_pipeline(
+      "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 11 i64.const 13 end local.set 1 local.set 0 local.get 0 drop local.get 1 drop))",
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "expected tuple-optimization no-new-local cleanup fast-skip fixture success, got \{err}",
+      )
+  }
+  let text = lines.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:unused-body-locals:no-new-local-fast-path",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:unused-body-locals elapsed_us=",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "tuple-optimization scalarized tuple-local cleanup fast-skips when analysis saw no tuple-make local sets" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  match
+    pass_test_run_pipeline(
+      "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 11 i64.const 13 end local.set 1 local.set 0 local.get 0 drop local.get 1 drop))",
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      abort(
+        "expected tuple-optimization pure drop-only cleanup fixture success, got \{err}",
+      )
+  }
+  let text = lines.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals:no-tuple-make-local-set-fast-path",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals:pre-scan",
+    ),
+    msg=text,
+  )
+  assert_false(
+    text.contains(
+      "perf:timer name=detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals:use-def-build",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "tuple-optimization root-slot use-def lookup survives shifted root slots" {
+  let fixture = @ir.ir_test_build_hot_from_wat(
+    "(module (func (local i32 i64) block (result i32 i64) i32.const 1 i64.const 2 end local.set 1 local.set 0))",
+  )
+  let func = fixture.hot_func
+  let use_def = @ir.use_def_build(func)
+  let target = @ir.hot_root_get(func, 1)
+  @ir.hot_region_insert(func, @ir.HotRegionRef::root(), 1, [
+    @ir.hot_build_nop(func),
+  ])
+  let slot = match
+    tuple_optimization_find_root_slot_with_use_def(func, use_def, target, 0) {
+    Some(slot) => slot
+    None => abort("expected shifted root slot lookup to find original target")
+  }
+  @debug.assert_eq(slot.region_ref, @ir.HotRegionRef::root())
+  @debug.assert_eq(slot.slot, 2)
 }
 
 ///|
@@ -182,35 +616,36 @@ test "tuple-optimization analysis detects a direct multivalue spill group" {
 }
 
 ///|
-test "tuple-optimization rewrite carries direct spill bridges through a root local.set lane" {
+test "tuple-optimization rewrite scalarizes direct spill bridges through dedicated lane locals" {
   let fixture = tuple_optimization_test_rewrite(
     "(module (func (result i32) (local i32 i32 i32) block (result i32 i32 i32) i32.const 10 i32.const 20 i32.const 30 end local.set 2 local.set 1 local.set 0 local.get 0))",
   )
   let func = fixture.hot_func
 
-  @debug.assert_eq(@ir.hot_local_count(func), 3)
+  @debug.assert_eq(@ir.hot_local_count(func), 6)
+  @debug.assert_eq(@ir.hot_root_count(func), 7)
 
-  let bridge = @ir.hot_root_get(func, 0)
-  @debug.assert_eq(@ir.hot_node_get(func, bridge).op.to_string(), "LocalSet")
-  @debug.assert_eq(@ir.hot_node_get(func, bridge).imm0, 0)
+  let split0 = @ir.hot_root_get(func, 0)
+  let split1 = @ir.hot_root_get(func, 1)
+  let split2 = @ir.hot_root_get(func, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, split0).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, split0).imm0, 3)
+  @debug.assert_eq(@ir.hot_node_get(func, split1).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, split1).imm0, 4)
+  @debug.assert_eq(@ir.hot_node_get(func, split2).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, split2).imm0, 5)
 
-  let body = @ir.hot_child_get(func, bridge, 0)
-  @debug.assert_eq(@ir.hot_node_get(func, body).op.to_string(), "Block")
-  @debug.assert_eq(@ir.hot_node_result_arity(func, body), 1)
+  let bridge0 = @ir.hot_root_get(func, 5)
+  @debug.assert_eq(@ir.hot_node_get(func, bridge0).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_node_get(func, bridge0).imm0, 0)
+  let bridge0_child = @ir.hot_child_get(func, bridge0, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, bridge0_child).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(@ir.hot_node_get(func, bridge0_child).imm0, 3)
 
-  let body_ref = @ir.hot_region_body_ref(func, body)
-  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
-  let lane2 = @ir.hot_region_get(func, body_ref, 0)
-  let lane1 = @ir.hot_region_get(func, body_ref, 1)
-  let lane0 = @ir.hot_region_get(func, body_ref, 2)
-  @debug.assert_eq(@ir.hot_node_get(func, lane2).op.to_string(), "LocalSet")
-  @debug.assert_eq(@ir.hot_node_get(func, lane2).imm0, 2)
-  @debug.assert_eq(@ir.hot_node_get(func, lane1).op.to_string(), "LocalSet")
-  @debug.assert_eq(@ir.hot_node_get(func, lane1).imm0, 1)
-  @debug.assert_eq(@ir.hot_node_get(func, lane0).op.to_string(), "Block")
-
-  @debug.assert_eq(@ir.hot_root_count(func), 2)
-  let forwarded = @ir.hot_root_get(func, 1)
+  let forwarded = @ir.hot_root_get(func, 6)
   @debug.assert_eq(@ir.hot_node_get(func, forwarded).op.to_string(), "LocalGet")
   @debug.assert_eq(@ir.hot_node_get(func, forwarded).imm0, 0)
 
@@ -218,6 +653,88 @@ test "tuple-optimization rewrite carries direct spill bridges through a root loc
   tuple_optimization_assert_local_traffic(use_def, 0, 1, 1)
   tuple_optimization_assert_local_traffic(use_def, 1, 1, 0)
   tuple_optimization_assert_local_traffic(use_def, 2, 1, 0)
+  tuple_optimization_assert_local_traffic(use_def, 3, 1, 1)
+  tuple_optimization_assert_local_traffic(use_def, 4, 1, 1)
+  tuple_optimization_assert_local_traffic(use_def, 5, 1, 1)
+}
+
+///|
+test "tuple-optimization elides pure type-indexed block spill when all scalar lanes are drop-only" {
+  let pretty = tuple_optimization_test_pipeline_pretty(
+    "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 7 i64.const 9 end local.set 1 local.set 0 local.get 0 drop local.get 1 drop))",
+    0,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "block (result i32)"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "block (type 1)"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "local.set"),
+    0,
+    msg=pretty,
+  )
+}
+
+///|
+test "tuple-optimization elides pure type-indexed block tee when all scalar lanes are drop-only" {
+  let pretty = tuple_optimization_test_pipeline_pretty(
+    "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 17 i64.const 19 end local.set 1 local.tee 0 drop local.get 1 drop))",
+    0,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "block (result i32)"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "block (type 1)"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "tuple.extract"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "local.set"),
+    0,
+    msg=pretty,
+  )
+}
+
+///|
+test "tuple-optimization keeps simple type-indexed drop-only copy chains as a six-set compact scalar ladder" {
+  let pretty = tuple_optimization_test_pipeline_pretty(
+    "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64 i32 i64) block (type 1) i32.const 11 i64.const 13 end local.set 1 local.set 0 block (type 1) local.get 0 local.get 1 end local.set 3 local.set 2 local.get 2 drop local.get 3 drop))",
+    0,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "block (result i32)"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "block (type 1)"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "tuple.extract"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    tuple_optimization_test_count_substring(pretty, "local.set"),
+    6,
+    msg=pretty,
+  )
 }
 
 ///|

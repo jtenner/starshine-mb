@@ -2541,11 +2541,43 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
     Some("oi-local-facts:local-tee-add-zero"),
   )
 
+  let tuple_args = EmitGenValidBatchArgs::new(
+    3,
+    0x5eedUL,
+    "tmp/gen-valid-tuple-optimization",
+    profile="tuple-optimization-all",
+    max_attempts=8,
+  )
+  let tuple_selection = match emit_gen_valid_batch_selection(tuple_args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(tuple_selection.manifest.length(), 3)
+  for item in tuple_selection.manifest {
+    assert_true(
+      item.selected_profile.contains("tuple-optimization-"),
+      msg="expected tuple-optimization selected profile, got \{item.selected_profile}",
+    )
+    assert_true(
+      match item.profile_case_label {
+        Some(label) => label.contains("tuple-optimization:")
+        None => false
+      },
+      msg="expected tuple-optimization profile case label",
+    )
+  }
+
   let manifest = format_gen_valid_batch_manifest_json(scalar_args, scalar)
   assert_true(
     manifest.contains(
       "\"profile_case_label\":\"oi-default-scalar:local-tee-commuted-add-zero\"",
     ),
+  )
+  let tuple_manifest = format_gen_valid_batch_manifest_json(
+    tuple_args, tuple_selection,
+  )
+  assert_true(
+    tuple_manifest.contains("\"profile_case_label\":\"tuple-optimization:"),
   )
 }
 

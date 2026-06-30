@@ -188,7 +188,19 @@ fn hot_region_write_roots(
   roots : Array[NodeId],
 ) -> Array[NodeId] {
   if hot_region_is_root(region_ref) {
-    return hot_root_splice(func, 0, hot_root_count(func), roots)
+    let removed : Array[NodeId] = []
+    for old_root in func.roots {
+      removed.push(old_root)
+    }
+    for root in roots {
+      hot_mutate_require_live_node(func, root, "hot root slots")
+    }
+    func.roots.clear()
+    for root in roots {
+      func.roots.push(root)
+    }
+    hot_revision_bump(func)
+    return removed
   }
   let holder = hot_region_require_holder(func, region_ref)
   let node = hot_node_get(func, holder)

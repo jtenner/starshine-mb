@@ -1867,6 +1867,22 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   )
   @debug.assert_eq(gen_valid_profile_name(PassOiRefGcProfile), "pass-oi-ref-gc")
   @debug.assert_eq(gen_valid_profile_name(PassOiTupleProfile), "pass-oi-tuple")
+  @debug.assert_eq(
+    gen_valid_profile_name(TupleOptimizationSpillProfile),
+    "tuple-optimization-spill",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(TupleOptimizationCopyChainProfile),
+    "tuple-optimization-copy-chain",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(TupleOptimizationTeeProfile),
+    "tuple-optimization-tee",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(TupleOptimizationAllProfile),
+    "tuple-optimization-all",
+  )
 
   let cleanup = GenValidConfig::for_profile(PassCleanupProfile)
   @debug.assert_eq(gen_valid_config_label(cleanup), "pass-cleanup")
@@ -1959,6 +1975,151 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
     Ok(profile) => @debug.assert_eq(profile, PassDaeProfile)
     Err(msg) => fail(msg)
   }
+  match gen_valid_profile_by_name("tuple optimization") {
+    Ok(profile) => @debug.assert_eq(profile, TupleOptimizationAllProfile)
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+fn gen_valid_test_to_has_typeidx_block(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(TypeIdxBlockType(_), _) => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_to_has_typeidx_block(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_to_has_typeidx_block(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_to_has_typeidx_block(body) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_to_module_has_typeidx_block(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_to_has_typeidx_block(instrs) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_to_count_local_writes(instrs : Array[Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    count += match instr {
+      LocalSet(_) | LocalTee(_) => 1
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        gen_valid_test_to_count_local_writes(body)
+      If(_, then_body, else_body) => {
+        let else_count = match else_body {
+          Some(body) => gen_valid_test_to_count_local_writes(body)
+          None => 0
+        }
+        gen_valid_test_to_count_local_writes(then_body) + else_count
+      }
+      _ => 0
+    }
+  }
+  count
+}
+
+///|
+fn gen_valid_test_to_module_local_write_count(mod_ : Module) -> Int {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut count = 0
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        count += gen_valid_test_to_count_local_writes(instrs)
+      }
+      count
+    }
+    None => 0
+  }
+}
+
+///|
+test "tuple-optimization GenValid profiles emit validating multivalue carrier triggers" {
+  let profiles = [
+    TupleOptimizationSpillProfile,
+    TupleOptimizationCopyChainProfile,
+    TupleOptimizationTeeProfile,
+  ]
+  for profile in profiles {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    @debug.assert_eq(generated.config_label, gen_valid_profile_name(profile))
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    assert_true(
+      gen_valid_test_to_module_has_typeidx_block(generated.wasm_module),
+      msg="tuple-optimization profile should emit a type-indexed multivalue block producer that HOT lifts as a tuple carrier",
+    )
+    assert_true(
+      gen_valid_test_to_module_local_write_count(generated.wasm_module) >= 2,
+      msg="tuple-optimization profile should spill at least two multivalue lanes through local.set/local.tee carriers",
+    )
+  }
+}
+
+///|
+test "tuple-optimization aggregate profile records deterministic trigger-family labels" {
+  @debug.assert_eq(
+    gen_valid_profile_is_composite(TupleOptimizationAllProfile),
+    true,
+  )
+  @debug.assert_eq(
+    gen_valid_profile_members(TupleOptimizationAllProfile).length(),
+    3,
+  )
+  @debug.assert_eq(
+    gen_valid_tuple_optimization_trigger_profile_case_label(
+      TupleOptimizationSpillProfile,
+      0x5eedUL,
+    ),
+    Some("tuple-optimization:spill"),
+  )
+  @debug.assert_eq(
+    gen_valid_tuple_optimization_trigger_profile_case_label(
+      TupleOptimizationCopyChainProfile,
+      0x5eedUL,
+    ),
+    Some("tuple-optimization:copy-chain"),
+  )
+  @debug.assert_eq(
+    gen_valid_tuple_optimization_trigger_profile_case_label(
+      TupleOptimizationTeeProfile,
+      0x5eedUL,
+    ),
+    Some("tuple-optimization:tee"),
+  )
 }
 
 ///|

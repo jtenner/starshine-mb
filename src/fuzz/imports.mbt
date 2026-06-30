@@ -29,6 +29,7 @@ using @validate {
   gen_valid_module_result_from_seed,
   gen_valid_module_with_config,
   gen_valid_oi_trigger_profile_case_label,
+  gen_valid_tuple_optimization_trigger_profile_case_label,
   gen_valid_profile_by_name,
   gen_valid_profile_is_composite,
   gen_valid_profile_leaf_for_case,

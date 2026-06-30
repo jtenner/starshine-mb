@@ -1,8 +1,30 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-30
 sources:
+  - ../../../raw/research/1382-2026-06-30-tuple-optimization-no-scalar-forward-fast-path.md
+  - ../../../raw/research/1381-2026-06-29-tuple-optimization-no-result-link-fast-path.md
+  - ../../../raw/research/1380-2026-06-29-tuple-optimization-local-set-root-fast-path.md
+  - ../../../raw/research/1379-2026-06-29-tuple-optimization-no-scalarized-prescan-performance.md
+  - ../../../raw/research/1378-2026-06-29-tuple-optimization-no-new-local-cleanup-performance.md
+  - ../../../raw/research/1377-2026-06-29-tuple-optimization-no-tee-cleanup-performance.md
+  - ../../../raw/research/1376-2026-06-29-tuple-optimization-payload-facts-performance.md
+  - ../../../raw/research/1375-2026-06-29-tuple-optimization-source-fast-path-performance.md
+  - ../../../raw/research/1374-2026-06-29-tuple-optimization-elision-mask-performance.md
+  - ../../../raw/research/1373-2026-06-29-tuple-optimization-targeted-root-removal.md
+  - ../../../raw/research/1372-2026-06-29-tuple-optimization-use-def-reuse.md
+  - ../../../raw/research/1371-2026-06-29-tuple-optimization-batched-root-removal.md
+  - ../../../raw/research/1370-2026-06-29-tuple-optimization-aggregate-rewrite-timers.md
+  - ../../../raw/research/1369-2026-06-29-tuple-optimization-scalarized-cleanup-fast-skip.md
+  - ../../../raw/research/1368-2026-06-29-tuple-optimization-root-removal-rejected.md
+  - ../../../raw/research/1367-2026-06-29-tuple-optimization-detached-delete-performance.md
+  - ../../../raw/research/1366-2026-06-29-tuple-optimization-drop-only-elision-performance.md
+  - ../../../raw/research/1365-2026-06-29-tuple-optimization-root-slot-lookup.md
+  - ../../../raw/research/1364-2026-06-29-tuple-optimization-performance-attribution.md
+  - ../../../raw/research/1363-2026-06-29-tuple-optimization-broader-profile-and-performance.md
+  - ../../../raw/research/1362-2026-06-29-tuple-optimization-residual-scalar-spelling.md
+  - ../../../raw/research/1358-2026-06-29-tuple-optimization-genvalid-profile.md
   - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
@@ -84,10 +106,10 @@ It is a source-backed clarification pass over a real existing dossier.
 ## Current status summary
 
 - The explicit Starshine pass exists and is wired into the pass manager and CLI.
-- The public `optimize` and `shrink` presets still intentionally omit it because exact preset-slot parity and runtime-budget proof are still open, even though the neighboring `code-pushing` and `simplify-locals-nostructure` surfaces are now represented locally.
-- Current reduced native-compare coverage is green.
-- Fresh 2026-05-06 full direct pass-fuzz revalidation is green on comparable cases: `6759 / 10000` compared, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
-- Current full-artifact comparison is canonically green on the per-function fallback surface, but exact preset-slot parity and runtime budget are still open.
+- The public `optimize` and `shrink` presets now include the pass in the documented `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs -> heap2local` neighborhood, but exact-slot evidence remains open.
+- Current reduced native-compare coverage is green for committed regressions, a post-timer count-100 direct GenValid smoke compared `100 / 100` with `100` normalized matches and zero failures, and the root-slot lookup slice raised the ordinary direct smoke to `1000 / 1000` normalized matches.
+- The dedicated `tuple-optimization-all` GenValid profile deliberately exposes active scalar-spelling residuals; the current simple type-indexed pure/drop-only profile surface is classified only as a narrow measured Starshine-win family, not final closeout.
+- Candidate-heavy pass-local performance is an active closeout blocker. Detail timers attribute the dominant cost to TO-owned rewrite/cleanup work; use-def-bounded root-slot lookup, pure drop-only source elision, detached replacement deletes, a scalarized tuple-local cleanup fast-skip, aggregate rewrite timer emission, pass-level batched root removal, rewrite use-def reuse, targeted removable-root regions, fast root-region body replacement, precomputed pure/drop-only elision masks, source-only elision rewrite, no-copy rewrite-mask construction, precomputed payload facts, a no-local-tee cleanup fast path, a no-new-local cleanup fast path, a no-scalarized-prescan cleanup fast path, a local-set root elision fast path, a no-single-result-block result-link fast path, and a no-scalar-forward link/rebuild fast path improved the representative fixture trend to roughly `1.05ms`, `2.25-2.95ms`, and `4.47-4.75ms` at 500/1000/2000 pairs. A same-region root-removal experiment was rejected because per-group root splicing regressed the same fixtures; only the later pass-level batch/targeted cleanup was kept. Rewrite-mask construction, rewrite-time payload extraction, dropped-tee cleanup scanning, unused-body-local cleanup scanning, scalarized tuple-local cleanup pre-scanning, generic replacement for pure root-`local.set` elision, result-block copy linking for no-one-result-block fixtures, and scalar-forward copy linking/rebuild for no-scalar-forward fixtures are no longer candidate-heavy owners for no-tee/no-copy/no-new-local/no-tuple-make/no-result-copy/no-scalar-forward fixtures; remaining seed collection, query-summary construction, copy-linking, drop-only precompute, root-removal cleanup, and untraced pass overhead are still outside the pass-local target.
 - Raw normalized WAT text is still too strict to use as the only tuple-opt parity oracle.
 
 ## Biggest beginner correction

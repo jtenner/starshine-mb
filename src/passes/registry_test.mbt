@@ -326,7 +326,7 @@ test "run_hot_pipeline accepts tuple-optimization as an active hot pass" {
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(locals, _)])) =>
-      @debug.assert_eq(locals.length(), 2)
+      @debug.assert_eq(locals.length(), 4)
     other =>
       fail(
         "expected single-function tuple-optimization module, got \{@debug.to_string(other)}",

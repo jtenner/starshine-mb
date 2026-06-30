@@ -3540,6 +3540,18 @@ fn emit_gen_valid_batch_candidate_seed(seed : UInt64, index : Int) -> UInt64 {
 }
 
 ///|
+fn emit_gen_valid_batch_profile_case_label(
+  leaf_profile : GenValidProfile,
+  seed : UInt64,
+) -> String? {
+  match
+    gen_valid_tuple_optimization_trigger_profile_case_label(leaf_profile, seed) {
+    Some(label) => Some(label)
+    None => gen_valid_oi_trigger_profile_case_label(leaf_profile, seed)
+  }
+}
+
+///|
 fn gen_valid_coverage_candidate_transform_applicable(
   mod : @lib.Module,
   transform : MetamorphicValidTransform,
@@ -3807,7 +3819,7 @@ pub fn emit_gen_valid_batch_artifacts_until_profile_features(
         generated.config_label
       },
       selected_profile: selected_profile_label,
-      profile_case_label: gen_valid_oi_trigger_profile_case_label(
+      profile_case_label: emit_gen_valid_batch_profile_case_label(
         leaf_profile,
         emit_gen_valid_batch_candidate_seed(seed, attempts),
       ),
@@ -5304,7 +5316,7 @@ fn format_gen_valid_batch_compact_manifest_json(
       "null"
     }
     let profile_case_json = match
-      gen_valid_oi_trigger_profile_case_label(
+      emit_gen_valid_batch_profile_case_label(
         leaf_profile,
         emit_gen_valid_batch_candidate_seed(args.seed, i),
       ) {

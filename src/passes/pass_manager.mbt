@@ -133,6 +133,43 @@ fn perf_stop_timer_opt(
 }
 
 ///|
+fn perf_stop_timer_accumulate_opt(
+  perf : HotPerfSession?,
+  name : String,
+  start_us : UInt64,
+) -> Unit {
+  match perf {
+    Some(session) =>
+      if session.enabled && session.trace_timings {
+        let elapsed_us = @lib.trace_elapsed_us_since(start_us)
+        ignore(perf_timer_total_commit(session, name, elapsed_us))
+      }
+    None => ()
+  }
+}
+
+///|
+fn perf_emit_timer_total_opt(perf : HotPerfSession?, name : String) -> Unit {
+  match perf {
+    Some(session) =>
+      if session.enabled && session.trace_timings {
+        let mut i = 0
+        while i < session.timer_totals.length() {
+          if session.timer_totals[i].0 == name {
+            let total_us = session.timer_totals[i].1
+            (session.trace)(
+              "perf:timer name=\{name} elapsed_us=0 total_us=\{total_us}",
+            )
+            return
+          }
+          i += 1
+        }
+      }
+    None => ()
+  }
+}
+
+///|
 fn perf_validation_checkpoint_opt(
   perf : HotPerfSession?,
   name : String,

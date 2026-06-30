@@ -516,6 +516,109 @@ test "run_cmd_with_adapter decodes deep nested wasm on native without stack-limi
 
 ///|
 #cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization scalarizes raw type-indexed block spill carrier" {
+  let wasm = b"\x00\x61\x73\x6D\x01\x00\x00\x00\x01\x09\x02\x60\x00\x00\x60\x00\x02\x7F\x7E\x03\x02\x01\x00\x0A\x19\x01\x17\x02\x01\x7F\x01\x7E\x02\x01\x41\x07\x42\x09\x0B\x21\x01\x21\x00\x20\x00\x1A\x20\x01\x1A\x0B"
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-typeidx-block-spill.wasm"] },
+    file_exists=fn(path) { path == "tuple-typeidx-block-spill.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-typeidx-block-spill.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-typeidx-block-spill.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected typeidx block tuple-optimization failure: \{e}")
+  }
+  @debug.assert_eq(writes.length(), 1)
+  let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
+  @debug.assert_eq(
+    cnw_count_substring(printed, "tuple.extract"),
+    0,
+    msg=printed,
+  )
+  @debug.assert_eq(
+    cnw_count_substring(printed, "block (result i32)"),
+    0,
+    msg=printed,
+  )
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization scalarizes raw type-indexed block tee carrier" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func)) (type (func (result i32 i64))) (func (type 0) (local i32 i64) block (type 1) i32.const 17 i64.const 19 end local.set 1 local.tee 0 drop local.get 1 drop))",
+      filename="tuple-typeidx-block-tee.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("unexpected typeidx block tee fixture parse failure: \{err}")
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail("unexpected typeidx block tee fixture encode failure: \{err}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-typeidx-block-tee.wasm"] },
+    file_exists=fn(path) { path == "tuple-typeidx-block-tee.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-typeidx-block-tee.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-typeidx-block-tee.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("unexpected typeidx block tee tuple-optimization failure: \{e}")
+  }
+  @debug.assert_eq(writes.length(), 1)
+  let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
+  @debug.assert_eq(
+    cnw_count_substring(printed, "tuple.extract"),
+    0,
+    msg=printed,
+  )
+  @debug.assert_eq(
+    cnw_count_substring(printed, "block (result i32)"),
+    0,
+    msg=printed,
+  )
+  @debug.assert_eq(cnw_count_substring(printed, "block"), 0, msg=printed)
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0 source lanes live through downstream tees" {
   let input_mod = match
     @wast.wast_to_binary_module(

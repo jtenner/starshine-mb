@@ -23,6 +23,10 @@ struct HotTupleOptimizationQuerySummary {
   scalar_forward_is_tee : @bitset.BitSet
   local_single_write_nodes : Array[Int]
   local_is_locally_tee_defined : @bitset.BitSet
+  has_local_tee_defs : Bool
+  has_scalarized_tuple_local_cleanup_candidate : Bool
+  has_single_result_block_copy_candidate : Bool
+  has_scalar_forward_copy_candidate : Bool
   forwarded_non_scalar_use : Array[Int]
   forwarded_non_drop_use : Array[Int]
   forwarded_drop_use : Array[Int]
@@ -47,6 +51,22 @@ struct HotTupleOptimizationRootSlot {
   region_ref : @ir.HotRegionRef
   lane_idx : Int
   slot : Int
+} derive(Eq, Debug)
+
+///|
+struct HotTupleOptimizationRewriteCleanupPlan {
+  removable_root_defs : @bitset.BitSet
+  removable_root_regions : Array[@ir.HotRegionRef]
+  mut generated_nops : Bool
+  had_preexisting_nops : Bool
+  skip_drop_local_tee_cleanup : Bool
+  skip_scalarized_tuple_local_cleanup : Bool
+} derive(Eq, Debug)
+
+///|
+struct HotTupleOptimizationDropOnlyElisionFacts {
+  mask : @bitset.BitSet
+  payload_lanes_by_group : Array[Array[Int]]
 } derive(Eq, Debug)
 
 ///|
@@ -531,7 +551,7 @@ fn tuple_optimization_collect_result_block_copy_group(
     return None
   }
   let (outer_def, outer_local) = match
-    tuple_optimization_find_root_slot(func, carrier_id, 0) {
+    tuple_optimization_find_root_slot_with_use_def(func, use_def, carrier_id, 0) {
     Some(root_slot) =>
       if root_slot.slot + 1 >=
         @ir.hot_region_root_count(func, root_slot.region_ref) {
@@ -1130,6 +1150,10 @@ fn tuple_optimization_build_query_summary(
   let scalar_forward_is_tee = @bitset.BitSet::new(node_count)
   let local_single_write_nodes = Array::make(local_count, -1)
   let local_is_locally_tee_defined = @bitset.BitSet::new(local_count)
+  let mut has_local_tee_defs = false
+  let mut has_scalarized_tuple_local_cleanup_candidate = false
+  let mut has_single_result_block_copy_candidate = false
+  let mut has_scalar_forward_copy_candidate = false
   let forwarded_non_scalar_use = Array::make(local_count, -1)
   let forwarded_non_drop_use = Array::make(local_count, -1)
   let forwarded_drop_use = Array::make(local_count, -1)
@@ -1146,11 +1170,25 @@ fn tuple_optimization_build_query_summary(
       if !@ir.hot_node_is_live(func, write_id) {
         continue
       }
-      match @ir.hot_node_get(func, write_id).op {
+      let write = @ir.hot_node_get(func, write_id)
+      match write.op {
         @ir.HotOp::LocalTee => {
           local_is_locally_tee_defined[local_id] = true
-          break
+          has_local_tee_defs = true
         }
+        @ir.HotOp::LocalSet =>
+          if @ir.hot_child_count(func, write_id) == 1 {
+            let child_id = @ir.hot_child_get(func, write_id, 0)
+            if @ir.hot_node_is_live(func, child_id) {
+              match @ir.hot_node_get(func, child_id).op {
+                @ir.HotOp::TupleMake =>
+                  if @ir.hot_child_count(func, child_id) > 1 {
+                    has_scalarized_tuple_local_cleanup_candidate = true
+                  }
+                _ => ()
+              }
+            }
+          }
         _ => ()
       }
     }
@@ -1158,6 +1196,13 @@ fn tuple_optimization_build_query_summary(
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
+    }
+    if !has_single_result_block_copy_candidate &&
+      @ir.hot_node_result_arity(func, node_id) == 1 {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Block => has_single_result_block_copy_candidate = true
+        _ => ()
+      }
     }
     let sites = @ir.node_use_sites_borrowed(use_def, node_id)
     let mut has_non_scalar = false
@@ -1204,6 +1249,7 @@ fn tuple_optimization_build_query_summary(
           continue
         }
         scalar_forward_present[node_id] = true
+        has_scalar_forward_copy_candidate = true
         scalar_forward_locals[node_id] = forwarded_local
         scalar_forward_defs[node_id] = site.user
         scalar_forward_is_tee[node_id] = match user.op {
@@ -1224,6 +1270,10 @@ fn tuple_optimization_build_query_summary(
     scalar_forward_is_tee,
     local_single_write_nodes,
     local_is_locally_tee_defined,
+    has_local_tee_defs,
+    has_scalarized_tuple_local_cleanup_candidate,
+    has_single_result_block_copy_candidate,
+    has_scalar_forward_copy_candidate,
     forwarded_non_scalar_use,
     forwarded_non_drop_use,
     forwarded_drop_use,
@@ -1248,6 +1298,10 @@ fn tuple_optimization_empty_query_summary() -> HotTupleOptimizationQuerySummary 
     scalar_forward_is_tee: @bitset.BitSet::new(0),
     local_single_write_nodes: Array::make(0, -1),
     local_is_locally_tee_defined: @bitset.BitSet::new(0),
+    has_local_tee_defs: false,
+    has_scalarized_tuple_local_cleanup_candidate: false,
+    has_single_result_block_copy_candidate: false,
+    has_scalar_forward_copy_candidate: false,
     forwarded_non_scalar_use: Array::make(0, -1),
     forwarded_non_drop_use: Array::make(0, -1),
     forwarded_drop_use: Array::make(0, -1),
@@ -1902,32 +1956,115 @@ fn tuple_optimization_analyze_with_groups(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   groups : Array[HotTupleOptimizationGroup],
+  perf? : HotPerfSession? = None,
 ) -> HotTupleOptimizationAnalysis {
   if groups.is_empty() {
     return tuple_optimization_empty_analysis(func)
   }
+  let query_summary_start_us = perf_start_timer_opt(
+    perf, "detail:tuple-optimization:build-query-summary",
+  )
   let query_summary = tuple_optimization_build_query_summary(func, use_def)
+  perf_stop_timer_opt(
+    perf, "detail:tuple-optimization:build-query-summary", query_summary_start_us,
+  )
+  let local_group_start_us = perf_start_timer_opt(
+    perf, "detail:tuple-optimization:build-local-group-ids",
+  )
   let mut local_group_ids = tuple_optimization_build_local_group_ids(
     func, groups,
   )
+  perf_stop_timer_opt(
+    perf, "detail:tuple-optimization:build-local-group-ids", local_group_start_us,
+  )
   let copy_read_nodes = @bitset.BitSet::new(@ir.hot_node_count(func))
   let copy_write_nodes = @bitset.BitSet::new(@ir.hot_node_count(func))
+  let link_copy_start_us = perf_start_timer_opt(
+    perf, "detail:tuple-optimization:link-copy-groups",
+  )
   tuple_optimization_link_copy_groups(
     func, query_summary, groups, local_group_ids, copy_read_nodes, copy_write_nodes,
   )
-  tuple_optimization_link_result_block_copy_groups(
-    func, use_def, query_summary, groups, local_group_ids, copy_read_nodes,
+  perf_stop_timer_opt(
+    perf, "detail:tuple-optimization:link-copy-groups", link_copy_start_us,
   )
-  local_group_ids = tuple_optimization_build_local_group_ids(func, groups)
-  tuple_optimization_link_scalar_forward_copy_groups(
-    func, use_def, query_summary, groups, local_group_ids, copy_read_nodes,
+  if query_summary.has_single_result_block_copy_candidate {
+    let link_result_start_us = perf_start_timer_opt(
+      perf, "detail:tuple-optimization:link-result-block-copy-groups",
+    )
+    tuple_optimization_link_result_block_copy_groups(
+      func, use_def, query_summary, groups, local_group_ids, copy_read_nodes,
+    )
+    perf_stop_timer_opt(
+      perf, "detail:tuple-optimization:link-result-block-copy-groups", link_result_start_us,
+    )
+    let rebuild_after_result_start_us = perf_start_timer_opt(
+      perf, "detail:tuple-optimization:rebuild-local-groups-after-result-links",
+    )
+    local_group_ids = tuple_optimization_build_local_group_ids(func, groups)
+    perf_stop_timer_opt(
+      perf, "detail:tuple-optimization:rebuild-local-groups-after-result-links",
+      rebuild_after_result_start_us,
+    )
+  } else {
+    let link_result_fast_start_us = perf_start_timer_opt(
+      perf, "detail:tuple-optimization:link-result-block-copy-groups:no-single-result-block-fast-path",
+    )
+    perf_stop_timer_opt(
+      perf, "detail:tuple-optimization:link-result-block-copy-groups:no-single-result-block-fast-path",
+      link_result_fast_start_us,
+    )
+  }
+  if query_summary.has_scalar_forward_copy_candidate {
+    let link_scalar_start_us = perf_start_timer_opt(
+      perf, "detail:tuple-optimization:link-scalar-forward-copy-groups",
+    )
+    tuple_optimization_link_scalar_forward_copy_groups(
+      func, use_def, query_summary, groups, local_group_ids, copy_read_nodes,
+    )
+    perf_stop_timer_opt(
+      perf, "detail:tuple-optimization:link-scalar-forward-copy-groups", link_scalar_start_us,
+    )
+    let rebuild_after_scalar_start_us = perf_start_timer_opt(
+      perf, "detail:tuple-optimization:rebuild-local-groups-after-scalar-links",
+    )
+    local_group_ids = tuple_optimization_build_local_group_ids(func, groups)
+    perf_stop_timer_opt(
+      perf, "detail:tuple-optimization:rebuild-local-groups-after-scalar-links",
+      rebuild_after_scalar_start_us,
+    )
+  } else {
+    let link_scalar_fast_start_us = perf_start_timer_opt(
+      perf, "detail:tuple-optimization:link-scalar-forward-copy-groups:no-scalar-forward-fast-path",
+    )
+    perf_stop_timer_opt(
+      perf, "detail:tuple-optimization:link-scalar-forward-copy-groups:no-scalar-forward-fast-path",
+      link_scalar_fast_start_us,
+    )
+  }
+  let count_traffic_start_us = perf_start_timer_opt(
+    perf, "detail:tuple-optimization:count-lane-traffic",
   )
-  local_group_ids = tuple_optimization_build_local_group_ids(func, groups)
   tuple_optimization_count_lane_traffic(
     use_def, query_summary, groups, local_group_ids, copy_read_nodes, copy_write_nodes,
   )
+  perf_stop_timer_opt(
+    perf, "detail:tuple-optimization:count-lane-traffic", count_traffic_start_us,
+  )
+  let finalize_start_us = perf_start_timer_opt(
+    perf, "detail:tuple-optimization:finalize-host-lanes",
+  )
   tuple_optimization_finalize_host_lanes(func, use_def, query_summary, groups)
+  perf_stop_timer_opt(
+    perf, "detail:tuple-optimization:finalize-host-lanes", finalize_start_us,
+  )
+  let propagate_start_us = perf_start_timer_opt(
+    perf, "detail:tuple-optimization:propagate-badness",
+  )
   tuple_optimization_propagate_badness(groups)
+  perf_stop_timer_opt(
+    perf, "detail:tuple-optimization:propagate-badness", propagate_start_us,
+  )
   { groups, local_group_ids, copy_read_nodes, query_summary }
 }
 
@@ -1935,9 +2072,16 @@ fn tuple_optimization_analyze_with_groups(
 fn tuple_optimization_analyze(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
+  perf? : HotPerfSession? = None,
 ) -> HotTupleOptimizationAnalysis {
+  let collect_start_us = perf_start_timer_opt(
+    perf, "detail:tuple-optimization:collect-seed-groups",
+  )
   let groups = tuple_optimization_collect_seed_groups(func, use_def)
-  tuple_optimization_analyze_with_groups(func, use_def, groups)
+  perf_stop_timer_opt(
+    perf, "detail:tuple-optimization:collect-seed-groups", collect_start_us,
+  )
+  tuple_optimization_analyze_with_groups(func, use_def, groups, perf~)
 }
 
 ///|
@@ -2233,9 +2377,6 @@ fn tuple_optimization_group_should_rewrite_in_func(
   !(group.copy_source is Some(_) &&
   group.producer < 0 &&
   copy_group_only_uses_host_non_drop) &&
-  !tuple_optimization_group_has_nested_rootslot_host_copy_wrapper(
-    func, use_def, group,
-  ) &&
   !tuple_optimization_copy_group_redundant_with_source_host_chain(
     func, use_def, groups, group_id,
   )
@@ -2274,8 +2415,40 @@ fn tuple_optimization_replace_with_built(
       @ir.hot_label_owner_set(func, replacement.imm0, target_id)
     _ => ()
   }
-  @ir.hot_delete_node(func, replacement_id)
+  @ir.hot_delete_detached_node(func, replacement_id)
   pass_replace_node(ctx, func, target_id, replacement)
+}
+
+///|
+fn tuple_optimization_groups_have_copy_source(
+  groups : Array[HotTupleOptimizationGroup],
+) -> Bool {
+  for group in groups {
+    if group.copy_source is Some(_) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn tuple_optimization_build_no_copy_group_rewrite_mask(
+  groups : Array[HotTupleOptimizationGroup],
+  perf? : HotPerfSession? = None,
+) -> @bitset.BitSet {
+  let fast_path_start_us = perf_start_timer_opt(
+    perf, "detail:tuple-optimization:build-rewrite-mask:no-copy-fast-path",
+  )
+  let rewrite_mask = @bitset.BitSet::new(groups.length())
+  for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
+    rewrite_mask[group_id] = tuple_optimization_group_should_rewrite(
+      groups[group_id],
+    )
+  }
+  perf_stop_timer_opt(
+    perf, "detail:tuple-optimization:build-rewrite-mask:no-copy-fast-path", fast_path_start_us,
+  )
+  rewrite_mask
 }
 
 ///|
@@ -2284,11 +2457,15 @@ fn tuple_optimization_build_group_rewrite_mask(
   use_def : @ir.HotUseDef,
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
+  perf? : HotPerfSession? = None,
 ) -> @bitset.BitSet {
   if tuple_optimization_has_nested_rootslot_host_copy_wrapper_group(
       func, use_def, groups,
     ) {
     return @bitset.BitSet::new(groups.length())
+  }
+  if !tuple_optimization_groups_have_copy_source(groups) {
+    return tuple_optimization_build_no_copy_group_rewrite_mask(groups, perf~)
   }
   let rewrite_mask = @bitset.BitSet::new(groups.length())
   for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
@@ -2326,6 +2503,7 @@ fn tuple_optimization_ensure_split_locals(
   groups : Array[HotTupleOptimizationGroup],
   copy_read_nodes : @bitset.BitSet,
   rewrite_mask : @bitset.BitSet,
+  drop_only_elision_facts : HotTupleOptimizationDropOnlyElisionFacts,
   split_locals_by_group : Array[Array[Int]],
   split_ready : @bitset.BitSet,
   split_visiting : @bitset.BitSet,
@@ -2356,6 +2534,14 @@ fn tuple_optimization_ensure_split_locals(
     abort("tuple-optimization rewrite copy graph must stay acyclic")
   }
   split_visiting[group_id] = true
+  if group_id < drop_only_elision_facts.mask.length() &&
+    drop_only_elision_facts.mask[group_id] {
+    let split_locals = groups[group_id].lane_locals
+    split_locals_by_group[group_id] = split_locals
+    split_ready[group_id] = true
+    split_visiting[group_id] = false
+    return split_locals
+  }
   if !tuple_optimization_group_needs_dedicated_split_locals(
       func,
       use_def,
@@ -2380,8 +2566,8 @@ fn tuple_optimization_ensure_split_locals(
         )
       }
       tuple_optimization_ensure_split_locals(
-        func, use_def, summary, groups, copy_read_nodes, rewrite_mask, split_locals_by_group,
-        split_ready, split_visiting, source_group,
+        func, use_def, summary, groups, copy_read_nodes, rewrite_mask, drop_only_elision_facts,
+        split_locals_by_group, split_ready, split_visiting, source_group,
       )
     }
     None => groups[group_id].lane_locals
@@ -2440,6 +2626,64 @@ fn tuple_optimization_collect_rewrite_order(
     }
   }
   order
+}
+
+///|
+fn tuple_optimization_precompute_drop_only_elision_facts(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  summary : HotTupleOptimizationQuerySummary,
+  groups : Array[HotTupleOptimizationGroup],
+  rewrite_order : Array[Int],
+) -> HotTupleOptimizationDropOnlyElisionFacts {
+  let mask = @bitset.BitSet::new(groups.length())
+  let payload_lanes_by_group : Array[Array[Int]] = []
+  for _ in 0..<groups.length() {
+    payload_lanes_by_group.push([])
+  }
+  for group_id in rewrite_order {
+    if group_id < 0 || group_id >= groups.length() {
+      continue
+    }
+    match
+      tuple_optimization_simple_drop_only_source_payload_lanes(
+        func,
+        use_def,
+        summary,
+        groups[group_id],
+      ) {
+      Some(payload) => {
+        mask[group_id] = true
+        payload_lanes_by_group[group_id] = payload
+      }
+      None => ()
+    }
+  }
+  { mask, payload_lanes_by_group }
+}
+
+///|
+fn tuple_optimization_rewrite_order_is_source_only_elide_fast_path(
+  groups : Array[HotTupleOptimizationGroup],
+  rewrite_order : Array[Int],
+  drop_only_elision_facts : HotTupleOptimizationDropOnlyElisionFacts,
+) -> Bool {
+  if rewrite_order.is_empty() {
+    return false
+  }
+  for group_id in rewrite_order {
+    if group_id < 0 || group_id >= groups.length() {
+      return false
+    }
+    if groups[group_id].copy_source is Some(_) {
+      return false
+    }
+    if group_id >= drop_only_elision_facts.mask.length() ||
+      !drop_only_elision_facts.mask[group_id] {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -2607,6 +2851,39 @@ fn tuple_optimization_no_host_copy_group_can_scalarize_directly(
 }
 
 ///|
+fn tuple_optimization_node_has_typeidx_control_type(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => ()
+    _ => return false
+  }
+  match @ir.hot_type_get(func, @ir.hot_node_type(func, node_id)) {
+    @ir.HotTypeInfo::BlockResult(@lib.TypeIdxBlockType(_)) => true
+    @ir.HotTypeInfo::BlockResultResolved(@lib.TypeIdxBlockType(_), _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn tuple_optimization_is_simple_i32_i64_typeidx_group(
+  func : @ir.HotFunc,
+  group : HotTupleOptimizationGroup,
+) -> Bool {
+  group.lane_locals.length() == 2 &&
+  tuple_optimization_node_has_typeidx_control_type(func, group.producer) &&
+  tuple_optimization_require_local_type(func, group.lane_locals[0]) ==
+  @lib.ValType::i32() &&
+  tuple_optimization_require_local_type(func, group.lane_locals[1]) ==
+  @lib.ValType::i64()
+}
+
+///|
 fn tuple_optimization_group_needs_dedicated_split_locals(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
@@ -2633,8 +2910,9 @@ fn tuple_optimization_group_needs_dedicated_split_locals(
   match tuple_optimization_group_host_lane(group) {
     Some(host_lane) =>
       match
-        tuple_optimization_find_root_slot(
+        tuple_optimization_find_root_slot_with_use_def(
           func,
+          use_def,
           group.defining_nodes[host_lane],
           host_lane,
         ) {
@@ -2649,24 +2927,36 @@ fn tuple_optimization_group_needs_dedicated_split_locals(
             Some(chain) if !chain.is_empty() => false
             _ =>
               match
-                tuple_optimization_pick_root_anchor_slot(func, group, host_lane) {
+                tuple_optimization_pick_root_anchor_slot(
+                  func, use_def, group, host_lane,
+                ) {
                 Some(_) => true
                 None => false
               }
           }
       }
     None =>
-      match tuple_optimization_pick_no_host_root_carrier_slot(func, group) {
+      match
+        tuple_optimization_pick_no_host_root_carrier_slot(func, use_def, group) {
         Some(slot) =>
-          slot.region_ref != @ir.HotRegionRef::root() &&
-          (match @ir.hot_node_get(func, group.producer).op {
-            @ir.HotOp::Block
-            | @ir.HotOp::If
-            | @ir.HotOp::Loop
-            | @ir.HotOp::Try
-            | @ir.HotOp::TryTable => true
-            _ => false
-          })
+          if group.copy_source is None &&
+            slot.region_ref == @ir.HotRegionRef::root() &&
+            tuple_optimization_node_has_typeidx_control_type(
+              func,
+              group.producer,
+            ) {
+            true
+          } else {
+            slot.region_ref != @ir.HotRegionRef::root() &&
+            (match @ir.hot_node_get(func, group.producer).op {
+              @ir.HotOp::Block
+              | @ir.HotOp::If
+              | @ir.HotOp::Loop
+              | @ir.HotOp::Try
+              | @ir.HotOp::TryTable => true
+              _ => false
+            })
+          }
         None => false
       }
   }
@@ -2790,8 +3080,98 @@ fn tuple_optimization_find_root_slot(
 }
 
 ///|
+fn tuple_optimization_find_root_slot_in_known_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target_id : Int,
+  lane_idx : Int,
+  start_slot : Int,
+) -> HotTupleOptimizationRootSlot? {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let first_slot = if start_slot >= 0 && start_slot < root_count {
+    start_slot
+  } else {
+    0
+  }
+  for slot = first_slot; slot < root_count; slot = slot + 1 {
+    if @ir.hot_region_get(func, region_ref, slot) == target_id {
+      return Some({ region_ref, lane_idx, slot })
+    }
+  }
+  for slot = 0; slot < first_slot; slot = slot + 1 {
+    if @ir.hot_region_get(func, region_ref, slot) == target_id {
+      return Some({ region_ref, lane_idx, slot })
+    }
+  }
+  None
+}
+
+///|
+fn tuple_optimization_find_root_slot_with_use_def(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  target_id : Int,
+  lane_idx : Int,
+) -> HotTupleOptimizationRootSlot? {
+  if target_id >= 0 && target_id < @ir.hot_node_count(func) {
+    for site in @ir.node_use_sites_borrowed(use_def, target_id) {
+      match site.kind {
+        @ir.HotUseSlotKind::RootUseSlot => {
+          if site.user == -1 {
+            match
+              tuple_optimization_find_root_slot_in_known_region(
+                func,
+                @ir.HotRegionRef::root(),
+                target_id,
+                lane_idx,
+                site.slot,
+              ) {
+              Some(slot) => return Some(slot)
+              None => continue
+            }
+          }
+          let user = @ir.hot_node_get(func, site.user)
+          for info in @ir.hot_control_region_slot_info(user.op) {
+            let region_ref = match info.role {
+              @ir.HotControlRegionRole::BodyRegion =>
+                Some(@ir.hot_region_body_ref(func, site.user))
+              @ir.HotControlRegionRole::ThenRegion =>
+                Some(@ir.hot_region_then_ref(func, site.user))
+              @ir.HotControlRegionRole::ElseRegion =>
+                @ir.hot_region_else_ref(func, site.user)
+              @ir.HotControlRegionRole::CatchRegion =>
+                @ir.hot_region_catch_ref(func, site.user)
+              @ir.HotControlRegionRole::CatchListRegion =>
+                Some(@ir.hot_region_catch_list_ref(func, site.user))
+            }
+            match region_ref {
+              Some(region_ref) =>
+                match
+                  tuple_optimization_find_root_slot_in_known_region(
+                    func,
+                    region_ref,
+                    target_id,
+                    lane_idx,
+                    site.slot,
+                  ) {
+                  Some(slot) => return Some(slot)
+                  None => ()
+                }
+              None => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  tuple_optimization_find_root_slot(func, target_id, lane_idx)
+}
+
+///|
 fn tuple_optimization_pick_root_anchor_slot(
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   group : HotTupleOptimizationGroup,
   host_lane : Int,
 ) -> HotTupleOptimizationRootSlot? {
@@ -2803,8 +3183,9 @@ fn tuple_optimization_pick_root_anchor_slot(
       continue
     }
     let slot = match
-      tuple_optimization_find_root_slot(
+      tuple_optimization_find_root_slot_with_use_def(
         func,
+        use_def,
         group.defining_nodes[lane_idx],
         lane_idx,
       ) {
@@ -3454,12 +3835,19 @@ fn tuple_optimization_build_copy_root_anchor_tuple_carrier_replacement(
 ///|
 fn tuple_optimization_pick_no_host_root_carrier_slot(
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   group : HotTupleOptimizationGroup,
 ) -> HotTupleOptimizationRootSlot? {
   if group.producer < 0 || group.lane_locals.is_empty() {
     return None
   }
-  match tuple_optimization_find_root_slot(func, group.defining_nodes[0], 0) {
+  match
+    tuple_optimization_find_root_slot_with_use_def(
+      func,
+      use_def,
+      group.defining_nodes[0],
+      0,
+    ) {
     Some(slot) => Some(slot)
     None => None
   }
@@ -3628,6 +4016,7 @@ fn tuple_optimization_build_copy_root_carrier_replacement(
 fn tuple_optimization_try_rewrite_root_host_copy_group_defs(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   group : HotTupleOptimizationGroup,
   split_locals : Array[Int],
   source_split_locals : Array[Int],
@@ -3643,8 +4032,9 @@ fn tuple_optimization_try_rewrite_root_host_copy_group_defs(
     return false
   }
   let root_slot = match
-    tuple_optimization_find_root_slot(
+    tuple_optimization_find_root_slot_with_use_def(
       func,
+      use_def,
       group.defining_nodes[host_lane],
       host_lane,
     ) {
@@ -3727,6 +4117,7 @@ fn tuple_optimization_try_rewrite_root_host_copy_group_defs(
 fn tuple_optimization_try_rewrite_root_no_host_copy_group_defs(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   group : HotTupleOptimizationGroup,
   split_locals : Array[Int],
   source_split_locals : Array[Int],
@@ -3742,8 +4133,9 @@ fn tuple_optimization_try_rewrite_root_no_host_copy_group_defs(
     return false
   }
   let root_slot = match
-    tuple_optimization_find_root_slot(
+    tuple_optimization_find_root_slot_with_use_def(
       func,
+      use_def,
       group.defining_nodes[carrier_lane],
       carrier_lane,
     ) {
@@ -3835,9 +4227,439 @@ fn tuple_optimization_try_rewrite_root_no_host_copy_group_defs(
 }
 
 ///|
+fn tuple_optimization_clone_simple_lane_value(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int? {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, node.imm0) {
+        @ir.HotConstPayload::I32Const(value) =>
+          Some(@ir.hot_build_const_i32(func, value))
+        @ir.HotConstPayload::I64Const(value) =>
+          Some(@ir.hot_build_const_i64(func, value))
+        @ir.HotConstPayload::F32Const(value) =>
+          Some(@ir.hot_build_const_f32(func, value))
+        @ir.HotConstPayload::F64Const(value) =>
+          Some(@ir.hot_build_const_f64(func, value))
+        _ => None
+      }
+    @ir.HotOp::LocalGet => Some(@ir.hot_build_local_get(func, node.imm0))
+    _ => None
+  }
+}
+
+///|
+fn tuple_optimization_is_simple_lane_value(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, node.imm0) {
+        @ir.HotConstPayload::I32Const(_)
+        | @ir.HotConstPayload::I64Const(_)
+        | @ir.HotConstPayload::F32Const(_)
+        | @ir.HotConstPayload::F64Const(_) => true
+        _ => false
+      }
+    @ir.HotOp::LocalGet => true
+    _ => false
+  }
+}
+
+///|
+fn tuple_optimization_simple_block_payload_lanes(
+  func : @ir.HotFunc,
+  producer : Int,
+  lane_count : Int,
+) -> Array[Int]? {
+  if lane_count <= 0 {
+    return None
+  }
+  match @ir.hot_node_get(func, producer).op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, producer)
+  let (prefix, payload) = match
+    @ir.hot_region_split_trailing_payload_roots(func, body_ref, lane_count) {
+    Some(found) => found
+    None => return None
+  }
+  if !prefix.is_empty() || payload.length() != lane_count {
+    return None
+  }
+  for lane in payload {
+    if !tuple_optimization_is_simple_lane_value(func, lane) {
+      return None
+    }
+  }
+  Some(payload)
+}
+
+///|
+fn tuple_optimization_clone_simple_block_payload_lanes(
+  func : @ir.HotFunc,
+  producer : Int,
+  lane_count : Int,
+) -> Array[Int]? {
+  let payload = match
+    tuple_optimization_simple_block_payload_lanes(func, producer, lane_count) {
+    Some(payload) => payload
+    None => return None
+  }
+  let clones : Array[Int] = []
+  for lane in payload {
+    match tuple_optimization_clone_simple_lane_value(func, lane) {
+      Some(clone) => clones.push(clone)
+      None => return None
+    }
+  }
+  Some(clones)
+}
+
+///|
+fn tuple_optimization_local_has_only_direct_drop_uses(
+  use_def : @ir.HotUseDef,
+  summary : HotTupleOptimizationQuerySummary,
+  local_id : Int,
+) -> Bool {
+  if local_id < 0 {
+    return false
+  }
+  for read_id in @ir.local_read_nodes_borrowed(use_def, local_id) {
+    if read_id >= 0 &&
+      read_id < summary.scalar_forward_present.length() &&
+      summary.scalar_forward_present[read_id] {
+      return false
+    }
+    if tuple_optimization_node_has_direct_non_drop_use(summary, read_id) {
+      return false
+    }
+    if !tuple_optimization_node_has_direct_drop_use(summary, read_id) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn tuple_optimization_simple_drop_only_source_payload_lanes(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  summary : HotTupleOptimizationQuerySummary,
+  group : HotTupleOptimizationGroup,
+) -> Array[Int]? {
+  if group.copy_source is Some(_) {
+    return None
+  }
+  if !tuple_optimization_is_simple_i32_i64_typeidx_group(func, group) {
+    return None
+  }
+  let payload = match
+    tuple_optimization_simple_block_payload_lanes(
+      func,
+      group.producer,
+      group.lane_locals.length(),
+    ) {
+    Some(payload) => payload
+    None => return None
+  }
+  for lane_idx = 0
+      lane_idx < group.lane_locals.length()
+      lane_idx = lane_idx + 1 {
+    if !tuple_optimization_local_has_only_direct_drop_uses(
+        use_def,
+        summary,
+        group.lane_locals[lane_idx],
+      ) {
+      return None
+    }
+    let defining_node = group.defining_nodes[lane_idx]
+    match @ir.hot_node_get(func, defining_node).op {
+      @ir.HotOp::LocalSet => ()
+      @ir.HotOp::LocalTee => {
+        if tuple_optimization_node_has_direct_non_drop_use(
+            summary, defining_node,
+          ) {
+          return None
+        }
+        if !tuple_optimization_node_has_direct_drop_use(summary, defining_node) {
+          return None
+        }
+      }
+      _ => return None
+    }
+  }
+  Some(payload)
+}
+
+///|
+fn tuple_optimization_replace_elided_drop_only_def(
+  func : @ir.HotFunc,
+  target_id : Int,
+  replacement_id : Int,
+) -> Unit {
+  let replacement = @ir.hot_node_get(func, replacement_id)
+  @ir.hot_delete_detached_node(func, replacement_id)
+  @ir.hot_replace_node(func, target_id, replacement)
+}
+
+///|
+fn tuple_optimization_root_regions_from_use_def(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  target_id : Int,
+) -> Array[@ir.HotRegionRef]? {
+  if target_id < 0 || target_id >= @ir.hot_node_count(func) {
+    return None
+  }
+  for site in @ir.node_use_sites_borrowed(use_def, target_id) {
+    match site.kind {
+      @ir.HotUseSlotKind::RootUseSlot => {
+        let regions : Array[@ir.HotRegionRef] = []
+        if site.user == -1 {
+          regions.push(@ir.HotRegionRef::root())
+          return Some(regions)
+        }
+        let user = @ir.hot_node_get(func, site.user)
+        for info in @ir.hot_control_region_slot_info(user.op) {
+          match info.role {
+            @ir.HotControlRegionRole::BodyRegion =>
+              regions.push(@ir.hot_region_body_ref(func, site.user))
+            @ir.HotControlRegionRole::ThenRegion =>
+              regions.push(@ir.hot_region_then_ref(func, site.user))
+            @ir.HotControlRegionRole::ElseRegion =>
+              match @ir.hot_region_else_ref(func, site.user) {
+                Some(region_ref) => regions.push(region_ref)
+                None => ()
+              }
+            @ir.HotControlRegionRole::CatchRegion =>
+              match @ir.hot_region_catch_ref(func, site.user) {
+                Some(region_ref) => regions.push(region_ref)
+                None => ()
+              }
+            @ir.HotControlRegionRole::CatchListRegion =>
+              regions.push(@ir.hot_region_catch_list_ref(func, site.user))
+          }
+        }
+        if regions.is_empty() {
+          return None
+        }
+        return Some(regions)
+      }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+fn tuple_optimization_try_elide_simple_drop_only_source_local_set_roots_fast_path(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  group : HotTupleOptimizationGroup,
+  cleanup_plan : HotTupleOptimizationRewriteCleanupPlan,
+) -> Bool {
+  let fast_path_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
+  )
+  if group.copy_source is Some(_) {
+    perf_stop_timer_accumulate_opt(
+      ctx.perf,
+      "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
+      fast_path_start_us,
+    )
+    return false
+  }
+  let roots : Array[Int] = []
+  let regions_by_root : Array[Array[@ir.HotRegionRef]] = []
+  for defining_node in group.defining_nodes {
+    if defining_node < 0 ||
+      defining_node >= cleanup_plan.removable_root_defs.length() ||
+      !@ir.hot_node_is_live(func, defining_node) {
+      perf_stop_timer_accumulate_opt(
+        ctx.perf,
+        "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
+        fast_path_start_us,
+      )
+      return false
+    }
+    let node = @ir.hot_node_get(func, defining_node)
+    match node.op {
+      @ir.HotOp::LocalSet =>
+        if @ir.hot_child_count(func, defining_node) != 1 {
+          perf_stop_timer_accumulate_opt(
+            ctx.perf,
+            "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
+            fast_path_start_us,
+          )
+          return false
+        }
+      _ => {
+        perf_stop_timer_accumulate_opt(
+          ctx.perf,
+          "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
+          fast_path_start_us,
+        )
+        return false
+      }
+    }
+    let regions = match
+      tuple_optimization_root_regions_from_use_def(func, use_def, defining_node) {
+      Some(regions) => regions
+      None => {
+        perf_stop_timer_accumulate_opt(
+          ctx.perf,
+          "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
+          fast_path_start_us,
+        )
+        return false
+      }
+    }
+    roots.push(defining_node)
+    regions_by_root.push(regions)
+  }
+  for idx = 0; idx < roots.length(); idx = idx + 1 {
+    for region_ref in regions_by_root[idx] {
+      tuple_optimization_cleanup_plan_add_removable_root(
+        cleanup_plan,
+        roots[idx],
+        region_ref,
+      )
+    }
+  }
+  perf_stop_timer_accumulate_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
+    fast_path_start_us,
+  )
+  true
+}
+
+///|
+fn tuple_optimization_try_elide_simple_drop_only_source_group_defs(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  group : HotTupleOptimizationGroup,
+  cleanup_plan : HotTupleOptimizationRewriteCleanupPlan,
+  precomputed_payload_lanes? : Array[Int]? = None,
+) -> Bool {
+  let payload = match precomputed_payload_lanes {
+    Some(payload) => payload
+    None => {
+      let payload_start_us = perf_start_timer_opt(
+        ctx.perf,
+        "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:payload",
+      )
+      let payload = match
+        tuple_optimization_simple_block_payload_lanes(
+          func,
+          group.producer,
+          group.lane_locals.length(),
+        ) {
+        Some(payload) => payload
+        None => {
+          perf_stop_timer_accumulate_opt(
+            ctx.perf,
+            "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:payload",
+            payload_start_us,
+          )
+          return false
+        }
+      }
+      perf_stop_timer_accumulate_opt(
+        ctx.perf,
+        "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:payload",
+        payload_start_us,
+      )
+      payload
+    }
+  }
+  let replace_defs_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs",
+  )
+  let nop_replacement_id = @ir.hot_build_nop(func)
+  let nop_replacement = @ir.hot_node_get(func, nop_replacement_id)
+  @ir.hot_delete_detached_node(func, nop_replacement_id)
+  let mut immediate_changed = false
+  for lane_idx = 0
+      lane_idx < group.defining_nodes.length()
+      lane_idx = lane_idx + 1 {
+    let defining_node = group.defining_nodes[lane_idx]
+    if !@ir.hot_node_is_live(func, defining_node) {
+      continue
+    }
+    match @ir.hot_node_get(func, defining_node).op {
+      @ir.HotOp::LocalSet =>
+        match
+          tuple_optimization_find_root_slot_with_use_def(
+            func, use_def, defining_node, lane_idx,
+          ) {
+          Some(root_slot) =>
+            tuple_optimization_cleanup_plan_add_removable_root(
+              cleanup_plan,
+              defining_node,
+              root_slot.region_ref,
+            )
+          None => {
+            @ir.hot_replace_node(func, defining_node, nop_replacement)
+            cleanup_plan.generated_nops = true
+            immediate_changed = true
+          }
+        }
+      @ir.HotOp::LocalTee => {
+        let replacement = match
+          tuple_optimization_clone_simple_lane_value(func, payload[lane_idx]) {
+          Some(clone) => clone
+          None => {
+            perf_stop_timer_accumulate_opt(
+              ctx.perf,
+              "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs",
+              replace_defs_start_us,
+            )
+            return false
+          }
+        }
+        tuple_optimization_replace_elided_drop_only_def(
+          func, defining_node, replacement,
+        )
+        immediate_changed = true
+      }
+      _ => {
+        perf_stop_timer_accumulate_opt(
+          ctx.perf,
+          "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs",
+          replace_defs_start_us,
+        )
+        return false
+      }
+    }
+  }
+  if immediate_changed {
+    pass_mark_mutated(ctx, func)
+  }
+  perf_stop_timer_accumulate_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs",
+    replace_defs_start_us,
+  )
+  true
+}
+
+///|
 fn tuple_optimization_try_rewrite_root_no_host_source_group_defs(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  summary : HotTupleOptimizationQuerySummary,
   group : HotTupleOptimizationGroup,
   split_locals : Array[Int],
   carrier_lane : Int,
@@ -3849,8 +4671,9 @@ fn tuple_optimization_try_rewrite_root_no_host_source_group_defs(
     return false
   }
   let root_slot = match
-    tuple_optimization_find_root_slot(
+    tuple_optimization_find_root_slot_with_use_def(
       func,
+      use_def,
       group.defining_nodes[carrier_lane],
       carrier_lane,
     ) {
@@ -3858,17 +4681,48 @@ fn tuple_optimization_try_rewrite_root_no_host_source_group_defs(
     None => return false
   }
   let prefix : Array[Int] = []
-  for lane_idx = split_locals.length() - 1
-      lane_idx >= 0
-      lane_idx = lane_idx - 1 {
-    prefix.push(
-      @ir.hot_build_local_set(func, split_locals[lane_idx], group.producer),
-    )
+  match
+    tuple_optimization_clone_simple_block_payload_lanes(
+      func,
+      group.producer,
+      split_locals.length(),
+    ) {
+    Some(payload_lanes) =>
+      for lane_idx = 0
+          lane_idx < split_locals.length()
+          lane_idx = lane_idx + 1 {
+        prefix.push(
+          @ir.hot_build_local_set(
+            func,
+            split_locals[lane_idx],
+            payload_lanes[lane_idx],
+          ),
+        )
+      }
+    None =>
+      for lane_idx = split_locals.length() - 1
+          lane_idx >= 0
+          lane_idx = lane_idx - 1 {
+        prefix.push(
+          @ir.hot_build_local_set(func, split_locals[lane_idx], group.producer),
+        )
+      }
   }
+  let omit_drop_only_original_lanes = tuple_optimization_is_simple_i32_i64_typeidx_group(
+    func, group,
+  )
   for lane_idx = group.lane_locals.length() - 1
       lane_idx >= 0
       lane_idx = lane_idx - 1 {
     if lane_idx == carrier_lane {
+      continue
+    }
+    if omit_drop_only_original_lanes &&
+      !tuple_optimization_local_has_forwarded_non_drop_use(
+        use_def,
+        summary,
+        group.lane_locals[lane_idx],
+      ) {
       continue
     }
     prefix.push(
@@ -3881,20 +4735,37 @@ fn tuple_optimization_try_rewrite_root_no_host_source_group_defs(
   }
   @ir.hot_region_insert(func, root_slot.region_ref, root_slot.slot, prefix)
   pass_mark_mutated(ctx, func)
+  let carrier_has_non_drop_use = !omit_drop_only_original_lanes ||
+    tuple_optimization_local_has_forwarded_non_drop_use(
+      use_def,
+      summary,
+      group.lane_locals[carrier_lane],
+    )
   let carrier_replacement = match
     @ir.hot_node_get(func, group.defining_nodes[carrier_lane]).op {
     @ir.HotOp::LocalTee =>
-      @ir.hot_build_local_tee(
-        func,
-        group.lane_locals[carrier_lane],
-        @ir.hot_build_local_get(func, split_locals[carrier_lane]),
-      )
+      if carrier_has_non_drop_use {
+        @ir.hot_build_local_tee(
+          func,
+          group.lane_locals[carrier_lane],
+          @ir.hot_build_local_get(func, split_locals[carrier_lane]),
+        )
+      } else {
+        @ir.hot_build_local_get(func, split_locals[carrier_lane])
+      }
     @ir.HotOp::LocalSet =>
-      @ir.hot_build_local_set(
-        func,
-        group.lane_locals[carrier_lane],
-        @ir.hot_build_local_get(func, split_locals[carrier_lane]),
-      )
+      if carrier_has_non_drop_use {
+        @ir.hot_build_local_set(
+          func,
+          group.lane_locals[carrier_lane],
+          @ir.hot_build_local_get(func, split_locals[carrier_lane]),
+        )
+      } else {
+        @ir.hot_build_drop(
+          func,
+          @ir.hot_build_local_get(func, split_locals[carrier_lane]),
+        )
+      }
     _ => return false
   }
   tuple_optimization_replace_with_built(
@@ -3914,6 +4785,120 @@ fn tuple_optimization_try_rewrite_root_no_host_source_group_defs(
       @ir.hot_node_get(func, group.defining_nodes[lane_idx]).op {
       @ir.HotOp::LocalTee =>
         @ir.hot_build_local_get(func, split_locals[lane_idx])
+      _ => @ir.hot_build_nop(func)
+    }
+    tuple_optimization_replace_with_built(
+      ctx,
+      func,
+      group.defining_nodes[lane_idx],
+      replacement,
+    )
+  }
+  true
+}
+
+///|
+fn tuple_optimization_try_rewrite_anchor_host_source_group_defs(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  summary : HotTupleOptimizationQuerySummary,
+  group : HotTupleOptimizationGroup,
+  split_locals : Array[Int],
+  host_lane : Int,
+  anchor_slot : HotTupleOptimizationRootSlot,
+) -> Bool {
+  if host_lane < 0 || host_lane >= group.lane_locals.length() {
+    return false
+  }
+  if tuple_optimization_split_reuses_group_lanes(group, split_locals) {
+    return false
+  }
+  let payload_lanes = match
+    tuple_optimization_clone_simple_block_payload_lanes(
+      func,
+      group.producer,
+      split_locals.length(),
+    ) {
+    Some(payload_lanes) => payload_lanes
+    None => return false
+  }
+  let prefix : Array[Int] = []
+  for lane_idx = 0; lane_idx < split_locals.length(); lane_idx = lane_idx + 1 {
+    prefix.push(
+      @ir.hot_build_local_set(
+        func,
+        split_locals[lane_idx],
+        payload_lanes[lane_idx],
+      ),
+    )
+  }
+  let omit_drop_only_original_lanes = tuple_optimization_is_simple_i32_i64_typeidx_group(
+    func, group,
+  )
+  for lane_idx = group.lane_locals.length() - 1
+      lane_idx >= 0
+      lane_idx = lane_idx - 1 {
+    if lane_idx == host_lane {
+      continue
+    }
+    if omit_drop_only_original_lanes &&
+      !tuple_optimization_local_has_forwarded_non_drop_use(
+        use_def,
+        summary,
+        group.lane_locals[lane_idx],
+      ) {
+      continue
+    }
+    prefix.push(
+      @ir.hot_build_local_set(
+        func,
+        group.lane_locals[lane_idx],
+        @ir.hot_build_local_get(func, split_locals[lane_idx]),
+      ),
+    )
+  }
+  @ir.hot_region_insert(func, anchor_slot.region_ref, anchor_slot.slot, prefix)
+  pass_mark_mutated(ctx, func)
+  for lane_idx = 0
+      lane_idx < group.defining_nodes.length()
+      lane_idx = lane_idx + 1 {
+    if !@ir.hot_node_is_live(func, group.defining_nodes[lane_idx]) {
+      continue
+    }
+    let lane_has_non_drop_use = !omit_drop_only_original_lanes ||
+      tuple_optimization_local_has_forwarded_non_drop_use(
+        use_def,
+        summary,
+        group.lane_locals[lane_idx],
+      )
+    let replacement = match
+      @ir.hot_node_get(func, group.defining_nodes[lane_idx]).op {
+      @ir.HotOp::LocalTee =>
+        if lane_has_non_drop_use {
+          @ir.hot_build_local_tee(
+            func,
+            group.lane_locals[lane_idx],
+            @ir.hot_build_local_get(func, split_locals[lane_idx]),
+          )
+        } else {
+          @ir.hot_build_local_get(func, split_locals[lane_idx])
+        }
+      @ir.HotOp::LocalSet =>
+        if lane_idx == host_lane && lane_has_non_drop_use {
+          @ir.hot_build_local_set(
+            func,
+            group.lane_locals[lane_idx],
+            @ir.hot_build_local_get(func, split_locals[lane_idx]),
+          )
+        } else if lane_idx == host_lane {
+          @ir.hot_build_drop(
+            func,
+            @ir.hot_build_local_get(func, split_locals[lane_idx]),
+          )
+        } else {
+          @ir.hot_build_nop(func)
+        }
       _ => @ir.hot_build_nop(func)
     }
     tuple_optimization_replace_with_built(
@@ -4246,12 +5231,36 @@ fn tuple_optimization_rewrite_group_defs(
   summary : HotTupleOptimizationQuerySummary,
   group : HotTupleOptimizationGroup,
   split_locals : Array[Int],
+  cleanup_plan : HotTupleOptimizationRewriteCleanupPlan,
   has_rewritten_copy_consumer? : Bool = false,
   source_host_copy_consumer? : Bool = false,
   source_group_has_host_lane? : Bool = false,
   source_split_locals? : Array[Int]? = None,
+  elide_simple_drop_only_source? : Bool = false,
 ) -> Unit {
   let actual_host_lane = tuple_optimization_group_host_lane(group)
+  if elide_simple_drop_only_source {
+    let elide_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
+    )
+    if tuple_optimization_try_elide_simple_drop_only_source_group_defs(
+        ctx, func, use_def, group, cleanup_plan,
+      ) {
+      perf_stop_timer_accumulate_opt(
+        ctx.perf,
+        "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
+        elide_start_us,
+      )
+      return
+    }
+    perf_stop_timer_accumulate_opt(
+      ctx.perf,
+      "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
+      elide_start_us,
+    )
+  }
+  cleanup_plan.generated_nops = true
   match actual_host_lane {
     None =>
       if tuple_optimization_try_rewrite_direct_scalar_copy_group_defs(
@@ -4262,7 +5271,8 @@ fn tuple_optimization_rewrite_group_defs(
     _ => ()
   }
   let no_host_root_carrier_slot = match actual_host_lane {
-    None => tuple_optimization_pick_no_host_root_carrier_slot(func, group)
+    None =>
+      tuple_optimization_pick_no_host_root_carrier_slot(func, use_def, group)
     Some(_) => None
   }
   let synthetic_carrier_lane = match actual_host_lane {
@@ -4287,8 +5297,9 @@ fn tuple_optimization_rewrite_group_defs(
   }
   let host_root_slot = match actual_host_lane {
     Some(host_lane) =>
-      tuple_optimization_find_root_slot(
+      tuple_optimization_find_root_slot_with_use_def(
         func,
+        use_def,
         group.defining_nodes[host_lane],
         host_lane,
       )
@@ -4322,7 +5333,9 @@ fn tuple_optimization_rewrite_group_defs(
       (Some(host_lane), Some(chain)) => {
         let root_id = chain[chain.length() - 1]
         let root_slot = match
-          tuple_optimization_find_root_slot(func, root_id, host_lane) {
+          tuple_optimization_find_root_slot_with_use_def(
+            func, use_def, root_id, host_lane,
+          ) {
           Some(slot) => slot
           None =>
             abort(
@@ -4434,7 +5447,8 @@ fn tuple_optimization_rewrite_group_defs(
           copy_has_non_host_drop_tail &&
           !source_group_has_host_lane
         )
-      ) => tuple_optimization_pick_root_anchor_slot(func, group, host_lane)
+      ) =>
+      tuple_optimization_pick_root_anchor_slot(func, use_def, group, host_lane)
     _ => None
   }
   let has_anchor_slot = match anchor_slot {
@@ -4465,7 +5479,16 @@ fn tuple_optimization_rewrite_group_defs(
     (Some(host_lane), Some(source_split_locals)) if host_is_function_root &&
       !copy_host_needs_tuple_carrier =>
       if tuple_optimization_try_rewrite_root_host_copy_group_defs(
-          ctx, func, group, split_locals, source_split_locals, host_lane,
+          ctx, func, use_def, group, split_locals, source_split_locals, host_lane,
+        ) {
+        return
+      }
+    _ => ()
+  }
+  match (actual_host_lane, source_split_locals, anchor_slot) {
+    (Some(host_lane), None, Some(anchor_slot)) =>
+      if tuple_optimization_try_rewrite_anchor_host_source_group_defs(
+          ctx, func, use_def, summary, group, split_locals, host_lane, anchor_slot,
         ) {
         return
       }
@@ -4474,7 +5497,7 @@ fn tuple_optimization_rewrite_group_defs(
   match (actual_host_lane, source_split_locals, synthetic_carrier_lane) {
     (None, Some(source_split_locals), Some(carrier_lane)) if !synthetic_carrier_needs_tuple =>
       if tuple_optimization_try_rewrite_root_no_host_copy_group_defs(
-          ctx, func, group, split_locals, source_split_locals, carrier_lane,
+          ctx, func, use_def, group, split_locals, source_split_locals, carrier_lane,
         ) {
         return
       }
@@ -4483,7 +5506,7 @@ fn tuple_optimization_rewrite_group_defs(
   match (actual_host_lane, source_split_locals, synthetic_carrier_lane) {
     (None, None, Some(carrier_lane)) if !synthetic_carrier_needs_tuple =>
       if tuple_optimization_try_rewrite_root_no_host_source_group_defs(
-          ctx, func, group, split_locals, carrier_lane,
+          ctx, func, use_def, summary, group, split_locals, carrier_lane,
         ) {
         return
       }
@@ -4747,17 +5770,114 @@ fn tuple_optimization_rewrite_group_defs(
 }
 
 ///|
+fn tuple_optimization_rewrite_source_only_elide_fast_path(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  summary : HotTupleOptimizationQuerySummary,
+  groups : Array[HotTupleOptimizationGroup],
+  rewrite_order : Array[Int],
+  split_locals_by_group : Array[Array[Int]],
+  cleanup_plan : HotTupleOptimizationRewriteCleanupPlan,
+  drop_only_elision_facts : HotTupleOptimizationDropOnlyElisionFacts,
+) -> Unit {
+  let fast_path_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:source-only-elide-fast-path",
+  )
+  let source_rewrite_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:source",
+  )
+  let mut elide_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
+  )
+  let mut elide_timer_active = true
+  for group_id in rewrite_order {
+    let group = groups[group_id]
+    if !tuple_optimization_try_elide_simple_drop_only_source_local_set_roots_fast_path(
+        ctx, func, use_def, group, cleanup_plan,
+      ) &&
+      !tuple_optimization_try_elide_simple_drop_only_source_group_defs(
+        ctx,
+        func,
+        use_def,
+        group,
+        cleanup_plan,
+        precomputed_payload_lanes=Some(
+          drop_only_elision_facts.payload_lanes_by_group[group_id],
+        ),
+      ) {
+      if elide_timer_active {
+        perf_stop_timer_accumulate_opt(
+          ctx.perf,
+          "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
+          elide_start_us,
+        )
+        elide_timer_active = false
+      }
+      tuple_optimization_rewrite_group_defs(
+        ctx,
+        func,
+        use_def,
+        summary,
+        group,
+        split_locals_by_group[group_id],
+        cleanup_plan,
+      )
+      elide_start_us = perf_start_timer_opt(
+        ctx.perf,
+        "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
+      )
+      elide_timer_active = true
+    }
+  }
+  if elide_timer_active {
+    perf_stop_timer_accumulate_opt(
+      ctx.perf,
+      "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
+      elide_start_us,
+    )
+  }
+  perf_stop_timer_accumulate_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:source",
+    source_rewrite_start_us,
+  )
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:source-only-elide-fast-path",
+    fast_path_start_us,
+  )
+}
+
+///|
 fn tuple_optimization_rewrite_good_components(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   analysis : HotTupleOptimizationAnalysis,
 ) -> Bool {
-  let use_def = @ir.use_def_build(func)
+  let rewrite_mask_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:build-rewrite-mask",
+  )
   let rewrite_mask = tuple_optimization_build_group_rewrite_mask(
     func,
     use_def,
     analysis.query_summary,
     analysis.groups,
+    perf=ctx.perf,
+  )
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:build-rewrite-mask",
+    rewrite_mask_start_us,
+  )
+  let has_rewrites_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:has-rewrites-scan",
   )
   let mut has_rewrites = false
   for group_id = 0; group_id < rewrite_mask.length(); group_id = group_id + 1 {
@@ -4766,19 +5886,61 @@ fn tuple_optimization_rewrite_good_components(
       break
     }
   }
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:has-rewrites-scan",
+    has_rewrites_start_us,
+  )
   if !has_rewrites {
     return false
   }
   let initial_local_count = @ir.hot_local_count(func)
+  let cleanup_plan : HotTupleOptimizationRewriteCleanupPlan = {
+    removable_root_defs: @bitset.BitSet::new(@ir.hot_node_count(func)),
+    removable_root_regions: [],
+    generated_nops: false,
+    had_preexisting_nops: tuple_optimization_has_live_nop(func),
+    skip_drop_local_tee_cleanup: !analysis.query_summary.has_local_tee_defs,
+    skip_scalarized_tuple_local_cleanup: !analysis.query_summary.has_scalarized_tuple_local_cleanup_candidate,
+  }
   let split_locals_by_group : Array[Array[Int]] = []
   for _ in 0..<analysis.groups.length() {
     split_locals_by_group.push([])
   }
   let split_ready = @bitset.BitSet::new(analysis.groups.length())
   let split_visiting = @bitset.BitSet::new(analysis.groups.length())
+  let rewrite_order_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:collect-rewrite-order",
+  )
   let rewrite_order = tuple_optimization_collect_rewrite_order(
     analysis.groups,
     rewrite_mask,
+  )
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:collect-rewrite-order",
+    rewrite_order_start_us,
+  )
+  let drop_only_elision_facts_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:precompute-drop-only-elision-mask",
+  )
+  let drop_only_elision_facts = tuple_optimization_precompute_drop_only_elision_facts(
+    func,
+    use_def,
+    analysis.query_summary,
+    analysis.groups,
+    rewrite_order,
+  )
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:precompute-drop-only-elision-mask",
+    drop_only_elision_facts_start_us,
+  )
+  let ensure_split_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:ensure-split-locals",
   )
   for group_id in rewrite_order {
     ignore(
@@ -4789,6 +5951,7 @@ fn tuple_optimization_rewrite_good_components(
         analysis.groups,
         analysis.copy_read_nodes,
         rewrite_mask,
+        drop_only_elision_facts,
         split_locals_by_group,
         split_ready,
         split_visiting,
@@ -4796,69 +5959,168 @@ fn tuple_optimization_rewrite_good_components(
       ),
     )
   }
-  for group_id in rewrite_order {
-    let group = analysis.groups[group_id]
-    let split_locals = split_locals_by_group[group_id]
-    match group.copy_source {
-      Some(source_group) =>
-        tuple_optimization_rewrite_group_defs(
-          ctx,
-          func,
-          use_def,
-          analysis.query_summary,
-          group,
-          split_locals,
-          has_rewritten_copy_consumer=tuple_optimization_source_group_has_rewritten_copy_consumer(
-            analysis.groups,
-            rewrite_mask,
-            group_id,
-          ),
-          source_group_has_host_lane=tuple_optimization_group_host_lane(
-              analysis.groups[source_group],
-            )
-            is Some(_),
-          source_split_locals=Some(
-            match group.copy_payload_locals {
-              Some(copy_payload_locals) => copy_payload_locals
-              None => split_locals_by_group[source_group]
-            },
-          ),
-        )
-      None =>
-        tuple_optimization_rewrite_group_defs(
-          ctx,
-          func,
-          use_def,
-          analysis.query_summary,
-          group,
-          split_locals,
-          has_rewritten_copy_consumer=tuple_optimization_source_group_has_rewritten_copy_consumer(
-            analysis.groups,
-            rewrite_mask,
-            group_id,
-          ),
-          source_host_copy_consumer=tuple_optimization_source_group_has_rewritten_host_copy_consumer(
-            analysis.groups,
-            rewrite_mask,
-            group_id,
-          ),
-        )
-    }
-    match group.copy_source {
-      Some(_) =>
-        if group.producer >= 0 {
-          @ir.hot_replace_child_spans_and_control_result_type(
-            func,
-            group.producer,
-            @ir.hot_type_void(func),
-            [@ir.HotChildSpanRewrite::new(group.producer, [])],
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:ensure-split-locals",
+    ensure_split_start_us,
+  )
+  let rewrite_defs_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs",
+  )
+  if tuple_optimization_rewrite_order_is_source_only_elide_fast_path(
+      analysis.groups,
+      rewrite_order,
+      drop_only_elision_facts,
+    ) {
+    tuple_optimization_rewrite_source_only_elide_fast_path(
+      ctx,
+      func,
+      use_def,
+      analysis.query_summary,
+      analysis.groups,
+      rewrite_order,
+      split_locals_by_group,
+      cleanup_plan,
+      drop_only_elision_facts,
+    )
+  } else {
+    for group_id in rewrite_order {
+      let group = analysis.groups[group_id]
+      let split_locals = split_locals_by_group[group_id]
+      match group.copy_source {
+        Some(source_group) => {
+          let copy_rewrite_start_us = perf_start_timer_opt(
+            ctx.perf,
+            "detail:tuple-optimization:rewrite-group-defs:copy",
           )
-          pass_mark_mutated(ctx, func)
+          tuple_optimization_rewrite_group_defs(
+            ctx,
+            func,
+            use_def,
+            analysis.query_summary,
+            group,
+            split_locals,
+            cleanup_plan,
+            has_rewritten_copy_consumer=tuple_optimization_source_group_has_rewritten_copy_consumer(
+              analysis.groups,
+              rewrite_mask,
+              group_id,
+            ),
+            source_group_has_host_lane=tuple_optimization_group_host_lane(
+                analysis.groups[source_group],
+              )
+              is Some(_),
+            source_split_locals=Some(
+              match group.copy_payload_locals {
+                Some(copy_payload_locals) => copy_payload_locals
+                None => split_locals_by_group[source_group]
+              },
+            ),
+            elide_simple_drop_only_source=group_id <
+              drop_only_elision_facts.mask.length() &&
+              drop_only_elision_facts.mask[group_id],
+          )
+          perf_stop_timer_accumulate_opt(
+            ctx.perf,
+            "detail:tuple-optimization:rewrite-group-defs:copy",
+            copy_rewrite_start_us,
+          )
         }
-      None => ()
+        None => {
+          let source_rewrite_start_us = perf_start_timer_opt(
+            ctx.perf,
+            "detail:tuple-optimization:rewrite-group-defs:source",
+          )
+          tuple_optimization_rewrite_group_defs(
+            ctx,
+            func,
+            use_def,
+            analysis.query_summary,
+            group,
+            split_locals,
+            cleanup_plan,
+            has_rewritten_copy_consumer=tuple_optimization_source_group_has_rewritten_copy_consumer(
+              analysis.groups,
+              rewrite_mask,
+              group_id,
+            ),
+            source_host_copy_consumer=tuple_optimization_source_group_has_rewritten_host_copy_consumer(
+              analysis.groups,
+              rewrite_mask,
+              group_id,
+            ),
+            elide_simple_drop_only_source=group_id <
+              drop_only_elision_facts.mask.length() &&
+              drop_only_elision_facts.mask[group_id],
+          )
+          perf_stop_timer_accumulate_opt(
+            ctx.perf,
+            "detail:tuple-optimization:rewrite-group-defs:source",
+            source_rewrite_start_us,
+          )
+        }
+      }
+      match group.copy_source {
+        Some(_) =>
+          if group.producer >= 0 {
+            @ir.hot_replace_child_spans_and_control_result_type(
+              func,
+              group.producer,
+              @ir.hot_type_void(func),
+              [@ir.HotChildSpanRewrite::new(group.producer, [])],
+            )
+            pass_mark_mutated(ctx, func)
+          }
+        None => ()
+      }
     }
   }
-  tuple_optimization_cleanup_post_rewrite(ctx, func, initial_local_count)
+  perf_emit_timer_total_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:copy",
+  )
+  perf_emit_timer_total_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:source",
+  )
+  perf_emit_timer_total_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source",
+  )
+  perf_emit_timer_total_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:can-elide",
+  )
+  perf_emit_timer_total_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:payload",
+  )
+  perf_emit_timer_total_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:local-set-root-fast-path",
+  )
+  perf_emit_timer_total_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs:elide-simple-drop-only-source:replace-defs",
+  )
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:rewrite-group-defs",
+    rewrite_defs_start_us,
+  )
+  let cleanup_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:cleanup-post-rewrite",
+  )
+  tuple_optimization_cleanup_post_rewrite(
+    ctx, func, initial_local_count, cleanup_plan,
+  )
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:cleanup-post-rewrite",
+    cleanup_start_us,
+  )
   true
 }
 
@@ -4945,11 +6207,65 @@ fn tuple_optimization_cleanup_drop_local_tees(
 }
 
 ///|
+fn tuple_optimization_may_have_scalarized_tuple_local_cleanup_candidate(
+  func : @ir.HotFunc,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::LocalSet => ()
+      _ => continue
+    }
+    if @ir.hot_child_count(func, node_id) != 1 {
+      continue
+    }
+    let child_id = @ir.hot_child_get(func, node_id, 0)
+    if !@ir.hot_node_is_live(func, child_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, child_id).op {
+      @ir.HotOp::TupleMake =>
+        if @ir.hot_child_count(func, child_id) > 1 {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn tuple_optimization_cleanup_scalarized_tuple_locals(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Unit {
+  let pre_scan_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals:pre-scan",
+  )
+  let has_cleanup_candidate = tuple_optimization_may_have_scalarized_tuple_local_cleanup_candidate(
+    func,
+  )
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals:pre-scan",
+    pre_scan_start_us,
+  )
+  if !has_cleanup_candidate {
+    return
+  }
+  let use_def_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals:use-def-build",
+  )
   let use_def = @ir.use_def_build(func)
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals:use-def-build",
+    use_def_start_us,
+  )
   for local_id = 0
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
@@ -5181,6 +6497,35 @@ fn tuple_optimization_cleanup_unused_body_locals(
 }
 
 ///|
+fn tuple_optimization_has_live_nop(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Nop => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn tuple_optimization_cleanup_plan_add_removable_root(
+  cleanup_plan : HotTupleOptimizationRewriteCleanupPlan,
+  root_id : Int,
+  region_ref : @ir.HotRegionRef,
+) -> Unit {
+  cleanup_plan.removable_root_defs[root_id] = true
+  for existing in cleanup_plan.removable_root_regions {
+    if existing == region_ref {
+      return
+    }
+  }
+  cleanup_plan.removable_root_regions.push(region_ref)
+}
+
+///|
 fn tuple_optimization_prune_nops_in_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5253,15 +6598,293 @@ fn tuple_optimization_prune_nops_in_region(
 }
 
 ///|
+fn tuple_optimization_remove_elided_drop_only_roots_in_one_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  removable_root_defs : @bitset.BitSet,
+) -> Unit {
+  let next : Array[Int] = []
+  let removed : Array[Int] = []
+  let mut changed = false
+  for slot = 0
+      slot < @ir.hot_region_root_count(func, region_ref)
+      slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, slot)
+    let remove_root = root_id >= 0 &&
+      root_id < removable_root_defs.length() &&
+      removable_root_defs[root_id]
+    if remove_root {
+      changed = true
+      removed.push(root_id)
+      continue
+    }
+    next.push(root_id)
+  }
+  if changed {
+    @ir.hot_region_replace_body(func, region_ref, next)
+    for root_id in removed {
+      if @ir.hot_node_is_live(func, root_id) {
+        @ir.hot_delete_detached_node(func, root_id)
+      }
+    }
+    pass_mark_mutated(ctx, func)
+  }
+}
+
+///|
+fn tuple_optimization_remove_elided_drop_only_roots_in_targeted_regions(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  cleanup_plan : HotTupleOptimizationRewriteCleanupPlan,
+) -> Unit {
+  for region_ref in cleanup_plan.removable_root_regions {
+    tuple_optimization_remove_elided_drop_only_roots_in_one_region(
+      ctx,
+      func,
+      region_ref,
+      cleanup_plan.removable_root_defs,
+    )
+  }
+}
+
+///|
+fn tuple_optimization_remove_elided_drop_only_roots_in_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  removable_root_defs : @bitset.BitSet,
+  prune_nops~ : Bool,
+) -> Unit {
+  let next : Array[Int] = []
+  let removed : Array[Int] = []
+  let mut changed = false
+  for slot = 0
+      slot < @ir.hot_region_root_count(func, region_ref)
+      slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, slot)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        tuple_optimization_remove_elided_drop_only_roots_in_region(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, root_id),
+          removable_root_defs,
+          prune_nops~,
+        )
+      @ir.HotOp::If => {
+        tuple_optimization_remove_elided_drop_only_roots_in_region(
+          ctx,
+          func,
+          @ir.hot_region_then_ref(func, root_id),
+          removable_root_defs,
+          prune_nops~,
+        )
+        match @ir.hot_region_else_ref(func, root_id) {
+          Some(else_ref) =>
+            tuple_optimization_remove_elided_drop_only_roots_in_region(
+              ctx,
+              func,
+              else_ref,
+              removable_root_defs,
+              prune_nops~,
+            )
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        tuple_optimization_remove_elided_drop_only_roots_in_region(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, root_id),
+          removable_root_defs,
+          prune_nops~,
+        )
+        match @ir.hot_region_catch_ref(func, root_id) {
+          Some(catch_ref) =>
+            tuple_optimization_remove_elided_drop_only_roots_in_region(
+              ctx,
+              func,
+              catch_ref,
+              removable_root_defs,
+              prune_nops~,
+            )
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable => {
+        tuple_optimization_remove_elided_drop_only_roots_in_region(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, root_id),
+          removable_root_defs,
+          prune_nops~,
+        )
+        tuple_optimization_remove_elided_drop_only_roots_in_region(
+          ctx,
+          func,
+          @ir.hot_region_catch_list_ref(func, root_id),
+          removable_root_defs,
+          prune_nops~,
+        )
+      }
+      _ => ()
+    }
+    let remove_root = root_id >= 0 &&
+      root_id < removable_root_defs.length() &&
+      removable_root_defs[root_id]
+    let is_nop_root = match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::Nop => true
+      _ => false
+    }
+    let prune_root_nop = prune_nops && is_nop_root
+    if remove_root || prune_root_nop {
+      changed = true
+      if remove_root {
+        removed.push(root_id)
+      }
+      continue
+    }
+    next.push(root_id)
+  }
+  if changed {
+    @ir.hot_region_replace_body(func, region_ref, next)
+    for root_id in removed {
+      if @ir.hot_node_is_live(func, root_id) {
+        @ir.hot_delete_detached_node(func, root_id)
+      }
+    }
+    pass_mark_mutated(ctx, func)
+  }
+}
+
+///|
 fn tuple_optimization_cleanup_post_rewrite(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   initial_local_count : Int,
+  cleanup_plan : HotTupleOptimizationRewriteCleanupPlan,
 ) -> Unit {
-  tuple_optimization_cleanup_drop_local_tees(ctx, func)
-  tuple_optimization_cleanup_scalarized_tuple_locals(ctx, func)
-  tuple_optimization_prune_nops_in_region(ctx, func, @ir.HotRegionRef::root())
-  tuple_optimization_cleanup_unused_body_locals(ctx, func, initial_local_count)
+  if cleanup_plan.skip_drop_local_tee_cleanup {
+    let no_tee_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:drop-local-tees:no-local-tee-fast-path",
+    )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:drop-local-tees:no-local-tee-fast-path",
+      no_tee_start_us,
+    )
+  } else {
+    let drop_tees_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:drop-local-tees",
+    )
+    tuple_optimization_cleanup_drop_local_tees(ctx, func)
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:drop-local-tees",
+      drop_tees_start_us,
+    )
+  }
+  if cleanup_plan.skip_scalarized_tuple_local_cleanup {
+    let no_tuple_make_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals:no-tuple-make-local-set-fast-path",
+    )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals:no-tuple-make-local-set-fast-path",
+      no_tuple_make_start_us,
+    )
+  } else {
+    let scalarized_locals_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals",
+    )
+    tuple_optimization_cleanup_scalarized_tuple_locals(ctx, func)
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:scalarized-tuple-locals",
+      scalarized_locals_start_us,
+    )
+  }
+  let remove_roots_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots",
+  )
+  if cleanup_plan.generated_nops || cleanup_plan.had_preexisting_nops {
+    let scan_all_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots:scan-all-regions",
+    )
+    tuple_optimization_remove_elided_drop_only_roots_in_region(
+      ctx,
+      func,
+      @ir.HotRegionRef::root(),
+      cleanup_plan.removable_root_defs,
+      prune_nops=!cleanup_plan.generated_nops,
+    )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots:scan-all-regions",
+      scan_all_start_us,
+    )
+  } else {
+    let targeted_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots:targeted-regions",
+    )
+    tuple_optimization_remove_elided_drop_only_roots_in_targeted_regions(
+      ctx, func, cleanup_plan,
+    )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots:targeted-regions",
+      targeted_start_us,
+    )
+  }
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:cleanup-post-rewrite:remove-elided-drop-only-roots",
+    remove_roots_start_us,
+  )
+  if cleanup_plan.generated_nops {
+    let prune_nops_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:prune-nops",
+    )
+    tuple_optimization_prune_nops_in_region(ctx, func, @ir.HotRegionRef::root())
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:prune-nops",
+      prune_nops_start_us,
+    )
+  }
+  if @ir.hot_local_count(func) == initial_local_count {
+    let no_new_local_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:unused-body-locals:no-new-local-fast-path",
+    )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:unused-body-locals:no-new-local-fast-path",
+      no_new_local_start_us,
+    )
+  } else {
+    let unused_locals_start_us = perf_start_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:unused-body-locals",
+    )
+    tuple_optimization_cleanup_unused_body_locals(
+      ctx, func, initial_local_count,
+    )
+    perf_stop_timer_opt(
+      ctx.perf,
+      "detail:tuple-optimization:cleanup-post-rewrite:unused-body-locals",
+      unused_locals_start_us,
+    )
+  }
 }
 
 ///|
@@ -5270,12 +6893,26 @@ fn tuple_optimization_run(
   func : @ir.HotFunc,
 ) -> HotPassResult {
   let use_def = pass_require_use_def(ctx, func)
+  let collect_start_us = perf_start_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:collect-seed-groups",
+  )
   let groups = tuple_optimization_collect_seed_groups(func, use_def)
+  perf_stop_timer_opt(
+    ctx.perf,
+    "detail:tuple-optimization:collect-seed-groups",
+    collect_start_us,
+  )
   if groups.is_empty() {
     return HotPassResult::unchanged()
   }
-  let analysis = tuple_optimization_analyze_with_groups(func, use_def, groups)
-  if tuple_optimization_rewrite_good_components(ctx, func, analysis) {
+  let analysis = tuple_optimization_analyze_with_groups(
+    func,
+    use_def,
+    groups,
+    perf=ctx.perf,
+  )
+  if tuple_optimization_rewrite_good_components(ctx, func, use_def, analysis) {
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()
