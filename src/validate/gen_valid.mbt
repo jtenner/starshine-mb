@@ -15127,7 +15127,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
     PassOiTupleProfile => 16
     PassOiLocalFactsProfile => 11
     PassOiBooleanSelectProfile => 4
-    PassOiCallRefProfile => 6
+    PassOiCallRefProfile => 7
     _ => 3
   }
 }
@@ -15299,7 +15299,8 @@ fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int {
     0x5ef0UL => 0
     0x5ef1UL => 4
     0x5ef2UL => 5
-    _ => (seed % 6UL).to_int()
+    0x5ef3UL => 6
+    _ => (seed % 7UL).to_int()
   }
 }
 
@@ -15402,6 +15403,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         3 => Some("oi-call-ref:return-call-ref-target")
         4 => Some("oi-call-ref:table-get-target")
         5 => Some("oi-call-ref:return-table-get-target")
+        6 => Some("oi-call-ref:argument-direct-target")
         _ => Some("oi-call-ref:direct-target-wrapper")
       }
     PassOiRefGcProfile =>
@@ -18896,6 +18898,10 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
   }
   let target_type = if case == 3 {
     gen_valid_precompute_void_func_type()
+  } else if case == 6 {
+    RecType::new(
+      SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
+    )
   } else {
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
   }
@@ -18943,6 +18949,13 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
         Instruction::table_get(TableIdx::new(0U)),
         Instruction::return_call_ref(target_type_idx),
       ]
+    6 =>
+      [
+        Instruction::i32_const(I32(41)),
+        Instruction::ref_func(target_func_idx),
+        Instruction::call_ref(target_type_idx),
+        Instruction::drop(),
+      ]
     _ =>
       [
         Instruction::ref_func(target_func_idx),
@@ -18976,6 +18989,8 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
           Expr::new(
             if case == 3 {
               []
+            } else if case == 6 {
+              [Instruction::local_get(LocalIdx::new(0U))]
             } else {
               [Instruction::i32_const(I32(42))]
             },
