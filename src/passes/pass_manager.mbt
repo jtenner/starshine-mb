@@ -1128,6 +1128,23 @@ fn hot_pass_remove_region_nops(
           changed = true
           continue
         }
+        if @ir.hot_type_result_arity(func, node.ty) == 0 &&
+          @ir.hot_region_root_count(func, body_ref) == 1 &&
+          @ir.hot_node_get(func, @ir.hot_region_get(func, body_ref, 0)).op
+          is @ir.HotOp::If &&
+          !hot_pass_vacuum_label_is_used(
+            func,
+            @ir.hot_control_node_label(func, node_id),
+          ) {
+          let body_roots = vacuum_region_roots(func, body_ref)
+          @ir.hot_region_replace_body(func, body_ref, [])
+          let removed = pass_splice_region(
+            ctx, func, region_ref, idx, 1, body_roots,
+          )
+          vacuum_delete_detached_non_control_nodes(ctx, func, removed)
+          changed = true
+          continue
+        }
         if @ir.hot_region_root_count(func, body_ref) == 1 {
           let only_child = @ir.hot_region_get(func, body_ref, 0)
           match @ir.hot_node_get(func, only_child).op {
@@ -27480,6 +27497,269 @@ fn run_hot_pipeline_raw_vacuum_label_idx_depth(idx : @lib.LabelIdx) -> Int {
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_label_depth(label : @lib.LabelIdx) -> Int {
+  let @lib.LabelIdx(raw) = label
+  raw.reinterpret_as_int()
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_label_targets_owner(
+  label : @lib.LabelIdx,
+  owner_depth : Int,
+) -> Bool {
+  run_hot_pipeline_raw_vacuum_label_depth(label) == owner_depth
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_rebase_outer_label(
+  label : @lib.LabelIdx,
+  owner_depth : Int,
+) -> @lib.LabelIdx {
+  let depth = run_hot_pipeline_raw_vacuum_label_depth(label)
+  if depth > owner_depth {
+    return @lib.LabelIdx::new((depth - 1).reinterpret_as_uint())
+  }
+  label
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_rebase_outer_catch(
+  catch_ : @lib.Catch,
+  owner_depth : Int,
+) -> @lib.Catch {
+  match catch_ {
+    @lib.Catch(tag, label) =>
+      @lib.Catch::new(
+        tag,
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+      )
+    @lib.CatchRef(tag, label) =>
+      @lib.Catch::ref_(
+        tag,
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+      )
+    @lib.CatchAll(label) =>
+      @lib.Catch::all(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+      )
+    @lib.CatchAllRef(label) =>
+      @lib.Catch::all_ref(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+      )
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_targets_owner(
+  instr : @lib.Instruction,
+  owner_depth : Int,
+) -> Bool {
+  match instr {
+    @lib.Br(label) | @lib.BrIf(label) =>
+      run_hot_pipeline_raw_vacuum_label_targets_owner(label, owner_depth)
+    @lib.BrTable(labels, fallback) => {
+      if run_hot_pipeline_raw_vacuum_label_targets_owner(fallback, owner_depth) {
+        return true
+      }
+      for label in labels {
+        if run_hot_pipeline_raw_vacuum_label_targets_owner(label, owner_depth) {
+          return true
+        }
+      }
+      false
+    }
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_body_targets_owner(body, owner_depth + 1)
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_raw_vacuum_body_targets_owner(
+          then_body,
+          owner_depth + 1,
+        ) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_vacuum_body_targets_owner(body, owner_depth + 1)
+        None => false
+      }
+    }
+    @lib.TryTable(_, catches, @lib.Expr(body)) => {
+      for catch_ in catches {
+        let label = match catch_ {
+          @lib.Catch(_, label)
+          | @lib.CatchRef(_, label)
+          | @lib.CatchAll(label)
+          | @lib.CatchAllRef(label) => label
+        }
+        if run_hot_pipeline_raw_vacuum_label_targets_owner(label, owner_depth) {
+          return true
+        }
+      }
+      run_hot_pipeline_raw_vacuum_body_targets_owner(body, owner_depth + 1)
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_targets_owner(
+  body : Array[@lib.Instruction],
+  owner_depth : Int,
+) -> Bool {
+  for instr in body {
+    if run_hot_pipeline_raw_vacuum_instr_targets_owner(instr, owner_depth) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
+  instr : @lib.Instruction,
+  owner_depth : Int,
+) -> @lib.Instruction {
+  match instr {
+    @lib.Br(label) =>
+      @lib.Instruction::br(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+      )
+    @lib.BrIf(label) =>
+      @lib.Instruction::br_if(
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+      )
+    @lib.BrTable(labels, fallback) => {
+      let rebased : Array[@lib.LabelIdx] = []
+      for label in labels {
+        rebased.push(
+          run_hot_pipeline_raw_vacuum_rebase_outer_label(label, owner_depth),
+        )
+      }
+      @lib.Instruction::br_table(
+        rebased,
+        run_hot_pipeline_raw_vacuum_rebase_outer_label(fallback, owner_depth),
+      )
+    }
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::block(
+        block_type,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(body, owner_depth + 1),
+        ),
+      )
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::loop_(
+        block_type,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(body, owner_depth + 1),
+        ),
+      )
+    @lib.If(block_type, then_body, else_body) =>
+      @lib.Instruction::if_(
+        block_type,
+        run_hot_pipeline_raw_vacuum_rebase_outer_body(
+          then_body,
+          owner_depth + 1,
+        ),
+        match else_body {
+          Some(body) =>
+            Some(
+              run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                body,
+                owner_depth + 1,
+              ),
+            )
+          None => None
+        },
+      )
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let rebased_catches : Array[@lib.Catch] = []
+      for catch_ in catches {
+        rebased_catches.push(
+          run_hot_pipeline_raw_vacuum_rebase_outer_catch(catch_, owner_depth),
+        )
+      }
+      @lib.Instruction::try_table(
+        block_type,
+        rebased_catches,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_vacuum_rebase_outer_body(body, owner_depth + 1),
+        ),
+      )
+    }
+    _ => instr
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_rebase_outer_body(
+  body : Array[@lib.Instruction],
+  owner_depth : Int,
+) -> Array[@lib.Instruction] {
+  let rebased : Array[@lib.Instruction] = []
+  for instr in body {
+    rebased.push(
+      run_hot_pipeline_raw_vacuum_rebase_outer_instr(instr, owner_depth),
+    )
+  }
+  rebased
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_can_prefix_if_wrapper(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.LocalSet(_)
+    | @lib.GlobalSet(_)
+    | @lib.TableSet(_)
+    | @lib.I32Store(_)
+    | @lib.I64Store(_)
+    | @lib.F32Store(_)
+    | @lib.F64Store(_)
+    | @lib.I32Store8(_)
+    | @lib.I32Store16(_)
+    | @lib.I64Store8(_)
+    | @lib.I64Store16(_)
+    | @lib.I64Store32(_)
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
+    | @lib.Return
+    | @lib.Unreachable
+    | @lib.Block(_, _)
+    | @lib.Loop(_, _)
+    | @lib.If(_, _, _)
+    | @lib.TryTable(_, _, _) => false
+    _ => true
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(_, _, _) => ()
+    _ => return false
+  }
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    if !run_hot_pipeline_raw_vacuum_instr_can_prefix_if_wrapper(body[idx]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(
   instr : @lib.Instruction,
   owner_depth : Int,
@@ -27599,6 +27879,42 @@ fn run_hot_pipeline_raw_vacuum_pop_terminal_unreachable_debris(
     }
   }
   changed
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instr_contains_unreachable(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Unreachable => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body)
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_raw_vacuum_instr_contains_unreachable(instr) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -27877,9 +28193,25 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           body,
         )
         changed = changed || body_changed
-        rewritten.push(
-          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
-        )
+        match block_type {
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(next_body) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
+          _ =>
+            rewritten.push(
+              @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+            )
+        }
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
@@ -28181,7 +28513,7 @@ fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
       @lib.Nop | @lib.Drop => return true
       @lib.Block(block_type, @lib.Expr(body)) => {
         match block_type {
-          @lib.VoidBlockType if body.length() == 0 => return true
+          @lib.VoidBlockType => return true
           _ => ()
         }
         if body.length() == 1 {

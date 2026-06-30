@@ -727,6 +727,102 @@ test "vacuum removes empty void blocks" {
 }
 
 ///|
+test "vacuum unwraps untargeted if-wrapper void blocks" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (local i32) block (if (local.get 0) (then i32.const 7 local.set 1)) end))",
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected vacuum pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected untargeted block vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          ],
+          None,
+        ),
+      ])
+    other =>
+      fail(
+        "expected untargeted if-wrapper block to be unwrapped, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum raw-unwraps dense nop blocks with outer branches" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (local i32)
+      #|    (block
+      #|      (block
+      #|        nop nop nop nop nop nop nop nop
+      #|        nop nop nop nop nop nop nop nop
+      #|        (if (i32.const 1)
+      #|          (then
+      #|            (br 2)
+      #|          )
+      #|        )
+      #|      )
+      #|      (i32.const 9)
+      #|      (local.set 0)
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected vacuum pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected raw block-unwrapped output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr([@lib.Block(@lib.VoidBlockType, @lib.Expr(instrs))])
+          ),
+        ]
+      )
+    ) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [@lib.Instruction::br(@lib.LabelIdx::new(1U))],
+          None,
+        ),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      ])
+    other =>
+      fail(
+        "expected outer block with rebased branch after raw vacuum, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum matches Binaryen empty function nop canonicalization" {
   let input = pass_test_module_from_wat("(module (func))")
   let optimized = match
