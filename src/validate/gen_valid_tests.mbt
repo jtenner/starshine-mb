@@ -4111,6 +4111,14 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let shared_atomic_random_xchg_restore = match
+    gen_valid_module_result_from_seed(
+      0x5f07UL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(memory64_dynamic.config_label, "pass-oi-memory-bulk")
   for
     generated in [
@@ -4121,6 +4129,7 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
       multi_memory_fill_restore, memory64_multi_memory_fill_restore, runtime_call_fill_restore,
       runtime_call_restore_copy, runtime_localtee_restore_copy, runtime_select_restore_copy,
       runtime_select_fill_restore, shared_atomic_xchg_restore, runtime_store8_mask_restore,
+      shared_atomic_random_xchg_restore,
     ] {
     match validate_module(generated.wasm_module) {
       Ok(_) => ()
@@ -4230,6 +4239,10 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5f06UL),
     Some("oi-memory-bulk:runtime-store8-mask-restore-read"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5f07UL),
+    Some("oi-memory-bulk:shared-atomic-random-xchg-restore"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(
@@ -4375,6 +4388,12 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     ),
     "runtime-store8-mask-restore-read",
   )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      shared_atomic_random_xchg_restore.wasm_module,
+    ),
+    "shared-atomic-xchg-restore",
+  )
   assert_true(
     gen_valid_test_has_func_export(
       shared_atomic_xchg_restore.wasm_module,
@@ -4384,6 +4403,12 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   assert_true(
     gen_valid_test_has_func_export(
       runtime_store8_mask_restore.wasm_module,
+      "run",
+    ),
+  )
+  assert_true(
+    gen_valid_test_has_func_export(
+      shared_atomic_random_xchg_restore.wasm_module,
       "run",
     ),
   )
