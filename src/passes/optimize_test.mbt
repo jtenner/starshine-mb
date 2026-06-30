@@ -800,6 +800,95 @@ test "vacuum unwraps untargeted if-wrapper void blocks" {
 }
 
 ///|
+test "vacuum raw-unwraps singleton call-prefix if blocks with outer branches" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "side" (func $side (param i32)))
+      #|  (import "m" "make" (func $make (param i32) (result i32)))
+      #|  (func (param i32) (local i32)
+      #|    (block
+      #|      (block
+      #|        (block
+      #|          (block
+      #|            nop nop nop nop
+      #|            (local.set 1 (call $make (local.get 0)))
+      #|            nop
+      #|            (call $side (local.get 0))
+      #|          )
+      #|          nop nop
+      #|          (if (local.get 1)
+      #|            (then
+      #|              nop
+      #|              (call $side (local.get 1))
+      #|              (br 3)
+      #|            )
+      #|          )
+      #|        )
+      #|      )
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected vacuum pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected call-prefix wrapper output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  @lib.VoidBlockType,
+                  @lib.Expr([@lib.Block(@lib.VoidBlockType, @lib.Expr(body))])
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) =>
+      @debug.assert_eq(body, [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+          ],
+          None,
+        ),
+      ])
+    other =>
+      fail(
+        "expected singleton call-prefix if wrapper to be unwrapped, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum raw-unwraps dense nop blocks with outer branches" {
   let input = pass_test_module_from_wat(
     (
