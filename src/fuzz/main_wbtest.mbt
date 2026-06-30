@@ -2517,17 +2517,17 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
   )
 
   let local_args = EmitGenValidBatchArgs::new(
-    30,
+    120,
     0xf6b35f0UL,
     "tmp/gen-valid-oi-local",
     profile="pass-oi-local-facts",
-    max_attempts=60,
+    max_attempts=180,
   )
   let local_selection = match emit_gen_valid_batch_selection(local_args) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  @debug.assert_eq(local_selection.manifest.length(), 30)
+  @debug.assert_eq(local_selection.manifest.length(), 120)
   let local_manifest = format_gen_valid_batch_manifest_json(
     local_args, local_selection,
   )
@@ -2536,7 +2536,7 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
       "oi-local-facts:local-tee-add-zero", "oi-local-facts:existing-producer-sign-extension",
       "oi-local-facts:effectful-existing-producer-sign-extension", "oi-local-facts:localtee-existing-producer-sign-extension",
       "oi-local-facts:local-carried-existing-producer-sign-extension", "oi-local-facts:effectful-local-carried-existing-producer-sign-extension",
-      "oi-local-facts:wrap-extend-mask", "oi-local-facts:shifted-mask",
+      "oi-local-facts:wrap-extend-mask", "oi-local-facts:shifted-mask", "oi-local-facts:wide-shifted-mask",
     ] {
     assert_true(
       local_manifest.contains(label),
