@@ -24,7 +24,7 @@ test "pass test helpers capture deterministic vacuum trace lines" {
     pass_trace_join_lines(trace),
     pass_trace_join_lines([
       "pipeline:start requested=1", "pass[vacuum]:func func_idx=(Func 0)", "pass[vacuum]:start",
-      "pass[vacuum]:mutated revision=6", "pass[vacuum]:mutated revision=7", "pass[vacuum]:done changed=true",
+      "pass[vacuum]:mutated count=2 revision=7", "pass[vacuum]:done changed=true",
       "pipeline:done",
     ]),
   )

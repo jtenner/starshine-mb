@@ -603,12 +603,14 @@ pub fn pass_require_ssa(
 ///|
 pub fn pass_mark_mutated(ctx : HotPassContext, func : @ir.HotFunc) -> Unit {
   @ir.cache_invalidate_all(ctx.cache)
-  pipeline_trace_hook(
-    ctx.trace,
-    ctx.descriptor.name,
-    "mutated",
-    payload="revision=\{@ir.hot_revision_current(func)}",
-  )
+  if ctx.descriptor.name != "vacuum" {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "mutated",
+      payload="revision=\{@ir.hot_revision_current(func)}",
+    )
+  }
 }
 
 ///|

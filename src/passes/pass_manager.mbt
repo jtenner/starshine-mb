@@ -35896,6 +35896,15 @@ pub fn hot_pass_run(
     Ok(_) => ()
     Err(err) => return Err(err)
   }
+  let after_revision = @ir.hot_revision_current(func)
+  if descriptor.name == "vacuum" && after_revision != before_revision {
+    pipeline_trace_hook(
+      ctx.trace,
+      descriptor.name,
+      "mutated",
+      payload="count=\{after_revision - before_revision} revision=\{after_revision}",
+    )
+  }
   pipeline_trace_hook(
     ctx.trace,
     descriptor.name,
