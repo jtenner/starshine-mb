@@ -2512,6 +2512,14 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let local_fact_shifted_mask = match
+    gen_valid_module_result_from_seed(
+      0x5ef8UL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef0UL),
     Some("oi-local-facts:existing-producer-sign-extension"),
@@ -2545,6 +2553,10 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef7UL),
     Some("oi-local-facts:wrap-extend-mask"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef8UL),
+    Some("oi-local-facts:shifted-mask"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_local_fact_trigger_signature(
@@ -2673,6 +2685,28 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
   assert_true(
     local_fact_wrap_extend_mask.facts.exact_opcode_counts.i64_and > 0,
     msg="expected i64 mask after i64.extend_i32_u local-fact producer",
+  )
+  assert_true(
+    local_fact_shifted_mask.facts.exact_opcode_counts.i32_shr_u > 0,
+    msg="expected i32.shr_u shifted-mask local-fact producer",
+  )
+  assert_true(
+    local_fact_shifted_mask.facts.exact_opcode_counts.i64_shr_u > 0,
+    msg="expected i64.shr_u shifted-mask local-fact producer",
+  )
+  assert_true(
+    local_fact_shifted_mask.facts.exact_opcode_counts.i32_and > 0,
+    msg="expected i32 mask after shifted local-fact producer",
+  )
+  assert_true(
+    local_fact_shifted_mask.facts.exact_opcode_counts.i64_and > 0,
+    msg="expected i64 mask after shifted local-fact producer",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_local_fact_trigger_signature(
+      gen_valid_test_first_func_instrs(local_fact_shifted_mask.wasm_module),
+    ),
+    "local-mask",
   )
 }
 

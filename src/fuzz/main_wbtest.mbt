@@ -2536,7 +2536,7 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
       "oi-local-facts:local-tee-add-zero", "oi-local-facts:existing-producer-sign-extension",
       "oi-local-facts:effectful-existing-producer-sign-extension", "oi-local-facts:localtee-existing-producer-sign-extension",
       "oi-local-facts:local-carried-existing-producer-sign-extension", "oi-local-facts:effectful-local-carried-existing-producer-sign-extension",
-      "oi-local-facts:wrap-extend-mask",
+      "oi-local-facts:wrap-extend-mask", "oi-local-facts:shifted-mask",
     ] {
     assert_true(
       local_manifest.contains(label),
