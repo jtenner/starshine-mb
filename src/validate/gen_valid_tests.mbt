@@ -4925,6 +4925,14 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let shared_atomic_localtee_sub_restore = match
+    gen_valid_module_result_from_seed(
+      0x5f18UL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(memory64_dynamic.config_label, "pass-oi-memory-bulk")
   for
     generated in [
@@ -4940,7 +4948,7 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
       shared_atomic_random_and_restore, shared_atomic_localtee_add_restore, shared_atomic_call_add_restore,
       shared_atomic_select_add_restore, shared_atomic_select_xchg_restore, shared_atomic_select_cmpxchg_restore,
       shared_atomic_select_sub_restore, shared_atomic_select_xor_restore, shared_atomic_select_or_restore,
-      shared_atomic_select_and_restore, shared_atomic_localtee_xchg_restore,
+      shared_atomic_select_and_restore, shared_atomic_localtee_xchg_restore, shared_atomic_localtee_sub_restore,
     ] {
     match validate_module(generated.wasm_module) {
       Ok(_) => ()
@@ -5118,6 +5126,10 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5f17UL),
     Some("oi-memory-bulk:shared-atomic-localtee-xchg-restore"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5f18UL),
+    Some("oi-memory-bulk:shared-atomic-localtee-sub-restore"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(
@@ -5365,6 +5377,12 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     ),
     "shared-atomic-xchg-restore",
   )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      shared_atomic_localtee_sub_restore.wasm_module,
+    ),
+    "shared-atomic-sub-restore",
+  )
   assert_true(
     gen_valid_test_instrs_have_localtee(
       gen_valid_test_first_func_instrs(
@@ -5540,6 +5558,19 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     gen_valid_test_has_func_export(
       shared_atomic_localtee_xchg_restore.wasm_module,
       "run",
+    ),
+  )
+  assert_true(
+    gen_valid_test_has_func_export(
+      shared_atomic_localtee_sub_restore.wasm_module,
+      "run",
+    ),
+  )
+  assert_true(
+    gen_valid_test_instrs_have_localtee(
+      gen_valid_test_first_func_instrs(
+        shared_atomic_localtee_sub_restore.wasm_module,
+      ),
     ),
   )
   let (direct_copies, direct_fills) = gen_valid_test_instrs_count_memory_bulk_ops(
