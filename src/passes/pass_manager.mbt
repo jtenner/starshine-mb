@@ -231,15 +231,23 @@ fn pipeline_verify_checkpoint_with_perf(
   target : HotPipelineVerifyTarget,
   timer_name : String,
 ) -> Result[Unit, String] {
-  let start_us = perf_start_timer_opt(perf, timer_name)
-  let result = pipeline_verify_checkpoint(policy, label, target)
-  perf_stop_timer_opt(perf, timer_name, start_us)
-  match result {
-    Ok(_) => {
-      perf_validation_checkpoint_opt(perf, label)
-      Ok(())
+  match (policy, target) {
+    (
+      HotPipelineVerifyPolicy::FinalModuleOnly,
+      HotPipelineVerifyTarget::HotFuncTarget(_),
+    ) => Ok(())
+    _ => {
+      let start_us = perf_start_timer_opt(perf, timer_name)
+      let result = pipeline_verify_checkpoint(policy, label, target)
+      perf_stop_timer_opt(perf, timer_name, start_us)
+      match result {
+        Ok(_) => {
+          perf_validation_checkpoint_opt(perf, label)
+          Ok(())
+        }
+        Err(err) => Err(err)
+      }
     }
-    Err(err) => Err(err)
   }
 }
 

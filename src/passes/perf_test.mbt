@@ -3654,6 +3654,8 @@ test "run hot pipeline omits hot verify checkpoints under final-module-only poli
   assert_false(text.contains("perf:timer name=verify:after-lift"))
   assert_false(text.contains("perf:checkpoint name=verify before lower"))
   assert_false(text.contains("perf:timer name=verify:before-lower"))
+  assert_false(text.contains("perf:timer name=verify:before:vacuum"))
+  assert_false(text.contains("perf:timer name=verify:after:vacuum"))
   assert_true(text.contains("perf:timer name=validate:final-module"))
 }
 
