@@ -3684,6 +3684,41 @@ test "vacuum batches writeback guard when final validation is disabled" {
 }
 
 ///|
+test "vacuum batches hot perf timers across changed functions" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  let wat =
+    #|(module
+    #|  (func nop)
+    #|  (func nop)
+    #|  (func nop)
+    #|)
+  match
+    pass_test_run_pipeline(
+      wat,
+      ["vacuum"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected changed vacuum pipeline success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  @debug.assert_eq(perf_test_count_occurrences(text, "perf:timer name=lift"), 1)
+  @debug.assert_eq(
+    perf_test_count_occurrences(text, "perf:timer name=pass:vacuum"),
+    1,
+  )
+  @debug.assert_eq(
+    perf_test_count_occurrences(text, "perf:timer name=lower"),
+    1,
+  )
+  assert_true(text.contains("pass[vacuum]:funcs count=3 changed=3"), msg=text)
+}
+
+///|
 test "vacuum raw-skips functions with no cleanup candidates" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

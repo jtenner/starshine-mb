@@ -8234,6 +8234,12 @@ priv struct HotPipelineModuleState {
   mut vacuum_raw_preclean_count : Int
   mut vacuum_no_candidate_elapsed_us : UInt64
   mut vacuum_no_candidate_count : Int
+  mut vacuum_lift_elapsed_us : UInt64
+  mut vacuum_lift_count : Int
+  mut vacuum_pass_elapsed_us : UInt64
+  mut vacuum_pass_count : Int
+  mut vacuum_lower_elapsed_us : UInt64
+  mut vacuum_lower_count : Int
 }
 
 ///|
@@ -8244,6 +8250,77 @@ fn HotPipelineModuleState::new() -> HotPipelineModuleState {
     vacuum_raw_preclean_count: 0,
     vacuum_no_candidate_elapsed_us: 0UL,
     vacuum_no_candidate_count: 0,
+    vacuum_lift_elapsed_us: 0UL,
+    vacuum_lift_count: 0,
+    vacuum_pass_elapsed_us: 0UL,
+    vacuum_pass_count: 0,
+    vacuum_lower_elapsed_us: 0UL,
+    vacuum_lower_count: 0,
+  }
+}
+
+///|
+fn run_hot_pipeline_record_vacuum_hot_timer(
+  module_state : HotPipelineModuleState,
+  name : String,
+  elapsed_us : UInt64,
+) -> Unit {
+  match name {
+    "lift" => {
+      module_state.vacuum_lift_elapsed_us += elapsed_us
+      module_state.vacuum_lift_count += 1
+    }
+    "pass:vacuum" => {
+      module_state.vacuum_pass_elapsed_us += elapsed_us
+      module_state.vacuum_pass_count += 1
+    }
+    "lower" => {
+      module_state.vacuum_lower_elapsed_us += elapsed_us
+      module_state.vacuum_lower_count += 1
+    }
+    _ => ()
+  }
+}
+
+///|
+fn run_hot_pipeline_emit_vacuum_aggregate_timers(
+  options : HotPipelineOptions,
+  module_state : HotPipelineModuleState,
+) -> Unit {
+  if module_state.vacuum_raw_preclean_count > 0 {
+    perf_record_timer_elapsed_opt(
+      options.perf,
+      "raw:vacuum-preclean",
+      module_state.vacuum_raw_preclean_elapsed_us,
+    )
+  }
+  if module_state.vacuum_no_candidate_count > 0 {
+    perf_record_timer_elapsed_opt(
+      options.perf,
+      "raw:vacuum-no-candidates",
+      module_state.vacuum_no_candidate_elapsed_us,
+    )
+  }
+  if module_state.vacuum_lift_count > 0 {
+    perf_record_timer_elapsed_opt(
+      options.perf,
+      "lift",
+      module_state.vacuum_lift_elapsed_us,
+    )
+  }
+  if module_state.vacuum_pass_count > 0 {
+    perf_record_timer_elapsed_opt(
+      options.perf,
+      "pass:vacuum",
+      module_state.vacuum_pass_elapsed_us,
+    )
+  }
+  if module_state.vacuum_lower_count > 0 {
+    perf_record_timer_elapsed_opt(
+      options.perf,
+      "lower",
+      module_state.vacuum_lower_elapsed_us,
+    )
   }
 }
 
@@ -33420,7 +33497,15 @@ fn run_hot_pipeline_func(
     }
     None => ()
   }
-  perf_stop_timer_opt(options.perf, "lift", lift_start_us)
+  if descriptor.name == "vacuum" {
+    run_hot_pipeline_record_vacuum_hot_timer(
+      module_state,
+      "lift",
+      perf_elapsed_since_start_opt(options.perf, lift_start_us),
+    )
+  } else {
+    perf_stop_timer_opt(options.perf, "lift", lift_start_us)
+  }
   match options.verify_policy {
     HotPipelineVerifyPolicy::AfterEachPass =>
       match
@@ -33450,7 +33535,15 @@ fn run_hot_pipeline_func(
     optimize_level=options.optimize_level,
     shrink_level=options.shrink_level,
   )
-  match hot_pass_run(ctx, func) {
+  let aggregate_pass_timer = if descriptor.name == "vacuum" {
+    Some(fn(name, elapsed_us) {
+      run_hot_pipeline_record_vacuum_hot_timer(module_state, name, elapsed_us)
+    })
+  } else {
+    None
+  }
+  match
+    hot_pass_run_with_aggregate_perf_timer(ctx, func, aggregate_pass_timer) {
     Ok(result) =>
       if !result.changed &&
         (
@@ -33558,7 +33651,15 @@ fn run_hot_pipeline_func(
             Some(run_hot_pipeline_original_func(mod_, func_idx)),
             mod_,
           )
-          perf_stop_timer_opt(options.perf, "lower", lower_start_us)
+          if descriptor.name == "vacuum" {
+            run_hot_pipeline_record_vacuum_hot_timer(
+              module_state,
+              "lower",
+              perf_elapsed_since_start_opt(options.perf, lower_start_us),
+            )
+          } else {
+            perf_stop_timer_opt(options.perf, "lower", lower_start_us)
+          }
           Ok({
             reason: "",
             func: lowered,
@@ -33602,7 +33703,15 @@ fn run_hot_pipeline_func(
         Some(run_hot_pipeline_original_func(mod_, func_idx)),
         mod_,
       )
-      perf_stop_timer_opt(options.perf, "lower", lower_start_us)
+      if descriptor.name == "vacuum" {
+        run_hot_pipeline_record_vacuum_hot_timer(
+          module_state,
+          "lower",
+          perf_elapsed_since_start_opt(options.perf, lower_start_us),
+        )
+      } else {
+        perf_stop_timer_opt(options.perf, "lower", lower_start_us)
+      }
       Ok({
         reason: "",
         func: lowered,
@@ -34474,20 +34583,7 @@ fn run_hot_pipeline_apply_hot_pass(
         )
       }
       if descriptor.name == "vacuum" {
-        if module_state.vacuum_raw_preclean_count > 0 {
-          perf_record_timer_elapsed_opt(
-            options.perf,
-            "raw:vacuum-preclean",
-            module_state.vacuum_raw_preclean_elapsed_us,
-          )
-        }
-        if module_state.vacuum_no_candidate_count > 0 {
-          perf_record_timer_elapsed_opt(
-            options.perf,
-            "raw:vacuum-no-candidates",
-            module_state.vacuum_no_candidate_elapsed_us,
-          )
-        }
+        run_hot_pipeline_emit_vacuum_aggregate_timers(options, module_state)
       }
       match lowered {
         Some(lowered) => Some(@lib.CodeSec::new(lowered))
@@ -34926,20 +35022,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         )
       }
       if descriptor.name == "vacuum" {
-        if module_state.vacuum_raw_preclean_count > 0 {
-          perf_record_timer_elapsed_opt(
-            options.perf,
-            "raw:vacuum-preclean",
-            module_state.vacuum_raw_preclean_elapsed_us,
-          )
-        }
-        if module_state.vacuum_no_candidate_count > 0 {
-          perf_record_timer_elapsed_opt(
-            options.perf,
-            "raw:vacuum-no-candidates",
-            module_state.vacuum_no_candidate_elapsed_us,
-          )
-        }
+        run_hot_pipeline_emit_vacuum_aggregate_timers(options, module_state)
       }
       match lowered {
         Some(lowered) => Some(@lib.CodeSec::new(lowered))
@@ -35854,6 +35937,15 @@ pub fn hot_pass_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Result[HotPassResult, String] {
+  hot_pass_run_with_aggregate_perf_timer(ctx, func, None)
+}
+
+///|
+fn hot_pass_run_with_aggregate_perf_timer(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  aggregate_perf_timer : ((String, UInt64) -> Unit)?,
+) -> Result[HotPassResult, String] {
   let descriptor = ctx.descriptor
   pass_prepare_requirements(ctx, func)
   if descriptor.name != "vacuum" {
@@ -35914,7 +36006,15 @@ pub fn hot_pass_run(
     "redundant-set-elimination" => rse_run(ctx, func)
     _ => return Err("unsupported hot pass \{descriptor.name}")
   }
-  perf_stop_timer_opt(ctx.perf, "pass:\{descriptor.name}", pass_timer_start)
+  match aggregate_perf_timer {
+    Some(record) =>
+      record(
+        "pass:\{descriptor.name}",
+        perf_elapsed_since_start_opt(ctx.perf, pass_timer_start),
+      )
+    None =>
+      perf_stop_timer_opt(ctx.perf, "pass:\{descriptor.name}", pass_timer_start)
+  }
   match ctx.perf {
     Some(perf) =>
       perf_count_hot_alloc_delta(
