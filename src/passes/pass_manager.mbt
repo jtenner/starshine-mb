@@ -34128,43 +34128,71 @@ fn run_hot_pipeline_vacuum_repair_batch_writeback(
   let imported_func_count = run_hot_pipeline_imported_func_count(original_mod)
   match (original_mod.code_sec, candidate_mod.code_sec) {
     (Some(@lib.CodeSec(original_defs)), Some(@lib.CodeSec(candidate_defs))) => {
-      let repaired_defs = candidate_defs.copy()
-      let mut repaired_mod = candidate_mod
-      let mut repair_count = 0
-      while repair_count <= repaired_defs.length() {
-        match @validate.validate_module(repaired_mod) {
-          Ok(_) => return Some(repaired_mod)
-          Err(err) => {
-            let func_idx = match @validate.validation_error_func_idx(err) {
-              Some(func_idx) => func_idx
-              None => return None
-            }
-            let @lib.FuncIdx(raw_func_idx) = func_idx
-            let code_idx = raw_func_idx.reinterpret_as_int() -
-              imported_func_count
-            if code_idx < 0 ||
-              code_idx >= repaired_defs.length() ||
-              code_idx >= original_defs.length() {
-              return None
-            }
-            if repaired_defs[code_idx] == original_defs[code_idx] {
-              return None
-            }
-            repaired_defs[code_idx] = original_defs[code_idx]
-            repaired_mod = repaired_mod.with_code_sec(
-              @lib.CodeSec::new(repaired_defs),
-            )
-            repair_count += 1
-            pipeline_trace_hook(
-              options.trace,
-              "vacuum",
-              "skip-invalid-lower",
-              payload="func=\{func_idx} reason=writeback-batch-validate:\{err}",
-            )
-          }
+      let changed_funcs : Array[(@lib.FuncIdx, @lib.Func)] = []
+      for code_idx = 0
+          code_idx < candidate_defs.length()
+          code_idx = code_idx + 1 {
+        if code_idx < original_defs.length() &&
+          candidate_defs[code_idx] != original_defs[code_idx] {
+          changed_funcs.push(
+            (
+              @lib.FuncIdx::new(
+                (imported_func_count + code_idx).reinterpret_as_uint(),
+              ),
+              candidate_defs[code_idx],
+            ),
+          )
         }
       }
-      None
+      if changed_funcs.length() == 0 {
+        return Some(candidate_mod)
+      }
+      let invalid_funcs = match
+        @validate.validate_defined_funcs_against_module(
+          candidate_mod, changed_funcs,
+        ) {
+        Ok(errors) => errors
+        Err(err) => {
+          pipeline_trace_hook(
+            options.trace,
+            "vacuum",
+            "writeback-batch-invalid",
+            payload="err=\{err}",
+          )
+          return None
+        }
+      }
+      if invalid_funcs.length() == 0 {
+        return Some(candidate_mod)
+      }
+      pipeline_trace_hook(
+        options.trace,
+        "vacuum",
+        "writeback-batch-invalid",
+        payload="changed=\{changed_funcs.length()} invalid=\{invalid_funcs.length()}",
+      )
+      let repaired_defs = candidate_defs.copy()
+      for item in invalid_funcs {
+        let (func_idx, err) = item
+        let @lib.FuncIdx(raw_func_idx) = func_idx
+        let code_idx = raw_func_idx.reinterpret_as_int() - imported_func_count
+        if code_idx < 0 ||
+          code_idx >= repaired_defs.length() ||
+          code_idx >= original_defs.length() {
+          return None
+        }
+        if repaired_defs[code_idx] == original_defs[code_idx] {
+          return None
+        }
+        repaired_defs[code_idx] = original_defs[code_idx]
+        pipeline_trace_hook(
+          options.trace,
+          "vacuum",
+          "skip-invalid-lower",
+          payload="func=\{func_idx} reason=writeback-batch-validate:\{err}",
+        )
+      }
+      Some(candidate_mod.with_code_sec(@lib.CodeSec::new(repaired_defs)))
     }
     _ => None
   }
@@ -34396,48 +34424,28 @@ fn run_hot_pipeline_apply_hot_pass(
       options.perf,
       "guard:vacuum-writeback-batch",
     )
-    match @validate.validate_module(next_mod) {
-      Ok(_) => {
+    match
+      run_hot_pipeline_vacuum_repair_batch_writeback(mod_, next_mod, options) {
+      Some(repaired_mod) => {
         perf_stop_timer_opt(
           options.perf,
           "guard:vacuum-writeback-batch",
           batch_guard_start_us,
         )
-        return Ok(next_mod)
+        return Ok(repaired_mod)
       }
-      Err(err) => {
-        pipeline_trace_hook(
-          options.trace,
-          descriptor.name,
-          "writeback-batch-invalid",
-          payload="err=\{err}",
+      None => {
+        perf_stop_timer_opt(
+          options.perf,
+          "guard:vacuum-writeback-batch",
+          batch_guard_start_us,
         )
-        match
-          run_hot_pipeline_vacuum_repair_batch_writeback(
-            mod_, next_mod, options,
-          ) {
-          Some(repaired_mod) => {
-            perf_stop_timer_opt(
-              options.perf,
-              "guard:vacuum-writeback-batch",
-              batch_guard_start_us,
-            )
-            return Ok(repaired_mod)
-          }
-          None => {
-            perf_stop_timer_opt(
-              options.perf,
-              "guard:vacuum-writeback-batch",
-              batch_guard_start_us,
-            )
-            return run_hot_pipeline_apply_hot_pass(
-              mod_,
-              entry,
-              options,
-              defer_vacuum_writeback_guard=false,
-            )
-          }
-        }
+        return run_hot_pipeline_apply_hot_pass(
+          mod_,
+          entry,
+          options,
+          defer_vacuum_writeback_guard=false,
+        )
       }
     }
   }

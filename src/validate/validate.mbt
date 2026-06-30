@@ -1731,6 +1731,38 @@ pub fn validate_defined_func_against_module(
 }
 
 ///|
+pub fn validate_defined_funcs_against_module(
+  m : Module,
+  funcs : Array[(FuncIdx, Func)],
+) -> Result[Array[(FuncIdx, String)], ValidationError] {
+  let env = match validate_env_before_codesec(m) {
+    Ok(env) => env
+    Err(err) =>
+      return Err(
+        ValidationError::Validation(
+          ValidationDiagnostic::new(ValidationIssue::CodeSection(err)),
+        ),
+      )
+  }
+  let errors : Array[(FuncIdx, String)] = []
+  for item in funcs {
+    let (func_idx, f) = item
+    let ft = match env.get_functype_by_funcidx(func_idx) {
+      Some(ft) => ft
+      None => {
+        errors.push((func_idx, "missing functype for defined function"))
+        continue
+      }
+    }
+    match validate_func_body_against_functype(env, ft, f) {
+      Ok(_) => ()
+      Err(err) => errors.push((func_idx, err))
+    }
+  }
+  Ok(errors)
+}
+
+///|
 pub impl Validate for DataMode with fn validate(self, env) {
   match self {
     Passive => Ok(())
@@ -9518,6 +9550,44 @@ test "validate_module requires data count section for memory.init and data.drop"
         validation_error_message(err).contains("data count section required"),
       )
     }
+  }
+}
+
+///|
+test "validate_defined_funcs_against_module reports all invalid changed bodies" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let valid_func = Func::new(
+    Locals::empty(),
+    Expr::new([Instruction::i32_const(I32(1))]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U), TypeIdx::new(0U)]),
+    )
+    .with_code_sec(CodeSec::new([valid_func, valid_func, valid_func]))
+
+  match
+    validate_defined_funcs_against_module(mod, [
+      (FuncIdx::new(0U), Func::new(Locals::empty(), Expr::new([]))),
+      (FuncIdx::new(1U), valid_func),
+      (
+        FuncIdx::new(2U),
+        Func::new(Locals::empty(), Expr::new([Instruction::f32_const(0.0)])),
+      ),
+    ]) {
+    Ok(errors) => {
+      @debug.assert_eq(errors.length(), 2)
+      let (first_idx, first_msg) = errors[0]
+      let (second_idx, second_msg) = errors[1]
+      @debug.assert_eq(first_idx, FuncIdx::new(0U))
+      assert_true(first_msg.contains("function body result stack underflow"))
+      @debug.assert_eq(second_idx, FuncIdx::new(2U))
+      assert_true(second_msg.contains("function body result type mismatch"))
+    }
+    Err(err) => fail("expected function-local diagnostics, got \{err}")
   }
 }
 
