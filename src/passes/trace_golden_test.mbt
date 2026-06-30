@@ -23,7 +23,33 @@ test "pass test helpers capture deterministic vacuum trace lines" {
   @debug.assert_eq(
     pass_trace_join_lines(trace),
     pass_trace_join_lines([
-      "pipeline:start requested=1", "pass[vacuum]:mutated count=2 revision=7", "pass[vacuum]:funcs count=1 changed=1",
+      "pipeline:start requested=1", "pass[vacuum]:mutated funcs=1", "pass[vacuum]:funcs count=1 changed=1",
+      "pipeline:done",
+    ]),
+  )
+}
+
+///|
+test "vacuum trace batches mutated function summaries" {
+  let fixture =
+    #|(module
+    #|  (func nop)
+    #|  (func nop)
+    #|  (func nop))
+    #|
+  let trace = match pass_test_capture_trace(fixture, ["vacuum"]) {
+    Ok(lines) => lines
+    Err(err) => fail("expected pass trace capture success, got \{err}")
+  }
+
+  let per_func_mutations = trace.filter(fn(line) {
+    line.contains("pass[vacuum]:mutated count=")
+  })
+  @debug.assert_eq(per_func_mutations.length(), 0)
+  @debug.assert_eq(
+    pass_trace_join_lines(trace),
+    pass_trace_join_lines([
+      "pipeline:start requested=1", "pass[vacuum]:mutated funcs=3", "pass[vacuum]:funcs count=3 changed=3",
       "pipeline:done",
     ]),
   )

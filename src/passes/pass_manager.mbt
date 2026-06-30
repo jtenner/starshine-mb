@@ -34399,6 +34399,31 @@ fn run_hot_pipeline_apply_hot_pass(
       let mut vacuum_raw_preclean_skip_count = 0
       let mut vacuum_hot_func_count = 0
       let mut vacuum_hot_changed_count = 0
+      let mut vacuum_mutated_func_trace_count = 0
+      let pass_options = if descriptor.name == "vacuum" {
+        {
+          verify_policy: options.verify_policy,
+          validate_final_module: options.validate_final_module,
+          closed_world: options.closed_world,
+          traps_never_happen: options.traps_never_happen,
+          ignore_implicit_traps: options.ignore_implicit_traps,
+          zero_filled_memory: options.zero_filled_memory,
+          optimize_level: options.optimize_level,
+          shrink_level: options.shrink_level,
+          stack_function_passes: options.stack_function_passes,
+          trace_enabled: options.trace_enabled,
+          trace: fn(line) {
+            if line.contains("pass[vacuum]:mutated count=") {
+              vacuum_mutated_func_trace_count += 1
+            } else {
+              (options.trace)(line)
+            }
+          },
+          perf: options.perf,
+        }
+      } else {
+        options
+      }
       for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
@@ -34447,7 +34472,7 @@ fn run_hot_pipeline_apply_hot_pass(
         }
         let result = match
           run_hot_pipeline_func(
-            current_mod, func_idx, descriptor, module_state, lower_state, options,
+            current_mod, func_idx, descriptor, module_state, lower_state, pass_options,
           ) {
           Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
@@ -34580,6 +34605,14 @@ fn run_hot_pipeline_apply_hot_pass(
           descriptor.name,
           "skip-raw",
           payload="reason=raw-vacuum-preclean count=\{vacuum_raw_preclean_skip_count}",
+        )
+      }
+      if vacuum_mutated_func_trace_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "mutated",
+          payload="funcs=\{vacuum_mutated_func_trace_count}",
         )
       }
       if vacuum_hot_func_count > 0 {
