@@ -444,12 +444,18 @@ pub enum HotPipelineVerifyTarget {
 
 type HotTupleOptimizationAnalysis derive(Eq, @debug.Debug)
 
+type HotTupleOptimizationDropOnlyElisionFacts derive(Eq, @debug.Debug)
+
 type HotTupleOptimizationGroup derive(Eq, @debug.Debug)
 pub impl Show for HotTupleOptimizationGroup
 
 type HotTupleOptimizationQuerySummary derive(Eq, @debug.Debug)
 
+type HotTupleOptimizationRewriteCleanupPlan derive(Eq, @debug.Debug)
+
 type HotTupleOptimizationRootSlot derive(Eq, @debug.Debug)
+
+type HotTupleOptimizationSeedCollection derive(Eq, @debug.Debug)
 
 pub(all) struct SsaFullMergeGetRewrite {
   get_id : Int
