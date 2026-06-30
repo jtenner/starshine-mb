@@ -34238,6 +34238,8 @@ fn run_hot_pipeline_apply_hot_pass(
       let mut hso_raw_skip_count = 0
       let mut pls_raw_skip_count = 0
       let mut run_raw_skip_count = 0
+      let mut vacuum_no_candidate_skip_count = 0
+      let mut vacuum_raw_preclean_skip_count = 0
       for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
@@ -34350,6 +34352,12 @@ fn run_hot_pipeline_apply_hot_pass(
           } else if descriptor.name == "remove-unused-names" &&
             result.reason == "no-remove-unused-names-candidates" {
             run_raw_skip_count += 1
+          } else if descriptor.name == "vacuum" &&
+            result.reason == "no-vacuum-candidates" {
+            vacuum_no_candidate_skip_count += 1
+          } else if descriptor.name == "vacuum" &&
+            result.reason == "raw-vacuum-preclean" {
+            vacuum_raw_preclean_skip_count += 1
           } else {
             pipeline_trace_hook(
               options.trace,
@@ -34391,6 +34399,22 @@ fn run_hot_pipeline_apply_hot_pass(
           descriptor.name,
           "skip-raw",
           payload="reason=no-remove-unused-names-candidates count=\{run_raw_skip_count}",
+        )
+      }
+      if vacuum_no_candidate_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=no-vacuum-candidates count=\{vacuum_no_candidate_skip_count}",
+        )
+      }
+      if vacuum_raw_preclean_skip_count > 0 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-raw",
+          payload="reason=raw-vacuum-preclean count=\{vacuum_raw_preclean_skip_count}",
         )
       }
       match lowered {

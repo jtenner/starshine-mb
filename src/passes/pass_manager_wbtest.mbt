@@ -1219,6 +1219,37 @@ test "unchecked simplify-locals verifies hot state before lower" {
 }
 
 ///|
+test "vacuum batches repeated raw skip trace lines" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (result i32) (local.get 0))
+      #|  (func (param i32) (result i32) (local.get 0))
+      #|  (func (param i32) (result i32) (local.get 0)))
+    ),
+  )
+  let trace : Array[String] = []
+  match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["vacuum"],
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected vacuum success, got \{err}")
+  }
+
+  let no_candidate_skip_lines = trace.filter(fn(line) {
+    line.contains("pass[vacuum]:skip-raw reason=no-vacuum-candidates")
+  })
+  assert_true(no_candidate_skip_lines.length() == 1, msg=trace.to_string())
+  assert_true(
+    no_candidate_skip_lines[0].contains("count=3"),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "vacuum batch writeback repair restores invalid changed functions" {
   let input = @lib.Module::new()
     .with_type_sec(
