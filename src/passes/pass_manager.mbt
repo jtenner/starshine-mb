@@ -27906,6 +27906,15 @@ fn run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_is_terminal_unreachable_block_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  body.length() == 2 &&
+  body[0] is @lib.Block(@lib.VoidBlockType, _) &&
+  body[1] is @lib.Unreachable
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_instr_targets_if_or_outer(
   instr : @lib.Instruction,
   owner_depth : Int,
@@ -28360,6 +28369,18 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         )
         changed = changed || body_changed
         match block_type {
+          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_terminal_unreachable_block_wrapper_candidate(
+              next_body,
+            ) &&
+            !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
+            let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+              next_body, 0,
+            )
+            for next_instr in rebased {
+              rewritten.push(next_instr)
+            }
+            changed = true
+          }
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_if_wrapper_candidate(
               next_body,
             ) &&

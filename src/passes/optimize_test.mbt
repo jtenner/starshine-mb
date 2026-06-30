@@ -889,6 +889,84 @@ test "vacuum raw-unwraps singleton call-prefix if blocks with outer branches" {
 }
 
 ///|
+test "vacuum raw-unwraps terminal unreachable block wrappers with outer branches" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop
+      #|    (loop
+      #|      (block
+      #|        (block
+      #|          (block
+      #|            (br_if 2 (local.get 0))
+      #|            (local.set 1 (i32.const 1))
+      #|            (br 3)
+      #|          )
+      #|          unreachable
+      #|        )
+      #|        unreachable
+      #|      )
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected vacuum pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected terminal-wrapper output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Loop(
+                  @lib.VoidBlockType,
+                  @lib.Expr(
+                    [
+                      @lib.Block(
+                        @lib.VoidBlockType,
+                        @lib.Expr(
+                          [
+                            @lib.Block(@lib.VoidBlockType, @lib.Expr(body)),
+                            @lib.Unreachable,
+                          ]
+                        )
+                      ),
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) =>
+      @debug.assert_eq(body, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(1U)),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+      ])
+    other =>
+      fail(
+        "expected one terminal-unreachable wrapper removed with rebased branches, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum raw-unwraps dense nop blocks with outer branches" {
   let input = pass_test_module_from_wat(
     (
