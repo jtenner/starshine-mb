@@ -24745,20 +24745,30 @@ fn run_hot_pipeline_raw_optimize_instructions_fill_store_instr(
 ///|
 fn run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
   body : Array[@lib.Instruction],
-) -> (@lib.Instruction, @lib.ValType)? {
-  if body.length() != 2 || body[1] != @lib.Instruction::drop() {
-    return None
+) -> (Array[@lib.Instruction], @lib.ValType)? {
+  if body.length() == 2 && body[1] == @lib.Instruction::drop() {
+    let value = body[0]
+    if !run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        value,
+      ) {
+      return None
+    }
+    match run_hot_pipeline_raw_simplify_locals_notee_const_type(value) {
+      Some(vt) => return Some(([value], vt))
+      None => ()
+    }
   }
-  let value = body[0]
-  if !run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-      value,
-    ) {
-    return None
+  if body.length() == 4 && body[3] == @lib.Instruction::drop() {
+    match (body[0], body[1], body[2]) {
+      (@lib.I32Const(_), @lib.I32Const(_), @lib.I32DivU)
+      | (@lib.I32Const(_), @lib.I32Const(_), @lib.I32DivS)
+      | (@lib.I32Const(_), @lib.I32Const(_), @lib.I32RemU)
+      | (@lib.I32Const(_), @lib.I32Const(_), @lib.I32RemS) =>
+        return Some(([body[0], body[1], body[2]], @lib.ValType::i32()))
+      _ => ()
+    }
   }
-  match run_hot_pipeline_raw_simplify_locals_notee_const_type(value) {
-    Some(vt) => Some((value, vt))
-    None => None
-  }
+  None
 }
 
 ///|
@@ -25034,8 +25044,8 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
               rewritten.push(
                 @lib.Instruction::if_(
                   @lib.BlockType::val_type(then_type),
-                  [then_value],
-                  Some([else_value]),
+                  then_value,
+                  Some(else_value),
                 ),
               )
               rewritten.push(@lib.Instruction::drop())

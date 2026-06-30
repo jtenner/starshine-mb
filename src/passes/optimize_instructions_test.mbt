@@ -1971,6 +1971,54 @@ test "optimize-instructions raw skip folds constant if and eqz select shells" {
 }
 
 ///|
+test "optimize-instructions raw skip reshapes dropped trapping dead if arms" {
+  // OI-F grouped source-backed follow-up from
+  // `.tmp/oi-f-source-profile-count40-20260630/.../case-000002-gen-valid-transform-oi-effectful-sibling`:
+  // Binaryen keeps a value-if plus outer drop for the constant-live branch
+  // instead of Starshine's size-losing void-if with branch-local drops. Preserve
+  // the dead divide-by-zero arm inside the `if` so the trap remains conditional.
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module (global $g (mut i32) (i32.const 0)) (func (local i32",
+  )
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") i32.const 101 global.set $g global.get $g drop i32.const 1 if i32.const 102 global.set $g else i32.const 103 global.set $g end i32.const 104 global.set $g i32.const 10 i32.const 105 global.set $g i32.const 20 i32.const 1 select drop i32.const 106 global.set $g i32.const 2 i32.const 3 i32.add drop i32.const 1 if i32.const 9 drop else i32.const 1 i32.const 0 i32.div_u drop end))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_false(pretty.contains("if (Void)"), msg=pretty)
+  assert_true(pretty.contains("i32.div_u"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "drop"),
+    4,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-instructions raw skip folds identical pure select arms after effectful condition" {
   // OI-F source-backed profile follow-up from
   // `.tmp/oi-f-boolean-profile-targeted-count4-20260630`: Binaryen folds

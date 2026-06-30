@@ -224,7 +224,9 @@
       "lastCheckedEvidence": [
         "src/validate/gen_valid_tests.mbt::OI-F boolean-select trigger-smoke profile selects source-backed cases failed red-first at seed 0x5eed because pass-oi-boolean-select had no OI profile labels/modules, then passed after src/validate/gen_valid.mbt added four seed-indexed OI-F trigger modules (2026-06-30).",
         "src/passes/optimize_instructions_test.mbt::optimize-instructions raw skip folds identical pure select arms after effectful condition failed red-first while the raw-skip path preserved an identical-arm select whose condition calls a private-global helper, then passed after src/passes/pass_manager.mbt rewrote byte-identical pure select arms to dropped condition plus one arm before skip (2026-06-30).",
-        "bun scripts/pass-fuzz-compare.ts --count 4 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --out-dir .tmp/oi-f-boolean-profile-targeted-fix2-count4-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --max-failures 2000 --keep-going-after-command-failures: compared 4/4, normalized matches 3, mismatches 1, validation/generator/property/command failures 0, Binaryen cache hits/misses 4/0; labels effectful-identical-select, direct-if-select-shell, and value-if-drop-shell matched, trapping-dead-if-arm remained a sampled Starshine-win residual after manual validation and size review (2026-06-30)."
+        "bun scripts/pass-fuzz-compare.ts --count 4 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --out-dir .tmp/oi-f-boolean-profile-targeted-fix2-count4-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --max-failures 2000 --keep-going-after-command-failures: compared 4/4, normalized matches 3, mismatches 1, validation/generator/property/command failures 0, Binaryen cache hits/misses 4/0; labels effectful-identical-select, direct-if-select-shell, and value-if-drop-shell matched, trapping-dead-if-arm remained a sampled Starshine-win residual after manual validation and size review (2026-06-30).",
+        "src/passes/optimize_instructions_test.mbt::optimize-instructions raw skip reshapes dropped trapping dead if arms failed red-first while the grouped OI-F effectful-sibling dead-trap shape kept a void-if with branch-local drops, then passed after src/passes/pass_manager.mbt reshaped dropped i32 div/rem branch values into a value-if plus outer drop before raw skip (2026-06-30).",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 40 --out-dir .tmp/oi-f-dead-trap-value-if-fix-count40-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute -- --max-failures 2000 --keep-going-after-command-failures: compared 40/40, normalized matches 40, mismatches 0, validation/generator/property/command failures 0; effectful-identical-select, trapping-dead-if-arm, value-if-drop-shell, and direct-if-select-shell each matched 10/10 (2026-06-30)."
       ]
     },
     {
@@ -1190,7 +1192,7 @@
         "profile": "pass-oi-boolean-select",
         "blockedUntilProfileExists": false
       },
-      "notes": "The new source-backed pass-oi-boolean-select profile count40 grouped lane matches direct-if/select, effectful-identical-select, and value-if/drop cases, but trapping-dead-if-arm under oi-effectful-sibling remains a sampled size-losing parity gap: both residual raw outputs validate and WAT bytes tie, but Starshine raw wasm is +10 bytes aggregate. This supersedes treating the standalone count4 dead-trap residual as enough for grouped closure. Branch-hint/code-metadata and never-fold/no-reorder option surfaces remain blocked, and this non-descriptor OI-F evidence does not advance OI-J descriptor/exactness/TNH/IIT.",
+      "notes": "The source-backed pass-oi-boolean-select profile count40 grouped lane now normalized-matches direct-if/select, effectful-identical-select, value-if/drop, and trapping-dead-if-arm cases after the red-first dead-trap value-if reshaping slice. OI-F remains open as a blocked surface for branch-hint/code-metadata and never-fold/no-reorder option behavior because Starshine still lacks expression metadata remap and OI pass-option plumbing; do not use this non-descriptor evidence for OI-J descriptor/exactness/TNH/IIT.",
       "classifiedCaseLabels": [
         {
           "label": "transform:oi-if-select-shell",
@@ -1253,9 +1255,12 @@
           "label": "profile+transform:oi-boolean-select:trapping-dead-if-arm+oi-effectful-sibling",
           "profileCaseLabel": "oi-boolean-select:trapping-dead-if-arm",
           "transformId": "oi-effectful-sibling",
-          "representativeFailureDir": ".tmp/oi-f-source-profile-count40-20260630/oi-f/OI-F-boolean-select-ternary-shells/failures/case-000002-gen-valid-transform-oi-effectful-sibling",
-          "status": "mismatch",
-          "agentClassification": "Sampled size-losing OI-F parity gap: the private-global effectful-sibling prefix is preserved on both sides and all residual raw outputs validate, but Binaryen uses dropped value-if spelling around the constant-live/dead-divide arm while Starshine keeps a void-if with branch-local drops. Aggregate Starshine raw/WAT deltas are +10/0, so this is not a Starshine-win grouped closure."
+          "representativeFailureDir": ".tmp/oi-f-dead-trap-value-if-fix-count40-20260630/oi-f/OI-F-boolean-select-ternary-shells",
+          "status": "covered",
+          "agentClassification": "Sampled grouped OI-F dead-trap/effectful-sibling residual reduced to a normalized match: the raw-skip path now preserves the private-global effect prefix and rewrites branch-local drops around the constant-live/dead-divide arm into Binaryen-shaped dropped value-if spelling. This closes only the sampled source-backed grouped shape; branch-hint/code-metadata and never-fold/no-reorder remain blocked, and this is not OI-J descriptor/exactness/TNH/IIT evidence.",
+          "observedDiff": "Post-fix .tmp/oi-f-dead-trap-value-if-fix-count40-20260630 compared 40/40 with 40 normalized matches, zero mismatches/failures, and trapping-dead-if-arm matched 10/10 under oi-effectful-sibling. This supersedes the prior size-losing +10 raw / 0 WAT grouped classification from .tmp/oi-f-source-profile-count40-20260630.",
+          "nextAction": "Keep OI-F open only for the remaining source-backed blocked surfaces: branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder option behavior. Do not claim broad OI-F closure or OI-J descriptor/exactness/TNH/IIT progress from this non-descriptor grouped match.",
+          "lastCheckedEvidence": "2026-06-30 red-first optimize_instructions_test.mbt dead-trap value-if fixture passed after pass_manager raw-skip reshaping; grouped OI-F count40 sweep .tmp/oi-f-dead-trap-value-if-fix-count40-20260630 normalized-matched 40/40 with zero failures."
         }
       ]
     },
