@@ -6576,6 +6576,26 @@ test "OI live nonzero memory-atomic RMW boundary transform guards reachable inte
               ),
             )
             expected_then.push(@lib.Instruction::drop())
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_atomic_load(memarg32))
+            expected_then.push(
+              @lib.Instruction::atomic_rmw(
+                @lib.AtomicRmwOp::i32_xchg(),
+                memarg32,
+              ),
+            )
+            expected_then.push(@lib.Instruction::drop())
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i32_const(addr))
+            expected_then.push(@lib.Instruction::i64_atomic_load(memarg64))
+            expected_then.push(
+              @lib.Instruction::atomic_rmw(
+                @lib.AtomicRmwOp::i64_xchg(),
+                memarg64,
+              ),
+            )
+            expected_then.push(@lib.Instruction::drop())
             for
               op in [
                 @lib.AtomicRmwOp::i32_add(),
@@ -7008,6 +7028,16 @@ test "OI live nonzero memory-atomic RMW boundary transform preserves bytes with 
                 Some(@lib.MemIdx::new(1U)),
                 0UL,
               )
+              let memarg32 = @lib.MemArg::new(
+                2U,
+                Some(@lib.MemIdx::new(1U)),
+                0UL,
+              )
+              let memarg64 = @lib.MemArg::new(
+                3U,
+                Some(@lib.MemIdx::new(1U)),
+                0UL,
+              )
               assert_true(
                 then_instrs.contains(
                   @lib.Instruction::atomic_rmw(
@@ -7021,6 +7051,32 @@ test "OI live nonzero memory-atomic RMW boundary transform preserves bytes with 
                   @lib.Instruction::atomic_rmw(
                     @lib.AtomicRmwOp::i64_8_xchg_u(),
                     memarg8,
+                  ),
+                ),
+              )
+              assert_true(
+                then_instrs.contains(
+                  @lib.Instruction::i32_atomic_load(memarg32),
+                ),
+              )
+              assert_true(
+                then_instrs.contains(
+                  @lib.Instruction::atomic_rmw(
+                    @lib.AtomicRmwOp::i32_xchg(),
+                    memarg32,
+                  ),
+                ),
+              )
+              assert_true(
+                then_instrs.contains(
+                  @lib.Instruction::i64_atomic_load(memarg64),
+                ),
+              )
+              assert_true(
+                then_instrs.contains(
+                  @lib.Instruction::atomic_rmw(
+                    @lib.AtomicRmwOp::i64_xchg(),
+                    memarg64,
                   ),
                 ),
               )

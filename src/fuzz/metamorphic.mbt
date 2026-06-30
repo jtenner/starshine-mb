@@ -7546,6 +7546,20 @@ fn metamorphic_push_oi_live_nonzero_memory_atomic_rmw_all_noop_ops(
     @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i64_8_xchg_u(), memarg8),
   )
   instrs.push(@lib.Instruction::drop())
+  instrs.push(addr)
+  instrs.push(addr)
+  instrs.push(@lib.Instruction::i32_atomic_load(memarg32))
+  instrs.push(
+    @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i32_xchg(), memarg32),
+  )
+  instrs.push(@lib.Instruction::drop())
+  instrs.push(addr)
+  instrs.push(addr)
+  instrs.push(@lib.Instruction::i64_atomic_load(memarg64))
+  instrs.push(
+    @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i64_xchg(), memarg64),
+  )
+  instrs.push(@lib.Instruction::drop())
   for
     op in [
       @lib.AtomicRmwOp::i32_add(),
