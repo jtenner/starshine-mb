@@ -223,7 +223,7 @@ canonical-size Starshine-win candidates with raw-size residuals, not OI-G family
 closure. All 20 fix4 raw/canonical outputs validate.
 
 `pass-oi-memory-bulk` is now stronger than a broad smoke config and stronger
-than the earlier three-case trigger smoke. It emits twenty-seven OI-G
+than the earlier three-case trigger smoke. It emits twenty-eight OI-G
 trigger-smoke-plus cases: live private-global plus dead-trap boundaries, direct
 i32 tiny-bulk and load/store lowering, memory64 dynamic/local-carried bulk
 operands, no-param-call/existing-producer-wrapped tiny bulk, narrow-store masks,
@@ -247,8 +247,9 @@ local.tee-produced single-memory copy/restore/read exported function, a Node-run
 select-produced single-memory copy/restore/read exported function, a Node-runtime-compatible
 select-produced single-memory fill/restore/read exported function, a source-visible
 shared-memory full-width atomic xchg restore exported function, a Node-runtime-compatible
-store8 low-byte-mask restore/read exported function, and a source-visible shared-memory
-seed-derived aligned-address full-width atomic xchg restore exported function. The focused generator test
+store8 low-byte-mask restore/read exported function, a source-visible shared-memory
+seed-derived aligned-address full-width atomic xchg restore exported function, and a source-visible shared-memory
+seed-derived aligned-address atomic add-zero restore exported function. The focused generator test
 failed red-first first on missing OI-G labels, then on the missing three expanded
 labels, then on the missing multi-memory label/signature, then on the missing
 random-address-copy-read label/signature, then on the missing
@@ -258,9 +259,9 @@ memory64-cross-memory-restore, runtime-compatible restore, shared-wait-notify,
 runtime-compatible fill/restore, memory64 fill/restore, multi-memory
 fill/restore, memory64+multi-memory fill/restore, runtime-call fill/restore,
 runtime-call copy/restore, runtime-localtee copy/restore, runtime-select
-copy/restore, runtime-select fill/restore, shared-atomic xchg restore, and
-runtime-store8 mask restore, and shared-atomic random-address xchg restore labels/signatures before implementation; it now passes.
-The latest grouped run is `.tmp/oi-g-shared-atomic-random-xchg-count405-20260630`: it
+copy/restore, runtime-select fill/restore, shared-atomic xchg restore,
+runtime-store8 mask restore, shared-atomic random-address xchg restore, and shared-atomic random-address add-zero restore labels/signatures before implementation; it now passes.
+The prior grouped run `.tmp/oi-g-shared-atomic-random-xchg-count405-20260630`
 compares 405/405 with 333 normalized matches, 72 mismatches, zero validation,
 generator, property, command, or runtime semantic failures, and runtime counters
 `checked=185`, `unsupported=220`, `failed=0`. The new
@@ -282,11 +283,28 @@ random-address atomic offset-folding plus dropped-compare candidate (`-6/-3/-27`
 summing to whole-residual Starshine raw/canonical/WAT deltas `-360/-237/-1989`.
 The direct runtime count135 root `.tmp/oi-g-shared-atomic-random-xchg-profile-count135-20260630`
 also samples the new label 2/2 residuals with runtime all-equal and deltas
-`-6/0/+18`. Prior store8, fixed/shared xchg, runtime-select, runtime-localtee,
-runtime-call, direct runtime fill/restore, memory64, multi-memory, and
-memory64+multi-memory roots remain evidence for those source-visible shapes; exact
-multi-memory or memory64 runtime execution remains open until those modules are
-executable under a compatible adapter/export path.
+`-6/0/+18`.
+
+The latest grouped run is `.tmp/oi-g-shared-atomic-random-add-count420-20260630`: it
+compares 420/420 with 332 normalized matches, 88 mismatches, zero validation,
+generator, property, command, or runtime semantic failures, and runtime counters
+`checked=189`, `unsupported=231`, `failed=0`. The new
+`oi-memory-bulk:shared-atomic-random-add-restore` label samples 13/13 residuals
+across grouped transforms. Manual validation checks all 176 grouped residual
+artifacts with zero validation failures. The new-label residuals preserve both
+source-visible `atomic.rmw.add` zero-value operations and are sampled offset-folding
+or xor-order Starshine-win candidates with aggregate raw/canonical/WAT deltas
+`-3/-3/+81`; representative case 000010 differs because Starshine folds the
+`i64.atomic.load` into `offset=8` on the seed-derived base address and prints xor
+operands in the opposite order. The direct runtime count140 root
+`.tmp/oi-g-shared-atomic-random-add-profile-count140-20260630` samples the new
+label 7/7 residuals with zero validation/generator/property/command failures and
+runtime counters `checked=93`, `unsupported=47`, `failed=0`. Prior store8,
+fixed/shared xchg, runtime-select, runtime-localtee, runtime-call, direct runtime
+fill/restore, memory64, multi-memory, and memory64+multi-memory roots remain
+evidence for those source-visible shapes; exact multi-memory or memory64 runtime
+execution remains open until those modules are executable under a compatible
+adapter/export path, and cmpxchg plus true shared ordering/concurrency remain open.
 
 The grouped run after adding the non-primary/private-memory atomic-load transform is `.tmp/oi-g-second-atomic-count350-20260629`. It compares 192/350 transform-applicable cases with 172 normalized matches, 20 mismatches, zero validation/generator/property/command failures, and `oi-live-nonzero-memory-second-atomic-boundary` 10/10 matches. That transform uses an existing non-primary memory or appends a private nonzero memory, guards `memory.size != 0`, and performs byte atomic loads/drops at bytes 17, 1024, 49152, and 65535; it is non-mutating except for private memory creation, so it is sampled non-primary/private-memory atomic-load evidence only. Manual validation/size review of all 20 failure dirs found zero validation failures, zero normalized-WAT-larger Starshine dirs, and two unrelated raw-size-larger residual dirs under `oi-memory-size-boundary`/`oi-commuted-operands`.
 
