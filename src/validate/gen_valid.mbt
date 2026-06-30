@@ -15127,7 +15127,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
     PassOiTupleProfile => 16
     PassOiLocalFactsProfile => 11
     PassOiBooleanSelectProfile => 4
-    PassOiCallRefProfile => 4
+    PassOiCallRefProfile => 5
     _ => 3
   }
 }
@@ -15297,7 +15297,8 @@ fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int {
     0x5eeeUL => 2
     0x5eefUL => 3
     0x5ef0UL => 0
-    _ => (seed % 4UL).to_int()
+    0x5ef1UL => 4
+    _ => (seed % 5UL).to_int()
   }
 }
 
@@ -15398,6 +15399,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         1 => Some("oi-call-ref:local-carried-target")
         2 => Some("oi-call-ref:block-produced-target")
         3 => Some("oi-call-ref:return-call-ref-target")
+        4 => Some("oi-call-ref:table-get-target")
         _ => Some("oi-call-ref:direct-target-wrapper")
       }
     PassOiRefGcProfile =>
@@ -18922,6 +18924,13 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
         ),
         Instruction::return_call_ref(target_type_idx),
       ]
+    4 =>
+      [
+        Instruction::i32_const(I32(0)),
+        Instruction::table_get(TableIdx::new(0U)),
+        Instruction::call_ref(target_type_idx),
+        Instruction::drop(),
+      ]
     _ =>
       [
         Instruction::ref_func(target_func_idx),
@@ -18934,34 +18943,63 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
   } else {
     Locals::empty()
   }
-  Module::new()
-  .with_type_sec(TypeSec::new([run_type, target_type]))
-  .with_func_sec(FuncSec::new([TypeIdx::new(0U), target_type_idx]))
-  .with_export_sec(
-    ExportSec::new([
-      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(0U))),
-    ]),
-  )
-  .with_elem_sec(
-    ElemSec::new([
-      Elem::new(ElemMode::declarative(), ElemKind::funcs([target_func_idx])),
-    ]),
-  )
-  .with_code_sec(
-    CodeSec::new([
-      Func::new(locals, Expr::new(body)),
-      Func::new(
-        Locals::empty(),
-        Expr::new(
-          if case == 3 {
-            []
-          } else {
-            [Instruction::i32_const(I32(42))]
-          },
+  let mut mod = Module::new()
+    .with_type_sec(TypeSec::new([run_type, target_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), target_type_idx]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(0U))),
+      ]),
+    )
+    .with_elem_sec(
+      ElemSec::new([
+        Elem::new(ElemMode::declarative(), ElemKind::funcs([target_func_idx])),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(locals, Expr::new(body)),
+        Func::new(
+          Locals::empty(),
+          Expr::new(
+            if case == 3 {
+              []
+            } else {
+              [Instruction::i32_const(I32(42))]
+            },
+          ),
         ),
-      ),
-    ]),
-  )
+      ]),
+    )
+  if case == 4 {
+    mod = mod.with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(
+            RefType::new(true, HeapType::new(target_type_idx)),
+            Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    mod = mod.with_elem_sec(
+      ElemSec::new([
+        Elem::new(
+          ElemMode::active(
+            TableIdx::new(0U),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
+          ElemKind::typed_exprs(
+            RefType::new(true, HeapType::new(target_type_idx)),
+            [Expr::new([Instruction::ref_func(target_func_idx)])],
+          ),
+        ),
+        Elem::new(ElemMode::declarative(), ElemKind::funcs([target_func_idx])),
+      ]),
+    )
+  }
+  mod
 }
 
 ///|
