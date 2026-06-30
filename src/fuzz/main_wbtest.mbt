@@ -2530,19 +2530,19 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
   @debug.assert_eq(local_selection.manifest.length(), 4)
   @debug.assert_eq(
     local_selection.manifest[0].profile_case_label,
-    Some("oi-local-facts:local-tee-add-zero"),
-  )
-  @debug.assert_eq(
-    local_selection.manifest[1].profile_case_label,
-    Some("oi-local-facts:local-carried-mask"),
-  )
-  @debug.assert_eq(
-    local_selection.manifest[2].profile_case_label,
     Some("oi-local-facts:existing-producer-sign-extension"),
   )
   @debug.assert_eq(
-    local_selection.manifest[3].profile_case_label,
+    local_selection.manifest[1].profile_case_label,
+    Some("oi-local-facts:local-tee-add-zero"),
+  )
+  @debug.assert_eq(
+    local_selection.manifest[2].profile_case_label,
     Some("oi-local-facts:direct-sign-extension"),
+  )
+  @debug.assert_eq(
+    local_selection.manifest[3].profile_case_label,
+    Some("oi-local-facts:localtee-existing-producer-sign-extension"),
   )
 
   let tuple_args = EmitGenValidBatchArgs::new(
