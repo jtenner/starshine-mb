@@ -829,6 +829,91 @@ test "vacuum repeated-slot matrix drops detached pure residues" {
 }
 
 ///|
+test "vacuum uses raw preclean for nop-heavy call-drop debris" {
+  let input = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (func $side (result i32) (i32.const 7))
+      #|   (func
+      #|     (drop (call $side))
+      #|     nop nop nop nop nop nop nop nop
+      #|     nop nop nop nop nop nop nop nop
+      #|     nop nop nop nop nop nop nop nop))
+      #|
+    ),
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected nop-heavy vacuum cleanup success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[vacuum]:skip-raw reason=raw-vacuum-preclean")
+    }),
+    msg=trace.to_string(),
+  )
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [_, @lib.Func(_, @lib.Expr([@lib.Call(@lib.FuncIdx(idx)), @lib.Drop]))]
+      )
+    ) => @debug.assert_eq(idx, 0U)
+    other =>
+      fail(
+        "expected raw vacuum to preserve call drop and remove nop debris, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum uses raw preclean for branchy structured write debris" {
+  let input = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (func (param i32) (result i32) (local i32)
+      #|     (block
+      #|       (block
+      #|         nop
+      #|         (local.get 0)
+      #|         (br_table 0 1))
+      #|       (i32.const 1)
+      #|       (local.set 1)
+      #|       (br 0))
+      #|     nop
+      #|     (local.get 1)))
+      #|
+    ),
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected branchy vacuum cleanup success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[vacuum]:skip-raw reason=raw-vacuum-preclean")
+    }),
+    msg=trace.to_string(),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected branchy raw-vacuum module to validate, got \{err}")
+  }
+}
+
+///|
 test "run_hot_pipeline emits trace markers for hot passes" {
   let input = pass_test_module_from_wat(
     "(module (func (result i32) nop i32.const 9))",

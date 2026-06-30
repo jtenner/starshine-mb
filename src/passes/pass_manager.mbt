@@ -28049,6 +28049,47 @@ fn run_hot_pipeline_raw_vacuum_instrs_have_stack_effect_hazard(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_count_nops_until(
+  instrs : Array[@lib.Instruction],
+  limit : Int,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Nop => count = count + 1
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        count = count +
+          run_hot_pipeline_raw_vacuum_count_nops_until(body, limit - count)
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count = count +
+          run_hot_pipeline_raw_vacuum_count_nops_until(body, limit - count)
+      @lib.If(_, then_body, else_body) => {
+        count = count +
+          run_hot_pipeline_raw_vacuum_count_nops_until(then_body, limit - count)
+        match else_body {
+          Some(body) =>
+            count = count +
+              run_hot_pipeline_raw_vacuum_count_nops_until(body, limit - count)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    if count >= limit {
+      return count
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_has_dense_nop_debris(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  run_hot_pipeline_raw_vacuum_count_nops_until(instrs, 16) >= 16
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -28068,6 +28109,19 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     })
   }
   let @lib.Func(locals, @lib.Expr(instrs)) = original
+  if run_hot_pipeline_raw_vacuum_has_dense_nop_debris(instrs) {
+    let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
+      instrs,
+    )
+    if changed {
+      return Some({
+        reason: "raw-vacuum-preclean",
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+  }
   let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
     instrs,
   )
@@ -28075,10 +28129,18 @@ fn run_hot_pipeline_raw_vacuum_preclean(
     instrs,
   )
   let guarded_hot_hazard = has_writes && has_stack_effect
+  let branchy_structured_writes = has_writes &&
+    has_structured_control &&
+    has_branches
+  let branchy_structured_nop_debris = branchy_structured_writes &&
+    run_hot_pipeline_raw_vacuum_count_nops_until(instrs, 1) >= 1
   let has_terminal_debris = run_hot_pipeline_raw_vacuum_instrs_have_terminal_unreachable_debris(
     instrs,
   )
-  if instr_count <= 2048 && !guarded_hot_hazard && !has_terminal_debris {
+  if instr_count <= 2048 &&
+    !guarded_hot_hazard &&
+    !branchy_structured_nop_debris &&
+    !has_terminal_debris {
     return None
   }
   let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(instrs)
@@ -28090,7 +28152,7 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       trace_skip_raw: true,
     })
   }
-  if has_writes && has_structured_control && has_branches && !changed {
+  if branchy_structured_nop_debris && !changed {
     return Some({
       reason: "raw-vacuum-structured-writes",
       func: original,
