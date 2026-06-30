@@ -15257,7 +15257,8 @@ fn gen_valid_oi_local_facts_case_for_seed(seed : UInt64) -> Int {
     0x5ef2UL => 5
     0x5ef3UL => 6
     0x5ef4UL => 7
-    _ => (seed % 8UL).to_int()
+    0x5ef5UL => 8
+    _ => (seed % 9UL).to_int()
   }
 }
 
@@ -15330,6 +15331,8 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         5 => Some("oi-local-facts:trapping-existing-producer-sign-extension")
         6 => Some("oi-local-facts:localtee-existing-producer-sign-extension")
         7 => Some("oi-local-facts:wide-local-carried-mask")
+        8 =>
+          Some("oi-local-facts:local-carried-existing-producer-sign-extension")
         _ => Some("oi-local-facts:direct-sign-extension")
       }
     PassOiRefGcProfile =>
@@ -15624,6 +15627,59 @@ fn gen_valid_oi_local_facts_localtee_existing_producer_module() -> Module {
             Instruction::drop(),
             Instruction::call(FuncIdx::new(2U)),
             Instruction::local_tee(LocalIdx::new(1U)),
+            Instruction::i64_extend32s(),
+            Instruction::drop(),
+          ]),
+        ),
+        Func::new(
+          Locals::empty(),
+          Expr::new([Instruction::i32_const(I32(0x7f))]),
+        ),
+        Func::new(
+          Locals::empty(),
+          Expr::new([Instruction::i64_const(I64(0x7fffffffL))]),
+        ),
+      ]),
+    )
+  mod
+}
+
+///|
+fn gen_valid_oi_local_facts_local_carried_existing_producer_module() -> Module {
+  let i32_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let i64_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        gen_valid_precompute_void_func_type(),
+        i32_func_type,
+        i64_func_type,
+      ]),
+    )
+    .with_func_sec(
+      FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U), TypeIdx::new(2U)]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::from_types([ValType::i32(), ValType::i64()]),
+          Expr::new([
+            Instruction::call(FuncIdx::new(1U)),
+            Instruction::local_set(LocalIdx::new(0U)),
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::i32_const(I32(0)),
+            Instruction::i32_add(),
+            Instruction::i32_extend8s(),
+            Instruction::drop(),
+            Instruction::call(FuncIdx::new(2U)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+            Instruction::i64_const(I64(0L)),
+            Instruction::i64_add(),
             Instruction::i64_extend32s(),
             Instruction::drop(),
           ]),
@@ -18347,6 +18403,9 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   }
   if local_facts && case == 6 {
     return gen_valid_oi_local_facts_localtee_existing_producer_module()
+  }
+  if local_facts && case == 8 {
+    return gen_valid_oi_local_facts_local_carried_existing_producer_module()
   }
   if memory_bulk && case == 3 {
     return gen_valid_oi_memory_bulk_call_wrapped_module()
