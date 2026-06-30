@@ -4469,6 +4469,13 @@ fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
     }
   }
   let instrs = gen_valid_test_first_func_instrs(mod_)
+  if instrs.length() >= 8 {
+    match (instrs[0], instrs[6], instrs[7]) {
+      (Block(_, _), LocalSet(LocalIdx(set_idx)), LocalGet(LocalIdx(get_idx))) if set_idx ==
+        get_idx => return "scratch-localized-selected-lane"
+      _ => ()
+    }
+  }
   if instrs.length() >= 28 {
     "all-results"
   } else if instrs.length() >= 14 &&
@@ -4624,6 +4631,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let scratch_localized_selected = match
+    gen_valid_module_result_from_seed(
+      0x5efeUL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -4692,6 +4707,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5efcUL),
     Some("oi-tuple:runtime-effectful-selected-lane"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5efeUL),
+    Some("oi-tuple:scratch-localized-selected-lane"),
   )
   assert_true(
     gen_valid_test_tuple_first_block_i32_const(
@@ -4780,6 +4799,12 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
       runtime_effectful_selected.wasm_module,
     ),
     "runtime-effectful-selected-lane",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(
+      scratch_localized_selected.wasm_module,
+    ),
+    "scratch-localized-selected-lane",
   )
   assert_true(
     gen_valid_test_has_func_export(runtime_selected.wasm_module, "run"),

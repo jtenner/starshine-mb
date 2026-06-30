@@ -15124,7 +15124,7 @@ fn gen_valid_tuple_optimization_profile_module(
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 48
-    PassOiTupleProfile => 16
+    PassOiTupleProfile => 17
     PassOiLocalFactsProfile => 11
     PassOiBooleanSelectProfile => 4
     PassOiCallRefProfile => 8
@@ -15257,7 +15257,8 @@ fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
     0x5efbUL => 14
     0x5efcUL => 15
     0x5efdUL => 13
-    _ => (seed % 16UL).to_int()
+    0x5efeUL => 16
+    _ => (seed % 17UL).to_int()
   }
 }
 
@@ -15347,11 +15348,23 @@ fn gen_valid_oi_trigger_profile_for_config(
 ///|
 fn gen_valid_oi_trigger_profile_case(ctx : GenValidContext) -> Int {
   let profile = gen_valid_oi_trigger_profile_for_config(ctx.config)
-  let modulus = gen_valid_oi_trigger_profile_case_modulus(profile)
-  if ctx.use_named_streams {
-    gen_valid_oi_trigger_profile_case_for_profile_seed(profile, ctx.root_seed)
-  } else {
-    ctx.random_int_from(BodyStream, modulus)
+  match profile {
+    PassOiMemoryBulkProfile
+    | PassOiTupleProfile
+    | PassOiLocalFactsProfile
+    | PassOiBooleanSelectProfile
+    | PassOiCallRefProfile =>
+      gen_valid_oi_trigger_profile_case_for_profile_seed(profile, ctx.root_seed)
+    _ =>
+      if ctx.use_named_streams {
+        gen_valid_oi_trigger_profile_case_for_profile_seed(
+          profile,
+          ctx.root_seed,
+        )
+      } else {
+        let modulus = gen_valid_oi_trigger_profile_case_modulus(profile)
+        ctx.random_int_from(BodyStream, modulus)
+      }
   }
 }
 
@@ -15433,6 +15446,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         13 => Some("oi-tuple:randomized-existing-effect-trap-lanes")
         14 => Some("oi-tuple:runtime-selected-lane")
         15 => Some("oi-tuple:runtime-effectful-selected-lane")
+        16 => Some("oi-tuple:scratch-localized-selected-lane")
         _ => Some("oi-tuple:direct-selected-lane")
       }
     PassOiMemoryBulkProfile =>
@@ -18526,6 +18540,7 @@ fn gen_valid_oi_tuple_selected_lane_prefix(
   let i64_local_idx = LocalIdx::new(1U)
   let f32_local_idx = LocalIdx::new(2U)
   let f64_local_idx = LocalIdx::new(3U)
+  let scratch_i32_local_idx = i32_local_idx
   let instrs : Array[Instruction] = []
   if case == 2 {
     instrs.push(Instruction::i32_const(I32(99)))
@@ -18550,6 +18565,10 @@ fn gen_valid_oi_tuple_selected_lane_prefix(
     instrs.push(Instruction::local_set(i64_local_idx))
     instrs.push(Instruction::local_set(i32_local_idx))
     instrs.push(Instruction::local_get(selected_local))
+    if case == 16 {
+      instrs.push(Instruction::local_set(scratch_i32_local_idx))
+      instrs.push(Instruction::local_get(scratch_i32_local_idx))
+    }
     instrs.push(Instruction::drop())
   }
   instrs
