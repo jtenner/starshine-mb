@@ -27921,6 +27921,35 @@ fn run_hot_pipeline_raw_vacuum_body_is_unreachable_if_wrapper_candidate(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_is_call_tee_unreachable_if_wrapper_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 3 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(@lib.VoidBlockType, _, _) => ()
+    _ => return false
+  }
+  if !run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  match body[body.length() - 2] {
+    @lib.LocalTee(_) => ()
+    _ => return false
+  }
+  let mut call_count = 0
+  for idx = 0; idx + 2 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.LocalGet(_) | @lib.I32Const(_) | @lib.I64Const(_) => ()
+      @lib.Call(_) => call_count = call_count + 1
+      _ => return false
+    }
+  }
+  call_count == 1
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_is_single_block_prefix_if_wrapper_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -28450,8 +28479,13 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             }
             changed = true
           }
-          @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_unreachable_if_wrapper_candidate(
-              next_body,
+          @lib.VoidBlockType if (
+              run_hot_pipeline_raw_vacuum_body_is_unreachable_if_wrapper_candidate(
+                next_body,
+              ) ||
+              run_hot_pipeline_raw_vacuum_body_is_call_tee_unreachable_if_wrapper_candidate(
+                next_body,
+              )
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
             let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(

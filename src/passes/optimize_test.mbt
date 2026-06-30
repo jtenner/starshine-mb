@@ -680,6 +680,77 @@ test "vacuum raw-unwraps single if wrappers that contain unreachable" {
 }
 
 ///|
+test "vacuum raw-unwraps call-tee if wrappers that contain unreachable" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "tag" (func $tag (param i32) (result i32)))
+      #|  (import "m" "side" (func $side (param i32)))
+      #|  (func (param i32) (local i32)
+      #|    nop nop nop nop nop nop nop nop
+      #|    nop nop nop nop nop nop nop nop
+      #|    (block
+      #|      (block
+      #|        (if (local.tee 1 (call $tag (local.get 0)))
+      #|          (then
+      #|            (call $side (local.get 1))
+      #|            (br 2)
+      #|          )
+      #|          (else unreachable)
+      #|        )
+      #|      )
+      #|      (call $side (local.get 0))
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail(
+        "expected raw call-tee if wrapper vacuum fixture success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected raw call-tee if wrapper vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ],
+              Some([@lib.Instruction::unreachable_()]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          ]),
+        ),
+      ])
+    other =>
+      fail(
+        "expected raw call-tee if wrapper to be unwrapped and branches rebased, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum raw-drops empty else arms in lowered void ifs" {
   let input = pass_test_module_from_wat(
     (
