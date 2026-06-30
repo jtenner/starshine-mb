@@ -3488,6 +3488,44 @@ fn gen_valid_test_instrs_have_atomic_or_restore(
 }
 
 ///|
+fn gen_valid_test_instrs_have_atomic_and_restore(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut saw_i32_load = false
+  let mut saw_i64_load = false
+  let mut saw_i32_and = false
+  let mut saw_i64_and = false
+  for instr in instrs {
+    match instr {
+      I32AtomicLoad(_) => saw_i32_load = true
+      I64AtomicLoad(_) => saw_i64_load = true
+      AtomicRmw(op, _) =>
+        if op == AtomicRmwOp::i32_and() {
+          saw_i32_and = true
+        } else if op == AtomicRmwOp::i64_and() {
+          saw_i64_and = true
+        }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_atomic_and_restore(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_atomic_and_restore(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_atomic_and_restore(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  saw_i32_load && saw_i64_load && saw_i32_and && saw_i64_and
+}
+
+///|
 fn gen_valid_test_instrs_have_atomic_cmpxchg_restore(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -3592,6 +3630,9 @@ fn gen_valid_test_oi_memory_bulk_trigger_signature(
   } else if gen_valid_test_has_shared_memory(mod_) &&
     gen_valid_test_instrs_have_atomic_or_restore(instrs) {
     "shared-atomic-or-restore"
+  } else if gen_valid_test_has_shared_memory(mod_) &&
+    gen_valid_test_instrs_have_atomic_and_restore(instrs) {
+    "shared-atomic-and-restore"
   } else if gen_valid_test_has_shared_memory(mod_) &&
     gen_valid_test_instrs_have_atomic_add_restore(instrs) {
     "shared-atomic-add-restore"
@@ -4364,6 +4405,14 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let shared_atomic_random_and_restore = match
+    gen_valid_module_result_from_seed(
+      0x5f0dUL,
+      GenValidConfig::for_profile(PassOiMemoryBulkProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(memory64_dynamic.config_label, "pass-oi-memory-bulk")
   for
     generated in [
@@ -4376,6 +4425,7 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
       runtime_select_fill_restore, shared_atomic_xchg_restore, runtime_store8_mask_restore,
       shared_atomic_random_xchg_restore, shared_atomic_random_add_restore, shared_atomic_random_cmpxchg_restore,
       shared_atomic_random_sub_restore, shared_atomic_random_xor_restore, shared_atomic_random_or_restore,
+      shared_atomic_random_and_restore,
     ] {
     match validate_module(generated.wasm_module) {
       Ok(_) => ()
@@ -4509,6 +4559,10 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5f0cUL),
     Some("oi-memory-bulk:shared-atomic-random-or-restore"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiMemoryBulkProfile, 0x5f0dUL),
+    Some("oi-memory-bulk:shared-atomic-random-and-restore"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_memory_bulk_trigger_signature(
@@ -4690,6 +4744,12 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
     ),
     "shared-atomic-or-restore",
   )
+  @debug.assert_eq(
+    gen_valid_test_oi_memory_bulk_trigger_signature(
+      shared_atomic_random_and_restore.wasm_module,
+    ),
+    "shared-atomic-and-restore",
+  )
   assert_true(
     gen_valid_test_has_func_export(
       shared_atomic_xchg_restore.wasm_module,
@@ -4735,6 +4795,12 @@ test "OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memor
   assert_true(
     gen_valid_test_has_func_export(
       shared_atomic_random_or_restore.wasm_module,
+      "run",
+    ),
+  )
+  assert_true(
+    gen_valid_test_has_func_export(
+      shared_atomic_random_and_restore.wasm_module,
       "run",
     ),
   )
