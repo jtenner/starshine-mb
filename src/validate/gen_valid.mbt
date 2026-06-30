@@ -15127,7 +15127,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
     PassOiTupleProfile => 17
     PassOiLocalFactsProfile => 11
     PassOiBooleanSelectProfile => 4
-    PassOiCallRefProfile => 8
+    PassOiCallRefProfile => 9
     _ => 3
   }
 }
@@ -15303,7 +15303,8 @@ fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int {
     0x5ef2UL => 5
     0x5ef3UL => 6
     0x5ef4UL => 7
-    _ => (seed % 8UL).to_int()
+    0x5ef5UL => 8
+    _ => (seed % 9UL).to_int()
   }
 }
 
@@ -15421,6 +15422,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         5 => Some("oi-call-ref:return-table-get-target")
         6 => Some("oi-call-ref:argument-direct-target")
         7 => Some("oi-call-ref:argument-local-target")
+        8 => Some("oi-call-ref:argument-multivalue-target")
         _ => Some("oi-call-ref:direct-target-wrapper")
       }
     PassOiRefGcProfile =>
@@ -18952,6 +18954,12 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
     RecType::new(
       SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
     )
+  } else if case == 8 {
+    RecType::new(
+      SubType::comp_type(
+        CompType::func([ValType::i32(), ValType::i64()], [ValType::i64()]),
+      ),
+    )
   } else {
     RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()])))
   }
@@ -19015,6 +19023,14 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
         Instruction::call_ref(target_type_idx),
         Instruction::drop(),
       ]
+    8 =>
+      [
+        Instruction::i32_const(I32(41)),
+        Instruction::i64_const(I64(77L)),
+        Instruction::ref_func(target_func_idx),
+        Instruction::call_ref(target_type_idx),
+        Instruction::drop(),
+      ]
     _ =>
       [
         Instruction::ref_func(target_func_idx),
@@ -19052,6 +19068,8 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
               []
             } else if case == 6 || case == 7 {
               [Instruction::local_get(LocalIdx::new(0U))]
+            } else if case == 8 {
+              [Instruction::local_get(LocalIdx::new(1U))]
             } else {
               [Instruction::i32_const(I32(42))]
             },
