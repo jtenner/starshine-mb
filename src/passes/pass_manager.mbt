@@ -34120,10 +34120,62 @@ fn run_hot_pipeline_drop_local_names(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn run_hot_pipeline_vacuum_repair_batch_writeback(
+  original_mod : @lib.Module,
+  candidate_mod : @lib.Module,
+  options : HotPipelineOptions,
+) -> @lib.Module? {
+  let imported_func_count = run_hot_pipeline_imported_func_count(original_mod)
+  match (original_mod.code_sec, candidate_mod.code_sec) {
+    (Some(@lib.CodeSec(original_defs)), Some(@lib.CodeSec(candidate_defs))) => {
+      let repaired_defs = candidate_defs.copy()
+      let mut repaired_mod = candidate_mod
+      let mut repair_count = 0
+      while repair_count <= repaired_defs.length() {
+        match @validate.validate_module(repaired_mod) {
+          Ok(_) => return Some(repaired_mod)
+          Err(err) => {
+            let func_idx = match @validate.validation_error_func_idx(err) {
+              Some(func_idx) => func_idx
+              None => return None
+            }
+            let @lib.FuncIdx(raw_func_idx) = func_idx
+            let code_idx = raw_func_idx.reinterpret_as_int() -
+              imported_func_count
+            if code_idx < 0 ||
+              code_idx >= repaired_defs.length() ||
+              code_idx >= original_defs.length() {
+              return None
+            }
+            if repaired_defs[code_idx] == original_defs[code_idx] {
+              return None
+            }
+            repaired_defs[code_idx] = original_defs[code_idx]
+            repaired_mod = repaired_mod.with_code_sec(
+              @lib.CodeSec::new(repaired_defs),
+            )
+            repair_count += 1
+            pipeline_trace_hook(
+              options.trace,
+              "vacuum",
+              "skip-invalid-lower",
+              payload="func=\{func_idx} reason=writeback-batch-validate:\{err}",
+            )
+          }
+        }
+      }
+      None
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_hot_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
   options : HotPipelineOptions,
+  defer_vacuum_writeback_guard? : Bool = true,
 ) -> Result[@lib.Module, String] {
   let descriptor = match entry.descriptor {
     Some(descriptor) => descriptor
@@ -34148,6 +34200,8 @@ fn run_hot_pipeline_apply_hot_pass(
     None => ()
   }
   let module_state = { module_ctx: None }
+  let defer_this_vacuum_writeback_guard = defer_vacuum_writeback_guard &&
+    descriptor.name == "vacuum"
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
@@ -34216,19 +34270,24 @@ fn run_hot_pipeline_apply_hot_pass(
         }
         let @lib.FuncIdx(raw_guard_func_idx) = func_idx
         let guard_timer_name = "guard:\{descriptor.name}-writeback:func:\{raw_guard_func_idx.reinterpret_as_int()}"
-        let guard_start_us = if descriptor.name == "vacuum" {
+        let guard_start_us = if descriptor.name == "vacuum" &&
+          !defer_this_vacuum_writeback_guard {
           perf_start_timer_opt(options.perf, guard_timer_name)
         } else {
           0UL
         }
-        let skip_invalid_lower_reason = run_hot_pipeline_skip_invalid_lower_reason(
-          current_mod,
-          validation_mod,
-          code_idx,
-          descriptor.name,
-          result,
-        )
-        if descriptor.name == "vacuum" {
+        let skip_invalid_lower_reason = if defer_this_vacuum_writeback_guard {
+          None
+        } else {
+          run_hot_pipeline_skip_invalid_lower_reason(
+            current_mod,
+            validation_mod,
+            code_idx,
+            descriptor.name,
+            result,
+          )
+        }
+        if descriptor.name == "vacuum" && !defer_this_vacuum_writeback_guard {
           perf_stop_timer_opt(options.perf, guard_timer_name, guard_start_us)
         }
         if skip_invalid_lower_reason != None {
@@ -34313,27 +34372,76 @@ fn run_hot_pipeline_apply_hot_pass(
     }
     None => None
   }
-  Ok(
-    match next_code_sec {
-      Some(code_sec) => {
-        let next_mod = run_hot_pipeline_drop_label_names(
-          current_mod.with_code_sec(code_sec),
-        )
-        if descriptor.name == "ssa-nomerge" {
-          dfe_prune_unused_simple_func_type_suffix(
-            dfe_canonicalize_duplicate_simple_type_indices(
-              run_hot_pipeline_raw_group_body_locals_by_type_module(
-                run_hot_pipeline_drop_local_names(next_mod),
-              ),
+  let next_mod = match next_code_sec {
+    Some(code_sec) => {
+      let next_mod = run_hot_pipeline_drop_label_names(
+        current_mod.with_code_sec(code_sec),
+      )
+      if descriptor.name == "ssa-nomerge" {
+        dfe_prune_unused_simple_func_type_suffix(
+          dfe_canonicalize_duplicate_simple_type_indices(
+            run_hot_pipeline_raw_group_body_locals_by_type_module(
+              run_hot_pipeline_drop_local_names(next_mod),
             ),
-          )
-        } else {
-          next_mod
+          ),
+        )
+      } else {
+        next_mod
+      }
+    }
+    None => current_mod
+  }
+  if defer_this_vacuum_writeback_guard && next_code_sec is Some(_) {
+    let batch_guard_start_us = perf_start_timer_opt(
+      options.perf,
+      "guard:vacuum-writeback-batch",
+    )
+    match @validate.validate_module(next_mod) {
+      Ok(_) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "guard:vacuum-writeback-batch",
+          batch_guard_start_us,
+        )
+        return Ok(next_mod)
+      }
+      Err(err) => {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "writeback-batch-invalid",
+          payload="err=\{err}",
+        )
+        match
+          run_hot_pipeline_vacuum_repair_batch_writeback(
+            mod_, next_mod, options,
+          ) {
+          Some(repaired_mod) => {
+            perf_stop_timer_opt(
+              options.perf,
+              "guard:vacuum-writeback-batch",
+              batch_guard_start_us,
+            )
+            return Ok(repaired_mod)
+          }
+          None => {
+            perf_stop_timer_opt(
+              options.perf,
+              "guard:vacuum-writeback-batch",
+              batch_guard_start_us,
+            )
+            return run_hot_pipeline_apply_hot_pass(
+              mod_,
+              entry,
+              options,
+              defer_vacuum_writeback_guard=false,
+            )
+          }
         }
       }
-      None => current_mod
-    },
-  )
+    }
+  }
+  Ok(next_mod)
 }
 
 ///|

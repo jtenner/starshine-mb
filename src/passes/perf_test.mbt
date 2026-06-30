@@ -3624,7 +3624,8 @@ test "run hot pipeline emits perf timing and checkpoint lines while dumps stay o
   assert_true(text.contains("perf:timer name=lift"))
   assert_true(text.contains("perf:timer name=pass:vacuum"))
   assert_true(text.contains("perf:timer name=lower"))
-  assert_true(text.contains("perf:timer name=guard:vacuum-writeback"))
+  assert_true(text.contains("perf:timer name=guard:vacuum-writeback-batch"))
+  assert_false(text.contains("perf:timer name=guard:vacuum-writeback:func"))
   assert_true(text.contains("perf:timer name=validate:final-module"))
   assert_true(text.contains("perf:checkpoint name=verify after lift"))
   assert_true(text.contains("perf:counters label=pipeline:done"))
@@ -3654,6 +3655,32 @@ test "run hot pipeline omits hot verify checkpoints under final-module-only poli
   assert_false(text.contains("perf:checkpoint name=verify before lower"))
   assert_false(text.contains("perf:timer name=verify:before-lower"))
   assert_true(text.contains("perf:timer name=validate:final-module"))
+}
+
+///|
+test "vacuum batches writeback guard when final validation is disabled" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) nop i32.const 9))",
+      ["vacuum"],
+      options=HotPipelineOptions::new(
+        validate_final_module=false,
+        trace=Some(trace),
+        perf=Some(perf),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected unchecked vacuum pipeline success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=guard:vacuum-writeback-batch"))
+  assert_false(text.contains("perf:timer name=guard:vacuum-writeback:func"))
+  assert_false(text.contains("perf:timer name=validate:final-module"))
 }
 
 ///|
