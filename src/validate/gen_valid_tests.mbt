@@ -2504,6 +2504,14 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let local_fact_wrap_extend_mask = match
+    gen_valid_module_result_from_seed(
+      0x5ef7UL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef0UL),
     Some("oi-local-facts:existing-producer-sign-extension"),
@@ -2533,6 +2541,10 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
     Some(
       "oi-local-facts:effectful-local-carried-existing-producer-sign-extension",
     ),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef7UL),
+    Some("oi-local-facts:wrap-extend-mask"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_local_fact_trigger_signature(
@@ -2645,6 +2657,22 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
       ),
     ),
     "existing-producer-sign-ext",
+  )
+  assert_true(
+    local_fact_wrap_extend_mask.facts.exact_opcode_counts.i32_wrap_i64 > 0,
+    msg="expected i32.wrap_i64 producer local-fact wrapper",
+  )
+  assert_true(
+    local_fact_wrap_extend_mask.facts.exact_opcode_counts.i64_extend_i32u > 0,
+    msg="expected i64.extend_i32_u producer local-fact wrapper",
+  )
+  assert_true(
+    local_fact_wrap_extend_mask.facts.exact_opcode_counts.i32_and > 0,
+    msg="expected i32 mask after i32.wrap_i64 local-fact producer",
+  )
+  assert_true(
+    local_fact_wrap_extend_mask.facts.exact_opcode_counts.i64_and > 0,
+    msg="expected i64 mask after i64.extend_i32_u local-fact producer",
   )
 }
 

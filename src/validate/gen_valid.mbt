@@ -15124,7 +15124,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 48
     PassOiTupleProfile => 16
-    PassOiLocalFactsProfile => 8
+    PassOiLocalFactsProfile => 11
     PassOiBooleanSelectProfile => 4
     _ => 3
   }
@@ -15272,7 +15272,8 @@ fn gen_valid_oi_local_facts_case_for_seed(seed : UInt64) -> Int {
     0x5ef4UL => 7
     0x5ef5UL => 8
     0x5ef6UL => 9
-    _ => (seed % 10UL).to_int()
+    0x5ef7UL => 10
+    _ => (seed % 11UL).to_int()
   }
 }
 
@@ -15366,6 +15367,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
           Some(
             "oi-local-facts:effectful-local-carried-existing-producer-sign-extension",
           )
+        10 => Some("oi-local-facts:wrap-extend-mask")
         _ => Some("oi-local-facts:direct-sign-extension")
       }
     PassOiBooleanSelectProfile =>
@@ -15560,6 +15562,27 @@ fn gen_valid_oi_local_facts_profile_body(case : Int) -> Array[Instruction] {
         Instruction::drop(),
         Instruction::local_get(LocalIdx::new(1U)),
         Instruction::i64_const(I64(0xffffL)),
+        Instruction::i64_and(),
+        Instruction::drop(),
+      ])
+      out
+    }
+    10 => {
+      let out : Array[Instruction] = []
+      out.append(direct_sign_ext)
+      out.append([
+        Instruction::i64_const(I64(0xffL)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::i32_wrap_i64(),
+        Instruction::i32_const(I32(0xff)),
+        Instruction::i32_and(),
+        Instruction::drop(),
+        Instruction::i32_const(I32(0xff)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i64_extend_i32u(),
+        Instruction::i64_const(I64(0xffL)),
         Instruction::i64_and(),
         Instruction::drop(),
       ])
