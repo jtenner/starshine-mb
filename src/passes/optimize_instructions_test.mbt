@@ -1971,6 +1971,54 @@ test "optimize-instructions raw skip folds constant if and eqz select shells" {
 }
 
 ///|
+test "optimize-instructions raw skip folds identical pure select arms after effectful condition" {
+  // OI-F source-backed profile follow-up from
+  // `.tmp/oi-f-boolean-profile-targeted-count4-20260630`: Binaryen folds
+  // identical nontrapping select arms even when the condition calls a helper
+  // that mutates a private global, preserving the condition as a dropped prefix.
+  // Keep this narrow to byte-identical, single-instruction pure arms; trapping
+  // or effectful arms must not be reordered across the condition.
+  let source = StringBuilder::new()
+  source.write_string(
+    "(module (global $g (mut i32) (i32.const 0)) (func (local i32",
+  )
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") i32.const 9 i32.const 9 call $effect select drop) (func $effect (result i32) i32.const 1 global.set $g i32.const 1))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-instructions raw skip simplifies memory.size nonzero if conditions" {
   // Follow-up from `.tmp/oi-g-live-nonzero-copy-boundary-count77-20260628`:
   // the new live nonzero memory-copy transform exposed a raw-skip mismatch where

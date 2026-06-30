@@ -25084,6 +25084,18 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
           i = i + 4
           continue
         }
+        (true_value, false_value, condition, @lib.Select(_)) if true_value ==
+          false_value &&
+          run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+            true_value,
+          ) => {
+          rewritten.push(condition)
+          rewritten.push(@lib.Instruction::drop())
+          rewritten.push(true_value)
+          changed = true
+          i = i + 4
+          continue
+        }
         (@lib.MemorySize(_), @lib.I32Const(@lib.I32(raw)), @lib.I32Ne, if_instr) if raw ==
           0 => {
           let (next_if_instrs, if_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(

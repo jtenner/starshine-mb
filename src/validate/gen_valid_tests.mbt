@@ -2222,6 +2222,30 @@ fn gen_valid_test_oi_local_fact_trigger_signature(
 }
 
 ///|
+fn gen_valid_test_instrs_have_i32_div(instrs : Array[Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      I32DivS | I32DivU => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_i32_div(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_i32_div(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_i32_div(body) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_instrs_contain_oi_ref_local_carried(
   instrs : Array[Instruction],
 ) -> Bool {
@@ -2621,6 +2645,106 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
       ),
     ),
     "existing-producer-sign-ext",
+  )
+}
+
+///|
+test "OI-F boolean-select trigger-smoke profile selects source-backed cases" {
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(
+      PassOiBooleanSelectProfile,
+      0x5eedUL,
+    ),
+    Some("oi-boolean-select:direct-if-select-shell"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(
+      PassOiBooleanSelectProfile,
+      0x5eeeUL,
+    ),
+    Some("oi-boolean-select:effectful-identical-select"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(
+      PassOiBooleanSelectProfile,
+      0x5eefUL,
+    ),
+    Some("oi-boolean-select:trapping-dead-if-arm"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(
+      PassOiBooleanSelectProfile,
+      0x5ef0UL,
+    ),
+    Some("oi-boolean-select:value-if-drop-shell"),
+  )
+
+  let direct = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiBooleanSelectProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let effectful = match
+    gen_valid_module_result_from_seed(
+      0x5eeeUL,
+      GenValidConfig::for_profile(PassOiBooleanSelectProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let trapping = match
+    gen_valid_module_result_from_seed(
+      0x5eefUL,
+      GenValidConfig::for_profile(PassOiBooleanSelectProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let value_if = match
+    gen_valid_module_result_from_seed(
+      0x5ef0UL,
+      GenValidConfig::for_profile(PassOiBooleanSelectProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  for generated in [direct, effectful, trapping, value_if] {
+    @debug.assert_eq(generated.config_label, "pass-oi-boolean-select")
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+  }
+  assert_true(
+    gen_valid_test_instrs_have_select(
+      gen_valid_test_first_func_instrs(direct.wasm_module),
+    ),
+    msg="expected direct OI-F select shell",
+  )
+  assert_true(
+    gen_valid_test_instrs_have_call(
+      gen_valid_test_first_func_instrs(effectful.wasm_module),
+    ),
+    msg="expected effectful OI-F selected condition wrapper",
+  )
+  assert_true(
+    gen_valid_test_module_has_global_set(effectful.wasm_module),
+    msg="expected effectful OI-F helper to mutate a private global",
+  )
+  assert_true(
+    gen_valid_test_instrs_have_i32_div(
+      gen_valid_test_first_func_instrs(trapping.wasm_module),
+    ),
+    msg="expected trapped dead OI-F branch wrapper",
+  )
+  assert_false(
+    gen_valid_test_instrs_have_select(
+      gen_valid_test_first_func_instrs(value_if.wasm_module),
+    ),
+    msg="expected value-if shell to exercise if/drop rather than select",
   )
 }
 

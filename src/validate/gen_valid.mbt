@@ -2689,6 +2689,7 @@ fn gen_valid_is_ssa_nomerge_parity_config(config : GenValidConfig) -> Bool {
 fn gen_valid_is_oi_trigger_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(PassOiDefaultScalarProfile) ||
   config == GenValidConfig::for_profile(PassOiLocalFactsProfile) ||
+  config == GenValidConfig::for_profile(PassOiBooleanSelectProfile) ||
   config == GenValidConfig::for_profile(PassOiRefGcProfile) ||
   config == GenValidConfig::for_profile(PassOiMemoryBulkProfile) ||
   config == GenValidConfig::for_profile(PassOiTupleProfile)
@@ -15124,6 +15125,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
     PassOiMemoryBulkProfile => 48
     PassOiTupleProfile => 16
     PassOiLocalFactsProfile => 8
+    PassOiBooleanSelectProfile => 4
     _ => 3
   }
 }
@@ -15275,6 +15277,17 @@ fn gen_valid_oi_local_facts_case_for_seed(seed : UInt64) -> Int {
 }
 
 ///|
+fn gen_valid_oi_boolean_select_case_for_seed(seed : UInt64) -> Int {
+  match seed {
+    0x5eedUL => 0
+    0x5eeeUL => 1
+    0x5eefUL => 2
+    0x5ef0UL => 3
+    _ => (seed % 4UL).to_int()
+  }
+}
+
+///|
 fn gen_valid_oi_trigger_profile_case_for_profile_seed(
   profile : GenValidProfile,
   seed : UInt64,
@@ -15283,6 +15296,8 @@ fn gen_valid_oi_trigger_profile_case_for_profile_seed(
     PassOiMemoryBulkProfile => gen_valid_oi_memory_bulk_case_for_seed(seed)
     PassOiTupleProfile => gen_valid_oi_tuple_case_for_seed(seed)
     PassOiLocalFactsProfile => gen_valid_oi_local_facts_case_for_seed(seed)
+    PassOiBooleanSelectProfile =>
+      gen_valid_oi_boolean_select_case_for_seed(seed)
     _ =>
       (seed % gen_valid_oi_trigger_profile_case_modulus(profile).to_uint64()).to_int()
   }
@@ -15296,6 +15311,8 @@ fn gen_valid_oi_trigger_profile_for_config(
     PassOiMemoryBulkProfile
   } else if config == GenValidConfig::for_profile(PassOiLocalFactsProfile) {
     PassOiLocalFactsProfile
+  } else if config == GenValidConfig::for_profile(PassOiBooleanSelectProfile) {
+    PassOiBooleanSelectProfile
   } else if config == GenValidConfig::for_profile(PassOiRefGcProfile) {
     PassOiRefGcProfile
   } else if config == GenValidConfig::for_profile(PassOiTupleProfile) {
@@ -15350,6 +15367,13 @@ pub fn gen_valid_oi_trigger_profile_case_label(
             "oi-local-facts:effectful-local-carried-existing-producer-sign-extension",
           )
         _ => Some("oi-local-facts:direct-sign-extension")
+      }
+    PassOiBooleanSelectProfile =>
+      match case {
+        1 => Some("oi-boolean-select:effectful-identical-select")
+        2 => Some("oi-boolean-select:trapping-dead-if-arm")
+        3 => Some("oi-boolean-select:value-if-drop-shell")
+        _ => Some("oi-boolean-select:direct-if-select-shell")
       }
     PassOiRefGcProfile =>
       match case {
@@ -18686,10 +18710,140 @@ fn gen_valid_oi_tuple_profile_module(case : Int, seed : UInt64) -> Module {
 }
 
 ///|
+fn gen_valid_oi_boolean_select_direct_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [Instruction::i32_const(I32(11))],
+      Some([Instruction::i32_const(I32(22))]),
+    ),
+    Instruction::drop(),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_const(I32(7)),
+    Instruction::i32_const(I32(1)),
+    Instruction::select(types=Some([ValType::i32()])),
+    Instruction::drop(),
+    Instruction::i32_const(I32(42)),
+    Instruction::i32_const(I32(13)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_eqz(),
+    Instruction::select(types=Some([ValType::i32()])),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_oi_boolean_select_effectful_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(9)),
+    Instruction::i32_const(I32(9)),
+    Instruction::call(FuncIdx::new(1U)),
+    Instruction::select(types=Some([ValType::i32()])),
+    Instruction::drop(),
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::i32_const(I32(4)),
+        Instruction::global_set(GlobalIdx::new(0U)),
+      ],
+      Some([
+        Instruction::i32_const(I32(5)),
+        Instruction::global_set(GlobalIdx::new(0U)),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_oi_boolean_select_trapping_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(9)), Instruction::drop()],
+      Some([
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_div_u(),
+        Instruction::drop(),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_oi_boolean_select_value_if_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(0)),
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [Instruction::i32_const(I32(44))],
+      Some([Instruction::i32_const(I32(55))]),
+    ),
+    Instruction::drop(),
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(5)), Instruction::drop()],
+      Some([Instruction::i32_const(I32(6)), Instruction::drop()]),
+    ),
+  ]
+}
+
+///|
+fn gen_valid_oi_boolean_select_profile_module(case : Int) -> Module {
+  let void_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let main_body = match case {
+    1 => gen_valid_oi_boolean_select_effectful_body()
+    2 => gen_valid_oi_boolean_select_trapping_body()
+    3 => gen_valid_oi_boolean_select_value_if_body()
+    _ => gen_valid_oi_boolean_select_direct_body()
+  }
+  if case == 1 {
+    let helper_type = RecType::new(
+      SubType::comp_type(CompType::func([], [ValType::i32()])),
+    )
+    let helper_body = [
+      Instruction::i32_const(I32(1)),
+      Instruction::global_set(GlobalIdx::new(0U)),
+      Instruction::i32_const(I32(1)),
+    ]
+    Module::new()
+    .with_type_sec(TypeSec::new([void_type, helper_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), true),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(Locals::empty(), Expr::new(main_body)),
+        Func::new(Locals::empty(), Expr::new(helper_body)),
+      ]),
+    )
+  } else {
+    Module::new()
+    .with_type_sec(TypeSec::new([void_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([Func::new(Locals::empty(), Expr::new(main_body))]),
+    )
+  }
+}
+
+///|
 fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let config = ctx.config
   let local_facts = config ==
     GenValidConfig::for_profile(PassOiLocalFactsProfile)
+  let boolean_select = config ==
+    GenValidConfig::for_profile(PassOiBooleanSelectProfile)
   let ref_gc = config == GenValidConfig::for_profile(PassOiRefGcProfile)
   let memory_bulk = config ==
     GenValidConfig::for_profile(PassOiMemoryBulkProfile)
@@ -18697,6 +18851,9 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let case = gen_valid_oi_trigger_profile_case(ctx)
   if tuple {
     return gen_valid_oi_tuple_profile_module(case, ctx.root_seed)
+  }
+  if boolean_select {
+    return gen_valid_oi_boolean_select_profile_module(case)
   }
   if local_facts && case == 3 {
     return gen_valid_oi_local_facts_existing_producer_module()
