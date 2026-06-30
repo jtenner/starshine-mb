@@ -1559,7 +1559,8 @@
         "2026-06-30 classification-only review of .tmp/oi-g-shared-atomic-localtee-xchg-count645b-20260630 split all 186 grouped runtime residuals into 154 shared-atomic profile-case candidates and 32 store8 low-byte-mask candidates; every residual raw/canonical artifact validated. Atomic residuals preserved i32/i64 atomic loads plus RMW/cmpxchg counts (308/308 loads, 308/308 RMW, 42/42 cmpxchg) and were runtime-equal, with helper calls preserved 48/48, local.tee address producers reduced 132/0, and aggregate Starshine deltas raw/canonical/WAT -698/-302/-2148. Store8 residuals preserved store8 counts 94/94, removed redundant i64.and masks 32/0, were runtime-equal for all 15 executable runtime-store8 residuals, and aggregate deltas were -173/-128/-1216. This is sampled Starshine-win evidence only, not OI-G closure or OI-J descriptor/exactness/TNH/IIT evidence.",
         "src/validate/gen_valid_tests.mbt::OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memory cases failed red-first at seed 0x5f1c because the profile still selected oi-memory-bulk:cross-memory-restore-copy-read, then passed after src/validate/gen_valid.mbt added oi-memory-bulk:shared-atomic-localtee-cmpxchg-restore as a forty-eighth trigger case (2026-06-30).",
         "bun scripts/oi-parity-sweep.ts --family OI-G --count 720 --out-dir .tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute -- --runtime-execution node --max-failures 2000 --keep-going-after-command-failures: compared 720/720 with 339 normalized matches, 381 raw mismatches, zero validation/generator/property/command/runtime semantic failures, runtime checked/unsupported/failed 415/305/0, and new localtee-cmpxchg label sampled 15/15 residuals (2026-06-30).",
-        "Manual validation/classification for .tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630 accepted all 60 new-label residual raw/canonical artifacts. Residuals preserved i32/i64 atomic loads and cmpxchg operations 18/18 each, local.get/local.set/drop 91/91, 31/31, 217/217, were runtime-equal for 11 executable samples with 4 unsupported, reduced local.tee address producers 60/48, and had aggregate Starshine raw/canonical/WAT deltas -42/-27/-336 (2026-06-30)."
+        "Manual validation/classification for .tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630 accepted all 60 new-label residual raw/canonical artifacts. Residuals preserved i32/i64 atomic loads and cmpxchg operations 18/18 each, local.get/local.set/drop 91/91, 31/31, 217/217, were runtime-equal for 11 executable samples with 4 unsupported, reduced local.tee address producers 60/48, and had aggregate Starshine raw/canonical/WAT deltas -42/-27/-336 (2026-06-30).",
+        "2026-06-30 classification-only review of .tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630 split all 381 grouped runtime residuals into 336 shared-atomic/local.tee cleanup candidates, 44 store8 low-byte-mask candidates, and one dropped pure compare cleanup candidate; every residual raw/canonical artifact validated, runtime had zero semantic failures, and aggregate Starshine deltas were atomic -350/-252/-1107, store8 -237/-182/-1862, pure compare -3/-3/-36 raw/canonical/WAT."
       ],
       "genValidProfiles": [
         "pass-oi-memory-bulk"
@@ -1633,8 +1634,46 @@
         "2026-06-30: grouped localtee-add count510 classification reduces the latest direct-profile residual set to two evidence-backed buckets: runtime-equal shared-atomic offset/local.tee cleanup candidates and store8 low-byte-mask candidates, with all raw/canonical artifacts validating. This lowers unknown residuals but leaves true shared ordering/concurrency, blocking wait/notify, exact memory64/multi-memory runtime adapters, and OI-J descriptor/exactness/TNH/IIT open.",
         "2026-06-30: pass-oi-memory-bulk expanded from thirty-four to thirty-five trigger-smoke-plus cases with oi-memory-bulk:shared-atomic-call-add-restore. The new source-visible shared-memory run/memory export obtains every atomic address from a no-arg helper call before i32/i64 atomic loads and add-zero RMWs; direct and grouped runtime lanes report zero semantic failures, and grouped new-label residuals preserve helper-call and atomic operation counts. This is not true shared ordering/concurrency, blocking wait/notify closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence."
       ],
-      "notes": "The latest grouped OI-G local.tee-produced atomic cmpxchg slice at .tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630 added a forty-eighth pass-oi-memory-bulk trigger-smoke-plus case and classified its 15/15 new-label residuals as sampled Starshine-win candidates: all raw/canonical artifacts validate, i32/i64 atomic loads and same-value cmpxchg operations are preserved, runtime-equal where executable, and Starshine is smaller in raw/canonical/WAT. This is not OI-G closure, true shared ordering/concurrency, blocking wait/notify closure, exact memory64/multi-memory runtime closure, or OI-J descriptor/exactness/TNH/IIT evidence.",
+      "notes": "The latest grouped OI-G local.tee-produced atomic cmpxchg slice at .tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630 added a forty-eighth pass-oi-memory-bulk trigger-smoke-plus case and classified its 15/15 new-label residuals as sampled Starshine-win candidates: all raw/canonical artifacts validate, i32/i64 atomic loads and same-value cmpxchg operations are preserved, runtime-equal where executable, and Starshine is smaller in raw/canonical/WAT. This is not OI-G closure, true shared ordering/concurrency, blocking wait/notify closure, exact memory64/multi-memory runtime closure, or OI-J descriptor/exactness/TNH/IIT evidence. A classification-only follow-up split all count720 residuals into evidence-backed atomic, store8-mask, and dropped-pure-compare buckets with no validation/runtime semantic failures; this lowers unknown residuals but leaves true shared ordering/concurrency, blocking wait/notify, exact memory64/multi-memory runtime closure, OI-G closure, and OI-J descriptor/exactness/TNH/IIT open.",
       "classifiedCaseLabels": [
+        {
+          "label": "aggregate:count720-localtee-cmpxchg-dropped-pure-compare",
+          "transformId": "oi-commuted-operands over dynamic-i32-bulk-operands",
+          "representativeFailureDir": ".tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630/oi-g/OI-G-memory-bulk-load-store/failures/case-000467-gen-valid-transform-oi-commuted-operands",
+          "status": "starshine-win-candidate",
+          "agentClassification": "single sampled dropped pure compare cleanup residual; not memory.copy/fill semantic drift",
+          "observedDiff": "The one bulk-labeled residual preserves memory.copy 1/1, memory.fill 1/1, local.tee 1/1, and drop 7/7. The WAT diff is Binaryen keeping a dropped pure i32.eq(42, 7) where Starshine emits dropped i32.const 0. Both raw/canonical artifacts validate and aggregate Starshine raw/canonical/WAT deltas are -3/-3/-36.",
+          "nextAction": "Keep as sampled synthetic pure-compare Starshine-win candidate only. Reopen for non-dropped compare use, effectful operands, validation/runtime failure, Starshine-larger size, or evidence that this compare spelling is required. Do not use this non-descriptor OI-G evidence to close OI-J descriptor/exactness/TNH/IIT.",
+          "lastCheckedEvidence": [
+            ".tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630 case-000467 diff and validation (2026-06-30)"
+          ]
+        },
+        {
+          "label": "aggregate:count720-localtee-cmpxchg-store8-mask-residuals",
+          "transformId": "store-mask-boundaries and runtime/bulk labels under OI-G memory transforms",
+          "representativeFailureDir": ".tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630/oi-g/OI-G-memory-bulk-load-store/failures/case-000005-gen-valid-transform-oi-commuted-operands",
+          "status": "starshine-win-candidate",
+          "agentClassification": "classification-only aggregate of sampled store8 low-byte-mask cleanup residuals; Starshine removes redundant i64.and masks while preserving store8/memory/call/drop counts and runtime equality where executable",
+          "observedDiff": "The store8 bucket contains 44 residuals. Manual validation accepted all bucket raw/canonical artifacts. The bucket preserves i32.store8 114/114, i64.store8 45/45, memory.copy 10/10, memory.fill 11/11, call 28/28, and drop 204/204; Starshine removes redundant i64.and masks 29/0. Runtime was equal for 17 executable samples with 11 unsupported and zero failures. Aggregate Starshine raw/canonical/WAT deltas are -237/-182/-1862.",
+          "nextAction": "Keep as sampled store8 mask Starshine-win candidate evidence only. Reopen for validation or runtime semantic failures, store8 count/value drift, Starshine-larger size, or source evidence requiring the mask. Do not use this non-descriptor OI-G evidence to close OI-J descriptor/exactness/TNH/IIT.",
+          "lastCheckedEvidence": [
+            ".tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630 classification-only review (2026-06-30)",
+            "Manual wasm-tools validate --features all accepted all residual raw/canonical artifacts across the count720 root (2026-06-30)"
+          ]
+        },
+        {
+          "label": "aggregate:count720-localtee-cmpxchg-shared-atomic-residuals",
+          "transformId": "multiple OI-G transforms across fixed/random/helper/local.tee/select shared-atomic labels",
+          "representativeFailureDir": ".tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630/oi-g/OI-G-memory-bulk-load-store/failures/case-000001-gen-valid-transform-oi-memory-size-boundary",
+          "status": "starshine-win-candidate",
+          "agentClassification": "classification-only aggregate of sampled shared-atomic profile-case residuals; residuals preserve atomic load/RMW/cmpxchg, memory bulk/store, local, call, and drop counts while reducing local.tee address producer or redundant-mask spelling",
+          "observedDiff": "The atomic bucket contains 336 residuals. Manual validation accepted all bucket raw/canonical artifacts. The bucket preserves i32/i64 atomic.load 373/373, i32/i64 cmpxchg 78/78, i32.store8 334/334, i64.store8 5/5, memory.copy/fill 80/80 each, call 44/44, and drop 3637/3637; it removes four redundant i64.and masks and reduces local.tee producers 408/340. Runtime was equal for 252 executable samples with 83 unsupported and zero failures. Aggregate Starshine raw/canonical/WAT deltas are -350/-252/-1107.",
+          "nextAction": "Keep as sampled Starshine-win candidate evidence only. Reopen for validation or runtime semantic failures, atomic/memory opcode drift, observable producer-order drift, Starshine-larger size, or source evidence requiring Binaryen spelling. Do not use this non-descriptor OI-G evidence to close OI-J descriptor/exactness/TNH/IIT.",
+          "lastCheckedEvidence": [
+            ".tmp/oi-g-shared-atomic-localtee-cmpxchg-count720-20260630 classification-only review (2026-06-30)",
+            "Manual wasm-tools validate --features all accepted all residual raw/canonical artifacts across the count720 root (2026-06-30)"
+          ]
+        },
         {
           "label": "oi-memory-bulk:shared-atomic-localtee-cmpxchg-restore",
           "transformId": "multiple OI-G memory boundary transforms around source-visible shared-memory local.tee-produced cmpxchg restore",
