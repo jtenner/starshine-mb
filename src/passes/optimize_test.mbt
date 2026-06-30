@@ -1165,6 +1165,86 @@ test "vacuum raw-unwraps singleton call-prefix if blocks with outer branches" {
 }
 
 ///|
+test "vacuum raw-unwraps recursive block-prefix if wrappers" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "side" (func $side (param i32)))
+      #|  (import "m" "make" (func $make (param i32) (result i32)))
+      #|  (func (param i32) (local i32 i32)
+      #|    (block
+      #|      (block
+      #|        (block
+      #|          (block
+      #|            (block
+      #|              nop nop nop nop nop nop nop nop
+      #|              nop nop nop nop nop nop nop nop
+      #|              (local.set 1 (call $make (local.get 0)))
+      #|              nop
+      #|              (call $side (local.get 0))
+      #|            )
+      #|            nop nop
+      #|            (if (i32.eq (call $make (local.get 1)) (i32.const 1))
+      #|              (then
+      #|                nop
+      #|                (call $side (local.get 1))
+      #|              )
+      #|            )
+      #|          )
+      #|        )
+      #|      )
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected recursive block-prefix vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected recursive block-prefix vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        @lib.Instruction::i32_const(@lib.I32::new(1)),
+        @lib.Instruction::i32_eq(),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ],
+          None,
+        ),
+      ])
+    other =>
+      fail(
+        "expected recursive block-prefix if wrapper to be unwrapped, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum raw-unwraps terminal unreachable block wrappers with outer branches" {
   let input = pass_test_module_from_wat(
     (
