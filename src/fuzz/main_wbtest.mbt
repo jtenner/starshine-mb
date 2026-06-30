@@ -2517,32 +2517,48 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
   )
 
   let local_args = EmitGenValidBatchArgs::new(
-    4,
+    8,
     0x5eedUL,
     "tmp/gen-valid-oi-local",
     profile="pass-oi-local-facts",
-    max_attempts=8,
+    max_attempts=16,
   )
   let local_selection = match emit_gen_valid_batch_selection(local_args) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  @debug.assert_eq(local_selection.manifest.length(), 4)
+  @debug.assert_eq(local_selection.manifest.length(), 8)
   @debug.assert_eq(
     local_selection.manifest[0].profile_case_label,
-    Some("oi-local-facts:existing-producer-sign-extension"),
-  )
-  @debug.assert_eq(
-    local_selection.manifest[1].profile_case_label,
     Some("oi-local-facts:local-tee-add-zero"),
   )
   @debug.assert_eq(
+    local_selection.manifest[1].profile_case_label,
+    Some("oi-local-facts:localtee-existing-producer-sign-extension"),
+  )
+  @debug.assert_eq(
     local_selection.manifest[2].profile_case_label,
-    Some("oi-local-facts:direct-sign-extension"),
+    Some("oi-local-facts:existing-producer-sign-extension"),
   )
   @debug.assert_eq(
     local_selection.manifest[3].profile_case_label,
-    Some("oi-local-facts:localtee-existing-producer-sign-extension"),
+    Some("oi-local-facts:direct-sign-extension"),
+  )
+  @debug.assert_eq(
+    local_selection.manifest[4].profile_case_label,
+    Some("oi-local-facts:trapping-existing-producer-sign-extension"),
+  )
+  @debug.assert_eq(
+    local_selection.manifest[5].profile_case_label,
+    Some("oi-local-facts:local-carried-mask"),
+  )
+  @debug.assert_eq(
+    local_selection.manifest[6].profile_case_label,
+    Some("oi-local-facts:wide-local-carried-mask"),
+  )
+  @debug.assert_eq(
+    local_selection.manifest[7].profile_case_label,
+    Some("oi-local-facts:effectful-existing-producer-sign-extension"),
   )
 
   let tuple_args = EmitGenValidBatchArgs::new(

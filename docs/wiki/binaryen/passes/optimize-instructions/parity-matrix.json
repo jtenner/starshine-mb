@@ -174,12 +174,12 @@
       "families": [
         "OI-E"
       ],
-      "intent": "Seed-indexed OI-E local-fact trigger-smoke modules covering direct local.set/local.get sign-extension facts, local.tee carried add-zero, local-carried mask use, no-param helper-call existing-producer sign-extension facts, effectful helper-call existing-producer sign-extension facts, trapping helper-call existing-producer sign-extension facts, and local.tee helper-call existing-producer sign-extension facts; future work should add randomized maxBits/signExt/nullness fact constructors, non-i32 carriers, broader masks, local-carried wrappers around existing producers, and broader source-backed effect/trap wrappers.",
+      "intent": "Seed-indexed OI-E local-fact trigger-smoke modules covering direct local.set/local.get sign-extension facts, local.tee carried add-zero, local-carried mask use, no-param helper-call existing-producer sign-extension facts, effectful helper-call existing-producer sign-extension facts, trapping helper-call existing-producer sign-extension facts, local.tee helper-call existing-producer sign-extension facts, and wide local-carried mask facts; future work should add randomized maxBits/signExt/nullness fact constructors, non-i32 carriers, broader masks, local-carried wrappers around existing producers, and broader source-backed effect/trap wrappers.",
       "featureRequirements": [
         "mvp"
       ],
       "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-local-facts --out-dir .tmp/pass-fuzz-oi-local-facts --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
-      "implementation": "src/validate/gen_valid.mbt special-cases this profile to emit one of seven validating local-fact trigger-smoke modules selected by seed: direct sign-extension facts, local.tee add-zero facts, local mask facts, a helper-call existing-producer sign-extension module, an effectful helper-call existing-producer sign-extension module with private-global writes, a trapping helper-call existing-producer sign-extension module with i32/i64 divide-by-zero helpers, or a local.tee helper-call existing-producer sign-extension module. src/validate/gen_valid_tests.mbt asserts baseline fact coverage, stable labels, validation, and distinct seed-indexed trigger signatures.",
+      "implementation": "src/validate/gen_valid.mbt special-cases this profile to emit one of eight validating local-fact trigger-smoke modules selected by seed: direct sign-extension facts, local.tee add-zero facts, local mask facts, a helper-call existing-producer sign-extension module, an effectful helper-call existing-producer sign-extension module with private-global writes, a trapping helper-call existing-producer sign-extension module with i32/i64 divide-by-zero helpers, a local.tee helper-call existing-producer sign-extension module, or a wide local-carried mask module. src/validate/gen_valid_tests.mbt asserts baseline fact coverage, stable labels, validation, and distinct seed-indexed trigger signatures.",
       "lastCheckedEvidence": [
         "src/validate/gen_valid.mbt::gen_valid_oi_local_facts_profile_body and gen_valid_oi_trigger_profile_case (2026-06-27)",
         "src/validate/gen_valid_tests.mbt::OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases failed red-first before implementation, then passed (2026-06-27)",
@@ -197,7 +197,10 @@
         "bun scripts/oi-parity-sweep.ts --family OI-E --count 60 --out-dir .tmp/oi-e-trapping-existing-count60-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 44/60 with 12 normalized matches, 32 raw mismatches, and zero validation/generator/property/command failures; new trapping existing-producer label sampled 5 cases with 4 normalized matches and 1 residual (2026-06-30).",
         "src/validate/gen_valid_tests.mbt::OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases failed red-first at seed 0x5ef3 because pass-oi-local-facts still labeled the seed as local-tee-add-zero, then passed after src/validate/gen_valid.mbt added oi-local-facts:localtee-existing-producer-sign-extension as a seventh helper-call trigger case with local.tee producers (2026-06-30).",
         "bun scripts/oi-parity-sweep.ts --family OI-E --count 70 --out-dir .tmp/oi-e-localtee-existing-count70-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 48/70 with 21 normalized matches, 27 raw mismatches, and zero validation/generator/property/command failures; new local.tee existing-producer label sampled 12 cases with 6 normalized matches and 6 residuals (2026-06-30).",
-        "src/fuzz/main_wbtest.mbt::emit gen-valid optimize-instructions trigger profiles record selected OI case labels updated for seven-way pass-oi-local-facts metadata and passed (2026-06-30)."
+        "src/fuzz/main_wbtest.mbt::emit gen-valid optimize-instructions trigger profiles record selected OI case labels updated for seven-way pass-oi-local-facts metadata and passed (2026-06-30).",
+        "src/validate/gen_valid_tests.mbt::OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases failed red-first at seed 0x5ef4 because pass-oi-local-facts still labeled the seed as effectful-existing-producer-sign-extension, then passed after src/validate/gen_valid.mbt added oi-local-facts:wide-local-carried-mask as an eighth trigger case (2026-06-30).",
+        "bun scripts/oi-parity-sweep.ts --family OI-E --count 80 --out-dir .tmp/oi-e-wide-mask-count80-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 45/80 with 16 normalized matches, 29 raw mismatches, and zero validation/generator/property/command failures; new wide local-carried mask label sampled 5 cases, all residual (2026-06-30).",
+        "src/fuzz/main_wbtest.mbt::emit gen-valid optimize-instructions trigger profiles record selected OI case labels updated for eight-way pass-oi-local-facts metadata and passed (2026-06-30)."
       ]
     },
     {
@@ -927,7 +930,7 @@
       "binaryenOracleMode": "compare-pass plus focused local-carried oracle fixtures when generator support lands",
       "starshineStatus": "mismatch",
       "priority": "P0",
-      "blockerBoundaryReason": "A 2026-06-30 local.tee existing-producer slice extends pass-oi-local-facts from six to seven trigger cases. The follow-up count70 grouped sweep compared 48/70 with 21 normalized matches, 27 raw mismatches, and zero validation/generator/property/command failures. The new oi-local-facts:localtee-existing-producer-sign-extension label sampled 12 cases; six normalized matched, and the six residuals preserve helper calls, local.tee producers, and sign-extension operations while Starshine folds extra pure commuted equality shells, giving aggregate Starshine deltas -36/-36/-432. This adds sampled local.tee-wrapper existing-producer evidence, but OI-E remains open for randomized maxBits/signExt/nullness fact constructors, non-i32 carriers, broader masks, local-carried wrappers around existing producers, and broader trap/effect wrappers.",
+      "blockerBoundaryReason": "A 2026-06-30 wide local-carried mask slice extends pass-oi-local-facts from seven to eight trigger cases. The follow-up count80 grouped sweep compared 45/80 with 16 normalized matches, 29 raw mismatches, and zero validation/generator/property/command failures. The new oi-local-facts:wide-local-carried-mask label sampled 5 cases and all remained residuals: validation accepted all artifacts, but Starshine is aggregate raw/canonical size-losing (+10/+4) despite smaller WAT (-127) because it keeps extra i32 mask spelling while removing sign-extension/equality shells. This adds sampled size-losing OI-E parity-gap evidence; OI-E remains open for randomized maxBits/signExt/nullness fact constructors, non-i32 carriers, broader masks, local-carried wrappers around existing producers, and broader trap/effect wrappers.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md",
         "docs/wiki/raw/research/0902-2026-06-25-optimize-instructions-oi-d-local-maxbits.md",
@@ -963,7 +966,11 @@
         "src/validate/gen_valid_tests.mbt::OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases failed red-first at seed 0x5ef3 because pass-oi-local-facts still labeled the seed as local-tee-add-zero, then passed after src/validate/gen_valid.mbt added oi-local-facts:localtee-existing-producer-sign-extension as a seventh helper-call trigger case with local.tee producers (2026-06-30).",
         "bun scripts/oi-parity-sweep.ts --family OI-E --count 70 --out-dir .tmp/oi-e-localtee-existing-count70-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 48/70 with 21 normalized matches, 27 raw mismatches, and zero validation/generator/property/command failures; new local.tee existing-producer label sampled 12 cases with 6 normalized matches and 6 residuals (2026-06-30).",
         "Manual wasm-tools validate --features all accepted all 108 residual raw/canonical artifacts from .tmp/oi-e-localtee-existing-count70-20260630; new-label residual opcode counts preserved call/local.tee/sign-extension/drop counts and reduced pure i32.eq shells 18/6 (2026-06-30).",
-        "src/fuzz/main_wbtest.mbt::emit gen-valid optimize-instructions trigger profiles record selected OI case labels updated for seven-way pass-oi-local-facts metadata and passed (2026-06-30)."
+        "src/fuzz/main_wbtest.mbt::emit gen-valid optimize-instructions trigger profiles record selected OI case labels updated for seven-way pass-oi-local-facts metadata and passed (2026-06-30).",
+        "src/validate/gen_valid_tests.mbt::OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases failed red-first at seed 0x5ef4 because pass-oi-local-facts still labeled the seed as effectful-existing-producer-sign-extension, then passed after src/validate/gen_valid.mbt added oi-local-facts:wide-local-carried-mask as an eighth trigger case (2026-06-30).",
+        "bun scripts/oi-parity-sweep.ts --family OI-E --count 80 --out-dir .tmp/oi-e-wide-mask-count80-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute: compared 45/80 with 16 normalized matches, 29 raw mismatches, and zero validation/generator/property/command failures; new wide local-carried mask label sampled 5 cases, all residual (2026-06-30).",
+        "Manual wasm-tools validate --features all accepted all 116 residual raw/canonical artifacts from .tmp/oi-e-wide-mask-count80-20260630; new-label residuals preserve local/mask/drop structure, remove sign-extension/equality shells, but are aggregate raw/canonical size-losing with deltas +10/+4/-127 and extra i32.and spelling 4/9 (2026-06-30).",
+        "src/fuzz/main_wbtest.mbt::emit gen-valid optimize-instructions trigger profiles record selected OI case labels updated for eight-way pass-oi-local-facts metadata and passed (2026-06-30)."
       ],
       "genValidProfiles": [
         "pass-oi-local-facts"
@@ -1043,6 +1050,20 @@
           "lastCheckedEvidence": [
             ".tmp/oi-e-localtee-existing-count70-20260630",
             "moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt passed 106/106 after red-first failure (2026-06-30)"
+          ]
+        },
+        {
+          "label": "oi-local-facts:wide-local-carried-mask",
+          "transformId": "oi-local-carried / oi-local-tee-wrapped / oi-commuted-operands",
+          "representativeFailureDir": ".tmp/oi-e-wide-mask-count80-20260630/oi-e/OI-E-local-scanner-facts/failures/case-000007-gen-valid-transform-oi-local-carried",
+          "status": "mismatch",
+          "agentClassification": "Sampled size-losing OI-E parity gap: Starshine removes sign-extension and equality shells but keeps extra i32 mask spelling, producing aggregate raw/canonical size loss despite WAT shrinkage.",
+          "observedDiff": "New label sampled 5 cases, all residual. Aggregate Starshine deltas are raw/canonical/WAT +10/+4/-127. Opcode counts preserve local.get=23/23, local.set=12/12, local.tee=1/1, i64.and=5/5, drop=36/36; Starshine removes i32.extend8_s 5/0, i64.extend32_s 5/0, i32.eq 2/0, but has extra i32.and 4/9.",
+          "nextAction": "Reduce or align the wide-mask spelling before calling this label a Starshine win; keep OI-E open for randomized LocalScanner facts, non-i32 carriers, broader masks, local-carried existing-producer wrappers, and broader effect/trap wrappers. Do not use this non-descriptor evidence for OI-J descriptor/exactness/TNH/IIT.",
+          "lastCheckedEvidence": [
+            ".tmp/oi-e-wide-mask-count80-20260630",
+            "moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt passed 106/106 after red-first failure (2026-06-30)",
+            "moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt passed 95/95 (2026-06-30)"
           ]
         }
       ]
