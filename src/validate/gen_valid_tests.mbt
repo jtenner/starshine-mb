@@ -3451,6 +3451,26 @@ fn gen_valid_test_tuple_sibling_signature(mod_ : Module) -> String {
 }
 
 ///|
+fn gen_valid_test_tuple_first_block_i32_const(mod_ : Module) -> Int? raise {
+  let instrs = gen_valid_test_first_func_instrs(mod_)
+  if instrs.length() == 0 {
+    return None
+  }
+  match instrs[0] {
+    Block(_, Expr(body)) =>
+      if body.length() == 0 {
+        None
+      } else {
+        match body[0] {
+          I32Const(I32(value)) => Some(value)
+          _ => None
+        }
+      }
+    _ => None
+  }
+}
+
+///|
 fn gen_valid_test_tuple_body_has_select(body : Array[Instruction]) -> Bool {
   for instr in body {
     match instr {
@@ -3464,6 +3484,10 @@ fn gen_valid_test_tuple_body_has_select(body : Array[Instruction]) -> Bool {
 ///|
 fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
   fn classify_block_body(body : Array[Instruction]) -> String {
+    if gen_valid_test_tuple_helper_has_effect(mod_) &&
+      gen_valid_test_tuple_instrs_have_trap(body) {
+      return "randomized-existing-effect-trap-lanes"
+    }
     if gen_valid_test_tuple_body_has_select(body) &&
       gen_valid_test_tuple_helper_has_effect(mod_) {
       return "effectful-select-operand-selected"
@@ -3626,6 +3650,22 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let randomized_existing_effect_trap = match
+    gen_valid_module_result_from_seed(
+      0x5efaUL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let randomized_existing_effect_trap_variant = match
+    gen_valid_module_result_from_seed(
+      0x5efdUL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -3678,6 +3718,22 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5ef9UL),
     Some("oi-tuple:multi-selected-effectful-lanes"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5efaUL),
+    Some("oi-tuple:randomized-existing-effect-trap-lanes"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5efdUL),
+    Some("oi-tuple:randomized-existing-effect-trap-lanes"),
+  )
+  assert_true(
+    gen_valid_test_tuple_first_block_i32_const(
+      randomized_existing_effect_trap.wasm_module,
+    ) !=
+    gen_valid_test_tuple_first_block_i32_const(
+      randomized_existing_effect_trap_variant.wasm_module,
+    ),
   )
   @debug.assert_eq(
     gen_valid_test_tuple_selected_lane_signature(all_results.wasm_module),
@@ -3736,6 +3792,18 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
       multi_selected_effectful.wasm_module,
     ),
     "multi-selected-effectful-lanes",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(
+      randomized_existing_effect_trap.wasm_module,
+    ),
+    "randomized-existing-effect-trap-lanes",
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(
+      randomized_existing_effect_trap_variant.wasm_module,
+    ),
+    "randomized-existing-effect-trap-lanes",
   )
 }
 
