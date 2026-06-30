@@ -1131,7 +1131,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT; branch-hint rows remain representation boundary until Starshine models code metadata",
       "starshineStatus": "blocked-surface",
       "priority": "P1",
-      "blockerBoundaryReason": "The sampled grouped OI-F transform residual is closed as of the 2026-06-30 post-if-shell count40 refresh, and a 2026-06-30 summarize-existing check reconfirmed oi-if-select-shell, effectful-sibling, trapping-sibling, and commuted-operands each normalized-match 10/10 with zero failures. A 2026-06-30 source-backed pass-oi-boolean-select trigger slice added four deterministic OI-F profile cases; the count4 lane now matches 3/4 after the effectful identical-select raw-skip fix, with the remaining dead-trapping-if-arm residual classified as a sampled Starshine-win. Broad OI-F remains blocked-surface because the row also includes Binaryen branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder behavior, which Starshine still lacks representation/pass-option plumbing for.",
+      "blockerBoundaryReason": "The sampled grouped OI-F transform residual was closed for the older broad-smoke inputs on 2026-06-30, and the new source-backed pass-oi-boolean-select trigger modules match for effectful-identical-select, value-if/drop, and direct-if/select labels. However `.tmp/oi-f-source-profile-count40-20260630` shows the new trapping-dead-if-arm profile case still mismatches 10/10 under oi-effectful-sibling with a sampled raw-size-losing Starshine shape, so the grouped source-backed surface remains an OI-F parity gap. Broad OI-F also remains blocked-surface for Binaryen branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder behavior, which Starshine still lacks representation/pass-option plumbing for.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md",
         "docs/wiki/raw/research/1218-2026-06-26-optimize-instructions-oi-f-identical-select-arms.md",
@@ -1171,7 +1171,8 @@
         "bun scripts/oi-parity-sweep.ts --family OI-F --count 40 --out-dir .tmp/oi-f-if-shell-fix-count40-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --summarize-existing reconfirmed the sampled OI-F smoke transforms are closed: compared 40/40, normalized 40, mismatches 0, failures 0, with oi-if-select-shell/effectful-sibling/trapping-sibling/commuted-operands each match=10/10. Source-backed boundary review keeps branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder as blocked surfaces: Binaryen version_130 doWalkFunction reads the never-fold/reorder option and branch-hint helpers are part of visitIf arm-flip legality, while Starshine has no OI pass-option plumbing or expression-level branch-hint/code-metadata remap in the HOT pass. Function-level WAST annotations exist, but they are not sufficient evidence for expression-level branch hint preservation or no-fold/no-reorder behavior (2026-06-30).",
         "src/validate/gen_valid_tests.mbt::OI-F boolean-select trigger-smoke profile selects source-backed cases failed red-first before implementation, then passed after gen_valid.mbt added direct, effectful-identical-select, dead-trap, and value-if/drop profile modules (2026-06-30).",
         "src/passes/optimize_instructions_test.mbt::raw skip folds identical pure select arms after effectful condition failed red-first, then passed after pass_manager.mbt folded identical pure select arms while preserving the effectful condition as a dropped prefix (2026-06-30).",
-        "bun scripts/pass-fuzz-compare.ts --count 4 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --out-dir .tmp/oi-f-boolean-profile-targeted-fix2-count4-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --max-failures 2000 --keep-going-after-command-failures: compared 4/4 with 3 normalized matches and one trapping-dead-if-arm residual; manual wasm-tools validation accepted the residual raw outputs, and size/WAT deltas were Starshine raw -8 bytes and WAT -140 bytes (2026-06-30)."
+        "bun scripts/pass-fuzz-compare.ts --count 4 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-boolean-select --out-dir .tmp/oi-f-boolean-profile-targeted-fix2-count4-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --max-failures 2000 --keep-going-after-command-failures: compared 4/4 with 3 normalized matches and one trapping-dead-if-arm residual; manual wasm-tools validation accepted the residual raw outputs, and size/WAT deltas were Starshine raw -8 bytes and WAT -140 bytes (2026-06-30).",
+        "bun scripts/oi-parity-sweep.ts --family OI-F --count 40 --out-dir .tmp/oi-f-source-profile-count40-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --execute -- --max-failures 2000 --keep-going-after-command-failures: compared 40/40 with 30 normalized matches, 10 mismatches, zero validation/generator/property/command failures, Binaryen cache hits/misses 24/16; effectful-identical-select, value-if-drop-shell, and direct-if-select-shell each matched 10/10, while trapping-dead-if-arm mismatched 10/10 under oi-effectful-sibling. Manual validation accepted all 20 residual raw artifacts; aggregate Starshine raw/WAT deltas were +10/0, so classify as sampled size-losing OI-F parity gap (2026-06-30)."
       ],
       "genValidProfiles": [
         "pass-oi-boolean-select"
@@ -1189,7 +1190,7 @@
         "profile": "pass-oi-boolean-select",
         "blockedUntilProfileExists": false
       },
-      "notes": "OI-F sampled transform residuals are closed, and the new source-backed pass-oi-boolean-select profile count4 lane now matches direct-if/select, effectful-identical-select, and value-if/drop cases after a red-first raw-skip identical-arm fix. The single dead-trapping-if-arm residual is classified as a sampled Starshine-win by validation and size/WAT evidence, not as semantic safety from validation alone. Branch-hint/code-metadata and never-fold/no-reorder option surfaces remain blocked, and this non-descriptor OI-F evidence does not advance OI-J descriptor/exactness/TNH/IIT.",
+      "notes": "The new source-backed pass-oi-boolean-select profile count40 grouped lane matches direct-if/select, effectful-identical-select, and value-if/drop cases, but trapping-dead-if-arm under oi-effectful-sibling remains a sampled size-losing parity gap: both residual raw outputs validate and WAT bytes tie, but Starshine raw wasm is +10 bytes aggregate. This supersedes treating the standalone count4 dead-trap residual as enough for grouped closure. Branch-hint/code-metadata and never-fold/no-reorder option surfaces remain blocked, and this non-descriptor OI-F evidence does not advance OI-J descriptor/exactness/TNH/IIT.",
       "classifiedCaseLabels": [
         {
           "label": "transform:oi-if-select-shell",
@@ -1247,6 +1248,14 @@
           "representativeFailureDir": ".tmp/oi-f-boolean-profile-targeted-fix2-count4-20260630/failures/case-000002-gen-valid",
           "status": "starshine-win-candidate",
           "agentClassification": "Sampled OI-F dead trapping if-arm residual where Starshine folds the constant-live if to a dropped i32.const while Binaryen preserves a value-if containing the dead divide-by-zero arm; both residual raw outputs validate, and Starshine is smaller in raw wasm and WAT. This is source-backed OI-F smoke evidence only, not broad OI-F closure or OI-J descriptor/exactness/TNH/IIT evidence."
+        },
+        {
+          "label": "profile+transform:oi-boolean-select:trapping-dead-if-arm+oi-effectful-sibling",
+          "profileCaseLabel": "oi-boolean-select:trapping-dead-if-arm",
+          "transformId": "oi-effectful-sibling",
+          "representativeFailureDir": ".tmp/oi-f-source-profile-count40-20260630/oi-f/OI-F-boolean-select-ternary-shells/failures/case-000002-gen-valid-transform-oi-effectful-sibling",
+          "status": "mismatch",
+          "agentClassification": "Sampled size-losing OI-F parity gap: the private-global effectful-sibling prefix is preserved on both sides and all residual raw outputs validate, but Binaryen uses dropped value-if spelling around the constant-live/dead-divide arm while Starshine keeps a void-if with branch-local drops. Aggregate Starshine raw/WAT deltas are +10/0, so this is not a Starshine-win grouped closure."
         }
       ]
     },
