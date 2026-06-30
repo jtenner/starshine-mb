@@ -1389,7 +1389,12 @@
         "src/validate/gen_valid_tests.mbt::OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memory cases was extended red-first to require seed 0x5f11 label/signature oi-memory-bulk:shared-atomic-select-xchg-restore; it failed before implementation because the profile still selected memory64-cross-memory-random-address-copy-read, then passed after src/validate/gen_valid.mbt added the thirty-seventh source-visible shared-memory select-produced aligned-address full-width atomic xchg restore case (2026-06-30).",
         "bun scripts/pass-fuzz-compare.ts --count 185 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-memory-bulk --out-dir .tmp/oi-g-shared-atomic-select-xchg-profile-count185-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --runtime-execution node --max-failures 2000 --keep-going-after-command-failures: compared 185/185, normalized 129, mismatches 56, validation/generator/property/command/runtime semantic failures 0, runtime checked/unsupported/failed 139/46/0, Binaryen cache hits/misses 90/95; new label matched 2/2 (2026-06-30).",
         "bun scripts/pass-fuzz-compare.ts --count 555 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-memory-bulk --out-dir .tmp/oi-g-shared-atomic-select-xchg-count555-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --runtime-execution node --max-failures 2000 --keep-going-after-command-failures: compared 555/555, normalized 377, mismatches 178, validation/generator/property/command/runtime semantic failures 0, runtime checked/unsupported/failed 405/150/0, Binaryen cache hits/misses 313/242; new label matched 15/15 (2026-06-30).",
-        "2026-06-30: representative grouped select-produced atomic xchg case 000007 preserves four typed selects, four global.get address conditions, i32/i64 atomic loads, and xchg RMW operations in both Binaryen and Starshine outputs; manually produced outputs validate and normalized WAT matches. This is select-produced shared-atomic xchg evidence only, not true shared ordering/concurrency, blocking wait/notify closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence."
+        "2026-06-30: representative grouped select-produced atomic xchg case 000007 preserves four typed selects, four global.get address conditions, i32/i64 atomic loads, and xchg RMW operations in both Binaryen and Starshine outputs; manually produced outputs validate and normalized WAT matches. This is select-produced shared-atomic xchg evidence only, not true shared ordering/concurrency, blocking wait/notify closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.",
+        "src/validate/gen_valid_tests.mbt::OI-G memory-bulk trigger-smoke profile selects distinct seed-indexed memory cases was extended red-first to require seed 0x5f12 label/signature oi-memory-bulk:shared-atomic-select-cmpxchg-restore; it failed before implementation because the profile still selected live-effect-trap-boundaries, then passed after src/validate/gen_valid.mbt added the thirty-eighth source-visible shared-memory select-produced aligned-address same-value atomic cmpxchg restore case (2026-06-30).",
+        "bun scripts/pass-fuzz-compare.ts --count 190 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-memory-bulk --out-dir .tmp/oi-g-shared-atomic-select-cmpxchg-profile-count190-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --runtime-execution node --max-failures 2000 --keep-going-after-command-failures: compared 190/190, normalized 129, mismatches 61, validation/generator/property/command/runtime semantic failures 0, runtime checked/unsupported/failed 136/54/0, Binaryen cache hits/misses 108/82; new label matched 7/7 (2026-06-30).",
+        "bun scripts/pass-fuzz-compare.ts --count 570 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-memory-bulk --out-dir .tmp/oi-g-shared-atomic-select-cmpxchg-count570-20260630 --starshine-bin target/native/release/build/cmd/cmd.exe --jobs auto --runtime-execution node --max-failures 2000 --keep-going-after-command-failures: compared 570/570, normalized 410, mismatches 160, validation/generator/property/command/runtime semantic failures 0, runtime checked/unsupported/failed 419/151/0, Binaryen cache hits/misses 355/215; new label matched 15/15 (2026-06-30).",
+        "2026-06-30: representative grouped select-produced atomic cmpxchg case 000020 preserves four typed selects, four global.get address conditions, i32/i64 atomic loads, and same-value i32/i64 cmpxchg operations in both Binaryen and Starshine outputs; input and manually produced Binaryen/Starshine outputs validate. This is select-produced shared-atomic cmpxchg evidence only, not true shared ordering/concurrency, blocking wait/notify closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.",
+        "2026-06-30: Classification-only review of .tmp/oi-g-shared-atomic-select-cmpxchg-count570-20260630 split all 160 grouped runtime residuals into 126 shared-atomic profile-case candidates and 34 store8 low-byte-mask candidates. The count570 lane compared 570/570 with 410 normalized matches, zero failures, runtime checked/unsupported/failed 419/151/0, and cache hits/misses 355/215; manual wasm-tools validation accepted all 640 residual raw/canonical artifacts. Atomic residuals preserve i32/i64 atomic loads plus expected RMW/cmpxchg counts and are runtime-equal with aggregate deltas -464/-106/+26; helper-call counts are preserved 60/60 and local.tee counts reduce 40/0. Store8 residuals preserve i32/i64 store8 counts, remove redundant i64 masks with Binaryen/Starshine i64.and counts 34/0, include runtime equality for all 21 runtime-store8 samples, and aggregate -199/-136/-1292. The new select-produced cmpxchg label remained 15/15 normalized matches, so this is grouped residual classification evidence only, not OI-G closure or OI-J descriptor/exactness/TNH/IIT evidence."
       ],
       "genValidProfiles": [
         "pass-oi-memory-bulk"
@@ -2448,6 +2453,68 @@
           "observedDiff": "Direct runtime count185 sampled the new label 2/2 normalized matches; grouped runtime count555 sampled it 15/15 normalized matches. Representative grouped case 000007 preserves four typed selects, four global.get address conditions, i32/i64 atomic loads, and both xchg RMW operations in both Binaryen and Starshine outputs; manually produced outputs validate and normalized WAT matches.",
           "nextAction": "Broaden beyond select-produced add-zero and xchg wrappers before claiming broad select-produced atomic closure; keep true shared ordering/concurrency, blocking wait/notify, memory64/multi-memory runtime adapters, and OI-J descriptor/exactness/TNH/IIT open.",
           "lastCheckedEvidence": "2026-06-30 .tmp/oi-g-shared-atomic-select-xchg-profile-count185-20260630 direct runtime compare, .tmp/oi-g-shared-atomic-select-xchg-count555-20260630 grouped runtime compare, representative gen-valid-000007 manual output WAT validation/normalized-match evidence."
+        },
+        {
+          "label": "aggregate:select-xchg-count555-shared-atomic-residuals",
+          "transformId": null,
+          "representativeFailureDir": ".tmp/oi-g-shared-atomic-select-xchg-count555-20260630/failures/case-000007-gen-valid and case-000013-gen-valid",
+          "status": "starshine-win-candidate",
+          "agentClassification": "sampled runtime-equal shared-atomic profile-case residual bucket after select-produced xchg grouped run; residuals preserve atomic operation counts and differ by address/offset folding, local.tee cleanup, or helper-call address-producer cleanup while the select-produced xchg label itself matches",
+          "observedDiff": "144 residual dirs across shared-atomic fixed/random xchg/add/cmpxchg/sub/xor/or/and plus local.tee/helper-call address-producer labels; i32/i64 atomic loads and expected RMW/cmpxchg op counts are preserved, runtime equality holds for every atomic residual, aggregate Starshine raw/canonical/WAT deltas are -560/-160/-439, helper-call counts are preserved 60/60, local.tee counts reduce 64/0, and shared-atomic-select-xchg-restore remains 15/15 normalized matches.",
+          "nextAction": "Keep as sampled Starshine-win evidence while adding broader select-produced atomic wrappers, true shared ordering/concurrency, blocking wait/notify, and exact memory64/multi-memory runtime adapter evidence before OI-G closure.",
+          "lastCheckedEvidence": [
+            ".tmp/oi-g-shared-atomic-select-xchg-count555-20260630 result.json/cases.jsonl/failure dirs (2026-06-30)",
+            "manual wasm-tools validate --features all over 712 grouped raw/canonical artifacts found zero validation failures (2026-06-30)"
+          ]
+        },
+        {
+          "label": "aggregate:select-xchg-count555-store8-low-byte-mask",
+          "transformId": null,
+          "representativeFailureDir": ".tmp/oi-g-shared-atomic-select-xchg-count555-20260630/failures/case-000012-gen-valid",
+          "status": "starshine-win-candidate",
+          "agentClassification": "sampled store8 low-byte-mask residual bucket under the select-produced xchg grouped direct profile run; residuals preserve store8 truncation semantics and are runtime-equal where executable",
+          "observedDiff": "34 residual dirs across store-mask-boundaries and runtime-store8-mask-restore-read labels; i32/i64 store8 counts are preserved, redundant i64.and mask counts are Binaryen/Starshine 34/0, runtime equality holds for all 22 executable runtime-store8 samples, and aggregate Starshine raw/canonical/WAT deltas are -202/-136/-1292.",
+          "nextAction": "Keep as sampled Starshine-win evidence with reopening criteria; do not treat it as OI-G closure or as descriptor/exactness/TNH/IIT evidence.",
+          "lastCheckedEvidence": [
+            ".tmp/oi-g-shared-atomic-select-xchg-count555-20260630 result.json/cases.jsonl/failure dirs (2026-06-30)",
+            "manual wasm-tools validate --features all over 712 grouped raw/canonical artifacts found zero validation failures (2026-06-30)"
+          ]
+        },
+        {
+          "label": "oi-memory-bulk:shared-atomic-select-cmpxchg-restore",
+          "transformId": null,
+          "representativeFailureDir": null,
+          "status": "covered",
+          "agentClassification": "sampled normalized-match source-visible shared-memory select-produced atomic cmpxchg restore evidence; generated inputs produce every atomic address through typed select and grouped/direct compares report no new-label residuals",
+          "observedDiff": "Direct runtime count190 sampled the new label 7/7 normalized matches; grouped runtime count570 sampled it 15/15 normalized matches. Representative grouped case 000020 preserves four typed selects, four global.get address conditions, i32/i64 atomic loads, and same-value i32/i64 cmpxchg operations in both Binaryen and Starshine outputs; input and manually produced outputs validate.",
+          "nextAction": "Broaden beyond select-produced add-zero/xchg/cmpxchg wrappers before claiming broad select-produced atomic closure; keep true shared ordering/concurrency, blocking wait/notify, memory64/multi-memory runtime adapters, and OI-J descriptor/exactness/TNH/IIT open.",
+          "lastCheckedEvidence": "2026-06-30 .tmp/oi-g-shared-atomic-select-cmpxchg-profile-count190-20260630 direct runtime compare, .tmp/oi-g-shared-atomic-select-cmpxchg-count570-20260630 grouped runtime compare, representative gen-valid-000020 manual output WAT validation/normalized-match evidence."
+        },
+        {
+          "label": "aggregate:select-cmpxchg-count570-shared-atomic-residuals",
+          "transformId": null,
+          "representativeFailureDir": ".tmp/oi-g-shared-atomic-select-cmpxchg-count570-20260630/failures/case-000010-gen-valid and case-000117-gen-valid",
+          "status": "starshine-win-candidate",
+          "agentClassification": "sampled runtime-equal shared-atomic profile-case residual bucket after select-produced cmpxchg grouped run; residuals preserve atomic operation counts and differ by address/offset folding, local.tee cleanup, or helper-call address-producer cleanup while the select-produced cmpxchg label itself matches",
+          "observedDiff": "126 residual dirs across shared-atomic fixed/random xchg/add/cmpxchg/sub/xor/or/and plus local.tee/helper-call labels; i32/i64 atomic loads are 126/126 on both tools, RMW/cmpxchg op counts match for add 35, sub 15, xor 10, or 13, and 14, xchg 25, cmpxchg 14 per width, runtime equality holds for every atomic residual, aggregate Starshine raw/canonical/WAT deltas are -464/-106/+26, helper-call counts are preserved 60/60, local.tee counts reduce 40/0, and shared-atomic-select-cmpxchg-restore remains 15/15 normalized matches.",
+          "nextAction": "Keep as sampled Starshine-win evidence while adding broader select-produced atomic wrappers, true shared ordering/concurrency, blocking wait/notify, and exact memory64/multi-memory runtime adapter evidence before OI-G closure.",
+          "lastCheckedEvidence": [
+            ".tmp/oi-g-shared-atomic-select-cmpxchg-count570-20260630 result.json/cases.jsonl/failure dirs (2026-06-30)",
+            "manual wasm-tools validate --features all over 640 grouped raw/canonical artifacts found zero validation failures (2026-06-30)"
+          ]
+        },
+        {
+          "label": "aggregate:select-cmpxchg-count570-store8-low-byte-mask",
+          "transformId": null,
+          "representativeFailureDir": ".tmp/oi-g-shared-atomic-select-cmpxchg-count570-20260630/failures/case-000018-gen-valid",
+          "status": "starshine-win-candidate",
+          "agentClassification": "sampled store8 low-byte-mask residual bucket under the select-produced cmpxchg grouped direct profile run; residuals preserve store8 truncation semantics and are runtime-equal where executable",
+          "observedDiff": "34 residual dirs across store-mask-boundaries and runtime-store8-mask-restore-read labels; i32/i64 store8 counts are preserved at 55/55 on both tools, redundant i64.and mask counts are Binaryen/Starshine 34/0, runtime equality holds for all 21 executable runtime-store8 samples, and aggregate Starshine raw/canonical/WAT deltas are -199/-136/-1292.",
+          "nextAction": "Keep as sampled Starshine-win evidence with reopening criteria; do not treat it as OI-G closure or as descriptor/exactness/TNH/IIT evidence.",
+          "lastCheckedEvidence": [
+            ".tmp/oi-g-shared-atomic-select-cmpxchg-count570-20260630 result.json/cases.jsonl/failure dirs (2026-06-30)",
+            "manual wasm-tools validate --features all over 640 grouped raw/canonical artifacts found zero validation failures (2026-06-30)"
+          ]
         }
       ],
       "familyNotes": [
