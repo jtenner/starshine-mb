@@ -223,7 +223,7 @@ canonical-size Starshine-win candidates with raw-size residuals, not OI-G family
 closure. All 20 fix4 raw/canonical outputs validate.
 
 `pass-oi-memory-bulk` is now stronger than a broad smoke config and stronger
-than the earlier three-case trigger smoke. It emits twenty-nine OI-G
+than the earlier three-case trigger smoke. It emits thirty-two OI-G
 trigger-smoke-plus cases: live private-global plus dead-trap boundaries, direct
 i32 tiny-bulk and load/store lowering, memory64 dynamic/local-carried bulk
 operands, no-param-call/existing-producer-wrapped tiny bulk, narrow-store masks,
@@ -249,10 +249,11 @@ select-produced single-memory fill/restore/read exported function, a source-visi
 shared-memory full-width atomic xchg restore exported function, a Node-runtime-compatible
 store8 low-byte-mask restore/read exported function, a source-visible shared-memory
 seed-derived aligned-address full-width atomic xchg restore exported function, a source-visible shared-memory
-seed-derived aligned-address atomic add-zero restore exported function, and a source-visible shared-memory
-seed-derived aligned-address same-value atomic cmpxchg restore exported function, and a source-visible shared-memory
-seed-derived aligned-address atomic sub-zero restore exported function, and a source-visible shared-memory
-seed-derived aligned-address atomic xor-zero restore exported function. The focused generator test
+seed-derived aligned-address atomic add-zero restore exported function, a source-visible shared-memory
+seed-derived aligned-address same-value atomic cmpxchg restore exported function, a source-visible shared-memory
+seed-derived aligned-address atomic sub-zero restore exported function, a source-visible shared-memory
+seed-derived aligned-address atomic xor-zero restore exported function, and a source-visible shared-memory
+seed-derived aligned-address atomic or-zero restore exported function. The focused generator test
 failed red-first first on missing OI-G labels, then on the missing three expanded
 labels, then on the missing multi-memory label/signature, then on the missing
 random-address-copy-read label/signature, then on the missing
@@ -905,3 +906,6 @@ After the smoke profiles and first smoke transforms, implement trigger-biased co
 6. `pass-oi-tuple` with broader randomized trigger-biased selected-lane constructors, source-visible existing-producer tuple wrappers, broader live effect/trap variants, runtime-compatible tuple semantics where feasible, and true tuple-scratch probes beyond the current seed-indexed direct/local-carried/all-result/helper-call-produced/local.tee-produced/select-produced/selected-trapping/selected-effectful/effectful-sibling/trapping-sibling/effectful-select-operand/trapping-select-operand/multi-selected-effectful/randomized-existing-effect-trap/runtime-selected-lane multivalue selected-lane trigger smoke plus synthetic selected-lane transform.
 
 Those target the current highest-churn areas: scalar/default rewrites, boolean/select shells, memory-size boundaries, and tuple selected-lane boundaries.
+
+
+The latest OI-G slice added `oi-memory-bulk:shared-atomic-random-or-restore` as the thirty-second `pass-oi-memory-bulk` trigger-smoke-plus case at seed `0x5f0c`. The generated module exports `run` and `memory`, initializes shared memory at a seed-derived aligned in-page address, performs i32/i64 atomic loads plus full-width `atomic.rmw.or` with zero operands at that address, and returns an i64 xor of observed values. The focused generator test failed red-first because seed `0x5f0c` still selected `oi-memory-bulk:multi-memory-bulk`, then passed after `src/validate/gen_valid.mbt` added the case and widened the selector to thirty-two cases. Direct runtime `.tmp/oi-g-shared-atomic-random-or-profile-count160-20260630` compared 160/160 with 115 normalized matches, 45 mismatches, zero validation/generator/property/command failures, runtime checked/unsupported/failed `110/50/0`, and the new label sampled 5/5 residuals with deltas `-15/0/+45`. Grouped runtime `.tmp/oi-g-shared-atomic-random-or-count480-20260630` compared 480/480 with 345 normalized matches, 135 mismatches, zero validation/generator/property/command/runtime semantic failures, runtime checked/unsupported/failed `330/150/0`, and the new label sampled 15/15 residuals. Manual validation over all 540 grouped residual artifacts found zero validation failures. The new-label residuals preserve both atomic or-zero operations and classify as sampled atomic offset-folding Starshine-win candidates with raw/canonical/WAT deltas `-45/0/+135`; representative case 000026 keeps one i32 and one i64 atomic or plus both atomic loads in each tool and differs because Starshine folds the i64 atomic load into `offset=8`. This is randomized-address atomic or-zero evidence only, not true shared ordering/concurrency, blocking wait/notify closure, OI-G closure, or OI-J descriptor/exactness/TNH/IIT evidence.
