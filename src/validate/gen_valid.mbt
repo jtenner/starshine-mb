@@ -14897,7 +14897,7 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 24
-    PassOiTupleProfile => 14
+    PassOiTupleProfile => 15
     _ => 3
   }
 }
@@ -14976,7 +14976,9 @@ fn gen_valid_oi_tuple_case_for_seed(seed : UInt64) -> Int {
     0x5ef8UL => 11
     0x5ef9UL => 12
     0x5efaUL => 13
-    _ => (seed % 14UL).to_int()
+    0x5efbUL => 14
+    0x5efdUL => 13
+    _ => (seed % 15UL).to_int()
   }
 }
 
@@ -15066,6 +15068,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         11 => Some("oi-tuple:trapping-select-operand-selected-lane")
         12 => Some("oi-tuple:multi-selected-effectful-lanes")
         13 => Some("oi-tuple:randomized-existing-effect-trap-lanes")
+        14 => Some("oi-tuple:runtime-selected-lane")
         _ => Some("oi-tuple:direct-selected-lane")
       }
     PassOiMemoryBulkProfile =>
@@ -16500,7 +16503,58 @@ fn gen_valid_oi_tuple_selected_lane_prefix(
 }
 
 ///|
+fn gen_valid_oi_tuple_runtime_selected_module(seed : UInt64) -> Module {
+  let run_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let block_type = RecType::new(
+    SubType::comp_type(CompType::func([], gen_valid_oi_tuple_result_types())),
+  )
+  let block_type_idx = TypeIdx::new(1U)
+  Module::new()
+  .with_type_sec(TypeSec::new([run_type, block_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([
+          ValType::i32(),
+          ValType::i64(),
+          ValType::f32(),
+          ValType::f64(),
+        ]),
+        Expr::new([
+          Instruction::block(
+            BlockType::type_idx(block_type_idx),
+            Expr::new([
+              Instruction::i32_const(I32(gen_valid_oi_tuple_seeded_i32(seed))),
+              Instruction::local_tee(LocalIdx::new(0U)),
+              Instruction::i64_const(I64(22L)),
+              Instruction::f32_const(F32(gen_valid_oi_tuple_seeded_f32(seed))),
+              Instruction::f64_const(F64(gen_valid_oi_tuple_seeded_f64(seed))),
+            ]),
+          ),
+          Instruction::local_set(LocalIdx::new(3U)),
+          Instruction::local_set(LocalIdx::new(2U)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_oi_tuple_profile_module(case : Int, seed : UInt64) -> Module {
+  if case == 14 {
+    return gen_valid_oi_tuple_runtime_selected_module(seed)
+  }
   let func_type = gen_valid_precompute_void_func_type()
   let helper_result_type = if case == 4 || case == 5 || case == 12 || case == 13 {
     ValType::i64()
