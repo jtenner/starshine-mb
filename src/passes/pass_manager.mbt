@@ -23839,6 +23839,58 @@ fn run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body_with_root(
         _ => ()
       }
     }
+    if i + 10 < instrs.length() {
+      match
+        (
+          current,
+          instrs[i + 1],
+          instrs[i + 2],
+          instrs[i + 3],
+          instrs[i + 4],
+          instrs[i + 5],
+          instrs[i + 6],
+          instrs[i + 7],
+          instrs[i + 8],
+          instrs[i + 9],
+          instrs[i + 10],
+        ) {
+        (
+          @lib.Instruction::RefNull(_),
+          @lib.Instruction::LocalSet(set_local),
+          @lib.Instruction::LocalGet(is_null_local),
+          @lib.Instruction::RefIsNull,
+          @lib.Instruction::Drop,
+          @lib.Instruction::LocalGet(test_local),
+          @lib.Instruction::RefTest(test_nullable, _),
+          @lib.Instruction::Drop,
+          @lib.Instruction::LocalGet(cast_local),
+          @lib.Instruction::RefCast(true, _, _),
+          @lib.Instruction::Drop,
+        ) if set_local == is_null_local &&
+          set_local == test_local &&
+          set_local == cast_local => {
+          out.push(current)
+          out.push(instrs[i + 1])
+          out.push(instrs[i + 2])
+          out.push(instrs[i + 3])
+          out.push(instrs[i + 4])
+          out.push(instrs[i + 5])
+          out.push(@lib.Instruction::drop())
+          out.push(
+            @lib.Instruction::i32_const(
+              @lib.I32(if test_nullable { 1 } else { 0 }),
+            ),
+          )
+          out.push(@lib.Instruction::drop())
+          out.push(instrs[i + 8])
+          out.push(@lib.Instruction::drop())
+          changed = true
+          i += 11
+          continue
+        }
+        _ => ()
+      }
+    }
     if i + 2 < instrs.length() {
       match (current, instrs[i + 1], instrs[i + 2]) {
         (

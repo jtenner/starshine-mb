@@ -155,6 +155,49 @@ test "optimize-instructions raw folds dropped null ref test and nullable cast be
 }
 
 ///|
+test "optimize-instructions raw folds local-carried null ref test and nullable cast before skip" {
+  // OI-I grouped pass-oi-ref-gc residual: after an effectful wrapper forces the
+  // raw optimize-instructions skip path, Binaryen still uses the local-carried
+  // known null fact to remove dropped nullable ref.test/ref.cast operations.
+  // Keep the local.set and earlier null test ordering, but eliminate the
+  // redundant local-carried test/cast debris without making descriptor claims.
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let target_local = @lib.LocalIdx::new(0U)
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_directize_call_ref_body([
+      @lib.Instruction::i32_const(@lib.I32(101)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::ref_null(any_heap),
+      @lib.Instruction::local_set(target_local),
+      @lib.Instruction::local_get(target_local),
+      @lib.Instruction::ref_is_null(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(target_local),
+      @lib.Instruction::ref_test(true, any_heap),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(target_local),
+      @lib.Instruction::ref_cast(true, any_heap),
+      @lib.Instruction::drop(),
+    ],
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(101)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::ref_null(any_heap),
+    @lib.Instruction::local_set(target_local),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::ref_is_null(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target_local),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 test "optimize-instructions raw trims dropped null non-null ref cast tail before skip" {
   // A non-null ref.cast fed by ref.null is a guaranteed trap. The raw skip
   // cleanup may replace the dropped cast with an immediate unreachable and
