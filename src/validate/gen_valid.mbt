@@ -15123,7 +15123,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 43
     PassOiTupleProfile => 15
-    PassOiLocalFactsProfile => 5
+    PassOiLocalFactsProfile => 6
     _ => 3
   }
 }
@@ -15254,7 +15254,8 @@ fn gen_valid_oi_local_facts_case_for_seed(seed : UInt64) -> Int {
     0x5eefUL => 0
     0x5ef0UL => 3
     0x5ef1UL => 4
-    _ => (seed % 5UL).to_int()
+    0x5ef2UL => 5
+    _ => (seed % 6UL).to_int()
   }
 }
 
@@ -15324,6 +15325,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         2 => Some("oi-local-facts:local-carried-mask")
         3 => Some("oi-local-facts:existing-producer-sign-extension")
         4 => Some("oi-local-facts:effectful-existing-producer-sign-extension")
+        5 => Some("oi-local-facts:trapping-existing-producer-sign-extension")
         _ => Some("oi-local-facts:direct-sign-extension")
       }
     PassOiRefGcProfile =>
@@ -15545,6 +15547,31 @@ fn gen_valid_oi_local_facts_effectful_existing_producer_module() -> Module {
         ),
       ]),
     ),
+  )
+}
+
+///|
+fn gen_valid_oi_local_facts_trapping_existing_producer_module() -> Module {
+  let i32_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let i64_func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
+  )
+  gen_valid_oi_local_facts_existing_producer_module_from_helpers(
+    i32_func_type,
+    i64_func_type,
+    Expr::new([
+      Instruction::i32_const(I32(1)),
+      Instruction::i32_const(I32(0)),
+      Instruction::i32_div_s(),
+    ]),
+    Expr::new([
+      Instruction::i64_const(I64(1L)),
+      Instruction::i64_const(I64(0L)),
+      Instruction::i64_div_s(),
+    ]),
+    None,
   )
 }
 
@@ -18248,6 +18275,9 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   }
   if local_facts && case == 4 {
     return gen_valid_oi_local_facts_effectful_existing_producer_module()
+  }
+  if local_facts && case == 5 {
+    return gen_valid_oi_local_facts_trapping_existing_producer_module()
   }
   if memory_bulk && case == 3 {
     return gen_valid_oi_memory_bulk_call_wrapped_module()

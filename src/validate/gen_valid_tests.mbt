@@ -2440,6 +2440,14 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let local_fact_trapping_existing = match
+    gen_valid_module_result_from_seed(
+      0x5ef2UL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef0UL),
     Some("oi-local-facts:existing-producer-sign-extension"),
@@ -2447,6 +2455,10 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef1UL),
     Some("oi-local-facts:effectful-existing-producer-sign-extension"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef2UL),
+    Some("oi-local-facts:trapping-existing-producer-sign-extension"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_local_fact_trigger_signature(
@@ -2483,6 +2495,20 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
       gen_valid_test_first_func_instrs(
         local_fact_effectful_existing.wasm_module,
       ),
+    ),
+    "existing-producer-sign-ext",
+  )
+  assert_true(
+    local_fact_trapping_existing.facts.exact_opcode_counts.i32_div_s > 0,
+    msg="expected trapping i32 existing-producer helper",
+  )
+  assert_true(
+    local_fact_trapping_existing.facts.exact_opcode_counts.i64_div_s > 0,
+    msg="expected trapping i64 existing-producer helper",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_local_fact_trigger_signature(
+      gen_valid_test_first_func_instrs(local_fact_trapping_existing.wasm_module),
     ),
     "existing-producer-sign-ext",
   )
