@@ -1505,6 +1505,270 @@ test "vacuum preserves local-set-leading prefix blocks before void ifs" {
 }
 
 ///|
+test "vacuum preserves multi-local prefix child blocks before void ifs" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "hold" (func $hold (param i32)))
+      #|  (import "m" "release" (func $release (param i32)))
+      #|  (import "m" "make1" (func $make1 (param i32) (result i32)))
+      #|  (import "m" "make4" (func $make4 (param i32 i32 i32 i32) (result i32)))
+      #|  (import "m" "pred" (func $pred (param i32) (result i32)))
+      #|  (memory 1)
+      #|  (func (param i32 i32) (local i32 i32 i32 i32 i32 i32 i32)
+      #|    (block
+      #|      (block
+      #|        (block
+      #|          nop nop nop nop nop nop nop nop
+      #|          nop nop nop nop nop nop nop nop
+      #|          (local.set 2
+      #|            (i32.load offset=32 align=1 (local.get 0)))
+      #|          (call $hold
+      #|            (local.tee 3
+      #|              (i32.load offset=28 align=1 (local.get 0))))
+      #|          (call $hold (local.get 2))
+      #|          (local.set 4 (call $make1 (local.get 3)))
+      #|          (call $release (local.get 3))
+      #|          (local.set 5
+      #|            (call $make4
+      #|              (local.get 1)
+      #|              (local.get 2)
+      #|              (local.get 4)
+      #|              (i32.const 23344)))
+      #|          (call $release (local.get 1))
+      #|          (call $release (local.get 2))
+      #|          (if (i32.eq (call $pred (local.tee 6 (local.get 5))) (i32.const 1))
+      #|            (then
+      #|              (local.set 7 (i32.load align=1 (local.get 6)))
+      #|              (call $release (local.get 6))
+      #|              (local.set 8 (local.get 7))
+      #|            )
+      #|            (else
+      #|              (local.set 8 (local.get 6))
+      #|              (br 2)
+      #|            )
+      #|          )
+      #|        )
+      #|        (call $hold (i32.const 7))
+      #|      )
+      #|    )
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail(
+        "expected multi-local prefix preservation vacuum success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected multi-local prefix preservation vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      match instrs[0] {
+        @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) => {
+          @debug.assert_eq(outer_body.length(), 3)
+          match outer_body[0] {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => {
+              match prefix_body[0] {
+                @lib.LocalGet(@lib.LocalIdx(raw)) =>
+                  @debug.assert_eq(raw.reinterpret_as_int(), 0)
+                other =>
+                  fail(
+                    "expected preserved multi-local prefix block to start with lowered local.get 0, got \{@debug.to_string(other)}",
+                  )
+              }
+              match prefix_body[prefix_body.length() - 1] {
+                @lib.If(@lib.VoidBlockType, _, Some(_)) => ()
+                other =>
+                  fail(
+                    "expected preserved multi-local prefix block to end with a void if, got \{@debug.to_string(other)}",
+                  )
+              }
+            }
+            other =>
+              fail(
+                "expected multi-local prefix child block to stay wrapped before following call, got \{@debug.to_string(other)}",
+              )
+          }
+          match outer_body[1] {
+            @lib.I32Const(@lib.I32(value)) => @debug.assert_eq(value, 7)
+            other =>
+              fail(
+                "expected preserved multi-local prefix block to be followed by the parent continuation call argument, got \{@debug.to_string(other)}",
+              )
+          }
+          match outer_body[2] {
+            @lib.Call(@lib.FuncIdx(raw)) =>
+              @debug.assert_eq(raw.reinterpret_as_int(), 0)
+            other =>
+              fail(
+                "expected preserved multi-local prefix block to be followed by the parent continuation call, got \{@debug.to_string(other)}",
+              )
+          }
+        }
+        other =>
+          fail(
+            "expected outer wrapper for multi-local prefix preservation, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected single function for multi-local prefix preservation, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum flattens extra inner multi-local prefix wrappers before outer if chains" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "hold" (func $hold (param i32)))
+      #|  (import "m" "release" (func $release (param i32)))
+      #|  (import "m" "make1" (func $make1 (param i32) (result i32)))
+      #|  (import "m" "make4" (func $make4 (param i32 i32 i32 i32) (result i32)))
+      #|  (import "m" "pred" (func $pred (param i32) (result i32)))
+      #|  (import "m" "alloc" (func $alloc (param i32 i32)))
+      #|  (import "m" "malloc" (func $malloc (param i32) (result i32)))
+      #|  (memory 1)
+      #|  (func (param $0 i32) (param $1 i32) (result i32)
+      #|    (local $2 i32) (local $3 i32) (local $4 i32) (local $5 i32) (local $6 i32)
+      #|    (local $7 i32) (local $8 i32) (local $9 i32) (local $10 i32) (local $11 i32)
+      #|    (local $12 i32) (local $13 i32) (local $14 i32) (local $15 i32) (local $16 i32)
+      #|    (block $outer
+      #|      (block $middle
+      #|        (block
+      #|          (block
+      #|            nop nop nop nop
+      #|            nop nop nop nop
+      #|            (local.set $2 (i32.load offset=32 align=1 (local.get $0)))
+      #|            (call $hold (local.tee $3 (i32.load offset=28 align=1 (local.get $0))))
+      #|            (call $hold (local.get $2))
+      #|            (local.set $4 (call $make1 (local.get $3)))
+      #|            (call $release (local.get $3))
+      #|            (local.set $5 (call $make4 (local.get $1) (local.get $2) (local.get $4) (i32.const 23344)))
+      #|            (call $release (local.get $1))
+      #|            (call $release (local.get $2))
+      #|            (if (i32.eq (call $pred (local.tee $6 (local.get $5))) (i32.const 1))
+      #|              (then
+      #|                (local.set $7 (i32.load align=1 (local.get $6)))
+      #|                (call $release (local.get $6))
+      #|                (local.set $8 (local.get $7))
+      #|              )
+      #|              (else
+      #|                (local.set $16 (local.get $6))
+      #|                (local.set $10 (local.get $16))
+      #|                (br $middle)
+      #|              )
+      #|            )
+      #|          )
+      #|        )
+      #|        (local.set $9 (local.get $8))
+      #|        (br $outer)
+      #|      )
+      #|      (call $alloc
+      #|        (local.tee $11 (call $malloc (i32.const 4)))
+      #|        (i32.const 256))
+      #|      (i32.store align=1 (local.get $11) (local.get $10))
+      #|      (return (local.get $11))
+      #|    )
+      #|    (local.set $12 (call $make1 (local.get $9)))
+      #|    (if (i32.eq (call $pred (local.get $1)) (i32.const 60))
+      #|      (then
+      #|        (local.set $13 (call $make1 (local.get $12)))
+      #|        (call $release (local.get $12))
+      #|        (call $alloc (local.tee $14 (call $malloc (i32.const 4))) (i32.const 257))
+      #|        (i32.store align=1 (local.get $14) (local.get $13))
+      #|        (local.set $15 (local.get $14))
+      #|      )
+      #|      (else
+      #|        (if (i32.eq (call $pred (local.get $1)) (i32.const 61))
+      #|          (then
+      #|            (local.set $13 (call $make1 (local.get $12)))
+      #|            (call $release (local.get $12))
+      #|            (call $alloc (local.tee $14 (call $malloc (i32.const 4))) (i32.const 257))
+      #|            (i32.store align=1 (local.get $14) (local.get $13))
+      #|            (local.set $15 (local.get $14))
+      #|          )
+      #|          (else
+      #|            (call $release (local.get $12))
+      #|            (call $alloc (local.tee $14 (call $malloc (i32.const 4))) (i32.const 256))
+      #|            (i32.store align=1 (local.get $14) (i32.const 157976))
+      #|            (local.set $15 (local.get $14))
+      #|          )
+      #|        )
+      #|      )
+      #|    )
+      #|    (return (local.get $15))
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected extra-inner multi-local prefix vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected extra-inner multi-local prefix vacuum output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      match instrs[0] {
+        @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) =>
+          match outer_body[0] {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(middle_body)) =>
+              match middle_body[0] {
+                @lib.Block(@lib.VoidBlockType, @lib.Expr(child_body)) =>
+                  match child_body[0] {
+                    @lib.LocalGet(@lib.LocalIdx(raw)) =>
+                      @debug.assert_eq(raw.reinterpret_as_int(), 0)
+                    @lib.Block(_, _) =>
+                      fail(
+                        "expected extra inner multi-local prefix wrapper to be flattened before the middle/outer continuation, got another block",
+                      )
+                    other =>
+                      fail(
+                        "expected flattened extra-inner multi-local prefix to start with lowered local.get 0, got \{@debug.to_string(other)}",
+                      )
+                  }
+                other =>
+                  fail(
+                    "expected middle continuation child block for extra-inner prefix test, got \{@debug.to_string(other)}",
+                  )
+              }
+            other =>
+              fail(
+                "expected outer middle block for extra-inner prefix test, got \{@debug.to_string(other)}",
+              )
+          }
+        other =>
+          fail(
+            "expected outer block for extra-inner prefix test, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected single function for extra-inner prefix test, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum raw-unwraps terminal unreachable block wrappers with outer branches" {
   let input = pass_test_module_from_wat(
     (

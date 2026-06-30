@@ -28185,6 +28185,88 @@ fn run_hot_pipeline_raw_vacuum_body_is_local_set_leading_prefix_if_preserve_cand
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_if_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 8 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.If(@lib.VoidBlockType, _, Some(_)) => ()
+    _ => return false
+  }
+  if run_hot_pipeline_raw_vacuum_instrs_contain_unreachable(body) {
+    return false
+  }
+  match (body[0], body[1], body[2]) {
+    (@lib.LocalGet(_), @lib.I32Load(_), @lib.LocalSet(_)) => ()
+    _ => return false
+  }
+  let mut local_set_count = 0
+  let mut call_count = 0
+  let mut saw_local_tee = false
+  for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.LocalSet(_) => local_set_count = local_set_count + 1
+      @lib.Call(_) => call_count = call_count + 1
+      @lib.LocalTee(_) => saw_local_tee = true
+      @lib.LocalGet(_) | @lib.I32Load(_) | @lib.I32Const(_) | @lib.I32Eq => ()
+      _ => return false
+    }
+  }
+  local_set_count >= 3 && call_count >= 4 && saw_local_tee
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+  body : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  if start_idx + 1 >= body.length() {
+    return false
+  }
+  for idx = start_idx + 1; idx < body.length(); idx = idx + 1 {
+    match body[idx] {
+      @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_)
+      | @lib.Return => return true
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => return false
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_parent_preserve_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 2 {
+    return false
+  }
+  match body[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) =>
+      run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_if_preserve_candidate(
+        prefix_body,
+      ) &&
+      run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+        body, 0,
+      )
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_is_terminal_unreachable_block_wrapper_candidate(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -28676,6 +28758,9 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
               @lib.Block(@lib.VoidBlockType, @lib.Expr(protected_body)) =>
                 run_hot_pipeline_raw_vacuum_body_is_local_set_leading_prefix_if_preserve_candidate(
                   protected_body,
+                ) ||
+                run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_parent_preserve_candidate(
+                  protected_body,
                 )
               _ => false
             }) &&
@@ -28709,6 +28794,12 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
             run_hot_pipeline_raw_vacuum_body_is_side_effect_prefix_if_wrapper_candidate(
               next_body,
             ) &&
+            !(run_hot_pipeline_raw_vacuum_body_is_multi_local_prefix_if_preserve_candidate(
+              next_body,
+            ) &&
+            run_hot_pipeline_raw_vacuum_body_has_multi_local_prefix_parent_continuation(
+              instrs, idx,
+            )) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
             let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
               next_body, 0,
