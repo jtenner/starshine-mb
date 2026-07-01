@@ -11172,7 +11172,7 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
 }
 
 ///|
-fn optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
+fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
@@ -11188,19 +11188,21 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
-  let operand_exact = match
-    optimize_instructions_ref_operand_nonnullable_same_heap(
-      func, operand_id, target,
-    ) {
-    Some(operand_exact) => operand_exact
+  let (operand_nullable, operand_exact) = match
+    optimize_instructions_ref_operand_same_heap(func, operand_id, target) {
+    Some(info) => info
     None => return false
   }
-  if !nullable && (exact || !operand_exact) {
+  let descriptor_exact = optimize_instructions_descriptor_operand_exactly_describes_target(
+    ctx, func, descriptor_id, target,
+  )
+  let narrowed_nullable = nullable && operand_nullable
+  let narrowed_exact = exact || operand_exact || descriptor_exact
+  if narrowed_nullable == nullable && narrowed_exact == exact {
     return false
   }
-  let narrowed_exact = exact || operand_exact
   let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
-    @lib.RefType::new(false, target, exact=narrowed_exact),
+    @lib.RefType::new(narrowed_nullable, target, exact=narrowed_exact),
   )
   let payload_id = @ir.hot_alloc_instr_payload(
     func,
@@ -11212,7 +11214,7 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
     @ir.hot_type_intern_value(
       func,
       @lib.ValType::ref_type(
-        @lib.RefType::new(false, target, exact=narrowed_exact),
+        @lib.RefType::new(narrowed_nullable, target, exact=narrowed_exact),
       ),
     ),
     imm1=payload_id,
@@ -11225,15 +11227,58 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
 }
 
 ///|
+fn optimize_instructions_ref_operand_same_heap(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> (Bool, Bool)? {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] if ref_type.get_heap_type() ==
+      target => Some((ref_type.is_nullable(), ref_type.is_exact()))
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_ref_operand_nonnullable_same_heap(
   func : @ir.HotFunc,
   node_id : Int,
   target : @lib.HeapType,
 ) -> Bool? {
-  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] if ref_type.is_non_nullable() &&
-      ref_type.get_heap_type() == target => Some(ref_type.is_exact())
+  match optimize_instructions_ref_operand_same_heap(func, node_id, target) {
+    Some((false, exact)) => Some(exact)
     _ => None
+  }
+}
+
+///|
+fn optimize_instructions_descriptor_operand_exactly_describes_target(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> Bool {
+  let type_idx = match target {
+    @lib.HeapType(type_idx) => type_idx
+    _ => return false
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  let descriptor_idx = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] if ref_type.is_non_nullable() &&
+      ref_type.is_exact() =>
+      match ref_type.get_heap_type() {
+        @lib.HeapType(descriptor_idx) => descriptor_idx
+        _ => return false
+      }
+    _ => return false
+  }
+  match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
+    Some(subtype) => subtype.descriptor_type() == Some(descriptor_idx)
+    None => false
   }
 }
 
@@ -13227,7 +13272,7 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_fold_ref_cast_desc_eq_null(
         ctx, func, dead, node_id,
       ) ||
-      optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
+      optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
         ctx, func, node_id,
       )
     @ir.HotOp::Heap =>
