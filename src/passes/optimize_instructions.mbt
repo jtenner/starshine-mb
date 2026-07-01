@@ -11160,6 +11160,12 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   if (!nullable && operand_nullable) || (exact && !operand_exact) {
     return false
   }
+  if !operand_exact &&
+    optimize_instructions_descriptor_operand_exactly_describes_target(
+      ctx, func, descriptor_id, target,
+    ) {
+    return false
+  }
   if optimize_instructions_descriptor_operand_can_erase(
       ctx, func, dead, descriptor_id,
     ) {

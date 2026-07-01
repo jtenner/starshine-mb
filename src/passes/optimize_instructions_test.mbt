@@ -8363,6 +8363,84 @@ test "optimize-instructions exactifies nullable descriptor casts with exact desc
 }
 
 ///|
+test "optimize-instructions preserves exactifying descriptor casts under traps-never-happen" {
+  // OI-J descriptor exactness/TNH breadth: Binaryen version_130 still preserves
+  // a descriptor equality cast under `--traps-never-happen` when an exact
+  // same-target descriptor operand can strengthen an inexact reference result to
+  // exact. Skipping the cast would lose the useful exactness proof even though
+  // TNH may ignore descriptor-equality traps. This is a narrow same-target
+  // descriptor operand case; broader exactness and ref.test_desc remain open.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::ref_type(nullable_described_ref_type)],
+              [@lib.ValType::ref_type(nullable_described_ref_type)],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected TNH descriptor exactification preservation, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) => {
+      @debug.assert_eq(nullable, true)
+      @debug.assert_eq(exact, true)
+      @debug.assert_eq(target, described_heap)
+    }
+    other =>
+      fail(
+        "expected exactifying descriptor cast to remain under TNH, got \{other}",
+      )
+  }
+}
+
+///|
 fn optimize_instructions_test_lift_nullable_descriptor_operand_cast() -> @ir.HotFunc {
   let described_type = @lib.TypeIdx::new(0U)
   let descriptor_type = @lib.TypeIdx::new(1U)
