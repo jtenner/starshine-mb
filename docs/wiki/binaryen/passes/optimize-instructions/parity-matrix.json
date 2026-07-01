@@ -457,7 +457,7 @@
         "OI-K",
         "OI-L"
       ],
-      "intent": "Seed-indexed OI-I reference trigger-smoke modules covering branch-cast boundaries, direct null/test/cast/equality forms, and local-carried null/test/cast forms. Descriptor/exactness/TNH/IIT coverage remains a blocked OI-J follow-up because the previous broad descriptor-bearing profile produced wasm-tools baseline validation failures (malformed section id 14) in the compare-pass oracle lane.",
+      "intent": "Seed-indexed OI-I reference trigger-smoke modules covering branch-cast boundaries, direct null/test/cast/equality forms, and local-carried null/test/cast forms. Descriptor/exactness/TNH/IIT coverage is intentionally split into pass-oi-descriptor-gc; non-descriptor pass-oi-ref-gc evidence remains quarantined from OI-J parity claims.",
       "featureRequirements": [
         "reference-types",
         "gc"
@@ -473,6 +473,27 @@
         "After the branch-cast fix, .tmp/oi-ref-gc-branch-cast-fix4-20260627 OI-I compared 3/3 with branch-cast-boundaries and local-carried-null-test-cast matching and only direct-null-test-cast-eq mismatching (2026-06-27)",
         ".tmp/oi-ref-gc-direct-no-transform-triage-20260627 reran pass-oi-ref-gc without metamorphic transforms and still isolated direct-null-test-cast-eq as the one OI-I raw mismatch; sampled canonical size is Starshine 40 bytes vs Binaryen 48 bytes with both outputs validating (2026-06-27)",
         "After the trigger-smoke selector, .tmp/oi-ref-gc-trigger-grouped-sweep-20260627 OI-J --include-disabled compared 3/3 with generator failures 0, one match, and two raw mismatches, but still does not exercise descriptor/exactness/TNH/IIT (2026-06-27)"
+      ]
+    },
+    {
+      "name": "pass-oi-descriptor-gc",
+      "status": "implemented-trigger-smoke-plus",
+      "families": [
+        "OI-J"
+      ],
+      "intent": "Focused descriptor-compatible OI-J trigger smoke that emits descriptor metadata plus struct.new_default_desc, ref.get_desc, and ref.cast_desc_eq in a small validating module. It reduces the former descriptor-generator/tooling blocker for this narrow constructor/getter/cast subset, but it does not close OI-J: exactness, ref.test_desc binary-tool support, TNH, IIT, success-only null, and broader descriptor cast behavior remain open.",
+      "featureRequirements": [
+        "reference-types",
+        "gc",
+        "descriptors"
+      ],
+      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 4 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-descriptor-gc --out-dir .tmp/oi-j-descriptor-gc-profile-count4 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
+      "implementation": "src/validate/gen_valid.mbt special-cases pass-oi-descriptor-gc to emit a descriptor rec group and a single void function containing descriptor constructor, descriptor getter, and descriptor cast-eq opcodes. The smoke intentionally avoids ref.test_desc because current wasm-tools/Binaryen-compatible binary tooling decodes the represented opcode space as descriptor casts/branches, not ref.test_desc. src/validate/gen_valid_tests.mbt asserts stable profile naming/configuration, validates the generated module with Starshine validation, and checks the descriptor constructor/getter/cast families are present.",
+      "lastCheckedEvidence": [
+        "src/validate/gen_valid_tests.mbt::pass-oi-descriptor-gc profile emits descriptor-compatible OI-J triggers failed red-first before PassOiDescriptorGcProfile existed, then passed after the focused descriptor profile was added (2026-07-01).",
+        "moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt --target native passed 109/109 after adding pass-oi-descriptor-gc (2026-07-01).",
+        "moon run src/fuzz -- --emit-gen-valid-batch --count=1 --seed=0x5eed --out-dir=.tmp/oi-j-desc-emit2 --gen-valid-profile=pass-oi-descriptor-gc generated one module; wasm-tools validate --features all accepted it and wasm-tools print showed descriptor metadata, struct.new_default_desc, ref.get_desc, and ref.cast_desc_eq (2026-07-01).",
+        "bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 4 --seed 0x5eed --gen-valid-profile pass-oi-descriptor-gc --out-dir .tmp/oi-j-descriptor-gc-profile-count4-20260701 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures compared 4/4 with 4 normalized matches and zero validation/generator/property/command failures (2026-07-01)."
       ]
     },
     {
@@ -3695,13 +3716,13 @@
           "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-post-oif-count24-20260630 direct-null/test/cast residual measurement and wasm-tools validation."
         }
       ],
-      "notes": "OI-J is finite for v0.1 as a blocked-surface row. Source/test evidence covers a narrow exact-cast validity guard, but family closeout requires true descriptor/exactness/TNH/IIT-compatible generator/oracle evidence. The latest include-disabled count30 lane at .tmp/oi-j-nondescriptor-count30-20260630 compared 30/30 with 19 normalized matches, 11 raw mismatches, zero failures, and all residual artifacts validating, but it sampled only non-descriptor pass-oi-ref-gc labels. Treat direct-null/test/cast and branch-cast residuals as quarantined OI-I output drift with size/opcode evidence; they cannot close OI-J.",
+      "notes": "OI-J remains a blocked-surface row for full parity. Source/test evidence covers a narrow exact-cast validity guard, and pass-oi-descriptor-gc now emits a small descriptor-compatible module that Starshine validation and wasm-tools validate --features all accept. That reduces the old generator-validity blocker, but compare-pass still timed out on the descriptor smoke, and no descriptor/exactness/TNH/IIT mismatch has been classified. The latest include-disabled count30 lane at .tmp/oi-j-nondescriptor-count30-20260630 sampled only non-descriptor pass-oi-ref-gc labels; treat those residuals as quarantined OI-I output drift with size/opcode evidence, never OI-J closure.",
       "closeoutState": "blocked-surface",
-      "releaseImpact": "P1 blocked: v0.1 can release only with OI-J called out as unsupported for descriptor/exactness/TNH/IIT grouped parity; non-descriptor OI-I evidence is quarantined and cannot close this row.",
-      "remainingCloseoutWork": "None before v0.1 unless descriptor-compatible generation/oracle/toolchain support lands. Post-v0.1 prerequisite is a true descriptor/exactness/TNH/IIT profile or compatible oracle path; then add focused red-first descriptor/exact/TNH/IIT behavior tests and compare evidence.",
-      "nextCloseoutAction": "Classify OI-J as a v0.1 blocked-surface release boundary. Do not implement from current non-descriptor evidence and do not run additional non-descriptor include-disabled lanes for closeout. Reopen only by creating descriptor-compatible generation/oracle/toolchain support or by a product decision to make OI-J descriptor parity a v0.1 blocker.",
-      "closeoutRationale": "The row has no true descriptor-compatible grouped evidence: descriptor-bearing generation failed the baseline validator/toolchain, and comparable follow-up lanes intentionally sampled only non-descriptor OI-I labels. Validation and size wins in those lanes cannot establish descriptor/exactness/TNH/IIT safety.",
-      "reopenCriteria": "A descriptor-compatible GenValid profile, text/binary parser/toolchain fix, Binaryen oracle path, Starshine descriptor representation change, focused exact/desc/TNH/IIT semantic mismatch, or v0.1 product-scope change that requires descriptor parity.",
+      "releaseImpact": "Full-parity blocker: OI-J remains unsupported for descriptor/exactness/TNH/IIT grouped parity until the descriptor smoke has a working oracle path and focused behavior classification; non-descriptor OI-I evidence is quarantined and cannot close this row.",
+      "remainingCloseoutWork": "Use pass-oi-descriptor-gc to debug the oracle/tool timeout, then add focused red-first descriptor/exact/TNH/IIT behavior tests and compare evidence. Do not run additional non-descriptor include-disabled lanes as OI-J evidence.",
+      "nextCloseoutAction": "Keep OI-J blocked. Next slice should make the pass-oi-descriptor-gc compare path complete without timing out, or isolate the Binaryen/toolchain blocker with a minimal descriptor input. Only after that, classify descriptor/exactness/TNH/IIT behavior mismatches directly.",
+      "closeoutRationale": "The row still has no classified descriptor-compatible grouped evidence. A descriptor profile now exists and emits wasm-tools-valid input, but the compare-pass oracle path times out, while comparable follow-up lanes sampled only non-descriptor OI-I labels. Validation and size wins in those lanes cannot establish descriptor/exactness/TNH/IIT safety.",
+      "reopenCriteria": "A non-hanging descriptor-compatible Binaryen oracle path, text/binary parser/toolchain fix, Starshine descriptor representation change, focused exact/desc/TNH/IIT semantic mismatch, or product-scope change that requires descriptor parity.",
       "closeoutBuckets": [
         {
           "name": "covered-focused-exactness-guard",

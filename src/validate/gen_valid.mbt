@@ -736,6 +736,7 @@ pub enum GenValidProfile {
   PassOiMemoryBulkProfile
   PassOiCallRefProfile
   PassOiRefGcProfile
+  PassOiDescriptorGcProfile
   PassOiTupleProfile
   RandomAllProfilesProfile
 } derive(Eq, Debug)
@@ -877,6 +878,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PassOiMemoryBulkProfile => "pass-oi-memory-bulk"
     PassOiCallRefProfile => "pass-oi-call-ref"
     PassOiRefGcProfile => "pass-oi-ref-gc"
+    PassOiDescriptorGcProfile => "pass-oi-descriptor-gc"
     PassOiTupleProfile => "pass-oi-tuple"
     RandomAllProfilesProfile => "random-all-profiles"
   }
@@ -1170,6 +1172,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PassOiMemoryBulkProfile,
     PassOiCallRefProfile,
     PassOiRefGcProfile,
+    PassOiDescriptorGcProfile,
     PassOiTupleProfile,
     RandomAllProfilesProfile,
   ]
@@ -1256,6 +1259,8 @@ pub fn gen_valid_profile_by_name(
     "oi-memory-bulk" => Ok(PassOiMemoryBulkProfile)
     "oi-call-ref" => Ok(PassOiCallRefProfile)
     "oi-ref-gc" => Ok(PassOiRefGcProfile)
+    "oi-descriptor-gc" => Ok(PassOiDescriptorGcProfile)
+    "oi-desc-gc" => Ok(PassOiDescriptorGcProfile)
     "oi-tuple" => Ok(PassOiTupleProfile)
     _ =>
       Err(
@@ -1681,6 +1686,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | PassOiMemoryBulkProfile
     | PassOiCallRefProfile
     | PassOiRefGcProfile
+    | PassOiDescriptorGcProfile
     | PassOiTupleProfile => gen_valid_oi_profile_config(profile)
     RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
   }
@@ -1883,6 +1889,45 @@ fn gen_valid_oi_profile_config(profile : GenValidProfile) -> GenValidConfig {
           allow_subtyping_topology: true,
           allow_v128: false,
           allow_relaxed_simd: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    PassOiDescriptorGcProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 3,
+        max_imports: 0,
+        max_defined_funcs: 1,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 0,
+        max_results: 0,
+        max_locals: 2,
+        max_body_statements: 16,
+        max_body_depth: 2,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_globals: false,
+          allow_tags: false,
+          allow_elems: false,
+          allow_datas: false,
+          allow_ref_types: true,
+          allow_calls: false,
+          allow_call_indirect: false,
+          allow_branch_heavy_control: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_v128: false,
+          allow_relaxed_simd: false,
+          allow_subtyping_topology: true,
+          allow_name_custom_sections: false,
           allow_typed_body_generator: true,
         },
       }
@@ -2692,6 +2737,7 @@ fn gen_valid_is_oi_trigger_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(PassOiCallRefProfile) ||
   config == GenValidConfig::for_profile(PassOiBooleanSelectProfile) ||
   config == GenValidConfig::for_profile(PassOiRefGcProfile) ||
+  config == GenValidConfig::for_profile(PassOiDescriptorGcProfile) ||
   config == GenValidConfig::for_profile(PassOiMemoryBulkProfile) ||
   config == GenValidConfig::for_profile(PassOiTupleProfile)
 }
@@ -15346,6 +15392,8 @@ fn gen_valid_oi_trigger_profile_for_config(
     PassOiCallRefProfile
   } else if config == GenValidConfig::for_profile(PassOiRefGcProfile) {
     PassOiRefGcProfile
+  } else if config == GenValidConfig::for_profile(PassOiDescriptorGcProfile) {
+    PassOiDescriptorGcProfile
   } else if config == GenValidConfig::for_profile(PassOiTupleProfile) {
     PassOiTupleProfile
   } else {
@@ -15442,6 +15490,8 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         2 => Some("oi-ref-gc:branch-cast-boundaries")
         _ => Some("oi-ref-gc:direct-null-test-cast-eq")
       }
+    PassOiDescriptorGcProfile =>
+      Some("oi-descriptor-gc:desc-producer-test-cast")
     PassOiTupleProfile =>
       match case {
         1 => Some("oi-tuple:selected-lane-all-results")
@@ -19245,6 +19295,49 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
 }
 
 ///|
+fn gen_valid_oi_descriptor_gc_profile_module() -> Module {
+  let described_idx = TypeIdx::new(0U)
+  let descriptor_idx = TypeIdx::new(1U)
+  let func_type_idx = TypeIdx::new(2U)
+  let described_heap = HeapType::new(described_idx)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::group([
+        SubType::comp_type(
+          CompType::struct_([]),
+          metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
+        ),
+        SubType::comp_type(
+          CompType::struct_([]),
+          metadata=TypeMetadata::new(describes=Some(described_idx)),
+        ),
+      ]),
+      RecType::new(SubType::comp_type(CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([func_type_idx]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::struct_new_default(descriptor_idx),
+          Instruction::struct_new_default_desc(described_idx),
+          Instruction::ref_get_desc(described_idx),
+          Instruction::drop(),
+          Instruction::struct_new_default(descriptor_idx),
+          Instruction::struct_new_default_desc(described_idx),
+          Instruction::struct_new_default(descriptor_idx),
+          Instruction::ref_cast_desc_eq_type(RefType::new(true, described_heap)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let config = ctx.config
   let local_facts = config ==
@@ -19253,6 +19346,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
     GenValidConfig::for_profile(PassOiBooleanSelectProfile)
   let call_ref = config == GenValidConfig::for_profile(PassOiCallRefProfile)
   let ref_gc = config == GenValidConfig::for_profile(PassOiRefGcProfile)
+  let descriptor_gc = config ==
+    GenValidConfig::for_profile(PassOiDescriptorGcProfile)
   let memory_bulk = config ==
     GenValidConfig::for_profile(PassOiMemoryBulkProfile)
   let tuple = config == GenValidConfig::for_profile(PassOiTupleProfile)
@@ -19265,6 +19360,9 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   }
   if call_ref {
     return gen_valid_oi_call_ref_profile_module(case)
+  }
+  if descriptor_gc {
+    return gen_valid_oi_descriptor_gc_profile_module()
   }
   if local_facts && case == 3 {
     return gen_valid_oi_local_facts_existing_producer_module()

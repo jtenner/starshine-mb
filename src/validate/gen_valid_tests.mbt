@@ -1866,6 +1866,10 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
     "pass-oi-call-ref",
   )
   @debug.assert_eq(gen_valid_profile_name(PassOiRefGcProfile), "pass-oi-ref-gc")
+  @debug.assert_eq(
+    gen_valid_profile_name(PassOiDescriptorGcProfile),
+    "pass-oi-descriptor-gc",
+  )
   @debug.assert_eq(gen_valid_profile_name(PassOiTupleProfile), "pass-oi-tuple")
   @debug.assert_eq(
     gen_valid_profile_name(TupleOptimizationSpillProfile),
@@ -1955,6 +1959,19 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiRefGcProfile, 0x5eedUL),
     Some("oi-ref-gc:local-carried-null-test-cast"),
+  )
+
+  let oi_descriptor_gc = GenValidConfig::for_profile(PassOiDescriptorGcProfile)
+  @debug.assert_eq(
+    gen_valid_config_label(oi_descriptor_gc),
+    "pass-oi-descriptor-gc",
+  )
+  assert_true(oi_descriptor_gc.features.allow_ref_types)
+  assert_true(oi_descriptor_gc.features.allow_subtyping_topology)
+  assert_true(oi_descriptor_gc.max_type_defs >= 3)
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiDescriptorGcProfile, 0x5eedUL),
+    Some("oi-descriptor-gc:desc-producer-test-cast"),
   )
 
   let oi_tuple = GenValidConfig::for_profile(PassOiTupleProfile)
@@ -6270,6 +6287,48 @@ test "OI-I ref-gc trigger-smoke profile selects distinct seed-indexed reference 
       gen_valid_test_first_func_instrs(direct.wasm_module),
     ),
     "direct",
+  )
+}
+
+///|
+fn gen_valid_test_instrs_contain_descriptor_gc_ops(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut has_new_desc = false
+  let mut has_get_desc = false
+  let mut has_cast_desc = false
+  for instr in instrs {
+    match instr {
+      StructNewDefaultDesc(_) | StructNewDesc(_) => has_new_desc = true
+      RefGetDesc(_) => has_get_desc = true
+      RefCastDescEq(_, _, _) => has_cast_desc = true
+      _ => ()
+    }
+  }
+  has_new_desc && has_get_desc && has_cast_desc
+}
+
+///|
+test "pass-oi-descriptor-gc profile emits descriptor-compatible OI-J triggers" {
+  let descriptor_gc = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PassOiDescriptorGcProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(descriptor_gc.config_label, "pass-oi-descriptor-gc")
+  match validate_module(descriptor_gc.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(descriptor_gc.facts.uses_ref_types)
+  assert_true(
+    gen_valid_test_instrs_contain_descriptor_gc_ops(
+      gen_valid_test_first_func_instrs(descriptor_gc.wasm_module),
+    ),
+    msg="expected descriptor profile to cover new_desc/get_desc/test_desc/cast_desc",
   )
 }
 
