@@ -3459,7 +3459,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT with GC/reference feature floors",
       "starshineStatus": "mismatch",
       "priority": "P1",
-      "blockerBoundaryReason": "Grouped pass-oi-ref-gc trigger-smoke evidence now covers direct, local-carried, and branch-cast reference basics. The latest count45 refresh confirms the red-first local-carried known-null fix holds broader sampled coverage: local-carried-null-test-cast matched 18/18, direct-null-test-cast-eq remains 15/15 sampled Starshine-win output drift, and branch-cast-boundaries has 5 matches plus 7 effectful-wrapper residuals. Manual validation accepted all 88 residual raw/canonical artifacts. The row remains open for randomized existing reference producers, non-any heap types, broader effect/trap wrappers, default-mode negatives, and a true descriptor-compatible OI-J path.",
+      "blockerBoundaryReason": "OI-I is now finite for v0.1 closeout as a non-descriptor reference-basics release boundary, not an open-ended request for more ref-GC breadth. Existing source/test coverage spans the first local null/equality/as_non_null/test/cast basics and related effect-preserving i31/func/local/aggregate subsets. The latest grouped evidence .tmp/oi-i-ref-gc-count45-20260630 compared 45/45 with 23 normalized matches, 22 residuals, and zero validation/generator/property/command failures; manual wasm-tools validation accepted all 88 residual raw/canonical artifacts. Local-carried-null-test-cast matched 18/18 after the red-first known-null local cleanup. Direct-null/test/cast residuals are sampled Starshine-win output drift with aggregate raw/canonical/WAT deltas -42/-106/-1314 while preserving global.set 35/35 and local.get 8/8 and reducing dropped null-test/drop debris. Branch-cast effectful-wrapper residuals are canonical-neutral/raw-smaller structural drift with deltas -28/0/-28 and matching br_on_cast, br_on_cast_fail, global.set, drop, unreachable, and i32.const counts. This evidence is non-descriptor only and explicitly cannot close OI-J.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0757-2026-06-20-optimize-instructions-oi-i-ref-null-basics.md",
         "docs/wiki/raw/research/0769-2026-06-20-optimize-instructions-oi-i-null-nonnull-test-cast-surface.md",
@@ -3518,7 +3518,7 @@
           "status": "covered",
           "agentClassification": "Sampled OI-I local-carried null/test/cast trigger matched Binaryen in the grouped count-3 smoke.",
           "observedDiff": "No normalized diff for case 000003; compare-pass reported status match with validation/generator/property/command failures all zero.",
-          "nextAction": "Scale the local-carried ref trigger from this synthetic nullable-any smoke to existing reference producers, non-any heap types, and live nullable/non-null casts before declaring OI-I local-carried coverage complete.",
+          "nextAction": "Keep the sampled non-descriptor local-carried null/test/cast path covered for v0.1. Broader reference-producer breadth is post-v0.1 unless a finite signoff exposes a concrete regression.",
           "lastCheckedEvidence": "2026-06-27 .tmp/oi-ref-gc-trigger-grouped-sweep-20260627 OI-I case 000003."
         },
         {
@@ -3528,7 +3528,7 @@
           "status": "covered",
           "agentClassification": "Fixed sampled OI-I branch-cast output-shape parity gap for the non-descriptor trigger-smoke representative.",
           "observedDiff": "Fresh grouped sweep now reports this label as a normalized match. Starshine narrows null-fed br_on_cast/br_on_cast_fail block results to nullref, preserves nullable versus non-null target spelling as Binaryen does, collapses unreachable cast-branch guards, and trims the repeated dropped trap-tail blocks to one unreachable. The row still has one mismatch, but it is the separate direct-null-test-cast-eq effectful-sibling case.",
-          "nextAction": "Scale beyond this synthetic null-source representative: add randomized branch-cast producers, non-any heap sources, existing-producer wrappers, and effect/trap siblings before treating OI-I branch-cast boundaries as broadly covered.",
+          "nextAction": "Keep the sampled non-descriptor branch-cast path covered where normalized. Residual effectful-wrapper branch-cast output drift is handled by the v0.1 release-boundary bucket; descriptor-compatible branch casts belong to OI-J.",
           "lastCheckedEvidence": "2026-06-27 .tmp/oi-ref-gc-branch-cast-fix4-20260627 OI-I case label oi-ref-gc:branch-cast-boundaries matched; focused optimize_instructions_test coverage passed."
         },
         {
@@ -3538,7 +3538,7 @@
           "status": "starshine-win-candidate",
           "agentClassification": "Direct null/test/cast/equality remains a sampled Starshine-win output-drift bucket, now refreshed across 15 residuals. Starshine removes more dropped null-test/drop debris and is smaller in raw, canonical, and WAT aggregate, but this is still non-descriptor OI-I evidence and not broad randomized reference-producer closure.",
           "observedDiff": "Count45 grouped measurement sampled 15 direct-null/test/cast residuals. Manual validation accepted all corresponding raw/canonical artifacts. Aggregate Starshine raw/canonical/WAT deltas are -42/-106/-1314. Opcode counts show Binaryen/Starshine ref.is_null 30/14, global.set 35/35, local.get 8/8, drop 134/104, unreachable 15/15, and i32.const 130/146. The classification uses opcode preservation for effects/trap tails plus measured size/WAT deltas, not validation alone.",
-          "nextAction": "Do not add a size-losing Binaryen-shape rewrite for this sampled pure dropped-null sequence unless broader randomized OI-I evidence shows a semantic, validation, or downstream regression. Next scale pass-oi-ref-gc direct-null/test/cast into randomized existing-producer wrappers and separately classify the oi-effectful-sibling scalar/if drift under OI-F/OI-D.",
+          "nextAction": "Accept this sampled non-descriptor direct-null/test/cast output drift as a v0.1 boundary unless a fresh finite signoff shows raw/canonical size loss, validation failure, or lost effect/trap/control/reference traffic. Do not add a Binaryen-shape rewrite solely for byte-shape parity and do not use this evidence for OI-J.",
           "lastCheckedEvidence": "2026-06-30 OI-I count45 grouped sweep at .tmp/oi-i-ref-gc-count45-20260630; compared 45/45 with 23 normalized matches and 22 residuals; direct-null-test-cast-eq residuals were 15/15 with aggregate deltas -42/-106/-1314 and zero validation failures."
         },
         {
@@ -3548,7 +3548,7 @@
           "status": "starshine-win-candidate",
           "agentClassification": "Effectful-wrapper branch-cast residual remains canonical-neutral/raw-smaller structural drift in the broader count45 sample. Both tools preserve the br_on_cast/br_on_cast_fail/control/effect opcode counts; this is not broad branch-cast, non-any heap, or OI-J descriptor closure.",
           "observedDiff": "Count45 grouped measurement sampled 7 branch-cast residuals and 5 branch-cast matches. Manual validation accepted all corresponding raw/canonical artifacts. Aggregate Starshine raw/canonical/WAT deltas for residuals are -28/0/-28. Opcode counts match for br_on_cast 28/28, br_on_cast_fail 14/14, global.set 35/35, drop 49/49, unreachable 7/7, and i32.const 84/84. This classification uses opcode-count preservation and size/WAT measurement, not validation alone.",
-          "nextAction": "Keep branch-cast local-carried fix covered only for the sampled non-descriptor path. Add randomized effectful/trapping branch-cast producers and true descriptor-compatible OI-J coverage before broader closure; reopen if canonical or runtime evidence becomes size-losing or semantic-risky.",
+          "nextAction": "Accept as v0.1 non-descriptor branch-cast output-shape drift with opcode/size evidence. Reopen only for canonical/raw size regression, validation failure, or lost branch/effect/trap traffic; descriptor-compatible evidence belongs to OI-J.",
           "lastCheckedEvidence": "2026-06-30 OI-I count45 grouped sweep at .tmp/oi-i-ref-gc-count45-20260630; branch-cast-boundaries total=12 with 5 matches and 7 residuals; all residual raw/canonical artifacts validated and aggregate residual deltas were -28/0/-28."
         },
         {
@@ -3558,17 +3558,55 @@
           "status": "covered",
           "agentClassification": "Fixed sampled OI-I local-carried null/test/cast effectful-wrapper parity gap for the non-descriptor trigger-smoke representative.",
           "observedDiff": "The count45 grouped refresh reports local-carried-null-test-cast as 18/18 normalized matches after the red-first known-null local cleanup, extending the earlier 14/14 count30 result. Remaining residuals are direct-null/test/cast and branch-cast effectful-wrapper buckets, not local-carried known-null test/cast shells.",
-          "nextAction": "Keep this sampled non-descriptor effectful-wrapper path covered, but do not close OI-I broadly. Add randomized existing reference producers, non-any heap types, effect/trap wrappers, and descriptor-compatible OI-J-specific evidence before broader closure.",
+          "nextAction": "Keep this sampled non-descriptor effectful-wrapper path covered for v0.1; do not broaden by default and do not apply it to OI-J.",
           "lastCheckedEvidence": "2026-06-30 OI-I count45 grouped sweep at .tmp/oi-i-ref-gc-count45-20260630; local-carried-null-test-cast matched 18/18 with zero validation/generator/property/command failures."
         }
       ],
-      "notes": "The count45 grouped OI-I refresh at .tmp/oi-i-ref-gc-count45-20260630 compared 45/45 with 23 normalized matches, 22 raw mismatches, and zero validation/generator/property/command failures. Local-carried-null-test-cast is now 18/18 normalized matches. Direct-null/test/cast remains sampled Starshine-win output drift across 15 residuals with aggregate raw/canonical/WAT deltas -42/-106/-1314; the residuals preserve global.set 35/35 and local.get 8/8 while Starshine removes more dropped null-test/drop debris (ref.is_null 30/14, drop 134/104). Branch-cast effectful-wrapper residuals remain canonical-neutral/raw-smaller structural drift across 7 residuals with deltas -28/0/-28 and matching br_on_cast/br_on_cast_fail/global.set/drop/unreachable/i32.const counts. This is non-descriptor OI-I evidence only.",
-      "closeoutState": "defer-with-reopen-criteria",
-      "releaseImpact": "P1: non-descriptor reference basics have sampled fixes/evidence; descriptor/exactness belongs to OI-J and remains blocked.",
-      "remainingCloseoutWork": "Separate non-descriptor OI-I reference basics from OI-J descriptor work. Existing non-descriptor residuals can be accepted only with validation/opcode/size evidence and reopen criteria.",
-      "nextCloseoutAction": "Docs closeout for non-descriptor OI-I sampled subsets, or one red-first implementation if a current ref/basic residual is size-losing or semantically risky.",
-      "closeoutRationale": "Count45 non-descriptor evidence shows local-carried known-null matches and sampled Starshine-win direct-null/test/cast drift, but randomized reference producers/effect wrappers remain beyond current v0.1 evidence.",
-      "reopenCriteria": "True ref/null/cast semantic mismatch, validation failure, effect/trap loss, descriptor-compatible evidence becoming available for OI-J, or a size-losing non-descriptor residual."
+      "notes": "OI-I closeout is limited to non-descriptor reference basics. .tmp/oi-i-ref-gc-count45-20260630 compared 45/45 with 23 normalized matches, 22 raw mismatches, and zero validation/generator/property/command failures. Manual wasm-tools validate --features all accepted all 88 residual raw/canonical artifacts. Local-carried-null-test-cast matched 18/18; direct-null/test/cast residuals are sampled Starshine-win output drift across 15 cases with raw/canonical/WAT deltas -42/-106/-1314 and preserved global.set/local.get traffic; branch-cast effectful-wrapper residuals are canonical-neutral/raw-smaller structural drift across 7 cases with deltas -28/0/-28 and matching br_on_cast/br_on_cast_fail/global.set/drop/unreachable/i32.const counts. This is not descriptor/exactness/TNH/IIT evidence.",
+      "closeoutState": "accepted-release-boundary",
+      "releaseImpact": "P1 accepted v0.1 non-descriptor release boundary: sampled OI-I reference basics have source/test coverage, local-carried known-null parity, and measured validation/opcode/size residual classifications. Broader randomized reference producers, non-any heap breadth, additional effect/trap wrappers, and all descriptor/exactness/TNH/IIT work remain outside v0.1 unless product scope changes.",
+      "remainingCloseoutWork": "No more OI-I profile labels for v0.1. Keep the row finite by separating covered sampled non-descriptor basics, sampled output-shape/Starshine-win residuals, post-v0.1 reference-producer breadth, and one optional count45 signoff lane if release policy requires fresh evidence.",
+      "nextCloseoutAction": "Accept OI-I as a v0.1 non-descriptor release boundary. Do not add new OI-I breadth by default and do not use OI-I evidence for OI-J. If release policy requires fresh OI-I evidence, run only the finite count45 command in closeoutBuckets[4]; implement instead of accepting only if a residual is validation-failing, semantic-risky, size-losing in raw/canonical form, or loses inspected effect/trap/control/reference traffic.",
+      "closeoutRationale": "The row has concrete non-descriptor evidence rather than validation-alone safety: local-carried known-null cases match, direct-null/test/cast residuals are raw/canonical/WAT smaller with preserved local/effect/trap structure, and branch-cast residuals preserve branch/control/effect opcode counts with canonical tie and raw/WAT wins. The remaining unknowns are broader reference-producer breadth and descriptor-compatible semantics, so v0.1 treats them as release boundaries rather than continuing the evidence-expansion loop.",
+      "reopenCriteria": "Any OI-I semantic mismatch, Starshine validation failure, lost effect/trap/control/reference traffic, raw/canonical size regression in a non-descriptor residual, failure of the finite OI-I signoff lane, a v0.1 product requirement for broader reference-producer/non-any/effect/trap breadth, or any descriptor-compatible evidence that belongs in OI-J rather than OI-I.",
+      "closeoutBuckets": [
+        {
+          "bucket": "covered-sampled-nondescriptor-reference-basics",
+          "state": "covered-by-focused-tests-and-sampled-lanes",
+          "evidence": "Source/test-backed OI-I research notes 0757 through 0814 cover the first non-descriptor null/equality/as_non_null/test/cast basics: ref.is_null(ref.null), null-operand ref.eq, known-non-null i31/func/local null tests, null-fed ref.test/ref.cast, successful and failed local i31/func tests/casts, declared non-null local and absolute aggregate subsets, same-local/effectful-prefix equality subsets, and effect-preserving immediate i31/reference basics. The red-first raw-skip known-null local cleanup in src/passes/pass_manager_wbtest.mbt fixed local-carried null ref.test/ref.cast through effect wrappers.",
+          "nextAction": "No v0.1 breadth expansion. Reopen as implementation work only if a supported non-descriptor reference basic regresses, loses effects/traps, or fails validation."
+        },
+        {
+          "bucket": "covered-sampled-local-carried-known-null",
+          "state": "covered",
+          "evidence": ".tmp/oi-i-local-null-fold-count30-20260630 first raised local-carried-null-test-cast to 14/14 matches after the red-first known-null local cleanup. The refreshed .tmp/oi-i-ref-gc-count45-20260630 kept that result at 18/18 normalized matches with zero validation/generator/property/command failures.",
+          "nextAction": "Keep this sampled local-carried known-null path covered. Do not add another local-carried OI-I label unless a concrete regression appears."
+        },
+        {
+          "bucket": "sampled-nondescriptor-output-drift",
+          "state": "accepted-release-boundary",
+          "evidence": "Manual validation accepted all 88 residual raw/canonical artifacts from .tmp/oi-i-ref-gc-count45-20260630. Direct-null/test/cast residuals are sampled Starshine-win output drift across 15 cases with aggregate raw/canonical/WAT deltas -42/-106/-1314, preserved global.set 35/35 and local.get 8/8, and reduced dropped null-test/drop debris (ref.is_null 30/14, drop 134/104). Branch-cast effectful-wrapper residuals are canonical-neutral/raw-smaller structural drift across 7 cases with deltas -28/0/-28 and matching br_on_cast 28/28, br_on_cast_fail 14/14, global.set 35/35, drop 49/49, unreachable 7/7, and i32.const 84/84. This classification uses opcode/effect/trap preservation plus size evidence, not validation alone.",
+          "nextAction": "Accept as a v0.1 non-descriptor boundary. Implement only if a fresh residual is raw/canonical size-losing, validation-failing, semantic-risky, or loses inspected reference/control/effect/trap traffic."
+        },
+        {
+          "bucket": "post-v0.1-reference-producer-tail",
+          "state": "post-v0.1-implementation-boundary",
+          "evidence": "Current pass-oi-ref-gc trigger smoke deliberately covers branch-cast boundaries, direct null/test/cast/equality, and local-carried null/test/cast forms. It does not close randomized existing reference producers, non-any heap breadth, broader effect/trap wrappers, default-mode negatives, or descriptor-compatible exactness/TNH/IIT semantics.",
+          "nextAction": "Post-v0.1, pick one source-backed reference-producer or non-any/effect/trap gap and implement red-first. For v0.1, do not add more OI-I labels unless a release artifact or finite signoff exposes a concrete gap."
+        },
+        {
+          "bucket": "finite-signoff-if-required",
+          "state": "finite-signoff-only",
+          "evidence": "The latest reliable OI-I closeout lane is .tmp/oi-i-ref-gc-count45-20260630, which is already classified. A fresh run should repeat that bounded question rather than expanding profile breadth.",
+          "nextAction": "If release closeout requires a fresh OI-I check, run exactly: moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 45 --seed 0x5eed --gen-valid-profile pass-oi-ref-gc --out-dir .tmp/oi-i-v01-nondescriptor-boundary-count45 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures. Stop after this finite lane and classify any residual before changing row state."
+        },
+        {
+          "bucket": "not-oi-j-evidence",
+          "state": "descriptor-boundary-quarantine",
+          "evidence": "The same non-descriptor pass-oi-ref-gc evidence appears in OI-J include-disabled refreshes, but .tmp/oi-ref-gc-grouped-sweep-20260627 produced 0 comparable descriptor-bearing OI-J cases because wasm-tools rejected generated descriptor inputs with malformed section id 14. Later comparable lanes intentionally use only non-descriptor labels.",
+          "nextAction": "Do not close OI-J from OI-I. Move any true descriptor/exactness/TNH/IIT evidence or toolchain fix to OI-J and keep OI-I scoped to non-descriptor reference basics."
+        }
+      ]
     },
     {
       "id": "OI-J-descriptor-exactness-trap-modes",
