@@ -2261,6 +2261,23 @@ fn optimize_instructions_region_never_falls_through(
 }
 
 ///|
+fn optimize_instructions_branch_table_targets_label(
+  func : @ir.HotFunc,
+  table_id : Int,
+  label_id : Int,
+) -> Bool {
+  if @ir.hot_branch_table_default_target(func, table_id) != label_id {
+    return false
+  }
+  for target in @ir.hot_branch_table_targets(func, table_id) {
+    if target != label_id {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn optimize_instructions_node_never_falls_through(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -2277,7 +2294,8 @@ fn optimize_instructions_node_never_falls_through(
     | @ir.HotOp::Rethrow
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Delegate
-    | @ir.HotOp::Br => true
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrTable => true
     @ir.HotOp::If =>
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
@@ -2333,6 +2351,12 @@ fn optimize_instructions_node_never_falls_through_to_label(
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Delegate => true
     @ir.HotOp::Br => node.imm0 == label_id
+    @ir.HotOp::BrTable =>
+      optimize_instructions_branch_table_targets_label(
+        func,
+        node.imm0,
+        label_id,
+      )
     @ir.HotOp::If =>
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
@@ -2370,6 +2394,12 @@ fn optimize_instructions_node_exits_to_label(
     | @ir.HotOp::ThrowRef
     | @ir.HotOp::Delegate => true
     @ir.HotOp::Br => node.imm0 == label_id
+    @ir.HotOp::BrTable =>
+      optimize_instructions_branch_table_targets_label(
+        func,
+        node.imm0,
+        label_id,
+      )
     @ir.HotOp::If =>
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
@@ -2416,7 +2446,7 @@ fn optimize_instructions_node_exits_only_via_branches(
   }
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::Br => true
+    @ir.HotOp::Br | @ir.HotOp::BrTable => true
     @ir.HotOp::If =>
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
@@ -2571,6 +2601,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
     }
     let direct_terminal = match root_op {
       @ir.HotOp::Br
+      | @ir.HotOp::BrTable
       | @ir.HotOp::Unreachable
       | @ir.HotOp::Return
       | @ir.HotOp::Throw
@@ -2602,6 +2633,7 @@ fn optimize_instructions_try_collapse_dead_region_suffix(
     } else {
       match root_op {
         @ir.HotOp::Br
+        | @ir.HotOp::BrTable
         | @ir.HotOp::Unreachable
         | @ir.HotOp::Return
         | @ir.HotOp::Throw
