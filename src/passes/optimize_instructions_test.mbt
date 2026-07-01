@@ -8007,6 +8007,87 @@ test "optimize-instructions narrows nullable descriptor casts on exact non-null 
 }
 
 ///|
+test "optimize-instructions narrows non-null descriptor casts on exact operands" {
+  // OI-J exactness/useful-type-info breadth: Binaryen version_130 rewrites a
+  // non-null descriptor equality cast whose reference operand is already exact
+  // and non-null to an exact descriptor cast, while preserving the explicit
+  // descriptor equality check in default and IIT modes. This is distinct from
+  // the nullable narrowing case above and still does not claim ref.test_desc or
+  // broad descriptor success parity.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let described_ref_type = @lib.RefType::new(false, described_heap)
+  let func = @ir.hot_lift_func(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(described_ref_type)]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::struct_new_default_desc(described_type),
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.FuncIdx::new(0U),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected non-null descriptor exactness narrowing, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(false, described_heap, exact=true),
+      ),
+    ),
+  )
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, root)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => {
+      @debug.assert_eq(ref_type.is_non_nullable(), true)
+      @debug.assert_eq(ref_type.is_exact(), true)
+      @debug.assert_eq(ref_type.get_heap_type(), described_heap)
+    }
+    other => fail("expected exact non-null ref.cast_desc_eq type, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions skips descriptor equality casts under traps-never-happen for exact operands" {
   // OI-J TNH descriptor slice: Binaryen version_130 with
   // `--traps-never-happen --optimize-instructions` removes a descriptor

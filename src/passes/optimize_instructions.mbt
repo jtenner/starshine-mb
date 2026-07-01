@@ -11186,9 +11186,6 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
       (nullable, exact, target)
     _ => return false
   }
-  if not(nullable) {
-    return false
-  }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
   let operand_exact = match
@@ -11197,6 +11194,9 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
     ) {
     Some(operand_exact) => operand_exact
     None => return false
+  }
+  if !nullable && (exact || !operand_exact) {
+    return false
   }
   let narrowed_exact = exact || operand_exact
   let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
