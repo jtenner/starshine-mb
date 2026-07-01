@@ -15174,6 +15174,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
     PassOiLocalFactsProfile => 15
     PassOiBooleanSelectProfile => 4
     PassOiCallRefProfile => 10
+    PassOiDescriptorGcProfile => 2
     _ => 3
   }
 }
@@ -15491,7 +15492,10 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         _ => Some("oi-ref-gc:direct-null-test-cast-eq")
       }
     PassOiDescriptorGcProfile =>
-      Some("oi-descriptor-gc:desc-producer-test-cast")
+      match case {
+        0 => Some("oi-descriptor-gc:null-desc-cast")
+        _ => Some("oi-descriptor-gc:desc-producer-test-cast")
+      }
     PassOiTupleProfile =>
       match case {
         1 => Some("oi-tuple:selected-lane-all-results")
@@ -19295,28 +19299,76 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
 }
 
 ///|
-fn gen_valid_oi_descriptor_gc_profile_module() -> Module {
+fn gen_valid_oi_descriptor_gc_profile_module(case : Int) -> Module {
   let described_idx = TypeIdx::new(0U)
   let descriptor_idx = TypeIdx::new(1U)
-  let func_type_idx = TypeIdx::new(2U)
+  let primary_func_type_idx = TypeIdx::new(2U)
+  let nullable_null_func_type_idx = TypeIdx::new(3U)
+  let nonnull_null_func_type_idx = TypeIdx::new(4U)
   let described_heap = HeapType::new(described_idx)
-  Module::new()
-  .with_type_sec(
-    TypeSec::new([
-      RecType::group([
-        SubType::comp_type(
-          CompType::struct_([]),
-          metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
-        ),
-        SubType::comp_type(
-          CompType::struct_([]),
-          metadata=TypeMetadata::new(describes=Some(described_idx)),
-        ),
-      ]),
-      RecType::new(SubType::comp_type(CompType::func([], []))),
-    ]),
+  let descriptor_heap = HeapType::new(descriptor_idx)
+  let nullable_described_ref = RefType::new(true, described_heap, exact=true)
+  let nonnull_described_ref = RefType::new(false, described_heap, exact=true)
+  let descriptor_ref = ValType::ref_type(
+    RefType::new(false, descriptor_heap, exact=true),
   )
-  .with_func_sec(FuncSec::new([func_type_idx]))
+  let type_sec = TypeSec::new([
+    RecType::group([
+      SubType::comp_type(
+        CompType::struct_([]),
+        metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
+      ),
+      SubType::comp_type(
+        CompType::struct_([]),
+        metadata=TypeMetadata::new(describes=Some(described_idx)),
+      ),
+    ]),
+    RecType::new(SubType::comp_type(CompType::func([], []))),
+    RecType::new(
+      SubType::comp_type(
+        CompType::func([descriptor_ref], [
+          ValType::ref_type(nullable_described_ref),
+        ]),
+      ),
+    ),
+    RecType::new(
+      SubType::comp_type(
+        CompType::func([descriptor_ref], [
+          ValType::ref_type(nonnull_described_ref),
+        ]),
+      ),
+    ),
+  ])
+  if case == 0 {
+    return Module::new()
+      .with_type_sec(type_sec)
+      .with_func_sec(
+        FuncSec::new([nullable_null_func_type_idx, nonnull_null_func_type_idx]),
+      )
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::ref_null_type(nullable_described_ref),
+              Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::ref_cast_desc_eq_type(nullable_described_ref),
+            ]),
+          ),
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::ref_null_type(nullable_described_ref),
+              Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::ref_cast_desc_eq_type(nonnull_described_ref),
+            ]),
+          ),
+        ]),
+      )
+  }
+  Module::new()
+  .with_type_sec(type_sec)
+  .with_func_sec(FuncSec::new([primary_func_type_idx]))
   .with_code_sec(
     CodeSec::new([
       Func::new(
@@ -19362,7 +19414,7 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
     return gen_valid_oi_call_ref_profile_module(case)
   }
   if descriptor_gc {
-    return gen_valid_oi_descriptor_gc_profile_module()
+    return gen_valid_oi_descriptor_gc_profile_module(case)
   }
   if local_facts && case == 3 {
     return gen_valid_oi_local_facts_existing_producer_module()

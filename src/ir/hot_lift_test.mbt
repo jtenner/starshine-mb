@@ -104,6 +104,48 @@ test "hot lift preserves official two-operand descriptor cast operands" {
 }
 
 ///|
+test "hot lift prefers official two-operand descriptor casts when legacy unary also typechecks" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::new(
+        true,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+        exact=true,
+      ),
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_cast_desc_eq_type(
+      @lib.RefType::new(
+        true,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+        exact=true,
+      ),
+    ),
+    @lib.Instruction::drop(),
+  ])
+  let func = hot_lift_body_with_context(
+    body,
+    HotLocals::new(params=[hot_lift_test_descriptor_ref_type()]),
+    hot_module_context_from_module(hot_lift_test_descriptor_module()),
+  )
+
+  @debug.assert_eq(hot_root_count(func), 1)
+  let drop = hot_root_get(func, 0)
+  let cast = hot_child_get(func, drop, 0)
+
+  @debug.assert_eq(hot_node_get(func, cast).op.to_string(), "RefCastDescEq")
+  @debug.assert_eq(hot_child_count(func, cast), 2)
+  @debug.assert_eq(
+    hot_node_get(func, hot_child_get(func, cast, 0)).op.to_string(),
+    "RefNull",
+  )
+  @debug.assert_eq(
+    hot_node_get(func, hot_child_get(func, cast, 1)).op.to_string(),
+    "LocalGet",
+  )
+}
+
+///|
 test "hot lift can preserve representative exact-payload families in module context" {
   let memarg = hot_lift_test_memarg()
   let module_ = hot_lift_test_context_module()

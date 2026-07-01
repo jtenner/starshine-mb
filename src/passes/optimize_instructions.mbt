@@ -11133,6 +11133,38 @@ fn optimize_instructions_try_fold_ref_cast_null(
 }
 
 ///|
+fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let nullable = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, _, _)) => nullable
+    _ => return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::RefNull => ()
+    _ => return false
+  }
+  if !optimize_instructions_is_side_effect_free_expr(func, dead, descriptor_id) &&
+    !optimize_instructions_node_effects_are_pure(ctx, func, descriptor_id) {
+    return false
+  }
+  if nullable {
+    optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
+  } else {
+    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+  }
+  true
+}
+
+///|
 fn optimize_instructions_try_replace_ref_cast_unreachable_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -12984,6 +13016,10 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_fold_ref_cast_null(ctx, func, node_id) ||
       optimize_instructions_try_replace_ref_cast_unreachable_operand(
         ctx, func, node_id,
+      )
+    @ir.HotOp::RefCastDescEq =>
+      optimize_instructions_try_fold_ref_cast_desc_eq_null(
+        ctx, func, dead, node_id,
       )
     @ir.HotOp::Heap =>
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||

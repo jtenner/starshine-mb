@@ -484,6 +484,28 @@ fn hot_lift_impl_resolve_generic_pop_count(
   after_state : TcState,
   concrete_before_types : Array[ValType],
 ) -> Result[(Int, Array[ValType]), HotLiftError] {
+  match instr {
+    Instruction::RefCastDescEq(_, _, _) =>
+      match
+        hot_lift_impl_generic_pop_count(
+          instr,
+          before_state.stack,
+          before_state,
+          after_state,
+          2,
+        ) {
+        Ok(two_operand) => return Ok(two_operand)
+        Err(_) =>
+          match
+            hot_lift_impl_generic_pop_count(
+              instr, concrete_before_types, before_state, after_state, 2,
+            ) {
+            Ok(two_operand) => return Ok(two_operand)
+            Err(_) => ()
+          }
+      }
+    _ => ()
+  }
   let primary = hot_lift_impl_generic_pop_count(
     instr,
     before_state.stack,

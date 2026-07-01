@@ -1973,6 +1973,10 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
     gen_valid_oi_trigger_profile_case_label(PassOiDescriptorGcProfile, 0x5eedUL),
     Some("oi-descriptor-gc:desc-producer-test-cast"),
   )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiDescriptorGcProfile, 0x5eeeUL),
+    Some("oi-descriptor-gc:null-desc-cast"),
+  )
 
   let oi_tuple = GenValidConfig::for_profile(PassOiTupleProfile)
   @debug.assert_eq(gen_valid_config_label(oi_tuple), "pass-oi-tuple")
@@ -6309,6 +6313,24 @@ fn gen_valid_test_instrs_contain_descriptor_gc_ops(
 }
 
 ///|
+fn gen_valid_test_instrs_contain_null_descriptor_cast(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut has_ref_null = false
+  let mut has_local_get = false
+  let mut has_cast_desc = false
+  for instr in instrs {
+    match instr {
+      RefNull(_) => has_ref_null = true
+      LocalGet(_) => has_local_get = true
+      RefCastDescEq(_, _, _) => has_cast_desc = true
+      _ => ()
+    }
+  }
+  has_ref_null && has_local_get && has_cast_desc
+}
+
+///|
 test "pass-oi-descriptor-gc profile emits descriptor-compatible OI-J triggers" {
   let descriptor_gc = match
     gen_valid_module_result_from_seed(
@@ -6329,6 +6351,29 @@ test "pass-oi-descriptor-gc profile emits descriptor-compatible OI-J triggers" {
       gen_valid_test_first_func_instrs(descriptor_gc.wasm_module),
     ),
     msg="expected descriptor profile to cover new_desc/get_desc/cast_desc",
+  )
+
+  let null_descriptor_gc = match
+    gen_valid_module_result_from_seed(
+      0x5eeeUL,
+      GenValidConfig::for_profile(PassOiDescriptorGcProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiDescriptorGcProfile, 0x5eeeUL),
+    Some("oi-descriptor-gc:null-desc-cast"),
+  )
+  match validate_module(null_descriptor_gc.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_instrs_contain_null_descriptor_cast(
+      gen_valid_test_first_func_instrs(null_descriptor_gc.wasm_module),
+    ),
+    msg="expected descriptor profile to cover null-fed ref.cast_desc_eq",
   )
 }
 
