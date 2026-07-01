@@ -11228,9 +11228,52 @@ fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operan
 }
 
 ///|
+fn optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if node.child_count != 3 {
+    return false
+  }
+  if !optimize_instructions_is_side_effect_free_expr(
+      func,
+      dead,
+      @ir.hot_child_get(func, node_id, 0),
+    ) {
+    return false
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, then_region) != 1 ||
+    @ir.hot_region_root_count(func, else_region) != 1 {
+    return false
+  }
+  optimize_instructions_is_side_effect_free_expr(
+    func,
+    dead,
+    @ir.hot_region_get(func, then_region, 0),
+  ) &&
+  optimize_instructions_is_side_effect_free_expr(
+    func,
+    dead,
+    @ir.hot_region_get(func, else_region, 0),
+  )
+}
+
+///|
 fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
@@ -11270,6 +11313,12 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
       let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
       match @ir.hot_node_get(func, nullable_child).op {
         @ir.HotOp::LocalGet | @ir.HotOp::Block | @ir.HotOp::Select => ()
+        @ir.HotOp::If =>
+          if !optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
+              func, dead, nullable_child,
+            ) {
+            return false
+          }
         _ => return false
       }
       @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
@@ -11683,6 +11732,10 @@ fn optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
         @ir.hot_region_get(func, body, 0),
       )
     }
+    @ir.HotOp::If =>
+      optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
+        func, dead, node_id,
+      )
     _ => false
   }
 }
@@ -13882,7 +13935,7 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
-        ctx, func, node_id,
+        ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
         ctx, func, node_id,
