@@ -24794,7 +24794,33 @@ fn run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_alloc(
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_is_flat(
+  instrs : Array[@lib.Instruction],
+  prefix_len : Int,
+) -> Bool {
+  for idx = 0; idx < prefix_len; idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_fold(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
   let mut i = 0
@@ -24802,6 +24828,19 @@ fn run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_alloc(
     match (instrs[i], instrs[i + 1], instrs[i + 2]) {
       (@lib.RefNull(_), @lib.StructNewDefault(_), @lib.RefCastDescEq(_, _, _)) =>
         return true
+      (
+        @lib.RefNull(_),
+        @lib.Block(_, @lib.Expr(descriptor_body)),
+        @lib.RefCastDescEq(_, _, _),
+      ) if descriptor_body.length() >= 2 => {
+        let prefix_len = descriptor_body.length() - 2
+        match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
+          (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_is_flat(
+              descriptor_body, prefix_len,
+            ) => return true
+          _ => ()
+        }
+      }
       _ => ()
     }
     i = i + 1
@@ -24820,6 +24859,27 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   while i < instrs.length() {
     if i + 2 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (
+          @lib.RefNull(_),
+          @lib.Block(_, @lib.Expr(descriptor_body)),
+          @lib.RefCastDescEq(_, _, _),
+        ) if descriptor_body.length() >= 2 => {
+          let prefix_len = descriptor_body.length() - 2
+          match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
+            (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_is_flat(
+                descriptor_body, prefix_len,
+              ) => {
+              for idx = 0; idx < prefix_len; idx = idx + 1 {
+                rewritten.push(descriptor_body[idx])
+              }
+              rewritten.push(@lib.Instruction::unreachable_())
+              changed = true
+              i = i + 3
+              continue
+            }
+            _ => ()
+          }
+        }
         (
           @lib.RefNull(_),
           descriptor_instr,
@@ -25661,11 +25721,11 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   }
   let skipped_unchanged = !directized_changed && !effectful_sibling_changed
   if effectful_sibling_changed &&
-    run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_alloc(
+    run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_fold(
       body,
     ) {
     return Some({
-      reason: "descriptor-bottom-null-allocation-fold",
+      reason: "descriptor-bottom-null-fold",
       func: skipped_func,
       unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
@@ -28130,6 +28190,24 @@ fn run_hot_pipeline_func(
         "lift-error",
         payload="func_idx=\{func_idx} err=\{err}",
       )
+      if descriptor.name == "optimize-instructions" {
+        let original = run_hot_pipeline_original_func(mod_, func_idx)
+        let @lib.Func(locals, @lib.Expr(body)) = original
+        let (rewritten_body, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+          body, module_ctx,
+        )
+        if changed &&
+          run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_fold(
+            body,
+          ) {
+          return Ok({
+            reason: "descriptor-bottom-null-fold",
+            func: @lib.Func::new(locals, @lib.Expr::new(rewritten_body)),
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        }
+      }
       if !options.validate_final_module {
         return Ok({
           reason: "hot-lift-error",

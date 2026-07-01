@@ -199,6 +199,85 @@ test "optimize-instructions raw folds dropped null ref test and nullable cast be
 }
 
 ///|
+test "optimize-instructions raw folds effectful trapping descriptor block operands before skip" {
+  // OI-J active-dispatcher descriptor/null slice: when HOT lift is skipped or
+  // cannot represent a bottom-null descriptor cast, the raw dispatcher still
+  // must preserve effects before a trapping descriptor operand and replace the
+  // whole cast with `unreachable`, matching the Binaryen effect-before-trap
+  // shape for this narrow block-local descriptor operand.
+  let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let descriptor_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap),
+  )
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+    [
+      @lib.Instruction::ref_null(none_heap),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(descriptor_ref),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+          @lib.Instruction::ref_null(descriptor_heap),
+          @lib.Instruction::ref_as_non_null(),
+        ]),
+      ),
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(false, described_heap),
+      ),
+    ],
+    @ir.hot_module_context_from_module(@lib.Module::new()),
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten.length(), 3)
+  @debug.assert_eq(rewritten[0], @lib.Instruction::i32_const(@lib.I32(7)))
+  @debug.assert_eq(
+    rewritten[1],
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+  )
+  @debug.assert_eq(rewritten[2], @lib.Instruction::unreachable_())
+}
+
+///|
+test "optimize-instructions raw keeps descriptor trap block prefixes with control local" {
+  // Boundary/fail-closed: the raw descriptor block fold only hoists flat
+  // effect/value instructions before the final `ref.null; ref.as_non_null`.
+  // Prefixes with local branches/control depend on the descriptor block label
+  // stack and must stay untouched until a label-aware raw localizer exists.
+  let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let descriptor_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap),
+  )
+  let instrs = [
+    @lib.Instruction::ref_null(none_heap),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(descriptor_ref),
+      @lib.Expr::new([
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::ref_null(descriptor_heap),
+        @lib.Instruction::ref_as_non_null(),
+      ]),
+    ),
+    @lib.Instruction::ref_cast_desc_eq_type(
+      @lib.RefType::new(false, described_heap),
+    ),
+  ]
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+    instrs,
+    @ir.hot_module_context_from_module(@lib.Module::new()),
+  )
+  assert_false(changed)
+  @debug.assert_eq(rewritten, instrs)
+}
+
+///|
 test "optimize-instructions raw folds local-carried null ref test and nullable cast before skip" {
   // OI-I grouped pass-oi-ref-gc residual: after an effectful wrapper forces the
   // raw optimize-instructions skip path, Binaryen still uses the local-carried

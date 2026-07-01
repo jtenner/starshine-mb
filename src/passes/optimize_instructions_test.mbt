@@ -9604,6 +9604,126 @@ test "optimize-instructions preserves descriptor effects when skipping descripto
 }
 
 ///|
+test "optimize-instructions folds effectful trapping descriptor operands on known-null descriptor casts" {
+  // OI-J effectful/trapping descriptor-operand breadth: Binaryen version_130
+  // default, IIT, and TNH turn a known-null descriptor equality cast whose
+  // descriptor operand performs an effect before `ref.as_non_null(ref.null)`
+  // into the preserved effect followed by `unreachable`. This covers only the
+  // block-local effect-before-trap shape; broader trapping/control descriptor
+  // operands and ref.test_desc remain open.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let nullable_func_type = @lib.TypeIdx::new(2U)
+  let nonnull_func_type = @lib.TypeIdx::new(3U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nonnull_described_ref_type = @lib.RefType::new(false, described_heap)
+  let descriptor_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap),
+  )
+  let optimized = match
+    run_hot_pipeline(
+      @lib.Module::new()
+      .with_type_sec(
+        @lib.TypeSec::new([
+          @lib.RecType::group([
+            @lib.SubType::comp_type(
+              @lib.CompType::struct_([]),
+              metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+            ),
+            @lib.SubType::comp_type(
+              @lib.CompType::struct_([]),
+              metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+            ),
+          ]),
+          @lib.RecType::new(
+            @lib.SubType::comp_type(
+              @lib.CompType::func([], [
+                @lib.ValType::ref_type(nullable_described_ref_type),
+              ]),
+            ),
+          ),
+          @lib.RecType::new(
+            @lib.SubType::comp_type(
+              @lib.CompType::func([], [
+                @lib.ValType::ref_type(nonnull_described_ref_type),
+              ]),
+            ),
+          ),
+        ]),
+      )
+      .with_func_sec(@lib.FuncSec::new([nullable_func_type, nonnull_func_type]))
+      .with_global_sec(
+        @lib.GlobalSec::new([
+          @lib.Global::new(
+            @lib.GlobalType::new(@lib.ValType::i32(), true),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+        ]),
+      )
+      .with_code_sec(
+        @lib.CodeSec::new([
+          @lib.Func::new(
+            @lib.Locals::empty(),
+            @lib.Expr::new([
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::none()),
+              ),
+              @lib.Instruction::block(
+                @lib.BlockType::val_type(descriptor_ref),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32(1)),
+                  @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                  @lib.Instruction::ref_null(descriptor_heap),
+                  @lib.Instruction::ref_as_non_null(),
+                ]),
+              ),
+              @lib.Instruction::ref_cast_desc_eq_type(
+                nullable_described_ref_type,
+              ),
+            ]),
+          ),
+          @lib.Func::new(
+            @lib.Locals::empty(),
+            @lib.Expr::new([
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::none()),
+              ),
+              @lib.Instruction::block(
+                @lib.BlockType::val_type(descriptor_ref),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32(2)),
+                  @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                  @lib.Instruction::ref_null(descriptor_heap),
+                  @lib.Instruction::ref_as_non_null(),
+                ]),
+              ),
+              @lib.Instruction::ref_cast_desc_eq_type(
+                nonnull_described_ref_type,
+              ),
+            ]),
+          ),
+        ]),
+      ),
+      HotPipelineOptions::new(validate_final_module=false),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected effectful trapping descriptor operand fold, got \{err}")
+  }
+  let nullable_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let nonnull_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  for pretty in [nullable_pretty, nonnull_pretty] {
+    assert_true(pretty.contains("global.set"), msg=pretty)
+    assert_true(pretty.contains("unreachable"), msg=pretty)
+    assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+    assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions folds null descriptor casts with trapping ref.get_desc descriptor operands" {
   // OI-J trapping descriptor-operand breadth: Binaryen version_130 default,
   // IIT, and TNH turn a known-null descriptor equality cast whose descriptor
