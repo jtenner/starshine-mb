@@ -1,8 +1,8 @@
-## 2026-07-01 closeout-triage sweep policy
+## 2026-07-01 full-parity sweep policy supersedes release-boundary closeout
 
-Closeout triage supersedes the previous open-ended pattern of adding a narrow OI profile label, running a bounded grouped lane, and classifying a few new residuals. Future sweeps should answer a finite row question: implement a known gap, confirm a release boundary, or provide a final row-specific signoff command. Do not run new OI-D/OI-E/OI-G/OI-H/OI-M breadth lanes unless existing artifacts cannot support one of those decisions.
+Closeout triage no longer means accepting release boundaries. The full-pass-parity target keeps previous classified lanes as evidence, but sweeps and profiles must now answer behavior questions: unblock evidence/tooling, implement a known Binaryen behavior gap, or verify a focused behavior family. Do not run broad breadth lanes unless they directly reduce a blocker or behavior row.
 
-Current row states recorded in `parity-matrix.json`: P0 OI-D is `sampled-starshine-win` with a finite closeout table and one exact signoff command; P0 OI-E is `sampled-starshine-win` with a finite LocalScanner table and one exact signoff command; P0 OI-M and OI-G are `accepted-release-boundary` rows backed by runtime/validation/opcode/size evidence. P1 OI-F and OI-J are `blocked-surface`; OI-H is `defer-with-reopen-criteria`; OI-I is an `accepted-release-boundary` for non-descriptor reference basics; OI-K is an `accepted-release-boundary` for represented GC constructor/default subsets; OI-L is representation/tooling-blocked.
+Current row states recorded in `parity-matrix.json`: OI-D is `sampled-starshine-win` with finite scalar signoff evidence; OI-E is `sampled-starshine-win` with finite LocalScanner signoff evidence; OI-F, OI-J, and OI-L are `blocked-surface` rows to work first; OI-G, OI-I, OI-K, and OI-M are active `parity-gap` rows; OI-H remains `defer-with-reopen-criteria` but is not considered full parity.
 
 ## 2026-07-01 OI-F v0.1 metadata/options blocked boundary
 
