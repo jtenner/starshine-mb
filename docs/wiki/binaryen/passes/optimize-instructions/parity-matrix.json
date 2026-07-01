@@ -477,23 +477,23 @@
     },
     {
       "name": "pass-oi-descriptor-gc",
-      "status": "implemented-trigger-smoke-plus",
+      "status": "implemented-trigger-smoke-plus-oracle-blocked",
       "families": [
         "OI-J"
       ],
-      "intent": "Focused descriptor-compatible OI-J trigger smoke that emits descriptor metadata plus struct.new_default_desc, ref.get_desc, and ref.cast_desc_eq in a small validating module. It reduces the former descriptor-generator/tooling blocker for this narrow constructor/getter/cast subset, but it does not close OI-J: exactness, ref.test_desc binary-tool support, TNH, IIT, success-only null, and broader descriptor cast behavior remain open.",
+      "intent": "Focused descriptor-compatible OI-J trigger smoke that emits descriptor metadata plus struct.new_default_desc, ref.get_desc, and ref.cast_desc_eq in a small validating module. It reduces the former descriptor-generator/tooling blocker for this narrow constructor/getter/cast subset, but it does not close OI-J: the compare/oracle path still times out, and exactness, ref.test_desc binary-tool support, TNH, IIT, success-only null, and broader descriptor cast behavior remain open.",
       "featureRequirements": [
         "reference-types",
         "gc",
         "descriptors"
       ],
-      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 4 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-descriptor-gc --out-dir .tmp/oi-j-descriptor-gc-profile-count4 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe",
+      "ordinaryCommand": "bun scripts/pass-fuzz-compare.ts --count 1 --seed 0x5eed --pass optimize-instructions --gen-valid-profile pass-oi-descriptor-gc --out-dir .tmp/oi-j-descriptor-gc-profile-count1 --jobs 1 --starshine-bin target/native/release/build/cmd/cmd.exe",
       "implementation": "src/validate/gen_valid.mbt special-cases pass-oi-descriptor-gc to emit a descriptor rec group and a single void function containing descriptor constructor, descriptor getter, and descriptor cast-eq opcodes. The smoke intentionally avoids ref.test_desc because current wasm-tools/Binaryen-compatible binary tooling decodes the represented opcode space as descriptor casts/branches, not ref.test_desc. src/validate/gen_valid_tests.mbt asserts stable profile naming/configuration, validates the generated module with Starshine validation, and checks the descriptor constructor/getter/cast families are present.",
       "lastCheckedEvidence": [
         "src/validate/gen_valid_tests.mbt::pass-oi-descriptor-gc profile emits descriptor-compatible OI-J triggers failed red-first before PassOiDescriptorGcProfile existed, then passed after the focused descriptor profile was added (2026-07-01).",
         "moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt --target native passed 109/109 after adding pass-oi-descriptor-gc (2026-07-01).",
-        "moon run src/fuzz -- --emit-gen-valid-batch --count=1 --seed=0x5eed --out-dir=.tmp/oi-j-desc-emit2 --gen-valid-profile=pass-oi-descriptor-gc generated one module; wasm-tools validate --features all accepted it and wasm-tools print showed descriptor metadata, struct.new_default_desc, ref.get_desc, and ref.cast_desc_eq (2026-07-01).",
-        "bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 4 --seed 0x5eed --gen-valid-profile pass-oi-descriptor-gc --out-dir .tmp/oi-j-descriptor-gc-profile-count4-20260701 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures compared 4/4 with 4 normalized matches and zero validation/generator/property/command failures (2026-07-01)."
+        "moon run src/fuzz -- --emit-gen-valid-batch --count=1 --seed=0x5eed --out-dir=.tmp/oi-j-descriptor-emit-check --gen-valid-profile=pass-oi-descriptor-gc generated one module, and wasm-tools validate --features all accepted it (2026-07-01).",
+        "bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 1 --seed 0x5eed --gen-valid-profile pass-oi-descriptor-gc --out-dir .tmp/oi-j-descriptor-gc-profile-count1d-20260701 --jobs 1 --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures timed out after 120s, so OI-J remains oracle/tool blocked rather than classified or implemented from this smoke alone (2026-07-01)."
       ]
     },
     {
