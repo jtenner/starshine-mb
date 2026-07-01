@@ -8088,6 +8088,208 @@ test "optimize-instructions narrows non-null descriptor casts on exact operands"
 }
 
 ///|
+test "optimize-instructions narrows descriptor casts on non-null subtype operands" {
+  // OI-J useful-type-info breadth: Binaryen version_130 default and IIT modes
+  // rewrite a nullable descriptor equality cast whose reference operand is a
+  // non-null strict subtype of the target heap to a non-null descriptor cast,
+  // while preserving the explicit descriptor equality check. This widens the
+  // previous exact same-target operand coverage without claiming exact-subtype,
+  // ref.test_desc, or broad descriptor success parity.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let subtype = @lib.TypeIdx::new(2U)
+  let subtype_descriptor = @lib.TypeIdx::new(3U)
+  let func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let subtype_heap = @lib.HeapType::new(subtype)
+  let nullable_base_ref_type = @lib.RefType::new(true, base_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(base_descriptor_type),
+            ),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_descriptor_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::ref_type(@lib.RefType::new(false, subtype_heap)),
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    false,
+                    @lib.HeapType::new(base_descriptor_type),
+                  ),
+                ),
+              ],
+              [@lib.ValType::ref_type(nullable_base_ref_type)],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_base_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected subtype descriptor narrowing, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(false, base_heap),
+      ),
+    ),
+  )
+}
+
+///|
+test "optimize-instructions skips descriptor casts on non-null subtype operands under traps-never-happen" {
+  // OI-J TNH descriptor-cast breadth: the same strict-subtype operand probe is
+  // removed entirely by Binaryen version_130 under `--traps-never-happen`, while
+  // default and IIT keep the descriptor check. This covers only the non-null
+  // subtype operand shape; exact-subtype, effectful subtype operands, and
+  // ref.test_desc remain open.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let subtype = @lib.TypeIdx::new(2U)
+  let subtype_descriptor = @lib.TypeIdx::new(3U)
+  let func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let subtype_heap = @lib.HeapType::new(subtype)
+  let nullable_base_ref_type = @lib.RefType::new(true, base_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(base_descriptor_type),
+            ),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_descriptor_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                @lib.ValType::ref_type(@lib.RefType::new(false, subtype_heap)),
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(
+                    false,
+                    @lib.HeapType::new(base_descriptor_type),
+                  ),
+                ),
+              ],
+              [@lib.ValType::ref_type(nullable_base_ref_type)],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_base_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected subtype descriptor TNH skip, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected local.get after subtype descriptor TNH skip")
+  }
+  @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 0)
+}
+
+///|
 test "optimize-instructions exactifies nullable descriptor casts with exact descriptor operands" {
   // OI-J descriptor exactness breadth: Binaryen version_130 rewrites a nullable
   // descriptor equality cast fed by an inexact nullable reference plus an exact

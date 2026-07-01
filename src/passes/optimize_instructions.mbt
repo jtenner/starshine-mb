@@ -11151,7 +11151,9 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   let operand_id = @ir.hot_child_get(func, node_id, 0)
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
   let (operand_nullable, operand_exact) = match
-    optimize_instructions_ref_operand_same_heap(func, operand_id, target) {
+    optimize_instructions_ref_operand_matches_or_subtypes_heap(
+      ctx, func, operand_id, target,
+    ) {
     Some(info) => info
     None => return false
   }
@@ -11200,7 +11202,9 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
   let operand_id = @ir.hot_child_get(func, node_id, 0)
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
   let (operand_nullable, operand_exact) = match
-    optimize_instructions_ref_operand_same_heap(func, operand_id, target) {
+    optimize_instructions_ref_operand_matches_or_subtypes_heap(
+      ctx, func, operand_id, target,
+    ) {
     Some(info) => info
     None => return false
   }
@@ -11238,15 +11242,79 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
 }
 
 ///|
-fn optimize_instructions_ref_operand_same_heap(
+fn optimize_instructions_ref_operand_matches_or_subtypes_heap(
+  ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
   target : @lib.HeapType,
 ) -> (Bool, Bool)? {
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
-    [@lib.ValType::RefTypeValType(ref_type)] if ref_type.get_heap_type() ==
-      target => Some((ref_type.is_nullable(), ref_type.is_exact()))
+    [@lib.ValType::RefTypeValType(ref_type)] => {
+      let source = ref_type.get_heap_type()
+      if source == target {
+        Some((ref_type.is_nullable(), ref_type.is_exact()))
+      } else if optimize_instructions_heap_is_known_subtype(ctx, source, target) {
+        // A strict subtype operand proves heap compatibility, but it does not
+        // prove the value is an exact instance of the supertype target.
+        Some((ref_type.is_nullable(), false))
+      } else {
+        None
+      }
+    }
     _ => None
+  }
+}
+
+///|
+fn optimize_instructions_heap_is_known_subtype(
+  ctx : HotPassContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+) -> Bool {
+  if source == target {
+    return true
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  optimize_instructions_heap_is_known_subtype_with_fuel(
+    module_ctx, source, target, 64,
+  )
+}
+
+///|
+fn optimize_instructions_heap_is_known_subtype_with_fuel(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+  fuel : Int,
+) -> Bool {
+  if source == target {
+    return true
+  }
+  if fuel <= 0 {
+    return false
+  }
+  let source_idx = match source {
+    @lib.HeapType(source_idx) => source_idx
+    _ => return false
+  }
+  match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
+    Some(subtype) => {
+      for super_idx in subtype.super_types() {
+        if optimize_instructions_heap_is_known_subtype_with_fuel(
+            module_ctx,
+            @lib.HeapType::new(super_idx),
+            target,
+            fuel - 1,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
   }
 }
 
