@@ -11200,6 +11200,34 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
 }
 
 ///|
+fn optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCastDescEq(_, _, _)) => ()
+    _ => return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  match @ir.hot_node_get(func, operand_id).op {
+    @ir.HotOp::RefNull => ()
+    _ => return false
+  }
+  if !optimize_instructions_descriptor_operand_traps_without_effects(
+      func, descriptor_id,
+    ) {
+    return false
+  }
+  optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+  true
+}
+
+///|
 fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -11565,6 +11593,12 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
     @ir.HotOp::RefNull => ()
     _ => return false
   }
+  if optimize_instructions_descriptor_operand_traps_without_effects(
+      func, descriptor_id,
+    ) {
+    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+    return true
+  }
   let descriptor_can_erase = optimize_instructions_descriptor_operand_can_erase(
     ctx, func, dead, descriptor_id,
   )
@@ -11755,6 +11789,64 @@ fn optimize_instructions_ref_get_desc_operand_can_erase_traps_never_happen(
       optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
         func, dead, nullable_operand_id,
       )
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_descriptor_operand_traps_without_effects(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Unreachable => return true
+    _ => ()
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_get(func, child_id).op {
+    @ir.HotOp::Unreachable => true
+    _ =>
+      match @ir.hot_node_exact_instr(func, child_id) {
+        Some(@lib.Instruction::RefAsNonNull) => {
+          if @ir.hot_child_count(func, child_id) != 1 {
+            return false
+          }
+          match
+            @ir.hot_node_get(func, @ir.hot_child_get(func, child_id, 0)).op {
+            @ir.HotOp::RefNull => true
+            _ => false
+          }
+        }
+        _ => false
+      }
+  }
+}
+
+///|
+fn optimize_instructions_try_replace_ref_get_desc_unreachable_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, node_id, 0)).op {
+    @ir.HotOp::Unreachable => {
+      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+      true
     }
     _ => false
   }
@@ -13780,6 +13872,9 @@ fn optimize_instructions_visit_node(
         ctx, func, node_id,
       )
     @ir.HotOp::RefCastDescEq =>
+      optimize_instructions_try_replace_ref_cast_desc_eq_trapping_descriptor_operand(
+        ctx, func, node_id,
+      ) ||
       optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
         ctx, func, dead, node_id,
       ) ||
@@ -13793,6 +13888,9 @@ fn optimize_instructions_visit_node(
         ctx, func, node_id,
       )
     @ir.HotOp::Heap =>
+      optimize_instructions_try_replace_ref_get_desc_unreachable_operand(
+        ctx, func, node_id,
+      ) ||
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||
       optimize_instructions_try_rewrite_ref_eq_null(ctx, func, dead, node_id) ||
       optimize_instructions_try_fold_array_len_new_fixed(

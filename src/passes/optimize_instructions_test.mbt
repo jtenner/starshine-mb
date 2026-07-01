@@ -9604,6 +9604,87 @@ test "optimize-instructions preserves descriptor effects when skipping descripto
 }
 
 ///|
+test "optimize-instructions folds null descriptor casts with trapping ref.get_desc descriptor operands" {
+  // OI-J trapping descriptor-operand breadth: Binaryen version_130 default,
+  // IIT, and TNH turn a known-null descriptor equality cast whose descriptor
+  // operand is `ref.get_desc(ref.as_non_null(ref.null))` into unreachable.
+  // The descriptor operand has no side effects before its null trap, so
+  // Starshine should not preserve it as a malformed dropped value. This is a
+  // narrow validation/correctness fix for one trapping descriptor operand; it
+  // does not claim broad effectful/trapping descriptor closure or ref.test_desc.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let nullable_func_type = @lib.TypeIdx::new(2U)
+  let nonnull_func_type = @lib.TypeIdx::new(3U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nonnull_described_ref_type = @lib.RefType::new(false, described_heap)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nonnull_described_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([nullable_func_type, nonnull_func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nonnull_described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let nullable_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let nonnull_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  for pretty in [nullable_pretty, nonnull_pretty] {
+    assert_true(pretty.contains("unreachable"), msg=pretty)
+    assert_false(pretty.contains("ref.cast_desc_eq"), msg=pretty)
+    assert_false(pretty.contains("ref.get_desc"), msg=pretty)
+  }
+}
+
+///|
 test "optimize-instructions folds descriptor equality casts on known null refs with pure descriptors" {
   // OI-J representable descriptor success/null boundary: nullable descriptor
   // casts of null return null, and non-null descriptor casts of null trap. The
