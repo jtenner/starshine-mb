@@ -11142,21 +11142,20 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   if !ctx.traps_never_happen || @ir.hot_child_count(func, node_id) != 2 {
     return false
   }
-  let (_, exact, target) = match @ir.hot_node_exact_instr(func, node_id) {
+  let (nullable, exact, target) = match
+    @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) =>
       (nullable, exact, target)
     _ => return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
-  let operand_exact = match
-    optimize_instructions_ref_operand_nonnullable_same_heap(
-      func, operand_id, target,
-    ) {
-    Some(operand_exact) => operand_exact
+  let (operand_nullable, operand_exact) = match
+    optimize_instructions_ref_operand_same_heap(func, operand_id, target) {
+    Some(info) => info
     None => return false
   }
-  if exact && !operand_exact {
+  if (!nullable && operand_nullable) || (exact && !operand_exact) {
     return false
   }
   if optimize_instructions_descriptor_operand_can_erase(
@@ -11235,18 +11234,6 @@ fn optimize_instructions_ref_operand_same_heap(
   match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
     [@lib.ValType::RefTypeValType(ref_type)] if ref_type.get_heap_type() ==
       target => Some((ref_type.is_nullable(), ref_type.is_exact()))
-    _ => None
-  }
-}
-
-///|
-fn optimize_instructions_ref_operand_nonnullable_same_heap(
-  func : @ir.HotFunc,
-  node_id : Int,
-  target : @lib.HeapType,
-) -> Bool? {
-  match optimize_instructions_ref_operand_same_heap(func, node_id, target) {
-    Some((false, exact)) => Some(exact)
     _ => None
   }
 }
