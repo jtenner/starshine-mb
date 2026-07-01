@@ -11155,7 +11155,10 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
   let descriptor_can_erase = optimize_instructions_is_side_effect_free_expr(
       func, dead, descriptor_id,
     ) ||
-    optimize_instructions_node_effects_are_pure(ctx, func, descriptor_id)
+    optimize_instructions_node_effects_are_pure(ctx, func, descriptor_id) ||
+    optimize_instructions_descriptor_operand_allocation_can_erase(
+      func, descriptor_id,
+    )
   if nullable {
     if descriptor_can_erase {
       optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
@@ -11172,6 +11175,17 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
     optimize_instructions_replace_with_drop_then_unreachable(
       ctx, func, node_id, descriptor_id,
     )
+  }
+}
+
+///|
+fn optimize_instructions_descriptor_operand_allocation_can_erase(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructNewDefault(_)) => true
+    _ => false
   }
 }
 
