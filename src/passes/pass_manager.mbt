@@ -28090,12 +28090,157 @@ fn run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
 }
 
 ///|
+fn run_hot_pipeline_raw_oi_decrement_escaping_label(
+  label_idx : @lib.LabelIdx,
+) -> @lib.LabelIdx? {
+  let @lib.LabelIdx(raw) = label_idx
+  if raw == 0U {
+    return None
+  }
+  Some(@lib.LabelIdx::new(raw - 1U))
+}
+
+///|
+fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    if i + 3 < instrs.length() {
+      match (instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+        (
+          @lib.Block(_, @lib.Expr([payload, @lib.Br(label_idx)])),
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match payload {
+            @lib.LocalGet(_) => true
+            _ => false
+          }) =>
+          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+            Some(retargeted) => {
+              rewritten.push(instrs[i])
+              rewritten.push(payload)
+              rewritten.push(@lib.Instruction::br(retargeted))
+              rewritten.push(instrs[i + 2])
+              rewritten.push(instrs[i + 3])
+              changed = true
+              i = i + 4
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    match instrs[i] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
+          body,
+        )
+        if nested_changed {
+          rewritten.push(
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+          )
+          changed = true
+        } else {
+          rewritten.push(instrs[i])
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
+          body,
+        )
+        if nested_changed {
+          rewritten.push(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+          )
+          changed = true
+        } else {
+          rewritten.push(instrs[i])
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
+          body,
+        )
+        if nested_changed {
+          rewritten.push(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            ),
+          )
+          changed = true
+        } else {
+          rewritten.push(instrs[i])
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
+          then_body,
+        )
+        let mut any_changed = then_changed
+        let next_else = match else_body {
+          Some(else_body) => {
+            let (next_else, else_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
+              else_body,
+            )
+            any_changed = any_changed || else_changed
+            Some(next_else)
+          }
+          None => None
+        }
+        if any_changed {
+          rewritten.push(
+            @lib.Instruction::if_(block_type, next_then, next_else),
+          )
+          changed = true
+        } else {
+          rewritten.push(instrs[i])
+        }
+      }
+      _ => rewritten.push(instrs[i])
+    }
+    i = i + 1
+  }
+  (rewritten, changed)
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
+  func : @lib.Func,
+  descriptor_name : String,
+) -> @lib.Func {
+  if descriptor_name != "optimize-instructions" {
+    return func
+  }
+  match func {
+    @lib.Func(locals, @lib.Expr(body)) => {
+      let (rewritten, changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
+        body,
+      )
+      if changed {
+        @lib.Func::new(locals, @lib.Expr::new(rewritten))
+      } else {
+        func
+      }
+    }
+  }
+}
+
+///|
 fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   func : @lib.Func,
   descriptor_name : String,
 ) -> @lib.Func {
   let cleaned = run_hot_pipeline_simplify_locals_cleanup_lowered_func(
     func, descriptor_name,
+  )
+  let cleaned = run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
+    cleaned, descriptor_name,
   )
   if descriptor_name != "vacuum" && descriptor_name != "precompute" {
     return cleaned

@@ -9666,6 +9666,109 @@ test "optimize-instructions erases self-contained br_if block ref.get_desc descr
 }
 
 ///|
+test "optimize-instructions lowers escaping-branch block ref.get_desc child like Binaryen" {
+  // OI-J descriptor-operand escaping-label slice: Binaryen version_130 default
+  // and IIT flatten a block-produced descriptor child whose branch escapes to
+  // the surrounding label, leaving the branch as dead-code prefix before
+  // `ref.get_desc`/`ref.cast_desc_eq`. This public-pipeline guard checks the
+  // lowered surface, not just the HOT fail-closed shape below.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, nullable_described_val_type],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::ref_cast_desc_eq_type(
+                  nullable_described_ref_type,
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Block(_, @lib.Expr(body))]))])
+    ) => {
+      @debug.assert_eq(body.length(), 5)
+      match body[0] {
+        @lib.LocalGet(@lib.LocalIdx(0U)) => ()
+        other => fail("expected cast operand local.get 0, got \{other}")
+      }
+      match body[1] {
+        @lib.LocalGet(@lib.LocalIdx(1U)) => ()
+        other =>
+          fail("expected escaping branch payload local.get 1, got \{other}")
+      }
+      match body[2] {
+        @lib.Br(@lib.LabelIdx(0U)) => ()
+        other => fail("expected branch retargeted to outer label, got \{other}")
+      }
+      match body[3] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        other => fail("expected flattened ref.get_desc, got \{other}")
+      }
+      match body[4] {
+        @lib.RefCastDescEq(nullable, exact, target) => {
+          assert_true(nullable)
+          assert_false(exact)
+          @debug.assert_eq(target, described_heap)
+        }
+        other =>
+          fail("expected descriptor cast after flattened branch, got \{other}")
+      }
+    }
+    other => fail("expected one optimized outer block body, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions fail-closed on escaping-branch block ref.get_desc child null checks" {
   // OI-J descriptor-operand trapOnNull boundary: Binaryen version_130 can
   // rewrite an escaping-branch block-produced child to a branch/unreachable
