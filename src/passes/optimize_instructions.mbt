@@ -11241,7 +11241,7 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
       }
       let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
       match @ir.hot_node_get(func, nullable_child).op {
-        @ir.HotOp::LocalGet => ()
+        @ir.HotOp::LocalGet | @ir.HotOp::Block => ()
         _ => return false
       }
       @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
@@ -11629,6 +11629,31 @@ fn optimize_instructions_descriptor_operand_allocation_can_erase(
 }
 
 ///|
+fn optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  if optimize_instructions_is_side_effect_free_expr(func, dead, node_id) {
+    return true
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => {
+      let body = @ir.hot_region_body_ref(func, node_id)
+      if @ir.hot_region_root_count(func, body) != 1 {
+        return false
+      }
+      optimize_instructions_is_side_effect_free_expr(
+        func,
+        dead,
+        @ir.hot_region_get(func, body, 0),
+      )
+    }
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_descriptor_operand_should_localize_when_skipped(
   func : @ir.HotFunc,
   node_id : Int,
@@ -11700,7 +11725,7 @@ fn optimize_instructions_ref_as_non_null_descriptor_operand_can_erase_traps_neve
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
   }
-  optimize_instructions_is_side_effect_free_expr(
+  optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
     func,
     dead,
     @ir.hot_child_get(func, node_id, 0),
@@ -11727,7 +11752,7 @@ fn optimize_instructions_ref_get_desc_operand_can_erase_traps_never_happen(
         return false
       }
       let nullable_operand_id = @ir.hot_child_get(func, operand_id, 0)
-      optimize_instructions_is_side_effect_free_expr(
+      optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
         func, dead, nullable_operand_id,
       )
     }
