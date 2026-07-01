@@ -8363,6 +8363,126 @@ test "optimize-instructions exactifies nullable descriptor casts with exact desc
 }
 
 ///|
+test "optimize-instructions exactifies descriptor casts with exact subtype descriptors" {
+  // OI-J exactness/useful-type-info breadth: Binaryen version_130 default,
+  // IIT, and TNH modes rewrite an inexact base-heap descriptor cast whose
+  // descriptor operand is an exact descriptor for a strict subtype to
+  // `ref.cast_desc_eq (ref (exact $sub))`. The explicit descriptor equality
+  // check remains because it proves the stronger subtype exactness. This is a
+  // narrow exact subtype-descriptor case; ref.test_desc and broader descriptor
+  // control/effect shapes remain open.
+  let base_type = @lib.TypeIdx::new(0U)
+  let base_descriptor_type = @lib.TypeIdx::new(1U)
+  let subtype = @lib.TypeIdx::new(2U)
+  let subtype_descriptor = @lib.TypeIdx::new(3U)
+  let func_type = @lib.TypeIdx::new(4U)
+  let base_heap = @lib.HeapType::new(base_type)
+  let subtype_heap = @lib.HeapType::new(subtype)
+  let base_ref_type = @lib.RefType::new(false, base_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(
+              descriptor=Some(base_descriptor_type),
+            ),
+          ),
+          @lib.SubType::new(
+            false,
+            [],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(base_type)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(subtype_descriptor)),
+          ),
+          @lib.SubType::new(
+            false,
+            [base_descriptor_type],
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(subtype)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::ref_type(base_ref_type)], [
+              @lib.ValType::ref_type(base_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_new_default(subtype_descriptor),
+            @lib.Instruction::ref_cast_desc_eq_type(base_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected exact subtype descriptor narrowing, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) => {
+      @debug.assert_eq(nullable, false)
+      @debug.assert_eq(exact, true)
+      @debug.assert_eq(target, subtype_heap)
+    }
+    other => fail("expected exact subtype descriptor cast, got \{other}")
+  }
+
+  let func_tnh = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx_tnh = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx_tnh, func_tnh) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected TNH exact subtype descriptor preservation, got \{err}")
+  }
+  let root_tnh = @ir.hot_root_get(func_tnh, 0)
+  match @ir.hot_node_exact_instr(func_tnh, root_tnh) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) => {
+      @debug.assert_eq(nullable, false)
+      @debug.assert_eq(exact, true)
+      @debug.assert_eq(target, subtype_heap)
+    }
+    other => fail("expected TNH exact subtype descriptor cast, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions preserves exactifying descriptor casts under traps-never-happen" {
   // OI-J descriptor exactness/TNH breadth: Binaryen version_130 still preserves
   // a descriptor equality cast under `--traps-never-happen` when an exact

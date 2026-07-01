@@ -11160,11 +11160,20 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   if (!nullable && operand_nullable) || (exact && !operand_exact) {
     return false
   }
-  if !operand_exact &&
-    optimize_instructions_descriptor_operand_exactly_describes_target(
-      ctx, func, descriptor_id, target,
-    ) {
-    return false
+  let descriptor_described_heap = optimize_instructions_descriptor_operand_exact_described_heap(
+    ctx, func, descriptor_id,
+  )
+  match descriptor_described_heap {
+    Some(described_heap) =>
+      if optimize_instructions_heap_is_known_subtype(
+          ctx, described_heap, target,
+        ) &&
+        !optimize_instructions_ref_operand_is_exact_heap(
+          func, operand_id, described_heap,
+        ) {
+        return false
+      }
+    None => ()
   }
   if optimize_instructions_descriptor_operand_can_erase(
       ctx, func, dead, descriptor_id,
@@ -11240,16 +11249,28 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
     Some(info) => info
     None => return false
   }
-  let descriptor_exact = optimize_instructions_descriptor_operand_exactly_describes_target(
-    ctx, func, descriptor_id, target,
+  let descriptor_described_heap = optimize_instructions_descriptor_operand_exact_described_heap(
+    ctx, func, descriptor_id,
   )
+  let narrowed_target = match descriptor_described_heap {
+    Some(described_heap) if optimize_instructions_heap_is_known_subtype(
+        ctx, described_heap, target,
+      ) => described_heap
+    _ => target
+  }
+  let descriptor_exact = narrowed_target != target ||
+    optimize_instructions_descriptor_operand_exactly_describes_target(
+      ctx, func, descriptor_id, target,
+    )
   let narrowed_nullable = nullable && operand_nullable
   let narrowed_exact = exact || operand_exact || descriptor_exact
-  if narrowed_nullable == nullable && narrowed_exact == exact {
+  if narrowed_nullable == nullable &&
+    narrowed_exact == exact &&
+    narrowed_target == target {
     return false
   }
   let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
-    @lib.RefType::new(narrowed_nullable, target, exact=narrowed_exact),
+    @lib.RefType::new(narrowed_nullable, narrowed_target, exact=narrowed_exact),
   )
   let payload_id = @ir.hot_alloc_instr_payload(
     func,
@@ -11261,7 +11282,11 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
     @ir.hot_type_intern_value(
       func,
       @lib.ValType::ref_type(
-        @lib.RefType::new(narrowed_nullable, target, exact=narrowed_exact),
+        @lib.RefType::new(
+          narrowed_nullable,
+          narrowed_target,
+          exact=narrowed_exact,
+        ),
       ),
     ),
     imm1=payload_id,
@@ -11439,13 +11464,24 @@ fn optimize_instructions_descriptor_operand_exactly_describes_target(
   node_id : Int,
   target : @lib.HeapType,
 ) -> Bool {
-  let type_idx = match target {
-    @lib.HeapType(type_idx) => type_idx
-    _ => return false
+  match
+    optimize_instructions_descriptor_operand_exact_described_heap(
+      ctx, func, node_id,
+    ) {
+    Some(described_heap) => described_heap == target
+    None => false
   }
+}
+
+///|
+fn optimize_instructions_descriptor_operand_exact_described_heap(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.HeapType? {
   let module_ctx = match ctx.module_ctx {
     Some(module_ctx) => module_ctx
-    None => return false
+    None => return None
   }
   let descriptor_idx = match
     @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
@@ -11453,13 +11489,30 @@ fn optimize_instructions_descriptor_operand_exactly_describes_target(
       ref_type.is_exact() =>
       match ref_type.get_heap_type() {
         @lib.HeapType(descriptor_idx) => descriptor_idx
-        _ => return false
+        _ => return None
       }
-    _ => return false
+    _ => return None
   }
-  match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
-    Some(subtype) => subtype.descriptor_type() == Some(descriptor_idx)
-    None => false
+  match @ir.hot_module_resolve_subtype(module_ctx, descriptor_idx) {
+    Some(subtype) =>
+      match subtype.describes_type() {
+        Some(described_idx) => Some(@lib.HeapType::new(described_idx))
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+fn optimize_instructions_ref_operand_is_exact_heap(
+  func : @ir.HotFunc,
+  node_id : Int,
+  heap : @lib.HeapType,
+) -> Bool {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] =>
+      ref_type.is_exact() && ref_type.get_heap_type() == heap
+    _ => false
   }
 }
 
