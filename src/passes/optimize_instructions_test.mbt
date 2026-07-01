@@ -9102,6 +9102,251 @@ test "optimize-instructions moves select-produced ref.get_desc child null checks
 }
 
 ///|
+test "optimize-instructions moves effectful-condition if ref.get_desc child null checks into descriptor casts" {
+  // OI-J descriptor-operand trapOnNull breadth: Binaryen version_130 default
+  // and IIT modes preserve side effects in an if condition while simplifying
+  // `ref.get_desc(ref.as_non_null(if ...))` to `ref.get_desc(if ...)`.
+  // Branching/escaping control inside the if remains outside this slice.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                nullable_described_val_type,
+                nullable_described_val_type,
+                @lib.ValType::i32(),
+              ],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(1)),
+              ]),
+            ),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))],
+              Some([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected effectful-condition if descriptor ref.get_desc null-check simplification, got \{err}",
+      )
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::RefCastDescEq(_, _, _)) => ()
+    other => fail("expected descriptor cast to remain, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
+  let descriptor_operand = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_exact_instr(func, descriptor_operand) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    other => fail("expected ref.get_desc descriptor operand, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_child_count(func, descriptor_operand), 1)
+  let child = @ir.hot_child_get(func, descriptor_operand, 0)
+  match @ir.hot_node_get(func, child).op {
+    @ir.HotOp::If => ()
+    other =>
+      fail(
+        "expected effectful-condition if child after descriptor null check moved into cast, got \{other}",
+      )
+  }
+  let condition = @ir.hot_child_get(func, child, 0)
+  match @ir.hot_node_get(func, condition).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected effectful condition block to remain, got \{other}")
+  }
+}
+
+///|
+test "optimize-instructions localizes effectful-condition if ref.get_desc descriptor operands under traps-never-happen" {
+  // OI-J TNH companion for the effectful-condition if case above: Binaryen
+  // skips the descriptor cast but preserves the effectful condition by
+  // evaluating `ref.get_desc(if ...)` into a descriptor scratch local before
+  // returning the original reference operand. Escaping labels remain open.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                nullable_described_val_type,
+                nullable_described_val_type,
+                @lib.ValType::i32(),
+              ],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32(1)),
+              ]),
+            ),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))],
+              Some([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected effectful-condition if descriptor TNH ref.get_desc localization, got \{err}",
+      )
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected ref.get_desc localization block, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
+  let localized_descriptor = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, localized_descriptor).op {
+    @ir.HotOp::LocalSet => ()
+    other => fail("expected descriptor scratch local.set, got \{other}")
+  }
+  let stored_descriptor = @ir.hot_child_get(func, localized_descriptor, 0)
+  match @ir.hot_node_exact_instr(func, stored_descriptor) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    other =>
+      fail("expected localized ref.get_desc descriptor operand, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_child_count(func, stored_descriptor), 1)
+  let child = @ir.hot_child_get(func, stored_descriptor, 0)
+  match @ir.hot_node_get(func, child).op {
+    @ir.HotOp::If => ()
+    other =>
+      fail(
+        "expected localized ref.get_desc child null check to move into if, got \{other}",
+      )
+  }
+  let result = @ir.hot_child_get(func, root, 1)
+  let result_node = @ir.hot_node_get(func, result)
+  match result_node.op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected original local.get result, got \{other}")
+  }
+  @debug.assert_eq(result_node.imm0, 0)
+}
+
+///|
 test "optimize-instructions moves if-produced ref.get_desc child null checks into descriptor casts" {
   // OI-J descriptor-operand trapOnNull breadth: Binaryen version_130 default
   // and IIT modes preserve the descriptor equality cast, but simplify a pure

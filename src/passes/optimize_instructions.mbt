@@ -11180,22 +11180,29 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
     ) {
     optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
     true
-  } else if optimize_instructions_descriptor_skip_must_preserve_operand_order(
-      func, operand_id,
-    ) {
-    optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
-      ctx, func, node_id, operand_id, descriptor_id,
-    )
-  } else if optimize_instructions_descriptor_operand_should_localize_when_skipped(
-      func, descriptor_id,
-    ) {
-    optimize_instructions_replace_with_local_set_then_node_id(
-      ctx, func, node_id, descriptor_id, operand_id,
-    )
   } else {
-    optimize_instructions_replace_with_drop_then_node_id(
-      ctx, func, node_id, descriptor_id, operand_id,
+    ignore(
+      optimize_instructions_try_move_ref_get_desc_child_null_check(
+        ctx, func, descriptor_id,
+      ),
     )
+    if optimize_instructions_descriptor_skip_must_preserve_operand_order(
+        func, operand_id,
+      ) {
+      optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
+        ctx, func, node_id, operand_id, descriptor_id,
+      )
+    } else if optimize_instructions_descriptor_operand_should_localize_when_skipped(
+        func, descriptor_id,
+      ) {
+      optimize_instructions_replace_with_local_set_then_node_id(
+        ctx, func, node_id, descriptor_id, operand_id,
+      )
+    } else {
+      optimize_instructions_replace_with_drop_then_node_id(
+        ctx, func, node_id, descriptor_id, operand_id,
+      )
+    }
   }
 }
 
@@ -11270,10 +11277,119 @@ fn optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
 }
 
 ///|
+fn optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if node.child_count != 3 {
+    return false
+  }
+  if optimize_instructions_descriptor_expr_has_branch_control(
+      func,
+      @ir.hot_child_get(func, node_id, 0),
+    ) {
+    return false
+  }
+  let then_region = @ir.hot_region_then_ref(func, node_id)
+  let else_region = match @ir.hot_region_else_ref(func, node_id) {
+    Some(region) => region
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, then_region) != 1 ||
+    @ir.hot_region_root_count(func, else_region) != 1 {
+    return false
+  }
+  !optimize_instructions_descriptor_expr_has_branch_control(
+    func,
+    @ir.hot_region_get(func, then_region, 0),
+  ) &&
+  !optimize_instructions_descriptor_expr_has_branch_control(
+    func,
+    @ir.hot_region_get(func, else_region, 0),
+  )
+}
+
+///|
+fn optimize_instructions_descriptor_region_has_branch_control(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for slot = 0
+      slot < @ir.hot_region_root_count(func, region_ref)
+      slot = slot + 1 {
+    if optimize_instructions_descriptor_expr_has_branch_control(
+        func,
+        @ir.hot_region_get(func, region_ref, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimize_instructions_descriptor_expr_has_branch_control(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail => return true
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      if optimize_instructions_descriptor_region_has_branch_control(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return true
+      }
+    @ir.HotOp::If => {
+      if optimize_instructions_descriptor_expr_has_branch_control(
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+        ) ||
+        optimize_instructions_descriptor_region_has_branch_control(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          if optimize_instructions_descriptor_region_has_branch_control(
+              func, region_ref,
+            ) {
+            return true
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if optimize_instructions_descriptor_expr_has_branch_control(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if @ir.hot_child_count(func, node_id) != 2 {
@@ -11298,35 +11414,49 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
       pass_mark_mutated(ctx, func)
       true
     }
-    Some(@lib.Instruction::RefGetDesc(_)) => {
-      if @ir.hot_child_count(func, descriptor_id) != 1 {
-        return false
-      }
-      let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
-      match @ir.hot_node_exact_instr(func, get_desc_child) {
-        Some(@lib.Instruction::RefAsNonNull) => ()
-        _ => return false
-      }
-      if @ir.hot_child_count(func, get_desc_child) != 1 {
-        return false
-      }
-      let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
-      match @ir.hot_node_get(func, nullable_child).op {
-        @ir.HotOp::LocalGet | @ir.HotOp::Block | @ir.HotOp::Select => ()
-        @ir.HotOp::If =>
-          if !optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
-              func, dead, nullable_child,
-            ) {
-            return false
-          }
-        _ => return false
-      }
-      @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
-      pass_mark_mutated(ctx, func)
-      true
-    }
+    Some(@lib.Instruction::RefGetDesc(_)) =>
+      optimize_instructions_try_move_ref_get_desc_child_null_check(
+        ctx, func, descriptor_id,
+      )
     _ => false
   }
+}
+
+///|
+fn optimize_instructions_try_move_ref_get_desc_child_null_check(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  descriptor_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, descriptor_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, descriptor_id) != 1 {
+    return false
+  }
+  let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
+  match @ir.hot_node_exact_instr(func, get_desc_child) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, get_desc_child) != 1 {
+    return false
+  }
+  let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
+  match @ir.hot_node_get(func, nullable_child).op {
+    @ir.HotOp::LocalGet | @ir.HotOp::Block | @ir.HotOp::Select => ()
+    @ir.HotOp::If =>
+      if !optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
+          func, nullable_child,
+        ) {
+        return false
+      }
+    _ => return false
+  }
+  @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
@@ -13935,7 +14065,7 @@ fn optimize_instructions_visit_node(
         ctx, func, dead, node_id,
       ) ||
       optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
-        ctx, func, dead, node_id,
+        ctx, func, node_id,
       ) ||
       optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
         ctx, func, node_id,
