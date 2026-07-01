@@ -24794,6 +24794,22 @@ fn run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_alloc(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut i = 0
+  while i + 2 < instrs.length() {
+    match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+      (@lib.RefNull(_), @lib.StructNewDefault(_), @lib.RefCastDescEq(_, _, _)) =>
+        return true
+      _ => ()
+    }
+    i = i + 1
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -24809,11 +24825,17 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
           descriptor_instr,
           @lib.RefCastDescEq(nullable, exact, target),
         ) if (match descriptor_instr {
-            @lib.Call(_) => true
+            @lib.Call(_) | @lib.StructNewDefault(_) => true
             _ => false
           }) => {
-          rewritten.push(descriptor_instr)
-          rewritten.push(@lib.Instruction::drop())
+          match descriptor_instr {
+            @lib.Call(_) => {
+              rewritten.push(descriptor_instr)
+              rewritten.push(@lib.Instruction::drop())
+            }
+            @lib.StructNewDefault(_) => ()
+            _ => ()
+          }
           if nullable {
             rewritten.push(
               @lib.Instruction::ref_null_type(
@@ -25638,6 +25660,17 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     original
   }
   let skipped_unchanged = !directized_changed && !effectful_sibling_changed
+  if effectful_sibling_changed &&
+    run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_alloc(
+      body,
+    ) {
+    return Some({
+      reason: "descriptor-bottom-null-allocation-fold",
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
+      trace_skip_raw: true,
+    })
+  }
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
   if locals.length() > 1024 {

@@ -9945,6 +9945,104 @@ test "optimize-instructions raw skip retargets bottom null descriptor casts" {
 }
 
 ///|
+test "optimize-instructions raw skip erases fresh descriptor allocations for bottom-null descriptor casts" {
+  // OI-J active-dispatcher descriptor/null slice: Binaryen version_130 folds
+  // `(ref.null none; struct.new_default descriptor; ref.cast_desc_eq)` to a
+  // target-typed null for nullable targets and to `unreachable` for non-null
+  // targets, erasing the fresh descriptor allocation. The public raw-skip path
+  // must do the same before final validation; otherwise the non-null cast keeps
+  // an impossible bottom-null operand and fails validation.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let nullable_func_type = @lib.TypeIdx::new(2U)
+  let nonnull_func_type = @lib.TypeIdx::new(3U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nonnull_described_ref_type = @lib.RefType::new(false, described_heap)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nonnull_described_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([nullable_func_type, nonnull_func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::none()),
+            ),
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::none()),
+            ),
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nonnull_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected fresh descriptor bottom-null raw-skip success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+  let nullable_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let nonnull_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(
+    nullable_pretty.contains("ref.cast_desc_eq"),
+    msg=nullable_pretty,
+  )
+  assert_false(
+    nullable_pretty.contains("struct.new_default"),
+    msg=nullable_pretty,
+  )
+  assert_true(nullable_pretty.contains("ref.null"), msg=nullable_pretty)
+  assert_false(nonnull_pretty.contains("ref.cast_desc_eq"), msg=nonnull_pretty)
+  assert_false(
+    nonnull_pretty.contains("struct.new_default"),
+    msg=nonnull_pretty,
+  )
+  assert_true(nonnull_pretty.contains("unreachable"), msg=nonnull_pretty)
+}
+
+///|
 test "optimize-instructions folds nullable ref.test and ref.cast on known null refs" {
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let eq_ref = @lib.ValType::ref_null(eq_heap)
