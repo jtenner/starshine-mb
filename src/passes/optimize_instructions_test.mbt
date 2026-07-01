@@ -8399,6 +8399,83 @@ test "optimize-instructions erases nontrapping ref.get_desc descriptor operands 
 }
 
 ///|
+test "optimize-instructions erases ref.get_desc descriptor operands with nullable local children under traps-never-happen" {
+  // OI-J TNH descriptor-operand breadth: Binaryen version_130 with
+  // `--traps-never-happen --optimize-instructions` removes a descriptor
+  // equality cast whose explicit descriptor operand is `ref.get_desc` of a
+  // nullable local after `ref.as_non_null`. Default and IIT modes preserve the
+  // descriptor check, but TNH may ignore the child null trap and erase the pure
+  // descriptor operand. This is a narrow pure-child case; effectful children are
+  // still localized by the following regression.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::ref_type(nullable_described_ref_type)],
+              [@lib.ValType::ref_type(nullable_described_ref_type)],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected descriptor TNH nullable-child ref.get_desc erase, got \{err}",
+      )
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected local.get after TNH nullable-child ref.get_desc erase")
+  }
+  @debug.assert_eq(root, @ir.hot_root_get(func, 0))
+  @debug.assert_eq(@ir.hot_node_get(func, root).imm0, 0)
+}
+
+///|
 test "optimize-instructions localizes effectful ref.get_desc descriptor operands under traps-never-happen" {
   // OI-J TNH descriptor-operand breadth: Binaryen version_130 does not drop an
   // effectful `ref.get_desc` descriptor operand as a value expression when the

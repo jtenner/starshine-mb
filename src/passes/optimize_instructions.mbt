@@ -11423,7 +11423,13 @@ fn optimize_instructions_descriptor_operand_can_erase(
   optimize_instructions_is_side_effect_free_expr(func, dead, node_id) ||
   optimize_instructions_node_effects_are_pure(ctx, func, node_id) ||
   optimize_instructions_descriptor_operand_allocation_can_erase(func, node_id) ||
-  optimize_instructions_ref_get_desc_operand_can_erase(func, dead, node_id)
+  optimize_instructions_ref_get_desc_operand_can_erase(func, dead, node_id) ||
+  (
+    ctx.traps_never_happen &&
+    optimize_instructions_ref_get_desc_operand_can_erase_traps_never_happen(
+      func, dead, node_id,
+    )
+  )
 }
 
 ///|
@@ -11494,6 +11500,34 @@ fn optimize_instructions_ref_get_desc_operand_can_erase(
     optimize_instructions_ref_is_known_non_null(func, operand_id)
   ) &&
   optimize_instructions_is_side_effect_free_expr(func, dead, operand_id)
+}
+
+///|
+fn optimize_instructions_ref_get_desc_operand_can_erase_traps_never_happen(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_exact_instr(func, operand_id) {
+    Some(@lib.Instruction::RefAsNonNull) => {
+      if @ir.hot_child_count(func, operand_id) != 1 {
+        return false
+      }
+      let nullable_operand_id = @ir.hot_child_get(func, operand_id, 0)
+      optimize_instructions_is_side_effect_free_expr(
+        func, dead, nullable_operand_id,
+      )
+    }
+    _ => false
+  }
 }
 
 ///|
