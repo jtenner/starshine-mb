@@ -11163,6 +11163,12 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
     ) {
     optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
     true
+  } else if optimize_instructions_descriptor_operand_should_localize_when_skipped(
+      func, descriptor_id,
+    ) {
+    optimize_instructions_replace_with_local_set_then_node_id(
+      ctx, func, node_id, descriptor_id, operand_id,
+    )
   } else {
     optimize_instructions_replace_with_drop_then_node_id(
       ctx, func, node_id, descriptor_id, operand_id,
@@ -11340,6 +11346,39 @@ fn optimize_instructions_descriptor_operand_allocation_can_erase(
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::StructNewDefault(_)) => true
     _ => false
+  }
+}
+
+///|
+fn optimize_instructions_descriptor_operand_should_localize_when_skipped(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => true
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_defaultable_scratch_type(
+  val_type : @lib.ValType,
+) -> @lib.ValType? {
+  if @lib.has_default(val_type) {
+    return Some(val_type)
+  }
+  match val_type {
+    @lib.RefTypeValType(ref_type) =>
+      Some(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            true,
+            ref_type.get_heap_type(),
+            exact=ref_type.is_exact(),
+          ),
+        ),
+      )
+    _ => None
   }
 }
 
@@ -11599,6 +11638,46 @@ fn optimize_instructions_replace_with_drop_then_node_id(
   }
   let temp = @ir.hot_build_block(func, block_type, [
     @ir.hot_build_drop(func, drop_id),
+    value_id,
+  ])
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_replace_with_local_set_then_node_id(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  localize_id : Int,
+  value_id : Int,
+) -> Bool {
+  let block_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [] => @lib.BlockType::void_()
+    [val_type] => @lib.BlockType::val_type(val_type)
+    _ => return false
+  }
+  let local_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, localize_id)) {
+    [val_type] =>
+      match optimize_instructions_defaultable_scratch_type(val_type) {
+        Some(local_type) => local_type
+        None => return false
+      }
+    _ => return false
+  }
+  let local_id = @ir.hot_append_body_local(func, local_type)
+  let temp = @ir.hot_build_block(func, block_type, [
+    @ir.hot_build_local_set(func, local_id, localize_id),
     value_id,
   ])
   let replacement = @ir.hot_node_get(func, temp)
