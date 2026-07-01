@@ -3386,11 +3386,37 @@
         }
       ],
       "closeoutState": "defer-with-reopen-criteria",
-      "releaseImpact": "P1: direct call_ref/table.get/argument cases have sampled evidence, but broader table-state proof, return_call_ref, multivalue and effect/trap target sweeps remain non-P0 for v0.1 unless product scope changes.",
-      "remainingCloseoutWork": "Condense existing target-clean and argument evidence into covered subsets versus explicit deferred target-state/localization work. Avoid more profile labels unless a known table-state or return_call_ref implementation lands.",
-      "nextCloseoutAction": "Either implement a single known target-state directization gap red-first or mark OI-H as v0.1 defer-with-reopen-criteria using existing validation/opcode/size evidence.",
-      "closeoutRationale": "Sampled outputs are often target-clean and canonical/WAT smaller, but some residuals are raw-size-losing output-shape drift and broad call_ref directization is not complete. This is finite defer/implementation work, not P0 closeout.",
-      "reopenCriteria": "Residual Starshine call_ref/return_call_ref/table.get in a supported known-target case, raw/canonical size loss without accepted rationale, validation failure, or new source-backed call_ref target shape promoted into v0.1 scope."
+      "releaseImpact": "P1: accepted v0.1 defer-with-reopen-criteria. Direct ref.func/table.get and sampled argument target cases have evidence, while broader table-state proof, generalized return_call_ref, multivalue, argument localization, and effect/trap target sweeps are post-v0.1 implementation work unless product scope changes.",
+      "remainingCloseoutWork": "No more OI-H profile labels for v0.1. The finite table separates covered sampled known-target directization, sampled output-shape drift after target cleanup, deferred post-v0.1 target-state/localization work, and one small finite signoff lane if fresh evidence is required.",
+      "nextCloseoutAction": "Keep OI-H deferred for v0.1. Post-v0.1, implement one source-backed table-state, return_call_ref, multivalue, or argument-localization gap red-first. For release signoff, run only the finite count40 command in closeoutBuckets[3] if required, and reopen implementation work only for residual target opcodes, validation failure, unaccepted raw/canonical size loss, or a promoted source-backed target shape.",
+      "closeoutRationale": "OI-H has enough target-clean validation/opcode/size evidence to avoid more v0.1 breadth work, but not enough for covered status. Some residuals are raw-size-losing output-shape/cross-family drift, so the row stays deferred rather than sampled-starshine-win. This is a finite v0.1 boundary with explicit reopen criteria, not a validation-alone safety claim.",
+      "reopenCriteria": "Residual Starshine call_ref/return_call_ref/table.get in a supported known-target case, validation failure, raw/canonical size loss without accepted output-shape rationale, lost argument/effect/trap/target evaluation order, a finite OI-H signoff regression, a new Binaryen source-backed call_ref target shape promoted into v0.1 scope, or any attempt to use OI-H non-descriptor evidence to close OI-J descriptor/exactness/TNH/IIT.",
+      "closeoutBuckets": [
+        {
+          "bucket": "covered-sampled-known-target-directization",
+          "state": "covered-by-focused-tests-and-sampled-lanes",
+          "evidence": "Source-backed direct ref.func call_ref/return_call_ref and table.get call_ref/return_call_ref lowering are covered by docs/wiki/raw/research/0750-2026-06-19-optimize-instructions-oi-h-ref-func-call-ref.md and docs/wiki/raw/research/0751-2026-06-19-optimize-instructions-oi-h-table-get-call-ref.md. Later grouped lanes show sampled target-wrapper/local/effectful paths are target-clean: .tmp/oi-h-bounded-count4-20260630 validated all 16 residual raw/canonical artifacts and had call_ref, return_call_ref, table.get, call_indirect, and return_call_indirect counts aligned at 0/0 for residual target opcodes; argument-direct/local/select labels had direct profile matches and grouped residuals from older dropped-ref.func buckets rather than the new argument-select label.",
+          "nextAction": "No v0.1 breadth expansion. Reopen as implementation work only if a supported known-target sample leaves residual call_ref/return_call_ref/table.get or validation fails."
+        },
+        {
+          "bucket": "sampled-output-shape-drift-after-target-cleanup",
+          "state": "defer-with-reopen-criteria",
+          "evidence": "The residual OI-H lanes are not closed by validation alone and include raw-size-losing drift. .tmp/oi-h-bounded-count4-20260630 preserved target-clean outputs and validated artifacts, but target-wrapper/local/effectful residuals had raw/canonical/WAT deltas +25/-101/-3619, +41/-18/-618, and +28/-54/-2291. .tmp/oi-h-argument-select-count40-20260630 validated all 44 residual raw/canonical artifacts; the new argument-select label matched 1/1, and residuals stayed in older output-shape buckets with aggregate -42/-299/-2006. These are accepted only as P1 deferred output-shape/cross-family drift with concrete opcode/size evidence, not as broad OI-H coverage.",
+          "nextAction": "Do not reintroduce Binaryen-retained dropped ref.func debris just to align raw bytes. If release policy requires fresh OI-H evidence, run a small finite signoff and classify any residual by target opcode preservation, validation, and raw/canonical size before reopening implementation work."
+        },
+        {
+          "bucket": "deferred-v0.1-target-state-tail",
+          "state": "post-v0.1-implementation-boundary",
+          "evidence": "Broader table-state proof, non-void return_call_ref/localization beyond sampled table.get and ref.func forms, multivalue arguments/results, argument localization through general select/control/table producers, and live effect/trap target sweeps remain outside the v0.1 P0 closeout unless product scope changes. Current evidence is non-descriptor and must not be used for OI-J.",
+          "nextAction": "Post-v0.1 implementation target: pick one source-backed table-state, return_call_ref, multivalue, or argument-localization gap and implement it red-first. For v0.1, keep OI-H as defer-with-reopen-criteria; do not add profile labels unless an implementation lands or a finite signoff exposes a concrete target-state residual."
+        },
+        {
+          "bucket": "finite-signoff-if-required",
+          "state": "finite-signoff-only",
+          "evidence": "OI-H larger lanes have timed out before summary emission, so closeout evidence should stay small and finite. The latest reliable bounded lane is .tmp/oi-h-bounded-count4-20260630; larger count8 timed out at 300s. Existing count40 argument-select evidence is already classified.",
+          "nextAction": "If release closeout requires a fresh OI-H check, run exactly: moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 40 --seed 0x5eed --gen-valid-profile pass-oi-call-ref --out-dir .tmp/oi-h-v01-defer-signoff-count40 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures. Stop after this finite lane; classify any residual target opcode or size regression before changing row state."
+        }
+      ]
     },
     {
       "id": "OI-I-ref-null-cast-basics",
