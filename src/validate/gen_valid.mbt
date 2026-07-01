@@ -15127,7 +15127,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
     PassOiTupleProfile => 17
     PassOiLocalFactsProfile => 13
     PassOiBooleanSelectProfile => 4
-    PassOiCallRefProfile => 9
+    PassOiCallRefProfile => 10
     _ => 3
   }
 }
@@ -15305,7 +15305,8 @@ fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int {
     0x5ef3UL => 6
     0x5ef4UL => 7
     0x5ef5UL => 8
-    _ => (seed % 9UL).to_int()
+    0x5ef6UL => 9
+    _ => (seed % 10UL).to_int()
   }
 }
 
@@ -15425,6 +15426,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         6 => Some("oi-call-ref:argument-direct-target")
         7 => Some("oi-call-ref:argument-local-target")
         8 => Some("oi-call-ref:argument-multivalue-target")
+        9 => Some("oi-call-ref:argument-select-target")
         _ => Some("oi-call-ref:direct-target-wrapper")
       }
     PassOiRefGcProfile =>
@@ -18979,7 +18981,7 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
   }
   let target_type = if case == 3 {
     gen_valid_precompute_void_func_type()
-  } else if case == 6 || case == 7 {
+  } else if case == 6 || case == 7 || case == 9 {
     RecType::new(
       SubType::comp_type(CompType::func([ValType::i32()], [ValType::i32()])),
     )
@@ -19060,6 +19062,16 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
         Instruction::call_ref(target_type_idx),
         Instruction::drop(),
       ]
+    9 =>
+      [
+        Instruction::i32_const(I32(41)),
+        Instruction::i32_const(I32(99)),
+        Instruction::i32_const(I32(1)),
+        Instruction::select(),
+        Instruction::ref_func(target_func_idx),
+        Instruction::call_ref(target_type_idx),
+        Instruction::drop(),
+      ]
     _ =>
       [
         Instruction::ref_func(target_func_idx),
@@ -19095,7 +19107,7 @@ fn gen_valid_oi_call_ref_profile_module(case : Int) -> Module {
           Expr::new(
             if case == 3 {
               []
-            } else if case == 6 || case == 7 {
+            } else if case == 6 || case == 7 || case == 9 {
               [Instruction::local_get(LocalIdx::new(0U))]
             } else if case == 8 {
               [Instruction::local_get(LocalIdx::new(1U))]

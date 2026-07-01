@@ -2545,17 +2545,17 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
   }
 
   let call_ref_args = EmitGenValidBatchArgs::new(
-    20,
+    40,
     0x5eedUL,
     "tmp/gen-valid-oi-call-ref",
     profile="pass-oi-call-ref",
-    max_attempts=40,
+    max_attempts=80,
   )
   let call_ref_selection = match emit_gen_valid_batch_selection(call_ref_args) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
-  @debug.assert_eq(call_ref_selection.manifest.length(), 20)
+  @debug.assert_eq(call_ref_selection.manifest.length(), 40)
   let call_ref_manifest = format_gen_valid_batch_manifest_json(
     call_ref_args, call_ref_selection,
   )
@@ -2564,7 +2564,7 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
       "oi-call-ref:local-carried-target", "oi-call-ref:block-produced-target", "oi-call-ref:return-call-ref-target",
       "oi-call-ref:direct-target-wrapper", "oi-call-ref:table-get-target", "oi-call-ref:return-table-get-target",
       "oi-call-ref:argument-direct-target", "oi-call-ref:argument-local-target",
-      "oi-call-ref:argument-multivalue-target",
+      "oi-call-ref:argument-multivalue-target", "oi-call-ref:argument-select-target",
     ] {
     assert_true(
       call_ref_manifest.contains(label),
