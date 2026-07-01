@@ -2222,6 +2222,42 @@ fn gen_valid_test_oi_local_fact_trigger_signature(
 }
 
 ///|
+fn gen_valid_test_instrs_have_result_block_for(
+  instrs : Array[Instruction],
+  wanted : ValType,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      Block(ValTypeBlockType(vt), Expr(body)) => {
+        if vt == wanted {
+          return true
+        }
+        if gen_valid_test_instrs_have_result_block_for(body, wanted) {
+          return true
+        }
+      }
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_result_block_for(body, wanted) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_result_block_for(then_body, wanted) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_result_block_for(
+              body, wanted,
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_instrs_have_i32_div(instrs : Array[Instruction]) -> Bool {
   for instr in instrs {
     match instr {
@@ -2536,6 +2572,14 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let local_fact_block_mask = match
+    gen_valid_module_result_from_seed(
+      0x5efbUL,
+      GenValidConfig::for_profile(PassOiLocalFactsProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5ef0UL),
     Some("oi-local-facts:existing-producer-sign-extension"),
@@ -2581,6 +2625,10 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5efaUL),
     Some("oi-local-facts:select-produced-mask"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiLocalFactsProfile, 0x5efbUL),
+    Some("oi-local-facts:block-produced-mask"),
   )
   @debug.assert_eq(
     gen_valid_test_oi_local_fact_trigger_signature(
@@ -2769,6 +2817,34 @@ test "OI-D and OI-E trigger-smoke profiles select distinct seed-indexed cases" {
   @debug.assert_eq(
     gen_valid_test_oi_local_fact_trigger_signature(
       gen_valid_test_first_func_instrs(local_fact_select_mask.wasm_module),
+    ),
+    "local-mask",
+  )
+  assert_true(
+    gen_valid_test_instrs_have_result_block_for(
+      gen_valid_test_first_func_instrs(local_fact_block_mask.wasm_module),
+      ValType::i32(),
+    ),
+    msg="expected i32 result block producer for block-produced local-fact mask",
+  )
+  assert_true(
+    gen_valid_test_instrs_have_result_block_for(
+      gen_valid_test_first_func_instrs(local_fact_block_mask.wasm_module),
+      ValType::i64(),
+    ),
+    msg="expected i64 result block producer for block-produced local-fact mask",
+  )
+  assert_true(
+    local_fact_block_mask.facts.exact_opcode_counts.i32_and > 0,
+    msg="expected i32 mask after block-produced local fact",
+  )
+  assert_true(
+    local_fact_block_mask.facts.exact_opcode_counts.i64_and > 0,
+    msg="expected i64 mask after block-produced local fact",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_local_fact_trigger_signature(
+      gen_valid_test_first_func_instrs(local_fact_block_mask.wasm_module),
     ),
     "local-mask",
   )
