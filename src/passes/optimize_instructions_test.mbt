@@ -8086,6 +8086,81 @@ test "optimize-instructions skips descriptor equality casts under traps-never-ha
 }
 
 ///|
+test "optimize-instructions erases nontrapping ref.get_desc descriptor operands under traps-never-happen" {
+  // OI-J TNH descriptor operand breadth: Binaryen version_130 with
+  // `--traps-never-happen --optimize-instructions` removes a descriptor
+  // equality cast whose explicit descriptor operand is `ref.get_desc` of an
+  // already-non-null reference. The `ref.get_desc` operand is only erased here
+  // because its child cannot trap and has no effects; effectful descriptor
+  // operands and ref.test_desc remain open.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let func_type = @lib.TypeIdx::new(2U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let described_ref_type = @lib.RefType::new(false, described_heap)
+  let func = @ir.hot_lift_func(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::ref_type(described_ref_type)], [
+              @lib.ValType::ref_type(described_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::ref_cast_desc_eq_type(described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.FuncIdx::new(0U),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected descriptor TNH ref.get_desc skip success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  let root_node = @ir.hot_node_get(func, root)
+  match root_node.op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected local.get after TNH ref.get_desc descriptor erase")
+  }
+  @debug.assert_eq(root_node.imm0, 0)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 0)
+}
+
+///|
 test "optimize-instructions preserves descriptor effects when skipping descriptor casts under traps-never-happen" {
   // OI-J TNH/effect boundary: ignoring the descriptor-equality trap under TNH
   // must not erase the explicit descriptor operand's side effects. Binaryen

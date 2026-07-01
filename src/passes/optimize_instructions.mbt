@@ -11159,10 +11159,8 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
   if exact && !operand_exact {
     return false
   }
-  if optimize_instructions_is_side_effect_free_expr(func, dead, descriptor_id) ||
-    optimize_instructions_node_effects_are_pure(ctx, func, descriptor_id) ||
-    optimize_instructions_descriptor_operand_allocation_can_erase(
-      func, descriptor_id,
+  if optimize_instructions_descriptor_operand_can_erase(
+      ctx, func, dead, descriptor_id,
     ) {
     optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
     true
@@ -11261,13 +11259,9 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
     @ir.HotOp::RefNull => ()
     _ => return false
   }
-  let descriptor_can_erase = optimize_instructions_is_side_effect_free_expr(
-      func, dead, descriptor_id,
-    ) ||
-    optimize_instructions_node_effects_are_pure(ctx, func, descriptor_id) ||
-    optimize_instructions_descriptor_operand_allocation_can_erase(
-      func, descriptor_id,
-    )
+  let descriptor_can_erase = optimize_instructions_descriptor_operand_can_erase(
+    ctx, func, dead, descriptor_id,
+  )
   if nullable {
     let typed_null_id = @ir.hot_build_ref_null(
       func,
@@ -11294,6 +11288,19 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
 }
 
 ///|
+fn optimize_instructions_descriptor_operand_can_erase(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  optimize_instructions_is_side_effect_free_expr(func, dead, node_id) ||
+  optimize_instructions_node_effects_are_pure(ctx, func, node_id) ||
+  optimize_instructions_descriptor_operand_allocation_can_erase(func, node_id) ||
+  optimize_instructions_ref_get_desc_operand_can_erase(func, dead, node_id)
+}
+
+///|
 fn optimize_instructions_descriptor_operand_allocation_can_erase(
   func : @ir.HotFunc,
   node_id : Int,
@@ -11302,6 +11309,32 @@ fn optimize_instructions_descriptor_operand_allocation_can_erase(
     Some(@lib.Instruction::StructNewDefault(_)) => true
     _ => false
   }
+}
+
+///|
+fn optimize_instructions_ref_get_desc_operand_can_erase(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  let operand_non_null = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, operand_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => ref_type.is_non_nullable()
+    _ => false
+  }
+  (
+    operand_non_null ||
+    optimize_instructions_ref_is_known_non_null(func, operand_id)
+  ) &&
+  optimize_instructions_is_side_effect_free_expr(func, dead, operand_id)
 }
 
 ///|
