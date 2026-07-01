@@ -25,6 +25,85 @@ fn hot_lift_test_context_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lift_test_descriptor_module() -> @lib.Module {
+  let described = @lib.SubType::comp_type(
+    @lib.CompType::struct_([]),
+    metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(1U))),
+  )
+  let descriptor = @lib.SubType::comp_type(
+    @lib.CompType::struct_([]),
+    metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(0U))),
+  )
+  @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(described),
+      @lib.RecType::new(descriptor),
+    ]),
+  )
+}
+
+///|
+fn hot_lift_test_described_ref_type() -> @lib.ValType {
+  @lib.ValType::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(0U)))
+}
+
+///|
+fn hot_lift_test_descriptor_ref_type() -> @lib.ValType {
+  @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+}
+
+///|
+test "hot lift preserves official two-operand descriptor cast operands" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::ref_cast_desc_eq(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+    ),
+    @lib.Instruction::drop(),
+  ])
+  let func = hot_lift_body_with_context(
+    body,
+    HotLocals::new(params=[
+      hot_lift_test_described_ref_type(),
+      hot_lift_test_descriptor_ref_type(),
+    ]),
+    hot_module_context_from_module(hot_lift_test_descriptor_module()),
+  )
+
+  @debug.assert_eq(hot_root_count(func), 1)
+  let drop = hot_root_get(func, 0)
+  let cast = hot_child_get(func, drop, 0)
+
+  @debug.assert_eq(hot_node_get(func, cast).op.to_string(), "RefCastDescEq")
+  @debug.assert_eq(hot_child_count(func, cast), 2)
+  @debug.assert_eq(
+    hot_node_get(func, hot_child_get(func, cast, 0)).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(
+    hot_node_get(func, hot_child_get(func, cast, 1)).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(
+    hot_node_exact_instr(func, cast),
+    Some(
+      @lib.Instruction::ref_cast_desc_eq(
+        true,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+    ),
+  )
+}
+
+///|
 test "hot lift can preserve representative exact-payload families in module context" {
   let memarg = hot_lift_test_memarg()
   let module_ = hot_lift_test_context_module()

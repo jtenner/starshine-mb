@@ -627,9 +627,9 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
     | Some(HotOp::RefTest)
     | Some(HotOp::RefCast)
     | Some(HotOp::RefTestDesc)
-    | Some(HotOp::RefCastDescEq)
     | Some(HotOp::Unary)
     | Some(HotOp::Convert) => Some(1)
+    Some(HotOp::RefCastDescEq) => None
     Some(HotOp::Store) | Some(HotOp::Binary) | Some(HotOp::Compare) => Some(2)
     Some(HotOp::Heap) =>
       match instr {
