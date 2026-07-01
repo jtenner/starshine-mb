@@ -992,12 +992,32 @@
           "lastCheckedEvidence": "2026-06-27 fresh OI-D count-3 sweep at .tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke; stat measured canonical wasm byte deltas; wasm-tools validate --features all passed for Binaryen and Starshine canonical outputs."
         }
       ],
-      "closeoutState": "mismatch-needs-implementation",
-      "releaseImpact": "P0: release decision required; default scalar identities are common enough that remaining known scalar drift must either be implemented or explicitly accepted before OI closeout.",
-      "remainingCloseoutWork": "Collapse the accumulated OI-D residuals into a finite scalar table: known implemented identities, measured sampled Starshine-win residuals, and true missing Binaryen scalar rewrites. Do not add generator labels; use existing pass-oi-default-scalar and OI-D grouped evidence first.",
-      "nextCloseoutAction": "Classify the existing OI-D default-scalar residual family and implement any small confirmed parity gap with red-first tests; otherwise propose a v0.1 accepted-release-boundary with exact reopen criteria and a finite signoff command.",
-      "closeoutRationale": "Existing docs show many scalar subsets implemented and some sampled smaller Starshine residuals, but the row still says broad default-scalar breadth is underclassified. That is not closeout-ready and should be treated as implementation/finite-classification work, not more smoke breadth.",
-      "reopenCriteria": "Any true semantic mismatch, validation failure, size-losing unimplemented scalar rewrite without accepted rationale, new Binaryen lit/source scalar family not mapped in the matrix, or a failed finite OI-D signoff lane."
+      "closeoutBuckets": [
+        {
+          "bucket": "implemented-scalar-identities",
+          "state": "covered-by-focused-tests-and-prior-compare",
+          "evidence": "docs/wiki/raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md records red-first tests and implementation for exact i32/i64 subtraction constants, float sub-to-add-negative/divide-by-two spelling, i32.wrap_i64 constants, guarded relational operand canonicalization, and trapping integer-division preservation; src/passes/optimize_instructions_test.mbt focused optimize-instructions tests passed 92/92 and moon test src/passes passed 2604/2604 in that slice.",
+          "nextAction": "No new generator breadth. Reopen only if the finite signoff command below finds a regression in these covered scalar identities or a source-lit scalar family is promoted to v0.1 scope."
+        },
+        {
+          "bucket": "sampled-size-winning-output-drift",
+          "state": "sampled-starshine-win",
+          "evidence": ".tmp/pass-fuzz-optimize-instructions-oi-d-default-scalar-10000 compared 56/10000 before the default failure ceiling with 28 normalized matches, 28 raw mismatches, zero validation/property/generator failures, and one Binaryen rec-group-zero tool failure; the remaining direct-lane mismatches were agent-classified as constant-if folding where the condition is a literal, no side-effecting condition is removed, and sampled canonical outputs are smaller for Starshine (for example 4161->4135, 5539->5501, 5559->5516). .tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke then removed the literal double-eqz missed-fixpoint gap and left only pure constant compare/sign-extension residuals with validated canonical outputs and Starshine canonical deltas -5/-2/-2 bytes.",
+          "nextAction": "Retain as a v0.1 sampled Starshine-win subset because the evidence is source/transform-specific pure constant folding plus validation and canonical size wins, not merely both outputs validating. If fresh signoff exposes a raw/canonical size loss or effect/trap/control-bearing scalar drift, reclassify as mismatch-needs-implementation."
+        },
+        {
+          "bucket": "unclassified-broad-default-lit-tail",
+          "state": "finite-signoff-required",
+          "evidence": "The version_130 source/lit matrix maps default/mvp/nontrapping-float-to-int/string-adjacent scalar breadth to OI-D/OI-N, but no current closeout evidence requires adding labels. Existing OI-D evidence says the old scalar/default arithmetic spelling family is fixed and the observed residuals are pure constant-if or pure constant compare/sign-extension output drift.",
+          "nextAction": "Run one finite row signoff only if release closeout needs fresh evidence: moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 10000 --seed 0x5eed --gen-valid-profile pass-oi-default-scalar --out-dir .tmp/oi-d-v01-closeout-signoff-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures. Classify any residual by opcode/WAT/size before changing the row; do not add OI-D labels."
+        }
+      ],
+      "closeoutState": "sampled-starshine-win",
+      "releaseImpact": "P0: v0.1 can treat the currently evidenced OI-D residuals as a sampled Starshine-win boundary, but the row is not full Binaryen scalar coverage until the finite signoff command stays within the covered buckets or any new scalar residual is implemented.",
+      "remainingCloseoutWork": "No new OI-D generator labels. The finite table is: covered implemented scalar identities, sampled size-winning pure constant output drift, and a single finite signoff lane for broad default-scalar smoke. Any size-losing, effect/trap/control-bearing, or source-lit scalar residual from that lane becomes implementation work.",
+      "nextCloseoutAction": "Run the finite OI-D v0.1 signoff command listed in closeoutBuckets[2] when the release closeout gate needs fresh evidence; otherwise keep this sampled-starshine-win row state and do not expand generator breadth.",
+      "closeoutRationale": "OI-D no longer has an unbounded next step. Prior red-first scalar fixes cover the known small implementation gaps, the direct 10000-lane residual family was constant-if Starshine-win by source/behavior reasoning plus validation and canonical-size evidence, and the grouped count-3 residuals after the double-eqz fix are pure constant compare/sign-extension Starshine canonical wins. This is not full coverage, and it is not called safe merely because both outputs validate; it is a finite sampled Starshine-win release position with a single signoff command.",
+      "reopenCriteria": "Any true semantic mismatch, validation failure, raw/canonical size-losing OI-D residual, effect/trap/control-sensitive scalar drift, new Binaryen lit/source scalar family promoted into v0.1 scope, or a failed finite OI-D signoff lane."
     },
     {
       "id": "OI-E-local-scanner-facts",
