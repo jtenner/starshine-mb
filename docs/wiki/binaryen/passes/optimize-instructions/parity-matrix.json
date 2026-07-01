@@ -989,7 +989,13 @@
           "nextAction": "Keep as a measured Starshine-win candidate unless broader randomized OI-D sweeps expose a semantic or size regression; otherwise source-back this constant-folding policy or align to Binaryen if the project decides output-shape parity is preferred.",
           "lastCheckedEvidence": "2026-06-27 fresh OI-D count-3 sweep at .tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke; stat measured canonical wasm byte deltas; wasm-tools validate --features all passed for Binaryen and Starshine canonical outputs."
         }
-      ]
+      ],
+      "closeoutState": "mismatch-needs-implementation",
+      "releaseImpact": "P0: release decision required; default scalar identities are common enough that remaining known scalar drift must either be implemented or explicitly accepted before OI closeout.",
+      "remainingCloseoutWork": "Collapse the accumulated OI-D residuals into a finite scalar table: known implemented identities, measured sampled Starshine-win residuals, and true missing Binaryen scalar rewrites. Do not add generator labels; use existing pass-oi-default-scalar and OI-D grouped evidence first.",
+      "nextCloseoutAction": "Classify the existing OI-D default-scalar residual family and implement any small confirmed parity gap with red-first tests; otherwise propose a v0.1 accepted-release-boundary with exact reopen criteria and a finite signoff command.",
+      "closeoutRationale": "Existing docs show many scalar subsets implemented and some sampled smaller Starshine residuals, but the row still says broad default-scalar breadth is underclassified. That is not closeout-ready and should be treated as implementation/finite-classification work, not more smoke breadth.",
+      "reopenCriteria": "Any true semantic mismatch, validation failure, size-losing unimplemented scalar rewrite without accepted rationale, new Binaryen lit/source scalar family not mapped in the matrix, or a failed finite OI-D signoff lane."
     },
     {
       "id": "OI-E-local-scanner-facts",
@@ -1226,7 +1232,13 @@
           "nextAction": "Keep as sampled select/control-producer evidence only. Broaden with randomized maxBits/signExt/nullness constructors, non-i32 carriers, broader masks, broader select/control producers, existing-producer wrappers, and effect/trap wrappers before attempting OI-E closure; do not use this non-descriptor evidence for OI-J descriptor/exactness/TNH/IIT.",
           "lastCheckedEvidence": "2026-07-01 OI-E direct count140 at .tmp/oi-e-select-mask-direct140-20260701 and grouped count140 at .tmp/oi-e-select-mask-count140-20260701; compared 140/140 in each lane, zero validation/generator/property/command failures, direct/grouped select-produced-mask residuals n=13/n=13, all residual artifacts validated."
         }
-      ]
+      ],
+      "closeoutState": "mismatch-needs-implementation",
+      "releaseImpact": "P0: LocalScanner facts affect common integer/mask/sign-extension cleanup. v0.1 can only close this row after either implementing broader fact parity or explicitly accepting a narrow release boundary.",
+      "remainingCloseoutWork": "Stop adding one-off local-fact labels. Decide the finite remaining set: randomized maxBits/signExt/nullness, non-i32 carriers, broader masks, broader select/control producers, and effect/trap wrappers. Existing sampled residuals are mostly Starshine-win after validation/opcode/size review, but that does not close broad LocalScanner parity.",
+      "nextCloseoutAction": "Use the accumulated OI-E evidence to write a finite LocalScanner closeout table: covered sampled shapes, known implementation gaps, and proposed v0.1 release boundary/reopen criteria. Only implement if a current residual is proven size-losing or semantically risky.",
+      "closeoutRationale": "2026-06-30/2026-07-01 OI-E lanes validated hundreds of residual artifacts and measured smaller Starshine output for many sampled masks/producers, but the row still explicitly lacks broad randomized LocalScanner behavior. Therefore the state remains mismatch-needs-implementation rather than covered.",
+      "reopenCriteria": "Any sampled OI-E bucket with raw/canonical size loss, missing validation, unpreserved effects/traps/locals/masks, broad LocalScanner source/lit behavior not represented by Starshine, or final signoff mismatch not classified as a measured Starshine win."
     },
     {
       "id": "OI-F-boolean-select-ternary-shells",
@@ -1244,7 +1256,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT; branch-hint rows remain representation boundary until Starshine models code metadata",
       "starshineStatus": "blocked-surface",
       "priority": "P1",
-      "blockerBoundaryReason": "The sampled grouped OI-F transform residual was closed for the older broad-smoke inputs on 2026-06-30, and the new source-backed pass-oi-boolean-select trigger modules match for effectful-identical-select, value-if/drop, and direct-if/select labels. However `.tmp/oi-f-source-profile-count40-20260630` shows the new trapping-dead-if-arm profile case still mismatches 10/10 under oi-effectful-sibling with a sampled raw-size-losing Starshine shape, so the grouped source-backed surface remains an OI-F parity gap. Broad OI-F also remains blocked-surface for Binaryen branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder behavior, which Starshine still lacks representation/pass-option plumbing for.",
+      "blockerBoundaryReason": "Sampled source-backed OI-F boolean/select profile residuals were reduced by the 2026-06-30 dead-trap value-if rewrite: .tmp/oi-f-dead-trap-value-if-fix-count40-20260630 compared 40/40 with 40 normalized matches and zero failures across effectful-identical-select, trapping-dead-if-arm, value-if-drop-shell, and direct-if-select-shell labels. The row remains blocked-surface for Binaryen branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder behavior because Starshine lacks expression-level branch-hint representation, code-metadata section plumbing, and pass-option support.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md",
         "docs/wiki/raw/research/1218-2026-06-26-optimize-instructions-oi-f-identical-select-arms.md",
@@ -1373,7 +1385,13 @@
           "nextAction": "Keep OI-F open only for the remaining source-backed blocked surfaces: branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder option behavior. Do not claim broad OI-F closure or OI-J descriptor/exactness/TNH/IIT progress from this non-descriptor grouped match.",
           "lastCheckedEvidence": "2026-06-30 red-first optimize_instructions_test.mbt dead-trap value-if fixture passed after pass_manager raw-skip reshaping; grouped OI-F count40 sweep .tmp/oi-f-dead-trap-value-if-fix-count40-20260630 normalized-matched 40/40 with zero failures."
         }
-      ]
+      ],
+      "closeoutState": "blocked-surface",
+      "releaseImpact": "P1: sampled boolean/select shells are mostly reduced, but Binaryen branch-hint/code-metadata and never-fold/no-reorder option behavior cannot be matched until Starshine has representation/pass-option plumbing.",
+      "remainingCloseoutWork": "Keep the source-backed metadata/options boundary explicit. The grouped dead-trap/effectful-sibling residual was later fixed to normalized matches, so do not keep stale text saying it is still a current grouped parity gap.",
+      "nextCloseoutAction": "Docs/source-boundary closeout: mark branch hints and never-fold/no-reorder as blocked-surface or accepted-release-boundary for v0.1 with reopen criteria tied to metadata/option support.",
+      "closeoutRationale": "Existing OI-F source-backed profile evidence reduced sampled behavior residuals, but branch-hint/code-metadata and pass-option surfaces remain unsupported representation surfaces; no amount of non-metadata fuzzing closes them.",
+      "reopenCriteria": "Starshine gains code-metadata branch-hint representation, optimize-instructions-never-fold-or-reorder option plumbing, or a Binaryen lit/source behavior in the supported non-metadata subset regresses."
     },
     {
       "id": "OI-G-memory-bulk-load-store",
@@ -3125,7 +3143,13 @@
         "2026-06-29: oi-memory-bulk:memory64-cross-memory-restore-copy-read broadens source-visible destination-restore coverage to memory64 addresses. Reopen for validation failure, canonical size regression, raw-size regression in the restore label, memory64 address-width drift, memory.copy/load/store opcode-count drift, memory index drift, invalid destination restoration, source mutation, live effect/trap-order risk, randomized multi-memory restore failure, runtime-execution counterevidence, or any size-losing grouped residual.",
         "2026-06-29: oi-memory-bulk:memory64-multi-memory-fill-restore-read broadens source-visible fill/restore/read evidence to the combined memory64 + multi-memory surface. Reopen for validation failure, canonical/raw/normalized size regression, memory.fill/load/store opcode-count drift, memory index drift, memory64 address-width drift, invalid destination restoration, live trap/effect-order risk, runtime-execution counterevidence once supported, or any claim that this non-descriptor OI-G evidence closes OI-J descriptor/exactness/TNH/IIT.",
         "2026-06-29: oi-memory-bulk:runtime-call-restore-copy-read broadens source-visible single-memory copy/restore/read evidence to helper-call-produced destination/source/size operands under Node runtime execution. Reopen for validation or runtime semantic failure, memory.copy/load/store opcode-count drift, helper-call or operand-order observable drift, source-visible destination restoration failure, live trap/effect-order risk, Starshine-larger raw/canonical/normalized size, or any claim that this non-descriptor OI-G evidence closes OI-J descriptor/exactness/TNH/IIT."
-      ]
+      ],
+      "closeoutState": "defer-with-reopen-criteria",
+      "releaseImpact": "P0: memory/load-store is release-relevant, but current residuals are mostly sampled Starshine-win output drift with runtime equality where executable; exact shared ordering/concurrency and memory64+multi-memory runtime execution remain finite release boundaries.",
+      "remainingCloseoutWork": "Do not broaden labels. Convert the existing OI-G runtime/validation/opcode evidence into a release boundary: covered tiny bulk/store-mask/restore samples, unsupported Node memory64+multi-memory runtime lanes, and out-of-scope true shared-memory concurrency/blocking wait behavior.",
+      "nextCloseoutAction": "Produce an OI-G closeout-boundary docs slice that either accepts the current memory64/shared runtime limitations for v0.1 or identifies a single concrete implementation gap; cite runtime checked/unsupported/failed counts and opcode/size deltas.",
+      "closeoutRationale": "Recent grouped/runtime lanes report zero runtime semantic mismatches where executable and manual validation of residual artifacts, while unsupported cases are tool/runtime limits or true concurrency semantics not exercised by the Node lane. This can be a v0.1 boundary candidate but is not family-covered.",
+      "reopenCriteria": "Runtime semantic mismatch, validation failure, size-losing memory residual, unpreserved memory operation/order/effect/trap in inspected WAT/opcodes, Node/tool support for memory64+multi-memory changing the executable set, or product decision to require true shared wait/notify/concurrency parity."
     },
     {
       "id": "OI-H-call-ref-directization",
@@ -3304,7 +3328,13 @@
           "nextAction": "Scale beyond this constant select-produced i32 argument to broader argument localization through locals/selects/tables, return_call_ref/multivalue variants, table-state known-target proof, and effect/trap target sweeps; do not use this non-descriptor evidence for OI-J descriptor/exactness/TNH/IIT.",
           "lastCheckedEvidence": "2026-06-30 targeted direct .tmp/oi-h-argument-select-direct-20260630 matched 1/1; grouped .tmp/oi-h-argument-select-count40-20260630 matched argument-select-target 1/1 with zero failures and manual validation accepted all 44 residual raw/canonical artifacts from other labels."
         }
-      ]
+      ],
+      "closeoutState": "defer-with-reopen-criteria",
+      "releaseImpact": "P1: direct call_ref/table.get/argument cases have sampled evidence, but broader table-state proof, return_call_ref, multivalue and effect/trap target sweeps remain non-P0 for v0.1 unless product scope changes.",
+      "remainingCloseoutWork": "Condense existing target-clean and argument evidence into covered subsets versus explicit deferred target-state/localization work. Avoid more profile labels unless a known table-state or return_call_ref implementation lands.",
+      "nextCloseoutAction": "Either implement a single known target-state directization gap red-first or mark OI-H as v0.1 defer-with-reopen-criteria using existing validation/opcode/size evidence.",
+      "closeoutRationale": "Sampled outputs are often target-clean and canonical/WAT smaller, but some residuals are raw-size-losing output-shape drift and broad call_ref directization is not complete. This is finite defer/implementation work, not P0 closeout.",
+      "reopenCriteria": "Residual Starshine call_ref/return_call_ref/table.get in a supported known-target case, raw/canonical size loss without accepted rationale, validation failure, or new source-backed call_ref target shape promoted into v0.1 scope."
     },
     {
       "id": "OI-I-ref-null-cast-basics",
@@ -3425,7 +3455,13 @@
           "lastCheckedEvidence": "2026-06-30 OI-I count45 grouped sweep at .tmp/oi-i-ref-gc-count45-20260630; local-carried-null-test-cast matched 18/18 with zero validation/generator/property/command failures."
         }
       ],
-      "notes": "The count45 grouped OI-I refresh at .tmp/oi-i-ref-gc-count45-20260630 compared 45/45 with 23 normalized matches, 22 raw mismatches, and zero validation/generator/property/command failures. Local-carried-null-test-cast is now 18/18 normalized matches. Direct-null/test/cast remains sampled Starshine-win output drift across 15 residuals with aggregate raw/canonical/WAT deltas -42/-106/-1314; the residuals preserve global.set 35/35 and local.get 8/8 while Starshine removes more dropped null-test/drop debris (ref.is_null 30/14, drop 134/104). Branch-cast effectful-wrapper residuals remain canonical-neutral/raw-smaller structural drift across 7 residuals with deltas -28/0/-28 and matching br_on_cast/br_on_cast_fail/global.set/drop/unreachable/i32.const counts. This is non-descriptor OI-I evidence only."
+      "notes": "The count45 grouped OI-I refresh at .tmp/oi-i-ref-gc-count45-20260630 compared 45/45 with 23 normalized matches, 22 raw mismatches, and zero validation/generator/property/command failures. Local-carried-null-test-cast is now 18/18 normalized matches. Direct-null/test/cast remains sampled Starshine-win output drift across 15 residuals with aggregate raw/canonical/WAT deltas -42/-106/-1314; the residuals preserve global.set 35/35 and local.get 8/8 while Starshine removes more dropped null-test/drop debris (ref.is_null 30/14, drop 134/104). Branch-cast effectful-wrapper residuals remain canonical-neutral/raw-smaller structural drift across 7 residuals with deltas -28/0/-28 and matching br_on_cast/br_on_cast_fail/global.set/drop/unreachable/i32.const counts. This is non-descriptor OI-I evidence only.",
+      "closeoutState": "defer-with-reopen-criteria",
+      "releaseImpact": "P1: non-descriptor reference basics have sampled fixes/evidence; descriptor/exactness belongs to OI-J and remains blocked.",
+      "remainingCloseoutWork": "Separate non-descriptor OI-I reference basics from OI-J descriptor work. Existing non-descriptor residuals can be accepted only with validation/opcode/size evidence and reopen criteria.",
+      "nextCloseoutAction": "Docs closeout for non-descriptor OI-I sampled subsets, or one red-first implementation if a current ref/basic residual is size-losing or semantically risky.",
+      "closeoutRationale": "Count45 non-descriptor evidence shows local-carried known-null matches and sampled Starshine-win direct-null/test/cast drift, but randomized reference producers/effect wrappers remain beyond current v0.1 evidence.",
+      "reopenCriteria": "True ref/null/cast semantic mismatch, validation failure, effect/trap loss, descriptor-compatible evidence becoming available for OI-J, or a size-losing non-descriptor residual."
     },
     {
       "id": "OI-J-descriptor-exactness-trap-modes",
@@ -3514,7 +3550,13 @@
           "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-post-oif-count24-20260630 direct-null/test/cast residual measurement and wasm-tools validation."
         }
       ],
-      "notes": "The count30 OI-J include-disabled refresh at .tmp/oi-j-nondescriptor-count30-20260630 supersedes the post-OI-F count24 as the latest boundary check and still exercises only the deliberately non-descriptor pass-oi-ref-gc profile. It compared 30/30 with 19 normalized matches and 11 raw mismatches, zero failures, Binaryen cache 30/0, and all residual raw/canonical artifacts validated. Local-carried-null-test-cast matched 14/14; direct-null/test/cast remains sampled Starshine-win output drift across eight residuals with deltas -30/-54/-640; branch-cast remains canonical-neutral/raw-smaller structural drift across three residuals with deltas -12/0/-12. No descriptor-compatible evidence exists yet, so OI-J descriptor/exactness/TNH/IIT remains blocked/open."
+      "notes": "The count30 OI-J include-disabled refresh at .tmp/oi-j-nondescriptor-count30-20260630 supersedes the post-OI-F count24 as the latest boundary check and still exercises only the deliberately non-descriptor pass-oi-ref-gc profile. It compared 30/30 with 19 normalized matches and 11 raw mismatches, zero failures, Binaryen cache 30/0, and all residual raw/canonical artifacts validated. Local-carried-null-test-cast matched 14/14; direct-null/test/cast remains sampled Starshine-win output drift across eight residuals with deltas -30/-54/-640; branch-cast remains canonical-neutral/raw-smaller structural drift across three residuals with deltas -12/0/-12. No descriptor-compatible evidence exists yet, so OI-J descriptor/exactness/TNH/IIT remains blocked/open.",
+      "closeoutState": "blocked-surface",
+      "releaseImpact": "P1 blocked: must stay open until descriptor-compatible generator/oracle/toolchain support exists; non-descriptor OI-I evidence cannot close it.",
+      "remainingCloseoutWork": "Build a true descriptor/exactness/TNH/IIT profile or compatible oracle/toolchain path; until then keep disabled/boundary evidence separate and do not close the row.",
+      "nextCloseoutAction": "No implementation from current evidence. Create descriptor-compatible generation/oracle plan, or mark as v0.1 blocked-surface with explicit reopen criteria.",
+      "closeoutRationale": "The earlier descriptor-bearing broad profile produced wasm-tools malformed section id 14 failures, and all later include-disabled OI-J lanes intentionally sampled only non-descriptor pass-oi-ref-gc labels. There is no true descriptor-compatible evidence.",
+      "reopenCriteria": "A descriptor-compatible GenValid profile, text/binary parser/toolchain fix, Binaryen oracle path, or Starshine descriptor representation change that makes exact/desc/TNH/IIT cases comparable."
     },
     {
       "id": "OI-K-gc-constructors-fields-arrays",
@@ -3560,7 +3602,13 @@
         "seed": "0x5eed",
         "profile": "pass-oi-ref-gc",
         "blockedUntilProfileExists": false
-      }
+      },
+      "closeoutState": "defer-with-reopen-criteria",
+      "releaseImpact": "P2: broad GC constructor/default/ordering parity is not a v0.1 P0 blocker unless release scope changes.",
+      "remainingCloseoutWork": "Keep existing constructor/default evidence and allocation/trap boundaries visible; do not expand until P0 rows are finite.",
+      "nextCloseoutAction": "Defer with reopen criteria, or run a specific finite OI-K signoff only after P0/P1 closeout decisions.",
+      "closeoutRationale": "Some GC constructor/array/default subsets are covered, but full allocation/default/trap ordering matrix is not family-complete and is lower priority than P0 rows.",
+      "reopenCriteria": "A v0.1 artifact requires this GC subset, a validation/semantic mismatch appears, or Binaryen lit/source coverage exposes a small high-value implementation gap."
     },
     {
       "id": "OI-L-gc-atomics-rmw-cmpxchg",
@@ -3602,7 +3650,13 @@
         "seed": "0x5eed",
         "profile": "pass-oi-ref-gc",
         "blockedUntilProfileExists": false
-      }
+      },
+      "closeoutState": "blocked-surface",
+      "releaseImpact": "P2 blocked: aggregate RMW/cmpxchg representation/parser/generator support is incomplete.",
+      "remainingCloseoutWork": "Do not fuzz as if implemented. First confirm Starshine text/core constructors and feature floors for aggregate atomics/RMW/cmpxchg.",
+      "nextCloseoutAction": "Representation/tooling investigation, not compare-pass expansion.",
+      "closeoutRationale": "The row already identifies missing aggregate RMW/cmpxchg text/core constructors and incomplete unshared-lowering coverage, so it is a blocked surface.",
+      "reopenCriteria": "Starshine gains aggregate atomic RMW/cmpxchg representation/parser/lowerer support or v0.1 release scope requires the surface."
     },
     {
       "id": "OI-M-tuple-multivalue-selected-lanes",
@@ -3911,7 +3965,13 @@
           "nextAction": "Keep as sampled evidence only. Reopen for validation failure, runtime mismatch in exported variants, helper/global.set effect-order drift, scratch local traffic loss, Starshine raw/canonical size loss, or source-backed tuple-scratch reconstruction/localization cases beyond this selected-lane smoke. Do not use this non-descriptor evidence for OI-J descriptor/exactness/TNH/IIT.",
           "lastCheckedEvidence": "2026-07-01 grouped count108 OI-M lane at .tmp/oi-m-effectful-scratch-count108-20260701 plus wasm-tools --features all validation of all 432 residual raw/canonical artifacts and opcode/size review over the four effectful-scratch residual dirs."
         }
-      ]
+      ],
+      "closeoutState": "accepted-release-boundary",
+      "releaseImpact": "P0: acceptable v0.1 boundary candidate because existing grouped/runtime tuple lanes validate and runtime-check selected exported samples with raw/canonical Starshine wins, while broader tuple-scratch reconstruction/localization remains explicitly deferred.",
+      "remainingCloseoutWork": "Do not add tuple labels. Record the accepted boundary: current one-use selected-lane/localization/effect/trap sampled subset is acceptable for v0.1; broader tuple-scratch reconstruction and randomized multivalue breadth reopen after release.",
+      "nextCloseoutAction": "Write a dedicated OI-M closeout decision slice citing count96/count102/count108 runtime/validation/size evidence and exact reopen criteria.",
+      "closeoutRationale": "Recent OI-M grouped lanes validate all residual raw/canonical artifacts, have zero runtime failures for executable samples, and show Starshine raw/canonical smaller for all labels despite WAT text growth from block-result spelling. That supports a release boundary, not broad coverage.",
+      "reopenCriteria": "Runtime semantic mismatch, validation failure, raw/canonical size regression in tuple residuals, lost helper/effect/trap/local traffic, requirement for broader tuple-scratch reconstruction/localization, or multivalue source/lit behavior not covered by current subset."
     }
   ],
   "caseLabelClassificationSchema": {
@@ -3927,5 +3987,13 @@
       "lastCheckedEvidence"
     ],
     "rule": "For trigger-profile sweeps, classify one representative WAT diff per genValidProfileCaseLabel before opening behavior work; status is an agent judgment and is not inferred automatically from compare-pass."
-  }
+  },
+  "closeoutStateVocabulary": [
+    "covered",
+    "mismatch-needs-implementation",
+    "sampled-starshine-win",
+    "blocked-surface",
+    "accepted-release-boundary",
+    "defer-with-reopen-criteria"
+  ]
 }
