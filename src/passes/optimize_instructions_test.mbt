@@ -8007,6 +8007,191 @@ test "optimize-instructions narrows nullable descriptor casts on exact non-null 
 }
 
 ///|
+test "optimize-instructions skips descriptor equality casts under traps-never-happen for exact operands" {
+  // OI-J TNH descriptor slice: Binaryen version_130 with
+  // `--traps-never-happen --optimize-instructions` removes a descriptor
+  // equality cast when the reference operand is already an exact non-null
+  // target, because the only remaining observable behavior would be the
+  // descriptor equality trap. The explicit descriptor operand may only be
+  // erased when it is locally erasable; this test covers the pure fresh
+  // descriptor allocation case and does not claim IIT or ref.test_desc support.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let func = @ir.hot_lift_func(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::struct_new_default_desc(described_type),
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.FuncIdx::new(0U),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected descriptor TNH skip success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(@lib.Instruction::struct_new_default_desc(described_type)),
+  )
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, root)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => {
+      @debug.assert_eq(ref_type.is_non_nullable(), true)
+      @debug.assert_eq(ref_type.is_exact(), true)
+      @debug.assert_eq(ref_type.get_heap_type(), described_heap)
+    }
+    other => fail("expected exact descriptor-constructor result, got \{other}")
+  }
+}
+
+///|
+test "optimize-instructions preserves descriptor effects when skipping descriptor casts under traps-never-happen" {
+  // OI-J TNH/effect boundary: ignoring the descriptor-equality trap under TNH
+  // must not erase the explicit descriptor operand's side effects. Binaryen
+  // preserves a mutable-global descriptor write/read before producing the exact
+  // reference result. This covers a representable effectful descriptor operand;
+  // broader effectful reference operands and ref.test_desc remain open.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let descriptor_ref_type = @lib.RefType::new(
+    false,
+    descriptor_heap,
+    exact=true,
+  )
+  let func = @ir.hot_lift_func(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::ref_type(descriptor_ref_type)], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(
+            @lib.ValType::ref_type(descriptor_ref_type),
+            true,
+          ),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(descriptor_type)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::struct_new_default_desc(described_type),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(
+                @lib.ValType::ref_type(descriptor_ref_type),
+              ),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.FuncIdx::new(0U),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected descriptor TNH effect preservation, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected effect-preserving descriptor TNH skip block")
+  }
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
+  let dropped_descriptor = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, dropped_descriptor).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected descriptor operand to be preserved as a dropped prefix")
+  }
+  let result = @ir.hot_child_get(func, root, 1)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, result),
+    Some(@lib.Instruction::struct_new_default_desc(described_type)),
+  )
+}
+
+///|
 test "optimize-instructions folds descriptor equality casts on known null refs with pure descriptors" {
   // OI-J representable descriptor success/null boundary: nullable descriptor
   // casts of null return null, and non-null descriptor casts of null trap. The

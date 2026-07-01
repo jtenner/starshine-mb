@@ -11133,6 +11133,47 @@ fn optimize_instructions_try_fold_ref_cast_null(
 }
 
 ///|
+fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  if !ctx.traps_never_happen || @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let (_, exact, target) = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) =>
+      (nullable, exact, target)
+    _ => return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  let operand_exact = match
+    optimize_instructions_ref_operand_nonnullable_same_heap(
+      func, operand_id, target,
+    ) {
+    Some(operand_exact) => operand_exact
+    None => return false
+  }
+  if exact && !operand_exact {
+    return false
+  }
+  if optimize_instructions_is_side_effect_free_expr(func, dead, descriptor_id) ||
+    optimize_instructions_node_effects_are_pure(ctx, func, descriptor_id) ||
+    optimize_instructions_descriptor_operand_allocation_can_erase(
+      func, descriptor_id,
+    ) {
+    optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
+    true
+  } else {
+    optimize_instructions_replace_with_drop_then_node_id(
+      ctx, func, node_id, descriptor_id, operand_id,
+    )
+  }
+}
+
+///|
 fn optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -13147,6 +13188,9 @@ fn optimize_instructions_visit_node(
         ctx, func, node_id,
       )
     @ir.HotOp::RefCastDescEq =>
+      optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
+        ctx, func, dead, node_id,
+      ) ||
       optimize_instructions_try_fold_ref_cast_desc_eq_null(
         ctx, func, dead, node_id,
       ) ||
