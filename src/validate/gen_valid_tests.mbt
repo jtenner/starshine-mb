@@ -4506,7 +4506,12 @@ fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
   if instrs.length() >= 8 {
     match (instrs[0], instrs[6], instrs[7]) {
       (Block(_, _), LocalSet(LocalIdx(set_idx)), LocalGet(LocalIdx(get_idx))) if set_idx ==
-        get_idx => return "scratch-localized-selected-lane"
+        get_idx =>
+        if gen_valid_test_tuple_helper_has_effect(mod_) {
+          return "effectful-scratch-localized-selected-lane"
+        } else {
+          return "scratch-localized-selected-lane"
+        }
       _ => ()
     }
   }
@@ -4673,6 +4678,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let effectful_scratch_localized_selected = match
+    gen_valid_module_result_from_seed(
+      0x5effUL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -4745,6 +4758,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5efeUL),
     Some("oi-tuple:scratch-localized-selected-lane"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5effUL),
+    Some("oi-tuple:effectful-scratch-localized-selected-lane"),
   )
   assert_true(
     gen_valid_test_tuple_first_block_i32_const(
@@ -4840,6 +4857,12 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     ),
     "scratch-localized-selected-lane",
   )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(
+      effectful_scratch_localized_selected.wasm_module,
+    ),
+    "effectful-scratch-localized-selected-lane",
+  )
   assert_true(
     gen_valid_test_has_func_export(runtime_selected.wasm_module, "run"),
   )
@@ -4854,6 +4877,12 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
       runtime_effectful_selected.wasm_module,
     ),
     msg="expected runtime-exported effectful tuple selected-lane helper",
+  )
+  assert_true(
+    gen_valid_test_tuple_helper_has_effect(
+      effectful_scratch_localized_selected.wasm_module,
+    ),
+    msg="expected scratch-localized selected-lane helper to preserve effects",
   )
 }
 
