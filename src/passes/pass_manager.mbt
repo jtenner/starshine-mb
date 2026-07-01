@@ -24794,29 +24794,105 @@ fn run_hot_pipeline_raw_optimize_instructions_dropped_const_branch(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_is_flat(
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
   instrs : Array[@lib.Instruction],
   prefix_len : Int,
 ) -> Bool {
   for idx = 0; idx < prefix_len; idx = idx + 1 {
-    match instrs[idx] {
-      @lib.Block(_, _)
-      | @lib.Loop(_, _)
-      | @lib.If(_, _, _)
-      | @lib.TryTable(_, _, _)
-      | @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_, _)
-      | @lib.Return
-      | @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_)
-      | @lib.Throw(_)
-      | @lib.ThrowRef => return false
-      _ => ()
+    if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_instr_can_hoist(
+        instrs[idx],
+        0,
+      ) {
+      return false
     }
   }
   true
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
+  label_idx : @lib.LabelIdx,
+  depth : Int,
+) -> Bool {
+  let @lib.LabelIdx(raw) = label_idx
+  raw.reinterpret_as_int() < depth
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_body_can_hoist(
+  instrs : Array[@lib.Instruction],
+  depth : Int,
+) -> Bool {
+  for instr in instrs {
+    if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_instr_can_hoist(
+        instr, depth,
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_instr_can_hoist(
+  instr : @lib.Instruction,
+  depth : Int,
+) -> Bool {
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_body_can_hoist(
+        body,
+        depth + 1,
+      )
+    @lib.If(_, then_body, else_body) => {
+      if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_body_can_hoist(
+          then_body,
+          depth + 1,
+        ) {
+        return false
+      }
+      match else_body {
+        Some(body) =>
+          run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_body_can_hoist(
+            body,
+            depth + 1,
+          )
+        None => true
+      }
+    }
+    @lib.Br(label_idx) =>
+      run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
+        label_idx, depth,
+      )
+    @lib.BrIf(label_idx) =>
+      run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
+        label_idx, depth,
+      )
+    @lib.BrTable(labels, default_label) => {
+      if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
+          default_label, depth,
+        ) {
+        return false
+      }
+      for label_idx in labels {
+        if !run_hot_pipeline_raw_optimize_instructions_descriptor_prefix_label_is_local(
+            label_idx, depth,
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    @lib.Loop(_, _)
+    | @lib.TryTable(_, _, _)
+    | @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Throw(_)
+    | @lib.ThrowRef => false
+    _ => true
+  }
 }
 
 ///|
@@ -24834,8 +24910,15 @@ fn run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_fold(
         @lib.RefCastDescEq(_, _, _),
       ) if descriptor_body.length() >= 2 => {
         let prefix_len = descriptor_body.length() - 2
+        match descriptor_body[descriptor_body.length() - 1] {
+          @lib.Unreachable if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
+              descriptor_body,
+              descriptor_body.length() - 1,
+            ) => return true
+          _ => ()
+        }
         match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
-          (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_is_flat(
+          (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
               descriptor_body, prefix_len,
             ) => return true
           _ => ()
@@ -24865,8 +24948,23 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
           @lib.RefCastDescEq(_, _, _),
         ) if descriptor_body.length() >= 2 => {
           let prefix_len = descriptor_body.length() - 2
+          match descriptor_body[descriptor_body.length() - 1] {
+            @lib.Unreachable if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
+                descriptor_body,
+                descriptor_body.length() - 1,
+              ) => {
+              for idx = 0; idx < descriptor_body.length() - 1; idx = idx + 1 {
+                rewritten.push(descriptor_body[idx])
+              }
+              rewritten.push(@lib.Instruction::unreachable_())
+              changed = true
+              i = i + 3
+              continue
+            }
+            _ => ()
+          }
           match (descriptor_body[prefix_len], descriptor_body[prefix_len + 1]) {
-            (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_is_flat(
+            (@lib.RefNull(_), @lib.RefAsNonNull) if run_hot_pipeline_raw_optimize_instructions_descriptor_block_prefix_can_hoist(
                 descriptor_body, prefix_len,
               ) => {
               for idx = 0; idx < prefix_len; idx = idx + 1 {

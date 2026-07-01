@@ -242,10 +242,114 @@ test "optimize-instructions raw folds effectful trapping descriptor block operan
 }
 
 ///|
+test "optimize-instructions raw folds self-contained control descriptor trap prefixes" {
+  // OI-J active-dispatcher descriptor/null slice: self-contained control in a
+  // descriptor operand prefix can be hoisted before the final trap because all
+  // branch targets remain inside the hoisted prefix. Escaping branches remain
+  // covered by the fail-closed boundary below.
+  let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let descriptor_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap),
+  )
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+    [
+      @lib.Instruction::ref_null(none_heap),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(descriptor_ref),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::i32_const(@lib.I32(7)),
+              @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+              @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            ]),
+          ),
+          @lib.Instruction::ref_null(descriptor_heap),
+          @lib.Instruction::ref_as_non_null(),
+        ]),
+      ),
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(false, described_heap),
+      ),
+    ],
+    @ir.hot_module_context_from_module(@lib.Module::new()),
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten.length(), 2)
+  @debug.assert_eq(
+    rewritten[0],
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ]),
+    ),
+  )
+  @debug.assert_eq(rewritten[1], @lib.Instruction::unreachable_())
+}
+
+///|
+test "optimize-instructions raw folds descriptor trap blocks already ending unreachable" {
+  // OI-J active-dispatcher descriptor/null slice: earlier raw cleanup may move
+  // a descriptor operand's null trap to a trailing `unreachable`. The bottom-null
+  // descriptor-cast fold must still hoist self-contained prefixes and remove the
+  // now-unreachable descriptor equality cast.
+  let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let descriptor_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap),
+  )
+  let (rewritten, changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
+    [
+      @lib.Instruction::ref_null(none_heap),
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(descriptor_ref),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [
+              @lib.Instruction::i32_const(@lib.I32(2)),
+              @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            ],
+            Some([
+              @lib.Instruction::i32_const(@lib.I32(3)),
+              @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            ]),
+          ),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(false, described_heap),
+      ),
+    ],
+    @ir.hot_module_context_from_module(@lib.Module::new()),
+  )
+  assert_true(changed)
+  @debug.assert_eq(rewritten.length(), 3)
+  match rewritten[1] {
+    @lib.If(_, _, _) => ()
+    other => fail("expected self-contained if prefix, got \{other}")
+  }
+  @debug.assert_eq(rewritten[2], @lib.Instruction::unreachable_())
+}
+
+///|
 test "optimize-instructions raw keeps descriptor trap block prefixes with control local" {
-  // Boundary/fail-closed: the raw descriptor block fold only hoists flat
-  // effect/value instructions before the final `ref.null; ref.as_non_null`.
-  // Prefixes with local branches/control depend on the descriptor block label
+  // Boundary/fail-closed: the raw descriptor block fold only hoists flat or
+  // self-contained control prefixes before the final `ref.null; ref.as_non_null`.
+  // Prefixes with branches to the descriptor block label depend on that label
   // stack and must stay untouched until a label-aware raw localizer exists.
   let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
   let described_type = @lib.TypeIdx::new(0U)
