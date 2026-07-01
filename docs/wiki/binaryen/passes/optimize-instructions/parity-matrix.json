@@ -1306,7 +1306,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT; branch-hint rows remain representation boundary until Starshine models code metadata",
       "starshineStatus": "blocked-surface",
       "priority": "P1",
-      "blockerBoundaryReason": "Sampled source-backed OI-F boolean/select profile residuals were reduced by the 2026-06-30 dead-trap value-if rewrite: .tmp/oi-f-dead-trap-value-if-fix-count40-20260630 compared 40/40 with 40 normalized matches and zero failures across effectful-identical-select, trapping-dead-if-arm, value-if-drop-shell, and direct-if-select-shell labels. The row remains blocked-surface for Binaryen branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder behavior because Starshine lacks expression-level branch-hint representation, code-metadata section plumbing, and pass-option support.",
+      "blockerBoundaryReason": "Sampled source-backed OI-F boolean/select profile residuals were reduced by the 2026-06-30 dead-trap value-if rewrite: .tmp/oi-f-dead-trap-value-if-fix-count40-20260630 compared 40/40 with 40 normalized matches and zero failures across effectful-identical-select, trapping-dead-if-arm, value-if-drop-shell, and direct-if-select-shell labels. The remaining v0.1 row state is a source-backed blocked surface for Binaryen branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder behavior because Starshine lacks expression-level branch-hint representation, code-metadata section plumbing, and OI pass-option support. This is a release boundary, not a request for more non-metadata generator breadth.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md",
         "docs/wiki/raw/research/1218-2026-06-26-optimize-instructions-oi-f-identical-select-arms.md",
@@ -1365,7 +1365,7 @@
         "profile": "pass-oi-boolean-select",
         "blockedUntilProfileExists": false
       },
-      "notes": "The source-backed pass-oi-boolean-select profile count40 grouped lane now normalized-matches direct-if/select, effectful-identical-select, value-if/drop, and trapping-dead-if-arm cases after the red-first dead-trap value-if reshaping slice. OI-F remains open as a blocked surface for branch-hint/code-metadata and never-fold/no-reorder option behavior because Starshine still lacks expression metadata remap and OI pass-option plumbing; do not use this non-descriptor evidence for OI-J descriptor/exactness/TNH/IIT.",
+      "notes": "The source-backed pass-oi-boolean-select profile count40 grouped lane now normalized-matches direct-if/select, effectful-identical-select, value-if/drop, and trapping-dead-if-arm cases after the red-first dead-trap value-if reshaping slice. OI-F is finite for v0.1: sampled boolean/select/ternary shells are covered by source/test/grouped evidence, while branch-hint/code-metadata and never-fold/no-reorder option behavior are blocked until representation/pass-option support exists. Do not add OI-F labels for closeout, and do not use this non-descriptor evidence for OI-J descriptor/exactness/TNH/IIT.",
       "classifiedCaseLabels": [
         {
           "label": "transform:oi-if-select-shell",
@@ -1437,11 +1437,36 @@
         }
       ],
       "closeoutState": "blocked-surface",
-      "releaseImpact": "P1: sampled boolean/select shells are mostly reduced, but Binaryen branch-hint/code-metadata and never-fold/no-reorder option behavior cannot be matched until Starshine has representation/pass-option plumbing.",
-      "remainingCloseoutWork": "Keep the source-backed metadata/options boundary explicit. The grouped dead-trap/effectful-sibling residual was later fixed to normalized matches, so do not keep stale text saying it is still a current grouped parity gap.",
-      "nextCloseoutAction": "Docs/source-boundary closeout: mark branch hints and never-fold/no-reorder as blocked-surface or accepted-release-boundary for v0.1 with reopen criteria tied to metadata/option support.",
-      "closeoutRationale": "Existing OI-F source-backed profile evidence reduced sampled behavior residuals, but branch-hint/code-metadata and pass-option surfaces remain unsupported representation surfaces; no amount of non-metadata fuzzing closes them.",
-      "reopenCriteria": "Starshine gains code-metadata branch-hint representation, optimize-instructions-never-fold-or-reorder option plumbing, or a Binaryen lit/source behavior in the supported non-metadata subset regresses."
+      "releaseImpact": "P1: sampled boolean/select/ternary shells are finite for v0.1, but Binaryen branch-hint/code-metadata and never-fold/no-reorder option behavior are a documented release boundary until Starshine gains representation/pass-option plumbing.",
+      "remainingCloseoutWork": "None for v0.1 beyond keeping the blocked metadata/options boundary visible. Do not run additional OI-F non-metadata generator breadth unless an existing supported shape regresses or release policy requests the finite signoff command below.",
+      "nextCloseoutAction": "Classify OI-F as a v0.1 blocked-surface/release boundary for branch-hint/code-metadata and never-fold/no-reorder. If release policy requires a finite non-metadata smoke signoff, run exactly: moon build --target native --release src/cmd && bun scripts/pass-fuzz-compare.ts --pass optimize-instructions --count 40 --seed 0x5eed --gen-valid-profile pass-oi-boolean-select --out-dir .tmp/oi-f-v01-boundary-signoff-count40 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures.",
+      "closeoutRationale": "Existing OI-F source-backed profile evidence reduced sampled behavior residuals to normalized matches; the only release-relevant remainder is unsupported Binaryen metadata/options legality. Because Starshine cannot model those surfaces yet, more non-metadata fuzz labels would not materially reduce the row.",
+      "reopenCriteria": "Reopen when Starshine gains expression code-metadata branch-hint representation or an explicit opaque metadata policy, OI never-fold/no-reorder pass-option plumbing, a supported non-metadata OI-F regression appears, the finite count40 signoff command fails, or v0.1 product scope requires branch-hint/code-metadata/no-fold parity.",
+      "closeoutBuckets": [
+        {
+          "name": "covered-sampled-boolean-select-shells",
+          "state": "covered",
+          "evidence": [
+            "docs/wiki/raw/research/0731-2026-06-19-optimize-instructions-oi-f-boolean-select-shells.md and follow-up identical-select notes 1218 through 1317 cover source-backed boolean/select shells, identical pure/effectful select arms, and mutable-global effect boundaries.",
+            "src/validate/gen_valid_tests.mbt::OI-F boolean-select trigger-smoke profile selects source-backed cases failed red-first before pass-oi-boolean-select existed, then passed after direct-if/select, effectful-identical-select, dead-trap, and value-if/drop modules were added (2026-06-30).",
+            "src/passes/optimize_instructions_test.mbt::optimize-instructions raw skip folds identical pure select arms after effectful condition failed red-first, then passed after pass_manager.mbt preserved the effectful condition as a dropped prefix and kept one pure arm (2026-06-30).",
+            ".tmp/oi-f-dead-trap-value-if-fix-count40-20260630 compared 40/40 with 40 normalized matches and zero validation/generator/property/command failures; effectful-identical-select, trapping-dead-if-arm, value-if-drop-shell, and direct-if-select-shell each matched 10/10."
+          ],
+          "classificationBasis": "Covered sampled subsets are source/test-backed and oracle-normalized. The classification is not based on validation alone: earlier size-losing dead-trap/effectful-sibling residuals were implemented red-first before the count40 lane normalized.",
+          "nextAction": "No more v0.1 generator breadth for these sampled shells. Reopen only for a regression in these supported non-metadata shapes or a finite release signoff failure."
+        },
+        {
+          "name": "blocked-v01-branch-hint-code-metadata-never-fold",
+          "state": "blocked-surface",
+          "evidence": [
+            "docs/wiki/raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md records Binaryen doWalkFunction reading fastMath and optimize-instructions-never-fold-or-reorder, visitIf branch-hint flip behavior, and branch-hints-fold lit ownership.",
+            "docs/wiki/raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md marks branch hints/code metadata and never-fold/reorder as explicit local boundaries because Starshine lacks expression-level branch-hint preservation/flip and pass-option plumbing.",
+            "2026-06-30 summarize-existing over .tmp/oi-f-if-shell-fix-count40-20260630 reconfirmed sampled non-metadata transforms at 40/40 normalized matches, so the remaining blocker is representation/options support rather than an unclassified sampled WAT residual."
+          ],
+          "classificationBasis": "Blocked by concrete source/lit and local tooling facts: Binaryen has metadata/option-controlled legality, while Starshine does not yet represent or plumb those surfaces. Non-metadata boolean/select fuzzing cannot close this bucket.",
+          "nextAction": "Classify as v0.1 blocked-surface/release boundary. Implement only after Starshine has expression code-metadata branch-hint representation or an explicit opaque-section policy plus OI never-fold/no-reorder pass-option support, then add focused red-first branch-hint flip/preservation and fold/reorder suppression tests."
+        }
+      ]
     },
     {
       "id": "OI-G-memory-bulk-load-store",
