@@ -11163,6 +11163,12 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
     ) {
     optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
     true
+  } else if optimize_instructions_descriptor_skip_must_preserve_operand_order(
+      func, operand_id,
+    ) {
+    optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
+      ctx, func, node_id, operand_id, descriptor_id,
+    )
   } else if optimize_instructions_descriptor_operand_should_localize_when_skipped(
       func, descriptor_id,
     ) {
@@ -11242,6 +11248,88 @@ fn optimize_instructions_ref_operand_same_heap(
       target => Some((ref_type.is_nullable(), ref_type.is_exact()))
     _ => None
   }
+}
+
+///|
+fn optimize_instructions_descriptor_skip_region_must_preserve_operand_order(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for slot = 0
+      slot < @ir.hot_region_root_count(func, region_ref)
+      slot = slot + 1 {
+    if optimize_instructions_descriptor_skip_must_preserve_operand_order(
+        func,
+        @ir.hot_region_get(func, region_ref, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimize_instructions_descriptor_skip_must_preserve_operand_order(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalSet
+    | @ir.HotOp::LocalTee
+    | @ir.HotOp::GlobalSet
+    | @ir.HotOp::Store
+    | @ir.HotOp::MemoryGrow
+    | @ir.HotOp::MemoryCopy
+    | @ir.HotOp::MemoryFill
+    | @ir.HotOp::MemoryInit
+    | @ir.HotOp::DataDrop
+    | @ir.HotOp::TableSet
+    | @ir.HotOp::TableGrow
+    | @ir.HotOp::TableFill
+    | @ir.HotOp::TableCopy
+    | @ir.HotOp::TableInit
+    | @ir.HotOp::ElemDrop
+    | @ir.HotOp::Call
+    | @ir.HotOp::CallIndirect
+    | @ir.HotOp::CallRef
+    | @ir.HotOp::Atomic
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef => return true
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      if optimize_instructions_descriptor_skip_region_must_preserve_operand_order(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return true
+      }
+    @ir.HotOp::If => {
+      if optimize_instructions_descriptor_skip_region_must_preserve_operand_order(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          if optimize_instructions_descriptor_skip_region_must_preserve_operand_order(
+              func, region_ref,
+            ) {
+            return true
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if optimize_instructions_descriptor_skip_must_preserve_operand_order(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -11679,6 +11767,102 @@ fn optimize_instructions_replace_with_local_set_then_node_id(
   let temp = @ir.hot_build_block(func, block_type, [
     @ir.hot_build_local_set(func, local_id, localize_id),
     value_id,
+  ])
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_restore_localized_result(
+  func : @ir.HotFunc,
+  local_get : Int,
+  local_type : @lib.ValType,
+  result_type : @lib.ValType,
+) -> Int? {
+  if local_type == result_type {
+    return Some(local_get)
+  }
+  match (local_type, result_type) {
+    (
+      @lib.ValType::RefTypeValType(local_ref),
+      @lib.ValType::RefTypeValType(result_ref),
+    ) if local_ref.is_nullable() &&
+      result_ref.is_non_nullable() &&
+      local_ref.get_heap_type() == result_ref.get_heap_type() &&
+      local_ref.is_exact() == result_ref.is_exact() =>
+      Some(
+        @ir.hot_build_heap(
+          func,
+          [result_type],
+          @lib.Instruction::ref_as_non_null(),
+          [local_get],
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
+fn optimize_instructions_replace_with_localized_node_then_descriptor_then_local_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  value_id : Int,
+  descriptor_id : Int,
+) -> Bool {
+  let result_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [val_type] => val_type
+    _ => return false
+  }
+  let value_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, value_id)) {
+    [val_type] => val_type
+    _ => return false
+  }
+  let local_type = match
+    optimize_instructions_defaultable_scratch_type(value_type) {
+    Some(local_type) => local_type
+    None => return false
+  }
+  let local_id = @ir.hot_append_body_local(func, local_type)
+  let local_get = @ir.hot_build_local_get(func, local_id)
+  let result_id = match
+    optimize_instructions_restore_localized_result(
+      func, local_get, local_type, result_type,
+    ) {
+    Some(result_id) => result_id
+    None => return false
+  }
+  let descriptor_eval = if optimize_instructions_descriptor_operand_should_localize_when_skipped(
+      func, descriptor_id,
+    ) {
+    let descriptor_type = match
+      @ir.hot_type_results(func, @ir.hot_node_type(func, descriptor_id)) {
+      [val_type] =>
+        match optimize_instructions_defaultable_scratch_type(val_type) {
+          Some(local_type) => local_type
+          None => return false
+        }
+      _ => return false
+    }
+    let descriptor_local_id = @ir.hot_append_body_local(func, descriptor_type)
+    @ir.hot_build_local_set(func, descriptor_local_id, descriptor_id)
+  } else {
+    @ir.hot_build_drop(func, descriptor_id)
+  }
+  let temp = @ir.hot_build_block(func, @lib.BlockType::val_type(result_type), [
+    @ir.hot_build_local_set(func, local_id, value_id),
+    descriptor_eval,
+    result_id,
   ])
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_replace_node(func, node_id, replacement)

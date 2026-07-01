@@ -8514,6 +8514,130 @@ test "optimize-instructions localizes effectful ref.get_desc descriptor operands
 }
 
 ///|
+test "optimize-instructions preserves reference operand effects before descriptor effects when skipping descriptor casts under traps-never-happen" {
+  // OI-J TNH operand-order breadth: Binaryen version_130 with
+  // `--traps-never-happen --optimize-instructions` skips the descriptor cast but
+  // still evaluates the reference operand before the explicit descriptor operand.
+  // When both operands write observable globals, Binaryen stores the reference
+  // result in a temporary before evaluating/dropping the descriptor operand and
+  // returning the saved reference. This covers only this effect-order shape; IIT,
+  // trapping operand breadth, and ref.test_desc remain open.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let func_type = @lib.TypeIdx::new(2U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let described_ref_type = @lib.RefType::new(false, described_heap)
+  let descriptor_ref_type = @lib.RefType::new(false, descriptor_heap)
+  let func = @ir.hot_lift_func(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(described_ref_type)]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(
+                @lib.ValType::ref_type(described_ref_type),
+              ),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(1)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::struct_new_default(descriptor_type),
+                @lib.Instruction::struct_new_default_desc(described_type),
+              ]),
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(
+                @lib.ValType::ref_type(descriptor_ref_type),
+              ),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(2)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::struct_new_default(descriptor_type),
+              ]),
+            ),
+            @lib.Instruction::ref_cast_desc_eq_type(described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.FuncIdx::new(0U),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected descriptor TNH reference-operand localization, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected ordered TNH descriptor skip block")
+  }
+  @debug.assert_eq(@ir.hot_child_count(func, root), 3)
+  let saved_reference = @ir.hot_child_get(func, root, 0)
+  match @ir.hot_node_get(func, saved_reference).op {
+    @ir.HotOp::LocalSet => ()
+    _ =>
+      fail("expected reference operand to be saved before descriptor effects")
+  }
+  let saved_value = @ir.hot_child_get(func, saved_reference, 0)
+  match @ir.hot_node_get(func, saved_value).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected saved reference operand block")
+  }
+  let dropped_descriptor = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_get(func, dropped_descriptor).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected descriptor operand to be dropped after saved reference")
+  }
+  let result = @ir.hot_child_get(func, root, 2)
+  match @ir.hot_node_exact_instr(func, result) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    other =>
+      fail(
+        "expected non-null result restored from saved reference, got \{other}",
+      )
+  }
+}
+
+///|
 test "optimize-instructions preserves descriptor effects when skipping descriptor casts under traps-never-happen" {
   // OI-J TNH/effect boundary: ignoring the descriptor-equality trap under TNH
   // must not erase the explicit descriptor operand's side effects. Binaryen
