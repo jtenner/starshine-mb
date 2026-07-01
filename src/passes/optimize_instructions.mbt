@@ -11445,7 +11445,13 @@ fn optimize_instructions_try_move_ref_get_desc_child_null_check(
   }
   let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
   match @ir.hot_node_get(func, nullable_child).op {
-    @ir.HotOp::LocalGet | @ir.HotOp::Block | @ir.HotOp::Select => ()
+    @ir.HotOp::LocalGet => ()
+    @ir.HotOp::Block | @ir.HotOp::Select =>
+      if optimize_instructions_descriptor_expr_has_branch_control(
+          func, nullable_child,
+        ) {
+        return false
+      }
     @ir.HotOp::If =>
       if !optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_effects(
           func, nullable_child,
@@ -11476,6 +11482,11 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  if optimize_instructions_descriptor_expr_has_branch_control(
+      func, descriptor_id,
+    ) {
+    return false
+  }
   let (operand_nullable, operand_exact) = match
     optimize_instructions_ref_operand_matches_or_subtypes_heap(
       ctx, func, operand_id, target,
@@ -12068,6 +12079,9 @@ fn optimize_instructions_try_fold_ref_as_non_null(
     _ => return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
+  if optimize_instructions_descriptor_expr_has_branch_control(func, operand_id) {
+    return false
+  }
   match @ir.hot_node_get(func, operand_id).op {
     @ir.HotOp::RefNull => {
       optimize_instructions_replace_with_unreachable(ctx, func, node_id)

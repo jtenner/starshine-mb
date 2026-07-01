@@ -9220,6 +9220,121 @@ test "optimize-instructions moves effectful-condition if ref.get_desc child null
 }
 
 ///|
+test "optimize-instructions fail-closed on escaping-branch block ref.get_desc child null checks" {
+  // OI-J descriptor-operand trapOnNull boundary: Binaryen version_130 can
+  // rewrite an escaping-branch block-produced child to a branch/unreachable
+  // shape, but Starshine does not yet have the label-aware localizer needed to
+  // do that safely. Keep this branch-control shape fail-closed instead of
+  // moving `ref.as_non_null` into `ref.cast_desc_eq`, which previously could
+  // exactify the cast and produce invalid descriptor-operand typing.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, nullable_described_val_type],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::ref_cast_desc_eq_type(
+                  nullable_described_ref_type,
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected escaping-branch descriptor child to remain valid and fail closed, got \{err}",
+      )
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected outer block to remain, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 1)
+  let cast = @ir.hot_region_get(func, body, 0)
+  match @ir.hot_node_exact_instr(func, cast) {
+    Some(@lib.Instruction::RefCastDescEq(_, exact, _)) =>
+      assert_false(
+        exact,
+        msg="escaping branch descriptor cast must not exactify",
+      )
+    other => fail("expected descriptor cast to fail closed, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_child_count(func, cast), 2)
+  let descriptor_operand = @ir.hot_child_get(func, cast, 1)
+  match @ir.hot_node_exact_instr(func, descriptor_operand) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    other => fail("expected ref.get_desc descriptor operand, got \{other}")
+  }
+  let get_desc_child = @ir.hot_child_get(func, descriptor_operand, 0)
+  match @ir.hot_node_get(func, get_desc_child).op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail(
+        "expected escaping block descriptor child to remain fail-closed, got \{other}",
+      )
+  }
+}
+
+///|
 test "optimize-instructions localizes effectful-condition if ref.get_desc descriptor operands under traps-never-happen" {
   // OI-J TNH companion for the effectful-condition if case above: Binaryen
   // skips the descriptor cast but preserves the effectful condition by
