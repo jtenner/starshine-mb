@@ -9220,6 +9220,181 @@ test "optimize-instructions moves effectful-condition if ref.get_desc child null
 }
 
 ///|
+test "optimize-instructions moves self-contained branch block ref.get_desc child null checks into descriptor casts" {
+  // OI-J descriptor-operand trapOnNull breadth: Binaryen version_130 default
+  // and IIT modes can simplify `ref.get_desc(ref.as_non_null(block ...))` even
+  // when the block contains a branch, as long as the branch targets a label
+  // inside that descriptor child. Branches escaping to an outer label remain a
+  // fail-closed boundary below until Starshine has a true escaping-label
+  // localizer.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, nullable_described_val_type],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected self-contained branch descriptor child null-check simplification, got \{err}",
+      )
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::RefCastDescEq(_, _, _)) => ()
+    other => fail("expected descriptor cast to remain, got \{other}")
+  }
+  let descriptor_operand = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_node_exact_instr(func, descriptor_operand) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    other => fail("expected ref.get_desc descriptor operand, got \{other}")
+  }
+  let child = @ir.hot_child_get(func, descriptor_operand, 0)
+  match @ir.hot_node_get(func, child).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected self-contained branch block child, got \{other}")
+  }
+}
+
+///|
+test "optimize-instructions erases self-contained branch block ref.get_desc descriptor operands under traps-never-happen" {
+  // OI-J TNH companion for the self-contained branch block above: Binaryen
+  // erases the descriptor cast and the pure local-branch descriptor operand
+  // under TNH, returning the original reference operand. This intentionally
+  // excludes branches that escape to an outer descriptor/control label.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, nullable_described_val_type],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected self-contained branch descriptor TNH erasure, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  let root_node = @ir.hot_node_get(func, root)
+  match root_node.op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected original local.get under TNH, got \{other}")
+  }
+  @debug.assert_eq(root_node.imm0, 0)
+}
+
+///|
 test "optimize-instructions fail-closed on escaping-branch block ref.get_desc child null checks" {
   // OI-J descriptor-operand trapOnNull boundary: Binaryen version_130 can
   // rewrite an escaping-branch block-produced child to a branch/unreachable

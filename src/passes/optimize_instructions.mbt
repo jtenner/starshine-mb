@@ -11289,7 +11289,7 @@ fn optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_e
   if node.child_count != 3 {
     return false
   }
-  if optimize_instructions_descriptor_expr_has_branch_control(
+  if optimize_instructions_descriptor_expr_has_escaping_branch_control(
       func,
       @ir.hot_child_get(func, node_id, 0),
     ) {
@@ -11304,13 +11304,11 @@ fn optimize_instructions_descriptor_nullable_if_child_can_move_null_check_with_e
     @ir.hot_region_root_count(func, else_region) != 1 {
     return false
   }
-  !optimize_instructions_descriptor_expr_has_branch_control(
-    func,
-    @ir.hot_region_get(func, then_region, 0),
+  !optimize_instructions_descriptor_region_has_escaping_branch_control_from(
+    func, node_id, then_region,
   ) &&
-  !optimize_instructions_descriptor_expr_has_branch_control(
-    func,
-    @ir.hot_region_get(func, else_region, 0),
+  !optimize_instructions_descriptor_region_has_escaping_branch_control_from(
+    func, node_id, else_region,
   )
 }
 
@@ -11387,6 +11385,228 @@ fn optimize_instructions_descriptor_expr_has_branch_control(
 }
 
 ///|
+fn optimize_instructions_descriptor_region_contains_node(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target_id : Int,
+) -> Bool {
+  for slot = 0
+      slot < @ir.hot_region_root_count(func, region_ref)
+      slot = slot + 1 {
+    if optimize_instructions_descriptor_node_contains(
+        func,
+        @ir.hot_region_get(func, region_ref, slot),
+        target_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimize_instructions_descriptor_node_contains(
+  func : @ir.HotFunc,
+  root_id : Int,
+  target_id : Int,
+) -> Bool {
+  if root_id == target_id {
+    return true
+  }
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, root_id)
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if optimize_instructions_descriptor_node_contains(
+        func,
+        @ir.hot_child_get(func, root_id, slot),
+        target_id,
+      ) {
+      return true
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      optimize_instructions_descriptor_region_contains_node(
+        func,
+        @ir.hot_region_body_ref(func, root_id),
+        target_id,
+      )
+    @ir.HotOp::If => {
+      if optimize_instructions_descriptor_region_contains_node(
+          func,
+          @ir.hot_region_then_ref(func, root_id),
+          target_id,
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, root_id) {
+        Some(region_ref) =>
+          optimize_instructions_descriptor_region_contains_node(
+            func, region_ref, target_id,
+          )
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_descriptor_label_is_internal_to_expr(
+  func : @ir.HotFunc,
+  root_id : Int,
+  label_id : Int,
+) -> Bool {
+  if label_id < 0 || label_id >= func.labels.length() {
+    return false
+  }
+  optimize_instructions_descriptor_node_contains(
+    func,
+    root_id,
+    @ir.hot_label_owner(func, label_id),
+  )
+}
+
+///|
+fn optimize_instructions_descriptor_region_has_escaping_branch_control_from(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for slot = 0
+      slot < @ir.hot_region_root_count(func, region_ref)
+      slot = slot + 1 {
+    if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
+        func,
+        owner_id,
+        @ir.hot_region_get(func, region_ref, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimize_instructions_descriptor_expr_has_escaping_branch_control(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
+    func, node_id, node_id,
+  )
+}
+
+///|
+fn optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br | @ir.HotOp::BrIf =>
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          node.imm0,
+        ) {
+        return true
+      }
+    @ir.HotOp::BrTable => {
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          @ir.hot_branch_table_default_target(func, node.imm0),
+        ) {
+        return true
+      }
+      for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
+        if !optimize_instructions_descriptor_label_is_internal_to_expr(
+            func, owner_id, label_id,
+          ) {
+          return true
+        }
+      }
+    }
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail =>
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          node.imm0,
+        ) {
+        return true
+      }
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable => {
+      let body = @ir.hot_region_body_ref(func, node_id)
+      for slot = 0
+          slot < @ir.hot_region_root_count(func, body)
+          slot = slot + 1 {
+        if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
+            func,
+            owner_id,
+            @ir.hot_region_get(func, body, slot),
+          ) {
+          return true
+        }
+      }
+    }
+    @ir.HotOp::If => {
+      if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
+          func,
+          owner_id,
+          @ir.hot_child_get(func, node_id, 0),
+        ) {
+        return true
+      }
+      let then_region = @ir.hot_region_then_ref(func, node_id)
+      for slot = 0
+          slot < @ir.hot_region_root_count(func, then_region)
+          slot = slot + 1 {
+        if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
+            func,
+            owner_id,
+            @ir.hot_region_get(func, then_region, slot),
+          ) {
+          return true
+        }
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_region) =>
+          for slot = 0
+              slot < @ir.hot_region_root_count(func, else_region)
+              slot = slot + 1 {
+            if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
+                func,
+                owner_id,
+                @ir.hot_region_get(func, else_region, slot),
+              ) {
+              return true
+            }
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if optimize_instructions_descriptor_expr_has_escaping_branch_control_from(
+        func,
+        owner_id,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -11447,7 +11667,7 @@ fn optimize_instructions_try_move_ref_get_desc_child_null_check(
   match @ir.hot_node_get(func, nullable_child).op {
     @ir.HotOp::LocalGet => ()
     @ir.HotOp::Block | @ir.HotOp::Select =>
-      if optimize_instructions_descriptor_expr_has_branch_control(
+      if optimize_instructions_descriptor_expr_has_escaping_branch_control(
           func, nullable_child,
         ) {
         return false
@@ -11482,7 +11702,7 @@ fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
-  if optimize_instructions_descriptor_expr_has_branch_control(
+  if optimize_instructions_descriptor_expr_has_escaping_branch_control(
       func, descriptor_id,
     ) {
     return false
@@ -11864,14 +12084,25 @@ fn optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block => {
       let body = @ir.hot_region_body_ref(func, node_id)
-      if @ir.hot_region_root_count(func, body) != 1 {
+      if @ir.hot_region_root_count(func, body) == 0 ||
+        optimize_instructions_descriptor_expr_has_escaping_branch_control(
+          func, node_id,
+        ) {
         return false
       }
-      optimize_instructions_is_side_effect_free_expr(
-        func,
-        dead,
-        @ir.hot_region_get(func, body, 0),
-      )
+      for slot = 0
+          slot < @ir.hot_region_root_count(func, body)
+          slot = slot + 1 {
+        if !optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_control(
+            func,
+            dead,
+            node_id,
+            @ir.hot_region_get(func, body, slot),
+          ) {
+          return false
+        }
+      }
+      true
     }
     @ir.HotOp::If =>
       optimize_instructions_descriptor_nullable_if_child_can_move_null_check(
@@ -11879,6 +12110,83 @@ fn optimize_instructions_descriptor_nullable_child_can_erase_traps_never_happen(
       )
     _ => false
   }
+}
+
+///|
+fn optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_control(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  owner_id : Int,
+  node_id : Int,
+) -> Bool {
+  if optimize_instructions_is_side_effect_free_expr(func, dead, node_id) {
+    return true
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br | @ir.HotOp::BrIf =>
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          node.imm0,
+        ) {
+        return false
+      }
+    @ir.HotOp::BrTable => {
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          @ir.hot_branch_table_default_target(func, node.imm0),
+        ) {
+        return false
+      }
+      for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
+        if !optimize_instructions_descriptor_label_is_internal_to_expr(
+            func, owner_id, label_id,
+          ) {
+          return false
+        }
+      }
+    }
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail =>
+      if !optimize_instructions_descriptor_label_is_internal_to_expr(
+          func,
+          owner_id,
+          node.imm0,
+        ) {
+        return false
+      }
+    @ir.HotOp::Block => {
+      let body = @ir.hot_region_body_ref(func, node_id)
+      for slot = 0
+          slot < @ir.hot_region_root_count(func, body)
+          slot = slot + 1 {
+        if !optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_control(
+            func,
+            dead,
+            owner_id,
+            @ir.hot_region_get(func, body, slot),
+          ) {
+          return false
+        }
+      }
+    }
+    _ => return false
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if !optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_control(
+        func,
+        dead,
+        owner_id,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
