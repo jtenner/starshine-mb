@@ -6328,7 +6328,7 @@ test "pass-oi-descriptor-gc profile emits descriptor-compatible OI-J triggers" {
     gen_valid_test_instrs_contain_descriptor_gc_ops(
       gen_valid_test_first_func_instrs(descriptor_gc.wasm_module),
     ),
-    msg="expected descriptor profile to cover new_desc/get_desc/test_desc/cast_desc",
+    msg="expected descriptor profile to cover new_desc/get_desc/cast_desc",
   )
 }
 
