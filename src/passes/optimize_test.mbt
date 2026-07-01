@@ -1911,6 +1911,137 @@ test "vacuum raw-unwraps artifact continuation call-prefix parent wrappers" {
 }
 
 ///|
+test "vacuum raw-unwraps leading-empty call-prefix continuation wrappers" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "m" "leaf" (func $leaf (param i32)))
+      #|  (import "m" "tag" (func $tag (param i32 i32)))
+      #|  (import "m" "side" (func $side (param i32 i32)))
+      #|  (import "m" "tri" (func $tri (param i32 i32 i32)))
+      #|  (import "m" "release" (func $release (param i32)))
+      #|  (memory 1)
+      #|  (func (result i32)
+      #|    (local i32 i32 i32 i32 i32 i32 i32)
+      #|    (block $outer
+      #|      (block $middle
+      #|        (block
+      #|          (block
+      #|            (block)
+      #|            (call $tri
+      #|              (i32.const 1)
+      #|              (i32.const 0)
+      #|              (i32.sub (i32.const 0) (i32.const 1))
+      #|            )
+      #|            nop nop nop
+      #|            (if
+      #|              (i32.eq (i32.const 0) (i32.const 1))
+      #|              (then
+      #|                (local.set 0 (i32.const 0))
+      #|                (call $release (i32.const 1))
+      #|                (local.set 1 (i32.const 1))
+      #|              )
+      #|              (else
+      #|                (call $release (i32.const 0))
+      #|                (local.set 2 (i32.const 0))
+      #|                nop
+      #|                (local.set 3 (i32.const 0))
+      #|                (if (i32.const 1)
+      #|                  (then
+      #|                    (call $side (i32.const 1) (i32.const 0))
+      #|                    (call $leaf (i32.const 0))
+      #|                  )
+      #|                  (else
+      #|                    (if (i32.const 1)
+      #|                      (then (call $leaf (i32.const 0)))
+      #|                    )
+      #|                  )
+      #|                )
+      #|                (local.set 4 (i32.const 0))
+      #|                (br $middle)
+      #|              )
+      #|            )
+      #|          )
+      #|          nop
+      #|        )
+      #|        (local.set 5 (i32.const 1))
+      #|        (br $outer)
+      #|      )
+      #|      (call $tag (i32.const 0) (i32.const 0))
+      #|      (i32.store align=1 (i32.const 0) (i32.const 0))
+      #|      (return (i32.const 0))
+      #|    )
+      #|    (local.set 6 (i32.const 0))
+      #|    (i32.const 0)
+      #|  )
+      #|)
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail(
+        "expected leading-empty call-prefix continuation vacuum success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected leading-empty call-prefix continuation output to validate, got \{err}",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      match instrs[0] {
+        @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) =>
+          match outer_body[0] {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(middle_body)) =>
+              match middle_body[0] {
+                @lib.Block(@lib.VoidBlockType, @lib.Expr(prefix_body)) => {
+                  match prefix_body[0] {
+                    @lib.Block(_, _) =>
+                      fail(
+                        "expected trailing-nop parent wrapper to be removed after leading-empty call-prefix cleanup",
+                      )
+                    @lib.I32Const(@lib.I32(value)) => @debug.assert_eq(value, 1)
+                    other =>
+                      fail(
+                        "expected flattened call-prefix to start with lowered call argument, got \{@debug.to_string(other)}",
+                      )
+                  }
+                  match prefix_body[prefix_body.length() - 1] {
+                    @lib.If(@lib.VoidBlockType, _, Some(_)) => ()
+                    other =>
+                      fail(
+                        "expected flattened call-prefix continuation wrapper to end with trailing void if, got \{@debug.to_string(other)}",
+                      )
+                  }
+                }
+                other =>
+                  fail(
+                    "expected call-prefix block before middle continuation, got \{@debug.to_string(other)}",
+                  )
+              }
+            other =>
+              fail(
+                "expected middle continuation block in leading-empty fixture, got \{@debug.to_string(other)}",
+              )
+          }
+        other =>
+          fail(
+            "expected outer continuation block in leading-empty fixture, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected one defined function for leading-empty call-prefix continuation test, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum flattens single-if wrappers without leading empty prefixes" {
   let input = pass_test_module_from_wat(
     (

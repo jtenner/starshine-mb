@@ -27938,6 +27938,22 @@ fn run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descen
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant_ignoring_nops(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let non_nops : Array[@lib.Instruction] = []
+  for instr in body {
+    match instr {
+      @lib.Nop => ()
+      _ => non_nops.push(instr)
+    }
+  }
+  run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant(
+    non_nops,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_body_is_singleton_call_prefix_if_block(
   body : Array[@lib.Instruction],
 ) -> Bool {
@@ -29020,7 +29036,7 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
           @lib.VoidBlockType if run_hot_pipeline_raw_vacuum_body_is_singleton_call_prefix_if_block(
               next_body,
             ) &&
-            run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant(
+            run_hot_pipeline_raw_vacuum_body_has_singleton_empty_block_call_prefix_descendant_ignoring_nops(
               body,
             ) &&
             !run_hot_pipeline_raw_vacuum_body_targets_owner(next_body, 0) => {
