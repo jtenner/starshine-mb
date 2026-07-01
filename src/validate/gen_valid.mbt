@@ -15125,7 +15125,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 49
     PassOiTupleProfile => 18
-    PassOiLocalFactsProfile => 13
+    PassOiLocalFactsProfile => 14
     PassOiBooleanSelectProfile => 4
     PassOiCallRefProfile => 10
     _ => 3
@@ -15281,7 +15281,8 @@ fn gen_valid_oi_local_facts_case_for_seed(seed : UInt64) -> Int {
     0x5ef7UL => 10
     0x5ef8UL => 11
     0x5ef9UL => 12
-    _ => (seed % 13UL).to_int()
+    0x5efaUL => 13
+    _ => (seed % 14UL).to_int()
   }
 }
 
@@ -15410,6 +15411,7 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         10 => Some("oi-local-facts:wrap-extend-mask")
         11 => Some("oi-local-facts:shifted-mask")
         12 => Some("oi-local-facts:wide-shifted-mask")
+        13 => Some("oi-local-facts:select-produced-mask")
         _ => Some("oi-local-facts:direct-sign-extension")
       }
     PassOiBooleanSelectProfile =>
@@ -15698,6 +15700,31 @@ fn gen_valid_oi_local_facts_profile_body(case : Int) -> Array[Instruction] {
         Instruction::local_set(LocalIdx::new(1U)),
         Instruction::local_get(LocalIdx::new(1U)),
         Instruction::i64_const(I64(0x7fffffffL)),
+        Instruction::i64_and(),
+        Instruction::drop(),
+      ])
+      out
+    }
+    13 => {
+      let out : Array[Instruction] = []
+      out.append(direct_sign_ext)
+      out.append([
+        Instruction::i32_const(I32(0xff00)),
+        Instruction::i32_const(I32(0xff)),
+        Instruction::i32_const(I32(0)),
+        Instruction::select(types=Some([ValType::i32()])),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(0xff)),
+        Instruction::i32_and(),
+        Instruction::drop(),
+        Instruction::i64_const(I64(0xffff0000L)),
+        Instruction::i64_const(I64(0xffffL)),
+        Instruction::i32_const(I32(1)),
+        Instruction::select(types=Some([ValType::i64()])),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::i64_const(I64(0xffffL)),
         Instruction::i64_and(),
         Instruction::drop(),
       ])
