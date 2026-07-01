@@ -3590,7 +3590,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT where local mode support exists; otherwise focused Binaryen-only oracle rows until Starshine exposes trap-mode flags",
       "starshineStatus": "blocked-surface",
       "priority": "P1",
-      "blockerBoundaryReason": "Descriptor/exactness/TNH/IIT remains blocked for grouped compare-pass sweeps: the earlier broad pass-oi-ref-gc config generated descriptor-bearing modules that wasm-tools --features all rejected with malformed section id 14, and the current pass-oi-ref-gc trigger-smoke selector intentionally covers only non-descriptor OI-I reference basics. A 2026-06-30 post-OI-F disabled OI-J count24 run again sampled only those non-descriptor labels: local-carried matched 10/10, direct-null/test/cast and branch-cast residuals mirrored classified OI-I output drift with validation plus size/opcode evidence, and no descriptor/exactness/TNH/IIT forms were generated. OI-J needs a dedicated descriptor/exactness profile or compatible oracle/toolchain path before family signoff.",
+      "blockerBoundaryReason": "Descriptor/exactness/TNH/IIT remains a v0.1 blocked surface for grouped compare-pass signoff. Focused exact-cast guard work exists, but no true descriptor-compatible grouped evidence exists: the earlier broad pass-oi-ref-gc config generated descriptor-bearing modules that wasm-tools --features all rejected with malformed section id 14, and the current pass-oi-ref-gc trigger-smoke selector intentionally covers only non-descriptor OI-I reference basics. Later include-disabled OI-J lanes, including .tmp/oi-j-nondescriptor-count30-20260630, sampled only non-descriptor labels and therefore quarantine OI-I output drift instead of unblocking descriptor/exactness/TNH/IIT.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md",
         "docs/wiki/raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md",
@@ -3657,13 +3657,48 @@
           "lastCheckedEvidence": "2026-06-30 .tmp/oi-j-nondescriptor-post-oif-count24-20260630 direct-null/test/cast residual measurement and wasm-tools validation."
         }
       ],
-      "notes": "The count30 OI-J include-disabled refresh at .tmp/oi-j-nondescriptor-count30-20260630 supersedes the post-OI-F count24 as the latest boundary check and still exercises only the deliberately non-descriptor pass-oi-ref-gc profile. It compared 30/30 with 19 normalized matches and 11 raw mismatches, zero failures, Binaryen cache 30/0, and all residual raw/canonical artifacts validated. Local-carried-null-test-cast matched 14/14; direct-null/test/cast remains sampled Starshine-win output drift across eight residuals with deltas -30/-54/-640; branch-cast remains canonical-neutral/raw-smaller structural drift across three residuals with deltas -12/0/-12. No descriptor-compatible evidence exists yet, so OI-J descriptor/exactness/TNH/IIT remains blocked/open.",
+      "notes": "OI-J is finite for v0.1 as a blocked-surface row. Source/test evidence covers a narrow exact-cast validity guard, but family closeout requires true descriptor/exactness/TNH/IIT-compatible generator/oracle evidence. The latest include-disabled count30 lane at .tmp/oi-j-nondescriptor-count30-20260630 compared 30/30 with 19 normalized matches, 11 raw mismatches, zero failures, and all residual artifacts validating, but it sampled only non-descriptor pass-oi-ref-gc labels. Treat direct-null/test/cast and branch-cast residuals as quarantined OI-I output drift with size/opcode evidence; they cannot close OI-J.",
       "closeoutState": "blocked-surface",
-      "releaseImpact": "P1 blocked: must stay open until descriptor-compatible generator/oracle/toolchain support exists; non-descriptor OI-I evidence cannot close it.",
-      "remainingCloseoutWork": "Build a true descriptor/exactness/TNH/IIT profile or compatible oracle/toolchain path; until then keep disabled/boundary evidence separate and do not close the row.",
-      "nextCloseoutAction": "No implementation from current evidence. Create descriptor-compatible generation/oracle plan, or mark as v0.1 blocked-surface with explicit reopen criteria.",
-      "closeoutRationale": "The earlier descriptor-bearing broad profile produced wasm-tools malformed section id 14 failures, and all later include-disabled OI-J lanes intentionally sampled only non-descriptor pass-oi-ref-gc labels. There is no true descriptor-compatible evidence.",
-      "reopenCriteria": "A descriptor-compatible GenValid profile, text/binary parser/toolchain fix, Binaryen oracle path, or Starshine descriptor representation change that makes exact/desc/TNH/IIT cases comparable."
+      "releaseImpact": "P1 blocked: v0.1 can release only with OI-J called out as unsupported for descriptor/exactness/TNH/IIT grouped parity; non-descriptor OI-I evidence is quarantined and cannot close this row.",
+      "remainingCloseoutWork": "None before v0.1 unless descriptor-compatible generation/oracle/toolchain support lands. Post-v0.1 prerequisite is a true descriptor/exactness/TNH/IIT profile or compatible oracle path; then add focused red-first descriptor/exact/TNH/IIT behavior tests and compare evidence.",
+      "nextCloseoutAction": "Classify OI-J as a v0.1 blocked-surface release boundary. Do not implement from current non-descriptor evidence and do not run additional non-descriptor include-disabled lanes for closeout. Reopen only by creating descriptor-compatible generation/oracle/toolchain support or by a product decision to make OI-J descriptor parity a v0.1 blocker.",
+      "closeoutRationale": "The row has no true descriptor-compatible grouped evidence: descriptor-bearing generation failed the baseline validator/toolchain, and comparable follow-up lanes intentionally sampled only non-descriptor OI-I labels. Validation and size wins in those lanes cannot establish descriptor/exactness/TNH/IIT safety.",
+      "reopenCriteria": "A descriptor-compatible GenValid profile, text/binary parser/toolchain fix, Binaryen oracle path, Starshine descriptor representation change, focused exact/desc/TNH/IIT semantic mismatch, or v0.1 product-scope change that requires descriptor parity.",
+      "closeoutBuckets": [
+        {
+          "name": "covered-focused-exactness-guard",
+          "state": "covered",
+          "evidence": [
+            "docs/wiki/raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md records a Binaryen version_130 oracle keeping exact ref.cast on inexact operands and a red-first Starshine validation bug fix that stops removing the required exactness check.",
+            "docs/wiki/raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md records the companion focused already-exact operand behavior.",
+            "Focused tests in the 0818 note passed after implementation, including exact ref.cast and broader ref.cast/ref filters, but the note also states descriptor casts, TNH/IIT removals, success-only cases, useful-type-info preservation, and custom-descriptor mode boundaries remain open."
+          ],
+          "classificationBasis": "This is focused source/test evidence for a narrow exactness validity guard, not descriptor-compatible grouped compare evidence and not broad OI-J closure.",
+          "nextAction": "Keep as covered partial evidence only; do not use it to close descriptor, TNH, IIT, or exactness matrix breadth without descriptor-compatible oracle support."
+        },
+        {
+          "name": "blocked-descriptor-compatible-generator-oracle",
+          "state": "blocked-surface",
+          "evidence": [
+            ".tmp/oi-ref-gc-grouped-sweep-20260627 initial grouped OI-J --include-disabled attempt produced 0/3 comparable cases because descriptor-bearing pass-oi-ref-gc inputs failed wasm-tools --features all with malformed section id 14.",
+            "After pass-oi-ref-gc was narrowed to non-descriptor trigger-smoke, .tmp/oi-ref-gc-trigger-grouped-sweep-20260627 compared 3/3 but no descriptor/exactness/TNH/IIT forms were generated.",
+            ".tmp/oi-j-nondescriptor-count30-20260630 compared 30/30 with 19 normalized matches, 11 raw mismatches, zero validation/generator/property/command failures, and Binaryen cache 30/0, but profile cases were only branch-cast-boundaries, direct-null-test-cast-eq, and local-carried-null-test-cast."
+          ],
+          "classificationBasis": "Blocked by concrete tooling/generator facts: the only descriptor-bearing grouped attempt was not comparable, while all later comparable lanes deliberately removed descriptor surfaces.",
+          "nextAction": "Classify as v0.1 blocked-surface. Post-v0.1 work is to build a true descriptor/exactness/TNH/IIT profile or a compatible text/binary/oracle path before attempting row signoff; no finite release signoff command exists for OI-J today."
+        },
+        {
+          "name": "quarantined-nondescriptor-oi-i-evidence",
+          "state": "blocked-surface",
+          "evidence": [
+            ".tmp/oi-j-nondescriptor-post-oif-count24-20260630 validated all 44 residual raw/canonical artifacts, local-carried matched 10/10, direct-null/test/cast residuals were smaller for Starshine by -30/-54/-640, and branch-cast residuals were canonical-neutral/raw-smaller by -12/0/-12.",
+            ".tmp/oi-j-nondescriptor-count30-20260630 supersedes the count24 boundary check with 30/30 compared, 19 normalized matches, 11 raw mismatches, zero failures, and the same non-descriptor label set.",
+            "The classified case labels explicitly preserve or measure ref.is_null/drop/unreachable/br_on_cast/br_on_cast_fail traffic, but none of those labels exercises descriptor, exactness, TNH, or IIT forms."
+          ],
+          "classificationBasis": "The residuals have validation, opcode, and size evidence, but they are intentionally non-descriptor OI-I evidence. They are quarantined so they do not accidentally close OI-J.",
+          "nextAction": "Do not run more include-disabled non-descriptor OI-J lanes for closeout. Route any future non-descriptor ref basics to OI-I; reopen OI-J only when true descriptor-compatible cases are comparable."
+        }
+      ]
     },
     {
       "id": "OI-K-gc-constructors-fields-arrays",
