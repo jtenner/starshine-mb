@@ -15174,7 +15174,7 @@ fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
     PassOiLocalFactsProfile => 15
     PassOiBooleanSelectProfile => 4
     PassOiCallRefProfile => 10
-    PassOiDescriptorGcProfile => 2
+    PassOiDescriptorGcProfile => 3
     _ => 3
   }
 }
@@ -15493,7 +15493,8 @@ pub fn gen_valid_oi_trigger_profile_case_label(
       }
     PassOiDescriptorGcProfile =>
       match case {
-        0 => Some("oi-descriptor-gc:null-desc-cast")
+        0 => Some("oi-descriptor-gc:effectful-null-desc-cast")
+        2 => Some("oi-descriptor-gc:null-desc-cast")
         _ => Some("oi-descriptor-gc:desc-producer-test-cast")
       }
     PassOiTupleProfile =>
@@ -19309,9 +19310,8 @@ fn gen_valid_oi_descriptor_gc_profile_module(case : Int) -> Module {
   let descriptor_heap = HeapType::new(descriptor_idx)
   let nullable_described_ref = RefType::new(true, described_heap, exact=true)
   let nonnull_described_ref = RefType::new(false, described_heap, exact=true)
-  let descriptor_ref = ValType::ref_type(
-    RefType::new(false, descriptor_heap, exact=true),
-  )
+  let descriptor_ref_type = RefType::new(false, descriptor_heap, exact=true)
+  let descriptor_ref = ValType::ref_type(descriptor_ref_type)
   let type_sec = TypeSec::new([
     RecType::group([
       SubType::comp_type(
@@ -19339,7 +19339,7 @@ fn gen_valid_oi_descriptor_gc_profile_module(case : Int) -> Module {
       ),
     ),
   ])
-  if case == 0 {
+  if case == 2 {
     return Module::new()
       .with_type_sec(type_sec)
       .with_func_sec(
@@ -19360,6 +19360,55 @@ fn gen_valid_oi_descriptor_gc_profile_module(case : Int) -> Module {
             Expr::new([
               Instruction::ref_null_type(nullable_described_ref),
               Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::ref_cast_desc_eq_type(nonnull_described_ref),
+            ]),
+          ),
+        ]),
+      )
+  }
+  if case == 0 {
+    return Module::new()
+      .with_type_sec(type_sec)
+      .with_func_sec(
+        FuncSec::new([nullable_null_func_type_idx, nonnull_null_func_type_idx]),
+      )
+      .with_global_sec(
+        GlobalSec::new([
+          Global::new(
+            GlobalType::new(descriptor_ref, true),
+            Expr::new([Instruction::struct_new_default(descriptor_idx)]),
+          ),
+        ]),
+      )
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::ref_null_type(nullable_described_ref),
+              Instruction::block(
+                BlockType::val_type(descriptor_ref),
+                Expr::new([
+                  Instruction::local_get(LocalIdx::new(0U)),
+                  Instruction::global_set(GlobalIdx::new(0U)),
+                  Instruction::global_get(GlobalIdx::new(0U)),
+                ]),
+              ),
+              Instruction::ref_cast_desc_eq_type(nullable_described_ref),
+            ]),
+          ),
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::ref_null_type(nullable_described_ref),
+              Instruction::block(
+                BlockType::val_type(descriptor_ref),
+                Expr::new([
+                  Instruction::local_get(LocalIdx::new(0U)),
+                  Instruction::global_set(GlobalIdx::new(0U)),
+                  Instruction::global_get(GlobalIdx::new(0U)),
+                ]),
+              ),
               Instruction::ref_cast_desc_eq_type(nonnull_described_ref),
             ]),
           ),

@@ -1977,6 +1977,10 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
     gen_valid_oi_trigger_profile_case_label(PassOiDescriptorGcProfile, 0x5eeeUL),
     Some("oi-descriptor-gc:null-desc-cast"),
   )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiDescriptorGcProfile, 0x5eefUL),
+    Some("oi-descriptor-gc:effectful-null-desc-cast"),
+  )
 
   let oi_tuple = GenValidConfig::for_profile(PassOiTupleProfile)
   @debug.assert_eq(gen_valid_config_label(oi_tuple), "pass-oi-tuple")
@@ -6331,6 +6335,32 @@ fn gen_valid_test_instrs_contain_null_descriptor_cast(
 }
 
 ///|
+fn gen_valid_test_instrs_contain_effectful_descriptor_cast(
+  instrs : Array[Instruction],
+) -> Bool {
+  let mut has_ref_null = false
+  let mut has_global_set = false
+  let mut has_global_get = false
+  let mut has_cast_desc = false
+  for instr in instrs {
+    match instr {
+      RefNull(_) => has_ref_null = true
+      RefCastDescEq(_, _, _) => has_cast_desc = true
+      Block(_, Expr(inner)) =>
+        for inner_instr in inner {
+          match inner_instr {
+            GlobalSet(_) => has_global_set = true
+            GlobalGet(_) => has_global_get = true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  has_ref_null && has_global_set && has_global_get && has_cast_desc
+}
+
+///|
 test "pass-oi-descriptor-gc profile emits descriptor-compatible OI-J triggers" {
   let descriptor_gc = match
     gen_valid_module_result_from_seed(
@@ -6374,6 +6404,29 @@ test "pass-oi-descriptor-gc profile emits descriptor-compatible OI-J triggers" {
       gen_valid_test_first_func_instrs(null_descriptor_gc.wasm_module),
     ),
     msg="expected descriptor profile to cover null-fed ref.cast_desc_eq",
+  )
+
+  let effectful_descriptor_gc = match
+    gen_valid_module_result_from_seed(
+      0x5eefUL,
+      GenValidConfig::for_profile(PassOiDescriptorGcProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiDescriptorGcProfile, 0x5eefUL),
+    Some("oi-descriptor-gc:effectful-null-desc-cast"),
+  )
+  match validate_module(effectful_descriptor_gc.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_instrs_contain_effectful_descriptor_cast(
+      gen_valid_test_first_func_instrs(effectful_descriptor_gc.wasm_module),
+    ),
+    msg="expected descriptor profile to cover effectful descriptor operands",
   )
 }
 

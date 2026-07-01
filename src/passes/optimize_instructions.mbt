@@ -11152,16 +11152,27 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
     @ir.HotOp::RefNull => ()
     _ => return false
   }
-  if !optimize_instructions_is_side_effect_free_expr(func, dead, descriptor_id) &&
-    !optimize_instructions_node_effects_are_pure(ctx, func, descriptor_id) {
-    return false
-  }
+  let descriptor_can_erase = optimize_instructions_is_side_effect_free_expr(
+      func, dead, descriptor_id,
+    ) ||
+    optimize_instructions_node_effects_are_pure(ctx, func, descriptor_id)
   if nullable {
-    optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
-  } else {
+    if descriptor_can_erase {
+      optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
+      true
+    } else {
+      optimize_instructions_replace_with_drop_then_node_id(
+        ctx, func, node_id, descriptor_id, operand_id,
+      )
+    }
+  } else if descriptor_can_erase {
     optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+    true
+  } else {
+    optimize_instructions_replace_with_drop_then_unreachable(
+      ctx, func, node_id, descriptor_id,
+    )
   }
-  true
 }
 
 ///|
@@ -11376,6 +11387,36 @@ fn optimize_instructions_replace_with_drop_then_const_i64(
   )
   @ir.hot_delete_node(func, temp)
   pass_mark_mutated(ctx, func)
+}
+
+///|
+fn optimize_instructions_replace_with_drop_then_node_id(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  drop_id : Int,
+  value_id : Int,
+) -> Bool {
+  let block_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [] => @lib.BlockType::void_()
+    [val_type] => @lib.BlockType::val_type(val_type)
+    _ => return false
+  }
+  let temp = @ir.hot_build_block(func, block_type, [
+    @ir.hot_build_drop(func, drop_id),
+    value_id,
+  ])
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|

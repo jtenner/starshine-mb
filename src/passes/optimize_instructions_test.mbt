@@ -8015,6 +8015,128 @@ test "optimize-instructions folds descriptor equality casts on known null refs w
 }
 
 ///|
+test "optimize-instructions preserves descriptor effects while folding known-null descriptor casts" {
+  // OI-J descriptor/effect boundary: known-null descriptor casts can fold only
+  // when the explicit descriptor operand is still evaluated. A block that
+  // writes then rereads a mutable descriptor global is a representable
+  // non-pure descriptor operand; nullable casts become null after that operand
+  // is dropped, and non-null casts become unreachable after the same prefix.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let nullable_func_type = @lib.TypeIdx::new(2U)
+  let nonnull_func_type = @lib.TypeIdx::new(3U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let nullable_described_ref_type = @lib.RefType::new(
+    true,
+    described_heap,
+    exact=true,
+  )
+  let nonnull_described_ref_type = @lib.RefType::new(
+    false,
+    described_heap,
+    exact=true,
+  )
+  let descriptor_ref_type = @lib.RefType::new(
+    false,
+    descriptor_heap,
+    exact=true,
+  )
+  let descriptor_ref = @lib.ValType::ref_type(descriptor_ref_type)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([descriptor_ref], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([descriptor_ref], [
+              @lib.ValType::ref_type(nonnull_described_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([nullable_func_type, nonnull_func_type]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(descriptor_ref, true),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(descriptor_type)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(descriptor_ref),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(nullable_described_ref_type),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(descriptor_ref),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_cast_desc_eq_type(nonnull_described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let nullable_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let nonnull_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(
+    nullable_pretty.contains("ref.cast_desc_eq"),
+    msg=nullable_pretty,
+  )
+  assert_true(nullable_pretty.contains("ref.null"), msg=nullable_pretty)
+  assert_true(nullable_pretty.contains("local.get"), msg=nullable_pretty)
+  assert_true(nullable_pretty.contains("global.set"), msg=nullable_pretty)
+  assert_true(nullable_pretty.contains("global.get"), msg=nullable_pretty)
+  assert_true(nullable_pretty.contains("drop"), msg=nullable_pretty)
+  assert_false(nonnull_pretty.contains("ref.cast_desc_eq"), msg=nonnull_pretty)
+  assert_true(nonnull_pretty.contains("unreachable"), msg=nonnull_pretty)
+  assert_true(nonnull_pretty.contains("local.get"), msg=nonnull_pretty)
+  assert_true(nonnull_pretty.contains("global.set"), msg=nonnull_pretty)
+  assert_true(nonnull_pretty.contains("global.get"), msg=nonnull_pretty)
+  assert_true(nonnull_pretty.contains("drop"), msg=nonnull_pretty)
+}
+
+///|
 test "optimize-instructions folds nullable ref.test and ref.cast on known null refs" {
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let eq_ref = @lib.ValType::ref_null(eq_heap)
