@@ -11214,15 +11214,42 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
   }
   let descriptor_id = @ir.hot_child_get(func, node_id, 1)
   match @ir.hot_node_exact_instr(func, descriptor_id) {
-    Some(@lib.Instruction::RefAsNonNull) => ()
-    _ => return false
+    Some(@lib.Instruction::RefAsNonNull) => {
+      if @ir.hot_child_count(func, descriptor_id) != 1 {
+        return false
+      }
+      @ir.hot_child_set(
+        func,
+        node_id,
+        1,
+        @ir.hot_child_get(func, descriptor_id, 0),
+      )
+      pass_mark_mutated(ctx, func)
+      true
+    }
+    Some(@lib.Instruction::RefGetDesc(_)) => {
+      if @ir.hot_child_count(func, descriptor_id) != 1 {
+        return false
+      }
+      let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
+      match @ir.hot_node_exact_instr(func, get_desc_child) {
+        Some(@lib.Instruction::RefAsNonNull) => ()
+        _ => return false
+      }
+      if @ir.hot_child_count(func, get_desc_child) != 1 {
+        return false
+      }
+      let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
+      match @ir.hot_node_get(func, nullable_child).op {
+        @ir.HotOp::LocalGet => ()
+        _ => return false
+      }
+      @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
+      pass_mark_mutated(ctx, func)
+      true
+    }
+    _ => false
   }
-  if @ir.hot_child_count(func, descriptor_id) != 1 {
-    return false
-  }
-  @ir.hot_child_set(func, node_id, 1, @ir.hot_child_get(func, descriptor_id, 0))
-  pass_mark_mutated(ctx, func)
-  true
 }
 
 ///|
