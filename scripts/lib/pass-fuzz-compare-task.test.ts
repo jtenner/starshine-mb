@@ -46,6 +46,21 @@ describe("pass-fuzz persistent cache options", () => {
     }
   });
 
+  test("accepts optimizer mode flags without treating them as pass names", () => {
+    const parsed = parsePassFuzzCompareArgs([
+      "--pass",
+      "optimize-instructions",
+      "--traps-never-happen",
+      "--ignore-implicit-traps",
+    ]);
+
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.passFlags).toEqual(["--optimize-instructions"]);
+      expect(parsed.options.optimizerFlags).toEqual(["--traps-never-happen", "--ignore-implicit-traps"]);
+    }
+  });
+
   test("rejects the retired mixed generator mode", () => {
     expect(() => parsePassFuzzCompareArgs(["--pass", "remove-unused-brs", "--generator", "both"])).toThrow(
       "invalid generator: both",
@@ -985,7 +1000,8 @@ describe("pass fuzz summary coverage report", () => {
         mayTrap: 3,
       },
       passFlags: ["--dae-optimizing"],
-      binaryenPassFlags: ["--dae-optimizing"],
+      optimizerFlags: ["--traps-never-happen"],
+      binaryenPassFlags: ["--traps-never-happen", "--dae-optimizing"],
       normalizers: ["drop-consts"],
       failureDirs: ["failures/case-1", "failures/case-2"],
     });

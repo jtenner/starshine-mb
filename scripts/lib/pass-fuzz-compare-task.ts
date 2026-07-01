@@ -57,6 +57,7 @@ type RuntimeExportInvocationMatrixPersistence = {
   semanticMismatchSamples: RuntimeExportInvocationReport[];
 };
 type PropertyMode = "none" | "idempotence" | "composition";
+type OptimizerModeFlag = "--traps-never-happen" | "--ignore-implicit-traps";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -95,6 +96,7 @@ type PassFuzzCompareOptions = {
   keepGoingAfterCommandFailures: boolean;
   jobs: number | null;
   passFlags: string[];
+  optimizerFlags: OptimizerModeFlag[];
   cacheDir: string | null;
   replayFailuresFrom: string | null;
   failureStatus: CaseStatus | null;
@@ -192,6 +194,7 @@ export type PassFuzzCompareSummary = {
   };
   inputEffectTrapCounts: EffectTrapCounts;
   passFlags: string[];
+  optimizerFlags: OptimizerModeFlag[];
   binaryenPassFlags: string[];
   normalizers: CompareNormalizer[];
   cache: {
@@ -293,6 +296,11 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--simplify-locals-no-structure", "--simplify-locals-nostructure"],
 ]);
 
+const SUPPORTED_OPTIMIZER_MODE_FLAGS = new Set<OptimizerModeFlag>([
+  "--traps-never-happen",
+  "--ignore-implicit-traps",
+]);
+
 const HELP_TEXT = [
   "usage: bun scripts/pass-fuzz-compare.ts [options] --pass <name>|--<pass-flag>",
   "options:",
@@ -327,6 +335,9 @@ const HELP_TEXT = [
   "  --cache-dir <dir>     Persistent cache for wasm-smith inputs and Binaryen oracle outputs. Default: .tmp/pass-fuzz-cache",
   "  --no-cache            Disable persistent input/oracle caching",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
+  "  --traps-never-happen  Forward TNH trap mode to both Starshine and Binaryen",
+  "  --ignore-implicit-traps",
+  "                       Forward IIT trap mode to both Starshine and Binaryen",
   "  --replay-failures-from <dir>",
   "                       Replay saved failure inputs from a prior out dir",
   "  --failure-status <status>",
@@ -2374,6 +2385,7 @@ function candidateStillHasPassFuzzMismatch(
     }
     const starshineArgs = [
       ...starshineInvocation.argsPrefix,
+      ...options.optimizerFlags,
       ...options.passFlags,
       "--out",
       starshineRawPath,
@@ -2529,6 +2541,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let keepGoingAfterCommandFailures = false;
   let jobs: number | null = null;
   const passFlags: string[] = [];
+  const optimizerFlags: OptimizerModeFlag[] = [];
   let cacheDir: string | null = path.join(".tmp", "pass-fuzz-cache");
   let replayFailuresFrom: string | null = null;
   let failureStatus: CaseStatus | null = null;
@@ -2666,6 +2679,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         passFlags.push(normalizePassNameToFlag(argv[i + 1] ?? fail("missing value for --pass")));
         i += 2;
         break;
+      case "--traps-never-happen":
+      case "--ignore-implicit-traps":
+        optimizerFlags.push(token);
+        i += 1;
+        break;
       case "--cache-dir":
         cacheDir = argv[i + 1] ?? fail("missing value for --cache-dir");
         i += 2;
@@ -2757,6 +2775,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         if (RESERVED_OPTIONS.has(token)) {
           fail(`missing value for ${token}`);
         }
+        if (SUPPORTED_OPTIMIZER_MODE_FLAGS.has(token as OptimizerModeFlag)) {
+          optimizerFlags.push(token as OptimizerModeFlag);
+          i += 1;
+          break;
+        }
         if (!token.startsWith("--")) {
           fail(`unexpected positional argument: ${token}`);
         }
@@ -2816,6 +2839,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       keepGoingAfterCommandFailures,
       jobs,
       passFlags,
+      optimizerFlags,
       cacheDir,
       replayFailuresFrom,
       failureStatus,
@@ -2851,7 +2875,10 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const resultPath = path.join(outDir, "result.json");
   const summaryPath = path.join(outDir, "summary.json");
   const casesPath = path.join(outDir, "cases.jsonl");
-  const binaryenPassFlags = options.passFlags.map(normalizeBinaryenPassFlag);
+  const binaryenPassFlags = [
+    ...options.optimizerFlags,
+    ...options.passFlags.map(normalizeBinaryenPassFlag),
+  ];
   const resolvedCacheDir = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
   const wasmToolsIdentity = readToolIdentity(options.wasmToolsBin, ["--version"], repoRoot);
   const binaryenIdentity: BinaryenCacheIdentity = {
@@ -2987,6 +3014,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     },
     inputEffectTrapCounts: emptyEffectTrapCounts(),
     passFlags: options.passFlags,
+    optimizerFlags: options.optimizerFlags,
     binaryenPassFlags,
     normalizers: options.normalizers,
     cache: {
@@ -3177,6 +3205,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
 
       const starshineArgs = [
         ...starshineInvocation.argsPrefix,
+        ...options.optimizerFlags,
         ...options.passFlags,
         "--out",
         starshineRawPath,
@@ -3267,6 +3296,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.idempotenceCheckedCount += 1;
         const idempotenceArgs = [
           ...starshineInvocation.argsPrefix,
+          ...options.optimizerFlags,
           ...options.passFlags,
           "--out",
           idempotenceRawPath,
@@ -3374,6 +3404,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             finalCompositionRawPath = `${compositionRawPrefix}.${String(passIndex + 1).padStart(2, "0")}.raw.wasm`;
             const compositionArgs = [
               ...starshineInvocation.argsPrefix,
+              ...options.optimizerFlags,
               options.passFlags[passIndex],
               "--out",
               finalCompositionRawPath,
