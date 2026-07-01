@@ -1,3 +1,7 @@
+## 2026-07-01 OI-J outer ref.as_non_null descriptor-cast success-path slice
+
+A focused OI-J success-path probe `.tmp/oi-j-asnonnull-desc-cast-result-probe.wat` showed Binaryen default, `--ignore-implicit-traps`, and `--traps-never-happen` folding `ref.as_non_null(ref.cast_desc_eq (ref null $a) ...)` into `ref.cast_desc_eq (ref (exact $a))` when the same-target descriptor operand proves exactness. Red-first `src/passes/optimize_instructions_test.mbt::optimize-instructions moves ref.as_non_null into exact descriptor casts` failed with an outer `RefAsNonNull` root, then passed after Starshine rebuilds nullable descriptor casts as non-null while preserving exact descriptor evidence. Manual Starshine default/IIT/TNH replays validate with `wasm-tools --features all`, and `.tmp/oi-j-asnonnull-desc-cast-count12-20260701` plus `.tmp/oi-j-asnonnull-desc-cast-tnh-count12-20260701` each compared 12/12 with 12 normalized matches and zero failures. OI-J remains `blocked-surface`; this is not `ref.test_desc`, escaping-label localization, broad exactness, or broad TNH/IIT closure.
+
 ## 2026-07-01 full-parity strategy supersedes v0.1 boundary closeout
 
 The OI workflow is now full pass parity, not release-boundary acceptance. The previous v0.1 closeout inventory remains useful as evidence, but `accepted-release-boundary` is no longer a terminal row state. Work blockers first, then parity gaps by concrete Binaryen behavior. New GenValid profiles or families are appropriate when they directly unblock evidence or cover a behavior family cheaply.

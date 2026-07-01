@@ -8363,6 +8363,81 @@ test "optimize-instructions exactifies nullable descriptor casts with exact desc
 }
 
 ///|
+test "optimize-instructions moves ref.as_non_null into exact descriptor casts" {
+  // OI-J skipNonNullCast/trapOnNull exactness: Binaryen version_130 default,
+  // IIT, and TNH modes rewrite `ref.as_non_null(ref.cast_desc_eq (ref null
+  // $target) ...)` into a non-null `ref.cast_desc_eq (ref (exact $target))`
+  // when the exact same-target descriptor operand proves exactness. This is a
+  // narrow success-path descriptor-cast case; it does not cover ref.test_desc
+  // or broad TNH/IIT descriptor skipping.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nonnull_described_ref_type = @lib.RefType::new(false, described_heap)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::ref_type(nullable_described_ref_type)],
+              [@lib.ValType::ref_type(nonnull_described_ref_type)],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+            @lib.Instruction::ref_as_non_null(),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected descriptor as_non_null folding, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
+  match @ir.hot_node_exact_instr(func, root) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) => {
+      @debug.assert_eq(nullable, false)
+      @debug.assert_eq(exact, true)
+      @debug.assert_eq(target, described_heap)
+    }
+    other => fail("expected non-null exact descriptor cast, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions exactifies descriptor casts with exact subtype descriptors" {
   // OI-J exactness/useful-type-info breadth: Binaryen version_130 default,
   // IIT, and TNH modes rewrite an inexact base-heap descriptor cast whose

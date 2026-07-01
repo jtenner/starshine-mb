@@ -1,3 +1,7 @@
+## 2026-07-01 OI-J outer ref.as_non_null descriptor-cast success-path slice
+
+A manual Binaryen probe `.tmp/oi-j-asnonnull-desc-cast-result-probe.wat` showed default/IIT/TNH all rewrite an outer `ref.as_non_null` around a nullable same-target descriptor cast into a non-null exact `ref.cast_desc_eq`. The red-first Starshine test failed with the old outer `RefAsNonNull`, then passed after `src/passes/optimize_instructions.mbt` moves that success-path null check into the descriptor cast and preserves exact same-target descriptor evidence. Manual Starshine default/IIT/TNH replays validate and print `ref.cast_desc_eq (ref (exact $a))`. Focused generated smokes stayed green: `.tmp/oi-j-asnonnull-desc-cast-count12-20260701` and `.tmp/oi-j-asnonnull-desc-cast-tnh-count12-20260701` both compared 12/12 with 12 normalized matches, zero validation/generator/property/command failures, and Binaryen cache 12/0. OI-J remains open for `ref.test_desc`, escaping-label localization, broader descriptor operands/casts, and broad exactness/TNH/IIT.
+
 ## 2026-07-01 full-parity sweep policy supersedes release-boundary closeout
 
 Closeout triage no longer means accepting release boundaries. The full-pass-parity target keeps previous classified lanes as evidence, but sweeps and profiles must now answer behavior questions: unblock evidence/tooling, implement a known Binaryen behavior gap, or verify a focused behavior family. Do not run broad breadth lanes unless they directly reduce a blocker or behavior row.

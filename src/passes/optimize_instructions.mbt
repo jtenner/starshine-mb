@@ -12423,6 +12423,11 @@ fn optimize_instructions_try_fold_ref_as_non_null(
   if optimize_instructions_descriptor_expr_has_branch_control(func, operand_id) {
     return false
   }
+  if optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
+      ctx, func, node_id, operand_id,
+    ) {
+    return true
+  }
   match @ir.hot_node_get(func, operand_id).op {
     @ir.HotOp::RefNull => {
       optimize_instructions_replace_with_unreachable(ctx, func, node_id)
@@ -12434,6 +12439,79 @@ fn optimize_instructions_try_fold_ref_as_non_null(
     }
     _ => false
   }
+}
+
+///|
+fn optimize_instructions_try_move_ref_as_non_null_into_ref_cast_desc_eq(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  cast_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, cast_id) != 2 {
+    return false
+  }
+  let (nullable, exact, target) = match
+    @ir.hot_node_exact_instr(func, cast_id) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) =>
+      (nullable, exact, target)
+    _ => return false
+  }
+  if !nullable {
+    optimize_instructions_replace_with_node_id(ctx, func, node_id, cast_id)
+    return true
+  }
+  let ref_operand_id = @ir.hot_child_get(func, cast_id, 0)
+  let descriptor_id = @ir.hot_child_get(func, cast_id, 1)
+  if optimize_instructions_descriptor_expr_has_escaping_branch_control(
+      func, descriptor_id,
+    ) {
+    return false
+  }
+  let operand_exact = match
+    optimize_instructions_ref_operand_matches_or_subtypes_heap(
+      ctx, func, ref_operand_id, target,
+    ) {
+    Some((_, exact)) => exact
+    None => false
+  }
+  let descriptor_described_heap = optimize_instructions_descriptor_operand_exact_described_heap(
+    ctx, func, descriptor_id,
+  )
+  let narrowed_target = match descriptor_described_heap {
+    Some(described_heap) if optimize_instructions_heap_is_known_subtype(
+        ctx, described_heap, target,
+      ) => described_heap
+    _ => target
+  }
+  let descriptor_exact = narrowed_target != target ||
+    optimize_instructions_descriptor_operand_exactly_describes_target(
+      ctx, func, descriptor_id, target,
+    )
+  let narrowed_exact = exact || operand_exact || descriptor_exact
+  let narrowed_ref_type = @lib.RefType::new(
+    false,
+    narrowed_target,
+    exact=narrowed_exact,
+  )
+  let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
+    narrowed_ref_type,
+  )
+  let payload_id = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(narrowed_instr),
+  )
+  let narrowed = @ir.hot_build_node(
+    func,
+    @ir.hot_node_get(func, cast_id).op,
+    @ir.hot_type_intern_value(func, @lib.ValType::ref_type(narrowed_ref_type)),
+    imm1=payload_id,
+    children=[ref_operand_id, descriptor_id],
+  )
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
+  @ir.hot_delete_node(func, narrowed)
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
