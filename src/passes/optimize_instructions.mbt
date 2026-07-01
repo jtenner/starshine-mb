@@ -11185,6 +11185,32 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
 }
 
 ///|
+fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCastDescEq(_, _, _)) => ()
+    _ => return false
+  }
+  let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  match @ir.hot_node_exact_instr(func, descriptor_id) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, descriptor_id) != 1 {
+    return false
+  }
+  @ir.hot_child_set(func, node_id, 1, @ir.hot_child_get(func, descriptor_id, 0))
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -11494,8 +11520,13 @@ fn optimize_instructions_descriptor_operand_can_erase(
   optimize_instructions_ref_get_desc_operand_can_erase(func, dead, node_id) ||
   (
     ctx.traps_never_happen &&
-    optimize_instructions_ref_get_desc_operand_can_erase_traps_never_happen(
-      func, dead, node_id,
+    (
+      optimize_instructions_ref_as_non_null_descriptor_operand_can_erase_traps_never_happen(
+        func, dead, node_id,
+      ) ||
+      optimize_instructions_ref_get_desc_operand_can_erase_traps_never_happen(
+        func, dead, node_id,
+      )
     )
   )
 }
@@ -11568,6 +11599,26 @@ fn optimize_instructions_ref_get_desc_operand_can_erase(
     optimize_instructions_ref_is_known_non_null(func, operand_id)
   ) &&
   optimize_instructions_is_side_effect_free_expr(func, dead, operand_id)
+}
+
+///|
+fn optimize_instructions_ref_as_non_null_descriptor_operand_can_erase_traps_never_happen(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  optimize_instructions_is_side_effect_free_expr(
+    func,
+    dead,
+    @ir.hot_child_get(func, node_id, 0),
+  )
 }
 
 ///|
@@ -13623,6 +13674,9 @@ fn optimize_instructions_visit_node(
       ) ||
       optimize_instructions_try_fold_ref_cast_desc_eq_null(
         ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
+        ctx, func, node_id,
       ) ||
       optimize_instructions_try_narrow_ref_cast_desc_eq_result_type(
         ctx, func, node_id,
