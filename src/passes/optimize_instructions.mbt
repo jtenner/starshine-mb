@@ -11133,6 +11133,72 @@ fn optimize_instructions_try_fold_ref_cast_null(
 }
 
 ///|
+fn optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let (nullable, exact, target) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) =>
+      (nullable, exact, target)
+    _ => return false
+  }
+  if not(nullable) {
+    return false
+  }
+  let operand_id = @ir.hot_child_get(func, node_id, 0)
+  let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  let operand_exact = match
+    optimize_instructions_ref_operand_nonnullable_same_heap(
+      func, operand_id, target,
+    ) {
+    Some(operand_exact) => operand_exact
+    None => return false
+  }
+  let narrowed_exact = exact || operand_exact
+  let narrowed_instr = @lib.Instruction::ref_cast_desc_eq_type(
+    @lib.RefType::new(false, target, exact=narrowed_exact),
+  )
+  let payload_id = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(narrowed_instr),
+  )
+  let narrowed = @ir.hot_build_node(
+    func,
+    @ir.hot_node_get(func, node_id).op,
+    @ir.hot_type_intern_value(
+      func,
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, target, exact=narrowed_exact),
+      ),
+    ),
+    imm1=payload_id,
+    children=[operand_id, descriptor_id],
+  )
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, narrowed))
+  @ir.hot_delete_node(func, narrowed)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_ref_operand_nonnullable_same_heap(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target : @lib.HeapType,
+) -> Bool? {
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [@lib.ValType::RefTypeValType(ref_type)] if ref_type.is_non_nullable() &&
+      ref_type.get_heap_type() == target => Some(ref_type.is_exact())
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -13083,6 +13149,9 @@ fn optimize_instructions_visit_node(
     @ir.HotOp::RefCastDescEq =>
       optimize_instructions_try_fold_ref_cast_desc_eq_null(
         ctx, func, dead, node_id,
+      ) ||
+      optimize_instructions_try_narrow_ref_cast_desc_eq_non_null(
+        ctx, func, node_id,
       )
     @ir.HotOp::Heap =>
       optimize_instructions_try_fold_ref_as_non_null(ctx, func, node_id) ||

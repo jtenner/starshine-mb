@@ -7925,6 +7925,88 @@ test "optimize-instructions intentionally keeps legacy descriptor equality casts
 }
 
 ///|
+test "optimize-instructions narrows nullable descriptor casts on exact non-null operands" {
+  // OI-J useful-type-info descriptor slice: Binaryen version_130 rewrites a
+  // nullable descriptor equality cast whose reference operand is already exact
+  // and non-null to a non-null exact descriptor cast, preserving the explicit
+  // descriptor equality check instead of removing the cast. This covers only
+  // the representable ref.cast_desc_eq useful-type-info case; ref.test_desc,
+  // TNH, IIT, and broader descriptor-cast success logic remain open.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let func = @ir.hot_lift_func(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::struct_new_default_desc(described_type),
+            @lib.Instruction::struct_new_default(descriptor_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.FuncIdx::new(0U),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected descriptor useful-type-info success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_child_count(func, root), 2)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, root),
+    Some(
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(false, described_heap, exact=true),
+      ),
+    ),
+  )
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, root)) {
+    [@lib.ValType::RefTypeValType(ref_type)] => {
+      @debug.assert_eq(ref_type.is_non_nullable(), true)
+      @debug.assert_eq(ref_type.is_exact(), true)
+      @debug.assert_eq(ref_type.get_heap_type(), described_heap)
+    }
+    other => fail("expected narrowed ref.cast_desc_eq type, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions folds descriptor equality casts on known null refs with pure descriptors" {
   // OI-J representable descriptor success/null boundary: nullable descriptor
   // casts of null return null, and non-null descriptor casts of null trap. The
