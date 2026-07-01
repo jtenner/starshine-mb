@@ -11269,7 +11269,7 @@ fn optimize_instructions_try_simplify_ref_cast_desc_eq_descriptor_operand(
       }
       let nullable_child = @ir.hot_child_get(func, get_desc_child, 0)
       match @ir.hot_node_get(func, nullable_child).op {
-        @ir.HotOp::LocalGet | @ir.HotOp::Block => ()
+        @ir.HotOp::LocalGet | @ir.HotOp::Block | @ir.HotOp::Select => ()
         _ => return false
       }
       @ir.hot_child_set(func, descriptor_id, 0, nullable_child)
