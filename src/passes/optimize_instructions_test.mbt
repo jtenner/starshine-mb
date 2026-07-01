@@ -9502,6 +9502,95 @@ test "optimize-instructions erases self-contained branch block ref.get_desc desc
 }
 
 ///|
+test "optimize-instructions erases self-contained br_if block ref.get_desc descriptor operands under traps-never-happen" {
+  // OI-J TNH companion for self-contained conditional branch control:
+  // Binaryen erases the descriptor cast and the pure local br_if descriptor
+  // operand under TNH, returning the original reference operand. The fallthrough
+  // branch value is dropped before the alternate local result, so the erasure
+  // proof must treat drop-of-pure-value as effect-free while still requiring all
+  // branches to target labels contained inside the descriptor child.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let i32_type = @lib.ValType::i32()
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                nullable_described_val_type, nullable_described_val_type, i32_type,
+              ],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+            @lib.Instruction::ref_get_desc(described_type),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected self-contained br_if descriptor TNH erasure, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  let root_node = @ir.hot_node_get(func, root)
+  match root_node.op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected original local.get under TNH, got \{other}")
+  }
+  @debug.assert_eq(root_node.imm0, 0)
+}
+
+///|
 test "optimize-instructions fail-closed on escaping-branch block ref.get_desc child null checks" {
   // OI-J descriptor-operand trapOnNull boundary: Binaryen version_130 can
   // rewrite an escaping-branch block-produced child to a branch/unreachable

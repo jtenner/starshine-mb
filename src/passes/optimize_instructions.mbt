@@ -12206,6 +12206,7 @@ fn optimize_instructions_descriptor_expr_is_effect_free_allowing_internal_contro
         }
       }
     }
+    @ir.HotOp::Drop => if node.child_count != 1 { return false }
     _ => return false
   }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
