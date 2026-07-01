@@ -8233,6 +8233,216 @@ test "optimize-instructions erases descriptor allocation while folding known-nul
 }
 
 ///|
+test "optimize-instructions retargets bottom null when folding nullable descriptor casts" {
+  // OI-J descriptor/null exactness slice: Binaryen accepts bottom-typed
+  // `(ref.null none)` as the reference input to a descriptor equality cast and,
+  // when the nullable cast folds, leaves a null value usable for the declared
+  // target. Starshine must not reuse the bottom-typed input node after folding,
+  // because HOT/lowering validation needs the replacement to carry the nullable
+  // target heap exactly while preserving the descriptor operand call as a drop
+  // prefix.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let nullable_described_ref_type = @lib.RefType::new(
+    true,
+    described_heap,
+    exact=true,
+  )
+  let descriptor_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap, exact=true),
+  )
+  let descriptor_func_type = @lib.TypeIdx::new(2U)
+  let nullable_func_type = @lib.TypeIdx::new(3U)
+  let func = @ir.hot_lift_func(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [descriptor_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([descriptor_func_type, nullable_func_type]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(descriptor_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::none()),
+            ),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.FuncIdx::new(1U),
+  )
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected descriptor bottom-null fold success, got \{err}")
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected descriptor call to be preserved as a dropped prefix")
+  }
+  let replacement = @ir.hot_child_get(func, root, 1)
+  match @ir.hot_const_get(func, @ir.hot_node_get(func, replacement).imm0) {
+    @ir.HotConstPayload::RefNullConst(ref_type) =>
+      @debug.assert_eq(ref_type, nullable_described_ref_type)
+    other => fail("expected typed ref.null replacement, got \{other}")
+  }
+}
+
+///|
+test "optimize-instructions raw skip retargets bottom null descriptor casts" {
+  // Active dispatcher guard for the same OI-J bottom-null descriptor case above:
+  // stack-carried descriptor calls can take the raw-skip path, so the public
+  // pipeline must still rewrite the descriptor cast to a typed nullable null or
+  // non-null trap before final validation.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let descriptor_func_type = @lib.TypeIdx::new(2U)
+  let nullable_func_type = @lib.TypeIdx::new(3U)
+  let nonnull_func_type = @lib.TypeIdx::new(4U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let descriptor_heap = @lib.HeapType::new(descriptor_type)
+  let nullable_described_ref_type = @lib.RefType::new(
+    true,
+    described_heap,
+    exact=true,
+  )
+  let nonnull_described_ref_type = @lib.RefType::new(
+    false,
+    described_heap,
+    exact=true,
+  )
+  let descriptor_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, descriptor_heap, exact=true),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [descriptor_ref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nullable_described_ref_type),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(nonnull_described_ref_type),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        descriptor_func_type, nullable_func_type, nonnull_func_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(descriptor_type)]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::none()),
+            ),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_cast_desc_eq_type(nullable_described_ref_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::none()),
+            ),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::ref_cast_desc_eq_type(nonnull_described_ref_type),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected raw-skip descriptor bottom-null success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+  let nullable_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let nonnull_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(
+    nullable_pretty.contains("ref.cast_desc_eq"),
+    msg=nullable_pretty,
+  )
+  assert_true(nullable_pretty.contains("ref.null"), msg=nullable_pretty)
+  assert_true(nullable_pretty.contains("call"), msg=nullable_pretty)
+  assert_false(nonnull_pretty.contains("ref.cast_desc_eq"), msg=nonnull_pretty)
+  assert_true(nonnull_pretty.contains("unreachable"), msg=nonnull_pretty)
+  assert_true(nonnull_pretty.contains("call"), msg=nonnull_pretty)
+}
+
+///|
 test "optimize-instructions folds nullable ref.test and ref.cast on known null refs" {
   let eq_heap = @lib.HeapType::abs(@lib.AbsHeapType::eq())
   let eq_ref = @lib.ValType::ref_null(eq_heap)

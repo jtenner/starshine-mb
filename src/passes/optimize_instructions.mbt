@@ -11142,8 +11142,10 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
   }
-  let nullable = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefCastDescEq(nullable, _, _)) => nullable
+  let (nullable, exact, target) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCastDescEq(nullable, exact, target)) =>
+      (nullable, exact, target)
     _ => return false
   }
   let operand_id = @ir.hot_child_get(func, node_id, 0)
@@ -11160,12 +11162,18 @@ fn optimize_instructions_try_fold_ref_cast_desc_eq_null(
       func, descriptor_id,
     )
   if nullable {
+    let typed_null_id = @ir.hot_build_ref_null(
+      func,
+      @lib.RefType::new(true, target, exact~),
+    )
     if descriptor_can_erase {
-      optimize_instructions_replace_with_node_id(ctx, func, node_id, operand_id)
+      optimize_instructions_replace_with_node_id(
+        ctx, func, node_id, typed_null_id,
+      )
       true
     } else {
       optimize_instructions_replace_with_drop_then_node_id(
-        ctx, func, node_id, descriptor_id, operand_id,
+        ctx, func, node_id, descriptor_id, typed_null_id,
       )
     }
   } else if descriptor_can_erase {

@@ -24802,6 +24802,34 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
+    if i + 2 < instrs.length() {
+      match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (
+          @lib.RefNull(_),
+          descriptor_instr,
+          @lib.RefCastDescEq(nullable, exact, target),
+        ) if (match descriptor_instr {
+            @lib.Call(_) => true
+            _ => false
+          }) => {
+          rewritten.push(descriptor_instr)
+          rewritten.push(@lib.Instruction::drop())
+          if nullable {
+            rewritten.push(
+              @lib.Instruction::ref_null_type(
+                @lib.RefType::new(true, target, exact~),
+              ),
+            )
+          } else {
+            rewritten.push(@lib.Instruction::unreachable_())
+          }
+          changed = true
+          i = i + 3
+          continue
+        }
+        _ => ()
+      }
+    }
     if i + 12 < instrs.length() {
       match
         (
