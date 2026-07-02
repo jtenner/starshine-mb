@@ -30346,6 +30346,50 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
                   _,
                   @lib.Expr([tested_value, tested_effect, tested_result])
                 ),
+                @lib.BrOnCastFail(_, @lib.CastOp(_, _), _, _),
+                @lib.Drop,
+                @lib.Block(
+                  _,
+                  @lib.Expr([success_value, success_effect, success_result])
+                ),
+              ]
+            )
+          ),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match
+            (
+              tested_value, tested_effect, tested_result, success_value, success_effect,
+              success_result,
+            ) {
+            (
+              @lib.I32Const(_),
+              @lib.GlobalSet(_),
+              @lib.LocalGet(_),
+              @lib.I32Const(_),
+              @lib.GlobalSet(_),
+              @lib.LocalGet(_),
+            ) => true
+            _ => false
+          }) => {
+          rewritten.push(instrs[i])
+          rewritten.push(instrs[i + 1])
+          rewritten.push(instrs[i + 3])
+          rewritten.push(instrs[i + 4])
+          changed = true
+          i = i + 5
+          continue
+        }
+        (
+          @lib.Block(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr([tested_value, tested_effect, tested_result])
+                ),
                 @lib.BrOnCast(
                   label_idx,
                   @lib.CastOp(source_nullable, target_nullable),

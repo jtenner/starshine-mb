@@ -12418,6 +12418,181 @@ test "optimize-instructions lowers escaping br_on_cast_fail effectful success re
 }
 
 ///|
+test "optimize-instructions moves br_on_cast_fail combined effect ref.get_desc null check like Binaryen" {
+  // OI-J descriptor-operand escaping-label boundary: Binaryen version_130
+  // default/IIT do not flatten this `br_on_cast_fail` descriptor child when both
+  // the tested reference and success value are branch-free effectful blocks, but
+  // they do move the explicit `ref.as_non_null` into `ref.get_desc`. This locks
+  // the narrow null-check movement without claiming broad br_on_cast_fail
+  // localization.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, nullable_described_val_type],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::block(
+                      @lib.BlockType::val_type(nullable_described_val_type),
+                      @lib.Expr::new([
+                        @lib.Instruction::i32_const(@lib.I32(1)),
+                        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                      ]),
+                    ),
+                    @lib.Instruction::br_on_cast_fail(
+                      @lib.LabelIdx::new(1U),
+                      true,
+                      described_heap,
+                      false,
+                      described_heap,
+                    ),
+                    @lib.Instruction::drop(),
+                    @lib.Instruction::block(
+                      @lib.BlockType::val_type(nullable_described_val_type),
+                      @lib.Expr::new([
+                        @lib.Instruction::i32_const(@lib.I32(2)),
+                        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                      ]),
+                    ),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::ref_cast_desc_eq_type(
+                  nullable_described_ref_type,
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Block(_, @lib.Expr(body))]))])
+    ) => {
+      @debug.assert_eq(body.length(), 4)
+      match body[0] {
+        @lib.LocalGet(@lib.LocalIdx(0U)) => ()
+        other => fail("expected cast operand local.get 0, got \{other}")
+      }
+      match body[1] {
+        @lib.Block(
+          _,
+          @lib.Expr(
+            [
+              @lib.Block(
+                _,
+                @lib.Expr(
+                  [
+                    @lib.I32Const(@lib.I32(1)),
+                    @lib.GlobalSet(@lib.GlobalIdx(0U)),
+                    @lib.LocalGet(@lib.LocalIdx(0U)),
+                  ]
+                )
+              ),
+              @lib.BrOnCastFail(
+                @lib.LabelIdx(1U),
+                @lib.CastOp(true, false),
+                source_heap,
+                target_heap
+              ),
+              @lib.Drop,
+              @lib.Block(
+                _,
+                @lib.Expr(
+                  [
+                    @lib.I32Const(@lib.I32(2)),
+                    @lib.GlobalSet(@lib.GlobalIdx(0U)),
+                    @lib.LocalGet(@lib.LocalIdx(1U)),
+                  ]
+                )
+              ),
+            ]
+          )
+        ) => {
+          @debug.assert_eq(source_heap, described_heap)
+          @debug.assert_eq(target_heap, described_heap)
+        }
+        other =>
+          fail(
+            "expected unflattened combined-effect br_on_cast_fail descriptor child, got \{other}",
+          )
+      }
+      match body[2] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        @lib.RefAsNonNull =>
+          fail("explicit ref.as_non_null should be moved into ref.get_desc")
+        other =>
+          fail(
+            "expected ref.get_desc after combined br_on_cast_fail, got \{other}",
+          )
+      }
+      match body[3] {
+        @lib.RefCastDescEq(nullable, exact, target) => {
+          assert_true(nullable)
+          assert_false(exact)
+          @debug.assert_eq(target, described_heap)
+        }
+        other =>
+          fail("expected descriptor cast after ref.get_desc, got \{other}")
+      }
+    }
+    other =>
+      fail(
+        "expected one optimized outer combined-effect br_on_cast_fail block body, got \{other}",
+      )
+  }
+}
+
+///|
 test "optimize-instructions lowers escaping br_on_null block ref.get_desc child like Binaryen" {
   // OI-J descriptor-operand escaping-label breadth: Binaryen version_130
   // default and IIT flatten this `br_on_null` descriptor child inside a void
