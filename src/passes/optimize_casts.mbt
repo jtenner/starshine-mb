@@ -414,7 +414,7 @@ fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
   let child_id = @ir.hot_child_get(func, node_id, 0)
   let child = @ir.hot_node_get(func, child_id)
   match child.op {
-    @ir.HotOp::LocalGet => {
+    @ir.HotOp::LocalGet | @ir.HotOp::LocalTee => {
       if requires_nullable_source {
         match oc_ref_type_from_node(func, child_id) {
           Some(ref_type) => if !ref_type.is_nullable() { return None }
@@ -425,6 +425,16 @@ fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
     }
     _ => None
   }
+}
+
+///|
+fn oc_contains_local(locals : Array[Int], local_id : Int) -> Bool {
+  for written in locals {
+    if written == local_id {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -503,9 +513,13 @@ fn oc_later_reuse_run(
   let root_count = @ir.hot_root_count(func)
   for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
     let root_id = @ir.hot_root_get(func, root_idx)
+    let writes : Array[Int] = []
+    oc_collect_written_locals(func, root_id, writes)
     for local_id = 0; local_id < local_count; local_id = local_id + 1 {
       let best_cast = best_casts[local_id]
-      if best_cast >= 0 && oc_count_local_gets(func, root_id, local_id) > 0 {
+      if best_cast >= 0 &&
+        !oc_contains_local(writes, local_id) &&
+        oc_count_local_gets(func, root_id, local_id) > 0 {
         let fresh_local = if fresh_locals[local_id] >= 0 {
           fresh_locals[local_id]
         } else {
@@ -531,8 +545,6 @@ fn oc_later_reuse_run(
         }
       }
     }
-    let writes : Array[Int] = []
-    oc_collect_written_locals(func, root_id, writes)
     for local_id in writes {
       if local_id >= 0 && local_id < local_count {
         best_casts[local_id] = -1
