@@ -59,9 +59,31 @@ The aggregate should be documented in `docs/wiki/binaryen/passes/optimize-casts/
 - **Fresh locals/refinalization:** later reuse adds locals and retargets get types. Starshine must update local types and invalidate/refinalize enough for validation and later cleanup consumers.
 - **Generator gap:** there is no `optimize-casts-*` GenValid profile today, so final matrix signoff lacks a dedicated pass trigger lane.
 
-## Recommended first implementation slices
+## Slice 1 implementation result
 
-1. Add red-first tests for Binaryen later-reuse basics: `ref.cast(local.get x)` followed by later `local.get x`, same-index `local.set` barrier, and `ref.as_non_null` nullable local reuse.
-2. Implement a conservative root/linear HOT later-reuse subset that wraps the original cast in `local.tee` only when at least one later get is actually retargeted.
+The first recursive slice added red-first public-pipeline coverage for later reuse of an already-computed `ref.cast(local.get x)` and for the same-index `local.set` barrier. The tests failed before implementation because Starshine did not create a `local.tee` or retarget later gets.
+
+`src/passes/optimize_casts.mbt` now has a conservative root-linear later-reuse subset:
+
+- remembers direct `ref.cast(local.get x)` refinements after a root statement;
+- when a later root reads the same local, appends a fresh body local, wraps the original cast in `local.tee`, and retargets that later `local.get` to the fresh local;
+- clears the remembered fact after same-local `local.set` / `local.tee` writes so later reads past the write remain on the original local;
+- chooses nullable fresh locals for now because the current Starshine validator/local model does not accept Binaryen's non-null body-local shape in this path.
+
+Validation for this slice:
+
+- `moon fmt` passed.
+- `moon info` passed with pre-existing warnings.
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` passed `10/10` after failing red-first before implementation.
+- `moon test src/passes` passed `3825/3825`.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-later-reuse-smoke-100-nativepath --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures` compared `100/100`, normalized `100`, and had zero validation/generator/property/command failures.
+
+This is forward progress, not OC closeout. Open local-flow gaps remain: `ref.as_non_null` later reuse, nested/fallthrough cast recognition, best-cast selection breadth, adjacent-block/nonlinear behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, O4z slot evidence, and pass-local timing.
+
+## Recommended next implementation slices
+
+1. Add red-first tests for `ref.as_non_null` later reuse and non-nullable source negatives.
+2. Widen later reuse from root-only direct `ref.cast(local.get)` to the safe fallthrough/tee cases represented by Binaryen lit tests (`local-tee`, `fallthrough`, repeated identical casts, and best subtype selection).
 3. Add early-motion tests separately only after the later-reuse local/refinalization path is stable.
 4. Add dedicated GenValid profiles once the target implementation families are known enough to generate meaningful positives rather than no-op valid modules.

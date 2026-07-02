@@ -237,7 +237,10 @@ test "optimize-casts reuses an already computed ref.cast for later local gets" {
   let pretty = optimize_casts_run_pretty(
     optimize_casts_void_module(struct_ref, [
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-      @lib.Instruction::ref_cast(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
       @lib.Instruction::drop(),
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       @lib.Instruction::drop(),
@@ -255,19 +258,28 @@ test "optimize-casts does not reuse a cast past a same-local write" {
   let pretty = optimize_casts_run_pretty(
     optimize_casts_void_module(struct_ref, [
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-      @lib.Instruction::ref_cast(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
       @lib.Instruction::drop(),
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       @lib.Instruction::drop(),
       @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
-      @lib.Instruction::ref_cast(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+      ),
       @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       @lib.Instruction::drop(),
     ]),
   )
   assert_true(pretty.contains("local.tee"), msg=pretty)
-  @debug.assert_eq(optimize_casts_count_substring(pretty, "local.get (Local 1)"), 1)
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "local.get (Local 1)"),
+    1,
+  )
   assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
 }
