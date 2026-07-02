@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-02
 sources:
+  - ../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md
   - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
@@ -161,7 +162,7 @@ So the durable rule is:
 
 - treat Binaryen `version_130` as the current O4Z audit oracle for this dossier;
 - keep the older `version_129` manifests as provenance for the unchanged algorithm story;
-- cite [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md) for new O4Z audit claims.
+- cite [`../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md`](../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md), [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md), and [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md) for new O4Z audit claims.
 
 ## Current maintenance rule
 
@@ -171,7 +172,7 @@ So the durable rule is:
 - Keep the writer-roundtrip rule explicit whenever future docs or code changes touch this pass.
 - Keep the multivalue-call writeback distinction explicit whenever future parity work mentions remaining raw-output drift.
 - Keep the preset-state split explicit: one `reorder-locals` slot is public today; extra upstream-style slots remain future scheduler work until they bring ordered-neighborhood evidence.
-- Keep the O4Z audit gap explicit: direct owner-family inventory is refreshed to `version_130`, but the pass still needs a dedicated GenValid profile, current full four-lane compare signoff, pass-local timing evidence, and the `[AUDIT006-E]` TypeIdx invariant comment before `[O4Z-AUDIT-RL]` can close.
+- `[O4Z-AUDIT-RL]` is closed as of 2026-07-02: the `version_130` owner-family inventory has no direct gap, `reorder-locals-all` dedicated GenValid coverage is in tree, four compare lanes are green after classifying one external unreachable/control-debris case, pass-local timing is sub-millisecond, and `[AUDIT006-E]` is documented inline. Extra upstream-style scheduler slots remain separate `[O4Z-PRESET-BEHAVIOR]` ordered-neighborhood work, not a direct `reorder-locals` audit blocker.
 
 ## Sources
 

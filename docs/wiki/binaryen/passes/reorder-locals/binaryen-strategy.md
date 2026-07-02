@@ -346,7 +346,7 @@ Those last two belong to the Binaryen IR-builder and writer layers, not to `Reor
 
 ## Current O4Z inventory
 
-The 2026-07-02 refresh keeps the relevant transform-family inventory unchanged: params-only no-op, access counting, hot body-local sort, first-use ties, zero-count suffix truncation, user reindexing, local-name repair, no non-nullable fixups, no heavy analysis dependency, and three no-DWARF scheduler slots. Starshine currently maps all direct owner-family behavior through the module pass and focused tests, but `[O4Z-AUDIT-RL]` still needs dedicated GenValid profile coverage, current full signoff lanes, pass-local timing, and ordered-slot evidence before closure.
+The 2026-07-02 refresh keeps the relevant transform-family inventory unchanged: params-only no-op, access counting, hot body-local sort, first-use ties, zero-count suffix truncation, user reindexing, local-name repair, no non-nullable fixups, no heavy analysis dependency, and three no-DWARF scheduler slots. Starshine maps all direct owner-family behavior through the module pass and focused tests. `[O4Z-AUDIT-RL]` is closed by the dedicated `reorder-locals-all` GenValid profile, four-lane compare signoff, pass-local timing probe, scheduler-scope wording, and `[AUDIT006-E]` invariant comment recorded in `1401-2026-07-02-reorder-locals-o4z-closeout.md`.
 
 ## Bottom line
 

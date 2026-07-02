@@ -3,6 +3,7 @@ kind: comparison
 status: supported
 last_reviewed: 2026-07-02
 sources:
+  - ../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md
   - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
@@ -62,9 +63,9 @@ Current direct transform-family inventory against `version_130`:
 | Nested local-user reindexing | Focused nested block/loop/if/try-table test covers recursive rewrite. | no current gap found |
 | Local-name repair and raw name payload invalidation | Focused name-section and CLI/binary tests cover metadata repair. | no current gap found |
 | Multivalue scratch-local drift | Documented as Binaryen writer/IR-builder boundary, not `ReorderLocals.cpp`. | standing boundary decision |
-| Repeated scheduler slots | Starshine public presets claim one tuple/no-structure slot; Binaryen has three no-DWARF slots. | active scheduler/audit gap |
-| TypeIdx/RecIdx invariant comment | Function-section type references are global `TypeIdx`; `RecIdx` abort remains an invariant assertion. | active `[AUDIT006-E]` hygiene gap |
-| Dedicated GenValid profile | None existed at the start of this source-inventory slice. | active gap |
+| Repeated scheduler slots | Starshine public presets claim one tuple/no-structure slot; Binaryen has three no-DWARF slots. | not a direct transform blocker; remaining widening belongs to `[O4Z-PRESET-BEHAVIOR]` ordered-neighborhood work |
+| TypeIdx/RecIdx invariant comment | Function-section type references are global `TypeIdx`; a local inline comment now marks `RecIdx` as an impossible function-section invariant failure. | `[AUDIT006-E]` closed for this pass |
+| Dedicated GenValid profile | `reorder-locals-all` now covers hot-sort, unused-trim, and name-repair leaves. | closed; 10000-case dedicated lane is green |
 
 ## Preset And Signoff Rule
 
@@ -81,11 +82,21 @@ Current direct transform-family inventory against `version_130`:
 - Starshine pass runtime on that lane was `56.953 ms` versus Binaryen `86.020 ms`.
 - This keeps the repo scope decision intact: treat the remaining full-artifact raw-output drift as Binaryen multivalue-call writeback/materialization behavior, not as a remaining `reorder-locals` sorter bug.
 
-## Refreshed Direct Signoff
+## O4Z Direct Signoff
+
+- The 2026-07-02 O4Z closeout added the dedicated `reorder-locals-all` GenValid aggregate and re-ran the current `version_130` direct evidence with `_build/native/release/build/cmd/cmd.exe`.
+- Dedicated `reorder-locals-all`: `10000/10000` compared, `10000` normalized matches, zero mismatches/failures.
+- Ordinary GenValid: `10000/10000` compared, `10000` normalized matches, zero mismatches/failures.
+- Random all-profiles GenValid: `10000/10000` compared, `10000` normalized matches, zero mismatches/failures.
+- External `wasm-smith` with `--normalize unreachable-control-debris`: `9956/10000` compared, `9955` raw normalized matches, `1` compare-normalized unreachable/control-debris case, zero remaining mismatches, and `44` Binaryen/oracle command failures.
+- The external raw residual was classified as unreachable/control debris (`drop(unreachable)` under unreachable flow), not a `reorder-locals` sorter, local-name, or local-index remap gap.
+- A 30-case dedicated timing probe found pass-local max times of `0.032 ms` for Starshine and `0.019 ms` for Binaryen; all samples are comfortably below the repo `<1s` target, with sub-0.05ms ratio noise.
+
+## Historical Direct Signoff
 
 - The 2026-05-06 post-fuzzer-change direct signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass reorder-locals --out-dir .tmp/pass-fuzz-reorder-locals`.
 - The compare lane reached 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
-- Those command failures are the same Binaryen-side empty-recursion-group failure class seen across the refreshed direct-pass lanes, not Starshine/Binaryen semantic output drift.
+- Those command failures were the same Binaryen-side empty-recursion-group failure class seen across the refreshed direct-pass lanes, not Starshine/Binaryen semantic output drift.
 
 ## Historical Parity Gap
 
@@ -112,6 +123,7 @@ Use the Binaryen boundary controls when comparing this pass:
 
 ## Sources
 
+- O4Z closeout: [`../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md`](../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md)
 - `version_130` source inventory: [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md)
 - `version_130` primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
 - Current preset-scheduling reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)

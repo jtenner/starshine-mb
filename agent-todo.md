@@ -1153,11 +1153,6 @@ Preset behavior inventory:
   - Scope: nop/drop cleanup, explicit unreachable preservation, nested value-expression debris, empty if/block rewrites, repeated VQ slots, and retired slot23/slot33 histories.
   - Deliverables: apply the common checklist; add missing pure/nontrapping and control cleanup fixtures; refresh direct compare and all `VQ` slot evidence; measure cleanup value versus HOT traversal cost.
 
-- [O4Z-AUDIT-RL] - Deep audit `reorder-locals`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit. 2026-07-02 source-inventory slice refreshed the pass against local `wasm-opt version 130 (version_130)` and found no owner/lit drift from the older `version_129` dossier contract; see `docs/wiki/raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`.
-  - Scope: access-count sorting, zero-count truncation, parameter stability, local-name repair, multivalue scratch locals, TypeIdx invariant docs, dedicated GenValid profile, full four-lane direct signoff, and module-pass runtime.
-  - Deliverables: apply the common checklist; coordinate invariant docs with `[AUDIT006-E]`; add/refresh dedicated `reorder-locals` GenValid profile coverage; add missing reorder/name/multivalue fixtures if fresh evidence shows gaps; refresh direct compare, pass-local timing, and `RL` slot evidence.
-
 - [O4Z-AUDIT-H2L] - Deep audit `heap2local`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
   - Scope: non-escaping struct locals, scalar field locals, null comparisons, GC type/refinalization, primary artifact fixtures, and heap-heavy function runtime.
@@ -1345,7 +1340,7 @@ Preset behavior inventory:
     - [ ] `[AUDIT006-B]` Cite concrete source anchors in that page: `src/lib/types.mbt`, validation/type-section handling, and at least one optimizer module-pass function-signature cache.
     - [ ] `[AUDIT006-C]` Add inline comment near the `merge-locals` `RecIdx` abort explaining it is an unreachable invariant assertion for function-section type references.
     - [ ] `[AUDIT006-D]` Add inline comment near the `coalesce-locals` `RecIdx` abort explaining the same invariant.
-    - [ ] `[AUDIT006-E]` Add inline comment near the `reorder-locals` `RecIdx` abort explaining the same invariant.
+    - [x] `[AUDIT006-E]` Add inline comment near the `reorder-locals` `RecIdx` abort explaining the same invariant.
     - [ ] `[AUDIT006-F]` Add a pass/helper test or validation test, if practical, demonstrating that valid module-level function declarations resolve through global `TypeIdx`; if no practical test exists, document why the source/validation references are sufficient.
     - [ ] `[AUDIT006-G]` Update `docs/wiki/ir2/pass-porting-checklist.md` or a related architecture page with guidance: do not cargo-cult broad `RecIdx` support into module-pass function-signature caches unless the source is actually inside a rec-group-local type context.
     - [ ] `[AUDIT006-H]` Refresh `docs/wiki/index.md` and `docs/wiki/log.md` for the new/updated invariant documentation.
