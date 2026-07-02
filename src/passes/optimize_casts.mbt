@@ -825,11 +825,16 @@ fn oc_i32_nontrapping_binary_const_tree(
   }
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.I32Add)
+    | Some(@lib.I32Sub)
     | Some(@lib.I32Mul)
     | Some(@lib.I32And)
     | Some(@lib.I32Or)
     | Some(@lib.I32Xor)
-    | Some(@lib.I32Shl) => {
+    | Some(@lib.I32Shl)
+    | Some(@lib.I32ShrS)
+    | Some(@lib.I32ShrU)
+    | Some(@lib.I32Rotl)
+    | Some(@lib.I32Rotr) => {
       let lhs_id = @ir.hot_child_get(func, node_id, 0)
       let rhs_id = @ir.hot_child_get(func, node_id, 1)
       match
