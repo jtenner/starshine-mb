@@ -77,7 +77,9 @@ fn optimize_casts_two_func_void_module(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
   )
   @lib.Module::new()
-  .with_type_sec(@lib.TypeSec::new([base, child, target_func_type, helper_func_type]))
+  .with_type_sec(
+    @lib.TypeSec::new([base, child, target_func_type, helper_func_type]),
+  )
   .with_func_sec(
     @lib.FuncSec::new([@lib.TypeIdx::new(2U), @lib.TypeIdx::new(3U)]),
   )

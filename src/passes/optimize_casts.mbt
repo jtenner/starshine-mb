@@ -799,6 +799,27 @@ fn oc_clear_pending_gets(pending_gets : Array[Int]) -> Unit {
 }
 
 ///|
+fn oc_dropped_nontrapping_pure_root(func : @ir.HotFunc, root_id : Int) -> Bool {
+  if !@ir.hot_node_is_live(func, root_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Nop => true
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, root_id) == 1 {
+        let child_id = @ir.hot_child_get(func, root_id, 0)
+        match @ir.hot_node_get(func, child_id).op {
+          @ir.HotOp::Const => true
+          _ => false
+        }
+      } else {
+        false
+      }
+    _ => false
+  }
+}
+
+///|
 fn oc_early_motion_scan_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -840,6 +861,9 @@ fn oc_early_motion_scan_region(
         continue
       }
       None => ()
+    }
+    if oc_dropped_nontrapping_pure_root(func, root_id) {
+      continue
     }
     oc_clear_pending_gets(pending_gets)
     for local_id = 0; local_id < local_count; local_id = local_id + 1 {
