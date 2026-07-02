@@ -26144,7 +26144,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     (effectful_sibling_body, false)
   } else {
     run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
-      effectful_sibling_body,
+      effectful_sibling_body, module_ctx,
     )
   }
   let skipped_func = if directized_changed ||
@@ -29857,8 +29857,31 @@ fn run_hot_pipeline_raw_oi_decrement_escaping_label_vec(
 }
 
 ///|
+fn run_hot_pipeline_raw_oi_ref_get_desc_result_block_type(
+  module_ctx : @ir.HotModuleContext,
+  described_type : @lib.TypeIdx,
+) -> @lib.BlockType? {
+  match @ir.hot_module_resolve_subtype(module_ctx, described_type) {
+    Some(subtype) =>
+      match subtype.descriptor_type() {
+        Some(descriptor_type) =>
+          Some(
+            @lib.BlockType::val_type(
+              @lib.ValType::ref_type(
+                @lib.RefType::new(false, @lib.HeapType::new(descriptor_type)),
+              ),
+            ),
+          )
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
   instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
 ) -> (Array[@lib.Instruction], Bool) {
   let rewritten : Array[@lib.Instruction] = []
   let mut changed = false
@@ -30264,6 +30287,63 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
               rewritten.push(@lib.Instruction::br_on_non_null(retargeted))
               rewritten.push(fallthrough)
               rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              changed = true
+              i = i + 5
+              continue
+            }
+            None => ()
+          }
+        (
+          @lib.Block(
+            _,
+            @lib.Expr(
+              [
+                tested,
+                @lib.BrOnNonNull(label_idx),
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [trap_lhs, trap_rhs, trap_div, @lib.Drop, fallthrough]
+                  )
+                ),
+              ]
+            )
+          ),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(described_type),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match (tested, trap_lhs, trap_rhs, trap_div, fallthrough) {
+            (
+              @lib.LocalGet(_),
+              @lib.I32Const(_),
+              @lib.I32Const(@lib.I32(0)),
+              @lib.I32DivU,
+              @lib.LocalGet(_),
+            ) => true
+            _ => false
+          }) =>
+          match
+            run_hot_pipeline_raw_oi_ref_get_desc_result_block_type(
+              module_ctx, described_type,
+            ) {
+            Some(descriptor_block_type) => {
+              rewritten.push(instrs[i])
+              rewritten.push(
+                @lib.Instruction::block(
+                  descriptor_block_type,
+                  @lib.Expr::new([
+                    tested,
+                    @lib.Instruction::br_on_non_null(label_idx),
+                    trap_lhs,
+                    trap_rhs,
+                    trap_div,
+                    @lib.Instruction::drop(),
+                    fallthrough,
+                    instrs[i + 3],
+                  ]),
+                ),
+              )
               rewritten.push(instrs[i + 4])
               changed = true
               i = i + 5
@@ -31041,7 +31121,7 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
     match instrs[i] {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let (next_body, nested_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
-          body,
+          body, module_ctx,
         )
         if nested_changed {
           rewritten.push(
@@ -31054,7 +31134,7 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         let (next_body, nested_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
-          body,
+          body, module_ctx,
         )
         if nested_changed {
           rewritten.push(
@@ -31067,7 +31147,7 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, nested_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
-          body,
+          body, module_ctx,
         )
         if nested_changed {
           rewritten.push(
@@ -31084,13 +31164,13 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
       }
       @lib.If(block_type, then_body, else_body) => {
         let (next_then, then_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
-          then_body,
+          then_body, module_ctx,
         )
         let mut any_changed = then_changed
         let next_else = match else_body {
           Some(else_body) => {
             let (next_else, else_changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
-              else_body,
+              else_body, module_ctx,
             )
             any_changed = any_changed || else_changed
             Some(next_else)
@@ -31117,14 +31197,16 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
 fn run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
   func : @lib.Func,
   descriptor_name : String,
+  mod_ : @lib.Module,
 ) -> @lib.Func {
   if descriptor_name != "optimize-instructions" {
     return func
   }
   match func {
     @lib.Func(locals, @lib.Expr(body)) => {
+      let module_ctx = @ir.hot_module_context_from_module(mod_)
       let (rewritten, changed) = run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
-        body,
+        body, module_ctx,
       )
       if changed {
         @lib.Func::new(locals, @lib.Expr::new(rewritten))
@@ -31146,7 +31228,7 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
     func, descriptor_name, original_func, mod_,
   )
   let cleaned = run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
-    cleaned, descriptor_name,
+    cleaned, descriptor_name, mod_,
   )
   if descriptor_name != "vacuum" && descriptor_name != "precompute" {
     return cleaned
