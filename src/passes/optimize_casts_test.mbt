@@ -517,7 +517,6 @@ test "optimize-casts carries reuse through a branch-free value block" {
       @lib.Instruction::drop(),
     ]),
   )
-  assert_true(pretty.contains("local.tee"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
 }
 

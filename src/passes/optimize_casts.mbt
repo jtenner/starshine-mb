@@ -527,9 +527,6 @@ fn oc_node_has_linear_block_barrier(func : @ir.HotFunc, node_id : Int) -> Bool {
 
 ///|
 fn oc_block_is_plain_fallthrough(func : @ir.HotFunc, block_id : Int) -> Bool {
-  if @ir.hot_node_result_arity(func, block_id) != 0 {
-    return false
-  }
   let body = @ir.hot_region_body_ref(func, block_id)
   for idx = 0; idx < @ir.hot_region_root_count(func, body); idx = idx + 1 {
     if oc_node_has_linear_block_barrier(
@@ -540,6 +537,28 @@ fn oc_block_is_plain_fallthrough(func : @ir.HotFunc, block_id : Int) -> Bool {
     }
   }
   true
+}
+
+///|
+fn oc_plain_fallthrough_block_for_root(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Int? {
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::Block => Some(root_id)
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, root_id) == 1 {
+        let child_id = @ir.hot_child_get(func, root_id, 0)
+        match @ir.hot_node_get(func, child_id).op {
+          @ir.HotOp::Block => Some(child_id)
+          _ => None
+        }
+      } else {
+        None
+      }
+    _ => None
+  }
 }
 
 ///|
@@ -661,10 +680,9 @@ fn oc_later_reuse_scan_region(
   let root_count = @ir.hot_region_root_count(func, region)
   for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
     let root_id = @ir.hot_region_get(func, region, root_idx)
-    let root = @ir.hot_node_get(func, root_id)
-    match root.op {
-      @ir.HotOp::Block =>
-        if oc_block_is_plain_fallthrough(func, root_id) {
+    match oc_plain_fallthrough_block_for_root(func, root_id) {
+      Some(block_id) =>
+        if oc_block_is_plain_fallthrough(func, block_id) {
           if oc_later_reuse_scan_region(
               ctx,
               func,
@@ -672,13 +690,13 @@ fn oc_later_reuse_scan_region(
               local_count,
               best_casts,
               fresh_locals,
-              @ir.hot_region_body_ref(func, root_id),
+              @ir.hot_region_body_ref(func, block_id),
             ) {
             changed = true
           }
           continue
         }
-      _ => ()
+      None => ()
     }
     let writes : Array[Int] = []
     oc_collect_written_locals(func, root_id, writes)
