@@ -34,17 +34,18 @@ Observed Binaryen output:
 
 ## Starshine slice
 
-This remains a boundary/status slice after the 2026-07-02 arity-5 follow-up. Starshine's current direct-HOT tuple localizer proves selected children with one through five scalar results plus already-covered single-result effectful sibling drop/localization. The six-result selected-child case still stays fail-closed until it is source-probed, updated red-first, and implemented as its own bounded tuple-scratch/local-set slice.
+This boundary was superseded by the 2026-07-02 arity-6 implementation follow-up. Starshine's current direct-HOT tuple localizer proves selected children with one through six scalar results plus already-covered single-result effectful sibling drop/localization. The former six-result selected-child fail-closed case is now a positive bounded tuple-scratch/local-set slice.
 
-Focused direct-HOT coverage in `src/passes/optimize_instructions_test.mbt` still uses `optimize-instructions intentionally keeps tuple.extract with multi-result selected sixth lane boundary`. The test asserts that Starshine keeps the `TupleExtract` at index `5`, the `TupleMake`, and the multi-result `Call` unchanged until a safe arity-6 selected-child tuple-scratch localizer exists.
+Focused direct-HOT coverage in `src/passes/optimize_instructions_test.mbt` now uses `optimize-instructions localizes sixth lane from six-result selected tuple child`. The test asserts that Starshine lowers the `TupleExtract` to a result block, stores all six selected-child lanes to scratch locals in stack-pop order, and reloads the sixth lane from the corresponding scratch local.
 
 ## Validation
 
-- `wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-sixth-probe.wat -o -` passed and showed the tuple-scratch localization described above.
-- `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected sixth lane*'` passed `1/1`.
-
-Full required slice validation is recorded in the commit that cites this note.
+- `wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-sixth-probe.wat -o .tmp/oi-m-tuple-multiresult-selected-sixth-probe.binaryen.20260702.wat` passed and showed the tuple-scratch localization described above.
+- Red-first `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*six-result selected tuple child*'` failed `0/1` before implementation because the root stayed `TupleExtract`, then passed `1/1` after `src/passes/optimize_instructions.mbt` admitted selected-child result count `6`.
+- Focused tuple.extract tests passed `31/31`; full `optimize_instructions_test.mbt` passed `628/628`; `moon fmt`, `moon info`, full `moon test`, and native `src/cmd` build passed with pre-existing warnings.
+- Direct `.tmp/oi-m-six-result-selected-direct18-20260702` compared `18/18` with `18` raw mismatches and zero validation/generator/property/command failures.
+- Grouped `.tmp/oi-m-six-result-selected-count108-20260702` compared `108/108` with `108` raw mismatches, zero validation/generator/property/command failures, Binaryen cache `108/0`, runtime-checked metadata `108/108`, and all 18 tuple labels sampled.
 
 ## Remaining work
 
-Remaining OI-M work includes selected-child arities 6+, multi-result non-selected sibling tuple-scratch localization, public/binary tuple fixture coverage where representable, replay/reduction of the full `simplify-locals` `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, and broader tee/drop reconstruction beyond the covered one-use selected/sibling localizer.
+Remaining OI-M work includes selected-child arities 7+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, control/branch/EH sibling localization, public/binary tuple fixture coverage where representable, replay/reduction of the full `simplify-locals` `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, and broader tee/drop reconstruction beyond the covered one-use selected/sibling localizer.
