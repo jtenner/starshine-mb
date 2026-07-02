@@ -820,50 +820,52 @@ fn oc_clear_pending_gets(pending_gets : Array[Int]) -> Unit {
 }
 
 ///|
-fn oc_i32_eqz_const_tree(func : @ir.HotFunc, node_id : Int) -> Bool {
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return false
-  }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.I32Eqz) => {
-      let child_id = @ir.hot_child_get(func, node_id, 0)
-      match @ir.hot_node_get(func, child_id).op {
-        @ir.HotOp::Const => true
-        _ => false
-      }
-    }
-    _ => false
-  }
-}
-
-///|
-fn oc_i32_nontrapping_binary_const_tree(
+fn oc_i32_nontrapping_pure_tree(
   func : @ir.HotFunc,
   node_id : Int,
+  fuel : Int,
 ) -> Bool {
-  if @ir.hot_child_count(func, node_id) != 2 {
+  if fuel <= 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.I32Add)
-    | Some(@lib.I32Sub)
-    | Some(@lib.I32Mul)
-    | Some(@lib.I32And)
-    | Some(@lib.I32Or)
-    | Some(@lib.I32Xor)
-    | Some(@lib.I32Shl)
-    | Some(@lib.I32ShrS)
-    | Some(@lib.I32ShrU)
-    | Some(@lib.I32Rotl)
-    | Some(@lib.I32Rotr) => {
-      let lhs_id = @ir.hot_child_get(func, node_id, 0)
-      let rhs_id = @ir.hot_child_get(func, node_id, 1)
-      match
-        (@ir.hot_node_get(func, lhs_id).op, @ir.hot_node_get(func, rhs_id).op) {
-        (@ir.HotOp::Const, @ir.HotOp::Const) => true
-        _ => false
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Const | @ir.HotOp::LocalGet => true
+    @ir.HotOp::Unary =>
+      if @ir.hot_child_count(func, node_id) == 1 {
+        match @ir.hot_node_exact_instr(func, node_id) {
+          Some(@lib.I32Eqz) => {
+            let child_id = @ir.hot_child_get(func, node_id, 0)
+            oc_i32_nontrapping_pure_tree(func, child_id, fuel - 1)
+          }
+          _ => false
+        }
+      } else {
+        false
       }
-    }
+    @ir.HotOp::Binary =>
+      if @ir.hot_child_count(func, node_id) == 2 {
+        match @ir.hot_node_exact_instr(func, node_id) {
+          Some(@lib.I32Add)
+          | Some(@lib.I32Sub)
+          | Some(@lib.I32Mul)
+          | Some(@lib.I32And)
+          | Some(@lib.I32Or)
+          | Some(@lib.I32Xor)
+          | Some(@lib.I32Shl)
+          | Some(@lib.I32ShrS)
+          | Some(@lib.I32ShrU)
+          | Some(@lib.I32Rotl)
+          | Some(@lib.I32Rotr) => {
+            let lhs_id = @ir.hot_child_get(func, node_id, 0)
+            let rhs_id = @ir.hot_child_get(func, node_id, 1)
+            oc_i32_nontrapping_pure_tree(func, lhs_id, fuel - 1) &&
+            oc_i32_nontrapping_pure_tree(func, rhs_id, fuel - 1)
+          }
+          _ => false
+        }
+      } else {
+        false
+      }
     _ => false
   }
 }
@@ -878,13 +880,7 @@ fn oc_dropped_nontrapping_pure_root(func : @ir.HotFunc, root_id : Int) -> Bool {
     @ir.HotOp::Drop =>
       if @ir.hot_child_count(func, root_id) == 1 {
         let child_id = @ir.hot_child_get(func, root_id, 0)
-        match @ir.hot_node_get(func, child_id).op {
-          @ir.HotOp::Const => true
-          @ir.HotOp::Unary => oc_i32_eqz_const_tree(func, child_id)
-          @ir.HotOp::Binary =>
-            oc_i32_nontrapping_binary_const_tree(func, child_id)
-          _ => false
-        }
+        oc_i32_nontrapping_pure_tree(func, child_id, 64)
       } else {
         false
       }
