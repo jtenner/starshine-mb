@@ -403,8 +403,9 @@ fn oc_collect_written_locals(
 
 ///|
 fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
-  match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.Instruction::RefCast(_, _, _)) => ()
+  let requires_nullable_source = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCast(_, _, _)) => false
+    Some(@lib.Instruction::RefAsNonNull) => true
     _ => return None
   }
   if @ir.hot_child_count(func, node_id) != 1 {
@@ -413,7 +414,15 @@ fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
   let child_id = @ir.hot_child_get(func, node_id, 0)
   let child = @ir.hot_node_get(func, child_id)
   match child.op {
-    @ir.HotOp::LocalGet => Some(child.imm0)
+    @ir.HotOp::LocalGet => {
+      if requires_nullable_source {
+        match oc_ref_type_from_node(func, child_id) {
+          Some(ref_type) => if !ref_type.is_nullable() { return None }
+          None => return None
+        }
+      }
+      Some(child.imm0)
+    }
     _ => None
   }
 }
