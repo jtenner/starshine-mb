@@ -717,6 +717,154 @@ fn oc_wrap_refinement_with_tee(
 }
 
 ///|
+fn oc_dropped_local_get(func : @ir.HotFunc, root_id : Int) -> (Int, Int)? {
+  if !@ir.hot_node_is_live(func, root_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, root_id) == 1 {
+        let child_id = @ir.hot_child_get(func, root_id, 0)
+        let child = @ir.hot_node_get(func, child_id)
+        match child.op {
+          @ir.HotOp::LocalGet => Some((child.imm0, child_id))
+          _ => None
+        }
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn oc_direct_dropped_refinement(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> (Int, Int)? {
+  if !@ir.hot_node_is_live(func, root_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, root_id) == 1 {
+        let child_id = @ir.hot_child_get(func, root_id, 0)
+        match oc_refinement_source_local(func, child_id) {
+          Some(local_id) => Some((local_id, child_id))
+          None => None
+        }
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn oc_duplicate_refinement_at_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  get_id : Int,
+  cast_id : Int,
+) -> Bool {
+  if !@ir.hot_node_is_live(func, get_id) || !@ir.hot_node_is_live(func, cast_id) {
+    return false
+  }
+  let get_node = @ir.hot_node_get(func, get_id)
+  match get_node.op {
+    @ir.HotOp::LocalGet => ()
+    _ => return false
+  }
+  let cast_node = @ir.hot_node_get(func, cast_id)
+  let cloned_get = @ir.hot_build_local_get(func, get_node.imm0)
+  let cloned_cast = @ir.hot_build_node(
+    func,
+    cast_node.op,
+    cast_node.ty,
+    imm0=cast_node.imm0,
+    imm1=cast_node.imm1,
+    children=[cloned_get],
+  )
+  let replacement = @ir.hot_node_get(func, cloned_cast)
+  @ir.hot_delete_node(func, cloned_cast)
+  pass_replace_node(ctx, func, get_id, replacement)
+  true
+}
+
+///|
+fn oc_clear_pending_gets(pending_gets : Array[Int]) -> Unit {
+  for i = 0; i < pending_gets.length(); i = i + 1 {
+    pending_gets[i] = -1
+  }
+}
+
+///|
+fn oc_early_motion_scan_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  local_count : Int,
+  pending_gets : Array[Int],
+  seen_refinements : Array[Bool],
+  region : @ir.HotRegionRef,
+) -> Bool {
+  let mut changed = false
+  let root_count = @ir.hot_region_root_count(func, region)
+  for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
+    let root_id = @ir.hot_region_get(func, region, root_idx)
+    match oc_direct_dropped_refinement(func, root_id) {
+      Some((local_id, cast_id)) => {
+        if local_id >= 0 && local_id < local_count {
+          if !seen_refinements[local_id] && pending_gets[local_id] >= 0 {
+            if oc_duplicate_refinement_at_get(
+                ctx,
+                func,
+                pending_gets[local_id],
+                cast_id,
+              ) {
+              changed = true
+            }
+          }
+          seen_refinements[local_id] = true
+        }
+        oc_clear_pending_gets(pending_gets)
+        continue
+      }
+      None => ()
+    }
+    match oc_dropped_local_get(func, root_id) {
+      Some((local_id, get_id)) => {
+        oc_clear_pending_gets(pending_gets)
+        if local_id >= 0 && local_id < local_count {
+          pending_gets[local_id] = get_id
+        }
+        continue
+      }
+      None => ()
+    }
+    oc_clear_pending_gets(pending_gets)
+    for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+      seen_refinements[local_id] = false
+    }
+  }
+  changed
+}
+
+///|
+fn oc_early_motion_run(ctx : HotPassContext, func : @ir.HotFunc) -> Bool {
+  let local_count = @ir.hot_local_count(func)
+  let pending_gets = Array::make(local_count, -1)
+  let seen_refinements = Array::make(local_count, false)
+  oc_early_motion_scan_region(
+    ctx,
+    func,
+    local_count,
+    pending_gets,
+    seen_refinements,
+    @ir.HotRegionRef::root(),
+  )
+}
+
+///|
 fn oc_later_reuse_scan_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -949,6 +1097,9 @@ pub fn optimize_casts_run(
     if oc_rewrite_node(ctx, func, module_ctx, node_id) {
       changed = true
     }
+  }
+  if oc_early_motion_run(ctx, func) {
+    changed = true
   }
   if oc_later_reuse_run(ctx, func, module_ctx) {
     changed = true
