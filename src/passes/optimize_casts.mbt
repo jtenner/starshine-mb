@@ -827,7 +827,9 @@ fn oc_i32_nontrapping_binary_const_tree(
     Some(@lib.I32Add)
     | Some(@lib.I32Mul)
     | Some(@lib.I32And)
-    | Some(@lib.I32Or) => {
+    | Some(@lib.I32Or)
+    | Some(@lib.I32Xor)
+    | Some(@lib.I32Shl) => {
       let lhs_id = @ir.hot_child_get(func, node_id, 0)
       let rhs_id = @ir.hot_child_get(func, node_id, 1)
       match
