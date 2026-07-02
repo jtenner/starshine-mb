@@ -12871,6 +12871,103 @@ test "gsi-desc-cast boundary gen-valid profiles cover zero multiple strict and u
 }
 
 ///|
+test "optimize-casts gen-valid profiles resolve and expose aggregate" {
+  let expected = [
+    "optimize-casts-later-reuse",
+    "optimize-casts-early-motion",
+    "optimize-casts-barriers",
+    "optimize-casts-best-cast",
+    "optimize-casts-ref-as",
+    "optimize-casts-static-folds",
+    "optimize-casts-neighborhood",
+    "optimize-casts-all",
+  ]
+  let names = gen_valid_profile_names()
+  for name in expected {
+    assert_true(names.contains(name), msg=name)
+  }
+  match gen_valid_profile_by_name("optimize-casts") {
+    Ok(profile) => {
+      @debug.assert_eq(gen_valid_profile_name(profile), "optimize-casts-all")
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(members.length() >= 7)
+      @debug.assert_eq(
+        gen_valid_profile_name(members[0].profile),
+        "optimize-casts-later-reuse",
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "optimize-casts aggregate profile samples every current cast family" {
+  let aggregate = match gen_valid_profile_by_name("optimize-casts-all") {
+    Ok(profile) => profile
+    Err(msg) => fail(msg)
+  }
+  let seen : Array[String] = []
+  let mut index = 1
+  while index <= 160 {
+    let leaf = gen_valid_profile_leaf_for_case(aggregate, 0x5eedUL, index)
+    let name = gen_valid_profile_name(leaf)
+    if !seen.contains(name) {
+      seen.push(name)
+    }
+    index += 1
+  }
+  assert_true(seen.contains("optimize-casts-later-reuse"), msg=seen.to_string())
+  assert_true(seen.contains("optimize-casts-early-motion"), msg=seen.to_string())
+  assert_true(seen.contains("optimize-casts-barriers"), msg=seen.to_string())
+  assert_true(seen.contains("optimize-casts-best-cast"), msg=seen.to_string())
+  assert_true(seen.contains("optimize-casts-ref-as"), msg=seen.to_string())
+  assert_true(seen.contains("optimize-casts-static-folds"), msg=seen.to_string())
+  assert_true(seen.contains("optimize-casts-neighborhood"), msg=seen.to_string())
+}
+
+///|
+test "optimize-casts gen-valid leaves emit validating cast trigger modules" {
+  let expected = [
+    "optimize-casts-later-reuse",
+    "optimize-casts-early-motion",
+    "optimize-casts-barriers",
+    "optimize-casts-best-cast",
+    "optimize-casts-ref-as",
+    "optimize-casts-static-folds",
+    "optimize-casts-neighborhood",
+  ]
+  for name in expected {
+    let profile = match gen_valid_profile_by_name(name) {
+      Ok(profile) => profile
+      Err(msg) => fail(msg)
+    }
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    let pretty = generated.wasm_module.pretty_print_func(@lib.FuncIdx::new(0U))
+    assert_true(
+      pretty.contains("ref.cast") || pretty.contains("ref.as_non_null") ||
+      pretty.contains("ref.test") || pretty.contains("br_on_cast"),
+      msg="profile \\{name} did not emit an optimize-casts trigger:\n\\{pretty}",
+    )
+    assert_true(
+      pretty.contains("local.get") || pretty.contains("local.tee"),
+      msg="profile \\{name} did not emit local traffic:\n\\{pretty}",
+    )
+  }
+}
+
+///|
 test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
   @debug.assert_eq(
     gen_valid_profile_name(SsaNomergeCoverageProfile),
