@@ -4706,46 +4706,30 @@ fn optimize_instructions_try_drop_narrow_store_value_mask(
   if value.child_count != 2 {
     return false
   }
-  let expected_and = if optimize_instructions_store_value_is_i64(instr) {
-    @lib.Instruction::i64_and()
-  } else {
-    @lib.Instruction::i32_and()
+  // Binaryen version_130 only drops exact i32 low-bit masks before i32 narrow
+  // stores. It preserves superset masks and all i64 masks before i64 narrow
+  // stores, even though those masks are semantically redundant for the store.
+  if optimize_instructions_store_value_is_i64(instr) {
+    return false
   }
-  if @ir.hot_node_exact_instr(func, value_id) != Some(expected_and) {
+  if @ir.hot_node_exact_instr(func, value_id) !=
+    Some(@lib.Instruction::i32_and()) {
     return false
   }
   let lhs_id = @ir.hot_child_get(func, value_id, 0)
   let rhs_id = @ir.hot_child_get(func, value_id, 1)
-  let unmasked_id = if optimize_instructions_store_value_is_i64(instr) {
-    let (mask, unmasked_id) = match
-      optimize_instructions_i64_const(func, dead, rhs_id) {
-      Some(@lib.I64(raw)) => (raw, lhs_id)
-      _ =>
-        match optimize_instructions_i64_const(func, dead, lhs_id) {
-          Some(@lib.I64(raw)) => (raw, rhs_id)
-          _ => return false
-        }
-    }
-    let required_mask = (1L << bits) - 1L
-    if (mask & required_mask) != required_mask {
-      return false
-    }
-    unmasked_id
-  } else {
-    let (mask, unmasked_id) = match
-      optimize_instructions_i32_const(func, dead, rhs_id) {
-      Some(@lib.I32(raw)) => (raw, lhs_id)
-      _ =>
-        match optimize_instructions_i32_const(func, dead, lhs_id) {
-          Some(@lib.I32(raw)) => (raw, rhs_id)
-          _ => return false
-        }
-    }
-    let required_mask = (1 << bits) - 1
-    if (mask & required_mask) != required_mask {
-      return false
-    }
-    unmasked_id
+  let (mask, unmasked_id) = match
+    optimize_instructions_i32_const(func, dead, rhs_id) {
+    Some(@lib.I32(raw)) => (raw, lhs_id)
+    _ =>
+      match optimize_instructions_i32_const(func, dead, lhs_id) {
+        Some(@lib.I32(raw)) => (raw, rhs_id)
+        _ => return false
+      }
+  }
+  let required_mask = (1 << bits) - 1
+  if mask != required_mask {
+    return false
   }
   optimize_instructions_rewrite_exact_with_children(ctx, func, node_id, instr, [
     @ir.hot_child_get(func, node_id, 0),

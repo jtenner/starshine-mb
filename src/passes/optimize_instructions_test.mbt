@@ -1961,6 +1961,47 @@ test "optimize-instructions raw skip lowers select-wrapped byte memory fill" {
 }
 
 ///|
+test "optimize-instructions raw skip keeps i64 narrow-store masks like Binaryen" {
+  // OI-G grouped residual from
+  // `.tmp/oi-g-narrow-store-mask-parity-count120-20260702/.../case-000042`:
+  // the raw-skip dispatcher was still deleting an i64 low-byte mask before an
+  // i64.store8. Binaryen version_130 keeps that i64.and, while dropping only
+  // exact i32 masks before i32 narrow stores.
+  let source = StringBuilder::new()
+  source.write_string("(module (memory 1) (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    source.write_string(" i32")
+  }
+  source.write_string(
+    ") i32.const 64 i64.const 1234605616436508552 i64.const 255 i64.and i64.store8))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source.to_string(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions raw skip mask success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected large-local raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.and"), msg=pretty)
+  assert_true(pretty.contains("I64(255)"), msg=pretty)
+  assert_true(pretty.contains("i64.store8"), msg=pretty)
+}
+
+///|
 test "optimize-instructions raw skip folds constant if and eqz select shells" {
   // OI-F count40 follow-up from
   // `.tmp/oi-f-effectful-family-count40-20260630`: the remaining
@@ -19706,14 +19747,14 @@ test "optimize-instructions drops narrow-store masks after dead bulk-memory raw 
   )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   // OI-G grouped evidence `.tmp/oi-g-memory-family-expanded-profile-20260628`
-  // exposed this exact store-mask profile case after `oi-memory-size-boundary`:
-  // Binaryen removes the i32 masks in the raw shell, and Starshine's direct HOT
-  // path already removes both i32 and i64 redundant low-byte masks.
+  // exposed this exact store-mask profile case after `oi-memory-size-boundary`.
+  // Binaryen version_130 removes the exact i32 masks in the raw shell but keeps
+  // i64 masks before i64 narrow stores.
   assert_false(pretty.contains("i32.and"), msg=pretty)
-  assert_false(pretty.contains("i64.and"), msg=pretty)
+  assert_true(pretty.contains("i64.and"), msg=pretty)
   optimize_instructions_assert_strings_in_order(pretty, [
     "i32.load8u", "i32.store8", "I32(4660)", "i32.store8", "I32(305419896)", "i32.store16",
-    "I64(4660)", "i64.store8",
+    "I64(4660)", "I64(255)", "i64.and", "i64.store8",
   ])
   let wasm = match @binary.encode_module(optimized) {
     Ok(bytes) => bytes
@@ -22744,7 +22785,7 @@ test "optimize-instructions folds absorbing binary operands" {
 }
 
 ///|
-test "optimize-instructions drops superset low-bit masks before narrow stores" {
+test "optimize-instructions keeps superset low-bit masks before narrow stores like Binaryen" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -22785,18 +22826,18 @@ test "optimize-instructions drops superset low-bit masks before narrow stores" {
       fail("expected superset mask store optimize success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  // OI-G coverage/classification: Binaryen version_130 only drops the exact
-  // i32 masks in this family, but storing a value masked with any superset of
-  // the stored low bits is equivalent to storing the unmasked value. Starshine
-  // intentionally keeps the smaller, already-implemented cleanup for both i32
-  // and i64 narrow stores rather than matching Binaryen's larger output shape.
-  assert_false(pretty.contains("i32.and"), msg=pretty)
-  assert_false(pretty.contains("i64.and"), msg=pretty)
+  // OI-G parity: local Binaryen version_130 probe
+  // `.tmp/oi-g-narrow-store-mask-binaryen-probe.wat` drops exact i32 low-bit
+  // masks before i32.store8/16, but keeps superset i32 masks and all i64 masks
+  // before i64.store8/16/32. Keep Starshine aligned with that narrower
+  // stored-value cleanup instead of treating equivalent mask removal as an
+  // accepted Starshine-only output-shape difference.
+  assert_true(pretty.contains("i32.and"), msg=pretty)
+  assert_true(pretty.contains("i64.and"), msg=pretty)
   optimize_instructions_assert_strings_in_order(pretty, [
-    "(local.get (Local 0))", "(local.get (Local 1))", "i32.store8", "(local.get (Local 0))",
-    "(local.get (Local 1))", "i32.store16", "(local.get (Local 0))", "(local.get (Local 2))",
-    "i64.store8", "(local.get (Local 0))", "(local.get (Local 2))", "i64.store16",
-    "(local.get (Local 0))", "(local.get (Local 2))", "i64.store32",
+    "I32(511)", "i32.and", "i32.store8", "I32(131071)", "i32.and", "i32.store16",
+    "I64(511)", "i64.and", "i64.store8", "I64(131071)", "i64.and", "i64.store16",
+    "I64(8589934591)", "i64.and", "i64.store32",
   ])
 }
 
@@ -22832,7 +22873,7 @@ test "optimize-instructions keeps value-changing masks before narrow stores" {
 }
 
 ///|
-test "optimize-instructions drops masked low bits before i64 narrow stores" {
+test "optimize-instructions keeps i64 low-bit masks before narrow stores like Binaryen" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -22853,7 +22894,12 @@ test "optimize-instructions drops masked low bits before i64 narrow stores" {
         #|    local.get $value
         #|    i64.const 4294967295
         #|    i64.and
-        #|    i64.store32))
+        #|    i64.store32
+        #|    local.get $ptr
+        #|    i64.const 1234605616436508552
+        #|    i64.const 255
+        #|    i64.and
+        #|    i64.store8))
         #|,
       ),
       ["optimize-instructions"],
@@ -22862,16 +22908,23 @@ test "optimize-instructions drops masked low bits before i64 narrow stores" {
     Err(err) => fail("expected i64 narrow store optimize success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("i64.and"), msg=pretty)
+  // OI-G parity: Binaryen keeps exact i64 low-bit masks before i64.store8/16/32,
+  // including masks of constant i64 values, even though it still truncates direct
+  // constant narrow-store values.
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "i64.and"),
+    4,
+    msg=pretty,
+  )
   optimize_instructions_assert_strings_in_order(pretty, [
-    "(local.get (Local 0))", "(local.get (Local 1))", "i64.store8", "(local.get (Local 0))",
-    "(local.get (Local 1))", "i64.store16", "(local.get (Local 0))", "(local.get (Local 1))",
-    "i64.store32",
+    "I64(255)", "i64.and", "i64.store8", "I64(65535)", "i64.and", "i64.store16",
+    "I64(4294967295)", "i64.and", "i64.store32", "I64(1234605616436508552)", "I64(255)",
+    "i64.and", "i64.store8",
   ])
 }
 
 ///|
-test "optimize-instructions drops commuted masks before narrow stores" {
+test "optimize-instructions drops only exact i32 commuted masks before narrow stores" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -22913,12 +22966,15 @@ test "optimize-instructions drops commuted masks before narrow stores" {
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("i32.and"), msg=pretty)
-  assert_false(pretty.contains("i64.and"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "i64.and"),
+    3,
+    msg=pretty,
+  )
   optimize_instructions_assert_strings_in_order(pretty, [
     "(local.get (Local 0))", "(local.get (Local 1))", "i32.store8", "(local.get (Local 0))",
-    "(local.get (Local 1))", "i32.store16", "(local.get (Local 0))", "(local.get (Local 2))",
-    "i64.store8", "(local.get (Local 0))", "(local.get (Local 2))", "i64.store16",
-    "(local.get (Local 0))", "(local.get (Local 2))", "i64.store32",
+    "(local.get (Local 1))", "i32.store16", "I64(255)", "i64.and", "i64.store8",
+    "I64(65535)", "i64.and", "i64.store16", "I64(4294967295)", "i64.and", "i64.store32",
   ])
 }
 

@@ -24905,32 +24905,24 @@ fn run_hot_pipeline_raw_optimize_instructions_drop_store_mask(
     Some(bits) => bits
     None => return None
   }
+  // Match Binaryen version_130's narrow-store mask surface: only exact i32
+  // low-bit masks are dropped before i32.store8/16. Superset masks and all i64
+  // masks are preserved, including the raw-skip dispatcher path used for large
+  // optimize-instructions functions.
   if run_hot_pipeline_raw_optimize_instructions_store_is_i64(store_instr) {
-    match and_instr {
-      @lib.I64And => ()
-      _ => return None
-    }
-    let required_mask = (1L << bits) - 1L
-    match (lhs, rhs) {
-      (@lib.I64Const(@lib.I64(mask)), value) if (mask & required_mask) ==
-        required_mask => Some(value)
-      (value, @lib.I64Const(@lib.I64(mask))) if (mask & required_mask) ==
-        required_mask => Some(value)
-      _ => None
-    }
-  } else {
-    match and_instr {
-      @lib.I32And => ()
-      _ => return None
-    }
-    let required_mask = (1 << bits) - 1
-    match (lhs, rhs) {
-      (@lib.I32Const(@lib.I32(mask)), value) if (mask & required_mask) ==
-        required_mask => Some(value)
-      (value, @lib.I32Const(@lib.I32(mask))) if (mask & required_mask) ==
-        required_mask => Some(value)
-      _ => None
-    }
+    return None
+  }
+  match and_instr {
+    @lib.I32And => ()
+    _ => return None
+  }
+  let required_mask = (1 << bits) - 1
+  match (lhs, rhs) {
+    (@lib.I32Const(@lib.I32(mask)), value) if mask == required_mask =>
+      Some(value)
+    (value, @lib.I32Const(@lib.I32(mask))) if mask == required_mask =>
+      Some(value)
+    _ => None
   }
 }
 
