@@ -1216,6 +1216,14 @@ pub enum GenValidProfile {
   ReorderLocalsUnusedTrimProfile
   ReorderLocalsNameRepairProfile
   ReorderLocalsAllProfile
+  OptimizeCastsLaterReuseProfile
+  OptimizeCastsEarlyMotionProfile
+  OptimizeCastsBarriersProfile
+  OptimizeCastsBestCastProfile
+  OptimizeCastsRefAsProfile
+  OptimizeCastsStaticFoldsProfile
+  OptimizeCastsNeighborhoodProfile
+  OptimizeCastsAllProfile
   PassOiDefaultScalarProfile
   PassOiLocalFactsProfile
   PassOiBooleanSelectProfile

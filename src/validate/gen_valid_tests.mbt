@@ -12873,14 +12873,9 @@ test "gsi-desc-cast boundary gen-valid profiles cover zero multiple strict and u
 ///|
 test "optimize-casts gen-valid profiles resolve and expose aggregate" {
   let expected = [
-    "optimize-casts-later-reuse",
-    "optimize-casts-early-motion",
-    "optimize-casts-barriers",
-    "optimize-casts-best-cast",
-    "optimize-casts-ref-as",
-    "optimize-casts-static-folds",
-    "optimize-casts-neighborhood",
-    "optimize-casts-all",
+    "optimize-casts-later-reuse", "optimize-casts-early-motion", "optimize-casts-barriers",
+    "optimize-casts-best-cast", "optimize-casts-ref-as", "optimize-casts-static-folds",
+    "optimize-casts-neighborhood", "optimize-casts-all",
   ]
   let names = gen_valid_profile_names()
   for name in expected {
@@ -12918,23 +12913,28 @@ test "optimize-casts aggregate profile samples every current cast family" {
     index += 1
   }
   assert_true(seen.contains("optimize-casts-later-reuse"), msg=seen.to_string())
-  assert_true(seen.contains("optimize-casts-early-motion"), msg=seen.to_string())
+  assert_true(
+    seen.contains("optimize-casts-early-motion"),
+    msg=seen.to_string(),
+  )
   assert_true(seen.contains("optimize-casts-barriers"), msg=seen.to_string())
   assert_true(seen.contains("optimize-casts-best-cast"), msg=seen.to_string())
   assert_true(seen.contains("optimize-casts-ref-as"), msg=seen.to_string())
-  assert_true(seen.contains("optimize-casts-static-folds"), msg=seen.to_string())
-  assert_true(seen.contains("optimize-casts-neighborhood"), msg=seen.to_string())
+  assert_true(
+    seen.contains("optimize-casts-static-folds"),
+    msg=seen.to_string(),
+  )
+  assert_true(
+    seen.contains("optimize-casts-neighborhood"),
+    msg=seen.to_string(),
+  )
 }
 
 ///|
 test "optimize-casts gen-valid leaves emit validating cast trigger modules" {
   let expected = [
-    "optimize-casts-later-reuse",
-    "optimize-casts-early-motion",
-    "optimize-casts-barriers",
-    "optimize-casts-best-cast",
-    "optimize-casts-ref-as",
-    "optimize-casts-static-folds",
+    "optimize-casts-later-reuse", "optimize-casts-early-motion", "optimize-casts-barriers",
+    "optimize-casts-best-cast", "optimize-casts-ref-as", "optimize-casts-static-folds",
     "optimize-casts-neighborhood",
   ]
   for name in expected {
@@ -12956,13 +12956,15 @@ test "optimize-casts gen-valid leaves emit validating cast trigger modules" {
     }
     let pretty = generated.wasm_module.pretty_print_func(@lib.FuncIdx::new(0U))
     assert_true(
-      pretty.contains("ref.cast") || pretty.contains("ref.as_non_null") ||
-      pretty.contains("ref.test") || pretty.contains("br_on_cast"),
-      msg="profile \\{name} did not emit an optimize-casts trigger:\n\\{pretty}",
+      pretty.contains("ref.cast") ||
+      pretty.contains("ref.as_non_null") ||
+      pretty.contains("ref.test") ||
+      pretty.contains("br_on_cast"),
+      msg="profile \{name} did not emit an optimize-casts trigger:\n\{pretty}",
     )
     assert_true(
       pretty.contains("local.get") || pretty.contains("local.tee"),
-      msg="profile \\{name} did not emit local traffic:\n\\{pretty}",
+      msg="profile \{name} did not emit local traffic:\n\{pretty}",
     )
   }
 }

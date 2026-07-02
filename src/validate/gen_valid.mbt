@@ -746,6 +746,14 @@ pub enum GenValidProfile {
   ReorderLocalsUnusedTrimProfile
   ReorderLocalsNameRepairProfile
   ReorderLocalsAllProfile
+  OptimizeCastsLaterReuseProfile
+  OptimizeCastsEarlyMotionProfile
+  OptimizeCastsBarriersProfile
+  OptimizeCastsBestCastProfile
+  OptimizeCastsRefAsProfile
+  OptimizeCastsStaticFoldsProfile
+  OptimizeCastsNeighborhoodProfile
+  OptimizeCastsAllProfile
   PassOiDefaultScalarProfile
   PassOiLocalFactsProfile
   PassOiBooleanSelectProfile
@@ -903,6 +911,14 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ReorderLocalsUnusedTrimProfile => "reorder-locals-unused-trim"
     ReorderLocalsNameRepairProfile => "reorder-locals-name-repair"
     ReorderLocalsAllProfile => "reorder-locals-all"
+    OptimizeCastsLaterReuseProfile => "optimize-casts-later-reuse"
+    OptimizeCastsEarlyMotionProfile => "optimize-casts-early-motion"
+    OptimizeCastsBarriersProfile => "optimize-casts-barriers"
+    OptimizeCastsBestCastProfile => "optimize-casts-best-cast"
+    OptimizeCastsRefAsProfile => "optimize-casts-ref-as"
+    OptimizeCastsStaticFoldsProfile => "optimize-casts-static-folds"
+    OptimizeCastsNeighborhoodProfile => "optimize-casts-neighborhood"
+    OptimizeCastsAllProfile => "optimize-casts-all"
     PassOiDefaultScalarProfile => "pass-oi-default-scalar"
     PassOiLocalFactsProfile => "pass-oi-local-facts"
     PassOiBooleanSelectProfile => "pass-oi-boolean-select"
@@ -929,6 +945,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | SsaNomergeAllProfile
     | SimplifyLocalsNostructureAllProfile
     | ReorderLocalsAllProfile
+    | OptimizeCastsAllProfile
     | RandomAllProfilesProfile => true
     _ => false
   }
@@ -1071,6 +1088,16 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(ReorderLocalsHotSortProfile, 3),
         GenValidProfileMember::new(ReorderLocalsUnusedTrimProfile, 2),
         GenValidProfileMember::new(ReorderLocalsNameRepairProfile, 1),
+      ]
+    OptimizeCastsAllProfile =>
+      [
+        GenValidProfileMember::new(OptimizeCastsLaterReuseProfile, 3),
+        GenValidProfileMember::new(OptimizeCastsEarlyMotionProfile, 2),
+        GenValidProfileMember::new(OptimizeCastsBarriersProfile, 2),
+        GenValidProfileMember::new(OptimizeCastsBestCastProfile, 2),
+        GenValidProfileMember::new(OptimizeCastsRefAsProfile, 2),
+        GenValidProfileMember::new(OptimizeCastsStaticFoldsProfile, 1),
+        GenValidProfileMember::new(OptimizeCastsNeighborhoodProfile, 1),
       ]
     RandomAllProfilesProfile =>
       [
@@ -1240,6 +1267,14 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ReorderLocalsUnusedTrimProfile,
     ReorderLocalsNameRepairProfile,
     ReorderLocalsAllProfile,
+    OptimizeCastsLaterReuseProfile,
+    OptimizeCastsEarlyMotionProfile,
+    OptimizeCastsBarriersProfile,
+    OptimizeCastsBestCastProfile,
+    OptimizeCastsRefAsProfile,
+    OptimizeCastsStaticFoldsProfile,
+    OptimizeCastsNeighborhoodProfile,
+    OptimizeCastsAllProfile,
     PassOiDefaultScalarProfile,
     PassOiLocalFactsProfile,
     PassOiBooleanSelectProfile,
@@ -1341,6 +1376,11 @@ pub fn gen_valid_profile_by_name(
     "reorder-locals" => Ok(ReorderLocalsAllProfile)
     "reorder-locals-closeout" => Ok(ReorderLocalsAllProfile)
     "reorder-locals-all-profiles" => Ok(ReorderLocalsAllProfile)
+    "optimize-casts" => Ok(OptimizeCastsAllProfile)
+    "optimize-casts-closeout" => Ok(OptimizeCastsAllProfile)
+    "optimize-casts-all-profiles" => Ok(OptimizeCastsAllProfile)
+    "oc" => Ok(OptimizeCastsAllProfile)
+    "oc-closeout" => Ok(OptimizeCastsAllProfile)
     "rl" => Ok(ReorderLocalsAllProfile)
     "rl-closeout" => Ok(ReorderLocalsAllProfile)
     "optimize-instructions" => Ok(PassOiDefaultScalarProfile)
@@ -1789,6 +1829,16 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_reorder_locals_profile_config(profile)
     ReorderLocalsAllProfile =>
       gen_valid_reorder_locals_profile_config(ReorderLocalsHotSortProfile)
+    OptimizeCastsLaterReuseProfile
+    | OptimizeCastsEarlyMotionProfile
+    | OptimizeCastsBarriersProfile
+    | OptimizeCastsBestCastProfile
+    | OptimizeCastsRefAsProfile
+    | OptimizeCastsStaticFoldsProfile
+    | OptimizeCastsNeighborhoodProfile =>
+      gen_valid_optimize_casts_profile_config(profile)
+    OptimizeCastsAllProfile =>
+      gen_valid_optimize_casts_profile_config(OptimizeCastsLaterReuseProfile)
     PassOiDefaultScalarProfile
     | PassOiLocalFactsProfile
     | PassOiBooleanSelectProfile
@@ -1798,6 +1848,59 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | PassOiDescriptorGcProfile
     | PassOiTupleProfile => gen_valid_oi_profile_config(profile)
     RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
+  }
+}
+
+///|
+fn gen_valid_optimize_casts_profile_config(
+  _profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 6,
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: 0,
+    max_body_depth: 3,
+    features: GenValidFeatureToggles::{
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_start: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: true,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_const_expr_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_subtyping_topology: true,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
   }
 }
 
@@ -3056,6 +3159,17 @@ fn gen_valid_is_remove_unused_brs_family_config(
   config == GenValidConfig::for_profile(RemoveUnusedBrsControlProfile) ||
   config == GenValidConfig::for_profile(RemoveUnusedBrsSwitchProfile) ||
   config == GenValidConfig::for_profile(RemoveUnusedBrsCleanupProfile)
+}
+
+///|
+fn gen_valid_is_optimize_casts_family_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(OptimizeCastsLaterReuseProfile) ||
+  config == GenValidConfig::for_profile(OptimizeCastsEarlyMotionProfile) ||
+  config == GenValidConfig::for_profile(OptimizeCastsBarriersProfile) ||
+  config == GenValidConfig::for_profile(OptimizeCastsBestCastProfile) ||
+  config == GenValidConfig::for_profile(OptimizeCastsRefAsProfile) ||
+  config == GenValidConfig::for_profile(OptimizeCastsStaticFoldsProfile) ||
+  config == GenValidConfig::for_profile(OptimizeCastsNeighborhoodProfile)
 }
 
 ///|
@@ -12232,6 +12346,126 @@ fn gen_valid_append_return_value_instrs(
 }
 
 ///|
+fn gen_valid_optimize_casts_local(env : GenValidBodyEnv) -> LocalIdx? {
+  gen_matching_local_idx(env.local_types, ValType::anyref())
+}
+
+///|
+fn gen_valid_optimize_casts_primary_type(env : GenValidBodyEnv) -> TypeIdx? {
+  if env.gc_type_plan.struct_type_idxs.is_empty() {
+    None
+  } else {
+    Some(env.gc_type_plan.struct_type_idxs[0])
+  }
+}
+
+///|
+fn gen_valid_optimize_casts_secondary_type(env : GenValidBodyEnv) -> TypeIdx? {
+  if env.gc_type_plan.struct_type_idxs.length() >= 2 {
+    Some(env.gc_type_plan.struct_type_idxs[1])
+  } else {
+    gen_valid_optimize_casts_primary_type(env)
+  }
+}
+
+///|
+fn gen_valid_optimize_casts_seed_local(
+  out : Array[Instruction],
+  local_idx : LocalIdx,
+  type_idx : TypeIdx,
+) -> Unit {
+  out.push(Instruction::struct_new_default(type_idx))
+  out.push(Instruction::local_set(local_idx))
+}
+
+///|
+fn gen_valid_optimize_casts_append_cast_drop(
+  out : Array[Instruction],
+  local_idx : LocalIdx,
+  nullable : Bool,
+  type_idx : TypeIdx,
+) -> Unit {
+  out.push(Instruction::local_get(local_idx))
+  out.push(Instruction::ref_cast(nullable, HeapType::new(type_idx)))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_optimize_casts_body_slice(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  let local_idx = match gen_valid_optimize_casts_local(env) {
+    Some(idx) => idx
+    None => return
+  }
+  let primary = match gen_valid_optimize_casts_primary_type(env) {
+    Some(idx) => idx
+    None => return
+  }
+  let secondary = match gen_valid_optimize_casts_secondary_type(env) {
+    Some(idx) => idx
+    None => primary
+  }
+  gen_valid_optimize_casts_seed_local(out, local_idx, secondary)
+  let config = ctx.config
+  if config == GenValidConfig::for_profile(OptimizeCastsLaterReuseProfile) {
+    gen_valid_optimize_casts_append_cast_drop(out, local_idx, false, secondary)
+    out.push(Instruction::local_get(local_idx))
+    out.push(Instruction::drop())
+  } else if config ==
+    GenValidConfig::for_profile(OptimizeCastsEarlyMotionProfile) {
+    out.push(Instruction::local_get(local_idx))
+    out.push(Instruction::drop())
+    gen_valid_optimize_casts_append_cast_drop(out, local_idx, false, secondary)
+  } else if config == GenValidConfig::for_profile(OptimizeCastsBarriersProfile) {
+    gen_valid_optimize_casts_append_cast_drop(out, local_idx, false, secondary)
+    out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::none())))
+    out.push(Instruction::local_set(local_idx))
+    out.push(Instruction::local_get(local_idx))
+    out.push(Instruction::drop())
+  } else if config == GenValidConfig::for_profile(OptimizeCastsBestCastProfile) {
+    gen_valid_optimize_casts_append_cast_drop(out, local_idx, false, primary)
+    gen_valid_optimize_casts_append_cast_drop(out, local_idx, false, secondary)
+    gen_valid_optimize_casts_append_cast_drop(out, local_idx, false, primary)
+    out.push(Instruction::local_get(local_idx))
+    out.push(Instruction::drop())
+  } else if config == GenValidConfig::for_profile(OptimizeCastsRefAsProfile) {
+    gen_valid_optimize_casts_append_cast_drop(out, local_idx, true, secondary)
+    out.push(Instruction::local_get(local_idx))
+    out.push(Instruction::ref_as_non_null())
+    out.push(Instruction::drop())
+  } else if config ==
+    GenValidConfig::for_profile(OptimizeCastsStaticFoldsProfile) {
+    out.push(Instruction::local_get(local_idx))
+    out.push(Instruction::ref_cast(false, HeapType::new(secondary)))
+    out.push(Instruction::ref_test(false, HeapType::new(secondary)))
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(local_idx))
+    out.push(
+      Instruction::br_on_cast(
+        LabelIdx::new(0U),
+        false,
+        HeapType::abs(AbsHeapType::any()),
+        false,
+        HeapType::new(secondary),
+      ),
+    )
+    out.push(Instruction::drop())
+  } else if config ==
+    GenValidConfig::for_profile(OptimizeCastsNeighborhoodProfile) {
+    out.push(Instruction::struct_new_default(secondary))
+    out.push(Instruction::local_tee(local_idx))
+    out.push(Instruction::ref_cast(false, HeapType::new(secondary)))
+    out.push(Instruction::drop())
+    gen_valid_optimize_casts_append_cast_drop(out, local_idx, false, primary)
+    out.push(Instruction::local_get(local_idx))
+    out.push(Instruction::drop())
+  }
+}
+
+///|
 fn gen_valid_append_heap2local_body_slice(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -13647,6 +13881,8 @@ fn gen_valid_build_func(
           locals.push(array_ref)
         }
       }
+    } else if gen_valid_is_optimize_casts_family_config(ctx.config) {
+      locals.push(ValType::anyref())
     } else {
       for vt in gc_type_plan.concrete_ref_types {
         locals.push(vt)
@@ -13680,7 +13916,8 @@ fn gen_valid_build_func(
     !ctx.config.features.allow_ssa_nomerge_body_generator &&
     !ctx.config.features.allow_heap_store_optimization_body_generator &&
     !ctx.config.features.allow_heap2local_body_generator &&
-    !gen_valid_is_remove_unused_brs_family_config(ctx.config) {
+    !gen_valid_is_remove_unused_brs_family_config(ctx.config) &&
+    !gen_valid_is_optimize_casts_family_config(ctx.config) {
     gen_valid_append_coverage_prelude(body_instrs, ctx, env, returns)
   }
   let stmt_count = if ctx.config.mode == CoverageForced {
@@ -13700,6 +13937,9 @@ fn gen_valid_build_func(
   }
   if ctx.config.features.allow_heap2local_body_generator {
     gen_valid_append_heap2local_body_slice(body_instrs, ctx, env)
+  }
+  if gen_valid_is_optimize_casts_family_config(ctx.config) {
+    gen_valid_append_optimize_casts_body_slice(body_instrs, ctx, env)
   }
   match current_func_idx {
     Some(idx) if gen_valid_is_ssa_nomerge_family_config(ctx.config) &&
