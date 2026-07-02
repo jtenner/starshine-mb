@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-07-02
 sources:
+  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
@@ -208,20 +209,19 @@ So a future local implementation should keep the `optimize-casts -> local-cse` r
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.
-Starshine does **not** currently have:
+Starshine has an active MoonBit pass, dispatcher, registry, preset slot, and focused static-fold tests, but it does **not** yet have the two source-backed Binaryen local-flow phases from `OptimizeCasts.cpp`:
 
-- a MoonBit implementation file for `optimize-casts`
-- HOT or raw candidate collection for earlier-cast duplication or later refined-local reuse
-- pass-specific local invalidation machinery for same-index writes in this pass
-- pass-specific tests or CLI execution coverage beyond the tracked registry and backlog surfaces
+- strict earlier duplication of later `ref.cast` / `ref.as_non_null` values to earlier `local.get`s inside a safe linear window
+- later reuse of an already-computed best cast through a fresh refined local and retargeted less-refined `local.get`s
+- a pass-owned GenValid profile that reliably generates those upstream trigger families
+- final four-lane direct-pass signoff for the widened behavior
 
 So the current repo status is best summarized as:
 
-- name tracked
-- backlog tracked
-- scheduler slot documented
-- neighboring GC/local passes documented
-- transform itself not yet landed
+- active narrow static-folding pass
+- public preset slot and neighborhood proof from 2026-05-08
+- stale upstream local-flow parity gaps now reopened under `[O4Z-AUDIT-OC]`
+- no dedicated `optimize-casts-all` GenValid aggregate yet
 
 ## Validation bridge
 

@@ -1207,9 +1207,10 @@ Preset behavior inventory:
   - Explicit non-scope / reopening surfaces: validator-rejected nondefaultable-local repair, broader dynamic array indexes/sizes, escapes through calls/returns, mixed branch/select provenance, and neighbor-owned coalesce-locals/local-cse output-size gaps.
 
 - [O4Z-AUDIT-OC] - Deep audit `optimize-casts`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
-  - Scope: ref.cast/ref.test/br_on_cast folding, descriptor casts, nullability trap preservation, local-subtyping neighborhood, and GC validation.
-  - Deliverables: apply the common checklist; add missing cast/descriptor/nullability fixtures; refresh direct compare and `OC` slot evidence; classify any trap-mode-sensitive decisions.
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit. 2026-07-02 kickoff evidence in `docs/wiki/raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md` refreshed Binaryen `version_130` `OptimizeCasts.cpp`/lit scope and found Starshine's active pass still lacks the two upstream local-flow phases despite its static fold coverage and public preset slot.
+  - Scope: upstream `ref.cast` / `ref.as_non_null` local-flow refinement, including later reuse through fresh refined locals, strict earlier cast motion, same-index local-write barriers, trap/effect/nonlinear boundaries, best-cast selection, current Starshine static folds (`ref.test`, descriptor casts/tests, branch casts), local-subtyping neighborhood, and GC validation/refinalization.
+  - Generator inventory: create a dedicated `optimize-casts-all` GenValid aggregate with leaves for later reuse, early motion, barrier negatives, best-cast/subtype selection, `ref.as_non_null`, current static folds, and the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood.
+  - Deliverables: apply the common checklist; add red-first upstream local-flow fixtures before widening implementation; implement conservative safe subsets before early-motion trap-sensitive rewrites; add/document the dedicated GenValid profile; refresh direct compare, dedicated-profile, broad-profile, wasm-smith, performance, and `OC` slot evidence; classify any trap-mode-sensitive decisions.
 
 - [O4Z-AUDIT-LS] - Deep audit `local-subtyping`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
