@@ -9891,6 +9891,125 @@ test "optimize-instructions lowers escaping br_if block ref.get_desc child like 
 }
 
 ///|
+test "optimize-instructions lowers escaping br_table block ref.get_desc child like Binaryen" {
+  // OI-J descriptor-operand escaping-label breadth: Binaryen version_130
+  // default and IIT flatten an escaping `br_table` descriptor child, preserving
+  // the branch payload and table index before `ref.get_desc`/`ref.cast_desc_eq`.
+  // This is narrower than a general escaping-label localizer and does not cover
+  // br_on_* or non-local/effectful payloads/indexes.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                nullable_described_val_type,
+                nullable_described_val_type,
+                @lib.ValType::i32(),
+              ],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::br_table(
+                      [@lib.LabelIdx::new(1U)],
+                      @lib.LabelIdx::new(1U),
+                    ),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::ref_cast_desc_eq_type(
+                  nullable_described_ref_type,
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Block(_, @lib.Expr(body))]))])
+    ) => {
+      @debug.assert_eq(body.length(), 6)
+      match body[0] {
+        @lib.LocalGet(@lib.LocalIdx(0U)) => ()
+        other => fail("expected cast operand local.get 0, got \{other}")
+      }
+      match body[1] {
+        @lib.LocalGet(@lib.LocalIdx(1U)) => ()
+        other =>
+          fail("expected escaping br_table payload local.get 1, got \{other}")
+      }
+      match body[2] {
+        @lib.LocalGet(@lib.LocalIdx(2U)) => ()
+        other =>
+          fail("expected escaping br_table index local.get 2, got \{other}")
+      }
+      match body[3] {
+        @lib.BrTable([@lib.LabelIdx(0U)], @lib.LabelIdx(0U)) => ()
+        other =>
+          fail("expected br_table retargeted to outer label, got \{other}")
+      }
+      match body[4] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        other => fail("expected flattened br_table ref.get_desc, got \{other}")
+      }
+      match body[5] {
+        @lib.RefCastDescEq(nullable, exact, target) => {
+          assert_true(nullable)
+          assert_false(exact)
+          @debug.assert_eq(target, described_heap)
+        }
+        other =>
+          fail(
+            "expected descriptor cast after flattened br_table, got \{other}",
+          )
+      }
+    }
+    other =>
+      fail("expected one optimized outer br_table block body, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions localizes escaping-branch ref.get_desc descriptor operands under traps-never-happen" {
   // OI-J TNH escaping-label companion: Binaryen version_130 skips the
   // descriptor cast under --traps-never-happen but still evaluates the

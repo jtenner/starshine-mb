@@ -28125,6 +28125,20 @@ fn run_hot_pipeline_raw_oi_decrement_escaping_label(
 }
 
 ///|
+fn run_hot_pipeline_raw_oi_decrement_escaping_label_vec(
+  labels : Array[@lib.LabelIdx],
+) -> Array[@lib.LabelIdx]? {
+  let retargeted : Array[@lib.LabelIdx] = []
+  for label in labels {
+    match run_hot_pipeline_raw_oi_decrement_escaping_label(label) {
+      Some(next_label) => retargeted.push(next_label)
+      None => return None
+    }
+  }
+  Some(retargeted)
+}
+
+///|
 fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
@@ -28134,6 +28148,40 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
   while i < instrs.length() {
     if i + 4 < instrs.length() {
       match (instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
+        (
+          @lib.Block(
+            _,
+            @lib.Expr([payload, index, @lib.BrTable(labels, default_label)])
+          ),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match (payload, index) {
+            (@lib.LocalGet(_), @lib.LocalGet(_)) => true
+            _ => false
+          }) =>
+          match
+            (
+              run_hot_pipeline_raw_oi_decrement_escaping_label_vec(labels),
+              run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
+            ) {
+            (Some(retargeted_labels), Some(retargeted_default)) => {
+              rewritten.push(instrs[i])
+              rewritten.push(payload)
+              rewritten.push(index)
+              rewritten.push(
+                @lib.Instruction::br_table(
+                  retargeted_labels, retargeted_default,
+                ),
+              )
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              changed = true
+              i = i + 5
+              continue
+            }
+            _ => ()
+          }
         (
           @lib.Block(
             _,
