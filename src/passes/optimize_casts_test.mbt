@@ -494,6 +494,64 @@ test "optimize-casts reuses a cast inside a fallthrough block" {
 }
 
 ///|
+test "optimize-casts carries reuse through a branch-free value block" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(struct_ref, [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::ref_cast(
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::i32_const(@lib.I32(7)),
+        ]),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
+test "optimize-casts does not carry a branch-skipped value block cast" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(struct_ref, [
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::ref_cast(
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          ),
+          @lib.Instruction::drop(),
+          @lib.Instruction::i32_const(@lib.I32(8)),
+        ]),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
 test "optimize-casts does not carry a branch-skipped cast out of a block" {
   let struct_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
