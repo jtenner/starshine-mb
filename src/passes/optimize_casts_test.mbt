@@ -408,6 +408,57 @@ test "optimize-casts does not duplicate ref.cast earlier across calls" {
 }
 
 ///|
+test "optimize-casts duplicates later ref.cast across a dropped unary pure root" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::i32_eqz(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts does not duplicate ref.cast earlier across trapping numeric roots" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_div_s(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-casts does not materialize ref.as_non_null reuse for non-nullable locals" {
   let struct_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
