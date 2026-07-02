@@ -25812,12 +25812,31 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   let (effectful_sibling_body, effectful_sibling_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
     directized_body, module_ctx,
   )
-  let skipped_func = if directized_changed || effectful_sibling_changed {
-    @lib.Func::new(locals, @lib.Expr::new(effectful_sibling_body))
+  let (escaping_ref_get_desc_body, escaping_ref_get_desc_changed) = if options.traps_never_happen {
+    (effectful_sibling_body, false)
+  } else {
+    run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
+      effectful_sibling_body,
+    )
+  }
+  let skipped_func = if directized_changed ||
+    effectful_sibling_changed ||
+    escaping_ref_get_desc_changed {
+    @lib.Func::new(locals, @lib.Expr::new(escaping_ref_get_desc_body))
   } else {
     original
   }
-  let skipped_unchanged = !directized_changed && !effectful_sibling_changed
+  let skipped_unchanged = !directized_changed &&
+    !effectful_sibling_changed &&
+    !escaping_ref_get_desc_changed
+  if escaping_ref_get_desc_changed {
+    return Some({
+      reason: "raw-partial-optimize-instructions",
+      func: skipped_func,
+      unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
   if effectful_sibling_changed &&
     run_hot_pipeline_raw_optimize_instructions_has_bottom_null_descriptor_fold(
       body,
@@ -25928,7 +25947,12 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if stats.ifs > 0 && (directized_changed || effectful_sibling_changed) {
+  if stats.ifs > 0 &&
+    (
+      directized_changed ||
+      effectful_sibling_changed ||
+      escaping_ref_get_desc_changed
+    ) {
     return Some({
       reason: "raw-partial-optimize-instructions",
       func: skipped_func,
@@ -28108,6 +28132,41 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
   let mut changed = false
   let mut i = 0
   while i < instrs.length() {
+    if i + 4 < instrs.length() {
+      match (instrs[i + 1], instrs[i + 2], instrs[i + 3], instrs[i + 4]) {
+        (
+          @lib.Block(
+            _,
+            @lib.Expr(
+              [payload, condition, @lib.BrIf(label_idx), @lib.Drop, fallthrough]
+            )
+          ),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match (payload, condition, fallthrough) {
+            (@lib.LocalGet(_), @lib.LocalGet(_), @lib.LocalGet(_)) => true
+            _ => false
+          }) =>
+          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+            Some(retargeted) => {
+              rewritten.push(instrs[i])
+              rewritten.push(payload)
+              rewritten.push(condition)
+              rewritten.push(@lib.Instruction::br_if(retargeted))
+              rewritten.push(@lib.Instruction::drop())
+              rewritten.push(fallthrough)
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              changed = true
+              i = i + 5
+              continue
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
     if i + 3 < instrs.length() {
       match (instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
         (
