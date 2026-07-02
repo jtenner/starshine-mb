@@ -276,6 +276,52 @@ test "optimize-casts reuses an already computed ref.as_non_null for later local 
 }
 
 ///|
+test "optimize-casts duplicates later ref.cast to previous adjacent local get" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts does not duplicate ref.cast earlier across same-local writes" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-casts does not materialize ref.as_non_null reuse for non-nullable locals" {
   let struct_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
