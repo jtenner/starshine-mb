@@ -4203,6 +4203,29 @@ fn optimize_instructions_tuple_extract_lane_must_preserve(
 }
 
 ///|
+fn optimize_instructions_tuple_extract_child_for_flat_index(
+  func : @ir.HotFunc,
+  tuple_id : Int,
+  index : Int,
+) -> (Int, Int)? {
+  let tuple = @ir.hot_node_get(func, tuple_id)
+  let mut first_result = 0
+  for slot = 0; slot < tuple.child_count; slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, tuple_id, slot)
+    let child_results = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, child_id).ty,
+    )
+    let next_result = first_result + child_results.length()
+    if index >= first_result && index < next_result {
+      return Some((slot, index - first_result))
+    }
+    first_result = next_result
+  }
+  None
+}
+
+///|
 fn optimize_instructions_try_fold_tuple_extract_tuple_make(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4225,7 +4248,7 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
     _ => return false
   }
   let index = node.imm0
-  if index < 0 || index >= tuple.child_count {
+  if index < 0 {
     return false
   }
   for slot = 0; slot < tuple.child_count; slot = slot + 1 {
@@ -4236,18 +4259,26 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       return false
     }
   }
-  let selected_id = @ir.hot_child_get(func, tuple_id, index)
+  let (selected_slot, selected_lane) = match
+    optimize_instructions_tuple_extract_child_for_flat_index(
+      func, tuple_id, index,
+    ) {
+    Some(value) => value
+    None => return false
+  }
+  let selected_id = @ir.hot_child_get(func, tuple_id, selected_slot)
   let selected_results = @ir.hot_type_results(
     func,
     @ir.hot_node_get(func, selected_id).ty,
   )
-  if selected_results.length() != 1 {
-    return false
+  match selected_results.length() {
+    1 | 2 => ()
+    _ => return false
   }
   let mut has_effectful_sibling = false
   let mut has_later_effectful_sibling = false
   for slot = 0; slot < tuple.child_count; slot = slot + 1 {
-    if slot == index {
+    if slot == selected_slot {
       continue
     }
     let sibling_id = @ir.hot_child_get(func, tuple_id, slot)
@@ -4255,7 +4286,7 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
         ctx, func, sibling_id,
       ) {
       has_effectful_sibling = true
-      if slot > index {
+      if slot > selected_slot {
         has_later_effectful_sibling = true
       }
       let sibling_results = @ir.hot_type_results(
@@ -4267,19 +4298,36 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       }
     }
   }
-  if !has_effectful_sibling {
+  if !has_effectful_sibling && selected_results.length() == 1 {
     optimize_instructions_replace_with_node_id(ctx, func, node_id, selected_id)
     return true
   }
   let body : Array[Int] = []
   let mut selected_local : Int = -1
-  if has_later_effectful_sibling {
+  let selected_result_locals : Array[Int] = []
+  if selected_results.length() == 2 {
+    for result in selected_results {
+      selected_result_locals.push(@ir.hot_append_body_local(func, result))
+    }
+  } else if has_later_effectful_sibling {
     selected_local = @ir.hot_append_body_local(func, selected_results[0])
   }
   for slot = 0; slot < tuple.child_count; slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, tuple_id, slot)
-    if slot == index {
-      if has_later_effectful_sibling {
+    if slot == selected_slot {
+      if selected_results.length() == 2 {
+        let mut lane = selected_results.length()
+        while lane > 0 {
+          lane = lane - 1
+          body.push(
+            @ir.hot_build_local_set(
+              func,
+              selected_result_locals[lane],
+              selected_id,
+            ),
+          )
+        }
+      } else if has_later_effectful_sibling {
         body.push(@ir.hot_build_local_set(func, selected_local, selected_id))
       }
       continue
@@ -4299,14 +4347,18 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       _ => return false
     }
   }
-  if has_later_effectful_sibling {
+  if selected_results.length() == 2 {
+    body.push(
+      @ir.hot_build_local_get(func, selected_result_locals[selected_lane]),
+    )
+  } else if has_later_effectful_sibling {
     body.push(@ir.hot_build_local_get(func, selected_local))
   } else {
     body.push(selected_id)
   }
   let replacement = @ir.hot_build_block(
     func,
-    @lib.BlockType::val_type(selected_results[0]),
+    @lib.BlockType::val_type(selected_results[selected_lane]),
     body,
   )
   optimize_instructions_replace_with_node_id(ctx, func, node_id, replacement)
