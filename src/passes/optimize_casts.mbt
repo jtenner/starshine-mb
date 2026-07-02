@@ -438,12 +438,91 @@ fn oc_contains_local(locals : Array[Int], local_id : Int) -> Bool {
 }
 
 ///|
+fn oc_op_is_structured_control(op : @ir.HotOp) -> Bool {
+  match op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => false
+  }
+}
+
+///|
+fn oc_op_is_linear_block_barrier(op : @ir.HotOp) -> Bool {
+  match op {
+    @ir.HotOp::Unreachable
+    | @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate => true
+    _ => false
+  }
+}
+
+///|
+fn oc_node_has_linear_block_barrier(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if oc_op_is_linear_block_barrier(node.op) {
+    return true
+  }
+  let children = oc_node_children(func, node_id)
+  for child_id in children {
+    if oc_node_has_linear_block_barrier(func, child_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn oc_block_is_plain_fallthrough(func : @ir.HotFunc, block_id : Int) -> Bool {
+  if @ir.hot_node_result_arity(func, block_id) != 0 {
+    return false
+  }
+  let body = @ir.hot_region_body_ref(func, block_id)
+  for idx = 0; idx < @ir.hot_region_root_count(func, body); idx = idx + 1 {
+    if oc_node_has_linear_block_barrier(
+        func,
+        @ir.hot_region_get(func, body, idx),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn oc_collect_refinements(
   func : @ir.HotFunc,
   node_id : Int,
   out : Array[(Int, Int)],
 ) -> Unit {
   if !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if oc_op_is_structured_control(node.op) {
     return
   }
   match oc_refinement_source_local(func, node_id) {
@@ -514,18 +593,38 @@ fn oc_wrap_refinement_with_tee(
 }
 
 ///|
-fn oc_later_reuse_run(
+fn oc_later_reuse_scan_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
+  local_count : Int,
+  best_casts : Array[Int],
+  fresh_locals : Array[Int],
+  region : @ir.HotRegionRef,
 ) -> Bool {
-  let local_count = @ir.hot_local_count(func)
-  let best_casts = Array::make(local_count, -1)
-  let fresh_locals = Array::make(local_count, -1)
   let mut changed = false
-  let root_count = @ir.hot_root_count(func)
+  let root_count = @ir.hot_region_root_count(func, region)
   for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
-    let root_id = @ir.hot_root_get(func, root_idx)
+    let root_id = @ir.hot_region_get(func, region, root_idx)
+    let root = @ir.hot_node_get(func, root_id)
+    match root.op {
+      @ir.HotOp::Block =>
+        if oc_block_is_plain_fallthrough(func, root_id) {
+          if oc_later_reuse_scan_region(
+              ctx,
+              func,
+              module_ctx,
+              local_count,
+              best_casts,
+              fresh_locals,
+              @ir.hot_region_body_ref(func, root_id),
+            ) {
+            changed = true
+          }
+          continue
+        }
+      _ => ()
+    }
     let writes : Array[Int] = []
     oc_collect_written_locals(func, root_id, writes)
     let refinements : Array[(Int, Int)] = []
@@ -584,6 +683,26 @@ fn oc_later_reuse_run(
     }
   }
   changed
+}
+
+///|
+fn oc_later_reuse_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  let local_count = @ir.hot_local_count(func)
+  let best_casts = Array::make(local_count, -1)
+  let fresh_locals = Array::make(local_count, -1)
+  oc_later_reuse_scan_region(
+    ctx,
+    func,
+    module_ctx,
+    local_count,
+    best_casts,
+    fresh_locals,
+    @ir.HotRegionRef::root(),
+  )
 }
 
 ///|
