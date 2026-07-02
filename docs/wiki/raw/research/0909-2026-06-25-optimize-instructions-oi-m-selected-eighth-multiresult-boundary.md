@@ -34,9 +34,9 @@ Observed Binaryen output:
 
 ## Starshine slice
 
-This is a boundary/status slice, not an implementation slice. Starshine's current direct-HOT tuple localizer only proves selected children with a single result plus already-covered single-result effectful sibling drop/localization. Multi-result selected children require tuple-scratch plus scalar-temp reconstruction that is not implemented safely yet.
+This remains a boundary/status slice after the 2026-07-02 arity-7 follow-up. Starshine's current direct-HOT tuple localizer proves selected children with one through seven scalar results plus already-covered single-result effectful sibling drop/localization. The eight-result selected-child case still stays fail-closed until it is source-probed/refreshed, updated red-first, and implemented as its own bounded tuple-scratch/local-set slice.
 
-Added focused direct-HOT coverage in `src/passes/optimize_instructions_test.mbt` with `optimize-instructions intentionally keeps tuple.extract with multi-result selected eighth lane boundary`. The test asserts that Starshine keeps the `TupleExtract` at index `7`, the `TupleMake`, and the multi-result `Call` unchanged until a safe selected-child tuple-scratch localizer exists.
+Focused direct-HOT coverage in `src/passes/optimize_instructions_test.mbt` still uses `optimize-instructions intentionally keeps tuple.extract with multi-result selected eighth lane boundary`. The test asserts that Starshine keeps the `TupleExtract` at index `7`, the `TupleMake`, and the multi-result `Call` unchanged until a safe arity-8 selected-child tuple-scratch localizer exists.
 
 ## Validation
 
@@ -47,4 +47,4 @@ Full required slice validation is recorded in the commit that cites this note.
 
 ## Remaining work
 
-Remaining OI-M work includes implementing safe multi-result selected/sibling tuple-scratch localization, public/binary tuple fixture coverage where representable, replay/reduction of the full `simplify-locals` `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, and broader tee/drop reconstruction beyond the covered single-result selected/sibling localizer.
+Remaining OI-M work includes selected-child arities 8+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, control/branch/EH sibling localization, public/binary tuple fixture coverage where representable, replay/reduction of the full `simplify-locals` `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, and broader tee/drop reconstruction beyond the covered one-use selected/sibling localizer.
