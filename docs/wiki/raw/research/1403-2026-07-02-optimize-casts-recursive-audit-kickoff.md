@@ -120,9 +120,29 @@ Validation for this slice:
 
 This still is not OC closeout. Open local-flow gaps remain: fallthrough/repeated-cast recognition, best-cast subtype selection breadth, adjacent-block/nonlinear behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 4 implementation result
+
+The fourth recursive slice added red-first public-pipeline coverage for the first repeated/best-cast source families:
+
+- a repeated identical `ref.cast(local.get x)` should not have its source read retargeted through the previously materialized fresh local;
+- a later narrower subtype cast should remain available as the remembered best cast for following same-local reads instead of being rewritten through an earlier, less-refined fresh local.
+
+Before implementation, the repeated-cast case produced two `local.get (Local 1)` uses instead of one, and the subtype-chain fixture exposed invalid/stale best-cast behavior. The implementation now pre-collects each root's refinement candidates before later-reuse retargeting and skips retargeting reads of a local inside roots that themselves compute a refinement for that local. This lets repeated casts keep their original source, lets the later subtype cast replace the remembered best-cast fact, and still preserves the prior same-local `local.set` / `local.tee` write-barrier pre-scan. The focused test helper now includes a child struct subtype in void fixtures so the subtype-chain case exercises a real base-to-child cast.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the two new repeated/best-cast tests before implementation, then passed `16/16` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3831/3831`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-bestcast-smoke-100 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures` compared `100/100`, normalized `100`, and had zero validation/generator/property/command failures.
+
+This still is not OC closeout. Open local-flow gaps remain: fallthrough/adjacent-block recognition, broader best-cast/subtype selection, nonlinear behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
-1. Widen later reuse from the current root-linear direct `ref.cast` / nullable-source `ref.as_non_null` plus direct `local.tee` source subset to repeated identical casts, simple best subtype selection, or a minimal fallthrough/adjacent-block case. Keep same-local `local.set` / `local.tee` write barriers red-first.
+1. Widen later reuse from the current root-linear direct `ref.cast` / nullable-source `ref.as_non_null` plus direct `local.tee` source subset to a minimal fallthrough/adjacent-block case, or broaden best-cast/subtype selection with source-backed unrelated-cast and no-op repeated-cast negatives. Keep same-local `local.set` / `local.tee` write barriers red-first.
 2. Add early-motion tests separately only after the later-reuse local/refinalization path is stable.
 3. Add dedicated GenValid profiles once the target implementation families are known enough to generate meaningful positives rather than no-op valid modules.
 4. Keep the non-null body-local blocker visible until Starshine can either model Binaryen's exact fresh-local type or document a measured, accepted representation win.
