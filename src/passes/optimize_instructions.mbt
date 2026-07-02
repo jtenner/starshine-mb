@@ -4114,6 +4114,50 @@ fn optimize_instructions_replace_with_packed_i32_value(
 }
 
 ///|
+fn optimize_instructions_tuple_extract_lane_is_direct_localizable(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Catch
+    | @ir.HotOp::CatchAll => return false
+    _ => ()
+  }
+  for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, child_idx)
+    if child_id >= 0 &&
+      !optimize_instructions_tuple_extract_lane_is_direct_localizable(
+        func,
+        child_id,
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_tuple_extract_tuple_make(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4138,6 +4182,14 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
   let index = node.imm0
   if index < 0 || index >= tuple.child_count {
     return false
+  }
+  for slot = 0; slot < tuple.child_count; slot = slot + 1 {
+    if !optimize_instructions_tuple_extract_lane_is_direct_localizable(
+        func,
+        @ir.hot_child_get(func, tuple_id, slot),
+      ) {
+      return false
+    }
   }
   let selected_id = @ir.hot_child_get(func, tuple_id, index)
   let selected_results = @ir.hot_type_results(
