@@ -147,7 +147,7 @@ The fifth recursive slice added red-first public-pipeline coverage for the first
 - a cast and a later same-local read inside the same void, branch-free block should be treated as one fallthrough later-reuse window;
 - a cast that is skipped by a branch to the end of a block must not seed a fresh-local fact for following roots.
 
-Before implementation, the fallthrough-block case lacked `local.tee` / fresh-local reuse, while the branch-skipped case incorrectly carried a nullable fresh local out of the block. The implementation now scans branch-free void block bodies with the same later-reuse state as the surrounding root sequence, and stops collecting refinement facts through structured-control roots unless a block is admitted by that branch-free fallthrough scanner. The admitted subset deliberately rejects value blocks, nested control, branches, returns, throws, `unreachable`, and EH/control barriers; those remain open until they have source-backed tests and safety rules.
+Before implementation, the fallthrough-block case lacked `local.tee` / fresh-local reuse, while the branch-skipped case incorrectly carried a nullable fresh local out of the block. The implementation initially scanned branch-free void block bodies with the same later-reuse state as the surrounding root sequence and stopped collecting refinement facts through structured-control roots unless a block was admitted by that branch-free fallthrough scanner. Slice 7 below later broadened this admitted subset to dropped branch-free value blocks. Nested control, branches, returns, throws, `unreachable`, and EH/control barriers remain rejected until they have source-backed tests and safety rules.
 
 Validation for this slice:
 
@@ -178,7 +178,27 @@ Validation for this slice:
 - `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
 - `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-bestcast-source-smoke-100 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures` compared `100/100`, normalized `100`, and had zero validation/generator/property/command failures.
 
-This still is not OC closeout. Open local-flow gaps remain: adjacent-block reuse beyond branch-free void blocks, broader multi-cast/best-cast coverage, nonlinear/control behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+This still is not OC closeout. Open local-flow gaps remain: adjacent-block reuse beyond branch-free block subsets, broader multi-cast/best-cast coverage, nonlinear/control behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
+## Slice 7 implementation result
+
+The seventh recursive slice widened the branch-free block scanner from void block roots to a small dropped value-block fallthrough subset:
+
+- a branch-free value-producing block whose result is immediately dropped may carry an already-computed cast fact out to following same-local reads;
+- a value block with a branch to its end remains a control-flow barrier, so a branch-skipped cast inside the block must not seed a fresh-local fact outside the block.
+
+Before implementation, the positive produced no fresh-local read after the value block. The implementation now treats block roots and single-child `drop(block ...)` roots as admissible only when the enclosed block body has no linear-control barrier. It reuses the same later-reuse state inside the block and carries the fact to following roots. The dropped value-block form may lower the original dropped cast as `local.set` rather than preserving a visible `local.tee`; the tested behavior is the fresh-local read after the block, not exact tee spelling. Branches, nested control, returns, throws, `unreachable`, and EH/control barriers still reject the block and prevent skipped facts from leaking.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the new branch-free value-block positive before implementation, then passed `22/22` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3837/3837`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-value-block-smoke-100 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures` compared `100/100`, normalized `100`, and had zero validation/generator/property/command failures.
+
+This still is not OC closeout. Open local-flow gaps remain: broader adjacent-block reuse beyond the branch-free block subsets, broader multi-cast/best-cast coverage, nonlinear/control behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
 ## Recommended next implementation slices
 
