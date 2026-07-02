@@ -387,7 +387,7 @@ This still is not OC closeout. Open transform/evidence gaps remain: broader earl
 
 The eighteenth recursive slice widened strict early motion from constant-only pure roots to the first local-neighborhood window around a separate-index local write. Red-first `src/passes/optimize_casts_test.mbt` coverage first failed because a dropped same-local `local.get` separated from a later dropped `ref.as_non_null` by a nontrapping `i32.const; local.set` to a different local still stayed uncast. A paired same-local write negative keeps the ref.as_non_null motion behind writes to the source local.
 
-`src/passes/optimize_casts.mbt` now preserves pending early-motion candidates across dropped `local.get` roots and admits only constant-fed `local.set` roots by clearing the pending fact for the written local while preserving other locals. A later dropped `ref.cast` or nullable-source `ref.as_non_null` may therefore be duplicated onto an earlier dropped same-local `local.get` across `nop`, dropped constants, dropped `i32.eqz`-of-constant, dropped nontrapping constant `i32` binary roots, dropped local reads, and constant writes to separate locals. Same-local writes still clear the corresponding pending get. Effectful/trapping local-set payloads, calls, loads, structured control, trapping operators, non-constant pure expression trees, and broader local-write trees still clear candidates until each has source-backed positives and paired barriers.
+`src/passes/optimize_casts.mbt` now preserves pending early-motion candidates across dropped `local.get` roots and admits only constant-fed `local.set` roots by clearing the pending fact for the written local while preserving other locals. A later dropped `ref.cast` or nullable-source `ref.as_non_null` may therefore be duplicated onto an earlier dropped same-local `local.get` across `nop`, dropped constants, dropped `i32.eqz`-of-constant, dropped nontrapping constant `i32` binary roots, dropped local reads, and constant writes to separate locals. Same-local writes still clear the corresponding pending get. Effectful/trapping local-set payloads, calls, loads, structured control, trapping operators, and broader local-write trees still clear candidates until each has source-backed positives and paired barriers.
 
 Validation for this slice:
 
@@ -401,9 +401,30 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: broader early-motion windows across non-constant pure expression trees and effect-free local writes beyond constant `local.set`, call/effect/trap/control barriers, broader adjacent-block/control reuse, broader multi-cast/best-cast coverage, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 19 implementation result
+
+The nineteenth recursive slice widened the strict early-motion pure-root subset from constant-only i32 trees to nontrapping dropped i32 expression trees with `const` and `local.get` leaves:
+
+- a dropped same-local `local.get` followed by a dropped separate-local-fed pure root such as `local.get 1; i32.const 7; i32.add; drop` may keep the pending earlier-get candidate alive for a later dropped `ref.cast`;
+- a local-fed trapping numeric root such as `local.get 1; i32.const 0; i32.div_s; drop` remains a trap-timing barrier and must not move the later cast earlier.
+
+Before implementation, the positive still produced only one `ref.cast` because the early-motion scanner cleared pending candidates at a non-constant pure i32 tree. `src/passes/optimize_casts.mbt` now uses a bounded nontrapping i32 pure-tree recognizer for dropped roots. It admits `const` and `local.get` leaves, `i32.eqz`, and the previously covered nontrapping i32 binary operators (`add`, `sub`, `mul`, `and`, `or`, `xor`, `shl`, `shr_s`, `shr_u`, `rotl`, `rotr`) over those leaves/trees. It still rejects trapping numeric operators, calls, loads, structured control, local writes, and other effectful roots, so same-local write and trap/effect barriers remain closed.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on `optimize-casts duplicates later ref.cast across dropped local-fed pure roots` before implementation (`43/44` passed), then passed `44/44` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3859/3859`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-early-local-fed-pure-smoke-100` compared/normalized `100/100` with zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-early-local-fed-pure-smoke-20` compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, Binaryen cache `20/0`, and selected leaves `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: effect-free local writes beyond constant `local.set`, call/effect/trap/control barriers, broader adjacent-block/control reuse, broader multi-cast/best-cast coverage, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
-1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, pure/no-effect intervening trees beyond the current constant `i32.eqz`, nontrapping constant `i32` binary, dropped-local-read, and constant separate-index `local.set` roots, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/nonlinear-control negatives before any implementation.
+1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, effect-free local writes with nonconstant pure payloads beyond the current constant separate-index `local.set` roots, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/nonlinear-control negatives before any implementation.
 2. Alternatively, broaden best-cast/subtype coverage with source-backed unrelated-cast and multi-related-cast negatives/positives, or add a minimal adjacent-dominated-block later-reuse case only after proving the control-flow safety boundary red-first.
 3. Use the new `optimize-casts-all` aggregate for bounded generated compare/classification after each transform subset lands; do not expect the aggregate to be green while early-motion and broader local-flow families remain only partially implemented.
 4. Keep the non-null body-local blocker visible until Starshine can either model Binaryen's exact fresh-local type or document a measured, accepted representation win.
