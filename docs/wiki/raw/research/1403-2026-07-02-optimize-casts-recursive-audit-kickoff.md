@@ -160,6 +160,26 @@ Validation for this slice:
 
 This still is not OC closeout. Open local-flow gaps remain: adjacent-block reuse beyond branch-free void blocks, broader best-cast/subtype selection, nonlinear/control behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 6 implementation result
+
+The sixth recursive slice broadened the source-backed best-cast subset from "later narrower cast wins for following root reads" to the Binaryen `best-2`-style case where an earlier narrower cast may also feed a later broader cast's source read:
+
+- a `ref.cast` to a narrower subtype, followed by a later broader `ref.cast` of the same original local, may retarget the later broader cast's source through the remembered narrower fresh local;
+- an unrelated later cast, such as struct-vs-array, must remain conservative and must not have its cast source retargeted through the remembered fresh local.
+
+Before implementation, the narrower-then-broader positive only produced two fresh-local reads instead of the expected three, proving that the later broader cast source was still reading the original local. The implementation now distinguishes the semantic refinement type of a wrapped cast/as-non-null from the nullable fresh-local tee type used by the current Starshine workaround. A root that computes a same-local refinement is still normally protected from retargeting, but it can retarget its source reads when the remembered best cast is strictly more refined than every refinement computed in that root. Repeated identical casts and unrelated casts remain blocked by the same stricter comparison.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the new narrower-then-broader source-retargeting test before implementation (`2 != 3` fresh-local reads), then passed `20/20` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3835/3835`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-bestcast-source-smoke-100 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures` compared `100/100`, normalized `100`, and had zero validation/generator/property/command failures.
+
+This still is not OC closeout. Open local-flow gaps remain: adjacent-block reuse beyond branch-free void blocks, broader multi-cast/best-cast coverage, nonlinear/control behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden best-cast/subtype coverage with source-backed unrelated-cast and multi-related-cast negatives/positives, or add a minimal adjacent-dominated-block later-reuse case only after proving the control-flow safety boundary red-first. Keep early-motion out of the next slice unless it starts with trap/effect/nonlinear barrier tests.
