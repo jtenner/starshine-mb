@@ -9769,6 +9769,128 @@ test "optimize-instructions lowers escaping-branch block ref.get_desc child like
 }
 
 ///|
+test "optimize-instructions localizes escaping-branch ref.get_desc descriptor operands under traps-never-happen" {
+  // OI-J TNH escaping-label companion: Binaryen version_130 skips the
+  // descriptor cast under --traps-never-happen but still evaluates the
+  // escaping-label `ref.get_desc` operand into a descriptor scratch local before
+  // returning the original reference operand. This is narrower than broad
+  // escaping-label localization and does not cover ref.test_desc.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, nullable_described_val_type],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::ref_cast_desc_eq_type(
+                  nullable_described_ref_type,
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    traps_never_happen=true,
+    module_ctx=Some(@ir.hot_module_context_from_module(module_)),
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected escaping ref.get_desc TNH localization success, got \{err}",
+      )
+  }
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected TNH localization block, got \{other}")
+  }
+  let localized_block = if @ir.hot_child_count(func, root) == 1 {
+    @ir.hot_child_get(func, root, 0)
+  } else {
+    root
+  }
+  match @ir.hot_node_get(func, localized_block).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected nested TNH localization block, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_child_count(func, localized_block), 2)
+  let localized_descriptor = @ir.hot_child_get(func, localized_block, 0)
+  match @ir.hot_node_get(func, localized_descriptor).op {
+    @ir.HotOp::LocalSet => ()
+    other => fail("expected descriptor scratch local.set, got \{other}")
+  }
+  let stored_descriptor = @ir.hot_child_get(func, localized_descriptor, 0)
+  match @ir.hot_node_exact_instr(func, stored_descriptor) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    other => fail("expected localized ref.get_desc, got \{other}")
+  }
+  let get_desc_child = @ir.hot_child_get(func, stored_descriptor, 0)
+  match @ir.hot_node_get(func, get_desc_child).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected escaping block as ref.get_desc child, got \{other}")
+  }
+  let result = @ir.hot_child_get(func, localized_block, 1)
+  let result_node = @ir.hot_node_get(func, result)
+  match result_node.op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected original local.get result, got \{other}")
+  }
+  @debug.assert_eq(result_node.imm0, 0)
+}
+
+///|
 test "optimize-instructions fail-closed on escaping-branch block ref.get_desc child null checks" {
   // OI-J descriptor-operand trapOnNull boundary: Binaryen version_130 can
   // rewrite an escaping-branch block-produced child to a branch/unreachable

@@ -11202,6 +11202,9 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
         ) &&
         !optimize_instructions_ref_operand_is_exact_heap(
           func, operand_id, described_heap,
+        ) &&
+        !optimize_instructions_descriptor_skip_may_drop_exactness_for_tnh_escaping_ref_get_desc(
+          func, descriptor_id,
         ) {
         return false
       }
@@ -11214,6 +11217,9 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
     true
   } else {
     ignore(
+      optimize_instructions_try_remove_ref_get_desc_child_null_check_traps_never_happen(
+        ctx, func, descriptor_id,
+      ) ||
       optimize_instructions_try_move_ref_get_desc_child_null_check(
         ctx, func, descriptor_id,
       ),
@@ -11236,6 +11242,51 @@ fn optimize_instructions_try_skip_ref_cast_desc_eq_traps_never_happen(
       )
     }
   }
+}
+
+///|
+fn optimize_instructions_descriptor_skip_may_drop_exactness_for_tnh_escaping_ref_get_desc(
+  func : @ir.HotFunc,
+  descriptor_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, descriptor_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) =>
+      optimize_instructions_descriptor_expr_has_escaping_branch_control(
+        func, descriptor_id,
+      )
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_try_remove_ref_get_desc_child_null_check_traps_never_happen(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  descriptor_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, descriptor_id) {
+    Some(@lib.Instruction::RefGetDesc(_)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, descriptor_id) != 1 {
+    return false
+  }
+  let get_desc_child = @ir.hot_child_get(func, descriptor_id, 0)
+  match @ir.hot_node_exact_instr(func, get_desc_child) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, get_desc_child) != 1 {
+    return false
+  }
+  @ir.hot_child_set(
+    func,
+    descriptor_id,
+    0,
+    @ir.hot_child_get(func, get_desc_child, 0),
+  )
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
@@ -12256,6 +12307,21 @@ fn optimize_instructions_defaultable_scratch_type(
 }
 
 ///|
+fn optimize_instructions_defaultable_descriptor_scratch_type(
+  val_type : @lib.ValType,
+) -> @lib.ValType? {
+  match val_type {
+    @lib.RefTypeValType(ref_type) =>
+      Some(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, ref_type.get_heap_type()),
+        ),
+      )
+    _ => if @lib.has_default(val_type) { Some(val_type) } else { None }
+  }
+}
+
+///|
 fn optimize_instructions_ref_get_desc_operand_can_erase(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
@@ -12729,7 +12795,8 @@ fn optimize_instructions_replace_with_local_set_then_node_id(
   let local_type = match
     @ir.hot_type_results(func, @ir.hot_node_type(func, localize_id)) {
     [val_type] =>
-      match optimize_instructions_defaultable_scratch_type(val_type) {
+      match
+        optimize_instructions_defaultable_descriptor_scratch_type(val_type) {
         Some(local_type) => local_type
         None => return false
       }
@@ -12820,7 +12887,8 @@ fn optimize_instructions_replace_with_localized_node_then_descriptor_then_local_
     let descriptor_type = match
       @ir.hot_type_results(func, @ir.hot_node_type(func, descriptor_id)) {
       [val_type] =>
-        match optimize_instructions_defaultable_scratch_type(val_type) {
+        match
+          optimize_instructions_defaultable_descriptor_scratch_type(val_type) {
           Some(local_type) => local_type
           None => return false
         }
