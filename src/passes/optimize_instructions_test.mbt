@@ -25740,6 +25740,21 @@ test "optimize-instructions preserves selected trapping tuple.extract lane with 
 }
 
 ///|
+fn optimize_instructions_tuple_test_run(func : @ir.HotFunc, label : String) -> Unit {
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => abort("expected \{label} success, got \{err}")
+  }
+}
+
+///|
 test "optimize-instructions localizes tuple.extract of tuple.make with effectful siblings" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
@@ -25808,6 +25823,257 @@ test "optimize-instructions localizes tuple.extract of tuple.make with effectful
     @ir.hot_node_get(func, selected_get).imm0,
     @ir.hot_node_get(func, selected_set).imm0,
   )
+}
+
+///|
+test "optimize-instructions localizes effectful non-selected tuple sibling after selected lane" {
+  // OI-M one-use direct tuple.extract(tuple.make) slice: Binaryen v130
+  // preserves the later side effect as a dropped sibling before returning the
+  // selected lane. Starshine must not rewrite this to just `i32.const 7`.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let selected = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let later_call = @ir.hot_build_call(func, 0, [@lib.ValType::i64()], [])
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [selected, later_call],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  optimize_instructions_tuple_test_run(
+    func,
+    "effectful later tuple sibling localization",
+  )
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected effectful later tuple sibling to localize into a block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  let selected_set = @ir.hot_region_get(func, body, 0)
+  let sibling_drop = @ir.hot_region_get(func, body, 1)
+  let selected_get = @ir.hot_region_get(func, body, 2)
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected selected const to be localized before later call")
+  }
+  match @ir.hot_node_get(func, sibling_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected later effectful sibling to be dropped")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, sibling_drop, 0)).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected dropped tuple sibling call to remain observable")
+  }
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected const to reload after later call")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, selected_get).imm0,
+    @ir.hot_node_get(func, selected_set).imm0,
+  )
+}
+
+///|
+test "optimize-instructions localizes trapping non-selected tuple sibling after selected lane" {
+  // OI-M one-use direct tuple.extract(tuple.make) slice: a later non-selected
+  // divide-by-zero must remain as a dropped sibling, preserving the original
+  // trap instead of folding the function to `i32.const 7`.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let selected = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let trap = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i64(),
+    @ir.hot_build_const_i64(func, @lib.I64(1L)),
+    @ir.hot_build_const_i64(func, @lib.I64(0L)),
+  )
+  @ir.hot_node_exact_instr_set(func, trap, @lib.Instruction::i64_div_u())
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [selected, trap],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  optimize_instructions_tuple_test_run(
+    func,
+    "trapping later tuple sibling localization",
+  )
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected trapping later tuple sibling to localize into a block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  let sibling_drop = @ir.hot_region_get(func, body, 1)
+  match @ir.hot_node_get(func, sibling_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected later trapping sibling to be dropped")
+  }
+  match @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, sibling_drop, 0)) {
+    Some(@lib.Instruction::I64DivU) => ()
+    _ => fail("expected dropped tuple sibling to preserve i64.div_u trap")
+  }
+}
+
+///|
+test "optimize-instructions preserves earlier effectful tuple sibling before selected lane" {
+  // OI-M one-use direct tuple.extract(tuple.make) slice: an earlier effectful
+  // non-selected sibling must remain before the selected lane.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let earlier_call = @ir.hot_build_call(func, 0, [@lib.ValType::i64()], [])
+  let selected = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i64(), @lib.ValType::i32()],
+    [earlier_call, selected],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 1)
+  @ir.hot_root_append(func, extract)
+
+  optimize_instructions_tuple_test_run(
+    func,
+    "earlier effectful tuple sibling localization",
+  )
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected earlier effectful tuple sibling to localize into a block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
+  let earlier_drop = @ir.hot_region_get(func, body, 0)
+  let selected_result = @ir.hot_region_get(func, body, 1)
+  match @ir.hot_node_get(func, earlier_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected earlier effectful sibling to be dropped first")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, earlier_drop, 0)).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected earlier tuple sibling call to remain observable")
+  }
+  match @ir.hot_node_get(func, selected_result).op {
+    @ir.HotOp::Const => ()
+    _ => fail("expected selected lane after earlier effect")
+  }
+}
+
+///|
+test "optimize-instructions localizes selected effect before later tuple sibling effect" {
+  // OI-M one-use direct tuple.extract(tuple.make) slice: if the selected lane
+  // itself has effects and a later non-selected sibling also has effects, the
+  // selected effect must stay first and its value must survive the later drop.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let selected_call = @ir.hot_build_call(func, 0, [@lib.ValType::i32()], [])
+  let later_call = @ir.hot_build_call(func, 1, [@lib.ValType::i64()], [])
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [selected_call, later_call],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  optimize_instructions_tuple_test_run(
+    func,
+    "selected-effect tuple sibling localization",
+  )
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected selected-effect tuple sibling to localize into a block")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  let selected_set = @ir.hot_region_get(func, body, 0)
+  let later_drop = @ir.hot_region_get(func, body, 1)
+  let selected_get = @ir.hot_region_get(func, body, 2)
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected selected effect to be stored before later effect")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, selected_set, 0)).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected selected tuple call to stay first")
+  }
+  match @ir.hot_node_get(func, later_drop).op {
+    @ir.HotOp::Drop => ()
+    _ => fail("expected later effect to be dropped after selected call")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, later_drop, 0)).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected later tuple sibling call to remain observable")
+  }
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected call result to reload after later effect")
+  }
+}
+
+///|
+test "optimize-instructions intentionally keeps tuple.extract with unsupported control sibling boundary" {
+  // Boundary-only OI-M classification: this direct slice does not yet localize
+  // control/branch/EH or nested-region tuple siblings. Keeping the original
+  // tuple shape prevents silently deleting unsupported control payloads.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let selected = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let control_sibling = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i64()),
+    [@ir.hot_build_const_i64(func, @lib.I64(9L))],
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [selected, control_sibling],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  optimize_instructions_tuple_test_run(
+    func,
+    "unsupported control tuple sibling boundary",
+  )
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::TupleExtract => ()
+    _ => fail("expected unsupported control sibling tuple.extract to stay unchanged")
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, root, 0), tuple)
+  match @ir.hot_node_get(func, control_sibling).op {
+    @ir.HotOp::Block => ()
+    _ => fail("expected unsupported control sibling block to stay available")
+  }
 }
 
 ///|
