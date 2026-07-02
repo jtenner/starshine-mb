@@ -407,7 +407,9 @@ test "optimize-casts uses an earlier narrower cast for later broader cast source
 }
 
 ///|
-fn optimize_casts_unrelated_module(body : Array[@lib.Instruction]) -> @lib.Module {
+fn optimize_casts_unrelated_module(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
   let struct_type = @lib.RecType::new(
     @lib.SubType::new(false, [], @lib.CompType::struct_([])),
   )

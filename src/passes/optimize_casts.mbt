@@ -161,6 +161,36 @@ fn oc_ref_type_from_node(func : @ir.HotFunc, node_id : Int) -> @lib.RefType? {
 }
 
 ///|
+fn oc_refinement_type_from_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.RefType? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCast(_, _, _))
+    | Some(@lib.Instruction::RefAsNonNull) =>
+      oc_ref_type_from_node(func, node_id)
+    _ => {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::LocalTee =>
+          if @ir.hot_child_count(func, node_id) == 1 {
+            let child_id = @ir.hot_child_get(func, node_id, 0)
+            match @ir.hot_node_exact_instr(func, child_id) {
+              Some(@lib.Instruction::RefCast(_, _, _))
+              | Some(@lib.Instruction::RefAsNonNull) =>
+                oc_ref_type_from_node(func, child_id)
+              _ => oc_ref_type_from_node(func, node_id)
+            }
+          } else {
+            oc_ref_type_from_node(func, node_id)
+          }
+        _ => oc_ref_type_from_node(func, node_id)
+      }
+    }
+  }
+}
+
+///|
 fn oc_target_ref_type(
   nullable : Bool,
   exact : Bool,
@@ -536,13 +566,38 @@ fn oc_collect_refinements(
 }
 
 ///|
-fn oc_refinements_include_local(
+fn oc_refinements_allow_retarget(
+  module_ctx : @ir.HotModuleContext,
+  func : @ir.HotFunc,
   refinements : Array[(Int, Int)],
   local_id : Int,
+  best_cast : Int,
+) -> Bool {
+  let mut saw_refinement = false
+  for refinement in refinements {
+    if refinement.0 == local_id {
+      saw_refinement = true
+      if !oc_cast_is_more_refined(module_ctx, func, best_cast, refinement.1) {
+        return false
+      }
+    }
+  }
+  saw_refinement
+}
+
+///|
+fn oc_refinement_blocks_retarget(
+  module_ctx : @ir.HotModuleContext,
+  func : @ir.HotFunc,
+  refinements : Array[(Int, Int)],
+  local_id : Int,
+  best_cast : Int,
 ) -> Bool {
   for refinement in refinements {
     if refinement.0 == local_id {
-      return true
+      return !oc_refinements_allow_retarget(
+        module_ctx, func, refinements, local_id, best_cast,
+      )
     }
   }
   false
@@ -555,11 +610,11 @@ fn oc_cast_is_more_refined(
   candidate_id : Int,
   current_id : Int,
 ) -> Bool {
-  let candidate = match oc_ref_type_from_node(func, candidate_id) {
+  let candidate = match oc_refinement_type_from_node(func, candidate_id) {
     Some(ref_type) => ref_type
     None => return false
   }
-  let current = match oc_ref_type_from_node(func, current_id) {
+  let current = match oc_refinement_type_from_node(func, current_id) {
     Some(ref_type) => ref_type
     None => return true
   }
@@ -633,7 +688,9 @@ fn oc_later_reuse_scan_region(
       let best_cast = best_casts[local_id]
       if best_cast >= 0 &&
         !oc_contains_local(writes, local_id) &&
-        !oc_refinements_include_local(refinements, local_id) &&
+        !oc_refinement_blocks_retarget(
+          module_ctx, func, refinements, local_id, best_cast,
+        ) &&
         oc_count_local_gets(func, root_id, local_id) > 0 {
         let fresh_local = if fresh_locals[local_id] >= 0 {
           fresh_locals[local_id]
