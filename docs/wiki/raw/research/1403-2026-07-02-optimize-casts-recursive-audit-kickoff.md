@@ -440,6 +440,27 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: local-write windows beyond nontrapping pure separate-index `local.set`, `local.tee` and same-local writes, calls/effects/traps/control barriers, broader adjacent-block/control reuse, broader multi-cast/best-cast coverage, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 21 fallthrough source and nonlinear barrier result
+
+The twenty-first recursive slice shifted back to later-reuse/local-flow coverage and implemented a Binaryen-lit-style fallthrough source subset plus a missing basic-block barrier:
+
+- a `ref.cast` whose source is a branch-free value block returning the same local can seed the remembered best-cast fact and retarget a following same-local read through a fresh local;
+- a nonlinear control root such as `if (return)` between a remembered cast and a later local read clears remembered later-reuse facts, matching the source-backed `past-basic-block` boundary instead of leaking a fresh local across the basic-block split.
+
+Before implementation, the fallthrough-source positive did not create a `local.tee` or later fresh-local read, and the nonlinear-control negative still reused the cast past the `if` barrier. `src/passes/optimize_casts.mbt` now recognizes only a plain fallthrough `block` child with exactly one `local.get` body root as a refinement source for `ref.cast` / nullable-source `ref.as_non_null`. It also clears the later-reuse best-cast/fresh-local tables at roots with linear-control barriers, while still allowing that narrow block-source root to seed a new fact after clearing older facts. Branches, nested control, multi-root blocks, block-local writes, and non-fallthrough source blocks remain excluded.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the two new tests before implementation (`46/48` passed), then passed `48/48` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3863/3863`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-fallthrough-source-smoke-100` compared/normalized `100/100` with zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-fallthrough-source-smoke-20` compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, Binaryen cache `20/0`, and selected leaves `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: broader adjacent-block reuse beyond branch-free roots/value-block sources, multi-root/value-producing source blocks, broader multi-cast/best-cast coverage, local-write windows beyond nontrapping pure separate-index `local.set`, `local.tee` and same-local writes, calls/effects/traps/control barriers, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, investigate a narrow `ref.as_non_null` variant across nonconstant pure separate-index `local.set`, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
