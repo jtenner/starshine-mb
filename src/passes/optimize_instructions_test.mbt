@@ -287,6 +287,50 @@ test "optimize-instructions removes redundant local-carried unsigned mask facts"
 }
 
 ///|
+test "optimize-instructions removes redundant block-produced unsigned mask facts" {
+  // OI-E finite closeout `.tmp/oi-e-v01-closeout-signoff-10000` exposed the
+  // `oi-local-facts:block-produced-mask` bucket as the only sampled
+  // size-losing residual. A simple value block preserves the same bounded
+  // unsigned fact as the contained value, so the later all-ones masks are
+  // redundant. Starshine removes both i32 and i64 masks as a smaller semantic
+  // cleanup; Binaryen version_130 removes the sampled i32 mask and keeps the
+  // i64 spelling.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (local $x i32) (local $y i64)
+        #|    block (result i32)
+        #|      i32.const 255
+        #|    end
+        #|    local.set $x
+        #|    local.get $x
+        #|    i32.const 255
+        #|    i32.and
+        #|    drop
+        #|    block (result i64)
+        #|      i64.const 65535
+        #|    end
+        #|    local.set $y
+        #|    local.get $y
+        #|    i64.const 65535
+        #|    i64.and
+        #|    drop))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected block-produced mask cleanup success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.and"), msg=pretty)
+  assert_false(pretty.contains("i64.and"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions public pipeline canonicalizes simple stack-carried call operands" {
   let trace : Array[String] = []
   let optimized = match

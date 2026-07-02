@@ -436,6 +436,13 @@ fn optimize_instructions_i32_unsigned_max_fact_for_node(
         _ => None
       }
     }
+    @ir.HotOp::Block if node.child_count == 1 =>
+      optimize_instructions_i32_unsigned_max_fact_for_node(
+        func,
+        dead,
+        scratch,
+        func.children[node.child_base],
+      )
     _ => None
   }
 }
@@ -533,6 +540,13 @@ fn optimize_instructions_i64_unsigned_max_fact_for_node(
         _ => None
       }
     }
+    @ir.HotOp::Block if node.child_count == 1 =>
+      optimize_instructions_i64_unsigned_max_fact_for_node(
+        func,
+        dead,
+        scratch,
+        func.children[node.child_base],
+      )
     _ => None
   }
 }
