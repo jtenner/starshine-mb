@@ -220,9 +220,28 @@ Validation for this slice:
 
 This still is not OC closeout. Open local-flow gaps remain: broader adjacent-block reuse beyond the branch-free block subsets, broader multi-cast/best-cast coverage, nonlinear/control behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 9 generator result
+
+The ninth recursive slice converted the generator inventory into repo-visible GenValid profiles. Red-first `src/validate/gen_valid_tests.mbt` coverage first failed because no `optimize-casts-*` profile names were registered. `src/validate/gen_valid.mbt` now registers the singleton leaves `optimize-casts-later-reuse`, `optimize-casts-early-motion`, `optimize-casts-barriers`, `optimize-casts-best-cast`, `optimize-casts-ref-as`, `optimize-casts-static-folds`, and `optimize-casts-neighborhood`, plus the `optimize-casts-all` aggregate and aliases `optimize-casts`, `optimize-casts-closeout`, `optimize-casts-all-profiles`, `oc`, and `oc-closeout`.
+
+The generated bodies are deliberately small, validating GC/local cast trigger modules over a local `anyref` seeded from a generated struct value. The aggregate records selected leaves through the standard composite-profile `selected_profile` manifest field. The early-motion leaf is intentional even though Starshine does not implement that Binaryen phase yet; it should expose remaining parity gaps in the future dedicated lane rather than hiding them behind generic GenValid coverage.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/validate --file gen_valid_tests.mbt` failed red-first on the three new optimize-casts profile tests, then passed `119/119` after implementation.
+- `moon fmt` passed.
+- `moon test src/validate` passed `1655/1655`.
+- `moon info` passed with pre-existing warnings.
+- `moon test src/passes` passed `3839/3839`.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-genprofile-slice-regular-smoke-100` compared/normalized `100/100` with zero validation/generator/property/command failures and zero mismatches.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-profile-smoke-20` compared `20/20`, normalized `2`, had `18` raw mismatches, zero validation/generator/property/command failures, and selected leaves `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, `neighborhood=1`. This is expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: broader adjacent-block/control reuse, broader multi-cast/best-cast coverage, strict early motion implementation, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden best-cast/subtype coverage with source-backed unrelated-cast and multi-related-cast negatives/positives, or add a minimal adjacent-dominated-block later-reuse case only after proving the control-flow safety boundary red-first. Keep early-motion out of the next slice unless it starts with trap/effect/nonlinear barrier tests.
 2. Add early-motion tests separately only after the later-reuse local/refinalization path is stable.
-3. Add dedicated GenValid profiles once the target implementation families are known enough to generate meaningful positives rather than no-op valid modules.
+3. Use the new `optimize-casts-all` aggregate for bounded generated compare/classification once the next transform subset lands; do not expect the aggregate to be green while early motion remains unimplemented.
 4. Keep the non-null body-local blocker visible until Starshine can either model Binaryen's exact fresh-local type or document a measured, accepted representation win.

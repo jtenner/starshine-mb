@@ -1,20 +1,50 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-06-16
+last_reviewed: 2026-07-02
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_tests.mbt
 ---
 
 # `optimize-casts` Fuzzing Profile
 
-Recommended smoke lane: run the ordinary mixed-generator compare-pass lane for this pass:
+Regular direct lane:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
 ```
 
-Dedicated GenValid profile: none documented for this pass yet.
+Dedicated GenValid aggregate: `optimize-casts-all`.
 
-If a future audit adds a pass-specific GenValid profile, update this page with the profile name, intended smoke/closeout count, any required `--require-feature` floors or `--normalize` flags, and the manifest fields needed for replay triage.
+```sh
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --gen-valid-profile optimize-casts-all --out-dir .tmp/pass-fuzz-optimize-casts-genvalid-all-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Aliases accepted by GenValid profile lookup: `optimize-casts`, `optimize-casts-closeout`, `optimize-casts-all-profiles`, `oc`, and `oc-closeout`.
+
+## Profile leaves
+
+- `optimize-casts-later-reuse`: already-computed `ref.cast(local.get x)` followed by later same-local reads.
+- `optimize-casts-early-motion`: earlier same-local reads followed by a later cast candidate, intentionally exposing the still-open strict motion family.
+- `optimize-casts-barriers`: same-local write barriers between a remembered cast and later local traffic.
+- `optimize-casts-best-cast`: multiple related `ref.cast` roots so best-cast/subtype selection and later source retargeting are sampled.
+- `optimize-casts-ref-as`: nullable cast plus later `ref.as_non_null` traffic.
+- `optimize-casts-static-folds`: the current Starshine static fold surface such as `ref.test` and branch-cast forms.
+- `optimize-casts-neighborhood`: local.tee-shaped cast traffic intended for the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` cleanup neighborhood.
+
+The aggregate samples all leaves and records the selected leaf through the composite-profile manifest `selected_profile` field. Use that field when triaging generated mismatches so early-motion, later-reuse, barrier, best-cast, ref.as_non_null, static-fold, and neighborhood families stay separate.
+
+## Current status
+
+The first profile slice added registration and generator tests plus a tiny aggregate smoke. Focused validation passes, but the aggregate is **not** a green signoff lane yet: it deliberately includes `optimize-casts-early-motion`, and Starshine still does not implement Binaryen's strict earlier cast/as_non_null motion phase.
+
+Current profile-smoke evidence from 2026-07-02:
+
+- Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-genprofile-slice-regular-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, Binaryen cache `100/0`.
+- Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-profile-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, Binaryen cache `4/16`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`; `ref-as` was not selected in this tiny sample. Agent classification: expected open generated parity surface, not a signoff failure, because the aggregate intentionally samples unimplemented or only-partially-implemented OC families.
+
+Use the aggregate now to expose and classify remaining OC gaps. Do not report OC closeout until the required four-lane matrix, including `--gen-valid-profile optimize-casts-all`, is refreshed after the remaining transform families are either implemented or narrowly documented with reopening criteria.

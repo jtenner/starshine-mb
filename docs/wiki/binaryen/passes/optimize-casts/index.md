@@ -22,6 +22,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./fuzzing.md
   - ../heap2local/index.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -67,7 +68,7 @@ That is narrower than “optimize all casts.”
 - The pass adds new locals and `local.tee`s; it does not try to delete every redundant old cast immediately.
 - `ReFinalize` runs after both rewrite phases because the new locals and gets become more refined than before.
 - The implementation comment explicitly positions `optimize-casts` next to `simplify-locals`, `rse`, and `local-cse` as related work, but not the same work.
-- The 2026-05-05 current-main recheck found no teaching-relevant drift from the `version_129` contract, and the implementation/test-map page plus port-readiness bridge are the canonical owner/helper/lit proof-surface and validation-map pages. The 2026-07-02 recursive audit note records current Starshine progress through mixed nullable-cast/`ref.as_non_null` source reuse and keeps adjacent-block reuse beyond the branch-free block subsets, broader multi-cast/best-cast coverage, strict early motion, dedicated `optimize-casts-all`, larger compare lanes, O4z slot evidence, and pass-local timing open.
+- The 2026-05-05 current-main recheck found no teaching-relevant drift from the `version_129` contract, and the implementation/test-map page plus port-readiness bridge are the canonical owner/helper/lit proof-surface and validation-map pages. The 2026-07-02 recursive audit note records current Starshine progress through mixed nullable-cast/`ref.as_non_null` source reuse and the first dedicated `optimize-casts-all` GenValid aggregate, while keeping adjacent-block reuse beyond the branch-free block subsets, broader multi-cast/best-cast coverage, strict early motion implementation, larger compare lanes, O4z slot evidence, and pass-local timing open.
 
 ## Page map
 
@@ -83,6 +84,8 @@ That is narrower than “optimize all casts.”
   Exact current Starshine status and parity-planning bridge: active narrow HOT pass tracking, the now-public `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` slot, the local-scope mismatch to keep explicit, and the broader GC/local follow-up that remains outside the closed `OC` slice.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Dedicated implementation-readiness bridge: first-slice scope, exact local code surfaces, validation ladder, and the explicit non-goals that keep the port narrower than the backlog wording.
+- [`./fuzzing.md`](./fuzzing.md)
+  Dedicated GenValid aggregate documentation for `optimize-casts-all`, its selected-profile leaves, aliases, and current non-closeout status.
 
 ## Current maintenance rule
 
