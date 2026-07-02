@@ -602,6 +602,80 @@ test "optimize-casts duplicates later ref.cast across dropped xor and shift pure
 }
 
 ///|
+test "optimize-casts duplicates later ref.cast across dropped sub shift and rotate pure roots" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(31)),
+      @lib.Instruction::i32_const(@lib.I32(11)),
+      @lib.Instruction::i32_sub(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(32)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_shr_u(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(32)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_shr_s(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(32)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_rotl(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(32)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_rotr(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts keeps sub shift and rotate motion behind same-local writes" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(31)),
+      @lib.Instruction::i32_const(@lib.I32(11)),
+      @lib.Instruction::i32_sub(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(32)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_rotr(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-casts does not duplicate ref.cast earlier across memory loads" {
   let any_ref = @lib.ValType::anyref()
   let pretty = optimize_casts_run_pretty(
