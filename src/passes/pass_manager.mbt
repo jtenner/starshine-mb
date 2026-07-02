@@ -30235,6 +30235,56 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
             _,
             @lib.Expr(
               [
+                @lib.Block(
+                  _,
+                  @lib.Expr([payload_value, payload_effect, payload_result])
+                ),
+                condition,
+                @lib.BrIf(label_idx),
+                @lib.Drop,
+                fallthrough,
+              ]
+            )
+          ),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match
+            (
+              payload_value, payload_effect, payload_result, condition, fallthrough,
+            ) {
+            (
+              @lib.I32Const(_),
+              @lib.GlobalSet(_),
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+            ) => true
+            _ => false
+          }) =>
+          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+            Some(retargeted) => {
+              rewritten.push(instrs[i])
+              rewritten.push(payload_value)
+              rewritten.push(payload_effect)
+              rewritten.push(payload_result)
+              rewritten.push(condition)
+              rewritten.push(@lib.Instruction::br_if(retargeted))
+              rewritten.push(@lib.Instruction::drop())
+              rewritten.push(fallthrough)
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              changed = true
+              i = i + 5
+              continue
+            }
+            None => ()
+          }
+        (
+          @lib.Block(
+            _,
+            @lib.Expr(
+              [
                 payload,
                 @lib.Block(
                   _,
