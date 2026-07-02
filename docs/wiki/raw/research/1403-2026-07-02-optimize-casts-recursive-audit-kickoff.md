@@ -237,11 +237,29 @@ Validation for this slice:
 - Regular direct smoke `.tmp/pass-fuzz-optimize-casts-genprofile-slice-regular-smoke-100` compared/normalized `100/100` with zero validation/generator/property/command failures and zero mismatches.
 - Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-profile-smoke-20` compared `20/20`, normalized `2`, had `18` raw mismatches, zero validation/generator/property/command failures, and selected leaves `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, `neighborhood=1`. This is expected open generated parity surface, not signoff.
 
-This still is not OC closeout. Open transform/evidence gaps remain: broader adjacent-block/control reuse, broader multi-cast/best-cast coverage, strict early motion implementation, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+This still is not OC closeout. Open transform/evidence gaps remain: broader adjacent-block/control reuse, broader multi-cast/best-cast coverage, strict early motion implementation beyond a tiny adjacent subset, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
+## Slice 10 adjacent early-motion result
+
+The tenth recursive slice added the first intentionally tiny early-motion subset. Red-first `src/passes/optimize_casts_test.mbt` coverage first failed because an immediately previous dropped `local.get` was left uncast when the following root performed a same-local dropped `ref.cast`. The paired same-local write negative kept the motion window from crossing writes.
+
+`src/passes/optimize_casts.mbt` now duplicates a following dropped `ref.cast` / nullable-source `ref.as_non_null` refinement onto an immediately previous dropped same-local `local.get` when there is no intervening root. The subset clears candidates across any other root, does not cross same-local writes, and avoids interacting with already-seen same-local refinement roots so repeated/unrelated best-cast source-protection tests remain stable. This is a strict adjacent early-motion slice only; it does not implement Binaryen's full earlier-cast finder across wider pure windows, calls/effects/traps, `call_ref`, or nonlinear control.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the new adjacent early-motion positive (`1 != 2` `ref.cast` count), then passed `26/26` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3841/3841`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-early-adjacent-smoke-100` compared/normalized `100/100` with zero validation/generator/property/command failures and zero mismatches.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-early-adjacent-smoke-20` compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, and selected leaves `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: broader adjacent-block/control reuse, broader multi-cast/best-cast coverage, strict early motion beyond the immediate-adjacent/no-intervening-root subset, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
 ## Recommended next implementation slices
 
-1. Broaden best-cast/subtype coverage with source-backed unrelated-cast and multi-related-cast negatives/positives, or add a minimal adjacent-dominated-block later-reuse case only after proving the control-flow safety boundary red-first. Keep early-motion out of the next slice unless it starts with trap/effect/nonlinear barrier tests.
-2. Add early-motion tests separately only after the later-reuse local/refinalization path is stable.
-3. Use the new `optimize-casts-all` aggregate for bounded generated compare/classification once the next transform subset lands; do not expect the aggregate to be green while early motion remains unimplemented.
+1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, a safe pure/no-effect intervening root positive plus calls/effects/traps/`call_ref`/same-local-write/nonlinear-control negatives before any implementation.
+2. Alternatively, broaden best-cast/subtype coverage with source-backed unrelated-cast and multi-related-cast negatives/positives, or add a minimal adjacent-dominated-block later-reuse case only after proving the control-flow safety boundary red-first.
+3. Use the new `optimize-casts-all` aggregate for bounded generated compare/classification after each transform subset lands; do not expect the aggregate to be green while early-motion and broader local-flow families remain only partially implemented.
 4. Keep the non-null body-local blocker visible until Starshine can either model Binaryen's exact fresh-local type or document a measured, accepted representation win.

@@ -40,11 +40,17 @@ The aggregate samples all leaves and records the selected leaf through the compo
 
 ## Current status
 
-The first profile slice added registration and generator tests plus a tiny aggregate smoke. Focused validation passes, but the aggregate is **not** a green signoff lane yet: it deliberately includes `optimize-casts-early-motion`, and Starshine still does not implement Binaryen's strict earlier cast/as_non_null motion phase.
+The first profile slice added registration and generator tests plus a tiny aggregate smoke. Focused validation passes, but the aggregate is **not** a green signoff lane yet: it deliberately includes `optimize-casts-early-motion`, and Starshine currently implements only a strict-adjacent/no-intervening-root subset of Binaryen's earlier cast/as_non_null motion phase.
 
 Current profile-smoke evidence from 2026-07-02:
 
 - Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-genprofile-slice-regular-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, Binaryen cache `100/0`.
 - Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-profile-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, Binaryen cache `4/16`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`; `ref-as` was not selected in this tiny sample. Agent classification: expected open generated parity surface, not a signoff failure, because the aggregate intentionally samples unimplemented or only-partially-implemented OC families.
+
+Current early-adjacent slice evidence from 2026-07-02:
+
+- Focused `src/passes/optimize_casts_test.mbt` now passes `26/26` after adding the adjacent early-motion positive and same-local write negative.
+- Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-early-adjacent-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, Binaryen cache `100/0`.
+- Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-early-adjacent-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
 
 Use the aggregate now to expose and classify remaining OC gaps. Do not report OC closeout until the required four-lane matrix, including `--gen-valid-profile optimize-casts-all`, is refreshed after the remaining transform families are either implemented or narrowly documented with reopening criteria.
