@@ -596,7 +596,12 @@ fn oc_refinements_allow_retarget(
   for refinement in refinements {
     if refinement.0 == local_id {
       saw_refinement = true
-      if !oc_cast_is_more_refined(module_ctx, func, best_cast, refinement.1) {
+      if !oc_best_cast_can_feed_refinement_source(
+          module_ctx,
+          func,
+          best_cast,
+          refinement.1,
+        ) {
         return false
       }
     }
@@ -623,6 +628,38 @@ fn oc_refinement_blocks_retarget(
 }
 
 ///|
+fn oc_ref_type_as_non_null(ref_type : @lib.RefType) -> @lib.RefType {
+  @lib.RefType::new(false, ref_type.get_heap_type(), exact=ref_type.is_exact())
+}
+
+///|
+fn oc_nullable_best_cast_feeds_ref_as_non_null(
+  module_ctx : @ir.HotModuleContext,
+  func : @ir.HotFunc,
+  candidate_id : Int,
+  current_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, current_id) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return false
+  }
+  let candidate = match oc_refinement_type_from_node(func, candidate_id) {
+    Some(ref_type) => ref_type
+    None => return false
+  }
+  if !candidate.is_nullable() {
+    return false
+  }
+  let current = match oc_refinement_type_from_node(func, current_id) {
+    Some(ref_type) => ref_type
+    None => return false
+  }
+  let candidate_after_as_non_null = oc_ref_type_as_non_null(candidate)
+  candidate_after_as_non_null != current &&
+  oc_ref_always_matches(module_ctx, candidate_after_as_non_null, current)
+}
+
+///|
 fn oc_cast_is_more_refined(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
@@ -638,6 +675,19 @@ fn oc_cast_is_more_refined(
     None => return true
   }
   candidate != current && oc_ref_always_matches(module_ctx, candidate, current)
+}
+
+///|
+fn oc_best_cast_can_feed_refinement_source(
+  module_ctx : @ir.HotModuleContext,
+  func : @ir.HotFunc,
+  candidate_id : Int,
+  current_id : Int,
+) -> Bool {
+  oc_cast_is_more_refined(module_ctx, func, candidate_id, current_id) ||
+  oc_nullable_best_cast_feeds_ref_as_non_null(
+    module_ctx, func, candidate_id, current_id,
+  )
 }
 
 ///|
