@@ -10010,6 +10010,139 @@ test "optimize-instructions lowers escaping br_table block ref.get_desc child li
 }
 
 ///|
+test "optimize-instructions lowers escaping br_on_cast block ref.get_desc child like Binaryen" {
+  // OI-J descriptor-operand escaping-label breadth: Binaryen version_130
+  // default and IIT flatten this `br_on_cast` descriptor child to the outer
+  // block as `local.get 0; local.get 0; br_on_cast 0 (ref null $a) (ref $a);
+  // drop; local.get 1; ref.get_desc; ref.cast_desc_eq`. This remains a narrow
+  // local-only shape and is not a general br_on_cast localizer.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [nullable_described_val_type, nullable_described_val_type],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::br_on_cast(
+                      @lib.LabelIdx::new(1U),
+                      true,
+                      described_heap,
+                      false,
+                      described_heap,
+                    ),
+                    @lib.Instruction::drop(),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::ref_cast_desc_eq_type(
+                  nullable_described_ref_type,
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Block(_, @lib.Expr(body))]))])
+    ) => {
+      @debug.assert_eq(body.length(), 7)
+      match body[0] {
+        @lib.LocalGet(@lib.LocalIdx(0U)) => ()
+        other => fail("expected cast operand local.get 0, got \{other}")
+      }
+      match body[1] {
+        @lib.LocalGet(@lib.LocalIdx(0U)) => ()
+        other =>
+          fail("expected escaping br_on_cast input local.get 0, got \{other}")
+      }
+      match body[2] {
+        @lib.BrOnCast(
+          @lib.LabelIdx(0U),
+          @lib.CastOp(true, false),
+          source_heap,
+          target_heap
+        ) => {
+          @debug.assert_eq(source_heap, described_heap)
+          @debug.assert_eq(target_heap, described_heap)
+        }
+        other =>
+          fail("expected br_on_cast retargeted to outer label, got \{other}")
+      }
+      match body[3] {
+        @lib.Drop => ()
+        other =>
+          fail("expected br_on_cast fallthrough payload drop, got \{other}")
+      }
+      match body[4] {
+        @lib.LocalGet(@lib.LocalIdx(1U)) => ()
+        other =>
+          fail("expected br_on_cast fallthrough local.get 1, got \{other}")
+      }
+      match body[5] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        other =>
+          fail("expected flattened br_on_cast ref.get_desc, got \{other}")
+      }
+      match body[6] {
+        @lib.RefCastDescEq(nullable, exact, target) => {
+          assert_true(nullable)
+          assert_false(exact)
+          @debug.assert_eq(target, described_heap)
+        }
+        other =>
+          fail(
+            "expected descriptor cast after flattened br_on_cast, got \{other}",
+          )
+      }
+    }
+    other =>
+      fail("expected one optimized outer br_on_cast block body, got \{other}")
+  }
+}
+
+///|
 test "optimize-instructions lowers escaping br_on_null block ref.get_desc child like Binaryen" {
   // OI-J descriptor-operand escaping-label breadth: Binaryen version_130
   // default and IIT flatten this `br_on_null` descriptor child inside a void
