@@ -98,9 +98,31 @@ Validation for this slice:
 
 This still is not OC closeout. Open local-flow gaps remain: fallthrough/tee/repeated-cast recognition, best-cast subtype selection breadth, adjacent-block/nonlinear behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 3 implementation result
+
+The third recursive slice added red-first public-pipeline coverage for two `local.tee` later-reuse edges:
+
+- a direct `ref.cast(local.tee x ...)` should seed the same-local later-reuse fact and retarget a later same-local root read through the fresh refined local;
+- a later same-local `local.tee` write must be a write barrier, so the pass must not retarget that root's own reads through the fresh refined local or carry the fact to following reads.
+
+Both new tests failed before implementation: the first still lacked a fresh-local retarget, and the second exposed the existing unsafe/invalid reuse through a same-local `local.tee` write.
+
+`src/passes/optimize_casts.mbt` now recognizes direct `LocalTee` children as later-reuse refinement sources for `ref.cast` and nullable-source `ref.as_non_null`, and pre-scans each root for local writes before retargeting. When a root writes the remembered local, the pass skips retargeting that root for the same local, then clears the remembered cast fact and fresh-local mapping before collecting new refinements from the root. This preserves the same conservative root-linear subset while covering the Binaryen-lit-style `local-tee` source shape and tightening the write barrier.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the two new `local.tee` tests before implementation, then passed `14/14` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3829/3829`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-tee-smoke-100 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures` compared `100/100`, normalized `100`, and had zero validation/generator/property/command failures.
+
+This still is not OC closeout. Open local-flow gaps remain: fallthrough/repeated-cast recognition, best-cast subtype selection breadth, adjacent-block/nonlinear behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
-1. Widen later reuse from root-only direct `ref.cast(local.get)` / `ref.as_non_null(local.get)` to the safe fallthrough/tee cases represented by Binaryen lit tests (`local-tee`, `fallthrough`, repeated identical casts, and best subtype selection).
+1. Widen later reuse from the current root-linear direct `ref.cast` / nullable-source `ref.as_non_null` plus direct `local.tee` source subset to repeated identical casts, simple best subtype selection, or a minimal fallthrough/adjacent-block case. Keep same-local `local.set` / `local.tee` write barriers red-first.
 2. Add early-motion tests separately only after the later-reuse local/refinalization path is stable.
 3. Add dedicated GenValid profiles once the target implementation families are known enough to generate meaningful positives rather than no-op valid modules.
 4. Keep the non-null body-local blocker visible until Starshine can either model Binaryen's exact fresh-local type or document a measured, accepted representation win.
