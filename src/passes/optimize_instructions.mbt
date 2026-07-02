@@ -4272,7 +4272,7 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
     @ir.hot_node_get(func, selected_id).ty,
   )
   match selected_results.length() {
-    1 | 2 => ()
+    1 | 2 | 3 => ()
     _ => return false
   }
   let mut has_effectful_sibling = false
@@ -4305,7 +4305,7 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
   let body : Array[Int] = []
   let mut selected_local : Int = -1
   let selected_result_locals : Array[Int] = []
-  if selected_results.length() == 2 {
+  if selected_results.length() > 1 {
     for result in selected_results {
       selected_result_locals.push(@ir.hot_append_body_local(func, result))
     }
@@ -4315,7 +4315,7 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
   for slot = 0; slot < tuple.child_count; slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, tuple_id, slot)
     if slot == selected_slot {
-      if selected_results.length() == 2 {
+      if selected_results.length() > 1 {
         let mut lane = selected_results.length()
         while lane > 0 {
           lane = lane - 1
@@ -4347,7 +4347,7 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       _ => return false
     }
   }
-  if selected_results.length() == 2 {
+  if selected_results.length() > 1 {
     body.push(
       @ir.hot_build_local_get(func, selected_result_locals[selected_lane]),
     )
