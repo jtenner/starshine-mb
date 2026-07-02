@@ -3740,6 +3740,30 @@ fn optimize_instructions_memory_access_with_memarg(
 }
 
 ///|
+fn optimize_instructions_atomic_load_with_memarg(
+  instr : @lib.Instruction,
+  memarg : @lib.MemArg,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Instruction::I32AtomicLoad(_) =>
+      Some(@lib.Instruction::i32_atomic_load(memarg))
+    @lib.Instruction::I64AtomicLoad(_) =>
+      Some(@lib.Instruction::i64_atomic_load(memarg))
+    @lib.Instruction::I32AtomicLoad8U(_) =>
+      Some(@lib.Instruction::i32_atomic_load8_u(memarg))
+    @lib.Instruction::I32AtomicLoad16U(_) =>
+      Some(@lib.Instruction::i32_atomic_load16_u(memarg))
+    @lib.Instruction::I64AtomicLoad8U(_) =>
+      Some(@lib.Instruction::i64_atomic_load8_u(memarg))
+    @lib.Instruction::I64AtomicLoad16U(_) =>
+      Some(@lib.Instruction::i64_atomic_load16_u(memarg))
+    @lib.Instruction::I64AtomicLoad32U(_) =>
+      Some(@lib.Instruction::i64_atomic_load32_u(memarg))
+    _ => None
+  }
+}
+
+///|
 fn optimize_instructions_load_result_type(
   instr : @lib.Instruction,
 ) -> @lib.ValType? {
@@ -3775,7 +3799,7 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
     return false
   }
   match node.op {
-    @ir.HotOp::Load | @ir.HotOp::Store => ()
+    @ir.HotOp::Load | @ir.HotOp::Store | @ir.HotOp::Atomic => ()
     _ => return false
   }
   let instr = match @ir.hot_node_exact_instr(func, node_id) {
@@ -3824,6 +3848,23 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
     _ => return false
   }
   let new_memarg = @lib.MemArg::new(align, mem, @lib.U64(0UL))
+  match node.op {
+    @ir.HotOp::Atomic => {
+      if node.child_count != 1 {
+        return false
+      }
+      let new_instr = match
+        optimize_instructions_atomic_load_with_memarg(instr, new_memarg) {
+        Some(instr) => instr
+        None => return false
+      }
+      @ir.hot_child_set(func, node_id, 0, new_address_id)
+      @ir.hot_node_exact_instr_set(func, node_id, new_instr)
+      pass_mark_mutated(ctx, func)
+      return true
+    }
+    _ => ()
+  }
   let new_instr = match
     optimize_instructions_memory_access_with_memarg(instr, new_memarg) {
     Some(instr) => instr
@@ -14615,7 +14656,7 @@ fn optimize_instructions_visit_node(
       optimize_instructions_try_replace_unreachable_guard_cast_branch(
         ctx, func, node_id,
       )
-    @ir.HotOp::Load =>
+    @ir.HotOp::Load | @ir.HotOp::Atomic =>
       optimize_instructions_try_fold_const_memory_access_offset(
         ctx, func, dead, node_id,
       )
