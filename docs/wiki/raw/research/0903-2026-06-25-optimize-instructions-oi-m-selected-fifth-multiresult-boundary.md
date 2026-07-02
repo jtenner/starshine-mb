@@ -33,21 +33,22 @@ Observed Binaryen output:
 - It extracts/drops the earlier lanes from that scratch, builds a smaller tuple containing the selected fifth lane plus the later `i64.const`, stores the selected scalar in an `i32` temp, drops it once as part of tuple-localization reconstruction, then returns the temp.
 - This is the same tuple-scratch localization family as the earlier selected first/second/third/fourth multi-result boundary slices, widened to a five-result selected-child producer.
 
-## Starshine slice
+## 2026-07-02 supersession
 
-Added direct-HOT boundary coverage in `src/passes/optimize_instructions_test.mbt`:
+This boundary is superseded for the direct one-use arity-5 selected-child shape. The former boundary test in `src/passes/optimize_instructions_test.mbt` is now positive coverage named `optimize-instructions localizes fifth lane from five-result selected tuple child`.
 
-- `optimize-instructions intentionally keeps tuple.extract with multi-result selected fifth lane boundary` constructs a tuple whose selected child is a five-result call and whose later sibling is a pure `i64.const`.
-- The test asserts Starshine leaves the root `TupleExtract`, `TupleMake`, selected `Call`, and index `4` unchanged.
-- This is intentionally boundary/status evidence, not a behavior implementation slice. Starshine's current selected-child localizer is only proven for single-result selected children. A correct Binaryen-parity implementation for multi-result selected children needs tuple scratch plus scalar temp reconstruction, not a direct generalization of the single-result path.
+- Red-first focused run `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*five-result selected tuple child*'` failed 0/1 before implementation because the root stayed `TupleExtract`.
+- `src/passes/optimize_instructions.mbt` now admits selected-child arity 5, stores all selected child result lanes to scratch locals in stack-pop order, and reloads lane index 4.
+- The change remains bounded: selected-child arities 6+, multi-result non-selected siblings, multi-use tuple producers, control/EH siblings, and generalized tuple-scratch reconstruction remain active OI-M work.
 
 ## Validation
 
-- `wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-fifth-probe.wat -o -` passed and showed Binaryen tuple-scratch localization.
-- `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected fifth lane*'` is the focused Starshine boundary test for this slice.
-
-Full required slice validation is recorded in the commit that cites this note.
+- `wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-fifth-probe.wat -o .tmp/oi-m-tuple-multiresult-selected-fifth-probe.binaryen.20260702.wat` passed and showed Binaryen tuple-scratch localization.
+- Red-first `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*five-result selected tuple child*'` failed 0/1 before implementation, then passed 1/1 after the bounded arity-5 implementation.
+- Focused `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*tuple.extract*'` passed 32/32; full `optimize_instructions_test.mbt` passed 628/628; `moon fmt`, `moon info`, full `moon test`, and native `src/cmd` build passed with pre-existing warnings.
+- Direct `.tmp/oi-m-five-result-selected-direct18-20260702` compared 18/18 with 18 raw mismatches, zero validation/generator/property/command failures, Binaryen cache 18/0, runtime checked/unsupported/failed 18/0/0, and runtime matrix all-equal 1/1.
+- Grouped `.tmp/oi-m-five-result-selected-count108-20260702` compared 108/108 with 108 raw mismatches, zero validation/generator/property/command failures, Binaryen cache 108/0, runtime checked/unsupported/failed 108/0/0, runtime matrix all-equal 9/9, and all 18 tuple labels sampled.
 
 ## Remaining work
 
-OI-M still needs a real multi-result selected/sibling tuple-scratch localizer before Starshine should match Binaryen on these selected-child shapes. Existing blockers also remain: public/binary tuple fixture coverage where representable, full `simplify-locals` replay for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, and broader tee/drop reconstruction.
+OI-M still needs selected-child arities 6+, multi-result non-selected siblings, multi-use tuple producers, control/EH siblings, public/binary tuple fixture coverage where representable, full `simplify-locals` replay for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, generalized tuple-scratch reconstruction, and broader tee/drop reconstruction.

@@ -9,8 +9,8 @@ Later slices extended the original direct one-use subset without closing OI-M br
 
 - effectful/trapping single-result non-selected siblings are now preserved as dropped siblings in tuple evaluation order, with the selected lane stored through a scratch local when later preserved siblings would otherwise clobber it;
 - exact trap-only lanes such as integer div/rem, `ref.as_non_null`, and `i31.get_*` are preservation-required even when the HOT effect mask is otherwise pure;
-- direct selected tuple children with exactly two, three, or four scalar results are now localized by storing selected-child results to scratch locals in stack-pop order and reloading the requested lane;
-- unsupported control/branch/EH/nested-region lanes, selected-child arities 5+, multi-result non-selected siblings, multi-use tuple producers, and generalized tuple-scratch reconstruction remain open OI-M work.
+- direct selected tuple children with exactly two, three, four, or five scalar results are now localized by storing selected-child results to scratch locals in stack-pop order and reloading the requested lane;
+- unsupported control/branch/EH/nested-region lanes, selected-child arities 6+, multi-result non-selected siblings, multi-use tuple producers, and generalized tuple-scratch reconstruction remain open OI-M work.
 
 Current machine-readable status and evidence live in `docs/wiki/binaryen/passes/optimize-instructions/parity-matrix.json` and `docs/wiki/log.md`.
 
