@@ -40,7 +40,7 @@ The aggregate samples all leaves and records the selected leaf through the compo
 
 ## Current status
 
-The first profile slice added registration and generator tests plus tiny aggregate smokes. Focused validation passes, but the aggregate is **not** a green signoff lane yet: it deliberately includes `optimize-casts-early-motion`, and Starshine currently implements only a strict empty/`nop`/dropped-const/dropped-`i32.eqz`-of-constant/dropped-`i32.add`/`i32.sub`/`i32.mul`/`i32.and`/`i32.or`/`i32.xor`/`i32.shl`/`i32.shr_s`/`i32.shr_u`/`i32.rotl`/`i32.rotr`-of-constants subset of Binaryen's earlier cast/as_non_null motion phase.
+The first profile slice added registration and generator tests plus tiny aggregate smokes. Focused validation passes, but the aggregate is **not** a green signoff lane yet: it deliberately includes `optimize-casts-early-motion`, and Starshine currently implements only a strict empty/`nop`/dropped-const/dropped-`i32.eqz`-of-constant/dropped-`i32.add`/`i32.sub`/`i32.mul`/`i32.and`/`i32.or`/`i32.xor`/`i32.shl`/`i32.shr_s`/`i32.shr_u`/`i32.rotl`/`i32.rotr`-of-constants plus dropped-local-read and constant-fed separate-index `local.set` subset of Binaryen's earlier cast/as_non_null motion phase.
 
 Current profile-smoke evidence from 2026-07-02:
 
@@ -96,5 +96,11 @@ Current sub/shift/rotate pure-root early-motion slice evidence from 2026-07-02:
 - Focused `src/passes/optimize_casts_test.mbt` now passes `40/40` after adding the `i32.const; i32.const; i32.sub; drop`, `i32.const; i32.const; i32.shr_u; drop`, `i32.const; i32.const; i32.shr_s; drop`, `i32.const; i32.const; i32.rotl; drop`, and `i32.const; i32.const; i32.rotr; drop` early-motion positive plus same-local write barrier negative.
 - Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-early-sub-shift-rotate-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, Binaryen cache `100/0`.
 - Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-early-sub-shift-rotate-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
+
+Current separate-index local early-motion slice evidence from 2026-07-02:
+
+- Focused `src/passes/optimize_casts_test.mbt` now passes `42/42` after adding the `ref.as_non_null` early-motion positive across `i32.const; local.set` to a separate local plus a same-local write barrier negative.
+- Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-early-separate-index-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, Binaryen cache `100/0`.
+- Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-early-separate-index-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
 
 Use the aggregate now to expose and classify remaining OC gaps. Do not report OC closeout until the required four-lane matrix, including `--gen-valid-profile optimize-casts-all`, is refreshed after the remaining transform families are either implemented or narrowly documented with reopening criteria.
