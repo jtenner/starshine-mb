@@ -25056,7 +25056,7 @@ fn run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
 }
 
 ///|
-fn run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+fn run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
   let mut i = 0
@@ -25065,20 +25065,20 @@ fn run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_add
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+        if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
             body,
           ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+        if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
             then_body,
           ) {
           return true
         }
         match else_body {
           Some(body) =>
-            if run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+            if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
                 body,
               ) {
               return true
@@ -25093,6 +25093,8 @@ fn run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_add
         (@lib.LocalTee(_), access) if run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
             access,
           ) => return true
+        (@lib.LocalTee(_), @lib.MemoryCopy(_, _))
+        | (@lib.LocalTee(_), @lib.MemoryFill(_)) => return true
         _ => ()
       }
     }
@@ -25101,20 +25103,15 @@ fn run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_add
         (@lib.LocalTee(_), access) if run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
             access,
           ) => return true
+        (@lib.LocalTee(_), @lib.MemoryCopy(_, _))
+        | (@lib.LocalTee(_), @lib.MemoryFill(_)) => return true
         _ => ()
       }
     }
     if i + 3 < instrs.length() {
       match (instrs[i], instrs[i + 3]) {
-        (@lib.LocalTee(_), @lib.MemoryFill(mem_idx)) if run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(
-            mem_idx,
-          ) => return true
-        (@lib.LocalTee(_), @lib.MemoryCopy(dst_mem, src_mem)) if run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(
-            dst_mem,
-          ) ||
-          run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(
-            src_mem,
-          ) => return true
+        (@lib.LocalTee(_), @lib.MemoryFill(_))
+        | (@lib.LocalTee(_), @lib.MemoryCopy(_, _)) => return true
         _ => ()
       }
     }
@@ -26461,7 +26458,7 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       trace_skip_raw: true,
     })
   }
-  if run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+  if run_hot_pipeline_raw_optimize_instructions_has_memory_localtee_operand(
       body,
     ) {
     return Some({

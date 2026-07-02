@@ -2384,6 +2384,83 @@ test "optimize-instructions raw skip folds constant memory access offsets" {
 }
 
 ///|
+test "optimize-instructions preserves default memory.copy localtee operands" {
+  // Grouped OI-G count490 follow-up from
+  // `.tmp/oi-g-broader-count490-20260702`: the only new residual was a
+  // default-memory runtime-localtee restore/copy/read case where Binaryen kept
+  // source and length `local.tee` wrappers feeding `memory.copy`, while
+  // Starshine removed those writes. Preserve this output shape unless a future
+  // source-backed policy proves the local.tee removal is a measured win.
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(5U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(25266)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i32_load8u(memarg),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i32_const(@lib.I32(25250)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(3U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(4U)),
+            @lib.Instruction::memory_copy(
+              @lib.MemIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i32_load8u(memarg),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_store8(memarg),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid default-memory copy input, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions memory.copy success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=memory-localtee-optimize-instructions",
+      )
+    }),
+    msg="expected memory-localtee raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.copy"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "i32.load8u", "local.get", "local.tee", "local.tee", "memory.copy",
+  ])
+}
+
+///|
 test "optimize-instructions preserves memory64 multi-memory localtee addresses" {
   // Grouped OI-G count245 follow-up from
   // `.tmp/oi-g-broader-count245-20260702`: the only residual was a
