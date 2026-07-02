@@ -28,7 +28,7 @@ wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-s
 
 ## Finding
 
-Binaryen localizes the imported multi-result call into tuple scratch, extracts the thirteenth scalar lane (`tuple.extract 13 12`) into an `f32` temp, drops the tee, and returns the scalar temp. This matches the previous selected-first through selected-twelfth probes: Binaryen has a tuple-scratch reconstruction path for selected multi-result children. After the 2026-07-02 arity-13 through arity-15 Starshine implementation slices, this thirteenth-lane shape is superseded for direct one-use arity 13 and no longer marks the next selected-child boundary.
+Binaryen localizes the imported multi-result call into tuple scratch, extracts the thirteenth scalar lane (`tuple.extract 13 12`) into an `f32` temp, drops the tee, and returns the scalar temp. This matches the previous selected-first through selected-twelfth probes: Binaryen has a tuple-scratch reconstruction path for selected multi-result children. After the 2026-07-02 arity-13 through arity-16 Starshine implementation slices, this thirteenth-lane shape is superseded for direct one-use arity 13 and no longer marks the next selected-child boundary.
 
 ## Starshine coverage
 
@@ -36,7 +36,7 @@ The original direct-HOT boundary/status coverage in `src/passes/optimize_instruc
 
 - `optimize-instructions localizes thirteenth lane from thirteen-result selected tuple child`
 
-The test builds a direct-HOT tuple with a thirteen-result selected `Call` child plus an extra scalar child, runs `optimize-instructions`, and asserts Starshine rewrites to a block with thirteen stack-pop-order scratch `local.set` roots and a final `local.get` for the selected thirteenth lane. Pre-implementation it failed because Starshine kept the `TupleExtract`; after the slice the focused positive test passed. The later arity-14 and arity-15 slices superseded the fourteenth- and fifteenth-lane boundaries too.
+The test builds a direct-HOT tuple with a thirteen-result selected `Call` child plus an extra scalar child, runs `optimize-instructions`, and asserts Starshine rewrites to a block with thirteen stack-pop-order scratch `local.set` roots and a final `local.get` for the selected thirteenth lane. Pre-implementation it failed because Starshine kept the `TupleExtract`; after the slice the focused positive test passed. The later arity-14 and arity-16 slices superseded the fourteenth- and fifteenth-lane boundaries too.
 
 ## 2026-07-02 implementation evidence
 
@@ -46,4 +46,4 @@ The test builds a direct-HOT tuple with a thirteen-result selected `Call` child 
 
 ## Status
 
-Starshine now has a bounded direct one-use selected-child localizer through arity 15. This note is retained as source/probe history, not an active direct one-use arity-13 blocker. Remaining OI-M work includes selected-child arities 16+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, and broader randomized/runtime evidence. Reopen this boundary if the arity-13 implementation regresses, if public tuple text/binary fixture support exposes a narrower counterexample, or if Binaryen changes this shape.
+Starshine now has a bounded direct one-use selected-child localizer through arity 16. This note is retained as source/probe history, not an active direct one-use arity-13 blocker. Remaining OI-M work includes selected-child arities 17+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, and broader randomized/runtime evidence. Reopen this boundary if the arity-13 implementation regresses, if public tuple text/binary fixture support exposes a narrower counterexample, or if Binaryen changes this shape.
