@@ -432,6 +432,49 @@ fn oc_collect_written_locals(
 }
 
 ///|
+fn oc_source_local_requires_nullable_check(
+  func : @ir.HotFunc,
+  source_id : Int,
+  requires_nullable_source : Bool,
+) -> Bool {
+  if !requires_nullable_source {
+    return true
+  }
+  match oc_ref_type_from_node(func, source_id) {
+    Some(ref_type) => ref_type.is_nullable()
+    None => false
+  }
+}
+
+///|
+fn oc_plain_block_source_local(
+  func : @ir.HotFunc,
+  block_id : Int,
+  requires_nullable_source : Bool,
+) -> Int? {
+  if !oc_block_is_plain_fallthrough(func, block_id) {
+    return None
+  }
+  let body = @ir.hot_region_body_ref(func, block_id)
+  if @ir.hot_region_root_count(func, body) != 1 {
+    return None
+  }
+  let root_id = @ir.hot_region_get(func, body, 0)
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::LocalGet =>
+      if oc_source_local_requires_nullable_check(
+          func, root_id, requires_nullable_source,
+        ) {
+        Some(root.imm0)
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
 fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
   let requires_nullable_source = match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefCast(_, _, _)) => false
@@ -444,15 +487,16 @@ fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
   let child_id = @ir.hot_child_get(func, node_id, 0)
   let child = @ir.hot_node_get(func, child_id)
   match child.op {
-    @ir.HotOp::LocalGet | @ir.HotOp::LocalTee => {
-      if requires_nullable_source {
-        match oc_ref_type_from_node(func, child_id) {
-          Some(ref_type) => if !ref_type.is_nullable() { return None }
-          None => return None
-        }
+    @ir.HotOp::LocalGet | @ir.HotOp::LocalTee =>
+      if oc_source_local_requires_nullable_check(
+          func, child_id, requires_nullable_source,
+        ) {
+        Some(child.imm0)
+      } else {
+        None
       }
-      Some(child.imm0)
-    }
+    @ir.HotOp::Block =>
+      oc_plain_block_source_local(func, child_id, requires_nullable_source)
     _ => None
   }
 }
@@ -821,6 +865,17 @@ fn oc_clear_pending_gets(pending_gets : Array[Int]) -> Unit {
 }
 
 ///|
+fn oc_clear_later_reuse(
+  best_casts : Array[Int],
+  fresh_locals : Array[Int],
+) -> Unit {
+  for i = 0; i < best_casts.length(); i = i + 1 {
+    best_casts[i] = -1
+    fresh_locals[i] = -1
+  }
+}
+
+///|
 fn oc_i32_nontrapping_pure_tree(
   func : @ir.HotFunc,
   node_id : Int,
@@ -1003,36 +1058,42 @@ fn oc_later_reuse_scan_region(
     oc_collect_written_locals(func, root_id, writes)
     let refinements : Array[(Int, Int)] = []
     oc_collect_refinements(func, root_id, refinements)
-    for local_id = 0; local_id < local_count; local_id = local_id + 1 {
-      let best_cast = best_casts[local_id]
-      if best_cast >= 0 &&
-        !oc_contains_local(writes, local_id) &&
-        !oc_refinement_blocks_retarget(
-          module_ctx, func, refinements, local_id, best_cast,
-        ) &&
-        oc_count_local_gets(func, root_id, local_id) > 0 {
-        let fresh_local = if fresh_locals[local_id] >= 0 {
-          fresh_locals[local_id]
-        } else {
-          let ref_type = match oc_ref_type_from_node(func, best_cast) {
-            Some(ref_type) => ref_type
-            None => continue
+    let has_linear_barrier = oc_node_has_linear_block_barrier(func, root_id)
+    if has_linear_barrier {
+      oc_clear_later_reuse(best_casts, fresh_locals)
+    } else {
+      for local_id = 0; local_id < local_count; local_id = local_id + 1 {
+        let best_cast = best_casts[local_id]
+        if best_cast >= 0 &&
+          !oc_contains_local(writes, local_id) &&
+          !oc_refinement_blocks_retarget(
+            module_ctx, func, refinements, local_id, best_cast,
+          ) &&
+          oc_count_local_gets(func, root_id, local_id) > 0 {
+          let fresh_local = if fresh_locals[local_id] >= 0 {
+            fresh_locals[local_id]
+          } else {
+            let ref_type = match oc_ref_type_from_node(func, best_cast) {
+              Some(ref_type) => ref_type
+              None => continue
+            }
+            let fresh_ref_type = @lib.RefType::new(
+              true,
+              ref_type.get_heap_type(),
+              exact=ref_type.is_exact(),
+            )
+            let fresh = @ir.hot_append_body_local(
+              func,
+              @lib.ValType::ref_type(fresh_ref_type),
+            )
+            fresh_locals[local_id] = fresh
+            ignore(oc_wrap_refinement_with_tee(ctx, func, best_cast, fresh))
+            fresh
           }
-          let fresh_ref_type = @lib.RefType::new(
-            true,
-            ref_type.get_heap_type(),
-            exact=ref_type.is_exact(),
-          )
-          let fresh = @ir.hot_append_body_local(
-            func,
-            @lib.ValType::ref_type(fresh_ref_type),
-          )
-          fresh_locals[local_id] = fresh
-          ignore(oc_wrap_refinement_with_tee(ctx, func, best_cast, fresh))
-          fresh
-        }
-        if oc_retarget_local_gets(ctx, func, root_id, local_id, fresh_local) > 0 {
-          changed = true
+          if oc_retarget_local_gets(ctx, func, root_id, local_id, fresh_local) >
+            0 {
+            changed = true
+          }
         }
       }
     }
