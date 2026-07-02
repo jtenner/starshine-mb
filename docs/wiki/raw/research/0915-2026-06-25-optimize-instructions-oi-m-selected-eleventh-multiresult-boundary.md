@@ -28,7 +28,7 @@ wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-s
 
 ## Finding
 
-Binaryen localizes the multi-result call through a tuple scratch local, extracts the eleventh scalar lane, stores it into a scalar temp, and returns that scalar temp. This matches the previously observed selected-first through selected-tenth boundary family: Binaryen has a tuple-scratch localizer for selected multi-result children.
+Binaryen localizes the multi-result call through a tuple scratch local, extracts the eleventh scalar lane, stores it into a scalar temp, and returns that scalar temp. This matches the previously observed selected-first through selected-tenth family: Binaryen has a tuple-scratch localizer for selected multi-result children. After the 2026-07-02 arity-10 Starshine implementation slice, this eleventh-lane shape is now the next direct one-use selected-child arity boundary.
 
 ## Starshine coverage
 
@@ -36,8 +36,8 @@ Added direct-HOT boundary/status coverage in `src/passes/optimize_instructions_t
 
 - `optimize-instructions intentionally keeps tuple.extract with multi-result selected eleventh lane boundary`
 
-The test builds a direct HOT tuple whose selected child is an eleven-result call and whose selected lane is index `10`. Starshine keeps the `TupleExtract`, `TupleMake`, and multi-result `Call` unchanged. This is boundary-only evidence, not a red-first implementation slice.
+The test builds a direct HOT tuple whose selected child is an eleven-result call and whose selected lane is index `10`. Starshine keeps the `TupleExtract`, `TupleMake`, and multi-result `Call` unchanged. This is boundary-only evidence after the arity-10 implementation, not a red-first implementation slice.
 
 ## Status
 
-Starshine still needs a safe selected-child tuple-scratch localizer before matching Binaryen for multi-result selected children. Reopen this boundary when that localizer exists, when public tuple text/binary fixture support improves, or if Binaryen changes this shape.
+Starshine now has a bounded direct one-use selected-child localizer through arity 10, but still needs either an arity-11 implementation or an accepted blocker before matching this Binaryen shape. Reopen this boundary when the bounded cap moves again, when public tuple text/binary fixture support improves, or if Binaryen changes this shape.
