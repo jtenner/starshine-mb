@@ -200,6 +200,26 @@ Validation for this slice:
 
 This still is not OC closeout. Open local-flow gaps remain: broader adjacent-block reuse beyond the branch-free block subsets, broader multi-cast/best-cast coverage, nonlinear/control behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 8 implementation result
+
+The eighth recursive slice widened the mixed `ref.cast` / `ref.as_non_null` best-cast subset:
+
+- a remembered nullable subtype `ref.cast` may feed a later same-local `ref.as_non_null` source when making that remembered type non-null is more refined than the `ref.as_non_null` result;
+- a same-local write between the nullable cast and the later `ref.as_non_null` remains a barrier and prevents stale fresh-local reuse.
+
+Before implementation, the positive produced only two fresh-local reads instead of three because the later `ref.as_non_null` source still read the original local. The implementation now has a narrow source-retarget gate for this mixed family: it compares the remembered nullable best-cast type after non-nullification against the later `ref.as_non_null` result type, while preserving the existing stricter comparisons for repeated identical casts, unrelated casts, and same-local refinement roots. This is still a nullable-fresh-local representation; the slice does not solve the exact Binaryen non-null body-local shape blocker.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the new mixed nullable-cast/ref.as source positive before implementation (`2 != 3` fresh-local reads), then passed `24/24` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3839/3839`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-mixed-ref-as-smoke-100 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures` compared `100/100`, normalized `100`, and had zero validation/generator/property/command failures.
+
+This still is not OC closeout. Open local-flow gaps remain: broader adjacent-block reuse beyond the branch-free block subsets, broader multi-cast/best-cast coverage, nonlinear/control behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden best-cast/subtype coverage with source-backed unrelated-cast and multi-related-cast negatives/positives, or add a minimal adjacent-dominated-block later-reuse case only after proving the control-flow safety boundary red-first. Keep early-motion out of the next slice unless it starts with trap/effect/nonlinear barrier tests.
