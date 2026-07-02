@@ -25740,7 +25740,10 @@ test "optimize-instructions preserves selected trapping tuple.extract lane with 
 }
 
 ///|
-fn optimize_instructions_tuple_test_run(func : @ir.HotFunc, label : String) -> Unit {
+fn optimize_instructions_tuple_test_run(
+  func : @ir.HotFunc,
+  label : String,
+) -> Unit {
   let ctx = HotPassContext::new(
     optimize_instructions_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -25846,8 +25849,7 @@ test "optimize-instructions localizes effectful non-selected tuple sibling after
   @ir.hot_root_append(func, extract)
 
   optimize_instructions_tuple_test_run(
-    func,
-    "effectful later tuple sibling localization",
+    func, "effectful later tuple sibling localization",
   )
 
   let root = @ir.hot_root_get(func, 0)
@@ -25909,14 +25911,16 @@ test "optimize-instructions localizes trapping non-selected tuple sibling after 
   @ir.hot_root_append(func, extract)
 
   optimize_instructions_tuple_test_run(
-    func,
-    "trapping later tuple sibling localization",
+    func, "trapping later tuple sibling localization",
   )
 
   let root = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, root).op {
     @ir.HotOp::Block => ()
-    _ => fail("expected trapping later tuple sibling to localize into a block")
+    other =>
+      fail(
+        "expected trapping later tuple sibling to localize into a block, got \{other}",
+      )
   }
   let body = @ir.hot_region_body_ref(func, root)
   @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
@@ -25925,7 +25929,8 @@ test "optimize-instructions localizes trapping non-selected tuple sibling after 
     @ir.HotOp::Drop => ()
     _ => fail("expected later trapping sibling to be dropped")
   }
-  match @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, sibling_drop, 0)) {
+  match
+    @ir.hot_node_exact_instr(func, @ir.hot_child_get(func, sibling_drop, 0)) {
     Some(@lib.Instruction::I64DivU) => ()
     _ => fail("expected dropped tuple sibling to preserve i64.div_u trap")
   }
@@ -25951,14 +25956,14 @@ test "optimize-instructions preserves earlier effectful tuple sibling before sel
   @ir.hot_root_append(func, extract)
 
   optimize_instructions_tuple_test_run(
-    func,
-    "earlier effectful tuple sibling localization",
+    func, "earlier effectful tuple sibling localization",
   )
 
   let root = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, root).op {
     @ir.HotOp::Block => ()
-    _ => fail("expected earlier effectful tuple sibling to localize into a block")
+    _ =>
+      fail("expected earlier effectful tuple sibling to localize into a block")
   }
   let body = @ir.hot_region_body_ref(func, root)
   @debug.assert_eq(@ir.hot_region_root_count(func, body), 2)
@@ -25999,8 +26004,7 @@ test "optimize-instructions localizes selected effect before later tuple sibling
   @ir.hot_root_append(func, extract)
 
   optimize_instructions_tuple_test_run(
-    func,
-    "selected-effect tuple sibling localization",
+    func, "selected-effect tuple sibling localization",
   )
 
   let root = @ir.hot_root_get(func, 0)
@@ -26060,14 +26064,16 @@ test "optimize-instructions intentionally keeps tuple.extract with unsupported c
   @ir.hot_root_append(func, extract)
 
   optimize_instructions_tuple_test_run(
-    func,
-    "unsupported control tuple sibling boundary",
+    func, "unsupported control tuple sibling boundary",
   )
 
   let root = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, root).op {
     @ir.HotOp::TupleExtract => ()
-    _ => fail("expected unsupported control sibling tuple.extract to stay unchanged")
+    _ =>
+      fail(
+        "expected unsupported control sibling tuple.extract to stay unchanged",
+      )
   }
   @debug.assert_eq(@ir.hot_child_get(func, root, 0), tuple)
   match @ir.hot_node_get(func, control_sibling).op {

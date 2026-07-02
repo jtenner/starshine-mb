@@ -4148,13 +4148,58 @@ fn optimize_instructions_tuple_extract_lane_is_direct_localizable(
     let child_id = @ir.hot_child_get(func, node_id, child_idx)
     if child_id >= 0 &&
       !optimize_instructions_tuple_extract_lane_is_direct_localizable(
-        func,
-        child_id,
+        func, child_id,
       ) {
       return false
     }
   }
   true
+}
+
+///|
+fn optimize_instructions_tuple_extract_lane_may_trap_without_effect_mask(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(
+      @lib.Instruction::I32DivS
+      | @lib.Instruction::I32DivU
+      | @lib.Instruction::I32RemS
+      | @lib.Instruction::I32RemU
+      | @lib.Instruction::I64DivS
+      | @lib.Instruction::I64DivU
+      | @lib.Instruction::I64RemS
+      | @lib.Instruction::I64RemU
+      | @lib.Instruction::RefAsNonNull
+      | @lib.Instruction::I31GetS
+      | @lib.Instruction::I31GetU
+    ) => return true
+    _ => ()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  for child_idx = 0; child_idx < node.child_count; child_idx = child_idx + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, child_idx)
+    if child_id >= 0 &&
+      optimize_instructions_tuple_extract_lane_may_trap_without_effect_mask(
+        func, child_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn optimize_instructions_tuple_extract_lane_must_preserve(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  !optimize_instructions_node_effects_are_pure(ctx, func, node_id) ||
+  optimize_instructions_tuple_extract_lane_may_trap_without_effect_mask(
+    func, node_id,
+  )
 }
 
 ///|
@@ -4206,7 +4251,9 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       continue
     }
     let sibling_id = @ir.hot_child_get(func, tuple_id, slot)
-    if !optimize_instructions_node_effects_are_pure(ctx, func, sibling_id) {
+    if optimize_instructions_tuple_extract_lane_must_preserve(
+        ctx, func, sibling_id,
+      ) {
       has_effectful_sibling = true
       if slot > index {
         has_later_effectful_sibling = true
@@ -4237,7 +4284,9 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       }
       continue
     }
-    if optimize_instructions_node_effects_are_pure(ctx, func, child_id) {
+    if !optimize_instructions_tuple_extract_lane_must_preserve(
+        ctx, func, child_id,
+      ) {
       continue
     }
     let child_results = @ir.hot_type_results(
