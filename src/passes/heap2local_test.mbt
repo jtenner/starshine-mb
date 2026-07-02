@@ -407,6 +407,72 @@ test "heap2local lowers array.new_fixed with constant index set and get" {
 }
 
 ///|
+test "heap2local lowers repeated same-owner fresh array allocations" {
+  let array = @lib.TypeIdx::new(0U)
+  let ref_local = @lib.LocalIdx::new(0U)
+  let optimized = heap2local_run_module(
+    heap2local_module_with_heap_type(
+      heap2local_i32_array_type(),
+      [],
+      [@lib.ValType::ref_null(@lib.HeapType::new(array))],
+      [
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::array_new_default(array),
+        @lib.Instruction::local_set(ref_local),
+        @lib.Instruction::local_get(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::array_get(array),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::array_new_fixed(array, @lib.U32(2U)),
+        @lib.Instruction::local_set(ref_local),
+        @lib.Instruction::local_get(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::array_set(array),
+        @lib.Instruction::local_get(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::array_get(array),
+        @lib.Instruction::drop(),
+      ],
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected heap2local repeated array allocation output to validate, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("array.new_default"), msg=pretty)
+  assert_false(pretty.contains("array.new_fixed"), msg=pretty)
+  assert_false(pretty.contains("array.set"), msg=pretty)
+  assert_false(pretty.contains("array.get"), msg=pretty)
+}
+
+///|
+test "heap2local folds fresh struct ref.test to a constant" {
+  let pair = @lib.TypeIdx::new(0U)
+  let optimized = heap2local_run_module(
+    heap2local_module_with_locals([@lib.ValType::i32()], [], [
+      @lib.Instruction::struct_new_default(pair),
+      @lib.Instruction::ref_test(false, @lib.HeapType::new(pair)),
+    ]),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected heap2local struct ref.test output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.new_default"), msg=pretty)
+  assert_false(pretty.contains("ref.test"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
 test "heap2local folds array ref.test to a constant" {
   let array = @lib.TypeIdx::new(0U)
   let optimized = heap2local_run_module(

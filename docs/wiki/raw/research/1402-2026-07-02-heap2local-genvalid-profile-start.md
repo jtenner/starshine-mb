@@ -84,8 +84,31 @@ Validation and smokes for this slice:
 - Struct leaf smoke `.tmp/pass-fuzz-heap2local-struct-100-after-sequential-owner` compared `100/100`: `18` normalized, `82` mismatches, zero command/validation/generator/property failures. Every saved Starshine mismatch had no residual `struct.new`, `struct.get`, or `struct.set`, so the remaining struct mismatches are now output-shape/local-debris classification work rather than the original missed scalarization family.
 - Aggregate smoke `.tmp/pass-fuzz-heap2local-all-100-after-sequential-owner` compared `100/100`: `22` normalized, `78` mismatches, zero failures, selected profiles `heap2local-struct=49`, `heap2local-array=22`, `heap2local-ref=29`.
 
+## Follow-up: generated array and direct-ref families
+
+A third 2026-07-02 slice classified the residual struct sample and reduced two aggregate mismatch leaves:
+
+- Struct residual classifier over `.tmp/pass-fuzz-heap2local-struct-100-after-sequential-owner/failures` found `82/82` saved mismatches with no residual `struct.new`, `struct.get`, or `struct.set` in Starshine output and `82/82` smaller Starshine canonical wasm than Binaryen. Agent classification for the sampled struct residual family: output-shape/local-debris wins, not missed scalarization.
+- Aggregate `case-000015` (`heap2local-array`) reduced to repeated same-owner fixed-array allocation epochs. The red-first regression `heap2local lowers repeated same-owner fresh array allocations` failed before implementation and now passes. Starshine now applies the same bounded straight-line allocation-epoch analysis to array owners and lowers each epoch through existing scalar element locals.
+- Aggregate `case-000004` (`heap2local-ref`) reduced to direct fresh `struct.new_default` `ref.test`. The red-first regression `heap2local folds fresh struct ref.test to a constant` failed before implementation and now passes. Starshine now folds exact direct fresh-struct `ref.test` to `i32.const 1` while dropping allocation children.
+
+Validation and smokes for this slice:
+
+- `moon test --package jtenner/starshine/passes --file heap2local_test.mbt` passed (`17/17`).
+- `moon fmt` passed.
+- `moon test --package jtenner/starshine/passes --file heap2local_primary_test.mbt` passed (`16/16`).
+- `moon test src/passes` passed (`3814/3814`).
+- `moon test` passed (`7212/7212`) with pre-existing warnings.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings.
+- Replay `.tmp/pass-fuzz-heap2local-case000015-after-sequential-array` compared `1/1` with one residual mismatch and zero failures; Starshine output had no residual array traffic and only differed by omitted Binaryen scalar local/default/drop scaffolding.
+- Replay `.tmp/pass-fuzz-heap2local-case000004-after-direct-struct-reftest` compared `1/1` with one residual mismatch and zero failures; Starshine output had no residual `ref.test`, while Binaryen preserved extra scalar debris.
+- Aggregate smoke `.tmp/pass-fuzz-heap2local-all-100-after-sequential-array-reftest` compared `100/100`: `22` normalized, `78` mismatches, zero command/validation/generator/property failures, Binaryen cache `100/0`, selected profiles `heap2local-struct=49`, `heap2local-array=22`, and `heap2local-ref=29`. A classifier over all saved residuals found no Starshine residual `struct`/`array`/`ref.eq`/`ref.test` generated H2L operations and `78/78` smaller Starshine canonical wasm.
+
+Current agent judgment: the small generated aggregate sample has shifted from true missed-H2L parity gaps to sampled output-shape/local-debris drift after Starshine performs the same H2L-relevant scalarization/fresh-reference folds. This is not a green closeout: the finding needs a larger dedicated lane, a normalizer/alignment decision for Binaryen's preserved local debris, and review for broader Binaryen families not yet forced by the initial generator.
+
 ## Next audit slice
 
-1. Classify residual struct mismatches from `.tmp/pass-fuzz-heap2local-struct-100-after-sequential-owner` as Binaryen-local-debris/output-shape drift versus any remaining missed scalarization, and decide whether to add a H2L-specific compare normalizer or align output shape.
-2. Reduce the highest-value array or direct-ref mismatch from `.tmp/pass-fuzz-heap2local-all-100-after-sequential-owner` into a focused failing test.
-3. Implement the smallest safe parity fix or document a narrow blocker with reopening criteria, then rerun focused H2L tests and small leaf/aggregate lanes before scaling.
+1. Run a larger `heap2local-all` lane (at least `1000`, then `10000` if stable) with the current binary and classify whether residual mismatches remain entirely local-debris/output-shape wins or expose new true H2L gaps.
+2. Decide whether to add a H2L-specific compare normalizer for Binaryen-preserved scalar local/default/drop debris or align Starshine output shape; document the decision and reopening criteria.
+3. If a larger lane exposes a residual generated H2L op, reduce it into a red-first focused test and implement the smallest safe parity fix. Otherwise move toward final four-lane closeout evidence and pass-local timing.
