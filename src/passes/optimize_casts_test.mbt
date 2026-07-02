@@ -28,6 +28,27 @@ fn optimize_casts_module(
 }
 
 ///|
+fn optimize_casts_void_module(
+  param_type : @lib.ValType,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([param_type], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([base, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
 fn optimize_casts_run_pretty(mod_ : @lib.Module) -> String {
   match @validate.validate_module(mod_) {
     Ok(_) => ()
@@ -42,6 +63,25 @@ fn optimize_casts_run_pretty(mod_ : @lib.Module) -> String {
     Ok(_) => optimized.pretty_print_func(@lib.FuncIdx::new(0U))
     Err(err) => abort("expected optimize-casts output to validate, got \{err}")
   }
+}
+
+///|
+fn optimize_casts_count_substring(text : String, needle : String) -> Int {
+  if needle.length() == 0 {
+    return 0
+  }
+  let mut count = 0
+  let limit = text.length() - needle.length()
+  let mut i = 0
+  while i <= limit {
+    if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
+      count += 1
+      i += needle.length()
+    } else {
+      i += 1
+    }
+  }
+  count
 }
 
 ///|
@@ -187,6 +227,49 @@ test "optimize-casts removes guaranteed-success br_on_cast_fail" {
     ]),
   )
   assert_false(pretty.contains("br_on_cast_fail"), msg=pretty)
+}
+
+///|
+test "optimize-casts reuses an already computed ref.cast for later local gets" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(struct_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
+test "optimize-casts does not reuse a cast past a same-local write" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(struct_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+      @lib.Instruction::ref_cast(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  @debug.assert_eq(optimize_casts_count_substring(pretty, "local.get (Local 1)"), 1)
+  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
 }
 
 ///|
