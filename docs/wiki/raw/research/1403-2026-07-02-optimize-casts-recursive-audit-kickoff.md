@@ -81,9 +81,26 @@ Validation for this slice:
 
 This is forward progress, not OC closeout. Open local-flow gaps remain: `ref.as_non_null` later reuse, nested/fallthrough cast recognition, best-cast selection breadth, adjacent-block/nonlinear behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, O4z slot evidence, and pass-local timing.
 
+## Slice 2 implementation result
+
+The second recursive slice added red-first public-pipeline coverage for later reuse of an already-computed `ref.as_non_null(local.get x)` and for the non-nullable-source negative that must not materialize a fresh local when the original local is already non-null. The positive failed before implementation because Starshine did not create a `local.tee` or retarget the later read.
+
+`src/passes/optimize_casts.mbt` now recognizes direct nullable-source `ref.as_non_null(local.get x)` as another conservative root-linear later-reuse refinement and routes it through the same fresh-local/local.tee path as the first `ref.cast` subset. The nullable-fresh-local workaround remains unchanged. Non-nullable `ref.as_non_null` sources are intentionally excluded from this reuse path because the local is already refined enough and materializing a fresh local would only add traffic.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first at `optimize-casts reuses an already computed ref.as_non_null for later local gets` before implementation, then passed `12/12` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3827/3827`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-ref-as-smoke-100 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures` compared `100/100`, normalized `100`, and had zero validation/generator/property/command failures.
+
+This still is not OC closeout. Open local-flow gaps remain: fallthrough/tee/repeated-cast recognition, best-cast subtype selection breadth, adjacent-block/nonlinear behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
-1. Add red-first tests for `ref.as_non_null` later reuse and non-nullable source negatives.
-2. Widen later reuse from root-only direct `ref.cast(local.get)` to the safe fallthrough/tee cases represented by Binaryen lit tests (`local-tee`, `fallthrough`, repeated identical casts, and best subtype selection).
-3. Add early-motion tests separately only after the later-reuse local/refinalization path is stable.
-4. Add dedicated GenValid profiles once the target implementation families are known enough to generate meaningful positives rather than no-op valid modules.
+1. Widen later reuse from root-only direct `ref.cast(local.get)` / `ref.as_non_null(local.get)` to the safe fallthrough/tee cases represented by Binaryen lit tests (`local-tee`, `fallthrough`, repeated identical casts, and best subtype selection).
+2. Add early-motion tests separately only after the later-reuse local/refinalization path is stable.
+3. Add dedicated GenValid profiles once the target implementation families are known enough to generate meaningful positives rather than no-op valid modules.
+4. Keep the non-null body-local blocker visible until Starshine can either model Binaryen's exact fresh-local type or document a measured, accepted representation win.

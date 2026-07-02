@@ -98,11 +98,11 @@ The readiness bridge now owns the implementation ladder and validation order so 
 
 ## What Starshine currently does for this pass name
 
-Today Starshine's behavior for `optimize-casts` is deliberately limited.
+Today Starshine's behavior for `optimize-casts` is still deliberately limited, but the reopened audit has started landing source-backed local-flow subsets.
 
 ### 1. The active pass is narrow and direct-only
 
-`src/passes/optimize_casts.mbt` currently owns a conservative HOT rewrite, not the whole upstream Binaryen strategy. It removes casts when the source reference type already satisfies the target, folds `ref.test` / `ref.test_desc` when the static source type guarantees success or failure, removes redundant `ref.cast_desc_eq`, rewrites guaranteed-success `br_on_cast` to an unconditional branch, rewrites single-ref guaranteed-fail `br_on_cast` to the fallthrough reference, rewrites guaranteed-success `br_on_cast_fail` to the fallthrough reference, rewrites guaranteed-fail `br_on_cast_fail` to an unconditional branch, preserves nullable-to-nonnull `ref.cast` trap behavior, and now has a conservative root-linear later-reuse subset for direct `ref.cast(local.get x)` followed by later same-local root reads before a same-local write. That later-reuse subset appends a nullable fresh local and wraps the original cast in `local.tee`; the nullable-local choice is a Starshine local/validator constraint, not exact Binaryen body-local shape parity.
+`src/passes/optimize_casts.mbt` currently owns a conservative HOT rewrite, not the whole upstream Binaryen strategy. It removes casts when the source reference type already satisfies the target, folds `ref.test` / `ref.test_desc` when the static source type guarantees success or failure, removes redundant `ref.cast_desc_eq`, rewrites guaranteed-success `br_on_cast` to an unconditional branch, rewrites single-ref guaranteed-fail `br_on_cast` to the fallthrough reference, rewrites guaranteed-success `br_on_cast_fail` to the fallthrough reference, rewrites guaranteed-fail `br_on_cast_fail` to an unconditional branch, preserves nullable-to-nonnull `ref.cast` trap behavior, and now has a conservative root-linear later-reuse subset for direct `ref.cast(local.get x)` and nullable-source `ref.as_non_null(local.get x)` followed by later same-local root reads before a same-local write. That later-reuse subset appends a nullable fresh local and wraps the original cast/as-non-null in `local.tee`; the nullable-local choice is a Starshine local/validator constraint, not exact Binaryen body-local shape parity. Non-nullable `ref.as_non_null` sources are intentionally not materialized through this path because the original local is already refined.
 
 The 2026-05-06 direct revalidation ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The 2026-05-06 branch-cast widening replayed the same 10000-case lane with `--out-dir .tmp/pass-fuzz-optimize-casts-oc-branch` and again reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 command failures. The 2026-05-06 negative/exact-ref tightening ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --keep-going-after-command-failures --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts` and reported 9975 compared cases, 9975 normalized matches, 0 validation failures, 0 generator failures, 25 Binaryen command failures, and 0 mismatches. It also ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --generator gen-valid --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-gen-valid` and reported 10000 compared cases, 10000 normalized matches, 0 validation failures, 0 generator failures, 0 command failures, and 0 mismatches. The 2026-05-08 ordered-slot replay refreshed the direct 10k lane (`.tmp/pass-fuzz-optimize-casts-oc005-20260508`) with 6759 compared cases, 6759 normalized matches, 0 mismatches, and 20 Binaryen command failures, then replayed `--heap2local --optimize-casts --local-subtyping --coalesce-locals --local-cse` on `tests/node/dist/starshine-debug-wasi.wasm` with normalized-WAT equality and canonical-function equality. That closes the public preset-slot proof and allows `optimize-casts` into `optimize` / `shrink`.
 
@@ -213,13 +213,13 @@ Starshine has an active MoonBit pass, dispatcher, registry, preset slot, focused
 
 - strict earlier duplication of later `ref.cast` / `ref.as_non_null` values to earlier `local.get`s inside a safe linear window
 - full later reuse of already-computed best casts across Binaryen's fallthrough, tee, adjacent-block, repeated-cast, and best-subtype cases
-- `ref.as_non_null` later reuse coverage
+- full later reuse for `ref.as_non_null` beyond the current direct nullable-source root-linear subset
 - a pass-owned GenValid profile that reliably generates those upstream trigger families
 - final four-lane direct-pass signoff for the widened behavior
 
 So the current repo status is best summarized as:
 
-- active narrow static-folding pass
+- active narrow static-folding pass plus first root-linear later-reuse subsets for `ref.cast` and nullable-source `ref.as_non_null`
 - public preset slot and neighborhood proof from 2026-05-08
 - stale upstream local-flow parity gaps now reopened under `[O4Z-AUDIT-OC]`
 - no dedicated `optimize-casts-all` GenValid aggregate yet
@@ -241,8 +241,8 @@ Current Starshine `optimize-casts` strategy is honest registry and cluster plann
 So the right mental model today is not “nothing exists locally.”
 It is:
 
-- **no transform yet**
+- **active narrow implementation with early later-reuse subsets**
 - **clear tracked status**
 - **clear slot in the cleanup cluster**
-- **clear neighboring implementation map for the eventual port**
+- **clear neighboring implementation map for the remaining port**
 - **clear warning not to silently broaden the reviewed upstream contract**
