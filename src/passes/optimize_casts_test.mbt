@@ -32,6 +32,15 @@ fn optimize_casts_void_module(
   param_type : @lib.ValType,
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
+  optimize_casts_void_module_with_locals(param_type, [], body)
+}
+
+///|
+fn optimize_casts_void_module_with_locals(
+  param_type : @lib.ValType,
+  body_locals : Array[@lib.ValType],
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
   let base = @lib.RecType::new(
     @lib.SubType::new(false, [], @lib.CompType::struct_([])),
   )
@@ -50,7 +59,7 @@ fn optimize_casts_void_module(
   .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
   .with_code_sec(
     @lib.CodeSec::new([
-      @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
+      @lib.Func::new(@lib.Locals::from_types(body_locals), @lib.Expr::new(body)),
     ]),
   )
 }
@@ -386,6 +395,50 @@ test "optimize-casts does not duplicate ref.cast earlier across same-local write
   )
   @debug.assert_eq(
     optimize_casts_count_substring(pretty, "ref.cast"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts duplicates later ref.as_non_null across separate-index local writes" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module_with_locals(any_ref, [@lib.ValType::i32()], [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(42)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_as_non_null(),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.as_non_null"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts keeps ref.as_non_null motion behind same-local writes" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module_with_locals(any_ref, [@lib.ValType::i32()], [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(42)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_as_non_null(),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.as_non_null"),
     1,
     msg=pretty,
   )
