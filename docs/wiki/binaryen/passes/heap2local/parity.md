@@ -44,7 +44,7 @@ related:
 
 The current Starshine slice covers the full in-tree primary suite:
 
-- direct exclusive struct owners, local-copy chains, tees, and simple block-result flow
+- direct exclusive struct owners, repeated same-owner fresh allocations with self-copy writes, local-copy chains, tees, and simple block-result flow
 - `ref.as_non_null`, direct `ref.eq`, and successful `ref.cast`
 - descriptor-bearing `struct.new_desc` and `struct.new_default_desc` plus `ref.get_desc`
 - constant-size `array.new_default`, `array.new`, and `array.new_fixed`
@@ -62,6 +62,7 @@ The 2026-07-02 audit start added a dedicated GenValid aggregate, `heap2local-all
 
 ## Current Evidence
 
+- A `2026-07-02` follow-up fixed the first reduced generated struct family: repeated same-owner fresh allocations plus self-copy writes are now scalarized, and the focused regression lives in `src/passes/heap2local_test.mbt`. Replay `.tmp/pass-fuzz-heap2local-case000001-after-sequential-owner` still mismatches raw compare (`1/1`, zero failures), but Starshine and Binaryen both scalarize the GC traffic; the residual is agent-classified as output-shape/local-debris drift from Binaryen preserving extra local/default/drop scaffolding that Starshine omits after proving the unused initialization is pure/nontrapping. The 100-case struct leaf smoke `.tmp/pass-fuzz-heap2local-struct-100-after-sequential-owner` compared `100/100` with `18` normalized and `82` residual mismatches; every saved Starshine mismatch had no residual `struct.new`, `struct.get`, or `struct.set`, so the next parity blockers are narrower output-shape classification for struct debris plus independent array/ref leaf reductions.
 - A `2026-07-02` profile slice added `heap2local-all` and documented the three initial generated transformation families. Focused GenValid validation passed (`116/116` file tests, `1652/1652` `src/validate`), and native `src/cmd` built at `_build/native/release/build/cmd/cmd.exe`. The first aggregate smoke `.tmp/pass-fuzz-heap2local-genvalid-all-1000-aggregate-config-fix` hit the mismatch cap after `278` compared cases (`67` normalized, `211` mismatches, zero command/validation/generator/property failures); leaf probes also showed mismatches. These are open H2L behavior-parity gaps, not accepted drift.
 - A `2026-05-08` backlog-closure review confirmed that the old `[H2L]002` wording was stale: the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood is now represented and proven elsewhere in-tree, while nondefaultable-local repair remains outside today's validator-accepted Starshine input surface.
 - A `2026-05-06` refreshed direct lane (`bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local`) reports:

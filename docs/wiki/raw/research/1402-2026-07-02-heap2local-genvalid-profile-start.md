@@ -65,8 +65,27 @@ Profile smoke results:
 
 Agent classification: these are **open H2L behavior-parity gaps**, not accepted safe drift. The first inspected struct case shows Binaryen scalarizing repeated fresh struct/default allocations through the same owner local plus fresh-reference folds, while Starshine leaves most of that traffic as GC operations. The dedicated profile is therefore doing its job by exposing under-sampled H2L families, but the pass is not closeout-ready.
 
+## Follow-up: repeated same-owner struct allocations
+
+A second 2026-07-02 slice reduced the first aggregate mismatch, `.tmp/pass-fuzz-heap2local-genvalid-all-1000-aggregate-config-fix/failures/case-000001-gen-valid`, to repeated writes of fresh `struct.new` / `struct.new_default` into the same owner local, including a `local.set $owner (local.get $owner)` self-copy. Binaryen scalarizes both allocation epochs. Starshine previously required exactly one write to the owner local, so it left all GC operations in place.
+
+The fix adds a bounded straight-line sequential-owner path in `src/passes/heap2local.mbt`: when all writes to a non-param owner local are root-level fresh struct allocation writes or no-op self-copy writes, each allocation epoch is analyzed separately and lowered with the existing scalar-field rewrite. The focused regression `heap2local scalarizes repeated same-owner fresh struct allocations` in `src/passes/heap2local_test.mbt` failed before the implementation and now passes.
+
+Validation and smokes for this slice:
+
+- `moon test --package jtenner/starshine/passes --file heap2local_test.mbt` passed (`15/15`).
+- `moon fmt` passed.
+- `moon test --package jtenner/starshine/passes --file heap2local_primary_test.mbt` passed (`16/16`).
+- `moon test src/passes` passed (`3812/3812`).
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings.
+- Replay `.tmp/pass-fuzz-heap2local-case000001-after-sequential-owner` compared `1/1` with one residual mismatch and zero failures. Agent classification: the original true GC-scalarization parity gap is fixed for this family; residual output differs because Binaryen preserves extra scalar local/default/drop debris while Starshine emits a smaller scalarized form after omitting pure/nontrapping unused initialization debris.
+- `--normalize local-cleanup-debris` did not normalize that replay.
+- Struct leaf smoke `.tmp/pass-fuzz-heap2local-struct-100-after-sequential-owner` compared `100/100`: `18` normalized, `82` mismatches, zero command/validation/generator/property failures. Every saved Starshine mismatch had no residual `struct.new`, `struct.get`, or `struct.set`, so the remaining struct mismatches are now output-shape/local-debris classification work rather than the original missed scalarization family.
+- Aggregate smoke `.tmp/pass-fuzz-heap2local-all-100-after-sequential-owner` compared `100/100`: `22` normalized, `78` mismatches, zero failures, selected profiles `heap2local-struct=49`, `heap2local-array=22`, `heap2local-ref=29`.
+
 ## Next audit slice
 
-1. Classify the aggregate mismatch families by selected profile and reduce one high-value family into a focused failing `heap2local` test.
-2. Start with the repeated same-owner fresh-struct/default allocation family from `case-000001`: Binaryen scalarizes it, Starshine preserves `struct.new`, `struct.get`, `struct.set`, `ref.as_non_null`, and `ref.test` traffic.
-3. Implement the smallest safe parity fix, rerun focused H2L tests, and rerun small leaf/aggregate lanes before scaling.
+1. Classify residual struct mismatches from `.tmp/pass-fuzz-heap2local-struct-100-after-sequential-owner` as Binaryen-local-debris/output-shape drift versus any remaining missed scalarization, and decide whether to add a H2L-specific compare normalizer or align output shape.
+2. Reduce the highest-value array or direct-ref mismatch from `.tmp/pass-fuzz-heap2local-all-100-after-sequential-owner` into a focused failing test.
+3. Implement the smallest safe parity fix or document a narrow blocker with reopening criteria, then rerun focused H2L tests and small leaf/aggregate lanes before scaling.

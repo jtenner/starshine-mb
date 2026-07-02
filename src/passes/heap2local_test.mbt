@@ -433,6 +433,41 @@ test "heap2local folds array ref.test to a constant" {
 }
 
 ///|
+test "heap2local scalarizes repeated same-owner fresh struct allocations" {
+  let pair = @lib.TypeIdx::new(0U)
+  let owner_local = @lib.LocalIdx::new(0U)
+  let optimized = heap2local_run_module(
+    heap2local_module_with_locals(
+      [],
+      [@lib.ValType::ref_null(@lib.HeapType::new(pair))],
+      [
+        @lib.Instruction::i32_const(@lib.I32(10)),
+        @lib.Instruction::i32_const(@lib.I32(20)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(owner_local),
+        @lib.Instruction::local_get(owner_local),
+        @lib.Instruction::i32_const(@lib.I32(30)),
+        @lib.Instruction::struct_set(pair, @lib.U32(0U)),
+        @lib.Instruction::local_get(owner_local),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::struct_new_default(pair),
+        @lib.Instruction::local_set(owner_local),
+        @lib.Instruction::local_get(owner_local),
+        @lib.Instruction::local_set(owner_local),
+        @lib.Instruction::local_get(owner_local),
+        @lib.Instruction::struct_get(pair, @lib.U32(0U)),
+        @lib.Instruction::drop(),
+      ],
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+}
+
+///|
 test "heap2local leaves parameter-backed ownership unchanged" {
   let pretty = heap2local_pretty_text(
     (

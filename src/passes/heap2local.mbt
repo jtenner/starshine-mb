@@ -559,6 +559,246 @@ fn h2l_find_candidate_for_local(
 }
 
 ///|
+fn h2l_subtree_contains_node(
+  func : @ir.HotFunc,
+  root_node_id : Int,
+  target_node_id : Int,
+) -> Bool {
+  if root_node_id == target_node_id {
+    return true
+  }
+  if !@ir.hot_node_is_live(func, root_node_id) {
+    return false
+  }
+  let root_node = @ir.hot_node_get(func, root_node_id)
+  match root_node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, root_node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        if h2l_subtree_contains_node(
+            func,
+            @ir.hot_region_get(func, body_ref, idx),
+            target_node_id,
+          ) {
+          return true
+        }
+      }
+      return false
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, root_node_id); slot = slot + 1 {
+    if h2l_subtree_contains_node(
+        func,
+        @ir.hot_child_get(func, root_node_id, slot),
+        target_node_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn h2l_root_slot_containing_node(func : @ir.HotFunc, node_id : Int) -> Int? {
+  let root_ref = @ir.HotRegionRef::root()
+  for idx = 0; idx < @ir.hot_region_root_count(func, root_ref); idx = idx + 1 {
+    if h2l_subtree_contains_node(
+        func,
+        @ir.hot_region_get(func, root_ref, idx),
+        node_id,
+      ) {
+      return Some(idx)
+    }
+  }
+  None
+}
+
+///|
+fn h2l_self_copy_write_matches(
+  func : @ir.HotFunc,
+  write_node_id : Int,
+  local_id : Int,
+) -> Bool {
+  if !@ir.hot_node_is_live(func, write_node_id) {
+    return false
+  }
+  let write_node = @ir.hot_node_get(func, write_node_id)
+  match write_node.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if write_node.imm0 != local_id || write_node.child_count != 1 {
+    return false
+  }
+  let source_node_id = @ir.hot_child_get(func, write_node_id, 0)
+  let source_node = @ir.hot_node_get(func, source_node_id)
+  match source_node.op {
+    @ir.HotOp::LocalGet => source_node.imm0 == local_id
+    _ => false
+  }
+}
+
+///|
+fn h2l_struct_alloc_write_info(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  write_node_id : Int,
+  local_id : Int,
+) -> (@lib.TypeIdx, Array[@lib.FieldType], Int)? {
+  if !@ir.hot_node_is_live(func, write_node_id) {
+    return None
+  }
+  let write_node = @ir.hot_node_get(func, write_node_id)
+  match write_node.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return None
+  }
+  if write_node.imm0 != local_id || write_node.child_count != 1 {
+    return None
+  }
+  let init_node_id = @ir.hot_child_get(func, write_node_id, 0)
+  match h2l_supported_struct_new_fields(func, module_ctx, init_node_id) {
+    Some((struct_type, fields, _)) =>
+      if h2l_local_can_hold_struct_ref(func, local_id, struct_type) {
+        Some((struct_type, fields, init_node_id))
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+fn h2l_write_is_next_struct_alloc_boundary(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  local_id : Int,
+  write_node_id : Int,
+) -> Bool {
+  match h2l_struct_alloc_write_info(func, module_ctx, write_node_id, local_id) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn h2l_collect_sequential_source_use(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  source_node_id : Int,
+  local_id : Int,
+  struct_type : @lib.TypeIdx,
+  field_count : Int,
+  use_sites : Array[H2LUseSite],
+  copy_sites : Array[H2LCopySite],
+) -> Bool {
+  if !@ir.hot_node_is_live(func, source_node_id) {
+    return false
+  }
+  let sites = use_def.node_uses[source_node_id]
+  if sites.length() != 1 {
+    return false
+  }
+  let site = sites[0]
+  match site.kind {
+    @ir.HotUseSlotKind::ChildUseSlot => ()
+    _ => return false
+  }
+  if site.slot == 0 && h2l_self_copy_write_matches(func, site.user, local_id) {
+    copy_sites.push({ source_node_id, write_node_id: site.user })
+    return true
+  }
+  let family_locals : Array[Int] = [local_id]
+  h2l_collect_source_use(
+    func, use_def, source_node_id, local_id, struct_type, field_count, family_locals,
+    use_sites, copy_sites, false,
+  )
+}
+
+///|
+fn h2l_find_sequential_candidates_for_local(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  use_def : @ir.HotUseDef,
+  local_id : Int,
+) -> Array[H2LCandidate] {
+  let candidates : Array[H2LCandidate] = []
+  if local_id < @ir.hot_param_count(func) {
+    return candidates
+  }
+  let writes = use_def.local_writes[local_id]
+  if writes.length() <= 1 {
+    return candidates
+  }
+  for write_node_id in writes {
+    if h2l_struct_alloc_write_info(func, module_ctx, write_node_id, local_id).is_none() &&
+      !h2l_self_copy_write_matches(func, write_node_id, local_id) {
+      return []
+    }
+    match h2l_root_slot_containing_node(func, write_node_id) {
+      Some(_) => ()
+      None => return []
+    }
+  }
+  let root_ref = @ir.HotRegionRef::root()
+  let root_count = @ir.hot_region_root_count(func, root_ref)
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    let write_node_id = @ir.hot_region_get(func, root_ref, slot)
+    let (struct_type, fields, init_node_id) = match
+      h2l_struct_alloc_write_info(func, module_ctx, write_node_id, local_id) {
+      Some(info) => info
+      None => continue
+    }
+    let mut end_slot = root_count
+    for next_slot = slot + 1; next_slot < root_count; next_slot = next_slot + 1 {
+      let possible_write = @ir.hot_region_get(func, root_ref, next_slot)
+      if h2l_write_is_next_struct_alloc_boundary(
+          func, module_ctx, local_id, possible_write,
+        ) {
+        end_slot = next_slot
+        break
+      }
+    }
+    let use_sites : Array[H2LUseSite] = []
+    let copy_sites : Array[H2LCopySite] = []
+    for read_node_id in use_def.local_reads[local_id] {
+      let read_slot = match h2l_root_slot_containing_node(func, read_node_id) {
+        Some(read_slot) => read_slot
+        None => return []
+      }
+      if read_slot <= slot || read_slot >= end_slot {
+        continue
+      }
+      if !h2l_collect_sequential_source_use(
+          func,
+          use_def,
+          read_node_id,
+          local_id,
+          struct_type,
+          fields.length(),
+          use_sites,
+          copy_sites,
+        ) {
+        return []
+      }
+    }
+    if !use_sites.is_empty() {
+      candidates.push({
+        write_node_id,
+        init_node_id,
+        fields,
+        use_sites,
+        copy_sites,
+      })
+    }
+  }
+  candidates
+}
+
+///|
 fn h2l_supported_array_init(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
@@ -1393,6 +1633,12 @@ pub fn heap2local_run(
     match h2l_find_candidate_for_local(func, module_ctx, use_def, local_id) {
       Some(candidate) => candidates.push(candidate)
       None => ()
+    }
+    for
+      candidate in h2l_find_sequential_candidates_for_local(
+        func, module_ctx, use_def, local_id,
+      ) {
+      candidates.push(candidate)
     }
     match
       h2l_find_array_candidate_for_local(func, module_ctx, use_def, local_id) {
