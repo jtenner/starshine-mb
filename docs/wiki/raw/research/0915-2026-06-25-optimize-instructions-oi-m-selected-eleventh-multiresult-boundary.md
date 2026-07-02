@@ -28,7 +28,7 @@ wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-s
 
 ## Finding
 
-Binaryen localizes the multi-result call through a tuple scratch local, extracts the eleventh scalar lane, stores it into a scalar temp, and returns that scalar temp. This matches the previously observed selected-first through selected-tenth family: Binaryen has a tuple-scratch localizer for selected multi-result children. After the later 2026-07-02 arity-11 Starshine implementation slice, this note is superseded for direct one-use arity 11 and the twelfth-lane shape is now the next selected-child arity boundary.
+Binaryen localizes the multi-result call through a tuple scratch local, extracts the eleventh scalar lane, stores it into a scalar temp, and returns that scalar temp. This matches the previously observed selected-first through selected-tenth family: Binaryen has a tuple-scratch localizer for selected multi-result children. After the later 2026-07-02 arity-11 Starshine implementation slice, this note is superseded for direct one-use arity 11 and the twelfth-lane shape was later implemented too; the thirteenth-lane shape is now the next selected-child arity boundary.
 
 ## Starshine coverage
 
@@ -42,10 +42,10 @@ The test builds a direct HOT tuple whose selected child is an eleven-result call
 
 - Refreshed Binaryen oracle output: `wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-eleventh-probe.wat -o .tmp/oi-m-tuple-multiresult-selected-eleventh-probe.binaryen.20260702.wat`.
 - Red-first focused test: `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*eleventh lane*'` failed `0/1` because the shape stayed `TupleExtract`.
-- Post-fix focused tests: the same focused command passed `1/1`; `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*twelfth lane*'` passed `1/1`, preserving the next arity boundary.
+- Post-fix focused tests: the same focused command passed `1/1`; `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*twelfth lane*'` passed `1/1` at that time; the later arity-12 slice moved the active boundary to thirteenth lane.
 - Direct fuzz: `.tmp/oi-m-eleven-result-selected-direct18-20260702` compared `18/18`, with `18` raw mismatches, zero validation/generator/property/command failures, Binaryen cache `18/0`, runtime checked/unsupported/failed `18/0/0`, and runtime matrix all-equal `1/1`.
 - Grouped fuzz: `.tmp/oi-m-eleven-result-selected-count108-20260702` compared `108/108`, with `108` raw mismatches, zero validation/generator/property/command failures, Binaryen cache `108/0`, runtime checked/unsupported/failed `108/0/0`, runtime matrix all-equal `9/9`, and all 18 tuple labels sampled.
 
 ## Status
 
-Starshine now has a bounded direct one-use selected-child localizer through arity 11. This note is retained as source/probe history, not an active direct one-use arity-11 blocker. Remaining OI-M work includes selected-child arities 12+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, and broader randomized/runtime evidence. Reopen this boundary if the arity-11 implementation regresses, if public tuple text/binary fixture support exposes a narrower counterexample, or if Binaryen changes this shape.
+Starshine now has a bounded direct one-use selected-child localizer through arity 12. This note is retained as source/probe history, not an active direct one-use arity-11 blocker. Remaining OI-M work includes selected-child arities 13+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, and broader randomized/runtime evidence. Reopen this boundary if the arity-11 implementation regresses, if public tuple text/binary fixture support exposes a narrower counterexample, or if Binaryen changes this shape.

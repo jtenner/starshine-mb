@@ -27418,14 +27418,15 @@ test "optimize-instructions localizes eleventh lane from eleven-result selected 
 }
 
 ///|
-test "optimize-instructions intentionally keeps tuple.extract with multi-result selected twelfth lane boundary" {
-  // Boundary-only OI-M classification: Binaryen `version_130`
-  // `--optimize-instructions` localizes the twelfth scalar result selected from
-  // a multi-result tuple child through tuple scratch plus scalar temps
-  // (`.tmp/oi-m-tuple-multiresult-selected-twelfth-probe.wat`). Starshine's
-  // direct tuple.extract localizer currently proves selected children with up
-  // to eleven scalar results, so this locks the next wider selected-child
-  // tuple-scratch boundary.
+test "optimize-instructions localizes twelfth lane from twelve-result selected tuple child" {
+  // Source-backed OI-M positive coverage: Binaryen `version_130`
+  // `--optimize-instructions --all-features` localizes the twelfth scalar
+  // result selected from a multi-result tuple child through tuple scratch plus
+  // scalar temps (`.tmp/oi-m-tuple-multiresult-selected-twelfth-probe.wat`
+  // refreshed to
+  // `.tmp/oi-m-tuple-multiresult-selected-twelfth-probe.binaryen.20260702.wat`).
+  // Starshine mirrors that bounded arity-12 selected-child subset only; wider
+  // selected-child arities and general tuple-scratch reconstruction stay open.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
@@ -27494,26 +27495,35 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
 
   let result = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, result).op {
-    @ir.HotOp::TupleExtract => ()
-    _ =>
+    @ir.HotOp::Block => ()
+    other =>
       fail(
-        "expected multi-result selected twelfth-lane tuple.extract to stay unchanged",
+        "expected twelfth lane from twelve-result tuple child to localize into a block, got \{other}",
       )
   }
-  @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
-  @debug.assert_eq(@ir.hot_node_get(func, result).imm0, 11)
-  match @ir.hot_node_get(func, tuple).op {
-    @ir.HotOp::TupleMake => ()
-    _ =>
-      fail(
-        "expected multi-result selected twelfth-lane tuple.make to stay available",
-      )
+  let body = @ir.hot_region_body_ref(func, result)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 13)
+  let set_twelfth = @ir.hot_region_get(func, body, 0)
+  let set_first = @ir.hot_region_get(func, body, 11)
+  let get_twelfth = @ir.hot_region_get(func, body, 12)
+  match @ir.hot_node_get(func, set_twelfth).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected twelfth result lane to be stored first")
   }
-  match @ir.hot_node_get(func, selected).op {
-    @ir.HotOp::Call => ()
-    _ =>
-      fail("expected multi-result selected twelfth-lane call to stay available")
+  match @ir.hot_node_get(func, set_first).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected first result lane to be stored twelfth")
   }
+  @debug.assert_eq(@ir.hot_child_get(func, set_twelfth, 0), selected)
+  @debug.assert_eq(@ir.hot_child_get(func, set_first, 0), selected)
+  match @ir.hot_node_get(func, get_twelfth).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected twelfth selected lane to reload from scratch local")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, get_twelfth).imm0,
+    @ir.hot_node_get(func, set_twelfth).imm0,
+  )
 }
 
 ///|
@@ -27523,7 +27533,7 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
   // from a multi-result tuple child through tuple scratch plus a scalar temp
   // (`.tmp/oi-m-tuple-multiresult-selected-thirteenth-probe.wat`). Starshine's
   // direct tuple.extract localizer currently proves selected children with up
-  // to ten scalar results, so this locks the next wider selected-child
+  // to twelve scalar results, so this locks the next wider selected-child
   // tuple-scratch boundary.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
@@ -27626,7 +27636,7 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
   // from a multi-result tuple child through tuple scratch plus a scalar temp
   // (`.tmp/oi-m-tuple-multiresult-selected-fourteenth-probe.wat`). Starshine's
   // direct tuple.extract localizer currently proves selected children with up
-  // to ten scalar results, so this extends the selected-lane tuple-scratch
+  // to twelve scalar results, so this extends the selected-lane tuple-scratch
   // boundary.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(

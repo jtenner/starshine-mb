@@ -28,16 +28,24 @@ wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-s
 
 ## Finding
 
-Binaryen localizes the imported multi-result call into tuple scratch, extracts the twelfth scalar lane (`tuple.extract 12 11`) into an `i64` temp, drops the tee, and returns the scalar temp. This matches the previous selected-first through selected-eleventh probes: Binaryen has a tuple-scratch reconstruction path for selected multi-result children. After the 2026-07-02 arity-11 Starshine implementation slice, this twelfth-lane shape is the next direct one-use selected-child boundary.
+Binaryen localizes the imported multi-result call into tuple scratch, extracts the twelfth scalar lane (`tuple.extract 12 11`) into an `i64` temp, drops the tee, and returns the scalar temp. This matches the previous selected-first through selected-eleventh probes: Binaryen has a tuple-scratch reconstruction path for selected multi-result children. After the 2026-07-02 arity-12 Starshine implementation slice, this twelfth-lane shape is now superseded for direct one-use arity 12 and the thirteenth-lane shape is the next selected-child arity boundary.
 
 ## Starshine coverage
 
-Added direct-HOT boundary/status coverage in `src/passes/optimize_instructions_test.mbt`:
+The original direct-HOT boundary/status coverage in `src/passes/optimize_instructions_test.mbt` was changed into red-first positive coverage for the arity-12 implementation slice:
 
-- `optimize-instructions intentionally keeps tuple.extract with multi-result selected twelfth lane boundary`
+- `optimize-instructions localizes twelfth lane from twelve-result selected tuple child`
 
-The test builds a direct-HOT tuple with a twelve-result selected `Call` child plus an extra scalar child, runs `optimize-instructions`, and asserts Starshine keeps the `TupleExtract` index `11`, the `TupleMake`, and the multi-result `Call` unchanged. This is boundary-only evidence, not a red-first implementation slice.
+The test builds a direct-HOT tuple whose selected child is a twelve-result call and whose selected lane is index `11`. Pre-implementation it failed because Starshine kept the `TupleExtract`; after the slice Starshine rewrites to a block with twelve stack-pop-order scratch `local.set` roots and a final `local.get` for the selected twelfth lane.
+
+## 2026-07-02 implementation evidence
+
+- Refreshed Binaryen oracle output: `wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-twelfth-probe.wat -o .tmp/oi-m-tuple-multiresult-selected-twelfth-probe.binaryen.20260702.wat`.
+- Red-first focused test: `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*twelfth lane*'` failed `0/1` because the shape stayed `TupleExtract`.
+- Post-fix focused tests: the same focused command passed `1/1`; `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*thirteenth lane*'` passed `1/1`, preserving the next arity boundary.
+- Direct fuzz: `.tmp/oi-m-twelve-result-selected-direct18-20260702` compared `18/18`, with `18` raw mismatches, zero validation/generator/property/command failures, Binaryen cache `18/0`, and runtime checked/unsupported/failed `18/0/0`.
+- Grouped fuzz: `.tmp/oi-m-twelve-result-selected-count108-20260702` compared `108/108`, with `108` raw mismatches, zero validation/generator/property/command failures, Binaryen cache `108/0`, runtime checked/unsupported/failed `108/0/0`, and all 18 tuple labels sampled.
 
 ## Status
 
-Starshine intentionally keeps selected multi-result tuple children wider than the current bounded arity-11 localizer unchanged until the cap moves again or a generalized tuple-scratch localizer exists. Reopen this when implementing arity-12 selected-child localization, when adding public/binary tuple fixture coverage for this shape, or if a future Binaryen source/oracle refresh stops localizing the selected twelfth lane.
+Starshine now has a bounded direct one-use selected-child localizer through arity 12. This note is retained as source/probe history, not an active direct one-use arity-12 blocker. Remaining OI-M work includes selected-child arities 13+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, and broader randomized/runtime evidence. Reopen this boundary if the arity-12 implementation regresses, if public tuple text/binary fixture support exposes a narrower counterexample, or if Binaryen changes this shape.

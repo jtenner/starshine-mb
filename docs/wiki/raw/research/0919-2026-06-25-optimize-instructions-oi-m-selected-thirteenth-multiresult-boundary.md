@@ -28,7 +28,7 @@ wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-s
 
 ## Finding
 
-Binaryen localizes the imported multi-result call into tuple scratch, extracts the thirteenth scalar lane (`tuple.extract 13 12`) into an `f32` temp, drops the tee, and returns the scalar temp. This matches the previous selected-first through selected-twelfth probes: Binaryen has a tuple-scratch reconstruction path for selected multi-result children.
+Binaryen localizes the imported multi-result call into tuple scratch, extracts the thirteenth scalar lane (`tuple.extract 13 12`) into an `f32` temp, drops the tee, and returns the scalar temp. This matches the previous selected-first through selected-twelfth probes: Binaryen has a tuple-scratch reconstruction path for selected multi-result children. After the 2026-07-02 arity-12 Starshine implementation slice, this thirteenth-lane shape is the next direct one-use selected-child boundary.
 
 ## Starshine coverage
 
@@ -40,4 +40,4 @@ The test builds a direct-HOT tuple with a thirteen-result selected `Call` child 
 
 ## Status
 
-Starshine intentionally keeps selected multi-result tuple children unchanged until a safe tuple-scratch localizer exists. Reopen this when implementing multi-result selected-child localization, when adding public/binary tuple fixture coverage for this shape, or if a future Binaryen source/oracle refresh stops localizing the selected thirteenth lane.
+Starshine intentionally keeps selected multi-result tuple children wider than the current bounded arity-12 localizer unchanged until the cap moves again or a generalized tuple-scratch localizer exists. Reopen this when implementing arity-13 selected-child localization, when adding public/binary tuple fixture coverage for this shape, or if a future Binaryen source/oracle refresh stops localizing the selected thirteenth lane.
