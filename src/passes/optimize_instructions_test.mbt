@@ -2384,6 +2384,97 @@ test "optimize-instructions raw skip folds constant memory access offsets" {
 }
 
 ///|
+test "optimize-instructions preserves memory64 multi-memory localtee addresses" {
+  // Grouped OI-G count245 follow-up from
+  // `.tmp/oi-g-broader-count245-20260702`: the only residual was a
+  // memory64+multi-memory local.tee-produced fill/restore/read case under the
+  // live-zero memory boundary. Binaryen lowers the one-byte fill to store8 but
+  // preserves the address local.tee wrappers; Starshine must not remove those
+  // local.tee writes as mere dead locals in this source-backed multi-memory
+  // output-shape family.
+  let mem0 = @lib.MemIdx::new(0U)
+  let mem1 = @lib.MemIdx::new(1U)
+  let memarg1 = @lib.MemArg::new(@lib.U32(0), Some(mem1), @lib.U64(0UL))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i64(1UL, None)),
+        @lib.MemType::new(@lib.Limits::i64(1UL, None)),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(3U, @lib.ValType::i64()),
+          @lib.Expr::new([
+            @lib.Instruction::i64_const(@lib.I64(0L)),
+            @lib.Instruction::i64_const(@lib.I64(0L)),
+            @lib.Instruction::i64_const(@lib.I64(0L)),
+            @lib.Instruction::memory_copy(mem0, mem0),
+            @lib.Instruction::i64_const(@lib.I64(0L)),
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::i64_const(@lib.I64(0L)),
+            @lib.Instruction::memory_fill(mem0),
+            @lib.Instruction::i64_const(@lib.I64(34874L)),
+            @lib.Instruction::i64_load8u(memarg1),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i64_const(@lib.I64(34874L)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i32_const(@lib.I32(42)),
+            @lib.Instruction::i64_const(@lib.I64(1L)),
+            @lib.Instruction::memory_fill(mem1),
+            @lib.Instruction::i64_const(@lib.I64(34874L)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i64_load8u(memarg1),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i64_const(@lib.I64(34874L)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i64_store8(memarg1),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid memory64 multi-memory input, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected optimize-instructions memory64 multi-memory success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=memory-localtee-optimize-instructions",
+      )
+    }),
+    msg="expected memory-localtee raw skip in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("memory.fill 1"), msg=pretty)
+  assert_true(pretty.contains("i32.store8"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.tee", "i32.store8", "local.tee", "i64.load8u", "local.tee", "i64.store8",
+  ])
+}
+
+///|
 test "optimize-instructions preserves atomic localtee addresses" {
   // Grouped OI-G count120 follow-up from
   // `.tmp/oi-g-raw-atomic-offset-commute-fix-count120-20260702`: the residual

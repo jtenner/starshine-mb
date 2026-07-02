@@ -25004,6 +25004,126 @@ fn run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(
+  mem_idx : @lib.MemIdx,
+) -> Bool {
+  let @lib.MemIdx(raw_idx) = mem_idx
+  raw_idx != 0U
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_memarg_is_nondefault(
+  memarg : @lib.MemArg,
+) -> Bool {
+  match memarg {
+    @lib.MemArg(_, Some(mem_idx), _) =>
+      run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(mem_idx)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Load(memarg)
+    | @lib.I64Load(memarg)
+    | @lib.F32Load(memarg)
+    | @lib.F64Load(memarg)
+    | @lib.I32Load8S(memarg)
+    | @lib.I32Load8U(memarg)
+    | @lib.I32Load16S(memarg)
+    | @lib.I32Load16U(memarg)
+    | @lib.I64Load8S(memarg)
+    | @lib.I64Load8U(memarg)
+    | @lib.I64Load16S(memarg)
+    | @lib.I64Load16U(memarg)
+    | @lib.I64Load32S(memarg)
+    | @lib.I64Load32U(memarg)
+    | @lib.I32Store(memarg)
+    | @lib.I64Store(memarg)
+    | @lib.F32Store(memarg)
+    | @lib.F64Store(memarg)
+    | @lib.I32Store8(memarg)
+    | @lib.I32Store16(memarg)
+    | @lib.I64Store8(memarg)
+    | @lib.I64Store16(memarg)
+    | @lib.I64Store32(memarg) =>
+      run_hot_pipeline_raw_optimize_instructions_memarg_is_nondefault(memarg)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut i = 0
+  while i < instrs.length() {
+    match instrs[i] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    if i + 1 < instrs.length() {
+      match (instrs[i], instrs[i + 1]) {
+        (@lib.LocalTee(_), access) if run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
+            access,
+          ) => return true
+        _ => ()
+      }
+    }
+    if i + 2 < instrs.length() {
+      match (instrs[i], instrs[i + 2]) {
+        (@lib.LocalTee(_), access) if run_hot_pipeline_raw_optimize_instructions_is_nondefault_memory_access(
+            access,
+          ) => return true
+        _ => ()
+      }
+    }
+    if i + 3 < instrs.length() {
+      match (instrs[i], instrs[i + 3]) {
+        (@lib.LocalTee(_), @lib.MemoryFill(mem_idx)) if run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(
+            mem_idx,
+          ) => return true
+        (@lib.LocalTee(_), @lib.MemoryCopy(dst_mem, src_mem)) if run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(
+            dst_mem,
+          ) ||
+          run_hot_pipeline_raw_optimize_instructions_mem_idx_is_nondefault(
+            src_mem,
+          ) => return true
+        _ => ()
+      }
+    }
+    i = i + 1
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_store_bits(
   instr : @lib.Instruction,
 ) -> Int? {
@@ -26336,6 +26456,16 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     ) {
     return Some({
       reason: "atomic-localtee-optimize-instructions",
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_optimize_instructions_has_nondefault_memory_localtee_address(
+      body,
+    ) {
+    return Some({
+      reason: "memory-localtee-optimize-instructions",
       func: skipped_func,
       unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
