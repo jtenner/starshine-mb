@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-06-30
 sources:
+  - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
   - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
@@ -13,6 +14,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./parity.md
   - ./variant-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -36,8 +38,8 @@ Use that sibling for the complete five-variant family; use this page when you on
 
 ## Freshness note
 
-Use Binaryen `version_129` as the stable source oracle.
-The 2026-05-04 current-`main` recheck in [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md) found no teaching-relevant drift for the checked no-structure surfaces: implementation file, public registration, scheduler placement, pass-runner fixup contract, nested optimization helper, and dedicated proof files.
+Use Binaryen `version_130` as the stable source oracle for current audit work.
+The 2026-06-30 source refresh in [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md) found the dedicated no-structure and nearby-variant tests unchanged from `version_129`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. Helper drift in `EffectAnalyzer`, `LinearExecutionWalker`, and `Properties` remains relevant to the active effect/refinalization audit.
 
 ## Upstream file map
 
@@ -214,10 +216,10 @@ Starshine now implements this pass as an active direct hot pass.
 | `src/passes/optimize_test.mbt` | regressions that the no-structure neighbor is active, the exact slot helper is explicit, and public presets still avoid premature tuple-slot scheduling |
 | `src/passes/pass_manager.mbt` | dispatches both spellings to the no-structure runner and shares raw simplify-locals artifact gates |
 | `src/passes/simplify_locals.mbt` | owns the no-structure descriptor, alias descriptor, summary, and runner; reuses local sink/dead cleanup while disabling structure-result rewrites |
-| `src/passes/simplify_locals_nostructure_test.mbt` | focused positive and no-structure negative tests plus exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay coverage |
+| `src/passes/simplify_locals_nostructure_test.mbt` | focused positive and no-structure negative tests, exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay coverage, the 2026-06-30 canonical/no-tee existing-tee regressions, straight-line overwritten pending-load cleanup coverage for both canonical and no-tee variants, try_table EH barrier coverage for nonthrowing-vs-throwing pending values, exact-global effect/order coverage for distinct-global sinking vs same-global barriers, dynamic read-only-load commutation coverage, same/distinct table-write barrier coverage, direct-call barrier coverage, and nullable-local `ref.as_non_null` read-only-load coverage |
 | `scripts/lib/pass-fuzz-compare-task.ts` | compare-pass harness canonical/alias support |
 | `scripts/lib/self-optimize-compare-task.ts` | debug-artifact compare canonical/alias support |
-| `agent-todo.md` | neighboring tuple/local-cluster follow-up only; the standalone `SLNS` ordered-slot blocker is now retired |
+| `agent-todo.md` | active `[O4Z-AUDIT-SLNS]` deep audit until the full family checklist, dedicated profile, performance target, and final signoff are complete |
 
 The key local caveat is now preset scope, not direct implementation: the direct pass is oracle-checked and the exact early local slot is replay-proven, but public `optimize` / `shrink` placement still depends on neighboring tuple/local-cluster work.
 

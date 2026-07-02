@@ -730,6 +730,10 @@ pub enum GenValidProfile {
   SsaNomergeParityProfile
   SsaNomergeStressProfile
   SsaNomergeAllProfile
+  SimplifyLocalsNostructureStraightLineProfile
+  SimplifyLocalsNostructureTeeControlProfile
+  SimplifyLocalsNostructureEffectOrderProfile
+  SimplifyLocalsNostructureAllProfile
   PassOiDefaultScalarProfile
   PassOiLocalFactsProfile
   PassOiBooleanSelectProfile
@@ -872,6 +876,13 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SsaNomergeParityProfile => "ssa-nomerge-parity"
     SsaNomergeStressProfile => "ssa-nomerge-stress"
     SsaNomergeAllProfile => "ssa-nomerge-all"
+    SimplifyLocalsNostructureStraightLineProfile =>
+      "simplify-locals-nostructure-straight-line"
+    SimplifyLocalsNostructureTeeControlProfile =>
+      "simplify-locals-nostructure-tee-control"
+    SimplifyLocalsNostructureEffectOrderProfile =>
+      "simplify-locals-nostructure-effect-order"
+    SimplifyLocalsNostructureAllProfile => "simplify-locals-nostructure-all"
     PassOiDefaultScalarProfile => "pass-oi-default-scalar"
     PassOiLocalFactsProfile => "pass-oi-local-facts"
     PassOiBooleanSelectProfile => "pass-oi-boolean-select"
@@ -895,6 +906,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | DeadCodeEliminationAllProfile
     | RemoveUnusedBrsAllProfile
     | SsaNomergeAllProfile
+    | SimplifyLocalsNostructureAllProfile
     | RandomAllProfilesProfile => true
     _ => false
   }
@@ -1010,6 +1022,21 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 2),
         GenValidProfileMember::new(SsaNomergeCoverageProfile, 2),
         GenValidProfileMember::new(SsaNomergeStressProfile, 1),
+      ]
+    SimplifyLocalsNostructureAllProfile =>
+      [
+        GenValidProfileMember::new(
+          SimplifyLocalsNostructureStraightLineProfile,
+          3,
+        ),
+        GenValidProfileMember::new(
+          SimplifyLocalsNostructureTeeControlProfile,
+          2,
+        ),
+        GenValidProfileMember::new(
+          SimplifyLocalsNostructureEffectOrderProfile,
+          2,
+        ),
       ]
     RandomAllProfilesProfile =>
       [
@@ -1166,6 +1193,10 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SsaNomergeParityProfile,
     SsaNomergeStressProfile,
     SsaNomergeAllProfile,
+    SimplifyLocalsNostructureStraightLineProfile,
+    SimplifyLocalsNostructureTeeControlProfile,
+    SimplifyLocalsNostructureEffectOrderProfile,
+    SimplifyLocalsNostructureAllProfile,
     PassOiDefaultScalarProfile,
     PassOiLocalFactsProfile,
     PassOiBooleanSelectProfile,
@@ -1252,6 +1283,13 @@ pub fn gen_valid_profile_by_name(
     "random-profiles" => Ok(RandomAllProfilesProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
+    "simplify-locals-nostructure" => Ok(SimplifyLocalsNostructureAllProfile)
+    "simplify-locals-nostructure-closeout" =>
+      Ok(SimplifyLocalsNostructureAllProfile)
+    "simplify-locals-nostructure-all-profiles" =>
+      Ok(SimplifyLocalsNostructureAllProfile)
+    "slns" => Ok(SimplifyLocalsNostructureAllProfile)
+    "slns-closeout" => Ok(SimplifyLocalsNostructureAllProfile)
     "optimize-instructions" => Ok(PassOiDefaultScalarProfile)
     "oi-default-scalar" => Ok(PassOiDefaultScalarProfile)
     "oi-local-facts" => Ok(PassOiLocalFactsProfile)
@@ -1680,6 +1718,14 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | SsaNomergeStressProfile => gen_valid_ssa_nomerge_profile_config(profile)
     SsaNomergeAllProfile =>
       gen_valid_ssa_nomerge_profile_config(SsaNomergeCoverageProfile)
+    SimplifyLocalsNostructureStraightLineProfile
+    | SimplifyLocalsNostructureTeeControlProfile
+    | SimplifyLocalsNostructureEffectOrderProfile =>
+      gen_valid_slns_profile_config(profile)
+    SimplifyLocalsNostructureAllProfile =>
+      gen_valid_slns_profile_config(
+        SimplifyLocalsNostructureStraightLineProfile,
+      )
     PassOiDefaultScalarProfile
     | PassOiLocalFactsProfile
     | PassOiBooleanSelectProfile
@@ -2682,6 +2728,117 @@ fn gen_valid_ssa_nomerge_profile_config(
       allow_ref_types: false,
       allow_name_custom_sections: false,
     },
+  }
+}
+
+///|
+fn gen_valid_slns_profile_config(profile : GenValidProfile) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let common = GenValidFeatureToggles::{
+    ..base.features,
+    allow_branch_heavy_control: true,
+    allow_typed_body_generator: false,
+    allow_ssa_nomerge_body_generator: true,
+    allow_name_custom_sections: false,
+    allow_v128: false,
+    allow_relaxed_simd: false,
+    allow_atomics: false,
+    allow_shared_memories: false,
+    allow_memory64: false,
+    allow_tail_calls: false,
+    allow_call_indirect: false,
+    allow_subtyping_topology: false,
+  }
+  match profile {
+    SimplifyLocalsNostructureStraightLineProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 2,
+        max_imports: 0,
+        max_defined_funcs: 3,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 2,
+        max_results: 1,
+        max_locals: 8,
+        max_body_statements: 18,
+        max_body_depth: 2,
+        features: GenValidFeatureToggles::{
+          ..common,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_globals: false,
+          allow_tags: false,
+          allow_calls: false,
+          allow_ref_types: false,
+          allow_branch_heavy_control: false,
+        },
+      }
+    SimplifyLocalsNostructureTeeControlProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 3,
+        max_imports: 0,
+        max_defined_funcs: 3,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 2,
+        max_results: 1,
+        max_locals: 10,
+        max_body_statements: 22,
+        max_body_depth: 4,
+        features: GenValidFeatureToggles::{
+          ..common,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_globals: false,
+          allow_tags: false,
+          allow_calls: false,
+          allow_ref_types: false,
+        },
+      }
+    SimplifyLocalsNostructureEffectOrderProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 6,
+        max_imports: 2,
+        max_defined_funcs: 4,
+        max_tables: 1,
+        max_mems: 1,
+        max_globals: 2,
+        max_tags: 1,
+        max_elems: 1,
+        max_datas: 1,
+        max_params: 2,
+        max_results: 1,
+        max_locals: 10,
+        max_body_statements: 28,
+        max_body_depth: 4,
+        features: GenValidFeatureToggles::{
+          ..common,
+          allow_imports: true,
+          allow_tables: true,
+          allow_mems: true,
+          allow_globals: true,
+          allow_tags: true,
+          allow_calls: true,
+          allow_ref_types: true,
+        },
+      }
+    _ =>
+      gen_valid_slns_profile_config(
+        SimplifyLocalsNostructureStraightLineProfile,
+      )
   }
 }
 

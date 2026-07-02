@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-06-30
 sources:
+  - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
@@ -13,6 +14,7 @@ sources:
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
+  - ./parity.md
   - ./variant-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -25,7 +27,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Use Binaryen `version_130` as the current source oracle for this pass.
 - The core implementation is the shared `src/passes/SimplifyLocals.cpp` template.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:
@@ -35,27 +37,27 @@ related:
   - `src/ir/linear-execution.h`
   - `src/ir/properties.h`
 - The shipped behavior examples come from the dedicated no-structure and nearby-variant tests under `test/passes/`.
-- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-05-04 current-`main` recheck on `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, `opt-utils.h`, and the dedicated no-structure test files found no teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md).
+- The current local oracle reports `wasm-opt version 130 (version_130)`. The 2026-06-30 refresh of `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, helper files, and the dedicated no-structure / neighbor tests found no new no-structure test family versus `version_129`. The core no-structure source contract remains the same except for unordered container implementation drift in `SimplifyLocals.cpp`; helper diffs in effect and linear-execution analysis remain important audit inputs. See [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md).
 
 Primary source URLs:
 
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/equivalent_sets.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/linear-execution.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.txt>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.txt>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.txt>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SimplifyLocals.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/passes.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/pass.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/local-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/effects.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/equivalent_sets.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/linear-execution.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/properties.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-nostructure.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-nostructure.txt>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-notee-nostructure.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-notee-nostructure.txt>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals.txt>
 
 For the source/file/test responsibility split, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
@@ -75,7 +77,7 @@ It is not:
 - a whole-function CFG local optimizer
 - the full late `simplify-locals` pass
 
-Instead, the real `version_129` contract is:
+Instead, the real `version_130` contract is:
 
 - keep tee creation enabled
 - keep nesting into existing expression positions enabled
@@ -96,6 +98,10 @@ That means:
 - `allowNesting = true`
 
 Those three facts are more informative than the CLI name by itself.
+
+## Current Starshine audit checklist
+
+The living family checklist now lives in [`./parity.md`](./parity.md). Use it for per-family Starshine covered/gap/Starshine-win/profile/performance status. This strategy page describes the Binaryen algorithm itself.
 
 ## The pass in one table
 
@@ -224,15 +230,17 @@ It blocks motion across conflicts such as:
 - trap versus global-state mutation hazards
 - dangling `pop`
 
-A faithful port should preserve this directional barrier idea instead of collapsing it into one generic “has side effects” bit.
+A faithful port should preserve this directional barrier idea instead of collapsing it into one generic “has side effects” bit. The 2026-06-30 probes in [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md) show several concrete boundaries: distinct globals are precise enough that `global.get $g` may sink across `global.set $h`, dynamic read-only loads may commute with other read-only loads, table writes remain broad barriers even for a `table.get` from a different table, locally-defined direct calls remain barriers for const/load carriers, and nullable-local `ref.as_non_null` may sink across a read-only load.
 
 ## Phase 8: `try` / `try_table` has an extra explicit throwing-value barrier
 
-In `visitPre(...)`, when the current node is `Try` or `TryTable`, Binaryen drops any pending sinkable whose value may throw.
+In `visitPre(...)`, when the current node is `Try` or `TryTable`, Binaryen drops any pending sinkable whose value may throw. Nonthrowing pending values are not dropped by this explicit EH pre-visit rule and may still sink into the EH body when the ordinary effect-ordering checks allow it.
 
 Reason:
 
-- moving that value into the `try` would change where the throw could be caught
+- moving a throwing value into the `try` / `try_table` would change where the throw could be caught
+
+The 2026-06-30 v130 probes in [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md) demonstrate this for `try_table`: a pure pending `i32.const` sinks into the body, while a pending `call` result remains outside the handler.
 
 This is a pass-specific correctness rule worth preserving explicitly.
 
@@ -407,24 +415,25 @@ Those are the durable upstream-level truths.
 
 ## Sources
 
+- [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)
 - [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
 - [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
-- Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- Binaryen `version_129` after-inlining helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-- Binaryen `version_129` helper sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/equivalent_sets.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/linear-execution.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
-- Binaryen `version_129` dedicated tests:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.txt>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.txt>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.txt>
+- Binaryen `version_130` pass source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SimplifyLocals.cpp>
+- Binaryen `version_130` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
+- Binaryen `version_130` after-inlining helper: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>
+- Binaryen `version_130` helper sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/local-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/equivalent_sets.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/linear-execution.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/properties.h>
+- Binaryen `version_130` dedicated tests:
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-nostructure.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-nostructure.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-notee-nostructure.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-notee-nostructure.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals.txt>

@@ -12584,6 +12584,118 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
 }
 
 ///|
+test "simplify-locals-nostructure gen-valid profiles resolve and emit local opportunities" {
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsNostructureStraightLineProfile),
+    "simplify-locals-nostructure-straight-line",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsNostructureTeeControlProfile),
+    "simplify-locals-nostructure-tee-control",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsNostructureEffectOrderProfile),
+    "simplify-locals-nostructure-effect-order",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsNostructureAllProfile),
+    "simplify-locals-nostructure-all",
+  )
+  assert_true(
+    gen_valid_profile_names().contains("simplify-locals-nostructure-all"),
+  )
+  match gen_valid_profile_by_name("simplify-locals-nostructure") {
+    Ok(profile) =>
+      @debug.assert_eq(profile, SimplifyLocalsNostructureAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("slns") {
+    Ok(profile) =>
+      @debug.assert_eq(profile, SimplifyLocalsNostructureAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("slns-closeout") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, SimplifyLocalsNostructureAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      @debug.assert_eq(members.length(), 3)
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(
+            SimplifyLocalsNostructureStraightLineProfile,
+            3,
+          ),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(
+            SimplifyLocalsNostructureTeeControlProfile,
+            2,
+          ),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(
+            SimplifyLocalsNostructureEffectOrderProfile,
+            2,
+          ),
+        ),
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+  let straight_config = GenValidConfig::for_profile(
+    SimplifyLocalsNostructureStraightLineProfile,
+  )
+  @debug.assert_eq(
+    gen_valid_config_label(straight_config),
+    "simplify-locals-nostructure-straight-line",
+  )
+  assert_true(straight_config.features.allow_ssa_nomerge_body_generator)
+  assert_false(straight_config.features.allow_mems)
+  assert_false(straight_config.features.allow_tables)
+  let effect_config = GenValidConfig::for_profile(
+    SimplifyLocalsNostructureEffectOrderProfile,
+  )
+  @debug.assert_eq(
+    gen_valid_config_label(effect_config),
+    "simplify-locals-nostructure-effect-order",
+  )
+  assert_true(effect_config.features.allow_mems)
+  assert_true(effect_config.features.allow_globals)
+  assert_true(effect_config.features.allow_tables)
+  assert_true(effect_config.features.allow_calls)
+
+  let generated = match
+    gen_valid_module_result_from_seed(0x5eedUL, straight_config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    generated.config_label,
+    "simplify-locals-nostructure-straight-line",
+  )
+  assert_true(generated.facts.has_ssa_straight_line_local_chain)
+  assert_true(generated.facts.has_ssa_local_tee_def_use)
+  assert_false(generated.facts.has_mems)
+
+  let effect_generated = match
+    gen_valid_module_result_from_seed(0x5eedUL, effect_config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    effect_generated.config_label,
+    "simplify-locals-nostructure-effect-order",
+  )
+  assert_true(effect_generated.facts.has_mems)
+  assert_true(effect_generated.facts.has_ssa_straight_line_local_chain)
+}
+
+///|
 test "remove-unused-brs aggregate gen-valid profile resolves focused leaves" {
   @debug.assert_eq(
     gen_valid_profile_name(RemoveUnusedBrsAllProfile),

@@ -1203,6 +1203,10 @@ pub enum GenValidProfile {
   SsaNomergeParityProfile
   SsaNomergeStressProfile
   SsaNomergeAllProfile
+  SimplifyLocalsNostructureStraightLineProfile
+  SimplifyLocalsNostructureTeeControlProfile
+  SimplifyLocalsNostructureEffectOrderProfile
+  SimplifyLocalsNostructureAllProfile
   PassOiDefaultScalarProfile
   PassOiLocalFactsProfile
   PassOiBooleanSelectProfile

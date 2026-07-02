@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-01
 sources:
+  - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
@@ -30,7 +31,7 @@ This page focuses on the easiest part of Binaryen’s locals family to misunders
 - what it surprisingly leaves on
 - and how that differs from the nearby public variants
 
-The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-05-04 current-`main` source/test recheck did not surface a teaching-relevant drift for this variant surface. See [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md).
+The current local oracle is Binaryen `version_130` (`wasm-opt version 130`). The 2026-06-30 source refresh found the dedicated no-structure and nearby-variant tests unchanged from `version_130`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. See [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md).
 
 ## The whole family in one table
 
@@ -315,13 +316,13 @@ If you keep those five answers straight, the variant surface becomes much easier
 - [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
 - [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
-- Binaryen `version_129` dedicated tests:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.txt>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.txt>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.txt>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.txt>
+- Binaryen `version_130` pass source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SimplifyLocals.cpp>
+- Binaryen `version_130` dedicated tests:
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-nostructure.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-nostructure.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-notee-nostructure.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-notee-nostructure.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-nonesting.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals-nonesting.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/simplify-locals.txt>

@@ -612,9 +612,132 @@ test "simplify-locals-nostructure lowered cleanup skips stack-root call hazards"
     None => fail("expected code section")
   }
   let cleaned = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
-    func, "simplify-locals-nostructure",
+    func,
+    "simplify-locals-nostructure",
+    None,
+    mod_,
   )
   @debug.assert_eq(cleaned, func)
+}
+
+///|
+test "simplify-locals-nostructure lowered cleanup refinalizes ref.func null if result" {
+  // Binaryen version_130's ReFinalize pass narrows a `funcref` if whose arms
+  // are `ref.func $dummy` and `ref.null func` to `(ref null (exact $ft))` after
+  // a same-function ref.func local simplification trigger. This whitebox test
+  // covers the generated case-000251 suffix without relying on public call_ref
+  // WAT spellings that the current test parser rejects.
+  let mod_ = pass_test_module_from_wat(
+    "(module (type $ft (func)) (elem declare func $dummy) (tag $e) (func $dummy (type $ft)) (func (result exnref) (local funcref) ref.func $dummy local.set 0 local.get 0 drop (i32.const 0) (if (result funcref) (then ref.func $dummy) (else ref.null func)) drop (block $h (result exnref) (if (result exnref) (i32.const 0) (then (try_table (result exnref) (catch_all_ref $h) throw $e)) (else (try_table (result exnref) (catch_all_ref $h) throw $e))))))",
+  )
+  let (dummy_func, func) = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => (funcs[0], funcs[1])
+    None => fail("expected code section")
+  }
+  let cleaned = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
+    func,
+    "simplify-locals-nostructure",
+    Some(func),
+    mod_,
+  )
+  let optimized = mod_.with_code_sec(@lib.CodeSec::new([dummy_func, cleaned]))
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("Exact (HeapType Idx 0)"), msg=pretty)
+  assert_true(
+    pretty.contains("ref.null (RefType Null Exact (HeapType Idx 0))"),
+    msg=pretty,
+  )
+  assert_false(
+    pretty.contains("if (RefType Null (AbsHeapType Func))"),
+    msg=pretty,
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exact ref.func/null if cleanup to validate, got \{@validate.validation_error_message(err)}: \{pretty}",
+      )
+  }
+}
+
+///|
+test "simplify-locals-nostructure lowered cleanup directizes ref.func local call_ref target" {
+  // Generated case-000251 also keeps a `ref.func; local.set; local.get;
+  // call_ref` target wrapper in Starshine while Binaryen replaces the local
+  // traffic with a direct `ref.func` call_ref target under the same
+  // refinalization-triggered lowered-cleanup context. Build the fixture directly
+  // because the public WAT fixture path is still parser-blocked for this form.
+  let callee_type = @lib.TypeIdx::new(0U)
+  let run_type = @lib.TypeIdx::new(1U)
+  let callee_idx = @lib.FuncIdx::new(0U)
+  let target_local = @lib.LocalIdx::new(0U)
+  let typed_callee_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(callee_type)),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_null_exn()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([callee_type, run_type]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([callee_idx]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::from_types([typed_callee_ref]),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(callee_idx),
+            @lib.Instruction::local_set(target_local),
+            @lib.Instruction::local_get(target_local),
+            @lib.Instruction::call_ref(callee_type),
+            @lib.Instruction::ref_null(
+              @lib.HeapType::abs(@lib.AbsHeapType::exn()),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let func = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[1]
+    None => fail("expected code section")
+  }
+  let cleaned = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
+    func,
+    "simplify-locals-nostructure",
+    Some(func),
+    mod_,
+  )
+  let optimized = mod_.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      cleaned,
+    ]),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("call_ref"), msg=pretty)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected directized call_ref cleanup to validate, got \{err}: \{pretty}",
+      )
+  }
 }
 
 ///|

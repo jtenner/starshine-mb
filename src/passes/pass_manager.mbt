@@ -2332,6 +2332,80 @@ fn run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_instr_has_stack_effect_hazard(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Call(_)
+    | @lib.CallIndirect(_, _)
+    | @lib.CallRef(_)
+    | @lib.MemoryCopy(_, _)
+    | @lib.MemoryFill(_) => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(body)
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(then_body) {
+        return true
+      }
+      match else_body {
+        Some(else_body) =>
+          run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(
+            else_body,
+          )
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_has_stack_effect_local_write(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut previous_has_stack_effect = false
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(_) | @lib.LocalTee(_) =>
+        if previous_has_stack_effect {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_stack_effect_local_write(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_has_stack_effect_local_write(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_simplify_locals_has_stack_effect_local_write(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    previous_has_stack_effect = run_hot_pipeline_raw_simplify_locals_instr_has_stack_effect_hazard(
+      instr,
+    )
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_has_global_state(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -2379,6 +2453,15 @@ fn run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
   run_hot_pipeline_simplify_locals_descriptor_is_nostructure(descriptor_name) &&
   run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) &&
   run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(instrs)
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_initial_should_skip_stack_hazard(
+  descriptor_name : String,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  run_hot_pipeline_simplify_locals_descriptor_is_nostructure(descriptor_name) &&
+  run_hot_pipeline_raw_simplify_locals_has_stack_effect_local_write(instrs)
 }
 
 ///|
@@ -5538,6 +5621,218 @@ fn run_hot_pipeline_raw_simplify_locals_try_rewrite_tail(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  let mut previous_unconditional_terminator = false
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
+          body,
+        )
+        rewritten.push(
+          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
+          body,
+        )
+        rewritten.push(
+          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
+          body,
+        )
+        rewritten.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
+          then_body,
+        )
+        let rewritten_else = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, else_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
+              else_body,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        rewritten.push(
+          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
+        )
+        rewrite_count = rewrite_count + then_rewrites
+      }
+      @lib.LocalSet(@lib.LocalIdx(raw)) if previous_unconditional_terminator => {
+        let local_id = raw.reinterpret_as_int()
+        if !run_hot_pipeline_raw_instrs_have_later_local_read(
+            instrs,
+            idx + 1,
+            local_id,
+          ) {
+          rewritten.push(@lib.Instruction::nop())
+          rewrite_count = rewrite_count + 1
+        } else {
+          rewritten.push(instrs[idx])
+        }
+      }
+      _ => rewritten.push(instrs[idx])
+    }
+    match instrs[idx] {
+      @lib.Nop => ()
+      _ =>
+        previous_unconditional_terminator = run_hot_pipeline_raw_simplify_locals_instr_is_unconditional_terminator(
+            instrs[idx],
+          ) ||
+          previous_unconditional_terminator
+    }
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_end_in_unconditional_terminator(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut idx = instrs.length() - 1
+  while idx >= 0 {
+    match instrs[idx] {
+      @lib.Nop => ()
+      instr =>
+        return run_hot_pipeline_raw_simplify_locals_instr_is_unconditional_terminator(
+          instr,
+        )
+    }
+    idx = idx - 1
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_block_type_has_result(bt : @lib.BlockType) -> Bool {
+  match bt {
+    @lib.VoidBlockType => false
+    _ => true
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_next_non_nop_idx(
+  instrs : Array[@lib.Instruction],
+  after_idx : Int,
+) -> Int? {
+  let mut idx = after_idx + 1
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Nop => ()
+      _ => return Some(idx)
+    }
+    idx = idx + 1
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
+          body,
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+        let next_is_nonfallthrough = match
+          run_hot_pipeline_raw_next_non_nop_idx(instrs, idx) {
+          Some(next_idx) =>
+            run_hot_pipeline_raw_simplify_locals_instr_is_unconditional_terminator(
+              instrs[next_idx],
+            )
+          None => false
+        }
+        if run_hot_pipeline_raw_block_type_has_result(bt) &&
+          !run_hot_pipeline_raw_instrs_have_branch(rewritten_body) &&
+          run_hot_pipeline_raw_instrs_end_in_unconditional_terminator(
+            rewritten_body,
+          ) &&
+          next_is_nonfallthrough {
+          for body_instr in rewritten_body {
+            rewritten.push(body_instr)
+          }
+          rewrite_count = rewrite_count + 1
+        } else {
+          rewritten.push(
+            @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
+          )
+        }
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
+          body,
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+        rewritten.push(
+          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
+        )
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
+          body,
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+        rewritten.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
+          then_body,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        let rewritten_else = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, else_rewrites) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
+              else_body,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        rewritten.push(
+          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
+        )
+      }
+      instr => rewritten.push(instr)
+    }
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -5599,8 +5894,11 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
       _ => normalized.push(instr)
     }
   }
-  let (pure_call_tail_rewritten, pure_call_tail_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
+  let (unreachable_dead_set_rewritten, unreachable_dead_set_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
     normalized,
+  )
+  let (pure_call_tail_rewritten, pure_call_tail_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
+    unreachable_dead_set_rewritten,
   )
   let (pure_suffix_rewritten, pure_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
     pure_call_tail_rewritten, env,
@@ -5617,6 +5915,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
   (
     rewritten,
     rewrite_count +
+    unreachable_dead_set_rewrites +
     pure_call_tail_rewrites +
     pure_suffix_rewrites +
     control_carrier_rewrites +
@@ -5688,7 +5987,20 @@ fn run_hot_pipeline_raw_simplify_locals(
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   if !run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) {
-    if descriptor.name == "simplify-locals-notee-nostructure" {
+    let (flattened_instrs, flattened_count) = run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
+      instrs,
+    )
+    if flattened_count > 0 {
+      return Some({
+        reason: "no-local-writes-no-normal-result-block",
+        func: @lib.Func::new(locals, @lib.Expr::new(flattened_instrs)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_simplify_locals_descriptor_is_nostructure(
+        descriptor.name,
+      ) {
       let (rewritten_instrs, added_locals, changed) = run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
         instrs,
       )
@@ -5696,7 +6008,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         let rewritten_locals = locals.copy()
         rewritten_locals.append_types(added_locals)
         return Some({
-          reason: "notee-const-nop",
+          reason: "no-local-writes-const-nop",
           func: @lib.Func::new(
             rewritten_locals,
             @lib.Expr::new(rewritten_instrs),
@@ -5714,7 +6026,23 @@ fn run_hot_pipeline_raw_simplify_locals(
     })
   }
   let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
-  let raw_nostructure_stack_hazard = run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
+  if run_hot_pipeline_simplify_locals_descriptor_is_nostructure(descriptor.name) {
+    let (unreachable_dead_set_instrs, unreachable_dead_set_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
+      instrs,
+    )
+    if unreachable_dead_set_rewrites > 0 {
+      return Some({
+        reason: "unreachable-dead-stack-set",
+        func: @lib.Func::new(
+          locals,
+          @lib.Expr::new(unreachable_dead_set_instrs),
+        ),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+  }
+  let raw_nostructure_stack_hazard = run_hot_pipeline_simplify_locals_initial_should_skip_stack_hazard(
     descriptor.name,
     instrs,
   )
@@ -28022,6 +28350,1324 @@ fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pai
 }
 
 ///|
+fn run_hot_pipeline_slns_lowered_block_type_is_nonvoid(
+  block_type : @lib.BlockType,
+) -> Bool {
+  match block_type {
+    @lib.VoidBlockType => false
+    _ => true
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_instrs_end_without_normal_value(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.is_empty() {
+    return false
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.Unreachable | @lib.Throw(_) | @lib.ThrowRef | @lib.Br(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_body_has_ref_func_local_drop_pair(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < body.length(); idx = idx + 1 {
+    if idx + 2 < body.length() {
+      match (body[idx], body[idx + 1], body[idx + 2]) {
+        (
+          @lib.RefFunc(_),
+          @lib.LocalSet(@lib.LocalIdx(set_raw)),
+          @lib.LocalGet(@lib.LocalIdx(get_raw)),
+        ) if set_raw.reinterpret_as_int() == get_raw.reinterpret_as_int() =>
+          return true
+        _ => ()
+      }
+    }
+    match body[idx] {
+      @lib.Block(_, @lib.Expr(nested)) | @lib.Loop(_, @lib.Expr(nested)) =>
+        if run_hot_pipeline_slns_lowered_body_has_ref_func_local_drop_pair(
+            nested,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_slns_lowered_body_has_ref_func_local_drop_pair(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_slns_lowered_body_has_ref_func_local_drop_pair(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(nested)) =>
+        if run_hot_pipeline_slns_lowered_body_has_ref_func_local_drop_pair(
+            nested,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_body_has_ref_func_local_call_ref_pair(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < body.length(); idx = idx + 1 {
+    if idx + 3 < body.length() {
+      match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+        (
+          @lib.RefFunc(_),
+          @lib.LocalSet(local_id),
+          @lib.LocalGet(get_local_id),
+          @lib.CallRef(_),
+        ) if local_id == get_local_id => return true
+        (
+          @lib.RefFunc(_),
+          @lib.LocalSet(local_id),
+          @lib.LocalGet(get_local_id),
+          @lib.ReturnCallRef(_),
+        ) if local_id == get_local_id => return true
+        _ => ()
+      }
+    }
+    match body[idx] {
+      @lib.Block(_, @lib.Expr(nested)) | @lib.Loop(_, @lib.Expr(nested)) =>
+        if run_hot_pipeline_slns_lowered_body_has_ref_func_local_call_ref_pair(
+            nested,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_slns_lowered_body_has_ref_func_local_call_ref_pair(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_slns_lowered_body_has_ref_func_local_call_ref_pair(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(nested)) =>
+        if run_hot_pipeline_slns_lowered_body_has_ref_func_local_call_ref_pair(
+            nested,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_refinalization_context_from_original(
+  original_func : @lib.Func?,
+) -> Bool {
+  match original_func {
+    Some(@lib.Func(_, @lib.Expr(body))) =>
+      run_hot_pipeline_slns_lowered_body_has_ref_func_local_drop_pair(body) ||
+      run_hot_pipeline_slns_lowered_body_has_ref_func_local_call_ref_pair(body)
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_try_table_catches_are_ref_payload(
+  catches : Array[@lib.Catch],
+) -> Bool {
+  if catches.is_empty() {
+    return false
+  }
+  catches.all(fn(catch_) {
+    match catch_ {
+      @lib.CatchRef(_, _) | @lib.CatchAllRef(_) => true
+      _ => false
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_try_table_catches_are_tag_ref_payload(
+  catches : Array[@lib.Catch],
+) -> Bool {
+  if catches.is_empty() {
+    return false
+  }
+  catches.all(fn(catch_) {
+    match catch_ {
+      @lib.CatchRef(_, _) => true
+      _ => false
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_try_table_catches_are_catch_all_ref(
+  catches : Array[@lib.Catch],
+) -> Bool {
+  if catches.is_empty() {
+    return false
+  }
+  catches.all(fn(catch_) {
+    match catch_ {
+      @lib.CatchAllRef(_) => true
+      _ => false
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_try_table_result_can_canonicalize(
+  block_type : @lib.BlockType,
+  catches : Array[@lib.Catch],
+  body : Array[@lib.Instruction],
+) -> Bool {
+  let has_nonvoid_result = run_hot_pipeline_slns_lowered_block_type_is_nonvoid(
+    block_type,
+  )
+  has_nonvoid_result &&
+  run_hot_pipeline_slns_lowered_try_table_catches_are_ref_payload(catches) &&
+  run_hot_pipeline_slns_lowered_instrs_end_without_normal_value(body)
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_block_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  match body {
+    [@lib.TryTable(block_type, catches, @lib.Expr(try_body))] =>
+      if run_hot_pipeline_slns_lowered_try_table_result_can_canonicalize(
+          block_type, catches, try_body,
+        ) {
+        Some([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            catches,
+            @lib.Expr::new(try_body),
+          ),
+          @lib.Instruction::unreachable_(),
+        ])
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_if_arm_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  match body {
+    [@lib.TryTable(block_type, catches, @lib.Expr(try_body))] =>
+      if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) &&
+        run_hot_pipeline_slns_lowered_try_table_catches_are_tag_ref_payload(
+          catches,
+        ) &&
+        run_hot_pipeline_slns_lowered_instrs_end_without_normal_value(try_body) {
+        Some([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            catches,
+            @lib.Expr::new(try_body),
+          ),
+          @lib.Instruction::unreachable_(),
+        ])
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_no_normal_try_table_tag_ref_if_arm_body_can_canonicalize(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  match
+    run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_if_arm_body(
+      body,
+    ) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_nonnull_exn_block_type() -> @lib.BlockType {
+  @lib.BlockType::val_type(
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
+    ),
+  )
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_retarget_catch_all_ref_if_label_to_outer(
+  catches : Array[@lib.Catch],
+) -> Array[@lib.Catch] {
+  catches.map(fn(catch_) {
+    match catch_ {
+      @lib.CatchAllRef(@lib.LabelIdx(raw)) if raw == 0U =>
+        @lib.Catch::all_ref(@lib.LabelIdx::new(1U))
+      _ => catch_
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_retarget_ref_payload_if_label_to_outer(
+  catches : Array[@lib.Catch],
+) -> Array[@lib.Catch] {
+  catches.map(fn(catch_) {
+    match catch_ {
+      @lib.CatchAllRef(@lib.LabelIdx(raw)) if raw == 0U =>
+        @lib.Catch::all_ref(@lib.LabelIdx::new(1U))
+      @lib.CatchRef(tag_idx, @lib.LabelIdx(raw)) if raw == 0U =>
+        @lib.Catch::ref_(tag_idx, @lib.LabelIdx::new(1U))
+      _ => catch_
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_catch_all_ref_if_arm_body_with_catches(
+  body : Array[@lib.Instruction],
+  rewrite_catches : (Array[@lib.Catch]) -> Array[@lib.Catch],
+) -> Array[@lib.Instruction]? {
+  match body {
+    [@lib.TryTable(block_type, catches, @lib.Expr(try_body))] =>
+      if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) &&
+        run_hot_pipeline_slns_lowered_try_table_catches_are_catch_all_ref(
+          catches,
+        ) &&
+        run_hot_pipeline_slns_lowered_instrs_end_without_normal_value(try_body) {
+        Some([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            rewrite_catches(catches),
+            @lib.Expr::new(try_body),
+          ),
+          @lib.Instruction::unreachable_(),
+        ])
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_catch_all_ref_if_arm_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_catch_all_ref_if_arm_body_with_catches(
+    body, run_hot_pipeline_slns_lowered_retarget_catch_all_ref_if_label_to_outer,
+  )
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_catch_all_ref_if_arm_body_preserve_label(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_catch_all_ref_if_arm_body_with_catches(
+    body,
+    fn(catches) { catches },
+  )
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_no_normal_try_table_catch_all_ref_if_arm_body_can_canonicalize(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  match
+    run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_catch_all_ref_if_arm_body(
+      body,
+    ) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_ref_payload_if_arm_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  match body {
+    [@lib.TryTable(block_type, catches, @lib.Expr(try_body))] =>
+      if run_hot_pipeline_slns_lowered_try_table_result_can_canonicalize(
+          block_type, catches, try_body,
+        ) {
+        Some([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            run_hot_pipeline_slns_lowered_retarget_ref_payload_if_label_to_outer(
+              catches,
+            ),
+            @lib.Expr::new(try_body),
+          ),
+          @lib.Instruction::unreachable_(),
+        ])
+      } else {
+        None
+      }
+    [@lib.TryTable(block_type, catches, @lib.Expr(try_body)), @lib.Unreachable] =>
+      if !run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) &&
+        run_hot_pipeline_slns_lowered_try_table_catches_are_ref_payload(catches) &&
+        run_hot_pipeline_slns_lowered_instrs_end_without_normal_value(try_body) {
+        Some([
+          @lib.Instruction::try_table(
+            @lib.BlockType::void_(),
+            run_hot_pipeline_slns_lowered_retarget_ref_payload_if_label_to_outer(
+              catches,
+            ),
+            @lib.Expr::new(try_body),
+          ),
+          @lib.Instruction::unreachable_(),
+        ])
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_unwrap_single_nonnull_exn_block_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  match body {
+    [@lib.Block(block_type, @lib.Expr(inner_body))] if block_type ==
+      run_hot_pipeline_slns_lowered_nonnull_exn_block_type() => Some(inner_body)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_both_arm_catch_all_ref_if_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 {
+    return None
+  }
+  let cond_idx = body.length() - 2
+  match body[cond_idx] {
+    @lib.I32Const(_) => ()
+    _ => return None
+  }
+  match body[body.length() - 1] {
+    @lib.If(block_type, then_body, Some(else_body)) => {
+      if !run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+        return None
+      }
+      match
+        (
+          run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_ref_payload_if_arm_body(
+            then_body,
+          ),
+          run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_ref_payload_if_arm_body(
+            else_body,
+          ),
+        ) {
+        (Some(next_then), Some(next_else)) => {
+          let out : Array[@lib.Instruction] = []
+          for idx = 0; idx < cond_idx; idx = idx + 1 {
+            out.push(body[idx])
+          }
+          out.push(body[cond_idx])
+          out.push(
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              next_then,
+              Some(next_else),
+            ),
+          )
+          out.push(@lib.Instruction::unreachable_())
+          Some(out)
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_try_table_catches_are_catch_all_ref_current_label(
+  catches : Array[@lib.Catch],
+) -> Bool {
+  if catches.is_empty() {
+    return false
+  }
+  catches.all(fn(catch_) {
+    match catch_ {
+      @lib.CatchAllRef(@lib.LabelIdx(raw)) => raw == 0U
+      _ => false
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_try_table_catches_are_catch_ref_current_label(
+  catches : Array[@lib.Catch],
+) -> Bool {
+  if catches.is_empty() {
+    return false
+  }
+  catches.all(fn(catch_) {
+    match catch_ {
+      @lib.CatchRef(_, @lib.LabelIdx(raw)) => raw == 0U
+      _ => false
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_try_table_catches_are_catch_all_ref_outer_label(
+  catches : Array[@lib.Catch],
+) -> Bool {
+  if catches.is_empty() {
+    return false
+  }
+  catches.all(fn(catch_) {
+    match catch_ {
+      @lib.CatchAllRef(@lib.LabelIdx(raw)) => raw == 1U
+      _ => false
+    }
+  })
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_no_normal_catch_all_ref_if_arm_is_voided_for_outer(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  match body {
+    [@lib.TryTable(block_type, catches, @lib.Expr(try_body)), @lib.Unreachable] =>
+      !run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) &&
+      run_hot_pipeline_slns_lowered_try_table_catches_are_catch_all_ref_outer_label(
+        catches,
+      ) &&
+      run_hot_pipeline_slns_lowered_instrs_end_without_normal_value(try_body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_tail_try_table_catch_all_ref_block_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.is_empty() {
+    return None
+  }
+  let last_idx = body.length() - 1
+  match body[last_idx] {
+    @lib.TryTable(block_type, catches, @lib.Expr(try_body)) => {
+      if !run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) ||
+        !run_hot_pipeline_slns_lowered_try_table_catches_are_catch_all_ref_current_label(
+          catches,
+        ) ||
+        !run_hot_pipeline_slns_lowered_instrs_end_without_normal_value(try_body) {
+        return None
+      }
+      let out : Array[@lib.Instruction] = []
+      for idx = 0; idx < last_idx; idx = idx + 1 {
+        out.push(body[idx])
+      }
+      out.push(
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          catches,
+          @lib.Expr::new(try_body),
+        ),
+      )
+      Some(out)
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_wrap_no_normal_tail_try_table_catch_all_ref_func_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.is_empty() {
+    return None
+  }
+  let last_idx = body.length() - 1
+  match body[last_idx] {
+    @lib.TryTable(block_type, catches, @lib.Expr(try_body)) => {
+      if !run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) ||
+        !run_hot_pipeline_slns_lowered_try_table_catches_are_catch_all_ref_current_label(
+          catches,
+        ) ||
+        !run_hot_pipeline_slns_lowered_instrs_end_without_normal_value(try_body) {
+        return None
+      }
+      let block_body : Array[@lib.Instruction] = []
+      for idx = 0; idx < last_idx; idx = idx + 1 {
+        block_body.push(body[idx])
+      }
+      block_body.push(
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          catches,
+          @lib.Expr::new(try_body),
+        ),
+      )
+      block_body.push(@lib.Instruction::unreachable_())
+      Some([
+        @lib.Instruction::block(
+          run_hot_pipeline_slns_lowered_nonnull_exn_block_type(),
+          @lib.Expr::new(block_body),
+        ),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_wrap_no_normal_tail_try_table_catch_ref_func_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.is_empty() {
+    return None
+  }
+  let last_idx = body.length() - 1
+  match body[last_idx] {
+    @lib.TryTable(block_type, catches, @lib.Expr(try_body)) => {
+      if !run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) ||
+        !run_hot_pipeline_slns_lowered_try_table_catches_are_catch_ref_current_label(
+          catches,
+        ) ||
+        !run_hot_pipeline_slns_lowered_instrs_end_without_normal_value(try_body) {
+        return None
+      }
+      let block_body : Array[@lib.Instruction] = []
+      for idx = 0; idx < last_idx; idx = idx + 1 {
+        block_body.push(body[idx])
+      }
+      block_body.push(
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          catches,
+          @lib.Expr::new(try_body),
+        ),
+      )
+      block_body.push(@lib.Instruction::unreachable_())
+      Some([
+        @lib.Instruction::block(
+          run_hot_pipeline_slns_lowered_nonnull_exn_block_type(),
+          @lib.Expr::new(block_body),
+        ),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_wrap_no_normal_single_arm_catch_all_ref_if_tail(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 {
+    return None
+  }
+  let cond_idx = body.length() - 2
+  match body[cond_idx] {
+    @lib.I32Const(_) => ()
+    _ => return None
+  }
+  match body[body.length() - 1] {
+    @lib.If(block_type, then_body, Some(else_body)) => {
+      if !run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+        return None
+      }
+      let then_voided = run_hot_pipeline_slns_lowered_no_normal_catch_all_ref_if_arm_is_voided_for_outer(
+        then_body,
+      )
+      let else_voided = run_hot_pipeline_slns_lowered_no_normal_catch_all_ref_if_arm_is_voided_for_outer(
+        else_body,
+      )
+      if then_voided == else_voided {
+        return None
+      }
+      let out : Array[@lib.Instruction] = []
+      for idx = 0; idx < cond_idx; idx = idx + 1 {
+        out.push(body[idx])
+      }
+      out.push(
+        @lib.Instruction::block(
+          block_type,
+          @lib.Expr::new([
+            body[cond_idx],
+            @lib.Instruction::if_(block_type, then_body, Some(else_body)),
+          ]),
+        ),
+      )
+      Some(out)
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_wrap_no_normal_both_ref_payload_if_operands(
+  body : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 1 < body.length() {
+      match (body[idx], body[idx + 1]) {
+        (@lib.I32Const(_), @lib.If(block_type, then_body, Some(else_body))) =>
+          if run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+            match
+              (
+                run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_ref_payload_if_arm_body(
+                  then_body,
+                ),
+                run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_ref_payload_if_arm_body(
+                  else_body,
+                ),
+              ) {
+              (Some(next_then), Some(next_else)) => {
+                out.push(
+                  @lib.Instruction::block(
+                    run_hot_pipeline_slns_lowered_nonnull_exn_block_type(),
+                    @lib.Expr::new([
+                      body[idx],
+                      @lib.Instruction::if_(
+                        @lib.BlockType::void_(),
+                        next_then,
+                        Some(next_else),
+                      ),
+                      @lib.Instruction::unreachable_(),
+                    ]),
+                  ),
+                )
+                changed = true
+                idx += 2
+                continue
+              }
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    }
+    out.push(body[idx])
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_wrap_no_normal_both_arm_catch_all_ref_if_tail(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 {
+    return None
+  }
+  let cond_idx = body.length() - 2
+  match body[cond_idx] {
+    @lib.I32Const(_) => ()
+    _ => return None
+  }
+  match body[body.length() - 1] {
+    @lib.If(block_type, then_body, Some(else_body)) => {
+      if !run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+        return None
+      }
+      match
+        (
+          run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_ref_payload_if_arm_body(
+            then_body,
+          ),
+          run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_ref_payload_if_arm_body(
+            else_body,
+          ),
+        ) {
+        (Some(next_then), Some(next_else)) => {
+          let out : Array[@lib.Instruction] = []
+          for idx = 0; idx < cond_idx; idx = idx + 1 {
+            out.push(body[idx])
+          }
+          out.push(
+            @lib.Instruction::block(
+              run_hot_pipeline_slns_lowered_nonnull_exn_block_type(),
+              @lib.Expr::new([
+                body[cond_idx],
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  next_then,
+                  Some(next_else),
+                ),
+                @lib.Instruction::unreachable_(),
+              ]),
+            ),
+          )
+          Some(out)
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_block_type_is_funcref(
+  block_type : @lib.BlockType,
+) -> Bool {
+  match block_type {
+    @lib.ValTypeBlockType(@lib.RefTypeValType(ref_type)) =>
+      ref_type.is_nullable() &&
+      !ref_type.is_exact() &&
+      ref_type.get_heap_type() == @lib.HeapType::abs(@lib.AbsHeapType::func())
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_ref_func_null_arm_ref_func(
+  body : Array[@lib.Instruction],
+) -> @lib.FuncIdx? {
+  match body {
+    [@lib.RefFunc(func_idx)] => Some(func_idx)
+    [@lib.Block(block_type, @lib.Expr(inner))] if run_hot_pipeline_slns_lowered_block_type_is_funcref(
+        block_type,
+      ) => run_hot_pipeline_slns_lowered_ref_func_null_arm_ref_func(inner)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_ref_func_null_arm_is_null(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  match body {
+    [@lib.RefNull(ref_type)] =>
+      ref_type.get_heap_type() == @lib.HeapType::abs(@lib.AbsHeapType::func())
+    [@lib.Block(block_type, @lib.Expr(inner))] if run_hot_pipeline_slns_lowered_block_type_is_funcref(
+        block_type,
+      ) => run_hot_pipeline_slns_lowered_ref_func_null_arm_is_null(inner)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_ref_func_null_if_target(
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction]?,
+) -> @lib.FuncIdx? {
+  let else_body = match else_body {
+    Some(body) => body
+    None => return None
+  }
+  let then_func = run_hot_pipeline_slns_lowered_ref_func_null_arm_ref_func(
+    then_body,
+  )
+  let else_func = run_hot_pipeline_slns_lowered_ref_func_null_arm_ref_func(
+    else_body,
+  )
+  let then_null = run_hot_pipeline_slns_lowered_ref_func_null_arm_is_null(
+    then_body,
+  )
+  let else_null = run_hot_pipeline_slns_lowered_ref_func_null_arm_is_null(
+    else_body,
+  )
+  match (then_func, then_null, else_func, else_null) {
+    (Some(func_idx), _, None, true) | (None, true, Some(func_idx), _) =>
+      Some(func_idx)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_module_func_type_idx(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+) -> @lib.TypeIdx? {
+  let @lib.FuncIdx(raw) = func_idx
+  let target_idx = raw.reinterpret_as_int()
+  let mut absolute_idx = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(type_idx)) => {
+            if absolute_idx == target_idx {
+              return Some(type_idx)
+            }
+            absolute_idx += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let defined_idx = target_idx - absolute_idx
+  if defined_idx < 0 {
+    return None
+  }
+  match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => type_idxs.get(defined_idx)
+    None => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_refinalize_ref_func_null_arm(
+  body : Array[@lib.Instruction],
+  exact_ref_type : @lib.RefType,
+) -> Array[@lib.Instruction] {
+  match run_hot_pipeline_slns_lowered_ref_func_null_arm_ref_func(body) {
+    Some(func_idx) => return [@lib.Instruction::ref_func(func_idx)]
+    None => ()
+  }
+  if run_hot_pipeline_slns_lowered_ref_func_null_arm_is_null(body) {
+    [@lib.Instruction::ref_null_type(exact_ref_type)]
+  } else {
+    body
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_refinalize_ref_func_null_if(
+  block_type : @lib.BlockType,
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction]?,
+  mod_ : @lib.Module,
+) -> (@lib.BlockType, Array[@lib.Instruction], Array[@lib.Instruction]?)? {
+  if !run_hot_pipeline_slns_lowered_block_type_is_funcref(block_type) {
+    return None
+  }
+  let func_idx = match
+    run_hot_pipeline_slns_lowered_ref_func_null_if_target(then_body, else_body) {
+    Some(idx) => idx
+    None => return None
+  }
+  match run_hot_pipeline_slns_module_func_type_idx(mod_, func_idx) {
+    Some(type_idx) => {
+      let exact_ref_type = @lib.RefType::new(
+        true,
+        @lib.HeapType::new(type_idx),
+        exact=true,
+      )
+      Some(
+        (
+          @lib.BlockType::val_type(@lib.ValType::ref_type(exact_ref_type)),
+          run_hot_pipeline_slns_lowered_refinalize_ref_func_null_arm(
+            then_body, exact_ref_type,
+          ),
+          match else_body {
+            Some(body) =>
+              Some(
+                run_hot_pipeline_slns_lowered_refinalize_ref_func_null_arm(
+                  body, exact_ref_type,
+                ),
+              )
+            None => None
+          },
+        ),
+      )
+    }
+    None => None
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_ref_func_local_call_ref_directize_matches(
+  _func_idx : @lib.FuncIdx,
+  local_idx : @lib.LocalIdx,
+  get_idx : @lib.LocalIdx,
+  _type_idx : @lib.TypeIdx,
+  body : Array[@lib.Instruction],
+  next_idx : Int,
+  _mod_ : @lib.Module,
+) -> Bool {
+  if local_idx != get_idx {
+    return false
+  }
+  let @lib.LocalIdx(raw) = local_idx
+  if run_hot_pipeline_raw_instrs_have_later_local_read(
+      body,
+      next_idx,
+      raw.reinterpret_as_int(),
+    ) {
+    return false
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_directize_ref_func_local_call_ref_body(
+  body : Array[@lib.Instruction],
+  mod_ : @lib.Module,
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 3 < body.length() {
+      match (body[idx], body[idx + 1], body[idx + 2], body[idx + 3]) {
+        (
+          @lib.RefFunc(func_idx),
+          @lib.LocalSet(local_idx),
+          @lib.LocalGet(get_idx),
+          @lib.CallRef(type_idx),
+        ) =>
+          if run_hot_pipeline_slns_lowered_ref_func_local_call_ref_directize_matches(
+              func_idx,
+              local_idx,
+              get_idx,
+              type_idx,
+              body,
+              idx + 4,
+              mod_,
+            ) {
+            out.push(body[idx])
+            out.push(body[idx + 3])
+            changed = true
+            idx = idx + 4
+            continue
+          }
+        (
+          @lib.RefFunc(func_idx),
+          @lib.LocalSet(local_idx),
+          @lib.LocalGet(get_idx),
+          @lib.ReturnCallRef(type_idx),
+        ) =>
+          if run_hot_pipeline_slns_lowered_ref_func_local_call_ref_directize_matches(
+              func_idx,
+              local_idx,
+              get_idx,
+              type_idx,
+              body,
+              idx + 4,
+              mod_,
+            ) {
+            out.push(body[idx])
+            out.push(body[idx + 3])
+            changed = true
+            idx = idx + 4
+            continue
+          }
+        _ => ()
+      }
+    }
+    out.push(body[idx])
+    idx = idx + 1
+  }
+  (out, changed)
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_instr(
+  instr : @lib.Instruction,
+  dropped_value_context : Bool,
+  dead_then_if_arm : Bool,
+  dead_else_if_arm : Bool,
+  refinalization_context : Bool,
+  mod_ : @lib.Module,
+) -> (Array[@lib.Instruction], Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (next_body, body_changed) = run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_body(
+        body, refinalization_context, mod_,
+      )
+      let mut rewritten_block_type = block_type
+      let rewritten_body = if dropped_value_context || refinalization_context {
+        match
+          run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_block_body(
+            next_body,
+          ) {
+          Some(rewritten) => rewritten
+          None =>
+            if refinalization_context {
+              match
+                run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_both_arm_catch_all_ref_if_body(
+                  next_body,
+                ) {
+                Some(rewritten) => {
+                  rewritten_block_type = run_hot_pipeline_slns_lowered_nonnull_exn_block_type()
+                  rewritten
+                }
+                None =>
+                  match
+                    run_hot_pipeline_slns_lowered_unwrap_single_nonnull_exn_block_body(
+                      next_body,
+                    ) {
+                    Some(rewritten) => {
+                      rewritten_block_type = run_hot_pipeline_slns_lowered_nonnull_exn_block_type()
+                      rewritten
+                    }
+                    None =>
+                      match
+                        run_hot_pipeline_slns_lowered_canonicalize_no_normal_tail_try_table_catch_all_ref_block_body(
+                          next_body,
+                        ) {
+                        Some(rewritten) => {
+                          rewritten_block_type = run_hot_pipeline_slns_lowered_nonnull_exn_block_type()
+                          rewritten
+                        }
+                        None => next_body
+                      }
+                  }
+              }
+            } else {
+              next_body
+            }
+        }
+      } else {
+        next_body
+      }
+      (
+        [
+          @lib.Instruction::block(
+            rewritten_block_type,
+            @lib.Expr::new(rewritten_body),
+          ),
+        ],
+        body_changed ||
+        rewritten_body != body ||
+        rewritten_block_type != block_type,
+      )
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (next_body, changed) = run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_body(
+        body, refinalization_context, mod_,
+      )
+      (
+        [@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))],
+        changed,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (next_then_base, then_changed) = run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_body(
+        then_body, refinalization_context, mod_,
+      )
+      let mut changed = then_changed
+      let next_then = if refinalization_context &&
+        dead_then_if_arm &&
+        run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+        match
+          run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_if_arm_body(
+            next_then_base,
+          ) {
+          Some(rewritten) => {
+            changed = true
+            rewritten
+          }
+          None => next_then_base
+        }
+      } else {
+        next_then_base
+      }
+      let next_else = match else_body {
+        Some(body) => {
+          let (next_else_base, else_changed) = run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_body(
+            body, refinalization_context, mod_,
+          )
+          changed = changed || else_changed
+          let rewritten_else = if refinalization_context &&
+            dead_else_if_arm &&
+            run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+            match
+              run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_if_arm_body(
+                next_else_base,
+              ) {
+              Some(rewritten) => {
+                changed = true
+                rewritten
+              }
+              None => next_else_base
+            }
+          } else {
+            next_else_base
+          }
+          Some(rewritten_else)
+        }
+        None => None
+      }
+      let mut rewritten_then = next_then
+      let mut rewritten_else = next_else
+      if refinalization_context &&
+        run_hot_pipeline_slns_lowered_block_type_is_nonvoid(block_type) {
+        let else_can_canonicalize = match rewritten_else {
+          Some(body) =>
+            run_hot_pipeline_slns_lowered_no_normal_try_table_catch_all_ref_if_arm_body_can_canonicalize(
+              body,
+            ) ||
+            run_hot_pipeline_slns_lowered_no_normal_try_table_tag_ref_if_arm_body_can_canonicalize(
+              body,
+            )
+          None => false
+        }
+        let then_can_canonicalize = run_hot_pipeline_slns_lowered_no_normal_try_table_catch_all_ref_if_arm_body_can_canonicalize(
+            rewritten_then,
+          ) ||
+          run_hot_pipeline_slns_lowered_no_normal_try_table_tag_ref_if_arm_body_can_canonicalize(
+            rewritten_then,
+          )
+        if then_can_canonicalize && !else_can_canonicalize {
+          match
+            run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_catch_all_ref_if_arm_body_preserve_label(
+              rewritten_then,
+            ) {
+            Some(rewritten) => {
+              changed = true
+              rewritten_then = rewritten
+            }
+            None =>
+              match
+                run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_if_arm_body(
+                  rewritten_then,
+                ) {
+                Some(rewritten) => {
+                  changed = true
+                  rewritten_then = rewritten
+                }
+                None => ()
+              }
+          }
+        } else if else_can_canonicalize && !then_can_canonicalize {
+          match rewritten_else {
+            Some(body) =>
+              match
+                run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_catch_all_ref_if_arm_body_preserve_label(
+                  body,
+                ) {
+                Some(rewritten) => {
+                  changed = true
+                  rewritten_else = Some(rewritten)
+                }
+                None =>
+                  match
+                    run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_if_arm_body(
+                      body,
+                    ) {
+                    Some(rewritten) => {
+                      changed = true
+                      rewritten_else = Some(rewritten)
+                    }
+                    None => ()
+                  }
+              }
+            None => ()
+          }
+        }
+      }
+      let next_block_type = if refinalization_context {
+        match
+          run_hot_pipeline_slns_lowered_refinalize_ref_func_null_if(
+            block_type, rewritten_then, rewritten_else, mod_,
+          ) {
+          Some((refined, then_refined, else_refined)) => {
+            changed = true
+            rewritten_then = then_refined
+            rewritten_else = else_refined
+            refined
+          }
+          None => block_type
+        }
+      } else {
+        block_type
+      }
+      (
+        [@lib.Instruction::if_(next_block_type, rewritten_then, rewritten_else)],
+        changed,
+      )
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (next_body, body_changed) = run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_body(
+        body, refinalization_context, mod_,
+      )
+      (
+        [
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        ],
+        body_changed,
+      )
+    }
+    _ => ([instr], false)
+  }
+}
+
+///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_body(
+  body : Array[@lib.Instruction],
+  refinalization_context : Bool,
+  mod_ : @lib.Module,
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for idx = 0; idx < body.length(); idx = idx + 1 {
+    let dropped_value_context = if idx + 1 < body.length() {
+      match body[idx + 1] {
+        @lib.Drop => true
+        _ => false
+      }
+    } else {
+      false
+    }
+    let (dead_then_if_arm, dead_else_if_arm) = if idx > 0 {
+      match body[idx - 1] {
+        @lib.I32Const(@lib.I32(raw)) => (raw == 0, raw != 0)
+        _ => (false, false)
+      }
+    } else {
+      (false, false)
+    }
+    let (rewritten, instr_changed) = run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_instr(
+      body[idx],
+      dropped_value_context,
+      dead_then_if_arm,
+      dead_else_if_arm,
+      refinalization_context,
+      mod_,
+    )
+    changed = changed || instr_changed || rewritten.length() != 1
+    out.append(rewritten)
+  }
+  if refinalization_context {
+    let (wrapped, wrapped_changed) = run_hot_pipeline_slns_lowered_wrap_no_normal_both_ref_payload_if_operands(
+      out,
+    )
+    (wrapped, changed || wrapped_changed)
+  } else {
+    (out, changed)
+  }
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_lowered_cleanup_body(
   body : Array[@lib.Instruction],
   counts : Array[Int],
@@ -28083,9 +29729,74 @@ fn run_hot_pipeline_simplify_locals_cleanup_exact_func(
 }
 
 ///|
+fn run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
+  func : @lib.Func,
+  descriptor_name : String,
+  refinalization_context : Bool,
+  mod_ : @lib.Module,
+) -> @lib.Func {
+  if !run_hot_pipeline_simplify_locals_descriptor_is_nostructure(
+      descriptor_name,
+    ) {
+    return func
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let pre_directize_refinalization_context = refinalization_context ||
+    run_hot_pipeline_slns_lowered_body_has_ref_func_local_drop_pair(body) ||
+    run_hot_pipeline_slns_lowered_body_has_ref_func_local_call_ref_pair(body)
+  let (directized_body, directized_changed) = run_hot_pipeline_slns_lowered_directize_ref_func_local_call_ref_body(
+    body, mod_,
+  )
+  let body_refinalization_context = pre_directize_refinalization_context ||
+    directized_changed
+  let (next_body_base, changed) = run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_body(
+    directized_body, body_refinalization_context, mod_,
+  )
+  let next_body = if body_refinalization_context {
+    match
+      run_hot_pipeline_slns_lowered_wrap_no_normal_both_arm_catch_all_ref_if_tail(
+        next_body_base,
+      ) {
+      Some(rewritten) => rewritten
+      None =>
+        match
+          run_hot_pipeline_slns_lowered_wrap_no_normal_single_arm_catch_all_ref_if_tail(
+            next_body_base,
+          ) {
+          Some(rewritten) => rewritten
+          None =>
+            match
+              run_hot_pipeline_slns_lowered_wrap_no_normal_tail_try_table_catch_all_ref_func_body(
+                next_body_base,
+              ) {
+              Some(rewritten) => rewritten
+              None =>
+                match
+                  run_hot_pipeline_slns_lowered_wrap_no_normal_tail_try_table_catch_ref_func_body(
+                    next_body_base,
+                  ) {
+                  Some(rewritten) => rewritten
+                  None => next_body_base
+                }
+            }
+        }
+    }
+  } else {
+    next_body_base
+  }
+  if directized_changed || changed || next_body != body {
+    @lib.Func::new(locals, @lib.Expr::new(next_body))
+  } else {
+    func
+  }
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   func : @lib.Func,
   descriptor_name : String,
+  original_func : @lib.Func?,
+  mod_ : @lib.Module,
 ) -> @lib.Func {
   if descriptor_name != "simplify-locals" &&
     descriptor_name != "simplify-locals-nostructure" &&
@@ -28093,14 +29804,21 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
     descriptor_name != "simplify-locals-notee-nostructure" {
     return func
   }
+  let refinalization_context = run_hot_pipeline_slns_lowered_refinalization_context_from_original(
+    original_func,
+  )
   let @lib.Func(_, @lib.Expr(body)) = func
   if run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
       descriptor_name, body,
     ) {
-    return func
+    return run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
+      func, descriptor_name, refinalization_context, mod_,
+    )
   }
   let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(func)
-  cleaned
+  run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
+    cleaned, descriptor_name, refinalization_context, mod_,
+  )
 }
 
 ///|
@@ -28813,9 +30531,11 @@ fn run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
 fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   func : @lib.Func,
   descriptor_name : String,
+  original_func : @lib.Func?,
+  mod_ : @lib.Module,
 ) -> @lib.Func {
   let cleaned = run_hot_pipeline_simplify_locals_cleanup_lowered_func(
-    func, descriptor_name,
+    func, descriptor_name, original_func, mod_,
   )
   let cleaned = run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
     cleaned, descriptor_name,
@@ -29263,6 +30983,8 @@ fn run_hot_pipeline_func(
               run_hot_pipeline_lower_options_for_descriptor(descriptor.name),
             ),
             descriptor.name,
+            Some(run_hot_pipeline_original_func(mod_, func_idx)),
+            mod_,
           )
           perf_stop_timer_opt(options.perf, "lower", lower_start_us)
           Ok({
@@ -29305,6 +31027,8 @@ fn run_hot_pipeline_func(
           run_hot_pipeline_lower_options_for_descriptor(descriptor.name),
         ),
         descriptor.name,
+        Some(run_hot_pipeline_original_func(mod_, func_idx)),
+        mod_,
       )
       perf_stop_timer_opt(options.perf, "lower", lower_start_us)
       Ok({
@@ -29797,6 +31521,19 @@ fn run_hot_pipeline_pass_should_skip_typeidx_loop_func(name : String) -> Bool {
 }
 
 ///|
+fn run_hot_pipeline_typeidx_loop_skip_can_try_raw_no_local_writes(
+  name : String,
+  func : @lib.Func,
+) -> Bool {
+  if name != "simplify-locals" &&
+    !run_hot_pipeline_simplify_locals_descriptor_is_nostructure(name) {
+    return false
+  }
+  let @lib.Func(_, @lib.Expr(body)) = func
+  !run_hot_pipeline_raw_simplify_locals_has_local_write(body)
+}
+
+///|
 fn run_hot_pipeline_drop_label_names(mod_ : @lib.Module) -> @lib.Module {
   match mod_.name_sec {
     Some(name_sec) => {
@@ -29892,7 +31629,11 @@ fn run_hot_pipeline_apply_hot_pass(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
         if run_hot_pipeline_pass_should_skip_typeidx_loop_func(descriptor.name) &&
-          run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) {
+          run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) &&
+          !run_hot_pipeline_typeidx_loop_skip_can_try_raw_no_local_writes(
+            descriptor.name,
+            defs[code_idx],
+          ) {
           pipeline_trace_hook(
             options.trace,
             descriptor.name,
@@ -30157,6 +31898,8 @@ fn run_hot_pipeline_apply_hot_pass_stack(
                 ),
               ),
               descriptors[descriptors.length() - 1].name,
+              Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              current_mod,
             )
           HotPipelineVerifyPolicy::FinalModuleOnly =>
             run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
@@ -30167,6 +31910,8 @@ fn run_hot_pipeline_apply_hot_pass_stack(
                 ),
               ),
               descriptors[descriptors.length() - 1].name,
+              Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              current_mod,
             )
         }
         perf_stop_timer_opt(options.perf, "lower", lower_start_us)
@@ -30261,7 +32006,11 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
         if run_hot_pipeline_pass_should_skip_typeidx_loop_func(descriptor.name) &&
-          run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) {
+          run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) &&
+          !run_hot_pipeline_typeidx_loop_skip_can_try_raw_no_local_writes(
+            descriptor.name,
+            defs[code_idx],
+          ) {
           pipeline_trace_hook(
             options.trace,
             descriptor.name,

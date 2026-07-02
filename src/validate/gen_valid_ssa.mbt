@@ -2092,13 +2092,145 @@ fn gen_valid_append_ssa_nomerge_body_slice(
   if !ctx.config.features.allow_ssa_nomerge_body_generator {
     return
   }
-  if gen_valid_is_ssa_nomerge_smoke_config(ctx.config) {
+  if gen_valid_is_slns_straight_line_config(ctx.config) {
+    gen_valid_append_slns_straight_line_body_slice(out, accepts)
+  } else if gen_valid_is_slns_tee_control_config(ctx.config) {
+    gen_valid_append_slns_tee_control_body_slice(out, accepts)
+  } else if gen_valid_is_slns_effect_order_config(ctx.config) {
+    gen_valid_append_slns_effect_order_body_slice(out, ctx, env, accepts)
+  } else if gen_valid_is_ssa_nomerge_smoke_config(ctx.config) {
     gen_valid_append_ssa_nomerge_smoke_body_slice(out, ctx, env, accepts)
   } else if gen_valid_is_ssa_nomerge_parity_config(ctx.config) {
     gen_valid_append_ssa_nomerge_parity_body_slice(out, ctx, env, accepts)
   } else {
     gen_valid_append_ssa_nomerge_coverage_body_slice(out, ctx, env, accepts)
   }
+}
+
+///|
+fn gen_valid_is_slns_straight_line_config(config : GenValidConfig) -> Bool {
+  config ==
+  GenValidConfig::for_profile(SimplifyLocalsNostructureStraightLineProfile)
+}
+
+///|
+fn gen_valid_is_slns_tee_control_config(config : GenValidConfig) -> Bool {
+  config ==
+  GenValidConfig::for_profile(SimplifyLocalsNostructureTeeControlProfile)
+}
+
+///|
+fn gen_valid_is_slns_effect_order_config(config : GenValidConfig) -> Bool {
+  config ==
+  GenValidConfig::for_profile(SimplifyLocalsNostructureEffectOrderProfile)
+}
+
+///|
+fn gen_valid_append_slns_straight_line_body_slice(
+  out : Array[Instruction],
+  accepts : Array[ValType],
+) -> Unit {
+  let param_count = accepts.length()
+  let l0 = gen_valid_ssa_body_local(param_count, 0)
+  let l1 = gen_valid_ssa_body_local(param_count, 1)
+  // Canonical first-cycle single-use sink and later equivalent-get cleanup.
+  out.push(Instruction::i32_const(I32(10)))
+  out.push(Instruction::local_set(l0))
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // Root dropped tee cleanup plus a later get. Pure overwritten/dead const sets
+  // are intentionally left to focused tests because Binaryen preserves them as
+  // dropped constants while Starshine can erase the pure carrier outright.
+  out.push(Instruction::i32_const(I32(20)))
+  out.push(Instruction::local_tee(l1))
+  out.push(Instruction::drop())
+  out.push(Instruction::local_get(l1))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_slns_tee_control_body_slice(
+  out : Array[Instruction],
+  accepts : Array[ValType],
+) -> Unit {
+  let param_count = accepts.length()
+  let l0 = gen_valid_ssa_body_local(param_count, 0)
+  let l1 = gen_valid_ssa_body_local(param_count, 1)
+  // Root-level dropped tee with unrelated structured control between write and
+  // read; this targets the canonical no-structure tee family without embedding
+  // local.tee inside the control region (that surface remains an audit blocker).
+  out.push(Instruction::i32_const(I32(40)))
+  out.push(Instruction::local_tee(l0))
+  out.push(Instruction::drop())
+  out.push(
+    Instruction::block(BlockType::void_(), Expr::new([Instruction::nop()])),
+  )
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // Disabled structure-synthesis negative: existing control should remain a
+  // barrier for a no-structure pass when the local is carried around it.
+  out.push(Instruction::i32_const(I32(41)))
+  out.push(Instruction::local_set(l1))
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::if_(BlockType::void_(), [Instruction::nop()], None))
+  out.push(Instruction::local_get(l1))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_slns_effect_order_body_slice(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  accepts : Array[ValType],
+) -> Unit {
+  let param_count = accepts.length()
+  let l0 = gen_valid_ssa_body_local(param_count, 0)
+  let l1 = gen_valid_ssa_body_local(param_count, 1)
+  // Narrow read-only-load movement and effect-barrier probes: keep the local
+  // traffic simple and let the profile's feature envelope add globals, tables,
+  // memories, calls, and EH-capable module context.
+  out.push(Instruction::i32_const(I32(50)))
+  out.push(Instruction::local_set(l0))
+  if !env.mems.is_empty() {
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_load(MemArg::new(2U, None, 0UL)))
+    out.push(Instruction::drop())
+  }
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  if !env.mems.is_empty() {
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_load(MemArg::new(2U, None, 4UL)))
+    out.push(Instruction::local_set(l1))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_load(MemArg::new(2U, None, 8UL)))
+    out.push(Instruction::local_set(l1))
+    out.push(Instruction::local_get(l1))
+    out.push(Instruction::drop())
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_load(MemArg::new(2U, None, 12UL)))
+    out.push(Instruction::local_set(l1))
+  } else {
+    out.push(Instruction::i32_const(I32(51)))
+    out.push(Instruction::local_set(l1))
+  }
+  if !env.globals.is_empty() {
+    out.push(Instruction::global_get(GlobalIdx::new(0U)))
+    out.push(Instruction::drop())
+  }
+  if !env.tables.is_empty() {
+    let TableType(rt, _) = env.tables[0]
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::table_get(TableIdx::new(0U)))
+    out.push(Instruction::drop())
+    out.push(Instruction::i32_const(I32(0)))
+    gen_valid_append_table_ref_value(out, ctx, env, rt)
+    out.push(Instruction::table_set(TableIdx::new(0U)))
+  }
+  gen_valid_append_call_template_group(out, ctx, env, [])
+  out.push(Instruction::local_get(l1))
+  out.push(Instruction::drop())
 }
 
 ///|
