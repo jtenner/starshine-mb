@@ -4,21 +4,21 @@ Date: 2026-06-25
 
 ## Summary
 
-This boundary/status slice locks the next OI-M selected-child multi-result tuple boundary.
+This former boundary/status slice was superseded by the 2026-07-02 arity-9 implementation slice.
 
-Binaryen `version_130` localizes the ninth scalar result selected from a multi-result tuple child through a tuple scratch local and a scalar temp. After the 2026-07-02 arity-8 follow-up, Starshine's current direct-HOT tuple.extract localizer proves direct one-use selected children with one through eight scalar results, so Starshine intentionally keeps the direct `tuple.extract(tuple.make(...))` spelling for this ninth-result selected-child shape.
+Binaryen `version_130` localizes the ninth scalar result selected from a multi-result tuple child through a tuple scratch local and a scalar temp. The 2026-07-02 follow-up refreshed the probe to `.tmp/oi-m-tuple-multiresult-selected-ninth-probe.binaryen.20260702.wat`, changed the direct-HOT test to a red-first positive expectation, and taught Starshine's direct one-use tuple.extract localizer to store nine selected-child scalar results in stack-pop order before reloading the selected ninth lane.
 
-This remains boundary/status evidence, not a red-first implementation slice. It prevents accidentally generalizing the covered selected-child localizer beyond its source-backed arity-8 cap, and extends the previous selected-first through selected-eighth implementation boundary by one lane.
+This note is retained as source/probe history. It no longer defines an active boundary for direct one-use arity-9 selected children; arity 10+ remains the next selected-child tuple-scratch boundary.
 
 ## Evidence
 
 - Binaryen oracle probe: `.tmp/oi-m-tuple-multiresult-selected-ninth-probe.wat`
-- Oracle command: `wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-ninth-probe.wat -o -`
+- Oracle command: `wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-ninth-probe.wat -o .tmp/oi-m-tuple-multiresult-selected-ninth-probe.binaryen.20260702.wat`
 - Oracle result: Binaryen introduced a tuple scratch local for the imported `(result i32 i64 f32 f64 i32 i64 f32 f64 i32)` call and a scalar temp for the selected ninth `i32` lane before returning the temp.
-- Starshine test: `src/passes/optimize_instructions_test.mbt`, direct-HOT test `optimize-instructions intentionally keeps tuple.extract with multi-result selected ninth lane boundary`
-- Last focused validation for this boundary: `moon test --target native src/passes/optimize_instructions_test.mbt --filter '*selected ninth lane*'` passed `1/1`. The boundary should be refreshed with a red-first positive test before implementing arity 9.
+- Starshine test: `src/passes/optimize_instructions_test.mbt`, direct-HOT test `optimize-instructions localizes ninth lane from nine-result selected tuple child`
+- Red-first validation: `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*nine-result selected tuple child*'` failed `0/1` before implementation because the result stayed `TupleExtract`, then passed `1/1` after `src/passes/optimize_instructions.mbt` admitted selected-child arity 9.
 
 ## Status
 
-- Supersedes the eighth-lane boundary as the next selected-child arity boundary after the 2026-07-02 arity-8 implementation slice.
-- Remaining OI-M work includes selected-child arities 9+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, public/binary tuple fixture coverage where representable, full `simplify-locals` replay/reduction for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, control/EH sibling localization, and broader tee/drop reconstruction.
+- Superseded for direct one-use arity-9 selected-child localization by the 2026-07-02 implementation slice.
+- Remaining OI-M work includes selected-child arities 10+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, public/binary tuple fixture coverage where representable, full `simplify-locals` replay/reduction for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, control/EH sibling localization, and broader tee/drop reconstruction.
