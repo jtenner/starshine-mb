@@ -95,6 +95,37 @@ fn optimize_casts_two_func_void_module(
 }
 
 ///|
+fn optimize_casts_memory_void_module(
+  param_type : @lib.ValType,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let child = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([param_type], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([base, child, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(0U, None))]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
 fn optimize_casts_run_pretty(mod_ : @lib.Module) -> String {
   match @validate.validate_module(mod_) {
     Ok(_) => ()
@@ -536,6 +567,63 @@ test "optimize-casts duplicates later ref.cast across dropped bitwise pure roots
   @debug.assert_eq(
     optimize_casts_count_substring(pretty, "ref.cast"),
     2,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts duplicates later ref.cast across dropped xor and shift pure roots" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(11)),
+      @lib.Instruction::i32_const(@lib.I32(31)),
+      @lib.Instruction::i32_xor(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(5)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_shl(),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts does not duplicate ref.cast earlier across memory loads" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_memory_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_load(
+        @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL)),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    1,
     msg=pretty,
   )
 }
