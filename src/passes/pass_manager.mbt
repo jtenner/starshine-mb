@@ -28152,6 +28152,57 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
           @lib.Block(
             _,
             @lib.Expr(
+              [
+                payload_left,
+                payload_right,
+                payload_condition,
+                @lib.Select(select_types),
+                index,
+                @lib.BrTable(labels, default_label),
+              ]
+            )
+          ),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match (payload_left, payload_right, payload_condition, index) {
+            (
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+            ) => true
+            _ => false
+          }) =>
+          match
+            (
+              run_hot_pipeline_raw_oi_decrement_escaping_label_vec(labels),
+              run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
+            ) {
+            (Some(retargeted_labels), Some(retargeted_default)) => {
+              rewritten.push(instrs[i])
+              rewritten.push(payload_left)
+              rewritten.push(payload_right)
+              rewritten.push(payload_condition)
+              rewritten.push(@lib.Instruction::select(types=select_types))
+              rewritten.push(index)
+              rewritten.push(
+                @lib.Instruction::br_table(
+                  retargeted_labels, retargeted_default,
+                ),
+              )
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              changed = true
+              i = i + 5
+              continue
+            }
+            _ => ()
+          }
+        (
+          @lib.Block(
+            _,
+            @lib.Expr(
               [payload, index, @lib.I32Eqz, @lib.BrTable(labels, default_label)]
             )
           ),

@@ -10264,6 +10264,153 @@ test "optimize-instructions lowers escaping br_table pure index ref.get_desc chi
 }
 
 ///|
+test "optimize-instructions lowers escaping br_table select payload ref.get_desc child like Binaryen" {
+  // OI-J descriptor-operand escaping-label breadth: Binaryen version_130
+  // default and IIT flatten this side-effect-free non-local br_table payload as
+  // `local.get 0; local.get 1; local.get 0; local.get 3; select; local.get 2;
+  // br_table 0 0; ref.get_desc; ref.cast_desc_eq`. This remains a narrow
+  // pure select-payload shape, not a general effectful/trapping payload localizer.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                nullable_described_val_type,
+                nullable_described_val_type,
+                @lib.ValType::i32(),
+                @lib.ValType::i32(),
+              ],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+                    @lib.Instruction::select(
+                      types=Some([nullable_described_val_type]),
+                    ),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::br_table(
+                      [@lib.LabelIdx::new(1U)],
+                      @lib.LabelIdx::new(1U),
+                    ),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::ref_cast_desc_eq_type(
+                  nullable_described_ref_type,
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Block(_, @lib.Expr(body))]))])
+    ) => {
+      @debug.assert_eq(body.length(), 9)
+      match body[0] {
+        @lib.LocalGet(@lib.LocalIdx(0U)) => ()
+        other => fail("expected cast operand local.get 0, got \{other}")
+      }
+      match body[1] {
+        @lib.LocalGet(@lib.LocalIdx(1U)) => ()
+        other =>
+          fail(
+            "expected escaping br_table select payload arm local.get 1, got \{other}",
+          )
+      }
+      match body[2] {
+        @lib.LocalGet(@lib.LocalIdx(0U)) => ()
+        other =>
+          fail(
+            "expected escaping br_table select payload arm local.get 0, got \{other}",
+          )
+      }
+      match body[3] {
+        @lib.LocalGet(@lib.LocalIdx(3U)) => ()
+        other =>
+          fail("expected select payload condition local.get 3, got \{other}")
+      }
+      match body[4] {
+        @lib.Select(Some([vt])) =>
+          @debug.assert_eq(vt, nullable_described_val_type)
+        other =>
+          fail("expected typed select payload before br_table, got \{other}")
+      }
+      match body[5] {
+        @lib.LocalGet(@lib.LocalIdx(2U)) => ()
+        other =>
+          fail("expected escaping br_table index local.get 2, got \{other}")
+      }
+      match body[6] {
+        @lib.BrTable([@lib.LabelIdx(0U)], @lib.LabelIdx(0U)) => ()
+        other =>
+          fail("expected br_table retargeted to outer label, got \{other}")
+      }
+      match body[7] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        other => fail("expected flattened br_table ref.get_desc, got \{other}")
+      }
+      match body[8] {
+        @lib.RefCastDescEq(nullable, exact, target) => {
+          assert_true(nullable)
+          assert_false(exact)
+          @debug.assert_eq(target, described_heap)
+        }
+        other =>
+          fail(
+            "expected descriptor cast after flattened select-payload br_table, got \{other}",
+          )
+      }
+    }
+    other =>
+      fail(
+        "expected one optimized outer select-payload br_table block body, got \{other}",
+      )
+  }
+}
+
+///|
 test "optimize-instructions lowers escaping br_on_cast block ref.get_desc child like Binaryen" {
   // OI-J descriptor-operand escaping-label breadth: Binaryen version_130
   // default and IIT flatten this `br_on_cast` descriptor child to the outer
