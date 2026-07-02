@@ -28417,6 +28417,57 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
             @lib.Expr(
               [
                 payload,
+                condition_left,
+                condition_right,
+                condition_select,
+                @lib.Select(select_types),
+                @lib.BrIf(label_idx),
+                @lib.Drop,
+                fallthrough,
+              ]
+            )
+          ),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match
+            (
+              payload, condition_left, condition_right, condition_select, fallthrough,
+            ) {
+            (
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+            ) => true
+            _ => false
+          }) =>
+          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+            Some(retargeted) => {
+              rewritten.push(instrs[i])
+              rewritten.push(payload)
+              rewritten.push(condition_left)
+              rewritten.push(condition_right)
+              rewritten.push(condition_select)
+              rewritten.push(@lib.Instruction::select(types=select_types))
+              rewritten.push(@lib.Instruction::br_if(retargeted))
+              rewritten.push(@lib.Instruction::drop())
+              rewritten.push(fallthrough)
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              changed = true
+              i = i + 5
+              continue
+            }
+            None => ()
+          }
+        (
+          @lib.Block(
+            _,
+            @lib.Expr(
+              [
+                payload,
                 condition,
                 @lib.I32Eqz,
                 @lib.BrIf(label_idx),
