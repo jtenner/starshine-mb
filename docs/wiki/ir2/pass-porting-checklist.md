@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-02
 sources:
   - ../raw/research/0062-2026-03-24-pass-porting-checklist.md
+  - ../../../src/passes/registry_test.mbt
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../../../src/lib/types.mbt
@@ -25,7 +26,7 @@ related:
 
 - Hot pass work runs through the public pipeline:
   `lift -> verify -> run passes -> verify -> lower -> validate`
-- Pass descriptors must declare truthful `requires` and `invalidates` metadata.
+- Pass descriptors must declare truthful `requires` and `invalidates` metadata; any pass that calls `pass_require_*` helpers should have descriptor tests locking the corresponding `requires` entries.
 - Analysis overlays should come from shared helpers, not ad hoc pass-local builders.
 - Rewrites should use public hot-IR mutation helpers and mark mutations explicitly when the shared wrappers are not enough.
 - Pass tests should run through the public pipeline on WAT fixtures instead of private execution paths.
@@ -33,6 +34,7 @@ related:
 ## Shared Helper Rules
 
 - Use [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt) for `pass_prepare_requirements(...)` and the specific `pass_require_*` helpers.
+- When adding or discovering a `pass_require_*` dependency, update the pass descriptor first-test style and cover it in [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt), as the `optimize-instructions` `use_def` / `effects` descriptor assertion does.
 - Use shared mutation helpers such as `pass_replace_node(...)`, `pass_splice_region(...)`, and `pass_delete_detached_nodes(...)` where they fit.
 - Call `pass_mark_mutated(...)` for mutation flows outside the shared wrappers.
 - Verify with `pass_verify_before_after(...)`.

@@ -1,14 +1,18 @@
 ///|
 pub fn optimize_instructions_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new("optimize-instructions", invalidates=[
-    @ir.HotAnalysis::cfg(),
-    @ir.HotAnalysis::dominance(),
-    @ir.HotAnalysis::liveness(),
-    @ir.HotAnalysis::use_def(),
-    @ir.HotAnalysis::effects(),
-    @ir.HotAnalysis::loop_info(),
-    @ir.HotAnalysis::ssa(),
-  ])
+  @ir.HotPassDescriptor::new(
+    "optimize-instructions",
+    requires=[@ir.HotAnalysis::use_def(), @ir.HotAnalysis::effects()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
 }
 
 ///|

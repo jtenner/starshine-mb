@@ -1253,14 +1253,14 @@ Preset behavior inventory:
   - Goal: make hot pass `requires` metadata describe every analysis a pass may request through `pass_require_*`, so the registry remains a truthful pass-author contract and future scheduling/perf tooling can trust descriptors.
   - Why: the audit found passes that lazily request analyses without listing them in `requires`; tests currently pass because the helper layer builds analyses on demand, but the metadata contract is stale.
   - Deliverables:
-    - [ ] `[AUDIT001-A]` Add focused descriptor tests for `optimize-instructions` requiring `use_def` and `effects`; confirm failure before metadata changes.
-    - [ ] `[AUDIT001-B]` Update `optimize-instructions` descriptor metadata to declare `use_def` and `effects`; rerun the focused descriptor test and `moon test src/passes`.
+    - [x] `[AUDIT001-A]` Add focused descriptor tests for `optimize-instructions` requiring `use_def` and `effects`; confirm failure before metadata changes. Completed 2026-07-02 in `src/passes/registry_test.mbt`; the focused registry test failed red with `[] != [UseDef, Effects]` before the descriptor update.
+    - [x] `[AUDIT001-B]` Update `optimize-instructions` descriptor metadata to declare `use_def` and `effects`; rerun the focused descriptor test and `moon test src/passes`. Completed 2026-07-02 in `src/passes/optimize_instructions.mbt`; focused registry test, focused optimize-instructions test, and `moon test src/passes` passed after the descriptor declared `use_def` and `effects`.
     - [ ] `[AUDIT001-C]` Add focused descriptor test for `remove-unused-brs` requiring `use_def`; confirm failure before metadata changes.
     - [ ] `[AUDIT001-D]` Update `remove-unused-brs` descriptor metadata to declare `use_def`; rerun the focused descriptor test and `moon test src/passes`.
     - [x] `[AUDIT001-E]` Add a focused descriptor test proving `precompute-propagate-prefix` requires `ssa` and direct `precompute` does not, if direct `precompute` truly never reaches SSA helpers. Covered by `src/passes/registry_test.mbt` and `docs/wiki/raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md`.
     - [x] `[AUDIT001-F]` If `[AUDIT001-E]` proves direct `precompute` can reach SSA helpers, update direct `precompute` descriptor in its own test-first slice; otherwise leave it unchanged and document why. Current source only calls `pass_require_ssa(...)` from the private prefix helper, so no direct descriptor update is needed.
     - [ ] `[AUDIT001-G]` Add a lightweight static/registry audit helper or test table for future `pass_require_*` additions so new metadata drift is caught near the implementing pass.
-    - [ ] `[AUDIT001-H]` Refresh `docs/wiki/ir2/pass-porting-checklist.md` with the descriptor audit rule and cite the new tests.
+    - [x] `[AUDIT001-H]` Refresh `docs/wiki/ir2/pass-porting-checklist.md` with the descriptor audit rule and cite the new tests. Completed 2026-07-02 with the new `optimize-instructions` descriptor assertion as the cited regression example.
   - Suggested tests: `moon test src/passes`, registry/descriptor focused tests, and one small trace/perf smoke proving analysis timers still appear under the expected pass.
   - Exit criteria: every hot descriptor is either mechanically covered by tests or explicitly documented as intentionally lazy; no pass silently depends on undeclared analysis metadata.
 

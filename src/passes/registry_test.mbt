@@ -206,6 +206,10 @@ test "batch 1 descriptors expose the active first hot ports" {
   @debug.assert_eq(dce.name, "dead-code-elimination")
   @debug.assert_eq(@ir.hot_pass_requires(dce), [])
   @debug.assert_eq(opt.name, "optimize-instructions")
+  @debug.assert_eq(@ir.hot_pass_requires(opt), [
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+  ])
   @debug.assert_eq(precompute.name, "precompute")
   @debug.assert_eq(@ir.hot_pass_requires(precompute), [])
   @debug.assert_eq(code_pushing.name, "code-pushing")
