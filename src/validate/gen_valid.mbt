@@ -101,6 +101,7 @@ pub struct GenValidFeatureToggles {
   allow_typed_body_generator : Bool
   allow_ssa_nomerge_body_generator : Bool
   allow_heap_store_optimization_body_generator : Bool
+  allow_heap2local_body_generator : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -157,6 +158,8 @@ pub impl Show for GenValidFeatureToggles with fn output(self, logger) {
   self.allow_ssa_nomerge_body_generator.output(logger)
   logger.write_string(", allow_heap_store_optimization_body_generator:")
   self.allow_heap_store_optimization_body_generator.output(logger)
+  logger.write_string(", allow_heap2local_body_generator:")
+  self.allow_heap2local_body_generator.output(logger)
 }
 
 ///|
@@ -188,6 +191,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_typed_body_generator: false,
     allow_ssa_nomerge_body_generator: false,
     allow_heap_store_optimization_body_generator: false,
+    allow_heap2local_body_generator: false,
   }
 }
 
@@ -720,6 +724,10 @@ pub enum GenValidProfile {
   DeadCodeEliminationEffectfulStructuredPrefixProfile
   DeadCodeEliminationAllProfile
   HeapStoreOptimizationProfile
+  Heap2LocalStructProfile
+  Heap2LocalArrayProfile
+  Heap2LocalRefProfile
+  Heap2LocalAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile
@@ -870,6 +878,10 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
       "dead-code-elimination-effectful-structured-prefix"
     DeadCodeEliminationAllProfile => "dead-code-elimination-all"
     HeapStoreOptimizationProfile => "heap-store-optimization"
+    Heap2LocalStructProfile => "heap2local-struct"
+    Heap2LocalArrayProfile => "heap2local-array"
+    Heap2LocalRefProfile => "heap2local-ref"
+    Heap2LocalAllProfile => "heap2local-all"
     RemoveUnusedBrsControlProfile => "remove-unused-brs-control"
     RemoveUnusedBrsSwitchProfile => "remove-unused-brs-switch"
     RemoveUnusedBrsGcProfile => "remove-unused-brs-gc"
@@ -912,6 +924,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | CodePushingAllProfile
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
+    | Heap2LocalAllProfile
     | RemoveUnusedBrsAllProfile
     | SsaNomergeAllProfile
     | SimplifyLocalsNostructureAllProfile
@@ -1019,6 +1032,12 @@ pub fn gen_valid_profile_members(
           1,
         ),
       ]
+    Heap2LocalAllProfile =>
+      [
+        GenValidProfileMember::new(Heap2LocalStructProfile, 3),
+        GenValidProfileMember::new(Heap2LocalArrayProfile, 2),
+        GenValidProfileMember::new(Heap2LocalRefProfile, 2),
+      ]
     RemoveUnusedBrsAllProfile =>
       [
         GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 3),
@@ -1058,6 +1077,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
         GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
         GenValidProfileMember::new(PassFuzzStressProfile, 1),
+        GenValidProfileMember::new(Heap2LocalAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
       ]
@@ -1198,6 +1218,10 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     DeadCodeEliminationEffectfulStructuredPrefixProfile,
     DeadCodeEliminationAllProfile,
     HeapStoreOptimizationProfile,
+    Heap2LocalStructProfile,
+    Heap2LocalArrayProfile,
+    Heap2LocalRefProfile,
+    Heap2LocalAllProfile,
     RemoveUnusedBrsControlProfile,
     RemoveUnusedBrsSwitchProfile,
     RemoveUnusedBrsGcProfile,
@@ -1293,6 +1317,11 @@ pub fn gen_valid_profile_by_name(
     "dead-code-elimination" => Ok(DeadCodeEliminationAllProfile)
     "dead-code-elimination-closeout" => Ok(DeadCodeEliminationAllProfile)
     "hso" => Ok(HeapStoreOptimizationProfile)
+    "heap2local" => Ok(Heap2LocalAllProfile)
+    "heap-to-local" => Ok(Heap2LocalAllProfile)
+    "h2l" => Ok(Heap2LocalAllProfile)
+    "heap2local-closeout" => Ok(Heap2LocalAllProfile)
+    "heap2local-all-profiles" => Ok(Heap2LocalAllProfile)
     "remove-unused-brs" => Ok(RemoveUnusedBrsAllProfile)
     "remove-unused-brs-closeout" => Ok(RemoveUnusedBrsAllProfile)
     "remove-unused-brs-all-profiles" => Ok(RemoveUnusedBrsAllProfile)
@@ -1729,6 +1758,10 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       )
     HeapStoreOptimizationProfile =>
       gen_valid_heap_store_optimization_profile_config()
+    Heap2LocalStructProfile | Heap2LocalArrayProfile | Heap2LocalRefProfile =>
+      gen_valid_heap2local_profile_config(profile)
+    Heap2LocalAllProfile =>
+      gen_valid_heap2local_profile_config(Heap2LocalAllProfile)
     RemoveUnusedBrsControlProfile
     | RemoveUnusedBrsSwitchProfile
     | RemoveUnusedBrsGcProfile
@@ -2705,6 +2738,64 @@ fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
       allow_ssa_nomerge_body_generator: false,
       allow_heap_store_optimization_body_generator: true,
       allow_name_custom_sections: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_heap2local_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: match profile {
+      Heap2LocalRefProfile => 8
+      _ => 6
+    },
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: match profile {
+      Heap2LocalArrayProfile => 1
+      Heap2LocalRefProfile => 2
+      Heap2LocalAllProfile => 3
+      _ => 0
+    },
+    max_body_depth: 2,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: true,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_subtyping_topology: profile == Heap2LocalRefProfile,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: true,
     },
   }
 }
@@ -12141,6 +12232,105 @@ fn gen_valid_append_return_value_instrs(
 }
 
 ///|
+fn gen_valid_append_heap2local_body_slice(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  let want_struct = ctx.config ==
+    GenValidConfig::for_profile(Heap2LocalStructProfile) ||
+    ctx.config == GenValidConfig::for_profile(Heap2LocalAllProfile)
+  let want_array = ctx.config ==
+    GenValidConfig::for_profile(Heap2LocalArrayProfile) ||
+    ctx.config == GenValidConfig::for_profile(Heap2LocalAllProfile)
+  let want_ref = ctx.config == GenValidConfig::for_profile(Heap2LocalRefProfile) ||
+    ctx.config == GenValidConfig::for_profile(Heap2LocalAllProfile)
+
+  if want_struct || want_ref {
+    if !env.gc_type_plan.struct_type_idxs.is_empty() {
+      let struct_idx = env.gc_type_plan.struct_type_idxs[0]
+      let struct_ref = ValType::ref_type(
+        RefType::new(true, HeapType::new(struct_idx)),
+      )
+      match gen_matching_local_idx(env.local_types, struct_ref) {
+        Some(local_idx) => {
+          if want_struct {
+            out.push(Instruction::i32_const(I32(10)))
+            out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+            out.push(Instruction::struct_new(struct_idx))
+            out.push(Instruction::local_set(local_idx))
+            out.push(Instruction::local_get(local_idx))
+            out.push(Instruction::i32_const(I32(30)))
+            out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+            out.push(Instruction::local_get(local_idx))
+            out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
+            out.push(Instruction::drop())
+
+            out.push(Instruction::struct_new_default(struct_idx))
+            out.push(Instruction::local_set(local_idx))
+            out.push(Instruction::local_get(local_idx))
+            out.push(Instruction::local_set(local_idx))
+            out.push(Instruction::local_get(local_idx))
+            out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
+            out.push(Instruction::drop())
+          }
+          if want_ref {
+            out.push(Instruction::struct_new_default(struct_idx))
+            out.push(Instruction::local_set(local_idx))
+            out.push(Instruction::local_get(local_idx))
+            out.push(Instruction::ref_as_non_null())
+            out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
+            out.push(Instruction::drop())
+
+            out.push(Instruction::struct_new_default(struct_idx))
+            out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+            out.push(Instruction::ref_eq())
+            out.push(Instruction::drop())
+
+            out.push(Instruction::struct_new_default(struct_idx))
+            out.push(Instruction::ref_test(false, HeapType::new(struct_idx)))
+            out.push(Instruction::drop())
+          }
+        }
+        None => ()
+      }
+    }
+  }
+
+  if want_array && !env.gc_type_plan.array_type_idxs.is_empty() {
+    let array_idx = env.gc_type_plan.array_type_idxs[0]
+    let array_ref = ValType::ref_type(
+      RefType::new(true, HeapType::new(array_idx)),
+    )
+    match gen_matching_local_idx(env.local_types, array_ref) {
+      Some(local_idx) => {
+        out.push(Instruction::i32_const(I32(2)))
+        out.push(Instruction::array_new_default(array_idx))
+        out.push(Instruction::local_set(local_idx))
+        out.push(Instruction::local_get(local_idx))
+        out.push(Instruction::i32_const(I32(1)))
+        out.push(Instruction::array_get(array_idx))
+        out.push(Instruction::drop())
+
+        out.push(Instruction::i32_const(I32(4)))
+        out.push(Instruction::i32_const(I32(5)))
+        out.push(Instruction::array_new_fixed(array_idx, U32::new(2U)))
+        out.push(Instruction::local_set(local_idx))
+        out.push(Instruction::local_get(local_idx))
+        out.push(Instruction::i32_const(I32(1)))
+        out.push(Instruction::i32_const(I32(9)))
+        out.push(Instruction::array_set(array_idx))
+        out.push(Instruction::local_get(local_idx))
+        out.push(Instruction::i32_const(I32(1)))
+        out.push(Instruction::array_get(array_idx))
+        out.push(Instruction::drop())
+      }
+      None => ()
+    }
+  }
+}
+
+///|
 fn gen_valid_append_heap_store_optimization_body_slice(
   out : Array[Instruction],
   env : GenValidBodyEnv,
@@ -13432,6 +13622,31 @@ fn gen_valid_build_func(
         }
         None => ()
       }
+    } else if ctx.config.features.allow_heap2local_body_generator {
+      if !gc_type_plan.struct_type_idxs.is_empty() {
+        let struct_ref = ValType::ref_type(
+          RefType::new(true, HeapType::new(gc_type_plan.struct_type_idxs[0])),
+        )
+        if gen_matching_local_idx(
+            gen_all_local_types(accepts, locals),
+            struct_ref,
+          )
+          is None {
+          locals.push(struct_ref)
+        }
+      }
+      if !gc_type_plan.array_type_idxs.is_empty() {
+        let array_ref = ValType::ref_type(
+          RefType::new(true, HeapType::new(gc_type_plan.array_type_idxs[0])),
+        )
+        if gen_matching_local_idx(
+            gen_all_local_types(accepts, locals),
+            array_ref,
+          )
+          is None {
+          locals.push(array_ref)
+        }
+      }
     } else {
       for vt in gc_type_plan.concrete_ref_types {
         locals.push(vt)
@@ -13464,6 +13679,7 @@ fn gen_valid_build_func(
   if ctx.config.mode == CoverageForced &&
     !ctx.config.features.allow_ssa_nomerge_body_generator &&
     !ctx.config.features.allow_heap_store_optimization_body_generator &&
+    !ctx.config.features.allow_heap2local_body_generator &&
     !gen_valid_is_remove_unused_brs_family_config(ctx.config) {
     gen_valid_append_coverage_prelude(body_instrs, ctx, env, returns)
   }
@@ -13481,6 +13697,9 @@ fn gen_valid_build_func(
   gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
   if ctx.config.features.allow_heap_store_optimization_body_generator {
     gen_valid_append_heap_store_optimization_body_slice(body_instrs, env)
+  }
+  if ctx.config.features.allow_heap2local_body_generator {
+    gen_valid_append_heap2local_body_slice(body_instrs, ctx, env)
   }
   match current_func_idx {
     Some(idx) if gen_valid_is_ssa_nomerge_family_config(ctx.config) &&

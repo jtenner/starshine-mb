@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-07-02
 sources:
+  - ../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md
   - ../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md
   - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
@@ -51,6 +52,8 @@ The current Starshine slice covers the full in-tree primary suite:
 - direct array `ref.test`
 - bailout on parameter-backed mixed provenance
 
+The 2026-07-02 audit start added a dedicated GenValid aggregate, `heap2local-all`, with leaves for struct scalarization (`heap2local-struct`), fixed-size array lowering (`heap2local-array`), and direct fresh-reference folds (`heap2local-ref`). This is profile and documentation progress only until the focused GenValid tests and compare lanes are run in a shell-enabled environment.
+
 ## Remaining Gap
 
 - Upstream Binaryen still has a broader nondefaultable-local / refinalization repair story than current Starshine documents locally.
@@ -59,6 +62,7 @@ The current Starshine slice covers the full in-tree primary suite:
 
 ## Current Evidence
 
+- A `2026-07-02` profile slice added `heap2local-all` and documented the three initial generated transformation families. Focused GenValid validation passed (`116/116` file tests, `1652/1652` `src/validate`), and native `src/cmd` built at `_build/native/release/build/cmd/cmd.exe`. The first aggregate smoke `.tmp/pass-fuzz-heap2local-genvalid-all-1000-aggregate-config-fix` hit the mismatch cap after `278` compared cases (`67` normalized, `211` mismatches, zero command/validation/generator/property failures); leaf probes also showed mismatches. These are open H2L behavior-parity gaps, not accepted drift.
 - A `2026-05-08` backlog-closure review confirmed that the old `[H2L]002` wording was stale: the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood is now represented and proven elsewhere in-tree, while nondefaultable-local repair remains outside today's validator-accepted Starshine input surface.
 - A `2026-05-06` refreshed direct lane (`bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local`) reports:
   - `6759 / 10000` compared
@@ -74,6 +78,7 @@ The current Starshine slice covers the full in-tree primary suite:
 
 ## Sources
 
+- GenValid profile start: [`../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md`](../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md)
 - Backlog-closure review: [`../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md`](../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md)
 - Refreshed direct revalidation: [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md)
 - Current source/code-map manifest: [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)

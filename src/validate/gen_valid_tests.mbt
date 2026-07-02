@@ -12373,6 +12373,99 @@ fn gen_valid_test_func_contains_structured_ref_cast(func : Func) -> Bool {
 }
 
 ///|
+fn gen_valid_test_module_contains_h2l_struct_candidate(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        let mut saw_new = false
+        let mut saw_get = false
+        let mut saw_set = false
+        let mut saw_local_set = false
+        let mut saw_local_get = false
+        for instr in instrs {
+          match instr {
+            StructNew(_) | StructNewDefault(_) => saw_new = true
+            StructGet(_, _) | StructGetS(_, _) | StructGetU(_, _) =>
+              saw_get = true
+            StructSet(_, _) => saw_set = true
+            LocalSet(_) => saw_local_set = true
+            LocalGet(_) => saw_local_get = true
+            _ => ()
+          }
+        }
+        if saw_new && saw_get && saw_set && saw_local_set && saw_local_get {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_module_contains_h2l_array_candidate(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        let mut saw_new = false
+        let mut saw_get = false
+        let mut saw_set = false
+        let mut saw_local_set = false
+        let mut saw_local_get = false
+        for instr in instrs {
+          match instr {
+            ArrayNew(_) | ArrayNewDefault(_) | ArrayNewFixed(_, _) =>
+              saw_new = true
+            ArrayGet(_) | ArrayGetS(_) | ArrayGetU(_) => saw_get = true
+            ArraySet(_) => saw_set = true
+            LocalSet(_) => saw_local_set = true
+            LocalGet(_) => saw_local_get = true
+            _ => ()
+          }
+        }
+        if saw_new && saw_get && saw_set && saw_local_set && saw_local_get {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_module_contains_h2l_ref_candidate(mod : Module) -> Bool {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        let mut saw_new = false
+        let mut saw_as_non_null = false
+        let mut saw_ref_eq = false
+        let mut saw_ref_test = false
+        for instr in instrs {
+          match instr {
+            StructNew(_) | StructNewDefault(_) => saw_new = true
+            RefAsNonNull => saw_as_non_null = true
+            RefEq => saw_ref_eq = true
+            RefTest(_, _) => saw_ref_test = true
+            _ => ()
+          }
+        }
+        if saw_new && saw_as_non_null && saw_ref_eq && saw_ref_test {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_first_func(mod : Module) -> Func raise {
   match mod.code_sec {
     Some(CodeSec([func, ..])) => func
@@ -12386,6 +12479,123 @@ fn gen_valid_test_defined_global_count(mod : Module) -> Int {
     Some(GlobalSec(globals)) => globals.length()
     None => 0
   }
+}
+
+///|
+test "heap2local gen-valid profiles resolve and expose replayable aggregate" {
+  @debug.assert_eq(
+    gen_valid_profile_name(Heap2LocalStructProfile),
+    "heap2local-struct",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(Heap2LocalArrayProfile),
+    "heap2local-array",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(Heap2LocalRefProfile),
+    "heap2local-ref",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(Heap2LocalAllProfile),
+    "heap2local-all",
+  )
+  assert_true(gen_valid_profile_names().contains("heap2local-all"))
+  match gen_valid_profile_by_name("heap2local") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, Heap2LocalAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      @debug.assert_eq(members.length(), 3)
+      @debug.assert_eq(members[0].profile, Heap2LocalStructProfile)
+    }
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("h2l") {
+    Ok(profile) => @debug.assert_eq(profile, Heap2LocalAllProfile)
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "heap2local aggregate profile samples struct array and ref families" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 64 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      Heap2LocalAllProfile,
+      0x5eedUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(Heap2LocalStructProfile))
+  assert_true(seen.contains(Heap2LocalArrayProfile))
+  assert_true(seen.contains(Heap2LocalRefProfile))
+}
+
+///|
+test "heap2local struct gen-valid profile emits exclusive scalarization candidates" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(Heap2LocalStructProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "heap2local-struct")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(generated.facts.has_gc_constructors)
+  assert_true(generated.facts.has_gc_accessors)
+  assert_true(
+    gen_valid_test_module_contains_h2l_struct_candidate(generated.wasm_module),
+    msg="expected local-held struct.new/default, struct.set, and struct.get traffic",
+  )
+}
+
+///|
+test "heap2local array and ref gen-valid profiles emit direct Binaryen families" {
+  let array_case = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(Heap2LocalArrayProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(array_case.config_label, "heap2local-array")
+  match validate_module(array_case.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_module_contains_h2l_array_candidate(array_case.wasm_module),
+    msg="expected constant-size local-held array get/set traffic",
+  )
+
+  let ref_case = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(Heap2LocalRefProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(ref_case.config_label, "heap2local-ref")
+  match validate_module(ref_case.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_module_contains_h2l_ref_candidate(ref_case.wasm_module),
+    msg="expected ref.as_non_null, ref.eq, and ref.test over fresh structs",
+  )
 }
 
 ///|

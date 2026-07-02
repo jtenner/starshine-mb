@@ -1162,9 +1162,9 @@ Preset behavior inventory:
   - Deliverables: apply the common checklist; add missing pure/nontrapping and control cleanup fixtures; refresh direct compare and all `VQ` slot evidence; measure cleanup value versus HOT traversal cost.
 
 - [O4Z-AUDIT-H2L] - Deep audit `heap2local`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit. 2026-07-02 start added the dedicated `heap2local-all` GenValid aggregate with `heap2local-struct`, `heap2local-array`, and `heap2local-ref` leaves, plus docs in `docs/wiki/binaryen/passes/heap2local/fuzzing.md` and research note `docs/wiki/raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md`. Focused GenValid tests and `src/validate` pass; the first aggregate smoke `.tmp/pass-fuzz-heap2local-genvalid-all-1000-aggregate-config-fix` exposed open behavior-parity gaps (`278` compared before mismatch cap, `67` normalized, `211` mismatches, zero command/validation/generator/property failures).
   - Scope: non-escaping struct locals, scalar field locals, null comparisons, GC type/refinalization, primary artifact fixtures, and heap-heavy function runtime.
-  - Deliverables: apply the common checklist; add missing escape/null/field fixtures; refresh direct compare and `H2L` slot evidence; record memory and code-size effects.
+  - Deliverables: apply the common checklist; classify/reduce the new `heap2local-all` mismatch families by selected profile; add missing escape/null/field fixtures; refresh direct compare and `H2L` slot evidence; record memory and code-size effects.
 
 - [O4Z-AUDIT-OC] - Deep audit `optimize-casts`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.

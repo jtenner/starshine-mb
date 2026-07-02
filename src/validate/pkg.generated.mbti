@@ -1083,6 +1083,7 @@ pub struct GenValidFeatureToggles {
   allow_typed_body_generator : Bool
   allow_ssa_nomerge_body_generator : Bool
   allow_heap_store_optimization_body_generator : Bool
+  allow_heap2local_body_generator : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self
@@ -1193,6 +1194,10 @@ pub enum GenValidProfile {
   DeadCodeEliminationEffectfulStructuredPrefixProfile
   DeadCodeEliminationAllProfile
   HeapStoreOptimizationProfile
+  Heap2LocalStructProfile
+  Heap2LocalArrayProfile
+  Heap2LocalRefProfile
+  Heap2LocalAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile
