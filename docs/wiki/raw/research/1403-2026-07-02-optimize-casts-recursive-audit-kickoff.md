@@ -140,9 +140,29 @@ Validation for this slice:
 
 This still is not OC closeout. Open local-flow gaps remain: fallthrough/adjacent-block recognition, broader best-cast/subtype selection, nonlinear behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 5 implementation result
+
+The fifth recursive slice added red-first public-pipeline coverage for the first structured fallthrough later-reuse family:
+
+- a cast and a later same-local read inside the same void, branch-free block should be treated as one fallthrough later-reuse window;
+- a cast that is skipped by a branch to the end of a block must not seed a fresh-local fact for following roots.
+
+Before implementation, the fallthrough-block case lacked `local.tee` / fresh-local reuse, while the branch-skipped case incorrectly carried a nullable fresh local out of the block. The implementation now scans branch-free void block bodies with the same later-reuse state as the surrounding root sequence, and stops collecting refinement facts through structured-control roots unless a block is admitted by that branch-free fallthrough scanner. The admitted subset deliberately rejects value blocks, nested control, branches, returns, throws, `unreachable`, and EH/control barriers; those remain open until they have source-backed tests and safety rules.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the two new fallthrough/block-barrier tests before implementation, then passed `18/18` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3833/3833`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- `bun scripts/pass-fuzz-compare.ts --count 100 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts-block-smoke-100 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 20 --keep-going-after-command-failures` compared `100/100`, normalized `100`, and had zero validation/generator/property/command failures.
+
+This still is not OC closeout. Open local-flow gaps remain: adjacent-block reuse beyond branch-free void blocks, broader best-cast/subtype selection, nonlinear/control behavior, strict early-motion, dedicated GenValid profiles, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
-1. Widen later reuse from the current root-linear direct `ref.cast` / nullable-source `ref.as_non_null` plus direct `local.tee` source subset to a minimal fallthrough/adjacent-block case, or broaden best-cast/subtype selection with source-backed unrelated-cast and no-op repeated-cast negatives. Keep same-local `local.set` / `local.tee` write barriers red-first.
+1. Broaden best-cast/subtype coverage with source-backed unrelated-cast and multi-related-cast negatives/positives, or add a minimal adjacent-dominated-block later-reuse case only after proving the control-flow safety boundary red-first. Keep early-motion out of the next slice unless it starts with trap/effect/nonlinear barrier tests.
 2. Add early-motion tests separately only after the later-reuse local/refinalization path is stable.
 3. Add dedicated GenValid profiles once the target implementation families are known enough to generate meaningful positives rather than no-op valid modules.
 4. Keep the non-null body-local blocker visible until Starshine can either model Binaryen's exact fresh-local type or document a measured, accepted representation win.
