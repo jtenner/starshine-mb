@@ -107,8 +107,35 @@ Validation and smokes for this slice:
 
 Current agent judgment: the small generated aggregate sample has shifted from true missed-H2L parity gaps to sampled output-shape/local-debris drift after Starshine performs the same H2L-relevant scalarization/fresh-reference folds. This is not a green closeout: the finding needs a larger dedicated lane, a normalizer/alignment decision for Binaryen's preserved local debris, and review for broader Binaryen families not yet forced by the initial generator.
 
+## Follow-up: scaled generated-lane classification
+
+A fourth 2026-07-02 slice scaled the generated aggregate to `1000` requested cases using the current native binary:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x5eed --pass heap2local --gen-valid-profile heap2local-all --out-dir .tmp/pass-fuzz-heap2local-all-1000-after-array-reftest --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 1000 --keep-going-after-command-failures
+```
+
+Result: `1000/1000` compared, `244` normalized, `756` residual mismatches, zero command/validation/generator/property failures, Binaryen cache `1000/0`, selected profiles `heap2local-struct=423`, `heap2local-array=276`, and `heap2local-ref=301`. Saved residuals by selected profile were `heap2local-struct=351`, `heap2local-array=146`, and `heap2local-ref=259`; inferred normalized-by-profile counts were `struct=72`, `array=130`, and `ref=42`.
+
+A classifier over the saved residuals scanned Starshine WAT for generated H2L operations: `struct.new`, `struct.new_default`, `struct.get`, `struct.set`, `array.new`, `array.new_default`, `array.new_fixed`, `array.get`, `array.get_s`, `array.get_u`, `array.set`, `ref.eq`, and `ref.test`. It found no residual generated H2L operations in `756/756` saved Starshine outputs and found `756/756` Starshine canonical wasm outputs smaller than Binaryen. Representative samples:
+
+- `case-000001` (`heap2local-struct`): both tools have removed struct operations; Binaryen keeps extra scalar temp/default/null drops while Starshine emits the shorter scalarized sequence (`79` bytes vs Binaryen `105`).
+- `case-000015` (`heap2local-array`): both tools have removed array operations; Binaryen keeps extra scalar temp/null drops while Starshine emits the shorter scalarized sequence (`83` bytes vs Binaryen `106`).
+- `case-000004` (`heap2local-ref`): both tools have removed direct `ref.test`; Binaryen keeps extra scalar/default/null drops while Starshine emits the shorter constant-folded sequence (`76` bytes vs Binaryen `107`).
+
+Existing generic normalizers are insufficient for this family. The reruns
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x5eed --pass heap2local --gen-valid-profile heap2local-all --normalize ssa-local-allocation-debris --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-heap2local-all-1000-after-array-reftest-normalized --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 1000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x5eed --pass heap2local --gen-valid-profile heap2local-all --normalize drop-consts --normalize ssa-local-allocation-debris --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-heap2local-all-1000-after-array-reftest-drop-ssa-local-normalized --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 1000 --keep-going-after-command-failures
+```
+
+both stayed at `1000/1000` compared, `244` normalized, `0` compare-normalized, `756` mismatches, zero failures, and Binaryen cache `1000/0`.
+
+Agent judgment: the scaled generated sample is currently **Starshine output-shape/local-debris wins after generated H2L traffic removal**, not active generated H2L misses. The supporting semantic argument is the H2L transform contract plus inspected representative diffs showing both outputs have eliminated the generated allocation/get/set/ref-test/ref-eq traffic; the size result is supporting evidence, not the sole reason for classification.
+
 ## Next audit slice
 
-1. Run a larger `heap2local-all` lane (at least `1000`, then `10000` if stable) with the current binary and classify whether residual mismatches remain entirely local-debris/output-shape wins or expose new true H2L gaps.
-2. Decide whether to add a H2L-specific compare normalizer for Binaryen-preserved scalar local/default/drop debris or align Starshine output shape; document the decision and reopening criteria.
-3. If a larger lane exposes a residual generated H2L op, reduce it into a red-first focused test and implement the smallest safe parity fix. Otherwise move toward final four-lane closeout evidence and pass-local timing.
+1. Run the required `10000` dedicated `heap2local-all` lane with seed `0x5eed`. If residuals still match the `1000`-case no-H2L-traffic pattern, classify the lane as raw output-shape/local-debris drift with counts by selected profile; if any residual generated H2L op appears, reduce it into a red-first focused test and fix or document a narrow blocker.
+2. Decide whether to add a narrow H2L-specific compare normalizer for Binaryen-preserved scalar local/default/drop debris. It must not hide residual H2L traffic and should be justified by inspected representative diffs; otherwise keep the raw mismatch family documented as a measured Starshine output-shape win with reopening criteria.
+3. Refresh ordinary direct, explicit wasm-smith, pass-specific `heap2local-all`, and broad random-all-profile signoff lanes plus pass-local timing before closing `[O4Z-AUDIT-H2L]`.
