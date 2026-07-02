@@ -10323,6 +10323,161 @@ test "optimize-instructions lowers escaping br_if effectful payload ref.get_desc
 }
 
 ///|
+test "optimize-instructions lowers escaping br_if effectful fallthrough ref.get_desc child like Binaryen" {
+  // OI-J descriptor-operand escaping-label breadth: Binaryen version_130
+  // default and IIT flatten this branch-free effectful br_if fallthrough as
+  // `local.get 0; local.get 1; local.get 2; br_if 0; drop; i32.const 1;
+  // global.set 0; local.get 0; ref.get_desc; ref.cast_desc_eq`.
+  // This remains a narrow branch-free effectful fallthrough shape, not a
+  // general trapping/effectful fallthrough or generalized label-aware localizer.
+  let described_type = @lib.TypeIdx::new(0U)
+  let descriptor_type = @lib.TypeIdx::new(1U)
+  let described_heap = @lib.HeapType::new(described_type)
+  let nullable_described_ref_type = @lib.RefType::new(true, described_heap)
+  let nullable_described_val_type = @lib.ValType::ref_type(
+    nullable_described_ref_type,
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type)),
+          ),
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([]),
+            metadata=@lib.TypeMetadata::new(describes=Some(described_type)),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [
+                nullable_described_val_type,
+                nullable_described_val_type,
+                @lib.ValType::i32(),
+              ],
+              [nullable_described_val_type],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_described_val_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(nullable_described_val_type),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::br_if(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::drop(),
+                    @lib.Instruction::block(
+                      @lib.BlockType::val_type(nullable_described_val_type),
+                      @lib.Expr::new([
+                        @lib.Instruction::i32_const(@lib.I32(1)),
+                        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+                        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                      ]),
+                    ),
+                  ]),
+                ),
+                @lib.Instruction::ref_as_non_null(),
+                @lib.Instruction::ref_get_desc(described_type),
+                @lib.Instruction::ref_cast_desc_eq_type(
+                  nullable_described_ref_type,
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(module_)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Block(_, @lib.Expr(body))]))])
+    ) => {
+      @debug.assert_eq(body.length(), 10)
+      match body[0] {
+        @lib.LocalGet(@lib.LocalIdx(0U)) => ()
+        other => fail("expected cast operand local.get 0, got \{other}")
+      }
+      match body[1] {
+        @lib.LocalGet(@lib.LocalIdx(1U)) => ()
+        other => fail("expected br_if payload local.get 1, got \{other}")
+      }
+      match body[2] {
+        @lib.LocalGet(@lib.LocalIdx(2U)) => ()
+        other =>
+          fail("expected escaping br_if condition local.get 2, got \{other}")
+      }
+      match body[3] {
+        @lib.BrIf(@lib.LabelIdx(0U)) => ()
+        other => fail("expected br_if retargeted to outer label, got \{other}")
+      }
+      match body[4] {
+        @lib.Drop => ()
+        other => fail("expected not-taken payload drop, got \{other}")
+      }
+      match body[5] {
+        @lib.I32Const(@lib.I32(1)) => ()
+        other =>
+          fail("expected effectful br_if fallthrough i32.const 1, got \{other}")
+      }
+      match body[6] {
+        @lib.GlobalSet(@lib.GlobalIdx(0U)) => ()
+        other =>
+          fail(
+            "expected effectful br_if fallthrough global.set 0, got \{other}",
+          )
+      }
+      match body[7] {
+        @lib.LocalGet(@lib.LocalIdx(0U)) => ()
+        other =>
+          fail("expected effectful br_if fallthrough local.get 0, got \{other}")
+      }
+      match body[8] {
+        @lib.RefGetDesc(type_idx) => @debug.assert_eq(type_idx, described_type)
+        other => fail("expected flattened br_if ref.get_desc, got \{other}")
+      }
+      match body[9] {
+        @lib.RefCastDescEq(nullable, exact, target) => {
+          assert_true(nullable)
+          assert_false(exact)
+          @debug.assert_eq(target, described_heap)
+        }
+        other =>
+          fail(
+            "expected descriptor cast after flattened effectful-fallthrough br_if, got \{other}",
+          )
+      }
+    }
+    other =>
+      fail(
+        "expected one optimized outer effectful-fallthrough br_if block body, got \{other}",
+      )
+  }
+}
+
+///|
 test "optimize-instructions lowers escaping br_if select condition ref.get_desc child like Binaryen" {
   // OI-J descriptor-operand escaping-label breadth: Binaryen version_130
   // default and IIT flatten this side-effect-free non-local br_if condition as
