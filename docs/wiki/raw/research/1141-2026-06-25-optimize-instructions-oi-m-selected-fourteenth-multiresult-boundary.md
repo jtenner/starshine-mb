@@ -26,6 +26,12 @@ Command:
 wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-fourteenth-probe.wat -o -
 ```
 
+2026-07-02 refresh command:
+
+```sh
+wasm-opt --all-features -S --optimize-instructions .tmp/oi-m-tuple-multiresult-selected-fourteenth-probe.wat -o .tmp/oi-m-tuple-multiresult-selected-fourteenth-probe.binaryen.20260702.wat
+```
+
 ## Finding
 
 Binaryen localizes the fourteen-result call into a tuple scratch local, extracts and drops the earlier result lane, stores the selected fourteenth `f64` lane in a scalar temp, drops that temp write, and returns the scalar temp. This is the same tuple-scratch family observed for the earlier selected multi-result boundary probes.
@@ -40,4 +46,4 @@ The test asserts Starshine keeps `TupleExtract` index `13`, the `TupleMake`, and
 
 ## Status
 
-Starshine's current tuple.extract OI localizer remains limited to direct one-use tuple producers whose selected child is a single-result value or whose effectful/trapping siblings can be preserved with the existing scalar drop/localization machinery. Multi-result selected-child tuple-scratch localization remains open. Reopen this boundary when Starshine has a safe selected-child tuple-scratch localizer, or if a future Binaryen source/oracle refresh stops localizing this shape.
+Starshine's current tuple.extract OI localizer now supports direct one-use selected children through arity 13. This fourteenth-lane shape remains the next source-backed selected-child tuple-scratch boundary after the 2026-07-02 arity-13 slice. Reopen this boundary when implementing arity-14 selected-child localization, when adding public/binary tuple fixture coverage for this shape, or if a future Binaryen source/oracle refresh stops localizing it.

@@ -27527,14 +27527,13 @@ test "optimize-instructions localizes twelfth lane from twelve-result selected t
 }
 
 ///|
-test "optimize-instructions intentionally keeps tuple.extract with multi-result selected thirteenth lane boundary" {
-  // Boundary-only OI-M classification: Binaryen `version_130`
+test "optimize-instructions localizes thirteenth lane from thirteen-result selected tuple child" {
+  // OI-M positive classification: Binaryen `version_130`
   // `--optimize-instructions` localizes the thirteenth scalar result selected
   // from a multi-result tuple child through tuple scratch plus a scalar temp
   // (`.tmp/oi-m-tuple-multiresult-selected-thirteenth-probe.wat`). Starshine's
-  // direct tuple.extract localizer currently proves selected children with up
-  // to twelve scalar results, so this locks the next wider selected-child
-  // tuple-scratch boundary.
+  // bounded direct tuple.extract localizer now proves this source-backed
+  // one-use selected-child arity.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
@@ -27605,28 +27604,35 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
 
   let result = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, result).op {
-    @ir.HotOp::TupleExtract => ()
-    _ =>
+    @ir.HotOp::Block => ()
+    other =>
       fail(
-        "expected multi-result selected thirteenth-lane tuple.extract to stay unchanged",
+        "expected thirteenth lane from thirteen-result tuple child to localize into a block, got \{other}",
       )
   }
-  @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
-  @debug.assert_eq(@ir.hot_node_get(func, result).imm0, 12)
-  match @ir.hot_node_get(func, tuple).op {
-    @ir.HotOp::TupleMake => ()
-    _ =>
-      fail(
-        "expected multi-result selected thirteenth-lane tuple.make to stay available",
-      )
+  let body = @ir.hot_region_body_ref(func, result)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 14)
+  let set_thirteenth = @ir.hot_region_get(func, body, 0)
+  let set_first = @ir.hot_region_get(func, body, 12)
+  let get_thirteenth = @ir.hot_region_get(func, body, 13)
+  match @ir.hot_node_get(func, set_thirteenth).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected thirteenth result lane to be stored first")
   }
-  match @ir.hot_node_get(func, selected).op {
-    @ir.HotOp::Call => ()
-    _ =>
-      fail(
-        "expected multi-result selected thirteenth-lane call to stay available",
-      )
+  match @ir.hot_node_get(func, set_first).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected first result lane to be stored thirteenth")
   }
+  @debug.assert_eq(@ir.hot_child_get(func, set_thirteenth, 0), selected)
+  @debug.assert_eq(@ir.hot_child_get(func, set_first, 0), selected)
+  match @ir.hot_node_get(func, get_thirteenth).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected thirteenth selected lane to reload from scratch local")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, get_thirteenth).imm0,
+    @ir.hot_node_get(func, set_thirteenth).imm0,
+  )
 }
 
 ///|
@@ -27636,8 +27642,8 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
   // from a multi-result tuple child through tuple scratch plus a scalar temp
   // (`.tmp/oi-m-tuple-multiresult-selected-fourteenth-probe.wat`). Starshine's
   // direct tuple.extract localizer currently proves selected children with up
-  // to twelve scalar results, so this extends the selected-lane tuple-scratch
-  // boundary.
+  // to thirteen scalar results, so this locks the next selected-lane
+  // tuple-scratch boundary.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
