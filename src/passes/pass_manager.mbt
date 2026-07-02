@@ -28203,6 +28203,56 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
           @lib.Block(
             _,
             @lib.Expr(
+              [
+                payload,
+                @lib.Block(
+                  _,
+                  @lib.Expr([index_value, index_effect, index_result])
+                ),
+                @lib.BrTable(labels, default_label),
+              ]
+            )
+          ),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match (payload, index_value, index_effect, index_result) {
+            (
+              @lib.LocalGet(_),
+              @lib.I32Const(_),
+              @lib.GlobalSet(_),
+              @lib.LocalGet(_),
+            ) => true
+            _ => false
+          }) =>
+          match
+            (
+              run_hot_pipeline_raw_oi_decrement_escaping_label_vec(labels),
+              run_hot_pipeline_raw_oi_decrement_escaping_label(default_label),
+            ) {
+            (Some(retargeted_labels), Some(retargeted_default)) => {
+              rewritten.push(instrs[i])
+              rewritten.push(payload)
+              rewritten.push(index_value)
+              rewritten.push(index_effect)
+              rewritten.push(index_result)
+              rewritten.push(
+                @lib.Instruction::br_table(
+                  retargeted_labels, retargeted_default,
+                ),
+              )
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              changed = true
+              i = i + 5
+              continue
+            }
+            _ => ()
+          }
+        (
+          @lib.Block(
+            _,
+            @lib.Expr(
               [payload, index, @lib.I32Eqz, @lib.BrTable(labels, default_label)]
             )
           ),
