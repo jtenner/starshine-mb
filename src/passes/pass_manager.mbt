@@ -30114,6 +30114,48 @@ fn run_hot_pipeline_raw_oi_flatten_escaping_ref_get_desc_body(
         (
           @lib.Block(
             _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr([tested_value, tested_effect, tested_result])
+                ),
+                @lib.BrOnNonNull(label_idx),
+                fallthrough,
+              ]
+            )
+          ),
+          @lib.RefAsNonNull,
+          @lib.RefGetDesc(_),
+          @lib.RefCastDescEq(_, _, _),
+        ) if (match (tested_value, tested_effect, tested_result, fallthrough) {
+            (
+              @lib.I32Const(_),
+              @lib.GlobalSet(_),
+              @lib.LocalGet(_),
+              @lib.LocalGet(_),
+            ) => true
+            _ => false
+          }) =>
+          match run_hot_pipeline_raw_oi_decrement_escaping_label(label_idx) {
+            Some(retargeted) => {
+              rewritten.push(instrs[i])
+              rewritten.push(tested_value)
+              rewritten.push(tested_effect)
+              rewritten.push(tested_result)
+              rewritten.push(@lib.Instruction::br_on_non_null(retargeted))
+              rewritten.push(fallthrough)
+              rewritten.push(instrs[i + 3])
+              rewritten.push(instrs[i + 4])
+              changed = true
+              i = i + 5
+              continue
+            }
+            None => ()
+          }
+        (
+          @lib.Block(
+            _,
             @lib.Expr([tested, @lib.BrOnNonNull(label_idx), fallthrough])
           ),
           @lib.RefAsNonNull,
