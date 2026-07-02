@@ -445,6 +445,66 @@ test "optimize-casts keeps ref.as_non_null motion behind same-local writes" {
 }
 
 ///|
+test "optimize-casts duplicates later ref.cast across nonconstant pure separate-index local writes" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module_with_locals(
+      any_ref,
+      [@lib.ValType::i32(), @lib.ValType::i32()],
+      [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::ref_cast(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+        ),
+        @lib.Instruction::drop(),
+      ],
+    ),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts does not duplicate ref.cast across trapping separate-index local writes" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module_with_locals(
+      any_ref,
+      [@lib.ValType::i32(), @lib.ValType::i32()],
+      [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::i32_div_s(),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::ref_cast(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+        ),
+        @lib.Instruction::drop(),
+      ],
+    ),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-casts duplicates later ref.cast across a dropped const root" {
   let any_ref = @lib.ValType::anyref()
   let pretty = optimize_casts_run_pretty(
