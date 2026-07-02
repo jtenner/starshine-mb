@@ -56,6 +56,43 @@ fn optimize_casts_void_module(
 }
 
 ///|
+fn optimize_casts_two_func_void_module(
+  param_type : @lib.ValType,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let child = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
+  let target_func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([param_type], [])),
+  )
+  let helper_func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([base, child, target_func_type, helper_func_type]))
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(2U), @lib.TypeIdx::new(3U)]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
+      @lib.Func::new(
+        @lib.Locals::new([]),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn optimize_casts_run_pretty(mod_ : @lib.Module) -> String {
   match @validate.validate_module(mod_) {
     Ok(_) => ()
@@ -306,6 +343,53 @@ test "optimize-casts does not duplicate ref.cast earlier across same-local write
       @lib.Instruction::drop(),
       @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::none())),
       @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts duplicates later ref.cast across a dropped const root" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts does not duplicate ref.cast earlier across calls" {
+  let any_ref = @lib.ValType::anyref()
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_two_func_void_module(any_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::call(@lib.FuncIdx::new(1U)),
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       @lib.Instruction::ref_cast(
         false,
