@@ -26498,14 +26498,13 @@ test "optimize-instructions localizes third lane from three-result selected tupl
 }
 
 ///|
-test "optimize-instructions intentionally keeps tuple.extract with multi-result selected fourth lane boundary" {
-  // Boundary-only OI-M classification: Binaryen `version_130`
+test "optimize-instructions localizes fourth lane from four-result selected tuple child" {
+  // OI-M selected multi-result child slice: Binaryen `version_130`
   // `--optimize-instructions` localizes the fourth scalar result selected from a
   // multi-result tuple child through tuple scratch plus scalar temps
-  // (`.tmp/oi-m-tuple-multiresult-selected-fourth-probe.wat`). Starshine's
-  // direct tuple.extract localizer currently proves only single-result selected
-  // children, so this fixture locks the fourth-lane variant of the same
-  // tuple-scratch boundary.
+  // (`.tmp/oi-m-tuple-multiresult-selected-fourth-probe.wat`). Starshine handles
+  // the bounded four-result selected-child case without claiming generalized
+  // tuple scratch reconstruction.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
@@ -26553,26 +26552,47 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
 
   let result = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, result).op {
-    @ir.HotOp::TupleExtract => ()
-    _ =>
+    @ir.HotOp::Block => ()
+    other =>
       fail(
-        "expected multi-result selected fourth-lane tuple.extract to stay unchanged",
+        "expected fourth lane from four-result tuple child to localize into a block, got \{other}",
       )
   }
-  @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
-  @debug.assert_eq(@ir.hot_node_get(func, result).imm0, 3)
-  match @ir.hot_node_get(func, tuple).op {
-    @ir.HotOp::TupleMake => ()
-    _ =>
-      fail(
-        "expected multi-result selected fourth-lane tuple.make to stay available",
-      )
+  let body = @ir.hot_region_body_ref(func, result)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 5)
+  let set_fourth = @ir.hot_region_get(func, body, 0)
+  let set_third = @ir.hot_region_get(func, body, 1)
+  let set_second = @ir.hot_region_get(func, body, 2)
+  let set_first = @ir.hot_region_get(func, body, 3)
+  let get_fourth = @ir.hot_region_get(func, body, 4)
+  match @ir.hot_node_get(func, set_fourth).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected fourth result lane to be stored first")
   }
-  match @ir.hot_node_get(func, selected).op {
-    @ir.HotOp::Call => ()
-    _ =>
-      fail("expected multi-result selected fourth-lane call to stay available")
+  match @ir.hot_node_get(func, set_third).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected third result lane to be stored second")
   }
+  match @ir.hot_node_get(func, set_second).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected second result lane to be stored third")
+  }
+  match @ir.hot_node_get(func, set_first).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected first result lane to be stored fourth")
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, set_fourth, 0), selected)
+  @debug.assert_eq(@ir.hot_child_get(func, set_third, 0), selected)
+  @debug.assert_eq(@ir.hot_child_get(func, set_second, 0), selected)
+  @debug.assert_eq(@ir.hot_child_get(func, set_first, 0), selected)
+  match @ir.hot_node_get(func, get_fourth).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected fourth selected lane to reload from scratch local")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, get_fourth).imm0,
+    @ir.hot_node_get(func, set_fourth).imm0,
+  )
 }
 
 ///|
