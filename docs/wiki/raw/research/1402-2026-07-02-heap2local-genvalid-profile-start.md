@@ -158,8 +158,54 @@ The classifier scanned both Starshine and Binaryen WAT for the generated H2L ope
 
 Agent judgment: the required dedicated profile at `10000` scale is **not exposing active generated H2L misses** after the latest fixes. The raw residual family is Starshine output-shape/local-debris wins after H2L traffic removal. This judgment still depends on the H2L transform contract and inspected diffs showing the generated operations are gone; smaller size is supporting evidence only.
 
+## Follow-up: ordinary, wasm-smith, and broad signoff lanes
+
+A sixth 2026-07-02 slice inspected `scripts/lib/pass-fuzz-compare-task.ts` normalizer support. The existing compare normalizers are intentionally syntax/debris scoped (`drop-consts`, `unreachable-control-debris`, `local-cleanup-debris`, `ssa-local-allocation-debris`). A H2L-specific local-debris normalizer would need to inspect paired outputs and refuse any residual generated H2L traffic; implementing that in this slice would risk turning the dedicated profile into a broad semantic suppressor. Decision for now: **do not add a H2L-specific normalizer**. Keep the H2L residual family raw and explicitly agent-classified as a Starshine output-shape win, with reopening criteria if residual generated H2L ops appear in either output, Starshine is not smaller, validation/property failures appear, or source-backed Binaryen transform families remain unimplemented.
+
+Regular GenValid current-binary lane:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local-genvalid-100000-20260702 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Result: `100000/100000` compared, `100000` normalized matches, `0` compare-normalized matches, `0` mismatches, and zero command/validation/generator/property failures. Binaryen cache was `314/99686`; selected profile count was `binaryen-oracle-portable=100000`.
+
+Explicit wasm-smith current-binary lane:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --wasm-smith --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local-wasm-smith-10000-20260702 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Result: `9956/10000` compared, `9955` normalized matches, `1` mismatch, zero validation/generator/property failures, `44` Binaryen/oracle command failures, wasm-smith cache `10000/0`, Binaryen cache `106/9850`, Binaryen failure cache `0/44`. Command-failure classes were `binaryen-rec-group-zero=39`, `binaryen-bad-section-size=3`, `binaryen-invalid-tag-index=1`, and `binaryen-table-index-out-of-range=1`.
+
+The single mismatch was `case-009332-wasm-smith`. Input has an unreachable block result; Binaryen emits `drop(memory.size)`, `drop(f64.const ...)`, `unreachable`, while Starshine emits the same prefix plus `drop(unreachable)` before the final `unreachable`. Agent classification: unrelated known unreachable-control-debris, not H2L traffic. Replay with the existing normalizer:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --wasm-smith --count 1 --seed 0x5eed --pass heap2local --replay-failures-from .tmp/pass-fuzz-heap2local-wasm-smith-10000-20260702 --failure-status mismatch --case-index 9332 --out-dir .tmp/pass-fuzz-heap2local-wasm-smith-case9332-normalized --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --normalize unreachable-control-debris --keep-going-after-command-failures
+```
+
+Result: `1/1` compared, `1` compare-normalized match, zero failures.
+
+Full wasm-smith rerun with the existing normalizer:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --wasm-smith --count 10000 --seed 0x5eed --pass heap2local --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-heap2local-wasm-smith-10000-unreachable-normalized-20260702 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Result: `9956/10000` compared, `9955` normalized, `1` compare-normalized, `0` mismatches, zero validation/generator/property failures, `44` command failures, wasm-smith cache `10000/0`, Binaryen cache `9956/0`, Binaryen failure cache `44/0`.
+
+Broad random-all-profiles current-binary lane:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass heap2local --gen-valid-profile random-all-profiles --out-dir .tmp/pass-fuzz-heap2local-genvalid-random-all-profiles-10000-20260702 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Result: `10000/10000` compared, `8772` normalized, `1228` raw mismatches, zero command/validation/generator/property failures, Binaryen cache `2183/7817`. Selected profiles were `ssa-nomerge-smoke=1699`, `heap2local-array=454`, `coverage-forced-portable=1610`, `ssa-nomerge-parity=1644`, `heap2local-struct=715`, `binaryen-oracle-portable=1703`, `pass-fuzz-stress=1691`, and `heap2local-ref=484`.
+
+Classifier over all `1228` broad residuals found every mismatch came from H2L leaves: `heap2local-struct=587`, `heap2local-array=221`, and `heap2local-ref=420`. It found no residual generated H2L operations in either Starshine or Binaryen WAT and found `1228/1228` smaller Starshine canonical wasm. The deltas exactly matched the dedicated lane: struct `-26` bytes, array `-23`, ref `-31`. Agent judgment: the broad random-all-profile lane re-exposes the same H2L output-shape/local-debris wins and does not introduce a new generated H2L miss.
+
 ## Next audit slice
 
-1. Make the normalizer/alignment decision concrete. Preferred next step: inspect the compare normalizer surfaces and either add a narrow `heap2local-local-debris` normalizer that first refuses residual generated H2L traffic, or document why the raw mismatch family remains an accepted measured Starshine output-shape win without normalizer support. Any normalizer work must be test-first.
-2. Refresh ordinary direct GenValid, explicit wasm-smith, and broad random-all-profile signoff lanes, and record pass-local timing. The required pass-specific `heap2local-all` lane is now run at `10000`, but it is raw-mismatch-heavy by design until the normalizer/alignment decision is complete.
-3. Replay or document any H2L `-O4z` slot/neighborhood evidence required by the common audit checklist before closing `[O4Z-AUDIT-H2L]`.
+1. Record pass-local timing for H2L. Prefer a bounded `scripts/self-optimize-compare.ts --timing-only --heap2local` probe over a sample of generated H2L inputs and/or the current broad residuals, following existing SLNS/HSO timing-probe patterns.
+2. Refresh or document H2L `-O4z` slot/neighborhood evidence required by the common audit checklist.
+3. If timing and slot evidence are acceptable, write the final closeout classification explicitly: four-lane matrix complete, dedicated/broad H2L residuals accepted as raw Starshine output-shape wins with reopening criteria, wasm-smith one unrelated debris residual normalized by existing `unreachable-control-debris`, and no active generated H2L traffic remaining in the current profile.
