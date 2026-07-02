@@ -8,7 +8,7 @@ This former boundary/status slice was superseded by the 2026-07-02 arity-9 imple
 
 Binaryen `version_130` localizes the ninth scalar result selected from a multi-result tuple child through a tuple scratch local and a scalar temp. The 2026-07-02 follow-up refreshed the probe to `.tmp/oi-m-tuple-multiresult-selected-ninth-probe.binaryen.20260702.wat`, changed the direct-HOT test to a red-first positive expectation, and taught Starshine's direct one-use tuple.extract localizer to store nine selected-child scalar results in stack-pop order before reloading the selected ninth lane.
 
-This note is retained as source/probe history. It no longer defines an active boundary for direct one-use arity-9 selected children; after the later arity-14 slice, arity 15+ remains the next selected-child tuple-scratch boundary.
+This note is retained as source/probe history. It no longer defines an active boundary for direct one-use arity-9 selected children; after the later arity-15 slice, arity 16+ remains the next selected-child tuple-scratch boundary.
 
 ## Evidence
 
@@ -21,4 +21,4 @@ This note is retained as source/probe history. It no longer defines an active bo
 ## Status
 
 - Superseded for direct one-use arity-9 selected-child localization by the 2026-07-02 implementation slice.
-- Remaining OI-M work includes selected-child arities 15+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, public/binary tuple fixture coverage where representable, full `simplify-locals` replay/reduction for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, control/EH sibling localization, and broader tee/drop reconstruction.
+- Remaining OI-M work includes selected-child arities 16+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, public/binary tuple fixture coverage where representable, full `simplify-locals` replay/reduction for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, control/EH sibling localization, and broader tee/drop reconstruction.

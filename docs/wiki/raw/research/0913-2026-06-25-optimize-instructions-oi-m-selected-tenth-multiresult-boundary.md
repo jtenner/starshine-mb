@@ -8,7 +8,7 @@ This boundary/status slice originally locked the next OI-M selected-child multi-
 
 Binaryen `version_130` localizes the tenth scalar result selected from a multi-result tuple child through a tuple scratch local and a scalar temp. After the 2026-07-02 arity-10 follow-up, Starshine's current direct-HOT tuple.extract localizer proves direct one-use selected children with one through ten scalar results, so this note is no longer an active boundary for direct one-use arity 10.
 
-It remains useful as source-backed history and as a reminder that arity 15+ and generalized tuple-scratch reconstruction are still outside the implemented subset after the later arity-14 slice.
+It remains useful as source-backed history and as a reminder that arity 16+ and generalized tuple-scratch reconstruction are still outside the implemented subset after the later arity-15 slice.
 
 ## Evidence
 
@@ -22,4 +22,4 @@ It remains useful as source-backed history and as a reminder that arity 15+ and 
 ## Status
 
 - Superseded for direct one-use arity 10 by the 2026-07-02 arity-10 implementation slice.
-- Remaining OI-M work includes selected-child arities 15+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, public/binary tuple fixture coverage where representable, full `simplify-locals` replay/reduction for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, control/EH sibling localization, and broader tee/drop reconstruction.
+- Remaining OI-M work includes selected-child arities 16+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, public/binary tuple fixture coverage where representable, full `simplify-locals` replay/reduction for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, control/EH sibling localization, and broader tee/drop reconstruction.
