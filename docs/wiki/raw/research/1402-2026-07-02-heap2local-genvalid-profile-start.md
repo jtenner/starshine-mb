@@ -1,6 +1,6 @@
 ---
 kind: research
-status: working
+status: supported
 created: 2026-07-02
 sources:
   - ../../binaryen/passes/heap2local/fuzzing.md
@@ -63,7 +63,7 @@ Profile smoke results:
   - `.tmp/pass-fuzz-heap2local-array-30`: `30/30` compared, `17` normalized, `13` mismatches.
   - `.tmp/pass-fuzz-heap2local-ref-30`: `30/30` compared, `2` normalized, `28` mismatches.
 
-Agent classification: these are **open H2L behavior-parity gaps**, not accepted safe drift. The first inspected struct case shows Binaryen scalarizing repeated fresh struct/default allocations through the same owner local plus fresh-reference folds, while Starshine leaves most of that traffic as GC operations. The dedicated profile is therefore doing its job by exposing under-sampled H2L families, but the pass is not closeout-ready.
+Agent classification at this initial point: these were **open H2L behavior-parity gaps**, not accepted safe drift. The first inspected struct case showed Binaryen scalarizing repeated fresh struct/default allocations through the same owner local plus fresh-reference folds, while Starshine left most of that traffic as GC operations. The dedicated profile was therefore doing its job by exposing under-sampled H2L families. This initial not-closeout-ready classification is superseded by the focused fixes, scaled residual classification, and final closeout evidence later in this note.
 
 ## Follow-up: repeated same-owner struct allocations
 
@@ -204,8 +204,91 @@ Result: `10000/10000` compared, `8772` normalized, `1228` raw mismatches, zero c
 
 Classifier over all `1228` broad residuals found every mismatch came from H2L leaves: `heap2local-struct=587`, `heap2local-array=221`, and `heap2local-ref=420`. It found no residual generated H2L operations in either Starshine or Binaryen WAT and found `1228/1228` smaller Starshine canonical wasm. The deltas exactly matched the dedicated lane: struct `-26` bytes, array `-23`, ref `-31`. Agent judgment: the broad random-all-profile lane re-exposes the same H2L output-shape/local-debris wins and does not introduce a new generated H2L miss.
 
-## Next audit slice
+## Follow-up: pass-local timing and O4z slot evidence
 
-1. Record pass-local timing for H2L. Prefer a bounded `scripts/self-optimize-compare.ts --timing-only --heap2local` probe over a sample of generated H2L inputs and/or the current broad residuals, following existing SLNS/HSO timing-probe patterns.
-2. Refresh or document H2L `-O4z` slot/neighborhood evidence required by the common audit checklist.
-3. If timing and slot evidence are acceptable, write the final closeout classification explicitly: four-lane matrix complete, dedicated/broad H2L residuals accepted as raw Starshine output-shape wins with reopening criteria, wasm-smith one unrelated debris residual normalized by existing `unreachable-control-debris`, and no active generated H2L traffic remaining in the current profile.
+A final 2026-07-02 slice recorded the remaining timing and generated `-O4z` evidence. No code changed.
+
+Bounded dedicated-profile timing probe over nine representative generated inputs:
+
+```sh
+for c in 000001 000004 000015 001001 001008 001010 002001 005001 009999; do
+  bun scripts/self-optimize-compare.ts \
+    .tmp/pass-fuzz-heap2local-all-10000-full-residuals-after-array-reftest/inputs/gen-valid/gen-valid-${c}.wasm \
+    --starshine-bin _build/native/release/build/cmd/cmd.exe \
+    --out-dir .tmp/h2l-passlocal-probe-dedicated-9/case-${c} \
+    --timing-only --heap2local
+done
+```
+
+Result summary:
+
+| Case | Starshine pass ms | Binaryen pass ms | Starshine/Binaryen bytes | Pass floor |
+| --- | ---: | ---: | ---: | --- |
+| `000001` | `0.044` | `0.074439` | `79/105` | yes |
+| `000004` | `0.033` | `0.066976` | `76/107` | yes |
+| `000015` | `0.034` | `0.069090` | `83/106` | yes |
+| `001001` | `0.036` | `0.066044` | `79/105` | yes |
+| `001008` | `0.031` | `0.071605` | `76/107` | yes |
+| `001010` | `0.031` | `0.071705` | `83/106` | yes |
+| `002001` | `0.035` | `0.068469` | `83/106` | yes |
+| `005001` | `0.031` | `0.068268` | `83/106` | yes |
+| `009999` | `0.031` | `0.061245` | `79/105` | yes |
+
+Median Starshine pass-local time was `0.033ms`; median Binaryen pass-local time was `0.068469ms`. All sampled cases were inside the project pass-local floor and preserved the previously classified smaller Starshine residual sizes.
+
+Generated O4z predecessor refresh:
+
+```sh
+moon build --target wasm src/cmd
+wasm-tools validate --features all _build/wasm/debug/build/cmd/cmd.wasm
+wasm-opt _build/wasm/debug/build/cmd/cmd.wasm --all-features \
+  --once-reduction --global-refining --gsi --ssa-nomerge --dce \
+  --remove-unused-names --remove-unused-brs --remove-unused-names --vacuum \
+  --remove-unused-brs --optimize-instructions --heap-store-optimization \
+  --pick-load-signs --precompute --code-pushing --tuple-optimization \
+  --simplify-locals-nostructure --vacuum --reorder-locals --remove-unused-brs \
+  -o .tmp/h2l-o4z-slot-evidence-20260702/prefix-before-h2l.wasm
+wasm-tools validate --features all .tmp/h2l-o4z-slot-evidence-20260702/prefix-before-h2l.wasm
+```
+
+The rebuilt input was `_build/wasm/debug/build/cmd/cmd.wasm` (`8.4M`); the Binaryen prefix predecessor was `.tmp/h2l-o4z-slot-evidence-20260702/prefix-before-h2l.wasm` (`2.9M`). Both validated.
+
+Direct H2L O4z slot replay:
+
+```sh
+bun scripts/self-optimize-compare.ts \
+  .tmp/h2l-o4z-slot-evidence-20260702/prefix-before-h2l.wasm \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --out-dir .tmp/h2l-o4z-slot-evidence-20260702/slot-h2l-compare \
+  --timing-only --heap2local
+```
+
+Result: exact canonical match (`wasmEqual=true`, both outputs `3,015,145` bytes), Starshine pass-local `67.539ms`, Binaryen pass-local `153.397ms`, pass floor `yes`. Starshine whole-command time was slower (`1907.600ms` vs `522.067ms`) because non-pass traced/command work dominated; classify that under `[WALL]001`, not H2L pass-local performance. Selected Starshine/Binaryen outputs validated with `wasm-tools validate --features all`.
+
+Adjacent neighborhood replay from the same predecessor:
+
+| Prefix | Exact wasm equal | Starshine bytes | Binaryen bytes | Starshine pass ms | Binaryen pass ms | Pass floor |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `heap2local` | yes | `3015145` | `3015145` | `60.175` | `116.222` | yes |
+| `heap2local -> optimize-casts` | yes | `3015145` | `3015145` | `74.737` | `663.327` | yes |
+| `heap2local -> optimize-casts -> local-subtyping` | yes | `3015145` | `3015145` | `80.366` | `711.696` | yes |
+| `... -> coalesce-locals` | no | `3012858` | `2860415` | `98.362` | `1267.740` | yes |
+| `... -> local-cse` | no | `3012790` | `2858855` | `199.096` | `1397.760` | yes |
+
+Classification: H2L itself and the immediate H2L/OC/LS GC-refinement neighborhood are exact on the current generated O4z predecessor. The first size/output gap appears when `coalesce-locals` is added and remains after `local-cse`; treat that as neighbor-owned ordered-pipeline evidence rather than an H2L blocker. Selected final neighborhood outputs validate.
+
+## Final audit classification
+
+H2L is closed for the current v0.1.0 direct-pass/O4z audit scope.
+
+Completion evidence:
+
+- Pass-specific profile exists and is documented: `heap2local-all`, with leaves `heap2local-struct`, `heap2local-array`, and `heap2local-ref` plus the documented aliases.
+- Source-backed Binaryen transformation families are documented: exclusive struct scalarization, owner/copy/tee/simple-carrier flow, fresh-reference folds, small fixed-array lowering, and explicit bailout families.
+- Focused parity fixes landed for generated repeated same-owner struct allocation epochs, repeated same-owner fixed-array allocation epochs, and direct fresh-struct `ref.test` folds.
+- Required compare matrix is current with `_build/native/release/build/cmd/cmd.exe`: regular GenValid `100000/100000` normalized with zero failures; explicit wasm-smith normalized to zero mismatches with the existing `unreachable-control-debris` normalizer and `44` Binaryen/oracle command failures; dedicated `heap2local-all` `10000/10000` completed with `7526` raw residuals classified below; broad `random-all-profiles` `10000/10000` completed with `1228` raw H2L-leaf residuals classified below.
+- Dedicated and broad raw residuals are agent-classified as Starshine output-shape/local-debris wins after generated H2L traffic removal. Classifiers found no residual generated H2L operations in either tool's output for the saved residuals, and every saved residual was smaller in Starshine with stable per-leaf deltas.
+- Pass-local timing is inside the repo floor on generated H2L samples and the current generated O4z H2L slot.
+- Current generated O4z direct H2L slot is exact; the H2L+OC+LS neighborhood is exact; the later coalesce/local-cse gap is neighbor-owned unless future evidence ties it back to H2L output.
+
+Reopen if a future dedicated/broad residual contains generated H2L operations in either output, Starshine is not smaller for the classified local-debris family, validation/property failures appear, Binaryen source/lit drift adds an unimplemented required H2L family, the neighbor-owned coalesce/local-cse gap is proven to originate in H2L output, or pass-local timing regresses outside the repo floor.

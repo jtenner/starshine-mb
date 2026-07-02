@@ -1,6 +1,6 @@
 ---
 kind: workflow
-status: working
+status: supported
 last_reviewed: 2026-07-02
 sources:
   - ../../../tooling/pass-fuzz-compare.md
@@ -58,7 +58,33 @@ Current signoff-lane refresh with `_build/native/release/build/cmd/cmd.exe`:
 - Explicit wasm-smith `.tmp/pass-fuzz-heap2local-wasm-smith-10000-20260702`: `9956/10000` compared, `9955` normalized, one raw mismatch, and `44` Binaryen/oracle command failures. The single mismatch, `case-009332-wasm-smith`, is unrelated to H2L and is the known unreachable-control-debris shape (`drop(unreachable)` before `unreachable`). Replay `.tmp/pass-fuzz-heap2local-wasm-smith-case9332-normalized` with `--normalize unreachable-control-debris` compared `1/1` with one compare-normalized match and zero failures. Full rerun `.tmp/pass-fuzz-heap2local-wasm-smith-10000-unreachable-normalized-20260702` compared `9956/10000` with `9955` normalized, `1` compare-normalized, `0` mismatches, and the same `44` command failures (`39` rec-group-zero plus invalid-tag/table-index/bad-section parser classes as recorded in `cases.jsonl`).
 - Broad random-all-profiles `.tmp/pass-fuzz-heap2local-genvalid-random-all-profiles-10000-20260702`: `10000/10000` compared, `8772` normalized, `1228` raw mismatches, zero validation/generator/property/command failures, Binaryen cache `2183/7817`. Selected profiles were `ssa-nomerge-smoke=1699`, `heap2local-array=454`, `coverage-forced-portable=1610`, `ssa-nomerge-parity=1644`, `heap2local-struct=715`, `binaryen-oracle-portable=1703`, `pass-fuzz-stress=1691`, and `heap2local-ref=484`. All mismatches came from the H2L leaves: `struct=587`, `array=221`, `ref=420`; classifier found no residual generated H2L ops in either output, `1228/1228` smaller Starshine canonical wasm, and the same stable deltas (`struct -26`, `array -23`, `ref -31` bytes).
 
-H2L still remains short of final closeout until pass-local timing and H2L slot/neighborhood evidence are recorded, and until the final report explicitly accepts the raw H2L output-shape family or a future test-first normalizer replaces that decision.
+## Pass-local timing and O4z slot evidence
+
+A bounded pass-local probe over nine representative dedicated-profile inputs from `.tmp/pass-fuzz-heap2local-all-10000-full-residuals-after-array-reftest/inputs/gen-valid/` recorded Starshine H2L pass-local times between `0.031ms` and `0.044ms` (median `0.033ms`) versus Binaryen `0.061245ms` to `0.074439ms` (median `0.068469ms`). Every sampled case was inside the repo pass-local floor and kept the same smaller Starshine residual sizes (`79/105`, `83/106`, or `76/107` bytes depending on leaf).
+
+Current generated `-O4z` slot evidence used `_build/wasm/debug/build/cmd/cmd.wasm` rebuilt in this checkout and a Binaryen-produced predecessor after the current Starshine/Binaryen no-DWARF prefix through the pass immediately before H2L:
+
+```sh
+wasm-opt _build/wasm/debug/build/cmd/cmd.wasm --all-features \
+  --once-reduction --global-refining --gsi --ssa-nomerge --dce \
+  --remove-unused-names --remove-unused-brs --remove-unused-names --vacuum \
+  --remove-unused-brs --optimize-instructions --heap-store-optimization \
+  --pick-load-signs --precompute --code-pushing --tuple-optimization \
+  --simplify-locals-nostructure --vacuum --reorder-locals --remove-unused-brs \
+  -o .tmp/h2l-o4z-slot-evidence-20260702/prefix-before-h2l.wasm
+bun scripts/self-optimize-compare.ts .tmp/h2l-o4z-slot-evidence-20260702/prefix-before-h2l.wasm \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --out-dir .tmp/h2l-o4z-slot-evidence-20260702/slot-h2l-compare \
+  --timing-only --heap2local
+```
+
+The direct H2L slot was an exact canonical match: Starshine and Binaryen outputs were both `3,015,145` bytes, `wasmEqual=true`, and selected outputs validated. The measured pass-local time was inside the repo floor (`67.539ms` Starshine vs `153.397ms` Binaryen in the standalone slot run; a repeated prefix table recorded `60.175ms` vs `116.222ms`). Whole-command Starshine time stayed slower (`1907.600ms` vs `522.067ms`) because traced non-pass decode/validation/command work dominated; classify that under `[WALL]001`, not as an H2L pass-local blocker.
+
+The adjacent GC/local-cleanup neighborhood was replayed incrementally from the same predecessor. `heap2local`, `heap2local + optimize-casts`, and `heap2local + optimize-casts + local-subtyping` were exact canonical matches. Adding `coalesce-locals` introduced a broader neighborhood output-size gap (`3,012,858` Starshine bytes vs `2,860,415` Binaryen), and adding `local-cse` kept that gap (`3,012,790` vs `2,858,855`). Because the H2L-only, H2L+OC, and H2L+OC+LS prefixes are exact and validated, the current neighborhood gap is classified as neighbor-owned ordered-pipeline evidence rather than an H2L blocker.
+
+## Closeout status
+
+H2L is audit-complete for the current v0.1.0 direct-pass/O4z scope. The required four-lane compare matrix is recorded above; `heap2local-all` is the pass-specific profile; generated mismatches are explicitly agent-classified raw Starshine output-shape/local-debris wins after both tools remove generated H2L traffic; wasm-smith's one residual is unrelated unreachable-control debris normalized by an existing generic normalizer; pass-local timing is inside the repo floor; and the current generated O4z H2L slot is an exact match. Reopen only under the criteria above or if the neighbor-owned coalesce/local-cse gap is later shown to be caused by H2L output.
 
 ## Known exclusions
 

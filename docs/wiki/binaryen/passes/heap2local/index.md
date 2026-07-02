@@ -74,9 +74,10 @@ It is a conservative, shape-driven scalarization pass for nonescaping, exclusive
   - earlier cleanup reduces noisy control/local traffic first
   - `heap2local` turns some GC object traffic into ordinary locals
   - later cast/subtyping/local-cleanup passes can exploit the newly scalarized shapes
-- The saved generated-artifact `-O4z` audit put `heap2local` in the expensive-but-successful cluster rather than the corruption cluster:
+- The historical saved generated-artifact `-O4z` audit put `heap2local` in the expensive-but-successful cluster rather than the corruption cluster:
   - `17.00x` wall ratio
   - `3.66x` pass ratio
+- The current 2026-07-02 generated `-O4z` slot refresh rebuilt `_build/wasm/debug/build/cmd/cmd.wasm`, generated the predecessor under `.tmp/h2l-o4z-slot-evidence-20260702/prefix-before-h2l.wasm`, and replayed direct H2L as an exact canonical match inside the pass-local floor (`67.539ms` Starshine vs `153.397ms` Binaryen). The H2L+optimize-casts+local-subtyping neighborhood is also exact; the later coalesce-locals/local-cse size gap is neighbor-owned ordered-pipeline evidence, not an H2L blocker.
 - The saved Binaryen debug log contains `18` `running pass: heap2local` lines, so nested reruns matter here too.
 
 ## Most important durable takeaways
