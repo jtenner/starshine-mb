@@ -34,7 +34,7 @@ related:
 ## Shared Helper Rules
 
 - Use [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt) for `pass_prepare_requirements(...)` and the specific `pass_require_*` helpers.
-- When adding or discovering a `pass_require_*` dependency, update the pass descriptor first-test style and cover it in [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt), as the `optimize-instructions` `use_def` / `effects` descriptor assertion does.
+- When adding or discovering a `pass_require_*` dependency, update the pass descriptor first-test style and cover it in [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt), as the `optimize-instructions` `use_def` / `effects` assertion, the `remove-unused-brs` `use_def` assertion, and the audited descriptor-contract table do.
 - Use shared mutation helpers such as `pass_replace_node(...)`, `pass_splice_region(...)`, and `pass_delete_detached_nodes(...)` where they fit.
 - Call `pass_mark_mutated(...)` for mutation flows outside the shared wrappers.
 - Verify with `pass_verify_before_after(...)`.

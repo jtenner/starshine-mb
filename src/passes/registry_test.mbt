@@ -1,4 +1,12 @@
 ///|
+fn registry_test_assert_requires(
+  descriptor : @ir.HotPassDescriptor,
+  expected : Array[@ir.HotAnalysis],
+) -> Unit raise {
+  @debug.assert_eq(@ir.hot_pass_requires(descriptor), expected)
+}
+
+///|
 test "pass registry classifies active, boundary-only, and removed names" {
   @debug.assert_eq(
     pass_registry_category("vacuum"),
@@ -240,6 +248,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   @debug.assert_eq(rse.name, "redundant-set-elimination")
   @debug.assert_eq(@ir.hot_pass_requires(rse), [])
   @debug.assert_eq(rub.name, "remove-unused-brs")
+  @debug.assert_eq(@ir.hot_pass_requires(rub), [@ir.HotAnalysis::use_def()])
 }
 
 ///|
@@ -249,11 +258,40 @@ test "precompute descriptor split keeps direct pass SSA-free and prefix SSA-back
 
   @debug.assert_eq(direct.name, "precompute")
   @debug.assert_eq(prefix.name, "precompute-propagate-prefix")
-  @debug.assert_eq(@ir.hot_pass_requires(direct), [])
-  @debug.assert_eq(@ir.hot_pass_requires(prefix), [@ir.HotAnalysis::ssa()])
+  registry_test_assert_requires(direct, [])
+  registry_test_assert_requires(prefix, [@ir.HotAnalysis::ssa()])
   assert_true(@ir.hot_pass_invalidates(direct).contains(@ir.HotAnalysis::ssa()))
   assert_true(@ir.hot_pass_invalidates(prefix).contains(@ir.HotAnalysis::ssa()))
   @debug.assert_eq(pass_registry_category("precompute-propagate-prefix"), None)
+}
+
+///|
+test "audited pass_require helper metadata contracts stay declared" {
+  // Keep this table aligned with audited direct uses of pass_require_* helpers.
+  // Add a row here when a pass starts requiring a new analysis, or document the
+  // pass as intentionally lazy in its descriptor when eager metadata is wrong.
+  registry_test_assert_requires(optimize_instructions_descriptor(), [
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+  ])
+  registry_test_assert_requires(remove_unused_brs_descriptor(), [
+    @ir.HotAnalysis::use_def(),
+  ])
+  registry_test_assert_requires(precompute_propagate_prefix_descriptor(), [
+    @ir.HotAnalysis::ssa(),
+  ])
+  registry_test_assert_requires(pick_load_signs_descriptor(), [
+    @ir.HotAnalysis::use_def(),
+  ])
+  registry_test_assert_requires(tuple_optimization_descriptor(), [
+    @ir.HotAnalysis::use_def(),
+  ])
+  registry_test_assert_requires(heap2local_descriptor(), [
+    @ir.HotAnalysis::use_def(),
+  ])
+  registry_test_assert_requires(local_cse_descriptor(), [
+    @ir.HotAnalysis::effects(),
+  ])
 }
 
 ///|

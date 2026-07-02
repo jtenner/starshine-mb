@@ -4711,7 +4711,7 @@ test "remove-unused-brs skips structured return ladders when a false prefix guar
 }
 
 ///|
-test "remove-unused-brs does not build use-def when rewriting tail returns" {
+test "remove-unused-brs declared metadata builds use-def before rewriting tail returns" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -4730,7 +4730,7 @@ test "remove-unused-brs does not build use-def when rewriting tail returns" {
   let text = perf_test_join_lines(lines)
   assert_true(text.contains("perf:timer name=lift"))
   assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
-  assert_false(text.contains("perf:timer name=analysis:use-def"))
+  assert_true(text.contains("perf:timer name=analysis:use-def"), msg=text)
 }
 
 ///|
