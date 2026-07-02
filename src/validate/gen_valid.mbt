@@ -734,6 +734,10 @@ pub enum GenValidProfile {
   SimplifyLocalsNostructureTeeControlProfile
   SimplifyLocalsNostructureEffectOrderProfile
   SimplifyLocalsNostructureAllProfile
+  ReorderLocalsHotSortProfile
+  ReorderLocalsUnusedTrimProfile
+  ReorderLocalsNameRepairProfile
+  ReorderLocalsAllProfile
   PassOiDefaultScalarProfile
   PassOiLocalFactsProfile
   PassOiBooleanSelectProfile
@@ -883,6 +887,10 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SimplifyLocalsNostructureEffectOrderProfile =>
       "simplify-locals-nostructure-effect-order"
     SimplifyLocalsNostructureAllProfile => "simplify-locals-nostructure-all"
+    ReorderLocalsHotSortProfile => "reorder-locals-hot-sort"
+    ReorderLocalsUnusedTrimProfile => "reorder-locals-unused-trim"
+    ReorderLocalsNameRepairProfile => "reorder-locals-name-repair"
+    ReorderLocalsAllProfile => "reorder-locals-all"
     PassOiDefaultScalarProfile => "pass-oi-default-scalar"
     PassOiLocalFactsProfile => "pass-oi-local-facts"
     PassOiBooleanSelectProfile => "pass-oi-boolean-select"
@@ -907,6 +915,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | RemoveUnusedBrsAllProfile
     | SsaNomergeAllProfile
     | SimplifyLocalsNostructureAllProfile
+    | ReorderLocalsAllProfile
     | RandomAllProfilesProfile => true
     _ => false
   }
@@ -1037,6 +1046,12 @@ pub fn gen_valid_profile_members(
           SimplifyLocalsNostructureEffectOrderProfile,
           2,
         ),
+      ]
+    ReorderLocalsAllProfile =>
+      [
+        GenValidProfileMember::new(ReorderLocalsHotSortProfile, 3),
+        GenValidProfileMember::new(ReorderLocalsUnusedTrimProfile, 2),
+        GenValidProfileMember::new(ReorderLocalsNameRepairProfile, 1),
       ]
     RandomAllProfilesProfile =>
       [
@@ -1197,6 +1212,10 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SimplifyLocalsNostructureTeeControlProfile,
     SimplifyLocalsNostructureEffectOrderProfile,
     SimplifyLocalsNostructureAllProfile,
+    ReorderLocalsHotSortProfile,
+    ReorderLocalsUnusedTrimProfile,
+    ReorderLocalsNameRepairProfile,
+    ReorderLocalsAllProfile,
     PassOiDefaultScalarProfile,
     PassOiLocalFactsProfile,
     PassOiBooleanSelectProfile,
@@ -1290,6 +1309,11 @@ pub fn gen_valid_profile_by_name(
       Ok(SimplifyLocalsNostructureAllProfile)
     "slns" => Ok(SimplifyLocalsNostructureAllProfile)
     "slns-closeout" => Ok(SimplifyLocalsNostructureAllProfile)
+    "reorder-locals" => Ok(ReorderLocalsAllProfile)
+    "reorder-locals-closeout" => Ok(ReorderLocalsAllProfile)
+    "reorder-locals-all-profiles" => Ok(ReorderLocalsAllProfile)
+    "rl" => Ok(ReorderLocalsAllProfile)
+    "rl-closeout" => Ok(ReorderLocalsAllProfile)
     "optimize-instructions" => Ok(PassOiDefaultScalarProfile)
     "oi-default-scalar" => Ok(PassOiDefaultScalarProfile)
     "oi-local-facts" => Ok(PassOiLocalFactsProfile)
@@ -1726,6 +1750,12 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_slns_profile_config(
         SimplifyLocalsNostructureStraightLineProfile,
       )
+    ReorderLocalsHotSortProfile
+    | ReorderLocalsUnusedTrimProfile
+    | ReorderLocalsNameRepairProfile =>
+      gen_valid_reorder_locals_profile_config(profile)
+    ReorderLocalsAllProfile =>
+      gen_valid_reorder_locals_profile_config(ReorderLocalsHotSortProfile)
     PassOiDefaultScalarProfile
     | PassOiLocalFactsProfile
     | PassOiBooleanSelectProfile
@@ -1736,6 +1766,66 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | PassOiTupleProfile => gen_valid_oi_profile_config(profile)
     RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
   }
+}
+
+///|
+fn gen_valid_reorder_locals_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 1,
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 18,
+    max_body_statements: match profile {
+      ReorderLocalsUnusedTrimProfile => 7
+      ReorderLocalsNameRepairProfile => 8
+      _ => 10
+    },
+    max_body_depth: 2,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: profile == ReorderLocalsNameRepairProfile,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: profile == ReorderLocalsNameRepairProfile,
+      allow_typed_body_generator: true,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_reorder_locals_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(ReorderLocalsHotSortProfile) ||
+  config == GenValidConfig::for_profile(ReorderLocalsUnusedTrimProfile) ||
+  config == GenValidConfig::for_profile(ReorderLocalsNameRepairProfile)
 }
 
 ///|
@@ -20169,8 +20259,126 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
 }
 
 ///|
+fn gen_valid_reorder_locals_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(ReorderLocalsUnusedTrimProfile) {
+    ReorderLocalsUnusedTrimProfile
+  } else if config ==
+    GenValidConfig::for_profile(ReorderLocalsNameRepairProfile) {
+    ReorderLocalsNameRepairProfile
+  } else {
+    ReorderLocalsHotSortProfile
+  }
+}
+
+///|
+fn gen_valid_reorder_locals_local_types() -> Array[ValType] {
+  let locals : Array[ValType] = []
+  for _ in 0..<18 {
+    locals.push(ValType::i32())
+  }
+  locals
+}
+
+///|
+fn gen_valid_reorder_locals_hot_sort_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(17)),
+    Instruction::local_set(LocalIdx::new(17U)),
+    Instruction::local_get(LocalIdx::new(17U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(17U)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(2)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+    Instruction::i32_const(I32(3)),
+    Instruction::local_tee(LocalIdx::new(3U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_reorder_locals_unused_trim_body() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(16)),
+    Instruction::local_set(LocalIdx::new(16U)),
+    Instruction::i32_const(I32(4)),
+    Instruction::local_set(LocalIdx::new(4U)),
+    Instruction::local_get(LocalIdx::new(4U)),
+    Instruction::drop(),
+  ]
+}
+
+///|
+fn gen_valid_reorder_locals_name_repair_body() -> Array[Instruction] {
+  [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(16)),
+        Instruction::local_set(LocalIdx::new(16U)),
+        Instruction::local_get(LocalIdx::new(16U)),
+        Instruction::drop(),
+      ]),
+    ),
+    Instruction::i32_const(I32(0)),
+    Instruction::local_set(LocalIdx::new(0U)),
+  ]
+}
+
+///|
+fn gen_valid_reorder_locals_profile_module(config : GenValidConfig) -> Module {
+  let kind = gen_valid_reorder_locals_profile_kind(config)
+  let body = match kind {
+    ReorderLocalsUnusedTrimProfile =>
+      gen_valid_reorder_locals_unused_trim_body()
+    ReorderLocalsNameRepairProfile =>
+      gen_valid_reorder_locals_name_repair_body()
+    _ => gen_valid_reorder_locals_hot_sort_body()
+  }
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([gen_valid_precompute_void_func_type()]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::from_types(gen_valid_reorder_locals_local_types()),
+          Expr::new(body),
+        ),
+      ]),
+    )
+  if kind == ReorderLocalsNameRepairProfile {
+    mod.with_name_sec(
+      NameSec::new(
+        func_names=Some(NameMap::new([NameAssoc::new(0U, Name::new("rl"))])),
+        local_names=Some(
+          IndirectNameMap::new([
+            IndirectNameAssoc::new(
+              0U,
+              NameMap::new([
+                NameAssoc::new(0U, Name::new("cold_write")),
+                NameAssoc::new(1U, Name::new("unused_one")),
+                NameAssoc::new(16U, Name::new("hot_named")),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    )
+  } else {
+    mod
+  }
+}
+
+///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_reorder_locals_profile_config(config) {
+    return gen_valid_reorder_locals_profile_module(config)
+  }
   if gen_valid_is_oi_trigger_profile_config(config) {
     return gen_valid_oi_trigger_profile_module(ctx)
   }

@@ -268,6 +268,10 @@ fn rl_params_for_type_idx(
         None => abort("reorder-locals missing function subtype")
       }
     @lib.RecIdx(_) =>
+      // Function-section type references are module-global TypeIdx values after
+      // decode/validation. A RecIdx here would mean a rec-group-local type
+      // escaped into the module function declaration table, so keep this as an
+      // invariant assertion instead of trying to reinterpret it.
       abort("reorder-locals unsupported recursive function type index")
   }
   match subtype.get_comptype() {

@@ -12696,6 +12696,122 @@ test "simplify-locals-nostructure gen-valid profiles resolve and emit local oppo
 }
 
 ///|
+test "reorder-locals gen-valid profiles resolve focused leaves" {
+  @debug.assert_eq(
+    gen_valid_profile_name(ReorderLocalsHotSortProfile),
+    "reorder-locals-hot-sort",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(ReorderLocalsUnusedTrimProfile),
+    "reorder-locals-unused-trim",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(ReorderLocalsNameRepairProfile),
+    "reorder-locals-name-repair",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(ReorderLocalsAllProfile),
+    "reorder-locals-all",
+  )
+  assert_true(gen_valid_profile_names().contains("reorder-locals-all"))
+  match gen_valid_profile_by_name("reorder-locals") {
+    Ok(profile) => @debug.assert_eq(profile, ReorderLocalsAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("rl-closeout") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, ReorderLocalsAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(ReorderLocalsHotSortProfile, 3),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(ReorderLocalsUnusedTrimProfile, 2),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(ReorderLocalsNameRepairProfile, 1),
+        ),
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+  let hot_config = GenValidConfig::for_profile(ReorderLocalsHotSortProfile)
+  @debug.assert_eq(
+    gen_valid_config_label(hot_config),
+    "reorder-locals-hot-sort",
+  )
+  assert_true(hot_config.features.allow_typed_body_generator)
+  assert_true(hot_config.max_locals >= 6)
+  assert_false(hot_config.features.allow_imports)
+  let name_config = GenValidConfig::for_profile(ReorderLocalsNameRepairProfile)
+  @debug.assert_eq(
+    gen_valid_config_label(name_config),
+    "reorder-locals-name-repair",
+  )
+  assert_true(name_config.features.allow_name_custom_sections)
+
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 64 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      ReorderLocalsAllProfile,
+      0x5eedUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(ReorderLocalsHotSortProfile))
+  assert_true(seen.contains(ReorderLocalsUnusedTrimProfile))
+  assert_true(seen.contains(ReorderLocalsNameRepairProfile))
+}
+
+///|
+test "reorder-locals gen-valid profile modules expose local reorder opportunities" {
+  for
+    profile in [
+      ReorderLocalsHotSortProfile,
+      ReorderLocalsUnusedTrimProfile,
+      ReorderLocalsNameRepairProfile,
+    ] {
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    @debug.assert_eq(generated.config_label, gen_valid_profile_name(profile))
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    assert_true(
+      generated.facts.has_high_local_indices ||
+      generated.facts.has_unused_locals ||
+      generated.facts.has_write_only_locals,
+      msg="expected reorder-locals local-table facts for \{gen_valid_profile_name(profile)}",
+    )
+    if profile == ReorderLocalsUnusedTrimProfile {
+      assert_true(generated.facts.has_unused_locals)
+      assert_true(generated.facts.has_write_only_locals)
+    }
+    if profile == ReorderLocalsNameRepairProfile {
+      assert_true(generated.facts.has_local_name_entries)
+    }
+  }
+}
+
+///|
 test "remove-unused-brs aggregate gen-valid profile resolves focused leaves" {
   @debug.assert_eq(
     gen_valid_profile_name(RemoveUnusedBrsAllProfile),

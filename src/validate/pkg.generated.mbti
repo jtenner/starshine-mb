@@ -1207,6 +1207,10 @@ pub enum GenValidProfile {
   SimplifyLocalsNostructureTeeControlProfile
   SimplifyLocalsNostructureEffectOrderProfile
   SimplifyLocalsNostructureAllProfile
+  ReorderLocalsHotSortProfile
+  ReorderLocalsUnusedTrimProfile
+  ReorderLocalsNameRepairProfile
+  ReorderLocalsAllProfile
   PassOiDefaultScalarProfile
   PassOiLocalFactsProfile
   PassOiBooleanSelectProfile
