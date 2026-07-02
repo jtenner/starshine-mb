@@ -457,6 +457,19 @@ fn oc_collect_refinements(
 }
 
 ///|
+fn oc_refinements_include_local(
+  refinements : Array[(Int, Int)],
+  local_id : Int,
+) -> Bool {
+  for refinement in refinements {
+    if refinement.0 == local_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn oc_cast_is_more_refined(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
@@ -515,10 +528,13 @@ fn oc_later_reuse_run(
     let root_id = @ir.hot_root_get(func, root_idx)
     let writes : Array[Int] = []
     oc_collect_written_locals(func, root_id, writes)
+    let refinements : Array[(Int, Int)] = []
+    oc_collect_refinements(func, root_id, refinements)
     for local_id = 0; local_id < local_count; local_id = local_id + 1 {
       let best_cast = best_casts[local_id]
       if best_cast >= 0 &&
         !oc_contains_local(writes, local_id) &&
+        !oc_refinements_include_local(refinements, local_id) &&
         oc_count_local_gets(func, root_id, local_id) > 0 {
         let fresh_local = if fresh_locals[local_id] >= 0 {
           fresh_locals[local_id]
@@ -551,8 +567,6 @@ fn oc_later_reuse_run(
         fresh_locals[local_id] = -1
       }
     }
-    let refinements : Array[(Int, Int)] = []
-    oc_collect_refinements(func, root_id, refinements)
     for refinement in refinements {
       let (local_id, cast_id) = refinement
       if local_id >= 0 && local_id < local_count {

@@ -35,12 +35,19 @@ fn optimize_casts_void_module(
   let base = @lib.RecType::new(
     @lib.SubType::new(false, [], @lib.CompType::struct_([])),
   )
+  let child = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([param_type], [])),
   )
   @lib.Module::new()
-  .with_type_sec(@lib.TypeSec::new([base, func_type]))
-  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_type_sec(@lib.TypeSec::new([base, child, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
   .with_code_sec(
     @lib.CodeSec::new([
       @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
