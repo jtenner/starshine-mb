@@ -824,7 +824,10 @@ fn oc_i32_nontrapping_binary_const_tree(
     return false
   }
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.I32Add) | Some(@lib.I32Mul) => {
+    Some(@lib.I32Add)
+    | Some(@lib.I32Mul)
+    | Some(@lib.I32And)
+    | Some(@lib.I32Or) => {
       let lhs_id = @ir.hot_child_get(func, node_id, 0)
       let rhs_id = @ir.hot_child_get(func, node_id, 1)
       match
