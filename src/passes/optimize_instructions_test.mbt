@@ -2384,6 +2384,147 @@ test "optimize-instructions raw skip folds constant memory access offsets" {
 }
 
 ///|
+test "optimize-instructions preserves atomic localtee addresses" {
+  // Grouped OI-G count120 follow-up from
+  // `.tmp/oi-g-raw-atomic-offset-commute-fix-count120-20260702`: the residual
+  // `oi-memory-commuted-operands` shared-atomic cases differed because
+  // Starshine dropped dead-looking `local.tee` address writes feeding atomic
+  // loads/RMWs, while Binaryen keeps that output shape. Do not rewrite these
+  // atomic local.tee addresses away.
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
+  )
+  let memarg8 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
+  let memarg32 = @lib.MemArg::new(@lib.U32(2), None, @lib.U64(0UL))
+  let memarg64 = @lib.MemArg::new(@lib.U32(3), None, @lib.U64(8UL))
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([
+            @lib.LocalRun::new(1U, @lib.ValType::i32()),
+            @lib.LocalRun::new(1U, @lib.ValType::i64()),
+            @lib.LocalRun::new(1U, @lib.ValType::i32()),
+          ]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(12)),
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::i32_const(@lib.I32(63)),
+            @lib.Instruction::i32_and(),
+            @lib.Instruction::i32_store8(memarg8),
+            @lib.Instruction::i32_const(@lib.I32(12)),
+            @lib.Instruction::i32_const(@lib.I32(63)),
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::i32_and(),
+            @lib.Instruction::i32_store8(memarg8),
+            @lib.Instruction::i32_const(@lib.I32(36600)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i32_atomic_load(memarg32),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(36600)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i32_and(), memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(36600)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i64_atomic_load(memarg64),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_const(@lib.I32(36600)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i64_const(@lib.I64(-1L)),
+            @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i64_and(), memarg64),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i64_extend_i32u(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i64_xor(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = optimize_instructions_test_run_module(input)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "local.tee"),
+    4,
+  )
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "I32(255)", "I32(63)", "i32.and", "i32.store8", "I32(63)", "i32.store8",
+  ])
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "local.tee", "i32.atomic.load", "local.tee", "I32AtomicRmwAndOp", "local.tee",
+    "i64.atomic.load", "local.tee", "I64AtomicRmwAndOp", "(local.get (Local 1))",
+    "(local.get (Local 0))", "i64.extend_i32u", "i64.xor",
+  ])
+}
+
+///|
+test "optimize-instructions orders runtime store8 restore i64 xor operands like Binaryen" {
+  // Grouped OI-G count120 follow-up from case-000090: Binaryen keeps the
+  // `i64.extend_i32_u(local.get)` operand before the pure shifted i64 load
+  // operand in this runtime-store8 restore value, while Starshine's generic
+  // commutative rank order moved the binary shift first. This is not a semantic
+  // equivalence classification; prefer the Binaryen shape for the direct pass.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (result i64)
+    #|    (local i32 i32 i64 i64)
+    #|    i32.const 64
+    #|    i32.load8_u
+    #|    local.set 0
+    #|    i32.const 64
+    #|    i32.const 1193002
+    #|    i32.store8
+    #|    i32.const 64
+    #|    i32.load8_u
+    #|    local.set 1
+    #|    i32.const 72
+    #|    i64.load8_u
+    #|    local.set 2
+    #|    i32.const 72
+    #|    i64.const 1234605616436508552
+    #|    i64.const 255
+    #|    i64.and
+    #|    i64.store8
+    #|    i32.const 72
+    #|    i64.load8_u
+    #|    local.set 3
+    #|    i32.const 64
+    #|    local.get 0
+    #|    i32.store8
+    #|    i32.const 72
+    #|    local.get 2
+    #|    i64.store8
+    #|    local.get 1
+    #|    i64.extend_i32_u
+    #|    local.get 3
+    #|    i64.const 8
+    #|    i64.shl
+    #|    i64.xor))
+    #|,
+  let optimized = match
+    pass_test_run_pipeline(source, ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions runtime store8 success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "(local.get (Local 1))", "i64.extend_i32u", "(local.get (Local 3))", "I64(8)",
+    "i64.shl", "i64.xor",
+  ])
+}
+
+///|
 test "optimize-instructions raw skip rewrites memory.size page-byte multiply to shift" {
   // Follow-up from
   // `.tmp/oi-g-live-nonzero-end-fill-restore-boundary-count91-full-20260628`:
@@ -4376,6 +4517,22 @@ test "optimize-instructions folds integer eq/ne constant compares" {
       @ir.hot_node_get(i32_ne_func, i32_ne_root).imm0,
     ),
     @ir.HotConstPayload::i32_const(@lib.I32(1)),
+  )
+
+  let i32_reverse_eq_func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 42 i32.const 7 i32.eq))",
+  )
+  let i32_reverse_eq_root = @ir.hot_root_get(i32_reverse_eq_func, 0)
+  match @ir.hot_node_get(i32_reverse_eq_func, i32_reverse_eq_root).op {
+    @ir.HotOp::Compare => ()
+    _ =>
+      fail(
+        "expected reverse-order constant i32.eq to match Binaryen and stay a compare",
+      )
+  }
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(i32_reverse_eq_func, i32_reverse_eq_root),
+    Some(@lib.Instruction::i32_eq()),
   )
 
   let i64_eq_func = optimize_instructions_test_run_hot(
@@ -23033,7 +23190,18 @@ test "optimize-instructions drops only exact i32 commuted masks before narrow st
         #|    i64.const 4294967295
         #|    local.get $value64
         #|    i64.and
-        #|    i64.store32))
+        #|    i64.store32)
+        #|  (func
+        #|    i32.const 12
+        #|    i32.const 255
+        #|    i32.const 63
+        #|    i32.and
+        #|    i32.store8
+        #|    i32.const 12
+        #|    i32.const 63
+        #|    i32.const 255
+        #|    i32.and
+        #|    i32.store8))
         #|,
       ),
       ["optimize-instructions"],
@@ -23053,6 +23221,10 @@ test "optimize-instructions drops only exact i32 commuted masks before narrow st
     "(local.get (Local 0))", "(local.get (Local 1))", "i32.store8", "(local.get (Local 0))",
     "(local.get (Local 1))", "i32.store16", "I64(255)", "i64.and", "i64.store8",
     "I64(65535)", "i64.and", "i64.store16", "I64(4294967295)", "i64.and", "i64.store32",
+  ])
+  let const_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  optimize_instructions_assert_strings_in_order(const_pretty, [
+    "I32(255)", "I32(63)", "i32.and", "i32.store8", "I32(63)", "i32.store8",
   ])
 }
 

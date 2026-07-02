@@ -1748,9 +1748,9 @@ fn optimize_instructions_commutative_node_kind_rank(op : @ir.HotOp) -> Int? {
     @ir.HotOp::Load => Some(3)
     @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => Some(4)
     @ir.HotOp::Unary => Some(5)
+    @ir.HotOp::Convert => Some(5)
     @ir.HotOp::Binary => Some(6)
     @ir.HotOp::Compare => Some(7)
-    @ir.HotOp::Convert => Some(8)
     _ => None
   }
 }
@@ -13324,6 +13324,11 @@ fn optimize_instructions_try_fold_integer_const_eq_ne_compare(
           optimize_instructions_i32_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I32(lhs_raw)), Some(@lib.I32(rhs_raw))) => {
+          match instr {
+            @lib.Instruction::I32Eq | @lib.Instruction::I32Ne if lhs_raw >
+              rhs_raw => return false
+            _ => ()
+          }
           let result = match instr {
             @lib.Instruction::I32Eq => lhs_raw == rhs_raw
             @lib.Instruction::I32Ne => lhs_raw != rhs_raw
@@ -13359,6 +13364,11 @@ fn optimize_instructions_try_fold_integer_const_eq_ne_compare(
           optimize_instructions_i64_const(func, dead, rhs_id),
         ) {
         (Some(@lib.I64(lhs_raw)), Some(@lib.I64(rhs_raw))) => {
+          match instr {
+            @lib.Instruction::I64Eq | @lib.Instruction::I64Ne if lhs_raw >
+              rhs_raw => return false
+            _ => ()
+          }
           let result = match instr {
             @lib.Instruction::I64Eq => lhs_raw == rhs_raw
             @lib.Instruction::I64Ne => lhs_raw != rhs_raw

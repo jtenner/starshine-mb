@@ -24930,6 +24930,80 @@ fn run_hot_pipeline_raw_optimize_instructions_memory_size(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_is_atomic_load(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32AtomicLoad(_)
+    | @lib.I64AtomicLoad(_)
+    | @lib.I32AtomicLoad8U(_)
+    | @lib.I32AtomicLoad16U(_)
+    | @lib.I64AtomicLoad8U(_)
+    | @lib.I64AtomicLoad16U(_)
+    | @lib.I64AtomicLoad32U(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut i = 0
+  while i < instrs.length() {
+    match instrs[i] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    if i + 1 < instrs.length() {
+      match (instrs[i], instrs[i + 1]) {
+        (@lib.LocalTee(_), atomic_load) if run_hot_pipeline_raw_optimize_instructions_is_atomic_load(
+            atomic_load,
+          ) => return true
+        _ => ()
+      }
+    }
+    if i + 2 < instrs.length() {
+      match (instrs[i], instrs[i + 2]) {
+        (@lib.LocalTee(_), @lib.AtomicRmw(_, _)) => return true
+        _ => ()
+      }
+    }
+    if i + 3 < instrs.length() {
+      match (instrs[i], instrs[i + 3]) {
+        (@lib.LocalTee(_), @lib.AtomicCmpxchg(_, _)) => return true
+        _ => ()
+      }
+    }
+    i = i + 1
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_store_bits(
   instr : @lib.Instruction,
 ) -> Int? {
@@ -24976,6 +25050,8 @@ fn run_hot_pipeline_raw_optimize_instructions_drop_store_mask(
   }
   let required_mask = (1 << bits) - 1
   match (lhs, rhs) {
+    (@lib.I32Const(@lib.I32(mask)), @lib.I32Const(_)) if mask == required_mask =>
+      None
     (@lib.I32Const(@lib.I32(mask)), value) if mask == required_mask =>
       Some(value)
     (value, @lib.I32Const(@lib.I32(mask))) if mask == required_mask =>
@@ -26250,6 +26326,16 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   if locals.length() > 1024 {
     return Some({
       reason: "large-local-optimize-instructions",
+      func: skipped_func,
+      unchanged_original: skipped_unchanged,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_optimize_instructions_has_atomic_localtee_address(
+      body,
+    ) {
+    return Some({
+      reason: "atomic-localtee-optimize-instructions",
       func: skipped_func,
       unchanged_original: skipped_unchanged,
       trace_skip_raw: true,
