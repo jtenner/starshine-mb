@@ -18727,8 +18727,8 @@ test "optimize-instructions intentionally rejects unsupported GC atomic RMW surf
 test "optimize-instructions folds atomic load constant offsets" {
   // OI-G grouped shared-atomic residuals showed Binaryen folding constant
   // atomic load offsets into constant addresses while preserving the atomic
-  // operation. Keep this narrow to atomic loads; RMW/cmpxchg offset policy stays
-  // separate because Binaryen did not fold the sampled atomic.rmw offset.
+  // operation. RMW/cmpxchg offset policy stays separate because Binaryen keeps
+  // the sampled atomic.rmw/cmpxchg offset spelling.
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
   )
@@ -18762,6 +18762,48 @@ test "optimize-instructions folds atomic load constant offsets" {
   assert_false(pretty.contains("i64.atomic.load offset=8"), msg=pretty)
   optimize_instructions_assert_strings_in_order(pretty, [
     "I32(3016)", "i64.atomic.load",
+  ])
+}
+
+///|
+test "optimize-instructions folds atomic store constant offsets" {
+  // Binaryen folds atomic store constant memarg offsets just like scalar stores
+  // and atomic loads, but leaves sampled atomic RMW/cmpxchg offsets unchanged.
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(3008)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_atomic_store(
+              @lib.MemArg::new(@lib.U32(2), None, @lib.U64(8UL)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["optimize-instructions"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected atomic store offset optimize success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.atomic.store offset=8"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "I32(3016)", "I32(1)", "i32.atomic.store",
   ])
 }
 

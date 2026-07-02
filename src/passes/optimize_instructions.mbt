@@ -3740,7 +3740,7 @@ fn optimize_instructions_memory_access_with_memarg(
 }
 
 ///|
-fn optimize_instructions_atomic_load_with_memarg(
+fn optimize_instructions_atomic_access_with_memarg(
   instr : @lib.Instruction,
   memarg : @lib.MemArg,
 ) -> @lib.Instruction? {
@@ -3759,6 +3759,20 @@ fn optimize_instructions_atomic_load_with_memarg(
       Some(@lib.Instruction::i64_atomic_load16_u(memarg))
     @lib.Instruction::I64AtomicLoad32U(_) =>
       Some(@lib.Instruction::i64_atomic_load32_u(memarg))
+    @lib.Instruction::I32AtomicStore(_) =>
+      Some(@lib.Instruction::i32_atomic_store(memarg))
+    @lib.Instruction::I64AtomicStore(_) =>
+      Some(@lib.Instruction::i64_atomic_store(memarg))
+    @lib.Instruction::I32AtomicStore8(_) =>
+      Some(@lib.Instruction::i32_atomic_store8(memarg))
+    @lib.Instruction::I32AtomicStore16(_) =>
+      Some(@lib.Instruction::i32_atomic_store16(memarg))
+    @lib.Instruction::I64AtomicStore8(_) =>
+      Some(@lib.Instruction::i64_atomic_store8(memarg))
+    @lib.Instruction::I64AtomicStore16(_) =>
+      Some(@lib.Instruction::i64_atomic_store16(memarg))
+    @lib.Instruction::I64AtomicStore32(_) =>
+      Some(@lib.Instruction::i64_atomic_store32(memarg))
     _ => None
   }
 }
@@ -3850,11 +3864,11 @@ fn optimize_instructions_try_fold_const_memory_access_offset(
   let new_memarg = @lib.MemArg::new(align, mem, @lib.U64(0UL))
   match node.op {
     @ir.HotOp::Atomic => {
-      if node.child_count != 1 {
+      if node.child_count != 1 && node.child_count != 2 {
         return false
       }
       let new_instr = match
-        optimize_instructions_atomic_load_with_memarg(instr, new_memarg) {
+        optimize_instructions_atomic_access_with_memarg(instr, new_memarg) {
         Some(instr) => instr
         None => return false
       }
