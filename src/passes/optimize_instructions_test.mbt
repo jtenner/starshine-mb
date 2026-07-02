@@ -2241,6 +2241,84 @@ test "optimize-instructions raw skip folds constant memory access offsets" {
   assert_false(pretty32.contains("I32(4)"), msg=pretty32)
   assert_false(pretty32.contains("I32(8)"), msg=pretty32)
 
+  let func_type_atomic = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
+  )
+  let input_atomic = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type_atomic]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([
+            @lib.LocalRun::new(1025U, @lib.ValType::i32()),
+            @lib.LocalRun::new(1U, @lib.ValType::i64()),
+          ]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(3008)),
+            @lib.Instruction::i64_atomic_load(
+              @lib.MemArg::new(@lib.U32(3), None, @lib.U64(8UL)),
+            ),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1025U)),
+            @lib.Instruction::i32_const(@lib.I32(3008)),
+            @lib.Instruction::i32_atomic_load(
+              @lib.MemArg::new(@lib.U32(2), None, @lib.U64(4UL)),
+            ),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(3008)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_atomic_store(
+              @lib.MemArg::new(@lib.U32(2), None, @lib.U64(16UL)),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i64_extend_i32u(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1025U)),
+            @lib.Instruction::i64_xor(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(input_atomic) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid atomic raw skip input, got \{err}")
+  }
+  let trace_atomic : Array[String] = []
+  let optimized_atomic = match
+    run_hot_pipeline(
+      input_atomic,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace_atomic.push(line) })),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected optimize-instructions atomic raw skip success, got \{err}")
+  }
+  assert_true(
+    trace_atomic.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+    msg="expected atomic large-local raw skip in \{trace_atomic}",
+  )
+  let pretty_atomic = optimized_atomic.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty_atomic.contains("I32(3016)"), msg=pretty_atomic)
+  assert_true(pretty_atomic.contains("I32(3012)"), msg=pretty_atomic)
+  assert_true(pretty_atomic.contains("I32(3024)"), msg=pretty_atomic)
+  assert_false(pretty_atomic.contains("offset=U64(4)"), msg=pretty_atomic)
+  assert_false(pretty_atomic.contains("offset=U64(8)"), msg=pretty_atomic)
+  assert_false(pretty_atomic.contains("offset=U64(16)"), msg=pretty_atomic)
+  assert_false(pretty_atomic.contains("I32(3008)"), msg=pretty_atomic)
+  optimize_instructions_assert_strings_in_order(pretty_atomic, [
+    "i32.atomic.store", "(local.get (Local 1025))", "(local.get (Local 0))", "i64.extend_i32u",
+    "i64.xor",
+  ])
+
   let func_type64 = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
   )

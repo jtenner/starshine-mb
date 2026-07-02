@@ -24763,6 +24763,18 @@ fn run_hot_pipeline_raw_optimize_instructions_load_with_memarg(
     @lib.I64Load16U(_) => Some(@lib.Instruction::i64_load16u(memarg))
     @lib.I64Load32S(_) => Some(@lib.Instruction::i64_load32s(memarg))
     @lib.I64Load32U(_) => Some(@lib.Instruction::i64_load32u(memarg))
+    @lib.I32AtomicLoad(_) => Some(@lib.Instruction::i32_atomic_load(memarg))
+    @lib.I64AtomicLoad(_) => Some(@lib.Instruction::i64_atomic_load(memarg))
+    @lib.I32AtomicLoad8U(_) =>
+      Some(@lib.Instruction::i32_atomic_load8_u(memarg))
+    @lib.I32AtomicLoad16U(_) =>
+      Some(@lib.Instruction::i32_atomic_load16_u(memarg))
+    @lib.I64AtomicLoad8U(_) =>
+      Some(@lib.Instruction::i64_atomic_load8_u(memarg))
+    @lib.I64AtomicLoad16U(_) =>
+      Some(@lib.Instruction::i64_atomic_load16_u(memarg))
+    @lib.I64AtomicLoad32U(_) =>
+      Some(@lib.Instruction::i64_atomic_load32_u(memarg))
     _ => None
   }
 }
@@ -24782,6 +24794,16 @@ fn run_hot_pipeline_raw_optimize_instructions_store_with_memarg(
     @lib.I64Store8(_) => Some(@lib.Instruction::i64_store8(memarg))
     @lib.I64Store16(_) => Some(@lib.Instruction::i64_store16(memarg))
     @lib.I64Store32(_) => Some(@lib.Instruction::i64_store32(memarg))
+    @lib.I32AtomicStore(_) => Some(@lib.Instruction::i32_atomic_store(memarg))
+    @lib.I64AtomicStore(_) => Some(@lib.Instruction::i64_atomic_store(memarg))
+    @lib.I32AtomicStore8(_) => Some(@lib.Instruction::i32_atomic_store8(memarg))
+    @lib.I32AtomicStore16(_) =>
+      Some(@lib.Instruction::i32_atomic_store16(memarg))
+    @lib.I64AtomicStore8(_) => Some(@lib.Instruction::i64_atomic_store8(memarg))
+    @lib.I64AtomicStore16(_) =>
+      Some(@lib.Instruction::i64_atomic_store16(memarg))
+    @lib.I64AtomicStore32(_) =>
+      Some(@lib.Instruction::i64_atomic_store32(memarg))
     _ => None
   }
 }
@@ -24806,6 +24828,13 @@ fn run_hot_pipeline_raw_optimize_instructions_fold_const_load_offset(
     @lib.I64Load16U(memarg) => memarg
     @lib.I64Load32S(memarg) => memarg
     @lib.I64Load32U(memarg) => memarg
+    @lib.I32AtomicLoad(memarg) => memarg
+    @lib.I64AtomicLoad(memarg) => memarg
+    @lib.I32AtomicLoad8U(memarg) => memarg
+    @lib.I32AtomicLoad16U(memarg) => memarg
+    @lib.I64AtomicLoad8U(memarg) => memarg
+    @lib.I64AtomicLoad16U(memarg) => memarg
+    @lib.I64AtomicLoad32U(memarg) => memarg
     _ => return None
   }
   let (folded_address, folded_memarg) = match
@@ -24826,6 +24855,28 @@ fn run_hot_pipeline_raw_optimize_instructions_fold_const_load_offset(
 }
 
 ///|
+fn run_hot_pipeline_raw_optimize_instructions_commute_i64_extend_local_binop(
+  lhs : @lib.Instruction,
+  extend_instr : @lib.Instruction,
+  rhs : @lib.Instruction,
+  binop : @lib.Instruction,
+) -> Array[@lib.Instruction]? {
+  match (lhs, extend_instr, rhs, binop) {
+    (
+      @lib.LocalGet(_),
+      @lib.I64ExtendI32U
+      | @lib.I64ExtendI32S,
+      @lib.LocalGet(_),
+      @lib.I64Add
+      | @lib.I64And
+      | @lib.I64Or
+      | @lib.I64Xor,
+    ) => Some([rhs, lhs, extend_instr, binop])
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
   address : @lib.Instruction,
   store_instr : @lib.Instruction,
@@ -24840,6 +24891,13 @@ fn run_hot_pipeline_raw_optimize_instructions_fold_const_store_offset(
     @lib.I64Store8(memarg) => memarg
     @lib.I64Store16(memarg) => memarg
     @lib.I64Store32(memarg) => memarg
+    @lib.I32AtomicStore(memarg) => memarg
+    @lib.I64AtomicStore(memarg) => memarg
+    @lib.I32AtomicStore8(memarg) => memarg
+    @lib.I32AtomicStore16(memarg) => memarg
+    @lib.I64AtomicStore8(memarg) => memarg
+    @lib.I64AtomicStore16(memarg) => memarg
+    @lib.I64AtomicStore32(memarg) => memarg
     _ => return None
   }
   let (folded_address, folded_memarg) = match
@@ -25851,6 +25909,25 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
           continue
         }
         _ => ()
+      }
+    }
+    if i + 3 < instrs.length() {
+      match (instrs[i], instrs[i + 1], instrs[i + 2], instrs[i + 3]) {
+        (lhs, extend_instr, rhs, binop) =>
+          match
+            run_hot_pipeline_raw_optimize_instructions_commute_i64_extend_local_binop(
+              lhs, extend_instr, rhs, binop,
+            ) {
+            Some(commuted) => {
+              for instr in commuted {
+                rewritten.push(instr)
+              }
+              changed = true
+              i = i + 4
+              continue
+            }
+            None => ()
+          }
       }
     }
     if i + 2 < instrs.length() {
