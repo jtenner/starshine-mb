@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-02
 sources:
+  - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
+  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
@@ -24,8 +26,8 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
-For the immutable manifest of the reviewed official release, source, and representative test URLs, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md). For the 2026-05-05 current-main recheck, see [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md) and [`../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md); the 2026-04-27 validation and preset-readiness recheck remains linked through [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use Binaryen `version_130` as the current O4Z audit oracle for this pass. The `version_130` owner and dedicated lit files are byte-identical to the previously reviewed `version_129` copies, so older `version_129` prose remains valid as provenance rather than the freshest oracle.
+For the current refresh, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md). For older provenance, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md). For the 2026-05-05 current-main recheck, see [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md) and [`../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md); the 2026-04-27 validation and preset-readiness recheck remains linked through [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 Primary files:
 
@@ -44,7 +46,7 @@ Supporting official files for the known remaining parity boundary:
 - `src/wasm/wasm-ir-builder.cpp`
 - `src/wasm/wasm-stack.cpp`
 
-I also did a narrow 2026-05-05 freshness check against current GitHub `main` for:
+A 2026-07-02 `version_130` freshness check compared these official tagged files against the previously captured `version_129` copies:
 
 - `ReorderLocals.cpp`
 - `pass.cpp`
@@ -52,14 +54,13 @@ I also did a narrow 2026-05-05 freshness check against current GitHub `main` for
 
 Durable result:
 
-- all of those surfaces still match `version_129` exactly
-
-The reviewed official GitHub `version_129` release page also showed publish date **2026-04-01** when checked on 2026-04-22.
-So the wiki should keep treating `version_129` as the semantic oracle here without an active trunk-drift warning.
+- all of those owner/lit surfaces still match `version_129` exactly;
+- local `wasm-opt --version` reports `version_130`;
+- new O4Z audit evidence should cite `version_130` while preserving the older `version_129` manifests as unchanged-contract provenance.
 
 ## File landmarks worth keeping explicit
 
-In the reviewed `version_129` source, the key mechanics are tightly concentrated:
+In the reviewed `version_130` source, the key mechanics are tightly concentrated:
 
 - `ReorderLocals.cpp` lines `8-63`
   - `ReIndexer`, which rewrites only `LocalGet` and `LocalSet` users after the new numbering is known
@@ -343,9 +344,13 @@ These non-goals are important to keep explicit:
 
 Those last two belong to the Binaryen IR-builder and writer layers, not to `ReorderLocals.cpp`.
 
+## Current O4Z inventory
+
+The 2026-07-02 refresh keeps the relevant transform-family inventory unchanged: params-only no-op, access counting, hot body-local sort, first-use ties, zero-count suffix truncation, user reindexing, local-name repair, no non-nullable fixups, no heavy analysis dependency, and three no-DWARF scheduler slots. Starshine currently maps all direct owner-family behavior through the module pass and focused tests, but `[O4Z-AUDIT-RL]` still needs dedicated GenValid profile coverage, current full signoff lanes, pass-local timing, and ordered-slot evidence before closure.
+
 ## Bottom line
 
-Binaryen `reorder-locals` is a deliberately tiny pass.
+Binaryen `version_130` `reorder-locals` is a deliberately tiny pass.
 
 Its defining rule is simple:
 

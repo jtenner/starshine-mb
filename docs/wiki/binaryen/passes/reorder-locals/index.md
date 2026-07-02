@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-02
 sources:
+  - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
+  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
   - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
@@ -59,7 +61,7 @@ related:
 - `reorder-locals` is an active implemented **module pass** in Starshine.
 - A 2026-05-06 refreshed direct signoff reached 6759/10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see [`../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md`](../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md).
 - A 2026-05-07 debug-artifact stable-boundary replay kept `Normalized WAT equal: yes` and `Canonical function compare equal: yes` after 5 Binaryen no-pass roundtrips even though Binaryen still did not converge on raw emitted wasm; see [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md).
-- In upstream Binaryen `version_129`, `pass.cpp` describes it as:
+- In upstream Binaryen `version_130`, `pass.cpp` describes it as:
   - sorts locals by access frequency
 
 That short description is accurate, but it is easy to over-read.
@@ -104,7 +106,7 @@ So this is **not** coalescing, **not** liveness-based dead-store cleanup, and **
 - The pass rewrites local-user indices and function-local name maps.
 - Upstream explicitly declares that it does **not** need non-nullable-local fixups.
 - The dedicated print-roundtrip tests show that declaration order after reordering must survive binary writing and reading, not just in-memory AST mutation.
-- A narrow 2026-05-05 current-main recheck found no current-main drift in `ReorderLocals.cpp` or the dedicated test files relative to `version_129`.
+- A 2026-07-02 `version_130` refresh found no drift in `ReorderLocals.cpp` or the dedicated lit files relative to `version_129`; new O4Z audit evidence should use the local `version_130` oracle.
 
 ## Biggest beginner correction
 
@@ -124,7 +126,7 @@ What it sounds like:
 
 - a broad local-minimization pass
 
-What it actually is in `version_129`:
+What it actually is in `version_130`:
 
 - a tiny function-parallel usage counter
 - a stable declaration-order canonicalizer for body locals
@@ -153,19 +155,13 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-22 direct source comparison found **no semantic post-`version_129` drift** in the main official surfaces used for this dossier.
-
-- `src/passes/ReorderLocals.cpp` is identical on current `main`
-- `test/passes/reorder-locals.wast` is identical on current `main`
-- `test/passes/reorder-locals.txt` is identical on current `main`
-- `test/passes/reorder-locals_print_roundtrip.wast` is identical on current `main`
-- `test/passes/reorder-locals_print_roundtrip.txt` is identical on current `main`
+The current local Binaryen oracle reports `wasm-opt version 130 (version_130)`. A 2026-07-02 source refresh downloaded the official `version_130` `ReorderLocals.cpp` and the dedicated `reorder-locals*` lit files and diffed them against the previously reviewed `version_129` copies. The pass owner and dedicated lit surfaces are byte-identical across those two tags.
 
 So the durable rule is:
 
-- treat Binaryen `version_129` as the released oracle for this dossier
-- treat [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md) as the immutable provenance anchor for the reviewed official release, source, and dedicated test URLs
-- keep the current-main note only to record that there is no visible implementation or dedicated-test drift right now
+- treat Binaryen `version_130` as the current O4Z audit oracle for this dossier;
+- keep the older `version_129` manifests as provenance for the unchanged algorithm story;
+- cite [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md) for new O4Z audit claims.
 
 ## Current maintenance rule
 
@@ -175,9 +171,12 @@ So the durable rule is:
 - Keep the writer-roundtrip rule explicit whenever future docs or code changes touch this pass.
 - Keep the multivalue-call writeback distinction explicit whenever future parity work mentions remaining raw-output drift.
 - Keep the preset-state split explicit: one `reorder-locals` slot is public today; extra upstream-style slots remain future scheduler work until they bring ordered-neighborhood evidence.
+- Keep the O4Z audit gap explicit: direct owner-family inventory is refreshed to `version_130`, but the pass still needs a dedicated GenValid profile, current full four-lane compare signoff, pass-local timing evidence, and the `[AUDIT006-E]` TypeIdx invariant comment before `[O4Z-AUDIT-RL]` can close.
 
 ## Sources
 
+- `version_130` source inventory: [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md)
+- `version_130` primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
 - Current preset-scheduling reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
 - [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md)
 - [`../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md`](../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md)

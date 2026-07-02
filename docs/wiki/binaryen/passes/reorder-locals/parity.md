@@ -1,8 +1,10 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-02
 sources:
+  - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
+  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
   - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
@@ -29,13 +31,13 @@ related:
 
 ## Durable Conclusions
 
-- Binaryen `version_129` keeps parameters fixed and reorders only body locals.
+- Binaryen `version_130` keeps parameters fixed and reorders only body locals; the refreshed owner/lit files are byte-identical to the older `version_129` contract.
 - Body locals sort by descending access count.
 - Nonzero-count ties break by first observed access.
 - Zero-count ties preserve original order, and the final zero-count suffix is dropped.
 - `local.set` and `local.tee` count as accesses, so write-only locals survive this pass.
 - The clean Starshine port is a module pass, not a hot pass, because local-name metadata and raw name-section invalidation are boundary-owned.
-- The 2026-05-05 raw primary-source capture re-confirmed that the official Binaryen `version_129` release page showed publish date **2026-04-01**, and that the reviewed `version_129/src/passes/ReorderLocals.cpp` plus dedicated pass tests still match the dossier's access-count plus first-use sorter story on the checked current-`main` surfaces.
+- The 2026-07-02 raw source refresh re-confirmed the same access-count plus first-use sorter story against the current local `version_130` oracle.
 
 ## Current In-Tree Status
 
@@ -46,6 +48,23 @@ related:
 - Registry and preset policy live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt).
 - CLI coverage for explicit pass execution lives in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
 - Binaryen-boundary compare controls live in [`../../../../../scripts/lib/self-optimize-compare-task.ts`](../../../../../scripts/lib/self-optimize-compare-task.ts) and the related command tests under `scripts/test/`.
+
+## O4Z Audit Inventory
+
+Current direct transform-family inventory against `version_130`:
+
+| Family | Starshine status | Audit status |
+| --- | --- | --- |
+| Parameter stability / params-only no-op | Focused tests cover stable params and params-only no-op. | no current gap found |
+| `local.get` / `local.set` / `local.tee` access counting | Starshine handles tee explicitly because its IR has a separate `LocalTee`. | no current gap found |
+| Descending access count plus first-use tie ordering | Focused access-count and carrier fixtures cover the comparator. | no current gap found |
+| Zero-count body-local truncation | Focused tests cover trailing unused drops and write-only/tee-only survival. | no current gap found; needs generated-profile density |
+| Nested local-user reindexing | Focused nested block/loop/if/try-table test covers recursive rewrite. | no current gap found |
+| Local-name repair and raw name payload invalidation | Focused name-section and CLI/binary tests cover metadata repair. | no current gap found |
+| Multivalue scratch-local drift | Documented as Binaryen writer/IR-builder boundary, not `ReorderLocals.cpp`. | standing boundary decision |
+| Repeated scheduler slots | Starshine public presets claim one tuple/no-structure slot; Binaryen has three no-DWARF slots. | active scheduler/audit gap |
+| TypeIdx/RecIdx invariant comment | Function-section type references are global `TypeIdx`; `RecIdx` abort remains an invariant assertion. | active `[AUDIT006-E]` hygiene gap |
+| Dedicated GenValid profile | None existed at the start of this source-inventory slice. | active gap |
 
 ## Preset And Signoff Rule
 
@@ -93,6 +112,8 @@ Use the Binaryen boundary controls when comparing this pass:
 
 ## Sources
 
+- `version_130` source inventory: [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md)
+- `version_130` primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
 - Current preset-scheduling reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
 - Current closure note: [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md)
 - Archived research doc: [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)

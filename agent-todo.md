@@ -1154,9 +1154,9 @@ Preset behavior inventory:
   - Deliverables: apply the common checklist; add missing pure/nontrapping and control cleanup fixtures; refresh direct compare and all `VQ` slot evidence; measure cleanup value versus HOT traversal cost.
 
 - [O4Z-AUDIT-RL] - Deep audit `reorder-locals`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
-  - Scope: access-count sorting, zero-count truncation, parameter stability, local-name repair, multivalue scratch locals, TypeIdx invariant docs, and module-pass runtime.
-  - Deliverables: apply the common checklist; coordinate invariant docs with `[AUDIT006-E]`; add missing reorder/name/multivalue fixtures; refresh direct compare and `RL` slot evidence.
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit. 2026-07-02 source-inventory slice refreshed the pass against local `wasm-opt version 130 (version_130)` and found no owner/lit drift from the older `version_129` dossier contract; see `docs/wiki/raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`.
+  - Scope: access-count sorting, zero-count truncation, parameter stability, local-name repair, multivalue scratch locals, TypeIdx invariant docs, dedicated GenValid profile, full four-lane direct signoff, and module-pass runtime.
+  - Deliverables: apply the common checklist; coordinate invariant docs with `[AUDIT006-E]`; add/refresh dedicated `reorder-locals` GenValid profile coverage; add missing reorder/name/multivalue fixtures if fresh evidence shows gaps; refresh direct compare, pass-local timing, and `RL` slot evidence.
 
 - [O4Z-AUDIT-H2L] - Deep audit `heap2local`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
