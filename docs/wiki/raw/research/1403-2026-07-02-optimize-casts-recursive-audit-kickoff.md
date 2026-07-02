@@ -275,6 +275,24 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: broader early-motion windows across nontrapping pure expression trees, call/effect/trap/control barriers, broader adjacent-block/control reuse, broader multi-cast/best-cast coverage, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 12 unary pure-root early-motion result
+
+The twelfth recursive slice widened the strict early-motion subset by one more source-backed pure/no-effect tree. Red-first `src/passes/optimize_casts_test.mbt` coverage first failed because a dropped same-local `local.get` separated from the later dropped `ref.cast` by `i32.const; i32.eqz; drop` still stayed uncast. A paired trapping numeric-root negative keeps trap-timing boundaries closed: `i32.const 1; i32.const 0; i32.div_s; drop` must still clear the pending early-motion candidate so a cast trap is not introduced before the division trap.
+
+`src/passes/optimize_casts.mbt` now keeps the pending early-motion candidate alive across `nop` roots, dropped constants, and the very narrow dropped `i32.eqz`-of-constant tree. A later dropped `ref.cast` or nullable-source `ref.as_non_null` may therefore be duplicated onto the earlier dropped same-local `local.get` across that tiny unary pure window. Calls, same-local writes, structured control, loads, trapping numeric operators, other unary/binary pure expression trees, and effectful roots still clear the candidate until each has red-first source-backed positive and barrier coverage.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on `optimize-casts duplicates later ref.cast across a dropped unary pure root` before implementation (`29/30` passed), then passed `30/30` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3845/3845`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-early-unary-smoke-100` compared/normalized `100/100` with zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-early-unary-smoke-20` compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, Binaryen cache `20/0`, and selected leaves `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: broader early-motion windows across binary and non-constant pure expression trees, call/effect/trap/control barriers, broader adjacent-block/control reuse, broader multi-cast/best-cast coverage, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, a safe pure/no-effect intervening root beyond constants plus calls/effects/traps/`call_ref`/same-local-write/nonlinear-control negatives before any implementation.
