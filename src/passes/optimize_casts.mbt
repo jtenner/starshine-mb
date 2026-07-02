@@ -738,7 +738,7 @@ fn oc_dropped_local_get(func : @ir.HotFunc, root_id : Int) -> (Int, Int)? {
 }
 
 ///|
-fn oc_nontrapping_const_local_set(func : @ir.HotFunc, root_id : Int) -> Int? {
+fn oc_nontrapping_pure_local_set(func : @ir.HotFunc, root_id : Int) -> Int? {
   if !@ir.hot_node_is_live(func, root_id) {
     return None
   }
@@ -747,9 +747,10 @@ fn oc_nontrapping_const_local_set(func : @ir.HotFunc, root_id : Int) -> Int? {
     @ir.HotOp::LocalSet =>
       if @ir.hot_child_count(func, root_id) == 1 {
         let child_id = @ir.hot_child_get(func, root_id, 0)
-        match @ir.hot_node_get(func, child_id).op {
-          @ir.HotOp::Const => Some(root.imm0)
-          _ => None
+        if oc_i32_nontrapping_pure_tree(func, child_id, 64) {
+          Some(root.imm0)
+        } else {
+          None
         }
       } else {
         None
@@ -930,7 +931,7 @@ fn oc_early_motion_scan_region(
       }
       None => ()
     }
-    match oc_nontrapping_const_local_set(func, root_id) {
+    match oc_nontrapping_pure_local_set(func, root_id) {
       Some(local_id) => {
         if local_id >= 0 && local_id < local_count {
           pending_gets[local_id] = -1
