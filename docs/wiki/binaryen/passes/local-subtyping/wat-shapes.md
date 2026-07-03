@@ -353,7 +353,31 @@ Why it rewrites:
 - the only observed get appears before the return and is dominated by the non-null write;
 - Starshine now treats this as a non-propagating terminal control boundary, while still refusing direct return/post-state cases that require unreachable later-get validation proof.
 
-## Shape 6f: direct block `return` flow is a Starshine validator boundary
+## Shape 6f: root terminal `throw` can preserve already-dominated gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(local.set $x (local.get $p))
+(drop (local.get $x))
+(throw $e)
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows this shape under `--local-subtyping`;
+- the final `throw` exits the root body, so the observed get before it is the only relevant read and is dominated by the non-null write;
+- Starshine now treats a root-tail `throw` as a non-propagating terminal control boundary, while still refusing broader nested throw/EH flow and `try_table` until those shapes have separate dominance and validator evidence.
+
+## Shape 6g: direct block `return` flow is a Starshine validator boundary
 
 Before:
 
