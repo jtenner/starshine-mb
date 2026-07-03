@@ -4271,34 +4271,8 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
     func,
     @ir.hot_node_get(func, selected_id).ty,
   )
-  match selected_results.length() {
-    1
-    | 2
-    | 3
-    | 4
-    | 5
-    | 6
-    | 7
-    | 8
-    | 9
-    | 10
-    | 11
-    | 12
-    | 13
-    | 14
-    | 15
-    | 16
-    | 17
-    | 18
-    | 19
-    | 20
-    | 21
-    | 22
-    | 23
-    | 24
-    | 25
-    | 26 => ()
-    _ => return false
+  if selected_results.length() == 0 {
+    return false
   }
   let mut has_effectful_sibling = false
   let mut has_later_effectful_sibling = false

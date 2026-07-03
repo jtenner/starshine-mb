@@ -29280,95 +29280,52 @@ test "optimize-instructions localizes twenty-sixth lane from twenty-six-result s
 }
 
 ///|
-test "optimize-instructions intentionally keeps tuple.extract with multi-result selected twenty-seventh child-lane boundary" {
-  // Boundary-only OI-M classification: Binaryen `version_130`
-  // `--optimize-instructions --all-features` localizes the twenty-seventh
-  // scalar result selected from a multi-result tuple child through tuple
-  // scratch plus a scalar temp
-  // (`.tmp/oi-m-tuple-multiresult-selected-twenty-seventh-child-probe.wat`
-  // refreshed to
-  // `.tmp/oi-m-tuple-multiresult-selected-twenty-seventh-child-probe.binaryen.20260703.wat`).
-  // Starshine's direct tuple.extract localizer currently proves selected
-  // children with up to twenty-six scalar results, so this locks the next
-  // selected-lane tuple-scratch boundary.
+fn optimize_instructions_test_tuple_selected_child_type(
+  lane : Int,
+) -> @lib.ValType {
+  match lane % 4 {
+    0 => @lib.ValType::i32()
+    1 => @lib.ValType::i64()
+    2 => @lib.ValType::f32()
+    _ => @lib.ValType::f64()
+  }
+}
+
+///|
+fn optimize_instructions_test_tuple_selected_child_types(
+  arity : Int,
+) -> Array[@lib.ValType] {
+  let out : Array[@lib.ValType] = []
+  for lane = 0; lane < arity; lane = lane + 1 {
+    out.push(optimize_instructions_test_tuple_selected_child_type(lane))
+  }
+  out
+}
+
+///|
+fn optimize_instructions_test_assert_selected_child_localizes(
+  label : String,
+  arity : Int,
+  selected_lane : Int,
+) -> Unit raise {
+  let selected_results = optimize_instructions_test_tuple_selected_child_types(
+    arity,
+  )
+  let result_type = selected_results[selected_lane]
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
-    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+    @ir.hot_type_intern_value(func, result_type),
   )
-  let selected = @ir.hot_build_call(
-    func,
-    0,
-    [
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::i32(),
-    ],
-    [],
-  )
-  let tuple = @ir.hot_build_tuple_make(
-    func,
-    [
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::f32(),
-      @lib.ValType::f64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-    ],
-    [selected, @ir.hot_build_const_i32(func, @lib.I32(27))],
-  )
+  let selected = @ir.hot_build_call(func, 0, selected_results, [])
+  let tuple_results = selected_results.copy()
+  tuple_results.push(@lib.ValType::i32())
+  let tuple = @ir.hot_build_tuple_make(func, tuple_results, [
+    selected,
+    @ir.hot_build_const_i32(func, @lib.I32(arity)),
+  ])
   let extract = @ir.hot_build_tuple_extract(
-    func,
-    @lib.ValType::i32(),
-    tuple,
-    26,
+    func, result_type, tuple, selected_lane,
   )
   @ir.hot_root_append(func, extract)
 
@@ -29381,36 +29338,104 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
   )
   match hot_pass_run(ctx, func) {
     Ok(_) => ()
-    Err(err) =>
-      fail(
-        "expected multi-result selected twenty-seventh child-lane tuple boundary success, got \{err}",
-      )
+    Err(err) => fail("expected \{label} tuple localization success, got \{err}")
   }
 
   let result = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, result).op {
-    @ir.HotOp::TupleExtract => ()
-    _ =>
+    @ir.HotOp::Block => ()
+    other => fail("expected \{label} to localize into a block, got \{other}")
+  }
+  let body = @ir.hot_region_body_ref(func, result)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), arity + 1)
+  let mut selected_lane_set = -1
+  let mut lane = arity
+  let mut position = 0
+  while lane > 0 {
+    lane = lane - 1
+    let set = @ir.hot_region_get(func, body, position)
+    match @ir.hot_node_get(func, set).op {
+      @ir.HotOp::LocalSet => ()
+      other =>
+        fail(
+          "expected \{label} stack-pop position \{position} to be local.set, got \{other}",
+        )
+    }
+    @debug.assert_eq(@ir.hot_child_get(func, set, 0), selected)
+    if lane == selected_lane {
+      selected_lane_set = set
+    }
+    position += 1
+  }
+  assert_true(
+    selected_lane_set >= 0,
+    msg="missing selected-lane set for \{label}",
+  )
+  let first_lane_set = @ir.hot_region_get(func, body, arity - 1)
+  let get_selected = @ir.hot_region_get(func, body, arity)
+  match @ir.hot_node_get(func, get_selected).op {
+    @ir.HotOp::LocalGet => ()
+    other =>
       fail(
-        "expected multi-result selected twenty-seventh child-lane tuple.extract to stay unchanged",
+        "expected \{label} selected lane to reload from scratch local, got \{other}",
       )
   }
-  @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
-  @debug.assert_eq(@ir.hot_node_get(func, result).imm0, 26)
-  match @ir.hot_node_get(func, tuple).op {
-    @ir.HotOp::TupleMake => ()
-    _ =>
-      fail(
-        "expected multi-result selected twenty-seventh child-lane tuple.make to stay available",
-      )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, get_selected).imm0,
+    @ir.hot_node_get(func, selected_lane_set).imm0,
+  )
+  if selected_lane != 0 {
+    assert_false(
+      @ir.hot_node_get(func, get_selected).imm0 ==
+      @ir.hot_node_get(func, first_lane_set).imm0,
+      msg="expected \{label} selected-lane local.get to differ from lane-zero scratch local",
+    )
   }
-  match @ir.hot_node_get(func, selected).op {
-    @ir.HotOp::Call => ()
-    _ =>
-      fail(
-        "expected multi-result selected twenty-seventh child-lane call to stay available",
-      )
-  }
+}
+
+///|
+test "optimize-instructions generic selected-child helper localizes second lane from two-result selected tuple child" {
+  // Low-arity helper coverage for ACCEL002/ACCEL001. Binaryen's
+  // `OptimizeInstructions.cpp::visitTupleExtract` uses generic tuple-child
+  // iteration plus dropped-child reconstruction rather than a selected-child
+  // arity cap; Starshine should preserve the stack-pop `local.set` order and
+  // reload the selected lane's scratch local.
+  optimize_instructions_test_assert_selected_child_localizes(
+    "two-result selected tuple child", 2, 1,
+  )
+}
+
+///|
+test "optimize-instructions generic selected-child helper localizes twenty-sixth lane from twenty-six-result selected tuple child" {
+  // Current-boundary helper coverage: preserves the explicit searchable arity-26
+  // evidence while using the reusable selected-child fixture/assertion helper.
+  optimize_instructions_test_assert_selected_child_localizes(
+    "twenty-six-result selected tuple child", 26, 25,
+  )
+}
+
+///|
+test "optimize-instructions localizes twenty-seventh lane from twenty-seven-result selected tuple child" {
+  // Source-backed OI-M positive coverage: Binaryen `version_130`
+  // `--optimize-instructions --all-features` localizes the twenty-seventh
+  // scalar result selected from a multi-result tuple child through tuple scratch
+  // plus a scalar temp (`.tmp/oi-m-tuple-multiresult-selected-twenty-seventh-child-probe.wat`
+  // refreshed to
+  // `.tmp/oi-m-tuple-multiresult-selected-twenty-seventh-child-probe.binaryen.20260703.wat`).
+  optimize_instructions_test_assert_selected_child_localizes(
+    "twenty-seven-result selected tuple child", 27, 26,
+  )
+}
+
+///|
+test "optimize-instructions generic selected-child helper localizes thirty-second lane from thirty-two-result selected tuple child" {
+  // High-arity ACCEL001 stress coverage. The Binaryen source audit found no
+  // explicit selected-child arity cap; this locks Starshine's generalized
+  // one-use direct-HOT selected-child contract without adding another huge
+  // handwritten fixture.
+  optimize_instructions_test_assert_selected_child_localizes(
+    "thirty-two-result selected tuple child", 32, 31,
+  )
 }
 
 ///|

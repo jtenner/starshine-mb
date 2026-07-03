@@ -17,40 +17,15 @@
 
 ### Immediate P0 OI-M acceleration blockers
 
-These blockers sit ahead of ordinary per-arity OI-M slices. Address them before continuing one-at-a-time selected-child cap widening unless a blocker is proven unsafe or too broad for the current iteration.
-
-- [O4Z-AUDIT-OI-M-ACCEL]001 - Generalize selected-child tuple-scratch localization
-  - Priority: P0.
-  - Status: active immediate accelerator; current direct one-use selected-child localizer is source-backed through arity 25, while arity 26+ remains artificially blocked by a hardcoded accepted-result-count list.
-  - Goal: replace arity-by-arity cap widening with a source-backed generalized selected-child contract for one-use `tuple.extract(tuple.make(...))` where the selected tuple child has arbitrary scalar result arity and current sibling/localizability preconditions hold.
-  - Why: continuing 25 -> 26 -> 27 one slice at a time is mechanical and slow. Binaryen v130 probes through arity 26 show the same tuple scratch/scalar temp pattern; the real blocker is proving Starshine HOT can safely allocate one scratch local per selected result, store lanes in stack-pop order, and reload the selected lane without corrupting validation, effects, traps, or lowering.
-  - Deliverables:
-    - [ ] Source-audit Binaryen `OptimizeInstructions.cpp::visitTupleExtract` / related tuple-localization helpers and record whether Binaryen has an explicit selected-child arity cap or generic tuple-scratch behavior.
-    - [ ] Define Starshine's safe preconditions for generalized selected-child localization: one-use tuple producer, scalar selected-child results, supported sibling lanes, no control/branch/EH/nested-region lanes, and explicit multi-result non-selected sibling exclusion unless separately implemented.
-    - [ ] Add representative red-first tests that prove generalized behavior at low, current-boundary, and higher arities (for example 2, 25/26, and a larger stress arity) without hand-writing huge duplicate fixtures where possible.
-    - [ ] Replace the hardcoded selected-result-count list in `src/passes/optimize_instructions.mbt` with the proven generalized predicate or an evidence-backed explicit cap.
-    - [ ] Update `parity-matrix.json`, `docs/wiki/log.md`, `agent-todo.md`, and OI-M raw research docs with the source audit, implementation scope, exact caveats, and fuzz/runtime evidence.
-  - Suggested tests/evidence: red-first focused `optimize_instructions_test.mbt` cases, focused tuple.extract suite, full `optimize_instructions_test.mbt`, `moon fmt`, `moon info`, `moon test`, native `src/cmd` build, direct `pass-oi-tuple` compare, grouped OI-M sweep with `--runtime-execution node`, JSON validation, and diff checks.
-
-- [O4Z-AUDIT-OI-M-ACCEL]002 - Add OI-M selected-child fixture/test helper
-  - Priority: P0.
-  - Status: active immediate accelerator; current arity tests duplicate long result-type vectors and manual assertions, increasing slice cost and edit risk.
-  - Goal: introduce a focused test helper that builds selected-child tuple fixtures for configurable result arity, selected lane, result types, tuple sibling shape, and expected localization/boundary outcome.
-  - Why: even if generalized localization still needs careful proof, test boilerplate should not dominate each slice. A helper lets future agents add high-arity and boundary coverage without copy/paste drift.
-  - Deliverables:
-    - [ ] Factor common direct-HOT construction/assertions for multi-result selected-child tuple cases in `src/passes/optimize_instructions_test.mbt`.
-    - [ ] Preserve existing explicit source-backed test names or wrap them around the helper so historical evidence stays searchable.
-    - [ ] Cover both positive localization and fail-closed boundary assertions, including scratch local.set stack-pop order and selected-lane local.get identity.
-    - [ ] Keep this helper test-only; do not change pass behavior unless paired with `[O4Z-AUDIT-OI-M-ACCEL]001` or a dedicated implementation slice.
-  - Suggested tests/evidence: red/green if helper reveals an existing expectation gap; otherwise focused `optimize_instructions_test.mbt --filter '*twenty-fifth lane*'`, `--filter '*twenty-sixth child-lane*'`, and `--filter '*tuple.extract*'`, plus `moon fmt`.
+These remaining blockers sit ahead of declaring OI-M narrowed/complete. The selected-child arity accelerator and fixture helper were removed after the 2026-07-03 generalized implementation; keep splitting and reporting residuals before returning to ordinary OI-M closure claims.
 
 - [O4Z-AUDIT-OI-M-ACCEL]003 - Split and prioritize remaining OI-M semantic blockers
   - Priority: P0.
   - Status: active planning blocker; OI-M still aggregates several different tuple/multivalue surfaces under one broad active row.
   - Goal: turn remaining OI-M work into concrete sub-blockers with source evidence, safe preconditions, and reopening criteria so agents stop treating all tuple/multivalue gaps as one giant surface.
-  - Why: selected-child arity, multi-result non-selected siblings, multi-use tuple producers, control/EH siblings, and generalized tuple-scratch reconstruction have different safety requirements. Splitting them will make implementation and blocker acceptance faster.
+  - Why: arbitrary direct one-use selected-child arity is now implemented, but multi-result non-selected siblings, multi-use tuple producers, control/EH siblings, and generalized tuple-scratch reconstruction have different safety requirements. Splitting them will make implementation and blocker acceptance faster.
   - Deliverables:
-    - [ ] Update the OI-M row in `parity-matrix.json` with explicit sub-blockers for selected-child arbitrary arity, multi-result non-selected siblings, multi-use tuple producers, control/branch/EH siblings, generalized tuple-scratch reconstruction/localization, and fuzz mismatch classification.
+    - [ ] Update the OI-M row in `parity-matrix.json` with explicit sub-blockers for implemented arbitrary direct one-use selected-child arity/reopening criteria, multi-result non-selected siblings, multi-use tuple producers, control/branch/EH siblings, generalized tuple-scratch reconstruction/localization, and fuzz mismatch classification.
     - [ ] For each sub-blocker, cite Binaryen source/probe evidence, current Starshine boundary tests, known missing HOT representation/API support if any, and the next evidence needed to implement or accept the blocker.
     - [ ] Keep OI-M active/P0 unless every sub-blocker is implemented or explicitly accepted with evidence-backed reopening criteria.
     - [ ] State clearly that runtime-green raw mismatch lanes are supporting evidence only and do not close OI-M or OI-G/OI-I/OI-J/OI-K.

@@ -32,12 +32,22 @@ Binaryen localizes the twenty-seven-result call into a tuple scratch local, extr
 
 ## Starshine coverage
 
-Added direct-HOT boundary/status coverage in `src/passes/optimize_instructions_test.mbt`:
+Original direct-HOT boundary/status coverage in `src/passes/optimize_instructions_test.mbt` used:
 
 - `optimize-instructions intentionally keeps tuple.extract with multi-result selected twenty-seventh child-lane boundary`
 
-The test asserts Starshine keeps `TupleExtract` index `26`, the `TupleMake`, and the twenty-seven-result selected `Call` unchanged. This is boundary-only evidence, not an implementation slice.
+That boundary asserted Starshine kept `TupleExtract` index `26`, the `TupleMake`, and the twenty-seven-result selected `Call` unchanged.
+
+## 2026-07-03 supersession
+
+This boundary is superseded by `docs/wiki/raw/research/1416-2026-07-03-optimize-instructions-oi-m-generalized-selected-child-localization.md`.
+
+The former boundary test is now positive helper-backed coverage named:
+
+- `optimize-instructions localizes twenty-seventh lane from twenty-seven-result selected tuple child`
+
+Red-first evidence: before implementation, the focused selected-child run failed because the root stayed `TupleExtract`. After the generalized selected-child localizer replaced the hardcoded accepted-result-count list with a non-empty selected-result predicate, the same fixture passed and asserted stack-pop-order `LocalSet` roots plus a selected-lane `LocalGet`.
 
 ## Status
 
-Starshine's current tuple.extract OI localizer now supports direct one-use selected children through arity 26. This twenty-seventh child-lane shape is the next source-backed selected-child tuple-scratch boundary after the 2026-07-03 arity-26 slice. Reopen this boundary when implementing arity-27 selected-child localization, when adding public/binary tuple fixture coverage for this shape, or if a future Binaryen source/oracle refresh stops localizing it.
+Starshine's current tuple.extract OI localizer now supports arbitrary direct one-use selected-child scalar result arity under the safe preconditions recorded in research note `1416`. This note is retained as Binaryen probe history, not an active arity-27 blocker. Reopen this boundary if the arity-27 implementation regresses, if public/binary tuple fixture coverage exposes a different representation, or if a future Binaryen source/oracle refresh stops localizing it.
