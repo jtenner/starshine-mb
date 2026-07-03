@@ -378,6 +378,35 @@ Why it rewrites:
 - the `local.get` is before the terminal block `return` and is dominated by the non-null write;
 - Starshine now threads the terminal-return permission into `block` scans reached from the root scan, treating the block return as a non-propagating dominance boundary without propagating block-carried writes to an outer post-state. Direct block-return post-state cases with later unreachable gets remain nullable until validator/tooling support can prove or repair those gets.
 
+## Shape 6e-b: if-arm block terminal `return` can preserve already-dominated gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(if
+  (then
+    (block
+      (local.set $x (local.get $p))
+      (drop (local.get $x))
+      (return)))
+  (else
+    (nop)))
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/if-arm-block-terminal-return-after-dominated-get.wat` under `--local-subtyping`;
+- the `local.get` is inside the returning `if` arm's nested block and is dominated by the non-null write before the terminal block `return`;
+- Starshine now treats that nested block return as a non-propagating terminal boundary when it is reached from a copied return-skipped `if` arm scan. This does not propagate writes out of the arm or widen direct block-return post-state/unreachable-get handling.
+
 ## Shape 6f: root terminal `throw` can preserve already-dominated gets
 
 Before:
