@@ -1790,6 +1790,38 @@ test "optimize-casts does not combine mixed ref.as and cast whose source tees th
 }
 
 ///|
+test "optimize-casts moves ref.as_non_null across separate-local tee" {
+  let nullable_struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module_with_locals(
+      nullable_struct_ref,
+      [nullable_struct_ref],
+      [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::ref_as_non_null(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::ref_as_non_null(),
+        @lib.Instruction::drop(),
+      ],
+    ),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.as_non_null"),
+    3,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("local.get (Local 2)"), msg=pretty)
+}
+
+///|
 test "optimize-casts duplicates casts whose source tees a separate local" {
   let nullable_struct_ref = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
