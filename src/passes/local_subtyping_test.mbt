@@ -1013,6 +1013,43 @@ test "local-subtyping keeps try_table body write nullable before outside get" {
 }
 
 ///|
+test "local-subtyping accepts block terminal return after dominated get" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param(base_nullable, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::return_(),
+      ]),
+    ),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected block-terminal-return narrowed local to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "local-subtyping accepts block terminal throw after dominated get" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
