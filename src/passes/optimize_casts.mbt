@@ -1597,6 +1597,22 @@ fn oc_rewrite_node(
 }
 
 ///|
+fn oc_static_fold_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  let mut changed = false
+  let node_count = func.nodes.length()
+  for node_id = 0; node_id < node_count; node_id = node_id + 1 {
+    if oc_rewrite_node(ctx, func, module_ctx, node_id) {
+      changed = true
+    }
+  }
+  changed
+}
+
+///|
 pub fn optimize_casts_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1606,14 +1622,14 @@ pub fn optimize_casts_run(
     None => return HotPassResult::unchanged()
   }
   let mut changed = false
-  let node_count = func.nodes.length()
-  for node_id = 0; node_id < node_count; node_id = node_id + 1 {
-    if oc_rewrite_node(ctx, func, module_ctx, node_id) {
-      changed = true
-    }
+  if oc_static_fold_run(ctx, func, module_ctx) {
+    changed = true
   }
   if oc_early_motion_run(ctx, func, module_ctx) {
     changed = true
+    if oc_static_fold_run(ctx, func, module_ctx) {
+      changed = true
+    }
   }
   if oc_later_reuse_run(ctx, func, module_ctx) {
     changed = true
