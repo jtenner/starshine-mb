@@ -32,10 +32,10 @@ fn ls_test_module(
 ///|
 fn ls_test_first_body_local(mod_ : @lib.Module) -> @lib.ValType {
   match mod_.code_sec {
-    Some(@lib.CodeSec([@lib.Func(locals, _)])) => locals[0]
+    Some(@lib.CodeSec([@lib.Func(locals, _), ..])) => locals[0]
     other =>
       abort(
-        "expected one function with one body local, got \{@debug.to_string(other)}",
+        "expected first function with one body local, got \{@debug.to_string(other)}",
       )
   }
 }
@@ -156,6 +156,46 @@ fn ls_test_module_with_child_param_and_tag(
         @lib.Locals::from_types([body_local_type]),
         @lib.Expr::new(body),
       ),
+    ]),
+  )
+}
+
+///|
+fn ls_test_module_with_child_param_and_callee(
+  body_local_type : @lib.ValType,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let child = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
+  let child_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let main_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([child_ref], [])),
+  )
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([base, child, main_type, callee_type]))
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(2U), @lib.TypeIdx::new(3U)]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([body_local_type]),
+        @lib.Expr::new(body),
+      ),
+      @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
     ]),
   )
 }
@@ -1291,6 +1331,75 @@ test "local-subtyping accepts root terminal return after dominated get" {
 }
 
 ///|
+test "local-subtyping accepts root terminal return_call after dominated get" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param_and_callee(base_nullable, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::return_call(@lib.FuncIdx::new(1U)),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected terminal-return_call narrowed local to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "local-subtyping accepts block terminal return_call after dominated get" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param_and_callee(base_nullable, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::return_call(@lib.FuncIdx::new(1U)),
+      ]),
+    ),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected block-terminal-return_call narrowed local to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "local-subtyping accepts return-skipped path before dominating write" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
@@ -1322,6 +1431,43 @@ test "local-subtyping accepts return-skipped path before dominating write" {
     Ok(_) => ()
     Err(err) =>
       fail("expected return-skipped narrowed local to validate, got \{err}")
+  }
+}
+
+///|
+test "local-subtyping accepts return_call-skipped path before dominating write" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param_and_callee(base_nullable, [
+    @lib.Instruction::i32_const(@lib.I32::new(0)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::return_call(@lib.FuncIdx::new(1U))],
+      None,
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected return_call-skipped narrowed local to validate, got \{err}",
+      )
   }
 }
 

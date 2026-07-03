@@ -497,7 +497,7 @@ fn ls_scan_branch_free_dominance_instrs(
         allow_later_write_init = false
         propagates = false
       }
-      @lib.Return =>
+      @lib.Return | @lib.ReturnCall(_) =>
         if allow_return_skip {
           ()
         } else if allow_terminal_return &&
@@ -517,10 +517,8 @@ fn ls_scan_branch_free_dominance_instrs(
         } else {
           return LsDominanceScanResult::new(false, false)
         }
-      @lib.ThrowRef
-      | @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_) => return LsDominanceScanResult::new(false, false)
+      @lib.ThrowRef | @lib.ReturnCallIndirect(_, _) | @lib.ReturnCallRef(_) =>
+        return LsDominanceScanResult::new(false, false)
       _ => ()
     }
   }
