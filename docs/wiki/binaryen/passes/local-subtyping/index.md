@@ -41,7 +41,7 @@ related:
 ## Role
 
 - `local-subtyping` is an upstream Binaryen GC/local cleanup pass **and** an active Starshine module pass.
-- Starshine's current implementation is narrower than Binaryen's: it narrows reference-typed body locals from write-site evidence, but it does not yet implement get-aware non-null dominance, get/tee retagging, or iterative refinalization.
+- Starshine's current implementation is narrower than Binaryen's: it narrows reference-typed body locals from write-site evidence and has a first straight-line non-null dominance slice, but it does not yet implement full structural get-aware non-null dominance, get/tee retagging, or iterative refinalization.
 - The pass matters because it sits in the GC/local cleanup cluster after `heap2local` and `optimize-casts`, before `coalesce-locals` and `local-cse`.
 
 ## Why it matters
@@ -56,9 +56,10 @@ A good first model is:
 
 1. inspect reference-typed body locals;
 2. collect the values written by `local.set` / `local.tee`;
-3. choose the most specific safe common reference supertype;
-4. rewrite body-local declarations when that type is narrower;
-5. rebuild the module only if something changed.
+3. use a conservative straight-line read-before-write scan to decide whether nullable-to-non-null narrowing is safe;
+4. choose the most specific safe common reference supertype;
+5. rewrite body-local declarations when that type is narrower;
+6. rebuild the module only if something changed.
 
 That is enough to explain current Starshine behavior without pretending it already matches the full upstream Binaryen contract.
 
@@ -68,7 +69,7 @@ That is enough to explain current Starshine behavior without pretending it alrea
 - `src/passes/local_subtyping_test.mbt` proves active registry status and the two shipped narrowing shapes.
 - `src/cmd/cmd_wbtest.mbt` proves the `--local-subtyping` CLI path works on wasm inputs.
 - `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, `src/passes/registry_test.mbt`, and `src/passes/optimize_test.mbt` prove registry, dispatcher, and preset-slot wiring.
-- The current implementation only looks at write-site evidence; it does not yet inspect gets for dominance or repair.
+- The current implementation uses write-site evidence plus a raw straight-line `local.get` pre-scan for the first non-null dominance subset; structured-control dominance and expression-type repair are still open.
 - The 2026-05-06 direct revalidation lane for `--local-subtyping` reached 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures under seed `0x5eed`.
 - The tracked full-contract parity gap is explicit, not accidental, so the active implementation can keep moving while the Binaryen delta stays visible.
 

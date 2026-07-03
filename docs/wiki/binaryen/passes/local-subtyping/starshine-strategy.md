@@ -54,7 +54,7 @@ It has:
 - preset-slot coverage in the default hot optimize path.
 
 What it does **not** have yet is full Binaryen parity.
-The current implementation is a narrower subset that narrows body locals from write-site evidence only.
+The current implementation is a narrower subset that narrows body locals from write-site evidence, with a first straight-line dominance slice for nullable-to-non-null declaration narrowing when every observed `local.get` is after a write and no structured-control region complicates dominance.
 
 ## Exact local code map today
 
@@ -83,9 +83,10 @@ The current Starshine code path is intentionally small:
 
 1. lift each function into HOT form;
 2. collect assignment result types from `local.set` and `local.tee`;
-3. pick the most specific safe common reference subtype;
-4. rewrite body-local declarations only;
-5. rebuild the module if any body local changed.
+3. pre-scan the raw straight-line body to decide where a nullable local may safely become non-null because reads are dominated by an earlier write;
+4. pick the most specific safe common reference subtype, falling back to nullable when dominance is not proven;
+5. rewrite body-local declarations only;
+6. rebuild the module if any body local changed.
 
 That gives Starshine a real, active `local-subtyping` pass without pretending to have the whole upstream contract yet.
 
@@ -93,11 +94,11 @@ That gives Starshine a real, active `local-subtyping` pass without pretending to
 
 Compared with the upstream Binaryen strategy, Starshine still lacks:
 
-- get-site dominance analysis;
-- non-null fallback based on structural dominance;
+- full structural get-site dominance analysis for blocks, loops, `if`, and EH bodies;
+- broad non-null fallback based on Binaryen's structural-dominance proof rather than the current straight-line subset;
 - get/tee expression retagging after declaration narrowing;
 - repeated refinalize/reanalyze rounds;
-- the broader set of official test shapes around params, tees, non-nullability, and repeated refinement.
+- the broader set of official test shapes around params, structured tees, non-nullability, and repeated refinement.
 
 So the right mental model is:
 
@@ -116,13 +117,15 @@ Current shipped coverage proves:
 
 The 2026-05-06 refreshed direct pass signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
+The newest LS audit slice adds focused coverage for direct `local.tee` assignments, straight-line nullable-to-non-null narrowing after a dominating write, and nullable fallback when a `local.get` can observe the default value before the first write. The non-null positive was red before implementation; the optimized module is validated after narrowing.
+
 The next full-contract parity tests should cover:
 
-1. nullable-to-non-null behavior;
-2. `local.tee` retagging;
-3. get-aware safety / dominance failures;
-4. repeated refinement after a pass change;
-5. parameter preservation versus body-local rewrite scope.
+1. structured-control dominance positives and negatives beyond straight-line bodies;
+2. `local.get` / `local.tee` expression retagging after declaration narrowing;
+3. repeated refinement after a pass change;
+4. parameter preservation versus body-local rewrite scope;
+5. pass-specific GenValid profile coverage for LS assignment/dominance families.
 
 ## Bottom line
 

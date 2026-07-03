@@ -49,7 +49,7 @@ Use it with:
 ## Current local reality
 
 Starshine `local-subtyping` is an active module pass.
-The shipped implementation is narrower than Binaryen: it uses write-site evidence to narrow body locals, but it does not yet do get-aware dominance repair, get/tee retagging, or iterative refinalization.
+The shipped implementation is narrower than Binaryen: it uses write-site evidence to narrow body locals and now has a first straight-line non-null dominance slice, but it does not yet do full structural get-aware dominance repair, get/tee expression retagging, or iterative refinalization.
 
 ## The current Starshine slice
 
@@ -57,8 +57,9 @@ The shipped slice is:
 
 1. collect write-site types from `local.set` / `local.tee`;
 2. compute a safe common reference subtype;
-3. rewrite body-local declarations only;
-4. rebuild the module only when a body local changes.
+3. allow nullable-to-non-null narrowing only for the current straight-line subset where every raw `local.get` of that body local follows a write and no structured control invalidates the simple dominance proof;
+4. rewrite body-local declarations only;
+5. rebuild the module only when a body local changes.
 
 That is a valid Starshine pass, but it is only a subset of the upstream contract.
 
@@ -80,11 +81,11 @@ That is a valid Starshine pass, but it is only a subset of the upstream contract
 
 Compared with Binaryen, Starshine still lacks:
 
-- get-site dominance analysis;
-- non-null fallback based on structural dominance;
-- get/tee retagging after declaration narrowing;
+- full structural get-site dominance analysis;
+- non-null fallback based on structural dominance across blocks, loops, `if`, and EH regions;
+- get/tee expression retagging after declaration narrowing;
 - repeated refinalize/reanalyze rounds;
-- broader shape coverage for parameters, tees, and non-null cases.
+- broader shape coverage for parameters, structured tees, and non-null cases.
 
 Those are the next parity slices, not the current shipped pass.
 
@@ -100,13 +101,15 @@ Current coverage should stay green first:
 
 Refreshed direct signoff on 2026-05-06 ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
+The current audit slice adds and validates three focused direct tests: `local.tee` assignments feed narrowing; a straight-line non-null write before all gets can narrow a nullable body local to a non-null child type; and an early get before that write falls back to the nullable child type. The non-null positive failed before implementation and now passes with optimized-module validation.
+
 Then grow coverage in this order:
 
-1. nullable-to-non-null positives and failures;
-2. `local.tee` retagging;
-3. get-aware safety / dominance failures;
-4. repeated refinement after a narrowing change;
-5. parameter preservation and body-local-only scope checks.
+1. structured-control nullable-to-non-null positives and failures;
+2. `local.get` / `local.tee` expression retagging;
+3. repeated refinement after a narrowing change;
+4. parameter preservation and body-local-only scope checks;
+5. an LS-specific GenValid aggregate profile for direct signoff.
 
 ## What to avoid saying
 
