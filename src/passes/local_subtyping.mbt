@@ -417,7 +417,7 @@ fn ls_scan_branch_free_dominance_instrs(
           block_initialized,
           safe,
           allow_terminal_return=allow_terminal_return || allow_return_skip,
-          allow_terminal_throw~,
+          allow_terminal_throw=allow_terminal_throw || allow_return_skip,
         )
         if !block_result.valid {
           return LsDominanceScanResult::new(false, false)
