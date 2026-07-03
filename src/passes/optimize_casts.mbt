@@ -1341,6 +1341,18 @@ fn oc_early_motion_scan_region(
               ) {
               changed = true
             }
+          } else if pending_cast >= 0 &&
+            pending_refinement_gets[local_id] >= 0 &&
+            oc_cast_is_more_refined(module_ctx, func, pending_cast, cast_id) {
+            match oc_direct_refinement_source_get(func, cast_id) {
+              Some((_, source_get)) =>
+                if oc_duplicate_refinement_at_get(
+                    ctx, func, source_get, pending_cast,
+                  ) {
+                  changed = true
+                }
+              None => ()
+            }
           }
           seen_refinements[local_id] = true
         }

@@ -1155,7 +1155,7 @@ test "optimize-casts uses the narrower later cast for subsequent local reads" {
 }
 
 ///|
-test "optimize-casts uses an earlier narrower cast for later broader cast sources" {
+test "optimize-casts refinalizes later broader cast after earlier narrower cast" {
   let struct_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
   )
@@ -1182,7 +1182,13 @@ test "optimize-casts uses an earlier narrower cast for later broader cast source
   assert_true(pretty.contains("local.tee"), msg=pretty)
   @debug.assert_eq(
     optimize_casts_count_substring(pretty, "local.get (Local 1)"),
-    3,
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "HeapType Idx 0"),
+    0,
+    msg=pretty,
   )
 }
 
