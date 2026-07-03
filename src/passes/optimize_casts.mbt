@@ -865,6 +865,31 @@ fn oc_refinement_blocks_retarget(
 }
 
 ///|
+fn oc_marked_equal_refinement_source_get(
+  func : @ir.HotFunc,
+  refinements : Array[(Int, Int)],
+  local_id : Int,
+  best_cast : Int,
+  moved_refinalized_refinements : Array[Int],
+) -> Int? {
+  for refinement in refinements {
+    if refinement.0 == local_id &&
+      oc_contains_local(moved_refinalized_refinements, refinement.1) &&
+      oc_existing_fresh_can_feed_refinement_source(
+        func,
+        best_cast,
+        refinement.1,
+      ) {
+      match oc_direct_refinement_source_get(func, refinement.1) {
+        Some((_, source_get)) => return Some(source_get)
+        None => ()
+      }
+    }
+  }
+  None
+}
+
+///|
 fn oc_ref_type_as_non_null(ref_type : @lib.RefType) -> @lib.RefType {
   @lib.RefType::new(false, ref_type.get_heap_type(), exact=ref_type.is_exact())
 }
@@ -1328,6 +1353,7 @@ fn oc_flush_pending_get(
   func : @ir.HotFunc,
   pending_gets : Array[Int],
   pending_get_best_refinements : Array[Int],
+  moved_refinalized_refinements : Array[Int],
   local_id : Int,
 ) -> Bool {
   let get_id = pending_gets[local_id]
@@ -1335,7 +1361,14 @@ fn oc_flush_pending_get(
   if get_id < 0 || best_refinement < 0 {
     return false
   }
-  oc_duplicate_refinement_at_get(ctx, func, get_id, best_refinement)
+  let changed = oc_duplicate_refinement_at_get(
+    ctx, func, get_id, best_refinement,
+  )
+  if changed &&
+    !oc_contains_local(moved_refinalized_refinements, best_refinement) {
+    moved_refinalized_refinements.push(best_refinement)
+  }
+  changed
 }
 
 ///|
@@ -1344,11 +1377,13 @@ fn oc_flush_pending_gets(
   func : @ir.HotFunc,
   pending_gets : Array[Int],
   pending_get_best_refinements : Array[Int],
+  moved_refinalized_refinements : Array[Int],
 ) -> Bool {
   let mut changed = false
   for local_id = 0; local_id < pending_gets.length(); local_id = local_id + 1 {
     if oc_flush_pending_get(
-        ctx, func, pending_gets, pending_get_best_refinements, local_id,
+        ctx, func, pending_gets, pending_get_best_refinements, moved_refinalized_refinements,
+        local_id,
       ) {
       changed = true
     }
@@ -1512,6 +1547,11 @@ fn oc_early_motion_scan_region(
               if pending_best < 0 ||
                 oc_cast_is_more_refined(module_ctx, func, cast_id, pending_best) {
                 pending_get_best_refinements[local_id] = cast_id
+              } else if oc_existing_fresh_can_feed_refinement_source(
+                  func, pending_best, cast_id,
+                ) &&
+                !oc_contains_local(moved_refinalized_refinements, cast_id) {
+                moved_refinalized_refinements.push(cast_id)
               }
             }
           }
@@ -1574,7 +1614,8 @@ fn oc_early_motion_scan_region(
       Some(local_id) => {
         if local_id >= 0 && local_id < local_count {
           if oc_flush_pending_get(
-              ctx, func, pending_gets, pending_get_best_refinements, local_id,
+              ctx, func, pending_gets, pending_get_best_refinements, moved_refinalized_refinements,
+              local_id,
             ) {
             changed = true
           }
@@ -1593,7 +1634,7 @@ fn oc_early_motion_scan_region(
       continue
     }
     if oc_flush_pending_gets(
-        ctx, func, pending_gets, pending_get_best_refinements,
+        ctx, func, pending_gets, pending_get_best_refinements, moved_refinalized_refinements,
       ) {
       changed = true
     }
@@ -1606,7 +1647,7 @@ fn oc_early_motion_scan_region(
     }
   }
   if oc_flush_pending_gets(
-      ctx, func, pending_gets, pending_get_best_refinements,
+      ctx, func, pending_gets, pending_get_best_refinements, moved_refinalized_refinements,
     ) {
     changed = true
   }
@@ -1831,9 +1872,24 @@ fn oc_later_reuse_scan_region(
               }
             }
           }
+          let marked_source_get = oc_marked_equal_refinement_source_get(
+            func, refinements, local_id, best_cast, moved_refinalized_refinements,
+          )
           if oc_retarget_local_gets(ctx, func, root_id, local_id, fresh_local) >
             0 {
             changed = true
+          } else {
+            match marked_source_get {
+              Some(source_get) =>
+                if oc_node_is_local_get(func, source_get, local_id) {
+                  let temp = @ir.hot_build_local_get(func, fresh_local)
+                  let replacement = @ir.hot_node_get(func, temp)
+                  @ir.hot_delete_node(func, temp)
+                  pass_replace_node(ctx, func, source_get, replacement)
+                  changed = true
+                }
+              None => ()
+            }
           }
         }
       }
