@@ -240,4 +240,11 @@ Current mixed moved ref.as/cast refinalization slice evidence from 2026-07-03:
 - Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-mixed-ref-as-refinalize-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
 - Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-mixed-ref-as-refinalize-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
 
+Current move-cast-2 broad-then-narrow moved-carrier slice evidence from 2026-07-03:
+
+- Focused `src/passes/optimize_casts_test.mbt` now passes `69/69` after adding a Binaryen `move-cast-2`-style broad-then-narrow fixture where strict early motion refinalizes the earlier broad cast away and later reuse makes both the intervening narrower cast and the following plain read use the same moved carrier.
+- `moon fmt` passed; `moon test src/passes` passed `3884/3884`; `moon info` and native `src/cmd` build passed with pre-existing warnings.
+- Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-move-cast-2-reuse-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-move-cast-2-reuse-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
+
 Use the aggregate now to expose and classify remaining OC gaps. Do not report OC closeout until the required four-lane matrix, including `--gen-valid-profile optimize-casts-all`, is refreshed after the remaining transform families are either implemented or narrowly documented with reopening criteria.
