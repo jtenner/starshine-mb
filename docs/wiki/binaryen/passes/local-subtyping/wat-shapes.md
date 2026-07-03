@@ -329,6 +329,32 @@ Why it rewrites:
 - every path that reaches the later get has executed the non-null write;
 - Starshine now treats `return` inside copied `if` arms as a path skip for this dominance proof, while keeping direct return/post-state cases conservative.
 
+## Shape 6d-return_call: direct `return_call` in an `if` arm can skip a later write/get path
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(if (i32.const 0)
+  (then (return_call $callee)))
+(local.set $x (local.get $p))
+(drop (local.get $x))
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/if-return-call-skip-before-write-get.wat` under `--local-subtyping`;
+- the tail-call arm cannot reach the later write or get;
+- every path that reaches the later get has executed the non-null write;
+- Starshine now treats direct `return_call` inside copied `if` arm scans like the conditional-`return` path-skip subset. This does not widen `return_call_indirect`, `return_call_ref`, broad tail-call expression repair, or `try_table` body tail-call flow.
+
 ## Shape 6d-throw: direct `throw` in an `if` arm can skip a later write/get path
 
 Before:
@@ -379,6 +405,30 @@ Why it rewrites:
 - the final `return` is at the root instruction tail;
 - the only observed get appears before the return and is dominated by the non-null write;
 - Starshine now treats this as a non-propagating terminal control boundary, while still refusing direct return/post-state cases that require unreachable later-get validation proof.
+
+## Shape 6e-return_call: root/block terminal direct `return_call` can preserve already-dominated gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(local.set $x (local.get $p))
+(drop (local.get $x))
+(return_call $callee)
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/return-call-after-dominated-get.wat` and `.tmp/ls-probes/block-terminal-return-call-after-dominated-get.wat` under `--local-subtyping`;
+- the observed get appears before the terminal tail call and is dominated by the non-null write;
+- Starshine now treats direct `return_call` as a non-propagating terminal return boundary for the source-backed root/block and copied-if-arm path-skip subsets. `return_call_indirect`, `return_call_ref`, `try_table` body tail-call flow, and broad tail-call retagging remain conservative until separately probed.
 
 ## Shape 6e-a: block terminal `return` can preserve already-dominated gets inside the block
 
@@ -642,7 +692,7 @@ Why it rewrites:
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-return-before-unreachable-get-after-dominated-get.wat` under `--local-subtyping`, and also narrows the trailing-`unreachable` variant in `.tmp/ls-probes/try-table-return-before-unreachable-after-dominated-get.wat`;
 - `wasm-tools validate --features all .tmp/ls-probes/try-table-return-before-unreachable-get-after-dominated-get.nonnulllocal.wat` accepts the corresponding non-null local form, unlike the direct block-return validator-boundary family;
 - the pre-`return` get and the syntactic tail get are both dominated by the non-null write;
-- Starshine now treats direct `return` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen `return_call` forms, `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
+- Starshine now treats direct `return` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen `return_call` forms inside `try_table`, `return_call_indirect`, `return_call_ref`, `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
 
 ## Shape 6i: direct block `return` flow is a Starshine validator boundary
 
@@ -707,7 +757,7 @@ Before:
   (else (drop (local.get $x))))
 ```
 
-Possible after, when the `if` arms have no direct branch/throw flow except the conditional-return and direct-throw skip subsets:
+Possible after, when the `if` arms have no direct branch/throw flow except the conditional-return, direct-return_call, and direct-throw skip subsets:
 
 ```wat
 (local $x (ref $A))
