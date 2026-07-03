@@ -461,6 +461,27 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: broader adjacent-block reuse beyond branch-free roots/value-block sources, multi-root/value-producing source blocks, broader multi-cast/best-cast coverage, local-write windows beyond nontrapping pure separate-index `local.set`, `local.tee` and same-local writes, calls/effects/traps/control barriers, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 22 multi-root source-block result
+
+The twenty-second recursive slice broadened the later-reuse source-block subset from exactly-one-root value blocks to a still-conservative pure-prefix source-block shape:
+
+- a `ref.cast` whose source is a plain fallthrough value block with dropped nontrapping pure prefix roots and a final same-local `local.get` can seed the remembered best-cast fact and retarget a following same-local read through a fresh local;
+- a source block with branch traffic remains excluded, so branch-skipped or multi-path source blocks do not seed reuse facts.
+
+Before implementation, the positive `i32.const; drop; local.get` source block failed because Starshine did not materialize a `local.tee` or later fresh-local read. `src/passes/optimize_casts.mbt` now lets `oc_plain_block_source_local` accept one or more roots when every prefix root is accepted by the existing dropped nontrapping pure-root recognizer and the final root is the source `local.get` that satisfies the nullable-source rule. Branches, nested control, effectful/trapping prefix roots, local writes, non-local-get tails, and non-fallthrough blocks remain excluded.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the new multi-root source-block positive before implementation (`49/50` passed), then passed `50/50` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3865/3865`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-multiroot-source-smoke-100` compared/normalized `100/100` with zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-multiroot-source-smoke-20` compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, Binaryen cache `20/0`, and selected leaves `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: broader adjacent-block reuse beyond branch-free roots/value-block sources, effectful or local-writing source blocks, broader multi-cast/best-cast coverage, local-write windows beyond nontrapping pure separate-index `local.set`, `local.tee` and same-local writes, calls/effects/traps/control barriers, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, investigate a narrow `ref.as_non_null` variant across nonconstant pure separate-index `local.set`, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
