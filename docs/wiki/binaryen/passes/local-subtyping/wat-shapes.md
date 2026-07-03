@@ -329,7 +329,7 @@ Why it rewrites:
 - every path that reaches the later get has executed the non-null write;
 - Starshine now treats `return` inside copied `if` arms as a path skip for this dominance proof, while keeping direct return/post-state cases conservative.
 
-## Shape 6d-return_call: direct `return_call` in an `if` arm can skip a later write/get path
+## Shape 6d-return_call: direct tail calls in an `if` arm can skip a later write/get path
 
 Before:
 
@@ -342,6 +342,8 @@ Before:
 (drop (local.get $x))
 ```
 
+The same narrow source-backed shape also applies to terminal `return_call_indirect` after its table index operands and `return_call_ref` after its function-reference operand.
+
 Possible after, from local Binaryen v130 evidence:
 
 ```wat
@@ -350,10 +352,10 @@ Possible after, from local Binaryen v130 evidence:
 
 Why it rewrites:
 
-- local Binaryen v130 narrows `.tmp/ls-probes/if-return-call-skip-before-write-get.wat` under `--local-subtyping`;
+- local Binaryen v130 narrows `.tmp/ls-probes/if-return-call-skip-before-write-get.wat`, `.tmp/ls-probes/if-return-call-indirect-skip-before-write-get.wat`, and `.tmp/ls-probes/if-return-call-ref-skip-before-write-get.wat` under `--local-subtyping`;
 - the tail-call arm cannot reach the later write or get;
 - every path that reaches the later get has executed the non-null write;
-- Starshine now treats direct `return_call` inside copied `if` arm scans like the conditional-`return` path-skip subset. This does not widen `return_call_indirect`, `return_call_ref`, broad tail-call expression repair, or `try_table` body tail-call flow.
+- Starshine now treats direct `return_call`, `return_call_indirect`, and `return_call_ref` inside copied `if` arm scans like the conditional-`return` path-skip subset. This does not widen broad tail-call expression repair, `try_table` body tail-call flow, or post-state propagation.
 
 ## Shape 6d-throw: direct `throw` in an `if` arm can skip a later write/get path
 
@@ -406,7 +408,7 @@ Why it rewrites:
 - the only observed get appears before the return and is dominated by the non-null write;
 - Starshine now treats this as a non-propagating terminal control boundary, while still refusing direct return/post-state cases that require unreachable later-get validation proof.
 
-## Shape 6e-return_call: root/block terminal direct `return_call` can preserve already-dominated gets
+## Shape 6e-return_call: root/block terminal direct tail calls can preserve already-dominated gets
 
 Before:
 
@@ -418,6 +420,8 @@ Before:
 (return_call $callee)
 ```
 
+The same narrow source-backed terminal shape also applies to `return_call_indirect` after its table index operands and `return_call_ref` after its function-reference operand.
+
 Possible after, from local Binaryen v130 evidence:
 
 ```wat
@@ -426,9 +430,9 @@ Possible after, from local Binaryen v130 evidence:
 
 Why it rewrites:
 
-- local Binaryen v130 narrows `.tmp/ls-probes/return-call-after-dominated-get.wat` and `.tmp/ls-probes/block-terminal-return-call-after-dominated-get.wat` under `--local-subtyping`;
+- local Binaryen v130 narrows `.tmp/ls-probes/return-call-after-dominated-get.wat`, `.tmp/ls-probes/block-terminal-return-call-after-dominated-get.wat`, `.tmp/ls-probes/return-call-indirect-after-dominated-get.wat`, `.tmp/ls-probes/block-terminal-return-call-indirect-after-dominated-get.wat`, `.tmp/ls-probes/return-call-ref-after-dominated-get.wat`, and `.tmp/ls-probes/block-terminal-return-call-ref-after-dominated-get.wat` under `--local-subtyping`;
 - the observed get appears before the terminal tail call and is dominated by the non-null write;
-- Starshine now treats direct `return_call` as a non-propagating terminal return boundary for the source-backed root/block and copied-if-arm path-skip subsets. `return_call_indirect`, `return_call_ref`, `try_table` body tail-call flow, and broad tail-call retagging remain conservative until separately probed.
+- Starshine now treats direct `return_call`, `return_call_indirect`, and `return_call_ref` as non-propagating terminal return boundaries for the source-backed root/block and copied-if-arm path-skip subsets. `try_table` body tail-call flow and broad tail-call retagging remain conservative until separately probed.
 
 ## Shape 6e-a: block terminal `return` can preserve already-dominated gets inside the block
 
