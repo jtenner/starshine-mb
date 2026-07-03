@@ -26131,6 +26131,110 @@ test "optimize-instructions intentionally keeps tuple.extract with branch siblin
 }
 
 ///|
+test "optimize-instructions intentionally keeps tuple.extract with loop sibling boundary" {
+  // Boundary-only OI-M-SB004 coverage: Binaryen localizes simple loop tuple
+  // lanes, but Starshine does not yet prove loop label containment/backedge
+  // behavior in the tuple child localizer. Keep the tuple.extract fail-closed.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let selected = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let loop_sibling = @ir.hot_build_loop(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i64()),
+    [@ir.hot_build_const_i64(func, @lib.I64(9L))],
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [selected, loop_sibling],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  optimize_instructions_tuple_test_run(func, "loop tuple sibling boundary")
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::TupleExtract => ()
+    _ => fail("expected loop sibling tuple.extract to stay unchanged")
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, root, 0), tuple)
+}
+
+///|
+test "optimize-instructions intentionally keeps tuple.extract with selected if lane boundary" {
+  // Boundary-only OI-M-SB004 coverage: value `if` lanes need branch/result
+  // reconstruction proof before the tuple localizer may scalarize them.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let selected_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_local_get(func, 0),
+    [@ir.hot_build_const_i32(func, @lib.I32(7))],
+    else_body=Some([@ir.hot_build_const_i32(func, @lib.I32(8))]),
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [selected_if, @ir.hot_build_const_i64(func, @lib.I64(9L))],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  optimize_instructions_tuple_test_run(func, "selected if tuple lane boundary")
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::TupleExtract => ()
+    _ => fail("expected selected if tuple.extract to stay unchanged")
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, root, 0), tuple)
+}
+
+///|
+test "optimize-instructions intentionally keeps tuple.extract with try_table sibling boundary" {
+  // Boundary-only OI-M-SB004 coverage: EH tuple lanes remain fail-closed until
+  // try_table catch targets and exception exits have a source-backed HOT
+  // reconstruction rule.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::i32()),
+  )
+  let try_sibling = @ir.hot_build_try_table(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i64()),
+    [],
+    [@ir.hot_build_const_i64(func, @lib.I64(9L))],
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i64()],
+    [@ir.hot_build_const_i32(func, @lib.I32(7)), try_sibling],
+  )
+  let extract = @ir.hot_build_tuple_extract(func, @lib.ValType::i32(), tuple, 0)
+  @ir.hot_root_append(func, extract)
+
+  optimize_instructions_tuple_test_run(func, "try_table tuple sibling boundary")
+
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::TupleExtract => ()
+    _ => fail("expected try_table sibling tuple.extract to stay unchanged")
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, root, 0), tuple)
+}
+
+///|
 test "optimize-instructions intentionally keeps multi-use tuple.make boundary" {
   // Boundary-only OI-M-SB003 classification: Binaryen `version_130`
   // `--optimize-instructions` keeps tuple extractions through local-carried
