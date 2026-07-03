@@ -1315,6 +1315,42 @@ test "optimize-casts leaves repeated cast sources on the original local" {
 }
 
 ///|
+test "optimize-casts reuses earliest moved identical casts for equal later casts" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(struct_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    3,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "local.get (Local 1)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-casts uses the narrower later cast for subsequent local reads" {
   let struct_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
