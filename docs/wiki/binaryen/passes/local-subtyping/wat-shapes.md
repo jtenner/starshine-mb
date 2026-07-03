@@ -228,7 +228,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows this shape under `--local-subtyping`;
 - a branch-free block runs its write before the following outer get;
-- Starshine now propagates initialized state out of branch-free blocks, while still keeping direct branch/return, throw, and `try_table` post-state flow conservative.
+- Starshine now propagates initialized state out of branch-free blocks, while still keeping direct branch/return, throw, and `try_table` body post-state flow conservative.
 
 ## Shape 6b: terminal branches can preserve already-dominated gets
 
@@ -278,7 +278,7 @@ Why it stays nullable:
 
 - the assigned heap type still narrows from `$Parent` to `$A`;
 - local Binaryen v130 does not use this branch-flow block post-state to prove non-nullability;
-- Starshine keeps the same nullable fallback by not propagating `br` / `br_table` block writes to the outer post-state, while still treating direct return/post-state, throw, and `try_table` flow conservatively.
+- Starshine keeps the same nullable fallback by not propagating `br` / `br_table` block writes to the outer post-state, while still treating direct return/post-state, throw, and broader `try_table`/EH flow conservatively.
 
 ## Shape 6d: `br_if` paths that can skip a write stay nullable
 
@@ -375,7 +375,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows this shape under `--local-subtyping`;
 - the final `throw` exits the root body, so the observed get before it is the only relevant read and is dominated by the non-null write;
-- Starshine now treats a root-tail `throw` as a non-propagating terminal control boundary, while still refusing other nested/non-final throw/EH flow and `try_table` until those shapes have separate dominance and validator evidence.
+- Starshine now treats a root-tail `throw` as a non-propagating terminal control boundary, while still refusing other nested/non-final throw/EH flow and broader `try_table` behavior until those shapes have separate dominance and validator evidence.
 
 ## Shape 6g: block terminal `throw` can preserve already-dominated gets inside the block
 
@@ -400,9 +400,34 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/block-terminal-throw-after-dominated-get.wat` under `--local-subtyping`;
 - the `local.get` is before the terminal block `throw` and is dominated by the non-null write;
-- Starshine now threads the terminal-throw permission into `block` scans reached from the root scan, treating the block throw as a non-propagating dominance boundary without propagating block-carried writes to an outer post-state. Nested/non-final throw, `throw_ref`, and `try_table` flow remain conservative blockers until separately source-backed.
+- Starshine now threads the terminal-throw permission into `block` scans reached from the root scan, treating the block throw as a non-propagating dominance boundary without propagating block-carried writes to an outer post-state. Nested/non-final throw, `throw_ref`, and broader `try_table`/EH flow remain conservative blockers until separately source-backed.
 
-## Shape 6h: direct block `return` flow is a Starshine validator boundary
+## Shape 6h: non-throwing `try_table` bodies can preserve body-local domination
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block $h
+  (try_table (catch $e $h)
+    (local.set $x (local.get $p))
+    (drop (local.get $x))))
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/try-table-after-dominated-get.wat` under `--local-subtyping`;
+- the `local.get` is inside the `try_table` body and is dominated by the body-local non-null write on every path that reaches it;
+- Starshine scans the `try_table` body with copied state and does not propagate that body's writes to the outer post-state; a companion probe keeps a `try_table` body write before a later outside get nullable child.
+
+## Shape 6i: direct block `return` flow is a Starshine validator boundary
 
 Before:
 
