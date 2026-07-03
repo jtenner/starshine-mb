@@ -1,7 +1,7 @@
 # Optimize-instructions OI-M tuple.extract(tuple.make)
 
 _Date:_ 2026-06-21
-_Status:_ completed first `[O4Z-AUDIT-OI-M]` implementation sub-slice; superseded by later 2026-07-02 OI-M follow-ups for effect/trap-preserving sibling localization and direct one-use arity-2-through-21 selected-child localization.
+_Status:_ completed first `[O4Z-AUDIT-OI-M]` implementation sub-slice; superseded by later 2026-07-02 OI-M follow-ups for effect/trap-preserving sibling localization and direct one-use arity-2-through-22 selected-child localization.
 
 ## 2026-07-02 follow-up notes
 
@@ -9,8 +9,8 @@ Later slices extended the original direct one-use subset without closing OI-M br
 
 - effectful/trapping single-result non-selected siblings are now preserved as dropped siblings in tuple evaluation order, with the selected lane stored through a scratch local when later preserved siblings would otherwise clobber it;
 - exact trap-only lanes such as integer div/rem, `ref.as_non_null`, and `i31.get_*` are preservation-required even when the HOT effect mask is otherwise pure;
-- direct selected tuple children with exactly two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen, fourteen, fifteen, sixteen, seventeen, eighteen, nineteen, twenty, or twenty-one scalar results are now localized by storing selected-child results to scratch locals in stack-pop order and reloading the requested lane;
-- unsupported control/branch/EH/nested-region lanes, selected-child arities 22+, multi-result non-selected siblings, multi-use tuple producers, and generalized tuple-scratch reconstruction remain open OI-M work.
+- direct selected tuple children with exactly two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen, fourteen, fifteen, sixteen, seventeen, eighteen, nineteen, twenty, twenty-one, or twenty-two scalar results are now localized by storing selected-child results to scratch locals in stack-pop order and reloading the requested lane;
+- unsupported control/branch/EH/nested-region lanes, selected-child arities 23+, multi-result non-selected siblings, multi-use tuple producers, and generalized tuple-scratch reconstruction remain open OI-M work.
 
 Current machine-readable status and evidence live in `docs/wiki/binaryen/passes/optimize-instructions/parity-matrix.json` and `docs/wiki/log.md`.
 

@@ -28605,16 +28605,16 @@ test "optimize-instructions localizes twenty-first lane from twenty-one-result s
 }
 
 ///|
-test "optimize-instructions intentionally keeps tuple.extract with multi-result selected twenty-second child-lane boundary" {
-  // Boundary-only OI-M classification: Binaryen `version_130`
+test "optimize-instructions localizes twenty-second lane from twenty-two-result selected tuple child" {
+  // Source-backed OI-M positive coverage: Binaryen `version_130`
   // `--optimize-instructions --all-features` localizes the twenty-second scalar
   // result selected from a multi-result tuple child through tuple scratch plus
   // a scalar temp (`.tmp/oi-m-tuple-multiresult-selected-twenty-second-child-probe.wat`
   // refreshed to
   // `.tmp/oi-m-tuple-multiresult-selected-twenty-second-child-probe.binaryen.20260702.wat`).
-  // Starshine's direct tuple.extract localizer currently proves selected
-  // children with up to twenty-one scalar results, so this locks the next
-  // selected-lane tuple-scratch boundary.
+  // Starshine mirrors this bounded one-use selected-child arity-22 subset only;
+  // wider selected-child arities and general tuple-scratch reconstruction stay
+  // open.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
@@ -28703,26 +28703,159 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
 
   let result = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, result).op {
+    @ir.HotOp::Block => ()
+    other =>
+      fail(
+        "expected twenty-second lane from twenty-two-result tuple child to localize into a block, got \{other}",
+      )
+  }
+  let body = @ir.hot_region_body_ref(func, result)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 23)
+  let set_twenty_second = @ir.hot_region_get(func, body, 0)
+  let set_first = @ir.hot_region_get(func, body, 21)
+  let get_twenty_second = @ir.hot_region_get(func, body, 22)
+  match @ir.hot_node_get(func, set_twenty_second).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected twenty-second result lane to be stored first")
+  }
+  match @ir.hot_node_get(func, set_first).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected first result lane to be stored twenty-second")
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, set_twenty_second, 0), selected)
+  @debug.assert_eq(@ir.hot_child_get(func, set_first, 0), selected)
+  match @ir.hot_node_get(func, get_twenty_second).op {
+    @ir.HotOp::LocalGet => ()
+    _ =>
+      fail("expected twenty-second selected lane to reload from scratch local")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, get_twenty_second).imm0,
+    @ir.hot_node_get(func, set_twenty_second).imm0,
+  )
+}
+
+///|
+test "optimize-instructions intentionally keeps tuple.extract with multi-result selected twenty-third child-lane boundary" {
+  // Boundary-only OI-M classification: Binaryen `version_130`
+  // `--optimize-instructions --all-features` localizes the twenty-third scalar
+  // result selected from a multi-result tuple child through tuple scratch plus
+  // a scalar temp (`.tmp/oi-m-tuple-multiresult-selected-twenty-third-child-probe.wat`
+  // refreshed to
+  // `.tmp/oi-m-tuple-multiresult-selected-twenty-third-child-probe.binaryen.20260702.wat`).
+  // Starshine's direct tuple.extract localizer currently proves selected
+  // children with up to twenty-two scalar results, so this locks the next
+  // selected-lane tuple-scratch boundary.
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_value(func, @lib.ValType::f32()),
+  )
+  let selected = @ir.hot_build_call(
+    func,
+    0,
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+    ],
+    [],
+  )
+  let tuple = @ir.hot_build_tuple_make(
+    func,
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::i32(),
+    ],
+    [selected, @ir.hot_build_const_i32(func, @lib.I32(23))],
+  )
+  let extract = @ir.hot_build_tuple_extract(
+    func,
+    @lib.ValType::f32(),
+    tuple,
+    22,
+  )
+  @ir.hot_root_append(func, extract)
+
+  let ctx = HotPassContext::new(
+    optimize_instructions_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected multi-result selected twenty-third child-lane tuple boundary success, got \{err}",
+      )
+  }
+
+  let result = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, result).op {
     @ir.HotOp::TupleExtract => ()
     _ =>
       fail(
-        "expected multi-result selected twenty-second child-lane tuple.extract to stay unchanged",
+        "expected multi-result selected twenty-third child-lane tuple.extract to stay unchanged",
       )
   }
   @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
-  @debug.assert_eq(@ir.hot_node_get(func, result).imm0, 21)
+  @debug.assert_eq(@ir.hot_node_get(func, result).imm0, 22)
   match @ir.hot_node_get(func, tuple).op {
     @ir.HotOp::TupleMake => ()
     _ =>
       fail(
-        "expected multi-result selected twenty-second child-lane tuple.make to stay available",
+        "expected multi-result selected twenty-third child-lane tuple.make to stay available",
       )
   }
   match @ir.hot_node_get(func, selected).op {
     @ir.HotOp::Call => ()
     _ =>
       fail(
-        "expected multi-result selected twenty-second child-lane call to stay available",
+        "expected multi-result selected twenty-third child-lane call to stay available",
       )
   }
 }
