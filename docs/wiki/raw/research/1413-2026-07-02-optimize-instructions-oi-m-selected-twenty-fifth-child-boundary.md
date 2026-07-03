@@ -32,12 +32,12 @@ Binaryen localizes the twenty-five-result call into a tuple scratch local, extra
 
 ## Starshine coverage
 
-Added direct-HOT boundary/status coverage in `src/passes/optimize_instructions_test.mbt`:
+Initial direct-HOT boundary/status coverage in `src/passes/optimize_instructions_test.mbt` was promoted to source-backed positive coverage during the 2026-07-03 arity-25 slice:
 
-- `optimize-instructions intentionally keeps tuple.extract with multi-result selected twenty-fifth child-lane boundary`
+- `optimize-instructions localizes twenty-fifth lane from twenty-five-result selected tuple child`
 
-The test asserts Starshine keeps `TupleExtract` index `24`, the `TupleMake`, and the twenty-five-result selected `Call` unchanged. This is boundary-only evidence, not an implementation slice.
+The positive test failed red-first because Starshine kept `TupleExtract` index `24`, then passed after `src/passes/optimize_instructions.mbt` admitted the direct one-use arity-25 selected-child case. It asserts the rewrite becomes a `Block` with 25 stack-pop-order selected-lane `LocalSet` roots followed by a `LocalGet` of the selected twenty-fifth lane's scratch local. A new arity-26 boundary test now tracks the next source-backed selected-child tuple-scratch target.
 
 ## Status
 
-Starshine's current tuple.extract OI localizer now supports direct one-use selected children through arity 24. This twenty-fifth child-lane shape is the next source-backed selected-child tuple-scratch boundary after the 2026-07-02 arity-24 slice. Reopen this boundary when implementing arity-25 selected-child localization, when adding public/binary tuple fixture coverage for this shape, or if a future Binaryen source/oracle refresh stops localizing it.
+Superseded for direct one-use arity-25 selected-child localization by the 2026-07-03 implementation slice. Starshine's current tuple.extract OI localizer now supports direct one-use selected children through arity 25. Remaining OI-M work includes selected-child arities 26+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, broader randomized/runtime evidence, and public/binary tuple fixture coverage where representable. Reopen this note only if the arity-25 implementation regresses or a future Binaryen source/oracle refresh stops localizing it.
