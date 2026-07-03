@@ -1548,11 +1548,12 @@ fn oc_early_motion_scan_region(
 }
 
 ///|
-fn oc_early_motion_run(
+fn oc_early_motion_scan_fresh_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
   moved_refinalized_refinements : Array[Int],
+  region : @ir.HotRegionRef,
 ) -> Bool {
   let local_count = @ir.hot_local_count(func)
   let pending_gets = Array::make(local_count, -1)
@@ -1561,15 +1562,117 @@ fn oc_early_motion_run(
   let pending_refinement_gets = Array::make(local_count, -1)
   let seen_refinements = Array::make(local_count, false)
   oc_early_motion_scan_region(
+    ctx, func, module_ctx, local_count, pending_gets, pending_get_best_refinements,
+    pending_refinement_casts, pending_refinement_gets, seen_refinements, moved_refinalized_refinements,
+    region,
+  )
+}
+
+///|
+fn oc_early_motion_scan_nested_regions(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  moved_refinalized_refinements : Array[Int],
+  region : @ir.HotRegionRef,
+) -> Bool {
+  let mut changed = oc_early_motion_scan_fresh_region(
+    ctx, func, module_ctx, moved_refinalized_refinements, region,
+  )
+  let root_count = @ir.hot_region_root_count(func, region)
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region, idx)
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        if oc_early_motion_scan_nested_regions(
+            ctx,
+            func,
+            module_ctx,
+            moved_refinalized_refinements,
+            @ir.hot_region_body_ref(func, root_id),
+          ) {
+          changed = true
+        }
+      @ir.HotOp::If => {
+        if oc_early_motion_scan_nested_regions(
+            ctx,
+            func,
+            module_ctx,
+            moved_refinalized_refinements,
+            @ir.hot_region_then_ref(func, root_id),
+          ) {
+          changed = true
+        }
+        match @ir.hot_region_else_ref(func, root_id) {
+          Some(else_ref) =>
+            if oc_early_motion_scan_nested_regions(
+                ctx, func, module_ctx, moved_refinalized_refinements, else_ref,
+              ) {
+              changed = true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        if oc_early_motion_scan_nested_regions(
+            ctx,
+            func,
+            module_ctx,
+            moved_refinalized_refinements,
+            @ir.hot_region_body_ref(func, root_id),
+          ) {
+          changed = true
+        }
+        match @ir.hot_region_catch_ref(func, root_id) {
+          Some(catch_ref) =>
+            if oc_early_motion_scan_nested_regions(
+                ctx, func, module_ctx, moved_refinalized_refinements, catch_ref,
+              ) {
+              changed = true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable => {
+        if oc_early_motion_scan_nested_regions(
+            ctx,
+            func,
+            module_ctx,
+            moved_refinalized_refinements,
+            @ir.hot_region_body_ref(func, root_id),
+          ) {
+          changed = true
+        }
+        if oc_early_motion_scan_nested_regions(
+            ctx,
+            func,
+            module_ctx,
+            moved_refinalized_refinements,
+            @ir.hot_region_catch_list_ref(func, root_id),
+          ) {
+          changed = true
+        }
+      }
+      _ => ()
+    }
+  }
+  changed
+}
+
+///|
+fn oc_early_motion_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  moved_refinalized_refinements : Array[Int],
+) -> Bool {
+  oc_early_motion_scan_nested_regions(
     ctx,
     func,
     module_ctx,
-    local_count,
-    pending_gets,
-    pending_get_best_refinements,
-    pending_refinement_casts,
-    pending_refinement_gets,
-    seen_refinements,
     moved_refinalized_refinements,
     @ir.HotRegionRef::root(),
   )
