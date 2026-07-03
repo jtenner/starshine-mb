@@ -383,11 +383,13 @@ fn ls_scan_branch_free_dominance_instrs(
   initialized : Array[Bool],
   safe : Array[Bool],
   allow_return_skip? : Bool = false,
+  allow_terminal_return? : Bool = false,
 ) -> LsDominanceScanResult {
   let body_local_count = ref_body_locals.length()
   let mut allow_later_write_init = true
   let mut propagates = true
-  for instr in instrs {
+  for instr_idx = 0; instr_idx < instrs.length(); instr_idx = instr_idx + 1 {
+    let instr = instrs[instr_idx]
     match instr {
       @lib.LocalGet(idx) =>
         match ls_body_local_idx(idx, param_count, body_local_count) {
@@ -465,6 +467,9 @@ fn ls_scan_branch_free_dominance_instrs(
       @lib.Return =>
         if allow_return_skip {
           ()
+        } else if allow_terminal_return && instr_idx + 1 == instrs.length() {
+          allow_later_write_init = false
+          propagates = false
         } else {
           return LsDominanceScanResult::new(false, false)
         }
@@ -495,7 +500,12 @@ fn ls_non_null_dominated_linear_locals(
   }
   let @lib.Expr(instrs) = expr
   let scan_result = ls_scan_branch_free_dominance_instrs(
-    instrs, param_count, ref_body_locals, initialized, safe,
+    instrs,
+    param_count,
+    ref_body_locals,
+    initialized,
+    safe,
+    allow_terminal_return=true,
   )
   if !scan_result.valid {
     for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
