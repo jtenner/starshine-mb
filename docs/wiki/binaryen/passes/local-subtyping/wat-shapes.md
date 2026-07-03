@@ -456,6 +456,35 @@ Why it rewrites:
 - the `local.get` is before the terminal block `throw` and is dominated by the non-null write;
 - Starshine now threads the terminal-throw permission into `block` scans reached from the root scan, treating the block throw as a non-propagating dominance boundary without propagating block-carried writes to an outer post-state. Nested/non-final throw, `throw_ref`, and broader `try_table`/EH flow remain conservative blockers until separately source-backed.
 
+## Shape 6g-b: if-arm block terminal `throw` can preserve already-dominated gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(if
+  (then
+    (block
+      (local.set $x (local.get $p))
+      (drop (local.get $x))
+      (throw $e)))
+  (else
+    (nop)))
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/if-arm-block-terminal-throw-after-dominated-get.wat` under `--local-subtyping`;
+- the `local.get` is inside the throwing `if` arm's nested block and is dominated by the non-null write before the terminal block `throw`;
+- Starshine now treats that nested block throw as a non-propagating terminal boundary when it is reached from a copied return/throw-skipped `if` arm scan. This does not propagate writes out of the arm or widen non-final throw, `throw_ref`, catch-ref/post-state EH flow, or broader `try_table` handling.
+
 ## Shape 6h: `try_table` bodies can preserve body-local domination
 
 Before:
