@@ -1611,6 +1611,9 @@ fn oc_early_motion_scan_region(
                 cast_id,
               ) {
               changed = true
+              if !oc_contains_local(moved_refinalized_refinements, cast_id) {
+                moved_refinalized_refinements.push(cast_id)
+              }
             }
           } else if pending_cast >= 0 &&
             pending_refinement_gets[local_id] >= 0 &&

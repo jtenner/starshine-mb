@@ -1412,7 +1412,8 @@ test "optimize-casts uses the narrower later cast for subsequent local reads" {
   assert_true(pretty.contains("local.tee"), msg=pretty)
   @debug.assert_eq(
     optimize_casts_count_substring(pretty, "local.get (Local 1)"),
-    1,
+    2,
+    msg=pretty,
   )
 }
 
