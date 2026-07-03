@@ -437,7 +437,12 @@ fn ls_scan_branch_free_dominance_instrs(
       @lib.TryTable(_, _, @lib.Expr(body)) => {
         let try_initialized = initialized.copy()
         let try_result = ls_scan_branch_free_dominance_instrs(
-          body, param_count, ref_body_locals, try_initialized, safe,
+          body,
+          param_count,
+          ref_body_locals,
+          try_initialized,
+          safe,
+          allow_terminal_throw=true,
         )
         if !try_result.valid {
           return LsDominanceScanResult::new(false, false)
