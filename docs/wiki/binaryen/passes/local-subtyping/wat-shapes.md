@@ -230,7 +230,32 @@ Why it rewrites:
 - a branch-free block runs its write before the following outer get;
 - Starshine now propagates initialized state out of branch-free blocks, while still keeping direct branch/return, throw, and `try_table` post-state flow conservative.
 
-## Shape 6b: branch flow blocks non-null block post-state propagation
+## Shape 6b: terminal branches can preserve already-dominated gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block
+  (local.set $x (local.get $p))
+  (drop (local.get $x))
+  (br 0))
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows both terminal `br 0` and terminal `br_table 0 0` variants under `--local-subtyping`;
+- the `local.get` appears before the branch and is dominated by the write;
+- Starshine now treats `br` / `br_table` as a non-propagating control boundary instead of a whole-function non-null proof failure, so it admits the dominated get but does not use branch-carried writes to initialize the outer post-state.
+
+## Shape 6c: branch flow blocks non-null block post-state propagation
 
 Before:
 
@@ -253,9 +278,9 @@ Why it stays nullable:
 
 - the assigned heap type still narrows from `$Parent` to `$A`;
 - local Binaryen v130 does not use this branch-flow block post-state to prove non-nullability;
-- Starshine keeps the same nullable fallback by bailing out of the non-null dominance scan on unconditional `br`, `br_table`, direct return/post-state, throw, and `try_table` flow.
+- Starshine keeps the same nullable fallback by not propagating `br` / `br_table` block writes to the outer post-state, while still treating direct return/post-state, throw, and `try_table` flow conservatively.
 
-## Shape 6c: `br_if` paths that can skip a write stay nullable
+## Shape 6d: `br_if` paths that can skip a write stay nullable
 
 Before:
 
