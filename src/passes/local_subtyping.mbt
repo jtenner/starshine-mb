@@ -272,6 +272,7 @@ fn ls_candidate_local_type(
   declared : @lib.ValType,
   assigned : Array[@lib.ValType],
   module_ctx : @ir.HotModuleContext,
+  allow_non_null : Bool,
 ) -> @lib.ValType? {
   let declared_ref = match ls_as_ref(declared) {
     Some(ref_type) => ref_type
@@ -289,8 +290,13 @@ fn ls_candidate_local_type(
   }
   let mut best : @lib.RefType? = None
   for candidate in ref_candidates {
+    let candidate_nullable = if allow_non_null {
+      candidate.is_nullable()
+    } else {
+      declared_ref.is_nullable() || candidate.is_nullable()
+    }
     let local_candidate = @lib.RefType::new(
-      declared_ref.is_nullable() || candidate.is_nullable(),
+      candidate_nullable,
       candidate.get_heap_type(),
       exact=candidate.is_exact(),
     )
@@ -326,6 +332,68 @@ fn ls_candidate_local_type(
     }
     None => None
   }
+}
+
+///|
+fn ls_body_local_idx(
+  idx : @lib.LocalIdx,
+  param_count : Int,
+  body_local_count : Int,
+) -> Int? {
+  let raw = ls_local_idx_raw(idx)
+  let body_idx = raw - param_count
+  if body_idx >= 0 && body_idx < body_local_count {
+    Some(body_idx)
+  } else {
+    None
+  }
+}
+
+///|
+fn ls_non_null_dominated_linear_locals(
+  expr : @lib.Expr,
+  param_count : Int,
+  ref_body_locals : Array[Bool],
+) -> Array[Bool] {
+  let body_local_count = ref_body_locals.length()
+  let initialized : Array[Bool] = []
+  let safe : Array[Bool] = []
+  for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
+    initialized.push(false)
+    safe.push(ref_body_locals[body_idx])
+  }
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(idx) =>
+        match ls_body_local_idx(idx, param_count, body_local_count) {
+          Some(body_idx) =>
+            if ref_body_locals[body_idx] && !initialized[body_idx] {
+              ignore(safe.set(body_idx, false))
+            }
+          None => ()
+        }
+      @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+        match ls_body_local_idx(idx, param_count, body_local_count) {
+          Some(body_idx) =>
+            if ref_body_locals[body_idx] {
+              ignore(initialized.set(body_idx, true))
+            }
+          None => ()
+        }
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _) =>
+        for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
+          if ref_body_locals[body_idx] {
+            ignore(safe.set(body_idx, false))
+          }
+        }
+      _ => ()
+    }
+  }
+  safe
 }
 
 ///|
@@ -388,6 +456,16 @@ fn ls_rewrite_func(
   } else {
     @ir.hot_local_param_count(hot_func)
   }
+  let non_null_safe = if raw_param_count >= 0 {
+    ls_non_null_dominated_linear_locals(body, raw_param_count, ref_body_locals)
+  } else {
+    let fallback : Array[Bool] = []
+    for body_idx = 0; body_idx < body_locals.length(); body_idx = body_idx + 1 {
+      ignore(body_idx)
+      fallback.push(false)
+    }
+    fallback
+  }
   let rewritten_locals = body_locals.copy()
   let mut changed = false
   for body_idx = 0; body_idx < body_locals.length(); body_idx = body_idx + 1 {
@@ -400,7 +478,12 @@ fn ls_rewrite_func(
       Some(types) => types
       None => continue
     }
-    match ls_candidate_local_type(declared, assigned, module_ctx) {
+    let allow_non_null = match non_null_safe.get(body_idx) {
+      Some(value) => value
+      None => false
+    }
+    match
+      ls_candidate_local_type(declared, assigned, module_ctx, allow_non_null) {
       Some(next) => if rewritten_locals.set(body_idx, next) { changed = true }
       None => ()
     }

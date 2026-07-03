@@ -95,3 +95,86 @@ test "local-subtyping keeps common supertype for mixed sibling assignments" {
   }
   @debug.assert_eq(ls_test_first_body_local(optimized), base_nullable)
 }
+
+///|
+test "local-subtyping narrows body locals from local.tee assignments" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let mod_ = ls_test_module(base_nullable, [
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+    ),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nullable)
+}
+
+///|
+test "local-subtyping narrows nullable local to non-null after dominating write" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module(base_nullable, [
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+    ),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected narrowed non-null local to validate, got \{err}")
+  }
+}
+
+///|
+test "local-subtyping keeps nullable fallback for get before non-null write" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let mod_ = ls_test_module(base_nullable, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+    ),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nullable)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected nullable fallback local to validate, got \{err}")
+  }
+}
