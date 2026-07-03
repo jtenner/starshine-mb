@@ -111,6 +111,28 @@ Why it matters:
 - the tee contributes assigned-value evidence;
 - the tee expression type must also be repaired after declaration narrowing.
 
+## Shape 3a: non-null `local.tee` assignments can validate as non-null
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(drop (local.tee $x (local.get $p)))
+```
+
+Possible after:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- the `local.tee` is assignment evidence and also an expression use;
+- local Binaryen v130 narrows this shape to a non-null child declaration;
+- Starshine's representation does not yet expose a broad explicit retagging pass, but the focused optimized module validates after the declaration change.
+
 ## Shape 4: non-null narrowing needs dominated gets
 
 Before:
@@ -208,6 +230,31 @@ Why it rewrites:
 - a branch-free block runs its write before the following outer get;
 - Starshine now propagates initialized state out of branch-free blocks, while still bailing on branch, return, throw, and `try_table` flow.
 
+## Shape 6b: branch flow blocks non-null block post-state propagation
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block
+  (local.set $x (local.get $p))
+  (br 0))
+(drop (local.get $x))
+```
+
+After, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref null $A))
+```
+
+Why it stays nullable:
+
+- the assigned heap type still narrows from `$Parent` to `$A`;
+- local Binaryen v130 does not use this branch-flow block post-state to prove non-nullability;
+- Starshine keeps the same nullable fallback by bailing out of the non-null dominance scan on `br`/`br_if`/`br_table`, return, throw, and `try_table` flow.
+
 ## Shape 7: branch-free loops can preserve entry domination
 
 Before:
@@ -256,6 +303,31 @@ Why it rewrites:
 - the assignment is non-null and dominates entry to the `if`;
 - each arm is scanned with a copy of the pre-`if` initialized state;
 - current Starshine does not propagate writes inside either arm to later outer gets.
+
+## Shape 8a: all-arm `if` writes do not currently prove non-null post-state
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(if (i32.const 1)
+  (then (local.set $x (local.get $p)))
+  (else (local.set $x (local.get $p))))
+(drop (local.get $x))
+```
+
+After, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref null $A))
+```
+
+Why it stays nullable:
+
+- the write-site LUB still narrows the heap from `$Parent` to `$A`;
+- local Binaryen v130 keeps nullability for this post-`if` outside get even when both arms write;
+- Starshine intentionally scans each arm with copied entry state and does not merge arm writes outward.
 
 ## Shape 9: dominated branch-free blocks can contain branch-free `if` arms
 

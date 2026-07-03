@@ -54,7 +54,7 @@ It has:
 - preset-slot coverage in the default hot optimize path.
 
 What it does **not** have yet is full Binaryen parity.
-The current implementation is a narrower subset that narrows body locals from write-site evidence, with early nullable-to-non-null declaration narrowing when every observed `local.get` is after a dominating write in a straight-line root, inside a branch-free `block` or `loop` entered after that write, after a branch-free `block` write that dominates a later outer get, inside branch-free nested `if` arms in such a dominated region, or inside branch-free root `if` arms entered after that write.
+The current implementation is a narrower subset that narrows body locals from write-site evidence, with early nullable-to-non-null declaration narrowing when every observed `local.get` is after a dominating write in a straight-line root, inside a branch-free `block` or `loop` entered after that write, after a branch-free `block` write that dominates a later outer get, inside branch-free nested `if` arms in such a dominated region, or inside branch-free root `if` arms entered after that write. It also has source-backed nullable fallback guards for loop writes before outside gets, all-arm `if` writes before outside gets, and block writes followed by branch flow before outside gets, plus focused validation for non-null `local.tee` assignment/use narrowing.
 
 ## Exact local code map today
 
@@ -83,7 +83,7 @@ The current Starshine code path is intentionally small:
 
 1. lift each function into HOT form;
 2. collect assignment result types from `local.set` and `local.tee`;
-3. pre-scan the raw straight-line body, branch-free `block` bodies, branch-free block writes before later outer gets, branch-free `loop` bodies entered after prior writes, branch-free nested `if` arms inside such dominated regions, and branch-free root `if` arms to decide where a nullable local may safely become non-null because reads are dominated by an earlier write;
+3. pre-scan the raw straight-line body, branch-free `block` bodies, branch-free block writes before later outer gets, branch-free `loop` bodies entered after prior writes, branch-free nested `if` arms inside such dominated regions, and branch-free root `if` arms to decide where a nullable local may safely become non-null because reads are dominated by an earlier write, while keeping nullable fallbacks at the source-backed loop/if/branch-flow post-state boundaries;
 4. pick the most specific safe common reference subtype, falling back to nullable when dominance is not proven;
 5. rewrite body-local declarations only;
 6. rebuild the module if any body local changed.
@@ -94,9 +94,9 @@ That gives Starshine a real, active `local-subtyping` pass without pretending to
 
 Compared with the upstream Binaryen strategy, Starshine still lacks:
 
-- full structural get-site dominance analysis for loops with backedges or post-state joins, EH bodies, `block`/`if` bodies with branch/return/throw control flow, and broader `if` join/post-state cases; branch-free `block` write post-state propagation is covered, but loop and `if` write post-state non-null propagation remain intentionally narrower;
+- full structural get-site dominance analysis for loops with backedges or post-state joins, EH bodies, `block`/`if` bodies with branch/return/throw control flow, and broader `if` join/post-state cases; branch-free `block` write post-state propagation is covered, while loop write post-state, all-arm `if` write post-state, and branch-flow block post-state are source-backed nullable fallbacks rather than non-null propagation cases;
 - broad non-null fallback based on Binaryen's structural-dominance proof rather than the current straight-line, branch-free block/loop, block-write post-state, and root branch-free-`if` subset;
-- get/tee expression retagging after declaration narrowing;
+- broad get/tee expression retagging after declaration narrowing; a focused non-null `local.tee` assignment/use fixture validates with Starshine's current representation, but the wider Binaryen retagging contract remains open;
 - repeated refinalize/reanalyze rounds;
 - the broader set of official test shapes around params, structured tees, non-nullability, and repeated refinement.
 
@@ -117,7 +117,7 @@ Current shipped coverage proves:
 
 The 2026-05-06 refreshed direct pass signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
-The newest LS audit slices add focused coverage for direct `local.tee` assignments, straight-line nullable-to-non-null narrowing after a dominating write, branch-free `block` and `loop` gets dominated by an earlier write, branch-free `block` writes that dominate later outer gets, gets inside a branch-free nested `if` in a dominated region, branch-free root `if` gets dominated by an earlier write, and nullable fallback when a `local.get` can observe the default value before the first write, inside an earlier block/if arm, or after a branch-free loop write. The straight-line, block-entry, block-write post-state, loop-entry, nested block-if, and root-if non-null positives were red before implementation; optimized modules are validated after narrowing.
+The newest LS audit slices add focused coverage for direct `local.tee` assignments including non-null tee assignment/use validation, straight-line nullable-to-non-null narrowing after a dominating write, branch-free `block` and `loop` gets dominated by an earlier write, branch-free `block` writes that dominate later outer gets, gets inside a branch-free nested `if` in a dominated region, branch-free root `if` gets dominated by an earlier write, and nullable fallback when a `local.get` can observe the default value before the first write, inside an earlier block/if arm, after a branch-free loop write, after all-arm `if` writes, or after a block write followed by branch flow. The straight-line, block-entry, block-write post-state, loop-entry, nested block-if, and root-if non-null positives were red before implementation; optimized modules are validated after narrowing.
 
 The next full-contract parity tests should cover:
 

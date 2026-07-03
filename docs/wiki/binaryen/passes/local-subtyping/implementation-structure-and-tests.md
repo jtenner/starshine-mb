@@ -83,7 +83,7 @@ A faithful read-along of `src/passes/local_subtyping.mbt` should follow these ph
 5. **Candidate narrowing**
    - The pass chooses the most specific safe common reference subtype from the collected write-site values.
 6. **Dominance pre-scan**
-   - The pass admits non-null candidates only when a raw scan proves all gets follow a dominating write in the straight-line root, branch-free `block` bodies, branch-free block writes that dominate later outer gets, branch-free `loop` bodies entered after prior writes, branch-free nested `if` arms inside those dominated regions, or branch-free root `if` arms. Writes inside a nested loop or if arm are not propagated to the outer post-construct state; branch-free block writes are propagated because local Binaryen v130 narrows that shape.
+   - The pass admits non-null candidates only when a raw scan proves all gets follow a dominating write in the straight-line root, branch-free `block` bodies, branch-free block writes that dominate later outer gets, branch-free `loop` bodies entered after prior writes, branch-free nested `if` arms inside those dominated regions, or branch-free root `if` arms. Writes inside a nested loop or if arm are not propagated to the outer post-construct state; branch-free block writes are propagated because local Binaryen v130 narrows that shape. Focused fallback tests pin local Binaryen v130 behavior where loop writes, all-arm `if` writes, and block writes with branch flow narrow only to nullable child for a later outside get.
 7. **Body-local rewrite**
    - Only body locals are rewritten; parameters are preserved.
 8. **Module rebuild**
@@ -98,8 +98,8 @@ The active Starshine tests are small but meaningful.
 | `src/passes/local_subtyping_test.mbt:78-86` | `local-subtyping` is registered as an active module pass. |
 | `src/passes/local_subtyping_test.mbt:89-107` | A body local narrows to an assigned child heap type. |
 | `src/passes/local_subtyping_test.mbt:111-130` | Mixed sibling assignments keep the common supertype. |
-| `src/passes/local_subtyping_test.mbt:134-152` | `local.tee` assignment evidence feeds narrowing. |
-| `src/passes/local_subtyping_test.mbt:157-497` | Straight-line, branch-free block/loop, branch-free block-write post-state, nested branch-free block-if, source-backed nullable loop post-state, and branch-free root-if dominance tests cover non-null positives and nullable fallbacks. |
+| `src/passes/local_subtyping_test.mbt` local.tee fixtures | `local.tee` assignment evidence feeds narrowing, and a non-null tee assignment/use validates after non-null declaration narrowing. |
+| `src/passes/local_subtyping_test.mbt` dominance fixtures | Straight-line, branch-free block/loop, branch-free block-write post-state, nested branch-free block-if, source-backed nullable loop/if/branch-flow post-state, and branch-free root-if dominance tests cover non-null positives and nullable fallbacks. |
 | `src/cmd/cmd_wbtest.mbt:4376-4439` | The CLI path accepts `--local-subtyping` and writes an optimized wasm module. |
 | `src/passes/optimize_test.mbt:491-495` | The pass is intentionally absent from the stale `reorder-locals` gating test; that test is about neighboring local-passes not yet being scheduled in a different slot. |
 | `src/passes/optimize_test.mbt:561-568` | The optimize preset includes `local-subtyping` immediately after `optimize-casts` in the late GC/local cleanup neighborhood. |
@@ -113,9 +113,9 @@ This page is not a claim of full Binaryen parity.
 The current Starshine implementation does not yet include:
 
 - full structural get-aware non-null repair beyond straight-line roots, branch-free blocks, branch-free block-write post-state, branch-free loop entry bodies, nested branch-free block-if arms, and branch-free root if arms;
-- get/tee expression retagging after narrowing;
+- broad get/tee expression retagging after narrowing beyond the focused non-null `local.tee` validation fixture;
 - iterative refinalization;
-- dominance-sensitive fallback for loops with backedges/post-state joins, EH, broader `if` join/post-state cases, and branch/return/throw control flow.
+- dominance-sensitive non-null propagation for loops with backedges/post-state joins, EH, broader `if` join/post-state cases, and branch/return/throw control flow; current loop write, all-arm `if` write, and branch-flow block post-state cases are source-backed nullable fallbacks.
 
 Those gaps belong on the strategy and validation pages, not in the owner/test map.
 
