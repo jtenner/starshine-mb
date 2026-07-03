@@ -411,7 +411,12 @@ fn ls_scan_branch_free_dominance_instrs(
       @lib.Block(_, @lib.Expr(body)) => {
         let block_initialized = initialized.copy()
         let block_result = ls_scan_branch_free_dominance_instrs(
-          body, param_count, ref_body_locals, block_initialized, safe,
+          body,
+          param_count,
+          ref_body_locals,
+          block_initialized,
+          safe,
+          allow_terminal_throw~,
         )
         if !block_result.valid {
           return LsDominanceScanResult::new(false, false)
