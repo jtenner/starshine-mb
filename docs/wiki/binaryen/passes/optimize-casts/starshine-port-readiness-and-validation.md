@@ -61,8 +61,8 @@ The final source/docs review answers the upstream-aligned questions as follows:
 
 | Surface | Why it matters |
 | --- | --- |
-| `src/passes/optimize_casts.mbt` | active narrow HOT implementation for redundant GC casts, statically known `ref.test` outcomes, descriptor casts/tests, and guaranteed-success branch casts. |
-| `src/passes/optimize_casts_test.mbt` | direct behavior coverage for redundant `ref.cast`, guaranteed-true `ref.test`, descriptor casts/tests, guaranteed-success `br_on_cast` / `br_on_cast_fail`, nullable-to-nonnull trap preservation, and the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood order. |
+| `src/passes/optimize_casts.mbt` | active HOT implementation for redundant GC casts, statically known `ref.test` outcomes, descriptor casts/tests, guaranteed branch casts, strict earlier motion, later reuse, exact fresh carrier locals, and barrier handling. |
+| `src/passes/optimize_casts_test.mbt` | direct behavior coverage for redundant `ref.cast`, guaranteed-true `ref.test`, descriptor casts/tests, branch casts, nullable-to-nonnull trap preservation, local-flow positives, barriers, source-backed move-cast families, and the exact `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighborhood order. |
 | `src/passes/optimize.mbt` | active registry coverage for `optimize-casts` plus the public `optimize` / `shrink` slot immediately after `heap2local`. |
 | `src/passes/pass_manager.mbt` | dispatcher routes `optimize-casts` to `optimize_casts_run(...)`. |
 | `agent-todo.md` | the standalone `OC` preset-readiness gate is closed; remaining broader GC/local follow-up now lives under neighboring backlog slices. |

@@ -302,7 +302,7 @@ Current wasm-smith scale-up from 2026-07-03:
 - Supplementary replay `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000-unreachable-normalized` with `--normalize unreachable-control-debris`: requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `1`, mismatches `0`, validation/generator/property failures `0`, command failures `44` with the same Binaryen/oracle classes.
 - Decision: accept the explicit wasm-smith lane with `--normalize unreachable-control-debris`; the normalizer is already covered by harness tests for adjacent `drop(unreachable)` before `unreachable`, and the residual is not OC cast/refinement behavior. Reopen for any residual after the normalizer, any OC-owned cast/refinement mismatch, any Starshine validation/generator/property failure, or a Starshine command-failure class.
 
-Use the aggregate to guard future OC changes. The direct `100000`, dedicated `optimize-casts-all`, broad `random-all-profiles` with accepted static-fold win, and explicit wasm-smith with accepted unreachable-control-debris normalizer lanes are now closeout-sized. Do not report OC audit completion until final source/docs review decides whether the still-documented broader local-flow gaps are reasonable non-goals or implementation work.
+Use the aggregate to guard future OC changes. The direct `100000`, dedicated `optimize-casts-all`, broad `random-all-profiles` with accepted static-fold win, and explicit wasm-smith with accepted unreachable-control-debris normalizer lanes are closeout-sized. The 2026-07-03 final source/docs review found no additional implementation-required `version_130` local-flow family for the v0.1.0 OC audit; remaining broader ideas are documented non-goals with reopening criteria.
 
 Current timing and neighborhood evidence from 2026-07-03:
 
@@ -310,3 +310,12 @@ Current timing and neighborhood evidence from 2026-07-03:
 - GC/local neighborhood probe `.tmp/self-compare-optimize-casts-o4z-neighborhood-after-exact-local` on the same repro with `--heap2local --optimize-casts --local-subtyping --coalesce-locals --local-cse --timing-only`: Starshine pass runtime `17.643ms`; Binaryen pass runtime `18.038ms`; both outputs validate; canonical wasm is not equal and Starshine's normalized wasm is `191380` bytes versus Binaryen `191059` bytes.
 - Ordered prefix owner probe from the follow-up iteration: `--heap2local`, `--heap2local --optimize-casts`, and `--heap2local --optimize-casts --local-subtyping` were canonical-equal with zero size delta (`192893` / `192893` each). The first canonical/size drift appeared when adding `--coalesce-locals`: `.tmp/self-compare-oc-neighborhood-prefix-04-h2l-oc-ls-cl` had Starshine `191381` bytes versus Binaryen `191062` (`+319`), and the full `+ --local-cse` prefix `.tmp/self-compare-oc-neighborhood-prefix-05-h2l-oc-ls-cl-lcse` had Starshine `191380` versus Binaryen `191059` (`+321`). Both drifted prefixes validate on both sides.
 - Agent classification: timing is acceptable and the checked-in O4z neighborhood drift is localized to the neighboring `coalesce-locals` slot, not to direct `optimize-casts` or the `heap2local -> optimize-casts -> local-subtyping` prefix. Track the remaining size/shape owner under neighboring GC/local cleanup work unless a reduction shows OC seeded the later coalescing difference.
+
+## Closeout status
+
+As of 2026-07-03, the OC fuzz inventory is complete enough for the v0.1.0 direct-pass audit. Refresh the full matrix after any OC behavior change, and reopen closeout only for:
+
+- any direct or dedicated `optimize-casts-all` mismatch;
+- a broad/random residual outside the guaranteed-true fresh exact-struct `heap2local-ref` `ref.test` fold, or the same family becoming size-neutral/size-losing for Starshine;
+- an explicit wasm-smith residual after `--normalize unreachable-control-debris`, any cast/refinement-owned wasm-smith mismatch, or a Starshine-specific command failure;
+- source/lit drift that adds a reasonable Binaryen local-flow family not represented by the current leaves.

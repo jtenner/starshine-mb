@@ -208,7 +208,7 @@ See [`./wat-shapes.md`](./wat-shapes.md) for beginner-friendly before/after exam
 
 ## Current Starshine implementation map
 
-Starshine has an active narrow HOT `optimize-casts` implementation. The exact current local status is:
+Starshine has an active source-reviewed HOT `optimize-casts` implementation. The exact current local status is:
 
 - `src/passes/optimize_casts.mbt`
   - active owner file for redundant GC cast removal and statically known `ref.test` folds
@@ -240,9 +240,9 @@ The reusable local primitives and active pass surfaces are:
 | `src/ir/hot_lift.mbt:764-818` | Instruction-to-HOT classification for ref test/cast and unary `ref.as_non_null`. |
 | `src/ir/hot_lower.mbt:1080-1084` | HOT-to-lib lowering family for ref test/cast operations. |
 
-## What this means for a future port
+## What this means for future changes
 
-A future Starshine implementation should be scoped as a GC/local HOT pass unless a deliberate design chooses otherwise. The minimum parity-shaped plan is:
+Future Starshine changes should keep this scoped as a GC/local HOT pass unless a deliberate design chooses otherwise. The parity-shaped maintenance plan is:
 
 1. keep the upstream scope to `ref.cast` and `ref.as_non_null`
 2. implement strict earlier-motion windows with effect/control/local-write barriers
