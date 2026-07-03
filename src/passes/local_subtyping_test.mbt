@@ -41,6 +41,54 @@ fn ls_test_first_body_local(mod_ : @lib.Module) -> @lib.ValType {
 }
 
 ///|
+fn ls_test_first_func_params(mod_ : @lib.Module) -> Array[@lib.ValType] {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(types)) =>
+      match types[2] {
+        @lib.SingleRecType(subtype) =>
+          match subtype.get_comptype() {
+            @lib.FuncCompType(params, _) => params
+            other =>
+              abort("expected function type, got \{@debug.to_string(other)}")
+          }
+        other =>
+          abort("expected single rec type, got \{@debug.to_string(other)}")
+      }
+    other => abort("expected type section, got \{@debug.to_string(other)}")
+  }
+}
+
+///|
+fn ls_test_module_with_base_param(
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let child = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([base_ref], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([base, child, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
 fn ls_test_module_with_child_param(
   body_local_type : @lib.ValType,
   body : Array[@lib.Instruction],
@@ -209,6 +257,33 @@ test "local-subtyping narrows nullable local to non-null after dominating write"
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) => fail("expected narrowed non-null local to validate, got \{err}")
+  }
+}
+
+///|
+test "local-subtyping keeps source-backed nullable parameter after write" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let mod_ = ls_test_module_with_base_param([
+    @lib.Instruction::ref_null_type(
+      @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+    ),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_func_params(optimized), [base_nullable])
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected parameter-preserving module to validate, got \{err}")
   }
 }
 
