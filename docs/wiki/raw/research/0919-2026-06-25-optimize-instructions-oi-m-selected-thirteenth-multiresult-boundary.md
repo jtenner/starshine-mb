@@ -36,7 +36,7 @@ The original direct-HOT boundary/status coverage in `src/passes/optimize_instruc
 
 - `optimize-instructions localizes thirteenth lane from thirteen-result selected tuple child`
 
-The test builds a direct-HOT tuple with a thirteen-result selected `Call` child plus an extra scalar child, runs `optimize-instructions`, and asserts Starshine rewrites to a block with thirteen stack-pop-order scratch `local.set` roots and a final `local.get` for the selected thirteenth lane. Pre-implementation it failed because Starshine kept the `TupleExtract`; after the slice the focused positive test passed. The later arity-14 and arity-16 slices superseded the fourteenth- and fifteenth-lane boundaries too.
+The test builds a direct-HOT tuple with a thirteen-result selected `Call` child plus an extra scalar child, runs `optimize-instructions`, and asserts Starshine rewrites to a block with thirteen stack-pop-order scratch `local.set` roots and a final `local.get` for the selected thirteenth lane. Pre-implementation it failed because Starshine kept the `TupleExtract`; after the slice the focused positive test passed. The later arity-14 and arity-17 slices superseded the fourteenth- and fifteenth-lane boundaries too.
 
 ## 2026-07-02 implementation evidence
 
@@ -46,4 +46,4 @@ The test builds a direct-HOT tuple with a thirteen-result selected `Call` child 
 
 ## Status
 
-Starshine now has a bounded direct one-use selected-child localizer through arity 16. This note is retained as source/probe history, not an active direct one-use arity-13 blocker. Remaining OI-M work includes selected-child arities 17+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, and broader randomized/runtime evidence. Reopen this boundary if the arity-13 implementation regresses, if public tuple text/binary fixture support exposes a narrower counterexample, or if Binaryen changes this shape.
+Starshine now has a bounded direct one-use selected-child localizer through arity 17. This note is retained as source/probe history, not an active direct one-use arity-13 blocker. Remaining OI-M work includes selected-child arities 18+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, and broader randomized/runtime evidence. Reopen this boundary if the arity-13 implementation regresses, if public tuple text/binary fixture support exposes a narrower counterexample, or if Binaryen changes this shape.
