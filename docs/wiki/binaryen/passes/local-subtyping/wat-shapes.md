@@ -402,7 +402,7 @@ Why it rewrites:
 - the `local.get` is before the terminal block `throw` and is dominated by the non-null write;
 - Starshine now threads the terminal-throw permission into `block` scans reached from the root scan, treating the block throw as a non-propagating dominance boundary without propagating block-carried writes to an outer post-state. Nested/non-final throw, `throw_ref`, and broader `try_table`/EH flow remain conservative blockers until separately source-backed.
 
-## Shape 6h: non-throwing `try_table` bodies can preserve body-local domination
+## Shape 6h: `try_table` bodies can preserve body-local domination
 
 Before:
 
@@ -426,6 +426,32 @@ Why it rewrites:
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-after-dominated-get.wat` under `--local-subtyping`;
 - the `local.get` is inside the `try_table` body and is dominated by the body-local non-null write on every path that reaches it;
 - Starshine scans the `try_table` body with copied state and does not propagate that body's writes to the outer post-state; a companion probe keeps a `try_table` body write before a later outside get nullable child.
+
+## Shape 6h-a: terminal `throw` in a `try_table` body can preserve already-dominated gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block $h
+  (try_table (catch $e $h)
+    (local.set $x (local.get $p))
+    (drop (local.get $x))
+    (throw $e)))
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/try-table-terminal-throw-after-dominated-get.wat` under `--local-subtyping`;
+- the `local.get` appears before the terminal body `throw` and is dominated by the non-null write;
+- Starshine allows only final `throw` inside the copied `try_table` body scan for this subset, still refuses non-final throw, `throw_ref`, catch-ref/post-state EH flow, and never propagates try-body writes outward.
 
 ## Shape 6i: direct block `return` flow is a Starshine validator boundary
 
