@@ -36708,7 +36708,7 @@ test "optimize-instructions folds array.len of constant-size array.new_default" 
 }
 
 ///|
-test "optimize-instructions folds array.len of constant-value constant-size array.new" {
+test "optimize-instructions folds array.len of constant-size array.new and localizes repeated effects" {
   let array_type = @lib.TypeIdx::new(0U)
   let result_type = @lib.TypeIdx::new(1U)
   let param_result_type = @lib.TypeIdx::new(2U)
@@ -36810,11 +36810,15 @@ test "optimize-instructions folds array.len of constant-value constant-size arra
   // them until a broader source-backed proof justifies dropping value evaluation.
   assert_true(local_value.contains("array.len"), msg=local_value)
   assert_true(local_value.contains("array.new"), msg=local_value)
-  // Boundary-only half of this OI-K slice: effectful repeated values must not be
-  // dropped while removing the allocation.
-  assert_true(effectful_value.contains("array.len"), msg=effectful_value)
-  assert_true(effectful_value.contains("array.new"), msg=effectful_value)
-  assert_true(effectful_value.contains("call (Func 0)"), msg=effectful_value)
+  assert_false(effectful_value.contains("array.len"), msg=effectful_value)
+  assert_false(effectful_value.contains("array.new"), msg=effectful_value)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(effectful_value, "call"),
+    1,
+  )
+  optimize_instructions_assert_strings_in_order(effectful_value, [
+    "call (Func 0)", "drop", "I32(3)",
+  ])
   // Boundary-only half of this OI-K slice: trap-preserving length limits mirror
   // the array.new_default length slice.
   assert_true(negative_len.contains("array.len"), msg=negative_len)
@@ -36940,18 +36944,212 @@ test "optimize-instructions folds array.get of pure array.new_fixed elements" {
   assert_false(oob.contains("array.get"), msg=oob)
   assert_false(oob.contains("array.new_fixed"), msg=oob)
   assert_true(oob.contains("unreachable"), msg=oob)
-  // Boundary-only half of this OI-K slice: Binaryen can preserve the effectful
-  // sibling with a drop before forwarding, but Starshine keeps the stack form
-  // until a safe localizing lowering preserves element-evaluation effects.
-  assert_true(effectful_sibling.contains("array.get"), msg=effectful_sibling)
-  assert_true(
+  // OI-K effect-localization slice: Binaryen removes the fresh allocation,
+  // forwards the selected element, and preserves the earlier non-selected call
+  // as a dropped effect in element evaluation order.
+  assert_false(effectful_sibling.contains("array.get"), msg=effectful_sibling)
+  assert_false(
     effectful_sibling.contains("array.new_fixed"),
     msg=effectful_sibling,
   )
-  assert_true(
-    effectful_sibling.contains("call (Func 0)"),
-    msg=effectful_sibling,
+  optimize_instructions_assert_strings_in_order(effectful_sibling, [
+    "call (Func 0)", "drop", "I32(8)",
+  ])
+}
+
+///|
+test "optimize-instructions localizes selected array.get new_fixed element before later effectful sibling" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let effect_type = @lib.TypeIdx::new(1U)
+  let result_type = @lib.TypeIdx::new(2U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([effect_type, effect_type, result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(11))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(22))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+      ]),
+    ),
   )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("array.get"), msg=pretty)
+  assert_false(pretty.contains("array.new_fixed"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "call"),
+    2,
+  )
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "local.set", "call (Func 1)", "drop", "local.get",
+  ])
+}
+
+///|
+test "optimize-instructions keeps dynamic and effectful out-of-bounds array.get new_fixed boundaries" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let effect_type = @lib.TypeIdx::new(1U)
+  let indexed_type = @lib.TypeIdx::new(2U)
+  let result_type = @lib.TypeIdx::new(3U)
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([effect_type, indexed_type, result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(99))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let dynamic = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let oob_effect = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(dynamic.contains("array.get"), msg=dynamic)
+  assert_true(dynamic.contains("array.new_fixed"), msg=dynamic)
+  assert_true(oob_effect.contains("array.get"), msg=oob_effect)
+  assert_true(oob_effect.contains("array.new_fixed"), msg=oob_effect)
+  assert_true(oob_effect.contains("call (Func 0)"), msg=oob_effect)
+}
+
+///|
+test "optimize-instructions keeps multi-use array.new_fixed producer boundary" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let result_type = @lib.TypeIdx::new(1U)
+  let array_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(array_type)),
+  )
+  let optimized = optimize_instructions_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([result_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([@lib.LocalRun::new(1U, array_ref)]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_type),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("array.get"), msg=pretty)
+  assert_true(pretty.contains("array.new_fixed"), msg=pretty)
 }
 
 ///|
@@ -37195,8 +37393,8 @@ test "optimize-instructions removes array.set to fresh pure arrays with constant
     )
     .with_func_sec(
       @lib.FuncSec::new([
-        void_type, void_type, void_type, void_type, void_type, indexed_void_type,
-        void_type,
+        void_type, void_type, void_type, void_type, void_type, void_type, indexed_void_type,
+        void_type, void_type,
       ]),
     )
     .with_code_sec(
@@ -37230,6 +37428,16 @@ test "optimize-instructions removes array.set to fresh pure arrays with constant
             @lib.Instruction::array_new_default(array_type),
             @lib.Instruction::i32_const(@lib.I32(1)),
             @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
             @lib.Instruction::array_set(array_type),
           ]),
         ),
@@ -37277,16 +37485,31 @@ test "optimize-instructions removes array.set to fresh pure arrays with constant
             @lib.Instruction::array_set(array_type),
           ]),
         ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::array_set(array_type),
+          ]),
+        ),
       ]),
     ),
   )
   let fixed_inbounds = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   let fixed_oob = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   let default_inbounds = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
-  let effect_inbounds = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
-  let effect_oob = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
-  let dynamic_index = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
-  let effectful_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  let default_oob = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let effect_inbounds = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  let effect_oob = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  let dynamic_index = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  let effectful_sibling = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
+  let effectful_sibling_and_value = optimized.pretty_print_func(
+    @lib.FuncIdx::new(9U),
+  )
   assert_false(fixed_inbounds.contains("array.set"), msg=fixed_inbounds)
   assert_false(fixed_inbounds.contains("array.new_fixed"), msg=fixed_inbounds)
   assert_false(fixed_oob.contains("array.set"), msg=fixed_oob)
@@ -37297,29 +37520,48 @@ test "optimize-instructions removes array.set to fresh pure arrays with constant
     default_inbounds.contains("array.new_default"),
     msg=default_inbounds,
   )
-  // Boundary-only half of this OI-K slice: Binaryen can preserve the effectful
-  // set value with a drop before removing the unused set, but Starshine keeps
-  // the stack form until a broader value-effect localizing proof is added.
-  assert_true(effect_inbounds.contains("array.set"), msg=effect_inbounds)
-  assert_true(effect_inbounds.contains("array.new_fixed"), msg=effect_inbounds)
-  assert_true(effect_inbounds.contains("call (Func 0)"), msg=effect_inbounds)
-  assert_true(effect_oob.contains("array.set"), msg=effect_oob)
-  assert_true(effect_oob.contains("array.new_fixed"), msg=effect_oob)
-  assert_true(effect_oob.contains("call (Func 0)"), msg=effect_oob)
+  assert_false(default_oob.contains("array.set"), msg=default_oob)
+  assert_false(default_oob.contains("array.new_default"), msg=default_oob)
+  optimize_instructions_assert_strings_in_order(default_oob, [
+    "call (Func 0)", "drop", "unreachable",
+  ])
+  assert_false(effect_inbounds.contains("array.set"), msg=effect_inbounds)
+  assert_false(effect_inbounds.contains("array.new_fixed"), msg=effect_inbounds)
+  optimize_instructions_assert_strings_in_order(effect_inbounds, [
+    "call (Func 0)", "drop",
+  ])
+  assert_false(effect_oob.contains("array.set"), msg=effect_oob)
+  assert_false(effect_oob.contains("array.new_fixed"), msg=effect_oob)
+  optimize_instructions_assert_strings_in_order(effect_oob, [
+    "call (Func 0)", "drop", "unreachable",
+  ])
   assert_true(dynamic_index.contains("array.set"), msg=dynamic_index)
   assert_true(dynamic_index.contains("array.new_fixed"), msg=dynamic_index)
-  // Boundary-only half of this OI-K slice: Binaryen can preserve the effectful
-  // sibling with a drop before removing the unused set, but Starshine keeps the
-  // stack form until a broader constructor-effect localizing proof is added.
-  assert_true(effectful_sibling.contains("array.set"), msg=effectful_sibling)
-  assert_true(
+  assert_false(effectful_sibling.contains("array.set"), msg=effectful_sibling)
+  assert_false(
     effectful_sibling.contains("array.new_fixed"),
     msg=effectful_sibling,
   )
-  assert_true(
-    effectful_sibling.contains("call (Func 0)"),
-    msg=effectful_sibling,
+  optimize_instructions_assert_strings_in_order(effectful_sibling, [
+    "call (Func 0)", "drop",
+  ])
+  assert_false(
+    effectful_sibling_and_value.contains("array.set"),
+    msg=effectful_sibling_and_value,
   )
+  assert_false(
+    effectful_sibling_and_value.contains("array.new_fixed"),
+    msg=effectful_sibling_and_value,
+  )
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(
+      effectful_sibling_and_value, "call",
+    ),
+    2,
+  )
+  optimize_instructions_assert_strings_in_order(effectful_sibling_and_value, [
+    "call (Func 0)", "drop", "call (Func 0)", "drop",
+  ])
 }
 
 ///|
@@ -37395,7 +37637,7 @@ test "optimize-instructions removes array.set to fresh pure array.new repeated-v
             @lib.Instruction::array_set(array_type),
           ]),
         ),
-        // set_new_effect_setval: effectful set value is preserved (boundary).
+        // set_new_effect_setval: effectful set value is localized and dropped.
         @lib.Func::new(
           @lib.Locals::empty(),
           @lib.Expr::new([
@@ -37457,12 +37699,11 @@ test "optimize-instructions removes array.set to fresh pure array.new repeated-v
   assert_false(new_oob.contains("array.set"), msg=new_oob)
   assert_false(new_oob.contains("array.new"), msg=new_oob)
   assert_true(new_oob.contains("unreachable"), msg=new_oob)
-  // Boundary-only half of this OI-K slice: Binaryen localizes the effectful set
-  // value with a drop before removing the unused set, but Starshine keeps the
-  // stack form until a broader value-effect localizing proof is added.
-  assert_true(effect_setval.contains("array.set"), msg=effect_setval)
-  assert_true(effect_setval.contains("array.new"), msg=effect_setval)
-  assert_true(effect_setval.contains("call (Func 0)"), msg=effect_setval)
+  assert_false(effect_setval.contains("array.set"), msg=effect_setval)
+  assert_false(effect_setval.contains("array.new"), msg=effect_setval)
+  optimize_instructions_assert_strings_in_order(effect_setval, [
+    "call (Func 0)", "drop",
+  ])
   // Boundary-only half: effectful repeated-value constructor operand.
   assert_true(effect_value.contains("array.set"), msg=effect_value)
   assert_true(effect_value.contains("array.new"), msg=effect_value)
@@ -37742,7 +37983,10 @@ test "optimize-instructions folds array.get of constant-size array.new repeated 
   }
   assert_true(const_value.contains("I32(7)"), msg=const_value)
   assert_true(local_value.contains("local.get (Local 0)"), msg=local_value)
-  assert_true(effect_value.contains("call (Func 0)"), msg=effect_value)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(effect_value, "call"),
+    1,
+  )
   assert_false(pure_oob.contains("array.get"), msg=pure_oob)
   assert_false(pure_oob.contains("array.new"), msg=pure_oob)
   assert_true(pure_oob.contains("unreachable"), msg=pure_oob)
@@ -37751,12 +37995,15 @@ test "optimize-instructions folds array.get of constant-size array.new repeated 
   assert_true(u16_local.contains("I32(65535)"), msg=u16_local)
   assert_true(dynamic_index.contains("array.get"), msg=dynamic_index)
   assert_true(dynamic_index.contains("array.new"), msg=dynamic_index)
-  // Boundary-only half of this OI-K slice: Binaryen can preserve an effectful
-  // repeated value with a drop before the out-of-bounds trap, but Starshine
-  // keeps the stack form until safe localizing lowering can preserve the call.
-  assert_true(effect_oob.contains("array.get"), msg=effect_oob)
-  assert_true(effect_oob.contains("array.new"), msg=effect_oob)
-  assert_true(effect_oob.contains("call (Func 0)"), msg=effect_oob)
+  assert_false(effect_oob.contains("array.get"), msg=effect_oob)
+  assert_false(effect_oob.contains("array.new"), msg=effect_oob)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(effect_oob, "call"),
+    1,
+  )
+  optimize_instructions_assert_strings_in_order(effect_oob, [
+    "call (Func 0)", "drop", "unreachable",
+  ])
   // Boundary-only half of this OI-K slice: trap-preserving length limits mirror
   // the array.new len slice and keep negative/huge allocation traps intact.
   assert_true(negative_len.contains("array.get"), msg=negative_len)
@@ -37930,7 +38177,69 @@ test "optimize-instructions folds array.get of constant-size array.new_default d
 }
 
 ///|
-test "optimize-instructions intentionally keeps struct.get of struct.new with effectful sibling fields" {
+test "optimize-instructions preserves later effectful struct.new sibling when forwarding first field" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field i32) (field i32)))
+        #|  (import "env" "effect" (func $effect (result i32)))
+        #|  (func (export "get0") (result i32)
+        #|    i32.const 7
+        #|    call $effect
+        #|    struct.new $s
+        #|    struct.get $s 0))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected effectful struct.get(struct.new) localization success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "I32(7)", "local.set", "call (Func 0)", "drop", "local.get",
+  ])
+}
+
+///|
+test "optimize-instructions preserves earlier effectful struct.new sibling before forwarding second field" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field i32) (field i32)))
+        #|  (import "env" "effect" (func $effect (result i32)))
+        #|  (func (export "get1") (result i32)
+        #|    call $effect
+        #|    i32.const 8
+        #|    struct.new $s
+        #|    struct.get $s 1))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected earlier-effect struct.get(struct.new) localization success, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "drop", "I32(8)",
+  ])
+}
+
+///|
+test "optimize-instructions localizes effectful selected struct.new field before later effectful sibling" {
   let optimized = match
     pass_test_run_pipeline(
       (
@@ -37950,15 +38259,57 @@ test "optimize-instructions intentionally keeps struct.get of struct.new with ef
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected effectful struct.get(struct.new) boundary success, got \{err}",
+        "expected selected-effect struct.get(struct.new) localization success, got \{err}",
       )
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  // Boundary-only OI-K coverage: Binaryen can localize and drop effectful sibling
-  // fields before replacing the allocation, but Starshine keeps this stack-carried
-  // shape until a safe localizing lowering preserves field-evaluation effects.
-  assert_true(pretty.contains("struct.get"), msg=pretty)
-  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "call"),
+    2,
+  )
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "call (Func 0)", "local.set", "call (Func 1)", "drop", "local.get",
+  ])
+}
+
+///|
+test "optimize-instructions keeps multi-use and multi-result struct.new boundaries" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field i32) (field i32)))
+        #|  (func $pair (result i32 i32)
+        #|    i32.const 1
+        #|    i32.const 2)
+        #|  (func (export "multi_use") (result i32)
+        #|    (local $obj (ref null $s))
+        #|    i32.const 7
+        #|    i32.const 8
+        #|    struct.new $s
+        #|    local.tee $obj
+        #|    struct.get $s 0
+        #|    local.get $obj
+        #|    drop)
+        #|  (func (export "multi_result") (result i32)
+        #|    call $pair
+        #|    struct.new $s
+        #|    struct.get $s 0))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected struct.get boundary success, got \{err}")
+  }
+  let multi_use = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let multi_result = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(multi_use.contains("struct.get"), msg=multi_use)
+  assert_true(multi_use.contains("struct.new"), msg=multi_use)
+  assert_true(multi_result.contains("struct.get"), msg=multi_result)
+  assert_true(multi_result.contains("struct.new"), msg=multi_result)
 }
 
 ///|

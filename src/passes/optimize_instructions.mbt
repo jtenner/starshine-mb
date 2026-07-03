@@ -1823,14 +1823,10 @@ fn optimize_instructions_try_canonicalize_commutative(
 }
 
 ///|
-fn optimize_instructions_is_trivially_pure_value(
+fn optimize_instructions_is_trivially_pure_operand(
   func : @ir.HotFunc,
-  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
-  if !optimize_instructions_node_is_live(func, dead, node_id) {
-    return false
-  }
   let node = if node_id < func.nodes.length() {
     func.nodes[node_id]
   } else {
@@ -1844,6 +1840,16 @@ fn optimize_instructions_is_trivially_pure_value(
     | @ir.HotOp::RefFunc => true
     _ => false
   }
+}
+
+///|
+fn optimize_instructions_is_trivially_pure_value(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  node_id : Int,
+) -> Bool {
+  optimize_instructions_node_is_live(func, dead, node_id) &&
+  optimize_instructions_is_trivially_pure_operand(func, node_id)
 }
 
 ///|
@@ -4433,6 +4439,313 @@ fn optimize_instructions_array_new_len_is_known_non_trapping(len : Int) -> Bool 
 }
 
 ///|
+fn optimize_instructions_forward_selected_operand_has_control_shape(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable
+    | @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Catch
+    | @ir.HotOp::CatchAll => true
+    _ => false
+  }
+}
+
+///|
+fn optimize_instructions_forward_selected_operand_append_discard(
+  func : @ir.HotFunc,
+  child_id : Int,
+  child_results : Array[@lib.ValType],
+  body : Array[Int],
+) -> Bool {
+  match child_results.length() {
+    0 => body.push(child_id)
+    1 => body.push(@ir.hot_build_drop(func, child_id))
+    _ => return false
+  }
+  true
+}
+
+///|
+fn optimize_instructions_append_ordered_effects(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  operand_ids : Array[Int],
+  body : Array[Int],
+) -> Bool {
+  let effects = pass_require_effects(ctx, func)
+  for operand_id in operand_ids {
+    if optimize_instructions_forward_selected_operand_has_control_shape(
+        func, operand_id,
+      ) {
+      return false
+    }
+    let operand_results = @ir.hot_type_results(
+      func,
+      @ir.hot_node_type(func, operand_id),
+    )
+    if operand_results.length() > 1 {
+      return false
+    }
+    if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
+      @ir.effects_is_pure(effects.node_masks[operand_id]) {
+      continue
+    }
+    if !optimize_instructions_forward_selected_operand_append_discard(
+        func, operand_id, operand_results, body,
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn optimize_instructions_try_replace_with_ordered_effects_then_void(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operand_ids : Array[Int],
+  append_unreachable : Bool,
+) -> Bool {
+  let body : Array[Int] = []
+  if !optimize_instructions_append_ordered_effects(ctx, func, operand_ids, body) {
+    return false
+  }
+  if append_unreachable {
+    if body.length() == 0 {
+      optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+      return true
+    }
+    body.push(@ir.hot_build_unreachable(func))
+  } else if body.length() == 0 {
+    optimize_instructions_replace_with_nop(ctx, func, node_id)
+    return true
+  }
+  let replacement = @ir.hot_build_block(func, @lib.BlockType::void_(), body)
+  let replacement_node = @ir.hot_node_get(func, replacement)
+  @ir.hot_replace_node(func, node_id, replacement_node)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_replace_with_ordered_effects_then_unreachable(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operand_ids : Array[Int],
+) -> Bool {
+  let body : Array[Int] = []
+  if !optimize_instructions_append_ordered_effects(ctx, func, operand_ids, body) {
+    return false
+  }
+  if body.length() == 0 {
+    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
+    return true
+  }
+  body.push(@ir.hot_build_unreachable(func))
+  let block_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [] => @lib.BlockType::void_()
+    [val_type] => @lib.BlockType::val_type(val_type)
+    _ => return false
+  }
+  let replacement = @ir.hot_build_block(func, block_type, body)
+  let replacement_node = @ir.hot_node_get(func, replacement)
+  @ir.hot_replace_node(func, node_id, replacement_node)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_replace_with_ordered_effects_then_const_i32(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operand_ids : Array[Int],
+  value : @lib.I32,
+) -> Bool {
+  let body : Array[Int] = []
+  if !optimize_instructions_append_ordered_effects(ctx, func, operand_ids, body) {
+    return false
+  }
+  if body.length() == 0 {
+    optimize_instructions_replace_with_const_i32(ctx, func, node_id, value)
+    return true
+  }
+  body.push(@ir.hot_build_const_i32(func, value))
+  let replacement = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    body,
+  )
+  let replacement_node = @ir.hot_node_get(func, replacement)
+  @ir.hot_replace_node(func, node_id, replacement_node)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn optimize_instructions_try_forward_selected_operand_preserving_effects(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  operand_ids : Array[Int],
+  selected_index : Int,
+) -> Bool {
+  if selected_index < 0 || selected_index >= operand_ids.length() {
+    return false
+  }
+  let result_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, node_id)) {
+    [val_type] => val_type
+    _ => return false
+  }
+  let selected_id = operand_ids[selected_index]
+  let selected_value_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, selected_id)) {
+    [val_type] => val_type
+    _ => return false
+  }
+  let effects = pass_require_effects(ctx, func)
+  if optimize_instructions_forward_selected_operand_has_control_shape(
+      func, selected_id,
+    ) {
+    return false
+  }
+  let mut has_effectful_non_selected = false
+  let mut has_later_effectful_non_selected = false
+  for i = 0; i < operand_ids.length(); i = i + 1 {
+    if i == selected_index {
+      continue
+    }
+    let operand_id = operand_ids[i]
+    if optimize_instructions_forward_selected_operand_has_control_shape(
+        func, operand_id,
+      ) {
+      return false
+    }
+    let operand_results = @ir.hot_type_results(
+      func,
+      @ir.hot_node_type(func, operand_id),
+    )
+    if operand_results.length() > 1 {
+      return false
+    }
+    if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
+      @ir.effects_is_pure(effects.node_masks[operand_id]) {
+      continue
+    }
+    has_effectful_non_selected = true
+    if i > selected_index {
+      has_later_effectful_non_selected = true
+    }
+  }
+  if !has_effectful_non_selected {
+    optimize_instructions_replace_with_node_id(ctx, func, node_id, selected_id)
+    return true
+  }
+  let body : Array[Int] = []
+  let mut selected_local = -1
+  let mut selected_result_id = selected_id
+  if has_later_effectful_non_selected {
+    let local_type = match
+      optimize_instructions_defaultable_scratch_type(selected_value_type) {
+      Some(local_type) => local_type
+      None => return false
+    }
+    selected_local = @ir.hot_append_body_local(func, local_type)
+    let selected_get = @ir.hot_build_local_get(func, selected_local)
+    selected_result_id = match
+      optimize_instructions_restore_localized_result(
+        func, selected_get, local_type, result_type,
+      ) {
+      Some(result_id) => result_id
+      None => return false
+    }
+  } else if selected_value_type != result_type {
+    return false
+  }
+  for i = 0; i < operand_ids.length(); i = i + 1 {
+    let operand_id = operand_ids[i]
+    if i == selected_index {
+      if has_later_effectful_non_selected {
+        body.push(@ir.hot_build_local_set(func, selected_local, selected_id))
+      } else {
+        body.push(selected_id)
+      }
+      continue
+    }
+    if optimize_instructions_is_trivially_pure_operand(func, operand_id) ||
+      @ir.effects_is_pure(effects.node_masks[operand_id]) {
+      continue
+    }
+    let operand_results = @ir.hot_type_results(
+      func,
+      @ir.hot_node_type(func, operand_id),
+    )
+    if !optimize_instructions_forward_selected_operand_append_discard(
+        func, operand_id, operand_results, body,
+      ) {
+      return false
+    }
+  }
+  if has_later_effectful_non_selected {
+    body.push(selected_result_id)
+  }
+  let replacement = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(result_type),
+    body,
+  )
+  let replacement_node = @ir.hot_node_get(func, replacement)
+  @ir.hot_replace_node(func, node_id, replacement_node)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_array_len_new_fixed(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4491,27 +4804,34 @@ fn optimize_instructions_try_fold_array_len_new_fixed(
       if array_node.child_count != 2 {
         return false
       }
-      match
-        optimize_instructions_i32_const(
-          func,
-          dead,
-          @ir.hot_child_get(func, array_id, 0),
-        ) {
-        Some(_) => ()
-        None => return false
-      }
-      let len = match
-        optimize_instructions_i32_const(
-          func,
-          dead,
-          @ir.hot_child_get(func, array_id, 1),
-        ) {
+      let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
+      let len_id = @ir.hot_child_get(func, array_id, 1)
+      let len = match optimize_instructions_i32_const(func, dead, len_id) {
         Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
             len,
           ) => len
         _ => return false
       }
-      len
+      match optimize_instructions_i32_const(func, dead, repeated_value_id) {
+        Some(_) => len
+        None => {
+          if optimize_instructions_is_trivially_pure_operand(
+              func, repeated_value_id,
+            ) ||
+            optimize_instructions_node_effects_are_pure(
+              ctx, func, repeated_value_id,
+            ) {
+            return false
+          }
+          return optimize_instructions_try_replace_with_ordered_effects_then_const_i32(
+            ctx,
+            func,
+            node_id,
+            [repeated_value_id, len_id],
+            @lib.I32(len),
+          )
+        }
+      }
     }
     _ => return false
   }
@@ -4600,7 +4920,28 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
     }
     _ => return false
   }
+  if array_kind == 2 {
+    let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
+    if optimize_instructions_forward_selected_operand_has_control_shape(
+        func, repeated_value_id,
+      ) {
+      return false
+    }
+    if @ir.hot_type_results(func, @ir.hot_node_type(func, repeated_value_id)).length() !=
+      1 {
+      return false
+    }
+  }
   if array_kind == 0 {
+    if index >= 0 && index < len && packed_signed == None {
+      let operands : Array[Int] = []
+      for i = 0; i < array_node.child_count; i = i + 1 {
+        operands.push(@ir.hot_child_get(func, array_id, i))
+      }
+      return optimize_instructions_try_forward_selected_operand_preserving_effects(
+        ctx, func, node_id, operands, index,
+      )
+    }
     for i = 0; i < array_node.child_count; i = i + 1 {
       if (index < 0 || index >= len || i != index) &&
         !optimize_instructions_node_effects_are_pure(
@@ -4611,16 +4952,20 @@ fn optimize_instructions_try_fold_array_get_new_fixed(
         return false
       }
     }
-  } else if array_kind == 2 &&
-    (index < 0 || index >= len) &&
-    !optimize_instructions_node_effects_are_pure(
-      ctx,
-      func,
-      @ir.hot_child_get(func, array_id, 0),
-    ) {
-    return false
   }
   if index < 0 || index >= len {
+    if array_kind == 2 {
+      return optimize_instructions_try_replace_with_ordered_effects_then_unreachable(
+        ctx,
+        func,
+        node_id,
+        [
+          @ir.hot_child_get(func, array_id, 0),
+          @ir.hot_child_get(func, array_id, 1),
+          index_id,
+        ],
+      )
+    }
     if !optimize_instructions_node_effects_are_pure(ctx, func, index_id) {
       return false
     }
@@ -4694,10 +5039,8 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
     Some(@lib.I32(index)) => index
     _ => return false
   }
-  if !optimize_instructions_node_effects_are_pure(ctx, func, value_id) {
-    return false
-  }
   let array_node = @ir.hot_node_get(func, array_id)
+  let effect_operands : Array[Int] = []
   let len = match @ir.hot_node_exact_instr(func, array_id) {
     Some(@lib.Instruction::ArrayNewFixed(new_type_idx, @lib.U32(len))) if new_type_idx ==
       type_idx => {
@@ -4706,13 +5049,7 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
         return false
       }
       for i = 0; i < array_node.child_count; i = i + 1 {
-        if !optimize_instructions_node_effects_are_pure(
-            ctx,
-            func,
-            @ir.hot_child_get(func, array_id, i),
-          ) {
-          return false
-        }
+        effect_operands.push(@ir.hot_child_get(func, array_id, i))
       }
       len
     }
@@ -4721,12 +5058,9 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
       if array_node.child_count != 1 {
         return false
       }
-      match
-        optimize_instructions_i32_const(
-          func,
-          dead,
-          @ir.hot_child_get(func, array_id, 0),
-        ) {
+      let len_id = @ir.hot_child_get(func, array_id, 0)
+      effect_operands.push(len_id)
+      match optimize_instructions_i32_const(func, dead, len_id) {
         Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
             len,
           ) => len
@@ -4737,19 +5071,16 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
       if array_node.child_count != 2 {
         return false
       }
+      let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
       if !optimize_instructions_node_effects_are_pure(
-          ctx,
-          func,
-          @ir.hot_child_get(func, array_id, 0),
+          ctx, func, repeated_value_id,
         ) {
         return false
       }
-      match
-        optimize_instructions_i32_const(
-          func,
-          dead,
-          @ir.hot_child_get(func, array_id, 1),
-        ) {
+      let len_id = @ir.hot_child_get(func, array_id, 1)
+      effect_operands.push(repeated_value_id)
+      effect_operands.push(len_id)
+      match optimize_instructions_i32_const(func, dead, len_id) {
         Some(@lib.I32(len)) if optimize_instructions_array_new_len_is_known_non_trapping(
             len,
           ) => len
@@ -4758,12 +5089,15 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
     }
     _ => return false
   }
-  if index < 0 || index >= len {
-    optimize_instructions_replace_with_unreachable(ctx, func, node_id)
-  } else {
-    optimize_instructions_replace_with_nop(ctx, func, node_id)
-  }
-  true
+  effect_operands.push(index_id)
+  effect_operands.push(value_id)
+  optimize_instructions_try_replace_with_ordered_effects_then_void(
+    ctx,
+    func,
+    node_id,
+    effect_operands,
+    index < 0 || index >= len,
+  )
 }
 
 ///|
@@ -4797,6 +5131,15 @@ fn optimize_instructions_try_fold_struct_get_struct_new(
     Some(@lib.Instruction::StructNew(new_type_idx)) if new_type_idx == type_idx => {
       if field_idx < 0 || field_idx >= struct_node.child_count {
         return false
+      }
+      if packed_signed == None {
+        let operands : Array[Int] = []
+        for i = 0; i < struct_node.child_count; i = i + 1 {
+          operands.push(@ir.hot_child_get(func, struct_id, i))
+        }
+        return optimize_instructions_try_forward_selected_operand_preserving_effects(
+          ctx, func, node_id, operands, field_idx,
+        )
       }
       for i = 0; i < struct_node.child_count; i = i + 1 {
         if i != field_idx &&

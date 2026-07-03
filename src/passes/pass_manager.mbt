@@ -23736,6 +23736,217 @@ fn run_hot_pipeline_optimize_instructions_call_param_count_if_one_result(
 }
 
 ///|
+fn run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(instr) ||
+  run_hot_pipeline_optimize_instructions_call_has_no_params_one_result(
+    instr, module_ctx,
+  )
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_is_gc_selected_operand_forwarding(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  if instrs.length() < 3 {
+    return false
+  }
+  match (instrs[instrs.length() - 2], instrs[instrs.length() - 1]) {
+    (@lib.StructNew(new_type), @lib.StructGet(get_type, _)) if new_type ==
+      get_type => {
+      let mut saw_call = false
+      for i = 0; i < instrs.length() - 2; i = i + 1 {
+        match instrs[i] {
+          @lib.Call(_) => saw_call = true
+          _ => ()
+        }
+        if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+            instrs[i],
+            module_ctx,
+          ) {
+          return false
+        }
+      }
+      saw_call
+    }
+    _ => {
+      if instrs.length() < 4 {
+        return false
+      }
+      match
+        (
+          instrs[instrs.length() - 3],
+          instrs[instrs.length() - 2],
+          instrs[instrs.length() - 1],
+        ) {
+        (
+          @lib.ArrayNewFixed(new_type, @lib.U32(raw_len)),
+          @lib.I32Const(_),
+          @lib.ArrayGet(get_type),
+        ) if new_type == get_type => {
+          let len = raw_len.reinterpret_as_int()
+          if len < 0 || len != instrs.length() - 3 {
+            return false
+          }
+          let mut saw_call = false
+          for i = 0; i < instrs.length() - 3; i = i + 1 {
+            match instrs[i] {
+              @lib.Call(_) => saw_call = true
+              _ => ()
+            }
+            if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+                instrs[i],
+                module_ctx,
+              ) {
+              return false
+            }
+          }
+          saw_call
+        }
+        _ => false
+      }
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  let len = instrs.length()
+  if len < 4 {
+    return false
+  }
+  let mut saw_call = false
+  match (instrs[len - 2], instrs[len - 1]) {
+    (@lib.ArrayNew(new_type), @lib.ArrayLen) => {
+      if len != 4 {
+        return false
+      }
+      ignore(new_type)
+      if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+          instrs[0],
+          module_ctx,
+        ) {
+        return false
+      }
+      match instrs[1] {
+        @lib.I32Const(_) => ()
+        _ => return false
+      }
+      match instrs[0] {
+        @lib.Call(_) => true
+        _ => false
+      }
+    }
+    _ => {
+      if len < 5 {
+        return false
+      }
+      match (instrs[len - 3], instrs[len - 2], instrs[len - 1]) {
+        (@lib.ArrayNew(new_type), @lib.I32Const(_), @lib.ArrayGet(get_type)) if new_type ==
+          get_type => {
+          if len != 5 {
+            return false
+          }
+          if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+              instrs[0],
+              module_ctx,
+            ) {
+            return false
+          }
+          match instrs[1] {
+            @lib.I32Const(_) => ()
+            _ => return false
+          }
+          match instrs[0] {
+            @lib.Call(_) => true
+            _ => false
+          }
+        }
+        _ =>
+          match (instrs[len - 4], instrs[len - 3], instrs[len - 1]) {
+            (
+              @lib.ArrayNewFixed(new_type, @lib.U32(raw_len)),
+              @lib.I32Const(_),
+              @lib.ArraySet(set_type),
+            ) if new_type == set_type => {
+              let fixed_len = raw_len.reinterpret_as_int()
+              if fixed_len < 0 || len != fixed_len + 4 {
+                return false
+              }
+              for i = 0; i < fixed_len; i = i + 1 {
+                match instrs[i] {
+                  @lib.Call(_) => saw_call = true
+                  _ => ()
+                }
+                if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+                    instrs[i],
+                    module_ctx,
+                  ) {
+                  return false
+                }
+              }
+              match instrs[len - 2] {
+                @lib.Call(_) => saw_call = true
+                _ =>
+                  if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+                      instrs[len - 2],
+                      module_ctx,
+                    ) {
+                    return false
+                  }
+              }
+              saw_call
+            }
+            (
+              @lib.ArrayNewDefault(new_type),
+              @lib.I32Const(_),
+              @lib.ArraySet(set_type),
+            ) if new_type == set_type => {
+              if len != 5 {
+                return false
+              }
+              match instrs[0] {
+                @lib.I32Const(_) => ()
+                _ => return false
+              }
+              match instrs[3] {
+                @lib.Call(_) => true
+                _ => false
+              }
+            }
+            (@lib.ArrayNew(new_type), @lib.I32Const(_), @lib.ArraySet(set_type)) if new_type ==
+              set_type => {
+              if len != 6 {
+                return false
+              }
+              if !run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+                  instrs[0],
+                ) {
+                return false
+              }
+              match instrs[1] {
+                @lib.I32Const(_) => ()
+                _ => return false
+              }
+              match instrs[4] {
+                @lib.Call(_) => true
+                _ => false
+              }
+            }
+            _ => false
+          }
+      }
+    }
+  }
+}
+
+///|
 fn run_hot_pipeline_optimize_instructions_is_simple_stack_call_binop(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -26489,6 +26700,12 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
       body, module_ctx,
     ) &&
     !run_hot_pipeline_optimize_instructions_is_call_indexed_table_get_call_ref(
+      body, module_ctx,
+    ) &&
+    !run_hot_pipeline_optimize_instructions_is_gc_selected_operand_forwarding(
+      body, module_ctx,
+    ) &&
+    !run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
       body, module_ctx,
     ) {
     return Some({
