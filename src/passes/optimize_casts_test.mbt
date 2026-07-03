@@ -1138,6 +1138,66 @@ test "optimize-casts keeps nullable cast facts behind same-local writes before r
 }
 
 ///|
+test "optimize-casts duplicates nested nullable cast and ref.as_non_null" {
+  let nullable_struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(nullable_struct_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        true,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::ref_as_non_null(),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.as_non_null"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts does not move an unsupported outer cast over ref.as_non_null" {
+  let nullable_struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(nullable_struct_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_as_non_null(),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      ),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.cast"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "ref.as_non_null"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 fn optimize_casts_unrelated_module(
   body : Array[@lib.Instruction],
 ) -> @lib.Module {
