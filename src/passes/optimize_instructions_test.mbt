@@ -26139,13 +26139,13 @@ test "optimize-instructions intentionally keeps multi-use tuple.make boundary" {
 }
 
 ///|
-test "optimize-instructions intentionally keeps tuple.extract with multi-result sibling boundary" {
-  // Boundary-only OI-M classification: Binaryen `version_130`
-  // `--optimize-instructions` localizes the probed multi-result sibling
-  // through tuple scratch plus scalar drops (`.tmp/oi-m-tuple-multiresult-sibling-probe.wat`).
-  // Starshine's direct tuple.extract localizer currently proves only
-  // single-result effectful non-selected siblings, so this fixture keeps the
-  // direct-HOT tuple spelling explicit instead of hiding tuple-scratch parity.
+test "optimize-instructions localizes later multi-result non-selected tuple sibling" {
+  // Red-first OI-M-SB002 coverage: Binaryen `version_130`
+  // `visitTupleExtract` wraps the selected lane in a temp and delegates the
+  // remaining `tuple.make` children to `getDroppedChildrenAndAppend`, whose
+  // drop helper preserves unremovable multi-result child effects in order.
+  // Starshine should therefore preserve a later multi-result sibling by
+  // scalar-dropping its lanes before reloading the selected value.
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
   )
@@ -26183,29 +26183,49 @@ test "optimize-instructions intentionally keeps tuple.extract with multi-result 
 
   let result = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, result).op {
-    @ir.HotOp::TupleExtract => ()
-    _ => fail("expected multi-result sibling tuple.extract to stay unchanged")
+    @ir.HotOp::Block => ()
+    other =>
+      fail(
+        "expected later multi-result sibling tuple.extract to localize into a block, got \{other}",
+      )
   }
-  @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
-  match @ir.hot_node_get(func, tuple).op {
-    @ir.HotOp::TupleMake => ()
-    _ => fail("expected multi-result sibling tuple.make to stay available")
+  let body = @ir.hot_region_body_ref(func, result)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 4)
+  let selected_set = @ir.hot_region_get(func, body, 0)
+  let sibling_set_second = @ir.hot_region_get(func, body, 1)
+  let sibling_set_first = @ir.hot_region_get(func, body, 2)
+  let selected_get = @ir.hot_region_get(func, body, 3)
+  match @ir.hot_node_get(func, selected_set).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected selected lane to be stored before later sibling")
   }
-  match @ir.hot_node_get(func, sibling).op {
-    @ir.HotOp::Call => ()
-    _ => fail("expected multi-result effectful sibling call to stay available")
+  @debug.assert_eq(@ir.hot_child_get(func, selected_set, 0), selected)
+  match @ir.hot_node_get(func, sibling_set_second).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected second sibling result lane to be discarded first")
   }
+  @debug.assert_eq(@ir.hot_child_get(func, sibling_set_second, 0), sibling)
+  match @ir.hot_node_get(func, sibling_set_first).op {
+    @ir.HotOp::LocalSet => ()
+    _ => fail("expected first sibling result lane to be discarded second")
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, sibling_set_first, 0), sibling)
+  match @ir.hot_node_get(func, selected_get).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected lane to reload after later sibling")
+  }
+  @debug.assert_eq(
+    @ir.hot_node_get(func, selected_get).imm0,
+    @ir.hot_node_get(func, selected_set).imm0,
+  )
 }
 
 ///|
-test "optimize-instructions intentionally keeps tuple.extract with earlier multi-result sibling boundary" {
-  // Boundary-only OI-M classification: Binaryen `version_130`
-  // `--optimize-instructions` localizes the earlier multi-result sibling through
-  // tuple scratch before returning the selected scalar lane
-  // (`.tmp/oi-m-tuple-multiresult-earlier-sibling-probe.wat`). Starshine's
-  // direct tuple.extract localizer currently proves only single-result effectful
-  // non-selected siblings, so this fixture keeps the direct-HOT tuple spelling
-  // explicit instead of claiming tuple-scratch parity.
+test "optimize-instructions localizes earlier multi-result non-selected tuple sibling" {
+  // Red-first OI-M-SB002 coverage for the symmetric order: a source-backed
+  // earlier multi-result sibling must be scalar-dropped before returning the
+  // selected lane, preserving the original effect/trap order without claiming
+  // broader local-carried or control/EH tuple reconstruction parity.
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()]),
   )
@@ -26245,23 +26265,34 @@ test "optimize-instructions intentionally keeps tuple.extract with earlier multi
 
   let result = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, result).op {
-    @ir.HotOp::TupleExtract => ()
-    _ =>
+    @ir.HotOp::Block => ()
+    other =>
       fail(
-        "expected earlier multi-result sibling tuple.extract to stay unchanged",
+        "expected earlier multi-result sibling tuple.extract to localize into a block, got \{other}",
       )
   }
-  @debug.assert_eq(@ir.hot_child_get(func, result, 0), tuple)
-  @debug.assert_eq(@ir.hot_node_get(func, result).imm0, 2)
-  match @ir.hot_node_get(func, tuple).op {
-    @ir.HotOp::TupleMake => ()
+  let body = @ir.hot_region_body_ref(func, result)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  let sibling_set_second = @ir.hot_region_get(func, body, 0)
+  let sibling_set_first = @ir.hot_region_get(func, body, 1)
+  let selected_result = @ir.hot_region_get(func, body, 2)
+  match @ir.hot_node_get(func, sibling_set_second).op {
+    @ir.HotOp::LocalSet => ()
     _ =>
-      fail("expected earlier multi-result sibling tuple.make to stay available")
+      fail("expected second earlier sibling result lane to be discarded first")
   }
-  match @ir.hot_node_get(func, sibling).op {
-    @ir.HotOp::Call => ()
-    _ => fail("expected earlier multi-result sibling call to stay available")
+  @debug.assert_eq(@ir.hot_child_get(func, sibling_set_second, 0), sibling)
+  match @ir.hot_node_get(func, sibling_set_first).op {
+    @ir.HotOp::LocalSet => ()
+    _ =>
+      fail("expected first earlier sibling result lane to be discarded second")
   }
+  @debug.assert_eq(@ir.hot_child_get(func, sibling_set_first, 0), sibling)
+  match @ir.hot_node_get(func, selected_result).op {
+    @ir.HotOp::LocalGet => ()
+    _ => fail("expected selected lane after earlier multi-result sibling")
+  }
+  @debug.assert_eq(@ir.hot_node_get(func, selected_result).imm0, 0)
 }
 
 ///|

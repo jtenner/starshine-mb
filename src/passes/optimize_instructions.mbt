@@ -4226,6 +4226,30 @@ fn optimize_instructions_tuple_extract_child_for_flat_index(
 }
 
 ///|
+fn optimize_instructions_tuple_extract_append_discarded_child(
+  func : @ir.HotFunc,
+  child_id : Int,
+  child_results : Array[@lib.ValType],
+  body : Array[Int],
+) -> Unit {
+  match child_results.length() {
+    0 => body.push(child_id)
+    1 => body.push(@ir.hot_build_drop(func, child_id))
+    _ => {
+      let discard_locals : Array[Int] = []
+      for result in child_results {
+        discard_locals.push(@ir.hot_append_body_local(func, result))
+      }
+      let mut lane = child_results.length()
+      while lane > 0 {
+        lane = lane - 1
+        body.push(@ir.hot_build_local_set(func, discard_locals[lane], child_id))
+      }
+    }
+  }
+}
+
+///|
 fn optimize_instructions_try_fold_tuple_extract_tuple_make(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4288,13 +4312,6 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       if slot > selected_slot {
         has_later_effectful_sibling = true
       }
-      let sibling_results = @ir.hot_type_results(
-        func,
-        @ir.hot_node_get(func, sibling_id).ty,
-      )
-      if sibling_results.length() > 1 {
-        return false
-      }
     }
   }
   if !has_effectful_sibling && selected_results.length() == 1 {
@@ -4340,11 +4357,9 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
       func,
       @ir.hot_node_get(func, child_id).ty,
     )
-    match child_results.length() {
-      0 => body.push(child_id)
-      1 => body.push(@ir.hot_build_drop(func, child_id))
-      _ => return false
-    }
+    optimize_instructions_tuple_extract_append_discarded_child(
+      func, child_id, child_results, body,
+    )
   }
   if selected_results.length() > 1 {
     body.push(

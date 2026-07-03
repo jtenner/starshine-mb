@@ -47,17 +47,24 @@ Reopening criteria:
 
 ### OI-M-SB002 — multi-result non-selected siblings
 
-Status: active P0 mismatch needing implementation.
+Status: covered under narrow preconditions after the 2026-07-03 straight-line direct-HOT implementation; see `docs/wiki/raw/research/1419-2026-07-03-optimize-instructions-oi-m-multiresult-sibling-localization.md`.
 
 Why separate:
 
-- Binaryen's dropped-child helper operates over children and effects, but Starshine's current safe localizer does not yet have a source-backed way to append/drop multiple non-selected sibling lanes while preserving ordering around the selected value.
+- Binaryen's dropped-child helper operates over children and effects, so Starshine needs an explicit local discard path for multiple non-selected sibling lanes while preserving ordering around the selected value.
 
-Next evidence:
+Covered subset:
 
-- Binaryen probes for pure, effectful, and trapping multi-result non-selected siblings on either side of the selected child;
-- red-first Starshine tests that demonstrate the intended preservation/drop order;
-- either a narrow implementation or a precise HOT representation blocker.
+- one-use direct `TupleMake`;
+- selected child already localizable by the direct OI-M localizer;
+- straight-line/direct-localizable multi-result non-selected sibling nodes;
+- sibling lanes scalar-discarded to fresh locals in stack-pop order.
+
+Still not covered here:
+
+- multi-use/local-carried tuple producers (`OI-M-SB003`);
+- control/branch/EH/nested-region siblings (`OI-M-SB004`);
+- generalized tuple-scratch/block reconstruction (`OI-M-SB005`).
 
 ### OI-M-SB003 — multi-use and local-carried tuple producers
 
