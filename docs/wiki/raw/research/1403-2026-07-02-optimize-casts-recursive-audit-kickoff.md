@@ -610,6 +610,28 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader `move-cast-*` chains beyond the current best-selection/refinalization subsets, remaining mixed `ref.cast`/`ref.as_non_null` variants, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 29 move-cast-6 materialized-reuse result
+
+The twenty-ninth recursive slice broadened the Binaryen `move-cast-*` coverage to a narrow `move-cast-6`-style later-reuse window:
+
+- when the first root already computes the best/narrowest cast, no earlier motion is needed;
+- once a later plain same-local read has materialized the best cast into a fresh local, a following same-local cast with the same effective refinement type may also read from that fresh local;
+- repeated identical casts still do not create fresh locals on their own, preserving the earlier repeated-cast source protection.
+
+Before implementation, the new `move-cast-6`-style fixture refinalized the later broader cast from `HeapType Idx 0` to the best `HeapType Idx 1`, but that later cast still read `Local 0` instead of the fresh `Local 1`. `src/passes/optimize_casts.mbt` now permits equal-type refinement roots to reuse an already-materialized fresh best-cast local, while keeping the stricter gate that blocks repeated identical casts before any fresh local exists. The existing earlier-narrower/later-broader fixture was tightened accordingly: after one plain later read materializes the fresh local, both the later refinalized cast source and the final read use it.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on `optimize-casts reuses the best first cast before a later broader cast` before implementation (`57/58` passed), then passed `58/58` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3873/3873`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-move-cast-6-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-move-cast-6-smoke-20`: compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader `move-cast-*` chains beyond the current best-selection/refinalization/materialized-reuse subsets, remaining mixed `ref.cast`/`ref.as_non_null` variants, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, investigate a narrow `ref.as_non_null` variant across nonconstant pure separate-index `local.set`, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
