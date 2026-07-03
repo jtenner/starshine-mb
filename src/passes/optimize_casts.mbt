@@ -456,10 +456,17 @@ fn oc_plain_block_source_local(
     return None
   }
   let body = @ir.hot_region_body_ref(func, block_id)
-  if @ir.hot_region_root_count(func, body) != 1 {
+  let root_count = @ir.hot_region_root_count(func, body)
+  if root_count <= 0 {
     return None
   }
-  let root_id = @ir.hot_region_get(func, body, 0)
+  for idx = 0; idx < root_count - 1; idx = idx + 1 {
+    let prefix_root = @ir.hot_region_get(func, body, idx)
+    if !oc_dropped_nontrapping_pure_root(func, prefix_root) {
+      return None
+    }
+  }
+  let root_id = @ir.hot_region_get(func, body, root_count - 1)
   let root = @ir.hot_node_get(func, root_id)
   match root.op {
     @ir.HotOp::LocalGet =>
