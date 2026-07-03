@@ -704,23 +704,35 @@ fn oc_refinements_allow_retarget(
   local_id : Int,
   best_cast : Int,
   has_existing_fresh : Bool,
+  moved_refinalized_refinements : Array[Int],
 ) -> Bool {
   let mut saw_refinement = false
   for refinement in refinements {
     if refinement.0 == local_id {
       saw_refinement = true
+      let can_feed_existing_equal = has_existing_fresh &&
+        oc_existing_fresh_can_feed_refinement_source(
+          func,
+          best_cast,
+          refinement.1,
+        )
+      let can_feed_refinalized_equal = oc_contains_local(
+          moved_refinalized_refinements,
+          refinement.1,
+        ) &&
+        oc_existing_fresh_can_feed_refinement_source(
+          func,
+          best_cast,
+          refinement.1,
+        )
       if !oc_best_cast_can_feed_refinement_source(
           module_ctx,
           func,
           best_cast,
           refinement.1,
         ) &&
-        !(has_existing_fresh &&
-        oc_existing_fresh_can_feed_refinement_source(
-          func,
-          best_cast,
-          refinement.1,
-        )) {
+        !can_feed_existing_equal &&
+        !can_feed_refinalized_equal {
         return false
       }
     }
@@ -736,11 +748,12 @@ fn oc_refinement_blocks_retarget(
   local_id : Int,
   best_cast : Int,
   has_existing_fresh : Bool,
+  moved_refinalized_refinements : Array[Int],
 ) -> Bool {
   for refinement in refinements {
     if refinement.0 == local_id {
       return !oc_refinements_allow_retarget(
-        module_ctx, func, refinements, local_id, best_cast, has_existing_fresh,
+        module_ctx, func, refinements, local_id, best_cast, has_existing_fresh, moved_refinalized_refinements,
       )
     }
   }
@@ -1311,6 +1324,7 @@ fn oc_early_motion_scan_region(
   pending_refinement_casts : Array[Int],
   pending_refinement_gets : Array[Int],
   seen_refinements : Array[Bool],
+  moved_refinalized_refinements : Array[Int],
   region : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
@@ -1374,6 +1388,7 @@ fn oc_early_motion_scan_region(
                     ctx, func, source_get, pending_cast,
                   ) {
                   changed = true
+                  moved_refinalized_refinements.push(cast_id)
                 }
               None => ()
             }
@@ -1455,6 +1470,7 @@ fn oc_early_motion_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
+  moved_refinalized_refinements : Array[Int],
 ) -> Bool {
   let local_count = @ir.hot_local_count(func)
   let pending_gets = Array::make(local_count, -1)
@@ -1472,6 +1488,7 @@ fn oc_early_motion_run(
     pending_refinement_casts,
     pending_refinement_gets,
     seen_refinements,
+    moved_refinalized_refinements,
     @ir.HotRegionRef::root(),
   )
 }
@@ -1484,6 +1501,7 @@ fn oc_later_reuse_scan_region(
   local_count : Int,
   best_casts : Array[Int],
   fresh_locals : Array[Int],
+  moved_refinalized_refinements : Array[Int],
   region : @ir.HotRegionRef,
 ) -> Bool {
   let mut changed = false
@@ -1500,6 +1518,7 @@ fn oc_later_reuse_scan_region(
               local_count,
               best_casts,
               fresh_locals,
+              moved_refinalized_refinements,
               @ir.hot_region_body_ref(func, block_id),
             ) {
             changed = true
@@ -1527,6 +1546,7 @@ fn oc_later_reuse_scan_region(
             local_id,
             best_cast,
             fresh_locals[local_id] >= 0,
+            moved_refinalized_refinements,
           ) &&
           oc_count_local_gets(func, root_id, local_id) > 0 {
           let fresh_local = if fresh_locals[local_id] >= 0 {
@@ -1586,6 +1606,7 @@ fn oc_later_reuse_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
+  moved_refinalized_refinements : Array[Int],
 ) -> Bool {
   let local_count = @ir.hot_local_count(func)
   let best_casts = Array::make(local_count, -1)
@@ -1597,6 +1618,7 @@ fn oc_later_reuse_run(
     local_count,
     best_casts,
     fresh_locals,
+    moved_refinalized_refinements,
     @ir.HotRegionRef::root(),
   )
 }
@@ -1731,16 +1753,17 @@ pub fn optimize_casts_run(
     None => return HotPassResult::unchanged()
   }
   let mut changed = false
+  let moved_refinalized_refinements : Array[Int] = []
   if oc_static_fold_run(ctx, func, module_ctx) {
     changed = true
   }
-  if oc_early_motion_run(ctx, func, module_ctx) {
+  if oc_early_motion_run(ctx, func, module_ctx, moved_refinalized_refinements) {
     changed = true
     if oc_static_fold_run(ctx, func, module_ctx) {
       changed = true
     }
   }
-  if oc_later_reuse_run(ctx, func, module_ctx) {
+  if oc_later_reuse_run(ctx, func, module_ctx, moved_refinalized_refinements) {
     changed = true
   }
   if changed {
