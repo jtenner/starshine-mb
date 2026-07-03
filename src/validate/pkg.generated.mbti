@@ -1198,6 +1198,9 @@ pub enum GenValidProfile {
   Heap2LocalArrayProfile
   Heap2LocalRefProfile
   Heap2LocalAllProfile
+  LocalSubtypingStraightLineProfile
+  LocalSubtypingStructuredProfile
+  LocalSubtypingAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile

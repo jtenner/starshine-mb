@@ -12955,6 +12955,87 @@ test "heap2local array and ref gen-valid profiles emit direct Binaryen families"
 }
 
 ///|
+test "local-subtyping gen-valid profiles resolve and expose replayable aggregate" {
+  let expected = [
+    "local-subtyping-straight-line", "local-subtyping-structured", "local-subtyping-all",
+  ]
+  let names = gen_valid_profile_names()
+  for name in expected {
+    assert_true(names.contains(name), msg=name)
+  }
+  match gen_valid_profile_by_name("local-subtyping") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, LocalSubtypingAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      @debug.assert_eq(members.length(), 2)
+      @debug.assert_eq(members[0].profile, LocalSubtypingStraightLineProfile)
+      @debug.assert_eq(members[1].profile, LocalSubtypingStructuredProfile)
+    }
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("ls") {
+    Ok(profile) => @debug.assert_eq(profile, LocalSubtypingAllProfile)
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "local-subtyping aggregate profile samples straight-line and structured families" {
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 48 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      LocalSubtypingAllProfile,
+      0x5eedUL,
+      index,
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  assert_true(seen.contains(LocalSubtypingStraightLineProfile))
+  assert_true(seen.contains(LocalSubtypingStructuredProfile))
+}
+
+///|
+test "local-subtyping gen-valid leaves emit validating local refinement triggers" {
+  let expected = ["local-subtyping-straight-line", "local-subtyping-structured"]
+  for name in expected {
+    let profile = match gen_valid_profile_by_name(name) {
+      Ok(profile) => profile
+      Err(msg) => fail(msg)
+    }
+    let generated = match
+      gen_valid_module_result_from_seed(
+        0x5eedUL,
+        GenValidConfig::for_profile(profile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    let pretty = generated.wasm_module.pretty_print_func(@lib.FuncIdx::new(0U))
+    assert_true(
+      pretty.contains("struct.new_default"),
+      msg="profile \{name} did not emit a non-null GC write source:\n\{pretty}",
+    )
+    assert_true(
+      pretty.contains("local.set") || pretty.contains("local.tee"),
+      msg="profile \{name} did not emit a body-local write:\n\{pretty}",
+    )
+    assert_true(
+      pretty.contains("local.get"),
+      msg="profile \{name} did not emit a body-local read:\n\{pretty}",
+    )
+  }
+}
+
+///|
 test "gsi-desc-cast gen-valid profiles resolve and expose replayable aggregate" {
   @debug.assert_eq(
     gen_valid_profile_name(GsiDescCastPositiveProfile),

@@ -728,6 +728,9 @@ pub enum GenValidProfile {
   Heap2LocalArrayProfile
   Heap2LocalRefProfile
   Heap2LocalAllProfile
+  LocalSubtypingStraightLineProfile
+  LocalSubtypingStructuredProfile
+  LocalSubtypingAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile
@@ -891,6 +894,9 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     Heap2LocalArrayProfile => "heap2local-array"
     Heap2LocalRefProfile => "heap2local-ref"
     Heap2LocalAllProfile => "heap2local-all"
+    LocalSubtypingStraightLineProfile => "local-subtyping-straight-line"
+    LocalSubtypingStructuredProfile => "local-subtyping-structured"
+    LocalSubtypingAllProfile => "local-subtyping-all"
     RemoveUnusedBrsControlProfile => "remove-unused-brs-control"
     RemoveUnusedBrsSwitchProfile => "remove-unused-brs-switch"
     RemoveUnusedBrsGcProfile => "remove-unused-brs-gc"
@@ -943,6 +949,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
     | Heap2LocalAllProfile
+    | LocalSubtypingAllProfile
     | RemoveUnusedBrsAllProfile
     | SsaNomergeAllProfile
     | SimplifyLocalsNostructureAllProfile
@@ -1057,6 +1064,11 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(Heap2LocalArrayProfile, 2),
         GenValidProfileMember::new(Heap2LocalRefProfile, 2),
       ]
+    LocalSubtypingAllProfile =>
+      [
+        GenValidProfileMember::new(LocalSubtypingStraightLineProfile, 3),
+        GenValidProfileMember::new(LocalSubtypingStructuredProfile, 2),
+      ]
     RemoveUnusedBrsAllProfile =>
       [
         GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 3),
@@ -1107,6 +1119,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
         GenValidProfileMember::new(PassFuzzStressProfile, 1),
         GenValidProfileMember::new(Heap2LocalAllProfile, 1),
+        GenValidProfileMember::new(LocalSubtypingAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
       ]
@@ -1251,6 +1264,9 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     Heap2LocalArrayProfile,
     Heap2LocalRefProfile,
     Heap2LocalAllProfile,
+    LocalSubtypingStraightLineProfile,
+    LocalSubtypingStructuredProfile,
+    LocalSubtypingAllProfile,
     RemoveUnusedBrsControlProfile,
     RemoveUnusedBrsSwitchProfile,
     RemoveUnusedBrsGcProfile,
@@ -1360,6 +1376,11 @@ pub fn gen_valid_profile_by_name(
     "h2l" => Ok(Heap2LocalAllProfile)
     "heap2local-closeout" => Ok(Heap2LocalAllProfile)
     "heap2local-all-profiles" => Ok(Heap2LocalAllProfile)
+    "local-subtyping" => Ok(LocalSubtypingAllProfile)
+    "local-subtyping-closeout" => Ok(LocalSubtypingAllProfile)
+    "local-subtyping-all-profiles" => Ok(LocalSubtypingAllProfile)
+    "ls" => Ok(LocalSubtypingAllProfile)
+    "ls-closeout" => Ok(LocalSubtypingAllProfile)
     "remove-unused-brs" => Ok(RemoveUnusedBrsAllProfile)
     "remove-unused-brs-closeout" => Ok(RemoveUnusedBrsAllProfile)
     "remove-unused-brs-all-profiles" => Ok(RemoveUnusedBrsAllProfile)
@@ -1807,6 +1828,12 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_heap2local_profile_config(profile)
     Heap2LocalAllProfile =>
       gen_valid_heap2local_profile_config(Heap2LocalAllProfile)
+    LocalSubtypingStraightLineProfile | LocalSubtypingStructuredProfile =>
+      gen_valid_local_subtyping_profile_config(profile)
+    LocalSubtypingAllProfile =>
+      gen_valid_local_subtyping_profile_config(
+        LocalSubtypingStraightLineProfile,
+      )
     RemoveUnusedBrsControlProfile
     | RemoveUnusedBrsSwitchProfile
     | RemoveUnusedBrsGcProfile
@@ -2950,6 +2977,56 @@ fn gen_valid_heap2local_profile_config(
 }
 
 ///|
+fn gen_valid_local_subtyping_profile_config(
+  _profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 6,
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: 0,
+    max_body_depth: 3,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: true,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_subtyping_topology: true,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
 fn gen_valid_remove_unused_brs_profile_config(
   profile : GenValidProfile,
 ) -> GenValidConfig {
@@ -3205,6 +3282,12 @@ fn gen_valid_is_remove_unused_brs_family_config(
   config == GenValidConfig::for_profile(RemoveUnusedBrsControlProfile) ||
   config == GenValidConfig::for_profile(RemoveUnusedBrsSwitchProfile) ||
   config == GenValidConfig::for_profile(RemoveUnusedBrsCleanupProfile)
+}
+
+///|
+fn gen_valid_is_local_subtyping_family_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(LocalSubtypingStraightLineProfile) ||
+  config == GenValidConfig::for_profile(LocalSubtypingStructuredProfile)
 }
 
 ///|
@@ -12393,6 +12476,85 @@ fn gen_valid_append_return_value_instrs(
 }
 
 ///|
+fn gen_valid_local_subtyping_local(env : GenValidBodyEnv) -> LocalIdx? {
+  gen_matching_local_idx(env.local_types, ValType::anyref())
+}
+
+///|
+fn gen_valid_local_subtyping_type(env : GenValidBodyEnv) -> TypeIdx? {
+  if env.gc_type_plan.struct_type_idxs.is_empty() {
+    None
+  } else {
+    Some(env.gc_type_plan.struct_type_idxs[0])
+  }
+}
+
+///|
+fn gen_valid_local_subtyping_seed_local(
+  out : Array[Instruction],
+  local_idx : LocalIdx,
+  type_idx : TypeIdx,
+) -> Unit {
+  out.push(Instruction::struct_new_default(type_idx))
+  out.push(Instruction::local_set(local_idx))
+}
+
+///|
+fn gen_valid_local_subtyping_append_get_drop(
+  out : Array[Instruction],
+  local_idx : LocalIdx,
+) -> Unit {
+  out.push(Instruction::local_get(local_idx))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_local_subtyping_body_slice(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  let local_idx = match gen_valid_local_subtyping_local(env) {
+    Some(idx) => idx
+    None => return
+  }
+  let type_idx = match gen_valid_local_subtyping_type(env) {
+    Some(idx) => idx
+    None => return
+  }
+  gen_valid_local_subtyping_seed_local(out, local_idx, type_idx)
+  if ctx.config == GenValidConfig::for_profile(LocalSubtypingStructuredProfile) {
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([Instruction::local_get(local_idx), Instruction::drop()]),
+      ),
+    )
+    out.push(
+      Instruction::loop_(
+        BlockType::void_(),
+        Expr::new([Instruction::local_get(local_idx), Instruction::drop()]),
+      ),
+    )
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(
+      Instruction::if_(
+        BlockType::void_(),
+        [Instruction::local_get(local_idx), Instruction::drop()],
+        Some([Instruction::local_get(local_idx), Instruction::drop()]),
+      ),
+    )
+    gen_valid_local_subtyping_append_get_drop(out, local_idx)
+  } else {
+    gen_valid_local_subtyping_append_get_drop(out, local_idx)
+    out.push(Instruction::struct_new_default(type_idx))
+    out.push(Instruction::local_tee(local_idx))
+    out.push(Instruction::drop())
+    gen_valid_local_subtyping_append_get_drop(out, local_idx)
+  }
+}
+
+///|
 fn gen_valid_optimize_casts_local(env : GenValidBodyEnv) -> LocalIdx? {
   gen_matching_local_idx(env.local_types, ValType::anyref())
 }
@@ -13928,7 +14090,8 @@ fn gen_valid_build_func(
           locals.push(array_ref)
         }
       }
-    } else if gen_valid_is_optimize_casts_family_config(ctx.config) {
+    } else if gen_valid_is_local_subtyping_family_config(ctx.config) ||
+      gen_valid_is_optimize_casts_family_config(ctx.config) {
       locals.push(ValType::anyref())
     } else {
       for vt in gc_type_plan.concrete_ref_types {
@@ -13964,6 +14127,7 @@ fn gen_valid_build_func(
     !ctx.config.features.allow_heap_store_optimization_body_generator &&
     !ctx.config.features.allow_heap2local_body_generator &&
     !gen_valid_is_remove_unused_brs_family_config(ctx.config) &&
+    !gen_valid_is_local_subtyping_family_config(ctx.config) &&
     !gen_valid_is_optimize_casts_family_config(ctx.config) {
     gen_valid_append_coverage_prelude(body_instrs, ctx, env, returns)
   }
@@ -13984,6 +14148,9 @@ fn gen_valid_build_func(
   }
   if ctx.config.features.allow_heap2local_body_generator {
     gen_valid_append_heap2local_body_slice(body_instrs, ctx, env)
+  }
+  if gen_valid_is_local_subtyping_family_config(ctx.config) {
+    gen_valid_append_local_subtyping_body_slice(body_instrs, ctx, env)
   }
   if gen_valid_is_optimize_casts_family_config(ctx.config) {
     gen_valid_append_optimize_casts_body_slice(body_instrs, ctx, env)
