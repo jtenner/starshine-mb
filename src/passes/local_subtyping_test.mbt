@@ -932,6 +932,95 @@ test "local-subtyping accepts try_table terminal throw after dominated get" {
 }
 
 ///|
+test "local-subtyping accepts try_table throw with trailing unreachable after dominated get" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param_and_tag(base_nullable, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [@lib.Catch::new(@lib.TagIdx::new(0U), @lib.LabelIdx::new(0U))],
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::throw_(@lib.TagIdx::new(0U)),
+            @lib.Instruction::unreachable_(),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected try_table throw plus unreachable narrowed local to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "local-subtyping accepts try_table throw before unreachable tail get" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param_and_tag(base_nullable, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [@lib.Catch::new(@lib.TagIdx::new(0U), @lib.LabelIdx::new(0U))],
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::throw_(@lib.TagIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    ),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected try_table throw before unreachable get to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "local-subtyping accepts try_table terminal return after dominated get" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
