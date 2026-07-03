@@ -654,6 +654,27 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader `move-cast-*` chains beyond the current best-selection/refinalization/materialized-reuse subsets, remaining mixed `ref.cast`/`ref.as_non_null` variants, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 31 implementation result
+
+The thirty-first recursive slice added red-first source-backed coverage for Binaryen's `move-over-tee` / `no-move-over-self-tee` local.tee boundary:
+
+- a later `ref.cast(local.tee y (local.get x))` may be duplicated to an earlier dropped `local.get x` when `y` is a separate local, after which later reuse can materialize the best cast and retarget the tee source through the fresh local;
+- the same shape must not move when the `local.tee` writes the same local index being read, because the tee is a write barrier for early motion.
+
+Before implementation, the separate-local tee fixture emitted only the original cast and no fresh-local source reuse, while the self-tee fixture incorrectly duplicated the cast. `src/passes/optimize_casts.mbt` now separates ordinary later-reuse refinement-source recognition from strict early-motion source recognition. Early motion accepts direct `local.get` sources as before and accepts `local.tee` sources only when the tee's child is a same-source `local.get` and the tee destination is a different local. Self-tees stay blocked as same-index writes. The nullable-fresh-local workaround and exact non-null body-local blocker remain unchanged.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on the two new local.tee tests before implementation (`59/61` passed), then passed `61/61` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3876/3876`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-tee-motion-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-tee-motion-smoke-20`: compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader `move-cast-*` chains beyond the current best-selection/refinalization/materialized-reuse and separate-local-tee subsets, remaining mixed `ref.cast`/`ref.as_non_null` variants, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, investigate a narrow `ref.as_non_null` variant across nonconstant pure separate-index `local.set`, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
