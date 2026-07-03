@@ -22,4 +22,4 @@ It remains useful as source-backed history and as a reminder that arity 19+ and 
 ## Status
 
 - Superseded for direct one-use arity 10 by the 2026-07-02 arity-10 implementation slice.
-- Remaining OI-M work includes selected-child arities 20+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, public/binary tuple fixture coverage where representable, full `simplify-locals` replay/reduction for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, control/EH sibling localization, and broader tee/drop reconstruction.
+- Remaining OI-M work includes selected-child arities 21+, multi-result non-selected sibling tuple-scratch localization, multi-use tuple producers, public/binary tuple fixture coverage where representable, full `simplify-locals` replay/reduction for the `InvalidChildRef(3, 0, 0)` blocker, dedicated `tuple-optimization` neighbor reductions, control/EH sibling localization, and broader tee/drop reconstruction.

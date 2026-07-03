@@ -32,12 +32,19 @@ Binaryen localizes the twenty-result call into a tuple scratch local, extracts a
 
 ## Starshine coverage
 
-Added direct-HOT boundary/status coverage in `src/passes/optimize_instructions_test.mbt`:
+Added direct-HOT positive coverage in `src/passes/optimize_instructions_test.mbt`:
 
-- `optimize-instructions intentionally keeps tuple.extract with multi-result selected twentieth child-lane boundary`
+- `optimize-instructions localizes twentieth lane from twenty-result selected tuple child`
 
-The test asserts Starshine keeps `TupleExtract` index `19`, the `TupleMake`, and the twenty-result selected `Call` unchanged. This is boundary-only evidence, not an implementation slice.
+Red-first evidence: the focused twentieth-lane test failed before implementation because Starshine kept the root as `TupleExtract`. The implementation then widened the bounded direct one-use selected-child allowlist from arity 19 to arity 20 and the test passed.
+
+Validation/fuzz evidence from the implementing slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*twentieth lane*'` passed after the fix.
+- `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*twenty-first child-lane*'` kept the next boundary passing.
+- `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*tuple.extract*'` passed.
+- Direct and grouped OI-M compare/runtime evidence is recorded in `docs/wiki/log.md` and `docs/wiki/binaryen/passes/optimize-instructions/parity-matrix.json`.
 
 ## Status
 
-Starshine's current tuple.extract OI localizer now supports direct one-use selected children through arity 19. This twentieth child-lane shape is the next source-backed selected-child tuple-scratch boundary after the 2026-07-02 arity-19 slice. Reopen this boundary when implementing arity-20 selected-child localization, when adding public/binary tuple fixture coverage for this shape, or if a future Binaryen source/oracle refresh stops localizing it.
+Starshine's current tuple.extract OI localizer now supports direct one-use selected children through arity 20. This note is retained as source/probe history, not an active direct one-use arity-20 blocker. Remaining OI-M work includes selected-child arities 21+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, broader randomized/runtime evidence, and public/binary tuple fixture coverage where representable. Reopen this boundary if the arity-20 implementation regresses, if public tuple fixture support exposes a stronger Binaryen-shaped test, or if a future Binaryen source/oracle refresh changes this behavior.
