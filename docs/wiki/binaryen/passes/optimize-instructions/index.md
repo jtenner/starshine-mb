@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-20
+last_reviewed: 2026-07-03
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
@@ -103,6 +103,7 @@ sources:
   - ../../../raw/research/0812-2026-06-20-optimize-instructions-oi-i-i31-array-local-ref-eq.md
   - ../../../raw/research/0813-2026-06-20-optimize-instructions-oi-i-same-heap-nonnull-ref-cast.md
   - ../../../raw/research/0814-2026-06-20-optimize-instructions-oi-i-indexed-i31-aggregate-ref-eq.md
+  - ../../../raw/research/1431-2026-07-03-optimize-instructions-oi-i-closeout.md
   - ../../../raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md
   - ../../../raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md
   - ../../../raw/research/0820-2026-06-20-optimize-instructions-oi-j-success-only-if-non-null-ref-test.md
@@ -134,6 +135,7 @@ sources:
   - ../../../raw/research/0852-2026-06-25-optimize-instructions-oi-g-wrap-store-memargs.md
   - ../../../raw/research/0854-2026-06-25-optimize-instructions-oi-g-wrap-store-multiuse-boundary.md
   - ../../../raw/research/0856-2026-06-25-optimize-instructions-oi-g-nonconst-load-call-boundary.md
+  - ../../../raw/research/1430-2026-07-03-optimize-instructions-oi-g-memory-load-store-closeout.md
   - ../../../raw/research/0853-2026-06-25-optimize-instructions-oi-m-multiresult-selected-boundary.md
   - ../../../raw/research/0855-2026-06-25-optimize-instructions-oi-m-selected-second-lane-boundary.md
   - ../../../raw/research/0899-2026-06-25-optimize-instructions-oi-m-selected-third-multiresult-boundary.md
@@ -747,6 +749,7 @@ The 2026-06-19 behavior inventory [`../../../raw/research/0726-2026-06-19-optimi
 - [`../../../raw/research/0812-2026-06-20-optimize-instructions-oi-i-i31-array-local-ref-eq.md`](../../../raw/research/0812-2026-06-20-optimize-instructions-oi-i-i31-array-local-ref-eq.md) records the fifty-fifth `[O4Z-AUDIT-OI-I]` coverage sub-slice: impossible `ref.eq` between declared non-null `i31` locals and nullable array locals preserves an already-evaluated `drop(call $effect)` prefix before folding to `i32.const 0`.
 - [`../../../raw/research/0813-2026-06-20-optimize-instructions-oi-i-same-heap-nonnull-ref-cast.md`](../../../raw/research/0813-2026-06-20-optimize-instructions-oi-i-same-heap-nonnull-ref-cast.md) records the fifty-sixth `[O4Z-AUDIT-OI-I]` implementation sub-slice: unknown nullable exact-heap non-null `ref.cast` now lowers to `ref.as_non_null`, preserving operand effects and the null trap while keeping narrowing heap-check casts as `ref.cast`.
 - [`../../../raw/research/0814-2026-06-20-optimize-instructions-oi-i-indexed-i31-aggregate-ref-eq.md`](../../../raw/research/0814-2026-06-20-optimize-instructions-oi-i-indexed-i31-aggregate-ref-eq.md) records the fifty-seventh `[O4Z-AUDIT-OI-I]` coverage sub-slice: indexed/defined struct and array locals are explicitly covered for impossible equality with definitely non-null `i31` references, including effect-prefix preservation before folding to `i32.const 0`.
+- [`../../../raw/research/1431-2026-07-03-optimize-instructions-oi-i-closeout.md`](../../../raw/research/1431-2026-07-03-optimize-instructions-oi-i-closeout.md) closes the current sampled non-descriptor `[O4Z-AUDIT-OI-I]` surface as an accepted v0.1 intentional boundary. Fresh `.tmp/oi-i-closeout-count256-20260703` compared 256/256 with 131 normalized matches, 125 classified residuals, zero validation/generator/property/command failures, Binaryen cache 256/0, runtime checked/unsupported/failed 256/0/0 with no executable runtime samples, and all 500 residual raw/canonical artifacts validating. Local-carried known-null matched 88/88; direct null/test/cast residuals are measured Starshine-win/canonical-smaller dropped-debris representation differences; branch-cast effectful-wrapper residuals are canonical-neutral/raw-smaller with preserved branch/effect/trap traffic; descriptor/exactness/TNH/IIT evidence remains quarantined to OI-J.
 - [`../../../raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md`](../../../raw/research/0818-2026-06-20-optimize-instructions-oi-j-exact-cast-boundary.md) records the first `[O4Z-AUDIT-OI-J]` exactness sub-slice: Starshine now preserves exact `ref.cast` checks when the operand has an inexact same-heap local type, matching Binaryen `version_130` and preventing invalid exact-result rewrites.
 - [`../../../raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md`](../../../raw/research/0819-2026-06-20-optimize-instructions-oi-j-exact-cast-already-exact.md) records the second `[O4Z-AUDIT-OI-J]` exactness sub-slice: already-exact same-heap operands are covered for redundant exact `ref.cast` cleanup, including nullable-to-non-null exact casts becoming `ref.as_non_null` to keep the null trap.
 - [`../../../raw/research/0820-2026-06-20-optimize-instructions-oi-j-success-only-if-non-null-ref-test.md`](../../../raw/research/0820-2026-06-20-optimize-instructions-oi-j-success-only-if-non-null-ref-test.md) records the third `[O4Z-AUDIT-OI-J]` sub-slice: nullable-source / non-null-target `ref.test` now lowers to `i32.eqz(ref.is_null(x))`, preserving effectful operands while removing the redundant heap test.
