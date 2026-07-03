@@ -503,6 +503,27 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: the remaining nested mixed `ref.cast`/`ref.as_non_null` lit variants, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, local-write windows beyond nontrapping pure separate-index `local.set`, `local.tee` and same-local writes, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 24 separate-root ref.as/cast early-motion result
+
+The twenty-fourth recursive slice broadened the nested mixed-cast early-motion family from one same-root nested stack to the first separate-root Binaryen lit sibling:
+
+- a later dropped nullable `ref.cast` root and adjacent dropped `ref.as_non_null` root over the same local can be combined and duplicated as `ref.as_non_null(ref.cast nullable local.get)` onto an earlier dropped same-local `local.get`;
+- a same-local `local.tee` between the separate roots remains a write barrier, so the combined ref.as/cast stack is not synthesized across the write.
+
+Before implementation, the positive produced the later-reuse shape `local.tee(ref.cast nullable local.get)` followed by a later `ref.as_non_null(local.get fresh)` but did not duplicate `ref.as_non_null` to the earlier get. `src/passes/optimize_casts.mbt` now recognizes only adjacent dropped nullable-cast / nullable-source `ref.as_non_null` root pairs with the same source local, builds the combined outer-`ref.as_non_null` / inner-nullable-`ref.cast` stack at the earlier pending get, and preserves the previous unsupported outer-ref.cast-over-ref.as exclusion. This is still narrower than all Binaryen `move-ref.as-and-ref.cast-2` / `-3` behavior because broader windows, local.tee pairing, effect/trap/control crossings, and richer mixed chains remain excluded.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on `optimize-casts combines separate nullable cast and ref.as_non_null at earlier get` before implementation (`53/54` passed), then passed `54/54` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3869/3869`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-separate-ref-as-cast-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-separate-ref-as-cast-smoke-20`: compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, Binaryen cache `20/0`, and selected leaves `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: the remaining mixed `ref.cast`/`ref.as_non_null` lit variants and richer chains, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, local-write windows beyond nontrapping pure separate-index `local.set`, `local.tee` and same-local writes, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, investigate a narrow `ref.as_non_null` variant across nonconstant pure separate-index `local.set`, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
