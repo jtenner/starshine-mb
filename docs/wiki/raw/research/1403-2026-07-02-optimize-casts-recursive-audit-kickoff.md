@@ -932,10 +932,22 @@ Validation for this slice:
 
 End-of-iteration status: this iteration made the pass-specific GenValid lane closeout-sized and green, refreshed direct `10000`, explicit wasm-smith `1000`, and broad random `1000` evidence, classified the broad `heap2local-ref` residual as a source-backed Starshine static-fold win, and captured first timing/neighborhood evidence. The full OC goal remains incomplete because the direct regular lane is not yet at `100000`, wasm-smith and broad/random are not yet at `10000`, the broad raw mismatch family needs an explicit closeout decision/normalizer/acceptance if it remains, the O4z neighborhood drift is valid but not classified to owner, and the final source/docs review is not done.
 
+## Slice 45 O4z neighborhood owner localization
+
+The first slice of the next recursive iteration localized the checked-in O4z startup-repro neighborhood drift by replaying the ordered GC/local prefix one pass at a time:
+
+- `.tmp/self-compare-oc-neighborhood-prefix-01-h2l` with `--heap2local`: canonical wasm equal; sizes `192893` / `192893`; pass runtimes Starshine `0.387ms`, Binaryen `0.821ms`.
+- `.tmp/self-compare-oc-neighborhood-prefix-02-h2l-oc` with `--heap2local --optimize-casts`: canonical wasm equal; sizes `192893` / `192893`; pass runtimes Starshine `10.495ms`, Binaryen `8.675ms`.
+- `.tmp/self-compare-oc-neighborhood-prefix-03-h2l-oc-ls` with `--heap2local --optimize-casts --local-subtyping`: canonical wasm equal; sizes `192893` / `192893`; pass runtimes Starshine `11.096ms`, Binaryen `9.086ms`.
+- `.tmp/self-compare-oc-neighborhood-prefix-04-h2l-oc-ls-cl` with `--heap2local --optimize-casts --local-subtyping --coalesce-locals`: canonical wasm differed; sizes Starshine `191381`, Binaryen `191062` (`+319` bytes); pass runtimes Starshine `19.398ms`, Binaryen `16.101ms`. Both outputs validated with `wasm-tools validate --features all`.
+- `.tmp/self-compare-oc-neighborhood-prefix-05-h2l-oc-ls-cl-lcse` with `--heap2local --optimize-casts --local-subtyping --coalesce-locals --local-cse`: canonical wasm differed; sizes Starshine `191380`, Binaryen `191059` (`+321` bytes); pass runtimes Starshine `19.041ms`, Binaryen `16.854ms`. Both outputs validated with `wasm-tools validate --features all`.
+
+Agent classification: this localizes the saved neighborhood size/shape drift to the `coalesce-locals` slot, not to direct `optimize-casts` or the `heap2local -> optimize-casts -> local-subtyping` prefix. OC still needs final direct `100000`, explicit wasm-smith `10000`, broad/random `10000` with static-fold residual treatment, and source/docs review, but the prior open O4z owner-classification blocker should now be tracked as a neighboring coalesce-locals/local-CSE follow-up rather than an OC transform gap. The prefix timings remain pass-local acceptable under the `<= 2x` target, though the script's stricter same-speed flag reports `no` for some prefixes.
+
 ## Recommended next implementation slices
 
 1. Scale explicit wasm-smith and broad/random lanes to `10000`; expect broad `heap2local-ref` static-fold raw mismatches unless a closeout normalizer or explicit Starshine-win acceptance is added.
 2. Run the remaining direct regular GenValid `100000` lane with a current native binary.
-3. Classify the O4z GC/local neighborhood raw/canonical drift by owner, starting from the saved `.tmp/self-compare-optimize-casts-o4z-neighborhood-after-exact-local` artifacts, and decide whether an OC-specific fixture or a neighbor backlog item is warranted.
+3. Treat the O4z GC/local neighborhood raw/canonical drift as localized to `coalesce-locals` by Slice 45; only reopen OC for that repro if a reduced diff shows the drift was seeded before the `coalesce-locals` slot.
 4. If new residuals appear outside the documented static-fold win, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
 5. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, and source/docs review are complete.
