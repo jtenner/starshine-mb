@@ -255,4 +255,12 @@ Current three-level best-cast refinalization slice evidence from 2026-07-03:
 - Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-three-level-best-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
 - Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-three-level-best-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
 
+
+Current separate-local tee early-motion slice evidence from 2026-07-03:
+
+- Focused `src/passes/optimize_casts_test.mbt` now passes `71/71` after adding a source-backed dropped `local.tee` positive where `ref.as_non_null` moves across a tee that writes a separate local while reading the pending source local.
+- `moon fmt` passed; `moon test src/passes` passed `3886/3886`; `moon info` and native `src/cmd` build passed with pre-existing warnings.
+- Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-separate-tee-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-separate-tee-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
+
 Use the aggregate now to expose and classify remaining OC gaps. Do not report OC closeout until the required four-lane matrix, including `--gen-valid-profile optimize-casts-all`, is refreshed after the remaining transform families are either implemented or narrowly documented with reopening criteria.
