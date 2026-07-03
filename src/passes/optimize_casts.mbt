@@ -769,6 +769,13 @@ fn oc_refinements_allow_retarget(
           best_cast,
           refinement.1,
         )
+      let can_feed_existing_source = has_existing_fresh &&
+        oc_ref_cast_source_can_read_best_cast(
+          module_ctx,
+          func,
+          best_cast,
+          refinement.1,
+        )
       if !oc_best_cast_can_feed_refinement_source(
           module_ctx,
           func,
@@ -776,7 +783,8 @@ fn oc_refinements_allow_retarget(
           refinement.1,
         ) &&
         !can_feed_existing_equal &&
-        !can_feed_refinalized_equal {
+        !can_feed_refinalized_equal &&
+        !can_feed_existing_source {
         return false
       }
     }
@@ -807,6 +815,38 @@ fn oc_refinement_blocks_retarget(
 ///|
 fn oc_ref_type_as_non_null(ref_type : @lib.RefType) -> @lib.RefType {
   @lib.RefType::new(false, ref_type.get_heap_type(), exact=ref_type.is_exact())
+}
+
+///|
+fn oc_ref_cast_source_can_read_best_cast(
+  module_ctx : @ir.HotModuleContext,
+  func : @ir.HotFunc,
+  candidate_id : Int,
+  current_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, current_id) {
+    Some(@lib.Instruction::RefCast(_, _, _)) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, current_id) != 1 {
+    return false
+  }
+  let candidate = match oc_refinement_type_from_node(func, candidate_id) {
+    Some(ref_type) => ref_type
+    None => return false
+  }
+  let source_id = @ir.hot_child_get(func, current_id, 0)
+  let source = match oc_ref_type_from_node(func, source_id) {
+    Some(ref_type) => ref_type
+    None => return false
+  }
+  let target = match oc_refinement_type_from_node(func, current_id) {
+    Some(ref_type) => ref_type
+    None => return false
+  }
+  candidate != source &&
+  oc_ref_always_matches(module_ctx, candidate, source) &&
+  !oc_ref_never_matches(module_ctx, candidate, target)
 }
 
 ///|
