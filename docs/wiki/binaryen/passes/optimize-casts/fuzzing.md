@@ -283,7 +283,13 @@ Current non-dedicated lane refresh from 2026-07-03:
 - Broad random profile `.tmp/pass-fuzz-optimize-casts-random-all-profiles-after-exact-local-1000`: requested/compared `1000/1000`, normalized `957`, mismatches `43`, validation/generator/property/command failures `0`, Binaryen cache `165/835`. All `43` raw mismatches came from `heap2local-ref` selected-profile cases.
 - Agent classification for the broad residual: Starshine folds `drop(ref.test (ref (exact $0)) (struct.new_default $0))` to `drop(i32.const 1)` while Binaryen leaves the test. This is a source-backed Starshine static-fold win guarded by focused `ref.test` tests, not a behavior-parity gap; inspected failures were each `5` normalized-wasm bytes smaller for Starshine.
 
-Use the aggregate to guard future OC changes. Do not report OC closeout until the remaining required matrix lanes are fully scaled or explicitly accepted with the documented broad static-fold win, plus final O4z slot/neighborhood evidence and source/docs review.
+Current broad random scale-up from 2026-07-03:
+
+- Broad random profile `.tmp/pass-fuzz-optimize-casts-random-all-profiles-after-exact-local-10000`: requested/compared `10000/10000`, normalized `9580`, cleanup-normalized `0`, mismatches `420`, validation/generator/property/command failures `0`, Binaryen cache `2982/7018`. Selected profiles were `binaryen-oracle-portable=1703`, `ssa-nomerge-smoke=1699`, `pass-fuzz-stress=1691`, `ssa-nomerge-parity=1644`, `coverage-forced-portable=1610`, `heap2local-struct=715`, `heap2local-ref=484`, and `heap2local-array=454`.
+- All `420` mismatches were from `heap2local-ref` and sampled failures matched the same guaranteed-true fresh exact-struct `ref.test` fold. A normalized-size sweep over all failure dirs with `wasm-opt --all-features --strip-debug` found Starshine exactly `5` bytes smaller in every mismatch.
+- Agent classification: no new broad residual family appeared at `10000`; the broad closeout blocker is now the explicit acceptance/normalizer decision for this documented Starshine static-fold win, not an unknown mismatch family.
+
+Use the aggregate to guard future OC changes. Do not report OC closeout until the remaining required direct/wasm-smith lanes are fully scaled and the documented broad static-fold win is explicitly accepted or normalized, plus final O4z/source/docs review.
 
 Current timing and neighborhood evidence from 2026-07-03:
 

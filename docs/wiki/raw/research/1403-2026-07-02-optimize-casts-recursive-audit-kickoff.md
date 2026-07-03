@@ -944,9 +944,19 @@ The first slice of the next recursive iteration localized the checked-in O4z sta
 
 Agent classification: this localizes the saved neighborhood size/shape drift to the `coalesce-locals` slot, not to direct `optimize-casts` or the `heap2local -> optimize-casts -> local-subtyping` prefix. OC still needs final direct `100000`, explicit wasm-smith `10000`, broad/random `10000` with static-fold residual treatment, and source/docs review, but the prior open O4z owner-classification blocker should now be tracked as a neighboring coalesce-locals/local-CSE follow-up rather than an OC transform gap. The prefix timings remain pass-local acceptable under the `<= 2x` target, though the script's stricter same-speed flag reports `no` for some prefixes.
 
+## Slice 46 broad random `10000` scale-up
+
+The second slice of this iteration scaled the broad `random-all-profiles` lane to the closeout requested count with the same native Starshine binary:
+
+- Broad random profile `.tmp/pass-fuzz-optimize-casts-random-all-profiles-after-exact-local-10000`: requested/compared `10000/10000`, normalized `9580`, cleanup-normalized `0`, mismatches `420`, validation/generator/property/command failures `0`, Binaryen cache `2982/7018`. Selected profiles were `binaryen-oracle-portable=1703`, `ssa-nomerge-smoke=1699`, `pass-fuzz-stress=1691`, `ssa-nomerge-parity=1644`, `coverage-forced-portable=1610`, `heap2local-struct=715`, `heap2local-ref=484`, and `heap2local-array=454`.
+- All `420` raw mismatches came from the `heap2local-ref` selected profile. Sampled cases `000020`, `000050`, `000054`, `000068`, and `000082` matched the existing residual shape: Binaryen leaves `drop(ref.test (ref (exact $0)) (struct.new_default $0))`, while Starshine folds the guaranteed-true test to `drop(i32.const 1)`.
+- A normalized-size check over all `420` failure dirs with `wasm-opt --all-features --strip-debug` showed the Starshine normalized wasm was exactly `5` bytes smaller in every mismatch (`-2100` bytes total across the failure set).
+
+Agent classification: the full-size broad random lane did not reveal a new OC residual family. The remaining raw mismatches are the already-documented source-backed Starshine static-fold win from OC's local contract and focused static-fold tests, not a newly discovered behavior-parity gap. However, because the harness still reports these as raw mismatches, final closeout still needs an explicit acceptance/normalizer decision for this exact family before the broad lane can be treated as green closeout evidence.
+
 ## Recommended next implementation slices
 
-1. Scale explicit wasm-smith and broad/random lanes to `10000`; expect broad `heap2local-ref` static-fold raw mismatches unless a closeout normalizer or explicit Starshine-win acceptance is added.
+1. Scale the explicit wasm-smith lane to `10000`; broad/random has now been scaled to `10000` and still needs an explicit normalizer/acceptance decision for the documented `heap2local-ref` static-fold Starshine-win residual.
 2. Run the remaining direct regular GenValid `100000` lane with a current native binary.
 3. Treat the O4z GC/local neighborhood raw/canonical drift as localized to `coalesce-locals` by Slice 45; only reopen OC for that repro if a reduced diff shows the drift was seeded before the `coalesce-locals` slot.
 4. If new residuals appear outside the documented static-fold win, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
