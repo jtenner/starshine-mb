@@ -761,6 +761,28 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader local.tee/write variants beyond the current same-root alias and separate-local early-motion subsets, broader nested/control early motion beyond independent same-region scans, broader `move-cast-*` chains beyond the current best-selection/refinalization/materialized-reuse/source-feed/separate-local-tee/nested-region subsets, richer mixed `ref.cast`/`ref.as_non_null` chains, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 36 repeated equal moved-cast result
+
+The thirty-sixth recursive slice broadened Binaryen `move-identical-repeated-casts` coverage:
+
+- an earliest dropped same-local `local.get`, followed by two equal same-local `ref.cast` roots, now receives one duplicated cast at the earliest get;
+- both later equal cast sources then read the shared fresh carrier local materialized from that earliest moved cast, matching the source-backed lit expectation that only one equal cast is duplicated but later equal casts reuse the carrier;
+- ordinary repeated identical casts without an earlier moved get remain protected and do not materialize a fresh local on their own.
+
+Before implementation, the new fixture printed three `ref.cast` roots all reading `Local 0` and no `local.tee`/fresh-local reuse. `src/passes/optimize_casts.mbt` now marks early-motion-selected refinements, plus later equal refinements in the same earliest-get window, as source-refinalized for the later-reuse phase. Later reuse may therefore materialize one fresh carrier from the earliest moved cast and retarget the marked equal cast sources through it, while the existing repeated-cast protection still blocks equal repeated casts that were not part of an earlier-moved window. Same-local write/self-tee barriers, unrelated-cast guards, exact non-null body-local blocker, and nullable fresh-local workaround remain unchanged.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on `optimize-casts reuses earliest moved identical casts for equal later casts` before implementation (`66/67` passed), then passed `67/67` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3882/3882`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-repeated-equal-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-repeated-equal-smoke-20`: compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader local.tee/write variants, broader nested/control early motion beyond independent same-region scans, broader `move-cast-*` chains beyond the current best-selection/refinalization/materialized-reuse/source-feed/separate-local-tee/nested-region/repeated-equal subsets, richer mixed `ref.cast`/`ref.as_non_null` chains, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, investigate a narrow `ref.as_non_null` variant across nonconstant pure separate-index `local.set`, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
