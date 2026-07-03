@@ -909,10 +909,22 @@ Validation for this slice:
 
 Agent classification: the dedicated profile inventory is now strong enough for the pass-specific GenValid closeout lane, and no residuals appeared to reduce in `optimize-casts-all`. This does **not** complete OC closeout by itself because the full four-lane matrix still needs direct `100000`, explicit wasm-smith `10000`, and broad/random `10000` evidence after classifying broad-profile residuals, plus O4z slot/neighborhood evidence, pass-local timing, and final source/docs review.
 
+## Slice 43 direct, wasm-smith, and broad-profile refresh
+
+The next evidence slice refreshed three non-dedicated lanes with the same native binary:
+
+- Direct regular GenValid `.tmp/pass-fuzz-optimize-casts-after-exact-local-genvalid-10000`: requested/compared `10000/10000`, normalized `10000`, cleanup-normalized `0`, mismatches `0`, validation/generator/property/command failures `0`, Binaryen cache `102/9898`, selected profile `binaryen-oracle-portable=10000`.
+- Explicit wasm-smith `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-1000`: requested `1000`, compared/normalized `997`, cleanup-normalized `0`, mismatches `0`, validation/generator/property failures `0`, command failures `3` classified as Binaryen/oracle tool failures (`binaryen-rec-group-zero=2`, `binaryen-invalid-tag-index=1`), cache `wasm-smith 1000/0`, Binaryen `5/992`, Binaryen-failure cache `0/3`.
+- Broad random profile `.tmp/pass-fuzz-optimize-casts-random-all-profiles-after-exact-local-1000`: requested/compared `1000/1000`, normalized `957`, mismatches `43`, validation/generator/property/command failures `0`, Binaryen cache `165/835`. Selected profiles were `ssa-nomerge-parity=174`, `binaryen-oracle-portable=174`, `ssa-nomerge-smoke=173`, `pass-fuzz-stress=167`, `coverage-forced-portable=160`, `heap2local-struct=57`, `heap2local-array=49`, and `heap2local-ref=46`.
+
+Broad-profile agent classification: all `43` mismatches came from `heap2local-ref` cases, and every sampled failure matched the same shape: Binaryen left `drop(ref.test (ref (exact $0)) (struct.new_default $0))`, while Starshine folded the guaranteed-true test to `drop(i32.const 1)`. This is classified as a source-backed Starshine static-fold win for the current Starshine `optimize-casts` contract, not a behavior-parity gap: `src/passes/optimize_casts_test.mbt` explicitly guards guaranteed-true `ref.test` folding, the input construct is a fresh exact `$0` struct, and each inspected failure made Starshine's normalized wasm `5` bytes smaller than Binaryen. This broad-profile family should remain documented rather than reduced into a Binaryen-shape match unless the project decides to remove Starshine's broader static-fold surface from `optimize-casts`.
+
+This still is not final closeout: direct regular GenValid is only at `10000` rather than `100000`, wasm-smith is only at `1000` rather than `10000`, broad/random is only at `1000` rather than `10000` and has a documented Starshine-win mismatch family, and O4z/timing/source-review evidence remains separate.
+
 ## Recommended next implementation slices
 
-1. Classify the broad/random profile lane after the exact-local fix; reduce source-backed residuals only when they are OC-owned parity gaps rather than documented static-fold Starshine wins or other-pass profile shape gaps.
-2. Refresh explicit wasm-smith and direct GenValid scale-up lanes with the current native binary, then decide whether the remaining missing direct `100000` closeout lane is worth running in the next slice.
-3. Capture O4z slot/neighborhood and pass-local timing evidence for `optimize-casts`; classify any neighborhood raw/canonical drift by owner instead of treating validation alone as parity.
-4. If new residuals appear, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
+1. Capture O4z slot/neighborhood and pass-local timing evidence for `optimize-casts`; classify any neighborhood raw/canonical drift by owner instead of treating validation alone as parity.
+2. Decide whether to scale explicit wasm-smith and broad/random lanes to `10000`, accepting that the `heap2local-ref` static-fold Starshine-win family will remain a raw mismatch unless normalized or explicitly accepted.
+3. Run the remaining direct regular GenValid `100000` lane only when the next thread has enough time, using the existing native binary or rebuilding it first.
+4. If new residuals appear outside the documented static-fold win, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
 5. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, and source/docs review are complete.
