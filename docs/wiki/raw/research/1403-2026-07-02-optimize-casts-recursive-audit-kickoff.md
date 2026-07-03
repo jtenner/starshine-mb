@@ -964,10 +964,17 @@ The third slice of this iteration scaled the explicit wasm-smith lane to the clo
 
 Agent classification: the explicit wasm-smith lane is now closeout-sized. The only Starshine-vs-Binaryen output difference is cleanup-normalized unreachable-control debris, not an OC cast/refinement semantic mismatch. Because OC's required signoff matrix does not yet have a documented normalizer/acceptance policy for this family, final closeout should either explicitly accept this cleanup-normalized wasm-smith result or decide to implement/align the incidental unreachable cleanup before claiming a raw-green wasm-smith lane.
 
+## Slice 48 direct regular GenValid `100000` closeout lane
+
+The first slice of this iteration scaled the remaining direct regular GenValid lane to the closeout requested count with the current native Starshine binary:
+
+- Direct regular GenValid `.tmp/pass-fuzz-optimize-casts-after-exact-local-genvalid-100000`: requested/compared `100000/100000`, normalized `100000`, cleanup-normalized `0`, mismatches `0`, validation/generator/property/command failures `0`, Binaryen cache `10329/89671`, and no wasm-smith cache activity.
+
+Agent classification: the direct regular GenValid closeout lane is now green at the required `100000` requested cases. This retires the direct-scale blocker. OC closeout still needs explicit treatment of the two already-classified non-dedicated residual classes: the broad `heap2local-ref` static-fold Starshine-win family and the wasm-smith `drop(unreachable)` cleanup-normalized mismatch. The final source/docs review also remains open.
+
 ## Recommended next implementation slices
 
-1. Run the remaining direct regular GenValid `100000` lane with a current native binary.
-2. Decide whether to explicitly accept or normalize the two closeout-sized residual classes now seen outside the dedicated lane: broad `heap2local-ref` static-fold Starshine wins, and the single wasm-smith `drop(unreachable)` cleanup-normalized mismatch.
-3. Treat the O4z GC/local neighborhood raw/canonical drift as localized to `coalesce-locals` by Slice 45; only reopen OC for that repro if a reduced diff shows the drift was seeded before the `coalesce-locals` slot.
-4. If new residuals appear outside the documented static-fold win, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
-5. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, and source/docs review are complete.
+1. Decide whether to explicitly accept or normalize the two closeout-sized residual classes now seen outside the dedicated lane: broad `heap2local-ref` static-fold Starshine wins, and the single wasm-smith `drop(unreachable)` cleanup-normalized mismatch.
+2. Treat the O4z GC/local neighborhood raw/canonical drift as localized to `coalesce-locals` by Slice 45; only reopen OC for that repro if a reduced diff shows the drift was seeded before the `coalesce-locals` slot.
+3. If new residuals appear outside the documented static-fold win, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
+4. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, residual treatment decisions, and source/docs review are complete.

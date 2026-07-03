@@ -283,6 +283,12 @@ Current non-dedicated lane refresh from 2026-07-03:
 - Broad random profile `.tmp/pass-fuzz-optimize-casts-random-all-profiles-after-exact-local-1000`: requested/compared `1000/1000`, normalized `957`, mismatches `43`, validation/generator/property/command failures `0`, Binaryen cache `165/835`. All `43` raw mismatches came from `heap2local-ref` selected-profile cases.
 - Agent classification for the broad residual: Starshine folds `drop(ref.test (ref (exact $0)) (struct.new_default $0))` to `drop(i32.const 1)` while Binaryen leaves the test. This is a source-backed Starshine static-fold win guarded by focused `ref.test` tests, not a behavior-parity gap; inspected failures were each `5` normalized-wasm bytes smaller for Starshine.
 
+
+Current direct regular closeout from 2026-07-03:
+
+- Direct regular GenValid `.tmp/pass-fuzz-optimize-casts-after-exact-local-genvalid-100000`: requested/compared `100000/100000`, normalized `100000`, cleanup-normalized `0`, mismatches `0`, validation/generator/property/command failures `0`, Binaryen cache `10329/89671`, no wasm-smith cache activity.
+- Agent classification: the direct regular GenValid lane is now green at the required closeout scale.
+
 Current broad random scale-up from 2026-07-03:
 
 - Broad random profile `.tmp/pass-fuzz-optimize-casts-random-all-profiles-after-exact-local-10000`: requested/compared `10000/10000`, normalized `9580`, cleanup-normalized `0`, mismatches `420`, validation/generator/property/command failures `0`, Binaryen cache `2982/7018`. Selected profiles were `binaryen-oracle-portable=1703`, `ssa-nomerge-smoke=1699`, `pass-fuzz-stress=1691`, `ssa-nomerge-parity=1644`, `coverage-forced-portable=1610`, `heap2local-struct=715`, `heap2local-ref=484`, and `heap2local-array=454`.
@@ -295,7 +301,7 @@ Current wasm-smith scale-up from 2026-07-03:
 - Single raw mismatch: `case-009332-wasm-smith`, where Starshine leaves `drop(unreachable)` immediately before an `unreachable` and Binaryen removes it. Agent classification: cleanup debris, not an OC cast/refinement semantic mismatch.
 - Supplementary replay `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000-unreachable-normalized` with `--normalize unreachable-control-debris`: requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `1`, mismatches `0`, validation/generator/property failures `0`, command failures `44` with the same Binaryen/oracle classes.
 
-Use the aggregate to guard future OC changes. Do not report OC closeout until the remaining direct `100000` lane is scaled and the documented broad static-fold plus wasm-smith unreachable-debris residuals are explicitly accepted or normalized, plus final O4z/source/docs review.
+Use the aggregate to guard future OC changes. Do not report OC closeout until the documented broad static-fold plus wasm-smith unreachable-debris residuals are explicitly accepted or normalized, plus final O4z/source/docs review.
 
 Current timing and neighborhood evidence from 2026-07-03:
 
