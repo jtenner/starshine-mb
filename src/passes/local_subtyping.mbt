@@ -350,34 +350,6 @@ fn ls_body_local_idx(
 }
 
 ///|
-fn ls_instrs_have_unsupported_structural_flow(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body)) =>
-        if ls_instrs_have_unsupported_structural_flow(body) {
-          return true
-        }
-      @lib.Loop(_, _)
-      | @lib.If(_, _, _)
-      | @lib.TryTable(_, _, _)
-      | @lib.Throw(_)
-      | @lib.ThrowRef
-      | @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_, _)
-      | @lib.Return
-      | @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_) => return true
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn ls_scan_branch_free_dominance_instrs(
   instrs : Array[@lib.Instruction],
   param_count : Int,
@@ -405,9 +377,6 @@ fn ls_scan_branch_free_dominance_instrs(
           None => ()
         }
       @lib.Block(_, @lib.Expr(body)) => {
-        if ls_instrs_have_unsupported_structural_flow(body) {
-          return false
-        }
         let block_initialized = initialized.copy()
         if !ls_scan_branch_free_dominance_instrs(
             body, param_count, ref_body_locals, block_initialized, safe,
@@ -434,7 +403,17 @@ fn ls_scan_branch_free_dominance_instrs(
           None => ()
         }
       }
-      @lib.Loop(_, _) | @lib.TryTable(_, _, _) => return false
+      @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => return false
       _ => ()
     }
   }
