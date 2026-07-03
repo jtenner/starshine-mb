@@ -77,7 +77,7 @@ The current implementation is a narrower subset that narrows body locals from wr
 - `src/cmd/cmd_wbtest.mbt:4376-4439`
   - CLI integration test for `--local-subtyping` on wasm inputs.
 - `src/validate/gen_valid.mbt` and `src/validate/gen_valid_tests.mbt`
-  - dedicated `local-subtyping-all` GenValid aggregate with `local-subtyping-straight-line` and `local-subtyping-structured` trigger leaves for closeout evidence.
+  - dedicated `local-subtyping-all` GenValid aggregate with `local-subtyping-straight-line`, `local-subtyping-structured`, and `local-subtyping-unreachable-tail` trigger leaves for closeout evidence.
 
 ## What the current implementation actually does
 
@@ -127,7 +127,7 @@ The next full-contract parity tests should cover:
 2. `local.get` / `local.tee` expression retagging after declaration narrowing;
 3. repeated refinement after a pass change;
 4. broader body-local/parameter boundary coverage beyond the now-guarded source-backed parameter-preservation fixture;
-5. scaling the new `local-subtyping-all` GenValid aggregate from profile smoke to the required 10000-case dedicated signoff lane. Its current leaves cover straight-line local.set/local.tee dominance and branch-free block/loop/if dominated reads over nullable `anyref` body locals written with non-null `struct.new_default` values.
+5. using the now-required-size-green `local-subtyping-all` GenValid aggregate as the dedicated closeout profile. Its current leaves cover straight-line local.set/local.tee dominance, branch-free block/loop/if dominated reads, and root return/unreachable-tail reads over nullable `anyref` body locals written with non-null `struct.new_default` values.
 
 ## Bottom line
 
