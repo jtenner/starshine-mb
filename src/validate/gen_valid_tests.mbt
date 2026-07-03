@@ -4582,9 +4582,11 @@ fn gen_valid_test_tuple_helper_has_trap(mod_ : Module) -> Bool {
   match mod_.code_sec {
     Some(CodeSec(funcs)) =>
       if funcs.length() > 1 {
-        let Func(_, Expr(body)) = funcs[1]
-        if gen_valid_test_tuple_instrs_have_trap(body) {
-          return true
+        for i = 1; i < funcs.length(); i = i + 1 {
+          let Func(_, Expr(body)) = funcs[i]
+          if gen_valid_test_tuple_instrs_have_trap(body) {
+            return true
+          }
         }
       }
     None => ()
@@ -4675,7 +4677,11 @@ fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
         ) if get_before == set_idx &&
           set_idx == get_after &&
           gen_valid_test_tuple_helper_has_effect(mod_) =>
-          return "runtime-effectful-scratch-localized-selected-lane"
+          if gen_valid_test_tuple_helper_has_trap(mod_) {
+            return "runtime-mixed-effect-trap-scratch-localized-selected-lane"
+          } else {
+            return "runtime-effectful-scratch-localized-selected-lane"
+          }
         _ => ()
       }
     }
@@ -4935,6 +4941,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let runtime_mixed_effect_trap_scratch = match
+    gen_valid_module_result_from_seed(
+      0x6003UL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -5023,6 +5037,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x6002UL),
     Some("oi-tuple:runtime-multi-selected-effectful-lanes"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x6003UL),
+    Some("oi-tuple:runtime-mixed-effect-trap-scratch-localized-selected-lane"),
   )
   assert_true(
     gen_valid_test_tuple_first_block_i32_const(
@@ -5177,6 +5195,30 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
       runtime_multi_selected_effectful.wasm_module,
       "run_i64",
     ),
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(
+      runtime_mixed_effect_trap_scratch.wasm_module,
+    ),
+    "runtime-mixed-effect-trap-scratch-localized-selected-lane",
+  )
+  assert_true(
+    gen_valid_test_has_func_export(
+      runtime_mixed_effect_trap_scratch.wasm_module,
+      "run",
+    ),
+  )
+  assert_true(
+    gen_valid_test_tuple_helper_has_effect(
+      runtime_mixed_effect_trap_scratch.wasm_module,
+    ),
+    msg="expected mixed effect/trap runtime tuple case to preserve effects",
+  )
+  assert_true(
+    gen_valid_test_tuple_helper_has_trap(
+      runtime_mixed_effect_trap_scratch.wasm_module,
+    ),
+    msg="expected mixed effect/trap runtime tuple case to preserve traps",
   )
 }
 
