@@ -548,6 +548,7 @@ fn ls_non_null_dominated_linear_locals(
     safe,
     allow_terminal_return=true,
     allow_terminal_throw=true,
+    allow_non_final_return_tail=true,
   )
   if !scan_result.valid {
     for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {

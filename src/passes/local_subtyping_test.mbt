@@ -1890,6 +1890,147 @@ test "local-subtyping accepts root terminal return_call after dominated get" {
 }
 
 ///|
+test "local-subtyping accepts root return before unreachable tail get" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param(base_nullable, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::return_(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected root-return unreachable-tail narrowed local to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "local-subtyping accepts root return_call before unreachable tail get" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param_and_callee(base_nullable, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::return_call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected root-return_call unreachable-tail narrowed local to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "local-subtyping accepts root return_call_indirect before unreachable tail get" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param_and_tail_refs(base_nullable, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::return_call_indirect(
+      @lib.TypeIdx::new(3U),
+      @lib.TableIdx::new(0U),
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected root-return_call_indirect unreachable-tail narrowed local to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "local-subtyping accepts root return_call_ref before unreachable tail get" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_ref = @lib.RefType::new(
+    false,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nonnull = @lib.ValType::ref_type(child_ref)
+  let mod_ = ls_test_module_with_child_param_and_tail_refs(base_nullable, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::return_call_ref(@lib.TypeIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-subtyping pipeline success, got \{err}")
+  }
+  @debug.assert_eq(ls_test_first_body_local(optimized), child_nonnull)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected root-return_call_ref unreachable-tail narrowed local to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "local-subtyping accepts root terminal return_call_indirect after dominated get" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
