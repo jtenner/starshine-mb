@@ -289,7 +289,13 @@ Current broad random scale-up from 2026-07-03:
 - All `420` mismatches were from `heap2local-ref` and sampled failures matched the same guaranteed-true fresh exact-struct `ref.test` fold. A normalized-size sweep over all failure dirs with `wasm-opt --all-features --strip-debug` found Starshine exactly `5` bytes smaller in every mismatch.
 - Agent classification: no new broad residual family appeared at `10000`; the broad closeout blocker is now the explicit acceptance/normalizer decision for this documented Starshine static-fold win, not an unknown mismatch family.
 
-Use the aggregate to guard future OC changes. Do not report OC closeout until the remaining required direct/wasm-smith lanes are fully scaled and the documented broad static-fold win is explicitly accepted or normalized, plus final O4z/source/docs review.
+Current wasm-smith scale-up from 2026-07-03:
+
+- Raw explicit wasm-smith lane `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000`: requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `0`, mismatches `1`, validation/generator/property failures `0`, command failures `44` classified as Binaryen/oracle tool failures (`binaryen-rec-group-zero=39`, `binaryen-bad-section-size=3`, `binaryen-invalid-tag-index=1`, `binaryen-table-index-out-of-range=1`), cache `wasm-smith 10000/0`, Binaryen `1098/8858`, Binaryen-failure `3/41`.
+- Single raw mismatch: `case-009332-wasm-smith`, where Starshine leaves `drop(unreachable)` immediately before an `unreachable` and Binaryen removes it. Agent classification: cleanup debris, not an OC cast/refinement semantic mismatch.
+- Supplementary replay `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000-unreachable-normalized` with `--normalize unreachable-control-debris`: requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `1`, mismatches `0`, validation/generator/property failures `0`, command failures `44` with the same Binaryen/oracle classes.
+
+Use the aggregate to guard future OC changes. Do not report OC closeout until the remaining direct `100000` lane is scaled and the documented broad static-fold plus wasm-smith unreachable-debris residuals are explicitly accepted or normalized, plus final O4z/source/docs review.
 
 Current timing and neighborhood evidence from 2026-07-03:
 

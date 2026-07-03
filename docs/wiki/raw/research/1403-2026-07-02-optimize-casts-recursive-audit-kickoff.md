@@ -954,10 +954,20 @@ The second slice of this iteration scaled the broad `random-all-profiles` lane t
 
 Agent classification: the full-size broad random lane did not reveal a new OC residual family. The remaining raw mismatches are the already-documented source-backed Starshine static-fold win from OC's local contract and focused static-fold tests, not a newly discovered behavior-parity gap. However, because the harness still reports these as raw mismatches, final closeout still needs an explicit acceptance/normalizer decision for this exact family before the broad lane can be treated as green closeout evidence.
 
+## Slice 47 wasm-smith `10000` scale-up
+
+The third slice of this iteration scaled the explicit wasm-smith lane to the closeout requested count and then replayed it once with a narrow cleanup normalizer to classify the only raw mismatch:
+
+- Raw explicit wasm-smith lane `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000`: requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `0`, mismatches `1`, validation/generator/property failures `0`, command failures `44` classified as Binaryen/oracle tool failures (`binaryen-rec-group-zero=39`, `binaryen-bad-section-size=3`, `binaryen-invalid-tag-index=1`, `binaryen-table-index-out-of-range=1`), cache `wasm-smith 10000/0`, Binaryen `1098/8858`, Binaryen-failure `3/41`.
+- The single raw mismatch was `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000/failures/case-009332-wasm-smith`. The normalized WAT diff is only an unreachable-control debris shape: Starshine leaves an extra `drop(unreachable)` before the function's following `unreachable`, while Binaryen removes it. No GC cast/ref.as local-flow difference is present in the diff.
+- Supplementary normalized replay `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000-unreachable-normalized` with `--normalize unreachable-control-debris`: requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `1`, mismatches `0`, validation/generator/property failures `0`, command failures `44` with the same Binaryen/oracle classes. This replay hit cached wasm-smith/Binaryen artifacts (`wasm-smith 10000/0`, Binaryen `9956/0`, Binaryen-failure `44/0`).
+
+Agent classification: the explicit wasm-smith lane is now closeout-sized. The only Starshine-vs-Binaryen output difference is cleanup-normalized unreachable-control debris, not an OC cast/refinement semantic mismatch. Because OC's required signoff matrix does not yet have a documented normalizer/acceptance policy for this family, final closeout should either explicitly accept this cleanup-normalized wasm-smith result or decide to implement/align the incidental unreachable cleanup before claiming a raw-green wasm-smith lane.
+
 ## Recommended next implementation slices
 
-1. Scale the explicit wasm-smith lane to `10000`; broad/random has now been scaled to `10000` and still needs an explicit normalizer/acceptance decision for the documented `heap2local-ref` static-fold Starshine-win residual.
-2. Run the remaining direct regular GenValid `100000` lane with a current native binary.
+1. Run the remaining direct regular GenValid `100000` lane with a current native binary.
+2. Decide whether to explicitly accept or normalize the two closeout-sized residual classes now seen outside the dedicated lane: broad `heap2local-ref` static-fold Starshine wins, and the single wasm-smith `drop(unreachable)` cleanup-normalized mismatch.
 3. Treat the O4z GC/local neighborhood raw/canonical drift as localized to `coalesce-locals` by Slice 45; only reopen OC for that repro if a reduced diff shows the drift was seeded before the `coalesce-locals` slot.
 4. If new residuals appear outside the documented static-fold win, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
 5. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, and source/docs review are complete.
