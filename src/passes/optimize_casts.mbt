@@ -1004,29 +1004,27 @@ fn oc_single_dropped_child(func : @ir.HotFunc, root_id : Int) -> Int? {
 }
 
 ///|
-fn oc_nullable_ref_cast_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
+fn oc_nullable_ref_cast_early_source_local(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefCast(true, _, _)) => ()
     _ => return None
   }
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return None
-  }
-  let child_id = @ir.hot_child_get(func, node_id, 0)
-  oc_refinement_child_source_local(func, child_id, false)
+  oc_early_refinement_source_local(func, node_id)
 }
 
 ///|
-fn oc_ref_as_non_null_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
+fn oc_ref_as_non_null_early_source_local(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int? {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.Instruction::RefAsNonNull) => ()
     _ => return None
   }
-  if @ir.hot_child_count(func, node_id) != 1 {
-    return None
-  }
-  let child_id = @ir.hot_child_get(func, node_id, 0)
-  oc_refinement_child_source_local(func, child_id, true)
+  oc_early_refinement_source_local(func, node_id)
 }
 
 ///|
@@ -1045,8 +1043,8 @@ fn oc_separate_ref_as_cast_pair(
   }
   match
     (
-      oc_nullable_ref_cast_source_local(func, first_child),
-      oc_ref_as_non_null_source_local(func, second_child),
+      oc_nullable_ref_cast_early_source_local(func, first_child),
+      oc_ref_as_non_null_early_source_local(func, second_child),
     ) {
     (Some(cast_local), Some(as_local)) =>
       if cast_local == as_local {
@@ -1056,8 +1054,8 @@ fn oc_separate_ref_as_cast_pair(
   }
   match
     (
-      oc_ref_as_non_null_source_local(func, first_child),
-      oc_nullable_ref_cast_source_local(func, second_child),
+      oc_ref_as_non_null_early_source_local(func, first_child),
+      oc_nullable_ref_cast_early_source_local(func, second_child),
     ) {
     (Some(as_local), Some(cast_local)) =>
       if as_local == cast_local {
