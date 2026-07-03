@@ -482,6 +482,27 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: broader adjacent-block reuse beyond branch-free roots/value-block sources, effectful or local-writing source blocks, broader multi-cast/best-cast coverage, local-write windows beyond nontrapping pure separate-index `local.set`, `local.tee` and same-local writes, calls/effects/traps/control barriers, dedicated-profile compare/classification, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 23 nested ref.as/cast early-motion result
+
+The twenty-third recursive slice added the first source-backed nested cast/as-non-null early-motion subset from the Binaryen lit `move-ref.as-and-ref.cast` family:
+
+- a later dropped `ref.as_non_null(ref.cast (ref null T) (local.get x))` can be duplicated onto an earlier dropped same-local `local.get`, preserving both nested operations in the duplicated stack;
+- the unsupported sibling `ref.cast T(ref.as_non_null(local.get x))` remains excluded, matching the lit `unoptimizable-nested-casts` boundary rather than over-widening nested-cast motion.
+
+Before implementation, the nested positive still had only one `ref.cast` / `ref.as_non_null` pair because `oc_refinement_source_local` only recognized direct local/block sources and `oc_duplicate_refinement_at_get` cloned only the outer refinement node. `src/passes/optimize_casts.mbt` now recognizes exactly the nullable inner `ref.cast` under outer `ref.as_non_null` shape, clones that nested refinement stack onto the earlier pending get, and leaves outer-ref.cast-over-ref.as forms out of the new helper. Later reuse may also observe this nested refinement as one outer best-cast value, but the subset still does not implement all nested mixed cast ordering from the Binaryen lit family.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on `optimize-casts duplicates nested nullable cast and ref.as_non_null` before implementation (`51/52` passed), then passed `52/52` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3867/3867`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-nested-ref-as-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-nested-ref-as-smoke-20`: compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, Binaryen cache `20/0`, and selected leaves `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: the remaining nested mixed `ref.cast`/`ref.as_non_null` lit variants, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, local-write windows beyond nontrapping pure separate-index `local.set`, `local.tee` and same-local writes, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, investigate a narrow `ref.as_non_null` variant across nonconstant pure separate-index `local.set`, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
