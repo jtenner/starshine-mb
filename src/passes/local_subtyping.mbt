@@ -415,8 +415,26 @@ fn ls_scan_branch_free_dominance_instrs(
           return false
         }
       }
-      @lib.Loop(_, _) | @lib.If(_, _, _) | @lib.TryTable(_, _, _) =>
-        return false
+      @lib.If(_, then_body, else_body) => {
+        let then_initialized = initialized.copy()
+        if !ls_scan_branch_free_dominance_instrs(
+            then_body, param_count, ref_body_locals, then_initialized, safe,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) => {
+            let else_initialized = initialized.copy()
+            if !ls_scan_branch_free_dominance_instrs(
+                body, param_count, ref_body_locals, else_initialized, safe,
+              ) {
+              return false
+            }
+          }
+          None => ()
+        }
+      }
+      @lib.Loop(_, _) | @lib.TryTable(_, _, _) => return false
       _ => ()
     }
   }
