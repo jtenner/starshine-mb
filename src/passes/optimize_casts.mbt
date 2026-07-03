@@ -895,10 +895,12 @@ fn oc_ref_type_as_non_null(ref_type : @lib.RefType) -> @lib.RefType {
 }
 
 ///|
-fn oc_refinalize_marked_nullable_ref_cast(
+fn oc_refinalize_marked_ref_cast_to_best(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
   root_id : Int,
+  best_cast : Int,
   moved_refinalized_refinements : Array[Int],
 ) -> Bool {
   let cast_id = match oc_single_dropped_child(func, root_id) {
@@ -908,24 +910,29 @@ fn oc_refinalize_marked_nullable_ref_cast(
   if !oc_contains_local(moved_refinalized_refinements, cast_id) {
     return false
   }
-  let (exact, heap_type) = match @ir.hot_node_exact_instr(func, cast_id) {
-    Some(@lib.Instruction::RefCast(true, exact, heap_type)) =>
-      (exact, heap_type)
+  match @ir.hot_node_exact_instr(func, cast_id) {
+    Some(@lib.Instruction::RefCast(_, _, _)) => ()
     _ => return false
   }
   if @ir.hot_child_count(func, cast_id) != 1 {
     return false
   }
-  let non_null_target = @lib.RefType::new(false, heap_type, exact~)
+  if !oc_cast_is_more_refined(module_ctx, func, best_cast, cast_id) {
+    return false
+  }
+  let best_target = match oc_refinement_type_from_node(func, best_cast) {
+    Some(ref_type) => ref_type
+    None => return false
+  }
   let cast_node = @ir.hot_node_get(func, cast_id)
   let payload_id = @ir.hot_alloc_instr_payload(
     func,
-    @ir.HotInstrPayload::new(@lib.Instruction::ref_cast_type(non_null_target)),
+    @ir.HotInstrPayload::new(@lib.Instruction::ref_cast_type(best_target)),
   )
   let replacement_id = @ir.hot_build_node(
     func,
     cast_node.op,
-    @ir.hot_type_intern_value(func, @lib.ValType::ref_type(non_null_target)),
+    @ir.hot_type_intern_value(func, @lib.ValType::ref_type(best_target)),
     imm0=cast_node.imm0,
     imm1=payload_id,
     children=oc_node_children(func, cast_id),
@@ -1614,6 +1621,9 @@ fn oc_early_motion_scan_region(
               if !oc_contains_local(moved_refinalized_refinements, cast_id) {
                 moved_refinalized_refinements.push(cast_id)
               }
+              if !oc_contains_local(moved_refinalized_refinements, pending_cast) {
+                moved_refinalized_refinements.push(pending_cast)
+              }
             }
           } else if pending_cast >= 0 &&
             pending_refinement_gets[local_id] >= 0 &&
@@ -1926,8 +1936,8 @@ fn oc_later_reuse_scan_region(
           if oc_retarget_local_gets(ctx, func, root_id, local_id, fresh_local) >
             0 {
             changed = true
-            if oc_refinalize_marked_nullable_ref_cast(
-                ctx, func, root_id, moved_refinalized_refinements,
+            if oc_refinalize_marked_ref_cast_to_best(
+                ctx, func, module_ctx, root_id, best_cast, moved_refinalized_refinements,
               ) {
               changed = true
             }

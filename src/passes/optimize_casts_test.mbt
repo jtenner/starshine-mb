@@ -1591,13 +1591,19 @@ test "optimize-casts moves the deepest best cast across a three-level chain" {
     ),
   )
   let func_type = @lib.RecType::new(
-    @lib.SubType::comp_type(@lib.CompType::func([
-      @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
-        ),
-      )], [])),
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [
+          @lib.ValType::ref_type(
+            @lib.RefType::new(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+            ),
+          ),
+        ],
+        [],
+      ),
+    ),
   )
   let pretty = optimize_casts_run_pretty(
     @lib.Module::new()
@@ -1629,7 +1635,8 @@ test "optimize-casts moves the deepest best cast across a three-level chain" {
             ),
             @lib.Instruction::drop(),
           ]),
-        )]),
+        ),
+      ]),
     ),
   )
   @debug.assert_eq(
