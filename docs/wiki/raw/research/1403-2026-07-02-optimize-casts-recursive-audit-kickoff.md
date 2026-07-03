@@ -972,9 +972,23 @@ The first slice of this iteration scaled the remaining direct regular GenValid l
 
 Agent classification: the direct regular GenValid closeout lane is now green at the required `100000` requested cases. This retires the direct-scale blocker. OC closeout still needs explicit treatment of the two already-classified non-dedicated residual classes: the broad `heap2local-ref` static-fold Starshine-win family and the wasm-smith `drop(unreachable)` cleanup-normalized mismatch. The final source/docs review also remains open.
 
+## Slice 49 broad `random-all-profiles` static-fold residual decision
+
+This slice made the explicit closeout decision for the broad `random-all-profiles` residual from Slice 46: accept the family as a documented Starshine-win residual for OC closeout rather than adding a harness normalizer.
+
+Acceptance basis:
+
+- Scope: all `420` raw mismatches in `.tmp/pass-fuzz-optimize-casts-random-all-profiles-after-exact-local-10000` selected `heap2local-ref`; no other selected profile produced a mismatch.
+- Shape: sampled cases match `drop(ref.test (ref (exact $0)) (struct.new_default $0))` versus Starshine's folded `drop(i32.const 1)`.
+- Source/test grounding: `optimize-casts` intentionally owns guaranteed-true `ref.test` folding in `src/passes/optimize_casts_test.mbt` (`optimize-casts folds ref.test that is guaranteed true`), even though upstream Binaryen `OptimizeCasts.cpp` is narrower for local-flow casts/as-non-null.
+- Semantics: the tested reference is a freshly constructed exact `$0` struct, so the `ref.test` is guaranteed true and replacing it with `i32.const 1` preserves observable behavior.
+- Measurement: a normalized-size sweep across every broad failure dir showed Starshine exactly `5` bytes smaller in all `420` cases (`-2100` total).
+
+Decision: no compare normalizer is added for this family because the output difference is an intentional, measured Starshine improvement and because a broad normalizer for `ref.test` folds could hide unrelated future GC/ref-test drift. Future broad lanes may count this exact family as accepted closeout evidence only when all residuals are the same guaranteed-true fresh exact-struct `heap2local-ref` fold and the size direction remains non-regressive. Reopen the broad lane for any additional family, any non-`heap2local-ref` mismatch, a Starshine validation/generator/property failure, or a size-losing version of the fold.
+
 ## Recommended next implementation slices
 
-1. Decide whether to explicitly accept or normalize the two closeout-sized residual classes now seen outside the dedicated lane: broad `heap2local-ref` static-fold Starshine wins, and the single wasm-smith `drop(unreachable)` cleanup-normalized mismatch.
+1. Decide whether to explicitly accept the wasm-smith `drop(unreachable)` cleanup-normalized mismatch or implement/align the incidental unreachable cleanup before claiming the wasm-smith lane.
 2. Treat the O4z GC/local neighborhood raw/canonical drift as localized to `coalesce-locals` by Slice 45; only reopen OC for that repro if a reduced diff shows the drift was seeded before the `coalesce-locals` slot.
 3. If new residuals appear outside the documented static-fold win, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
-4. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, residual treatment decisions, and source/docs review are complete.
+4. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, wasm-smith residual treatment, and source/docs review are complete.

@@ -293,7 +293,7 @@ Current broad random scale-up from 2026-07-03:
 
 - Broad random profile `.tmp/pass-fuzz-optimize-casts-random-all-profiles-after-exact-local-10000`: requested/compared `10000/10000`, normalized `9580`, cleanup-normalized `0`, mismatches `420`, validation/generator/property/command failures `0`, Binaryen cache `2982/7018`. Selected profiles were `binaryen-oracle-portable=1703`, `ssa-nomerge-smoke=1699`, `pass-fuzz-stress=1691`, `ssa-nomerge-parity=1644`, `coverage-forced-portable=1610`, `heap2local-struct=715`, `heap2local-ref=484`, and `heap2local-array=454`.
 - All `420` mismatches were from `heap2local-ref` and sampled failures matched the same guaranteed-true fresh exact-struct `ref.test` fold. A normalized-size sweep over all failure dirs with `wasm-opt --all-features --strip-debug` found Starshine exactly `5` bytes smaller in every mismatch.
-- Agent classification: no new broad residual family appeared at `10000`; the broad closeout blocker is now the explicit acceptance/normalizer decision for this documented Starshine static-fold win, not an unknown mismatch family.
+- Agent classification: no new broad residual family appeared at `10000`; the broad residual is accepted for OC closeout as a source-backed, focused-test-guarded, measured Starshine static-fold win. No harness normalizer is added because that could hide unrelated future `ref.test` drift. Reopen broad closeout for any residual outside this exact fresh exact-struct `heap2local-ref` fold or for a non-winning size direction.
 
 Current wasm-smith scale-up from 2026-07-03:
 
@@ -301,7 +301,7 @@ Current wasm-smith scale-up from 2026-07-03:
 - Single raw mismatch: `case-009332-wasm-smith`, where Starshine leaves `drop(unreachable)` immediately before an `unreachable` and Binaryen removes it. Agent classification: cleanup debris, not an OC cast/refinement semantic mismatch.
 - Supplementary replay `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000-unreachable-normalized` with `--normalize unreachable-control-debris`: requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized `1`, mismatches `0`, validation/generator/property failures `0`, command failures `44` with the same Binaryen/oracle classes.
 
-Use the aggregate to guard future OC changes. Do not report OC closeout until the documented broad static-fold plus wasm-smith unreachable-debris residuals are explicitly accepted or normalized, plus final O4z/source/docs review.
+Use the aggregate to guard future OC changes. Do not report OC closeout until the wasm-smith unreachable-debris residual is explicitly accepted or aligned, plus final O4z/source/docs review. The broad `heap2local-ref` static-fold residual is accepted as a documented Starshine win under the reopening criteria above.
 
 Current timing and neighborhood evidence from 2026-07-03:
 
