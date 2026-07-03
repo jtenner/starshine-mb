@@ -62,25 +62,25 @@ Covered subset:
 
 Still not covered here:
 
-- multi-use/local-carried tuple producers (`OI-M-SB003`);
+- tuple-valued multi-use/local-carried tuple producers (`OI-M-SB003`), later narrowed to a source-backed no-rewrite boundary by note `1420`;
 - control/branch/EH/nested-region siblings (`OI-M-SB004`);
 - generalized tuple-scratch/block reconstruction (`OI-M-SB005`).
 
 ### OI-M-SB003 — multi-use and local-carried tuple producers
 
-Status: active P0 mismatch needing implementation.
+Status: source-backed tuple-valued local/multi-use no-rewrite boundary after follow-up note `docs/wiki/raw/research/1420-2026-07-03-optimize-instructions-oi-m-local-carried-tuple-boundary.md`; not a P0 implementation blocker while the probes hold.
 
 Why separate:
 
 - The implemented slice requires a live one-use direct `TupleMake` so it does not duplicate producer effects, stale shared tuple users, or local-carried tuple state.
 - Existing generated profile labels already exercise local-carried, local.tee-produced, helper-call-produced, select-produced, and randomized existing-producer tuple lanes, but grouped OI-M lanes still report raw mismatches.
 
-Next evidence:
+Follow-up evidence:
 
-- one reduced Binaryen probe for a local-carried tuple value;
-- one reduced Binaryen probe for a multi-use tuple producer;
-- red-first Starshine tests for the chosen subset;
-- a decision on whether implementation needs tuple-value dataflow analysis or a narrower direct-local rewrite.
+- `.tmp/oi-m-local-carried-oneuse-sb003-20260703.wat` shows Binaryen preserving `tuple.extract` through a tuple local.set/local.get producer.
+- `.tmp/oi-m-localtee-tuple-producer-sb003-20260703.wat` shows Binaryen preserving `tuple.extract` through a `local.tee` tuple producer.
+- `.tmp/oi-m-tuple-multiuse-probe.wat` shows Binaryen preserving both extracts through a shared tuple local.
+- `src/passes/optimize_instructions_test.mbt` keeps the direct-HOT multi-use boundary; the remaining selected-lane raw-mismatch labels are owned by OI-M-SB005 generalized tuple-scratch reconstruction, not speculative tuple-value dataflow scalarization.
 
 ### OI-M-SB004 — control/branch/EH siblings
 

@@ -75,11 +75,12 @@ Summary: compared `108/108`, normalized `0`, cleanup `0`, mismatches `108`, vali
 - control/branch/EH/nested-region lanes remain excluded;
 - no multi-use or local-carried tuple producer rewrite is attempted.
 
-This slice does not close OI-M. Remaining active/P0 surfaces are:
+This slice does not close OI-M. Remaining active/P0 surfaces after follow-up note `docs/wiki/raw/research/1420-2026-07-03-optimize-instructions-oi-m-local-carried-tuple-boundary.md` are:
 
-- `OI-M-SB003` multi-use and local-carried tuple producers;
 - `OI-M-SB004` control/branch/EH siblings, still blocked/fail-closed;
 - `OI-M-SB005` generalized tuple-scratch reconstruction/localization.
+
+`OI-M-SB003` tuple-valued local-carried/local.tee/multi-use producers are now a source-backed no-rewrite boundary while the Binaryen probes hold; selected-lane raw-mismatch labels with local/scratch traffic are owned by `OI-M-SB005`, not speculative tuple-value producer scalarization.
 
 Do not infer OI-G or OI-I/OI-J/OI-K closure from this OI-M evidence.
 

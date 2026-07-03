@@ -26084,12 +26084,15 @@ test "optimize-instructions intentionally keeps tuple.extract with unsupported c
 
 ///|
 test "optimize-instructions intentionally keeps multi-use tuple.make boundary" {
-  // Boundary-only OI-M classification: Binaryen `version_130`
-  // `--optimize-instructions` keeps tuple extractions through a local-carried
-  // multi-use tuple (`.tmp/oi-m-tuple-multiuse-probe.wat`). Starshine's direct
+  // Boundary-only OI-M-SB003 classification: Binaryen `version_130`
+  // `--optimize-instructions` keeps tuple extractions through local-carried
+  // tuple values, including one-use local.set/local.get, local.tee, and
+  // multi-use tuple-local probes (`.tmp/oi-m-local-carried-oneuse-sb003-20260703.wat`,
+  // `.tmp/oi-m-localtee-tuple-producer-sb003-20260703.wat`, and
+  // `.tmp/oi-m-tuple-multiuse-probe.wat`). Starshine's direct
   // tuple.extract(tuple.make(...)) forwarding remains one-use-only, and this
   // direct-HOT fixture locks the same multi-use proof boundary rather than
-  // claiming broader tuple reconstruction parity.
+  // claiming broader tuple-value dataflow or tuple reconstruction parity.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
