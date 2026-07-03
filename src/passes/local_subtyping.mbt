@@ -383,6 +383,7 @@ fn ls_scan_branch_free_dominance_instrs(
   initialized : Array[Bool],
   safe : Array[Bool],
   allow_return_skip? : Bool = false,
+  allow_throw_skip? : Bool = false,
   allow_terminal_return? : Bool = false,
   allow_terminal_throw? : Bool = false,
 ) -> LsDominanceScanResult {
@@ -416,8 +417,10 @@ fn ls_scan_branch_free_dominance_instrs(
           ref_body_locals,
           block_initialized,
           safe,
+          allow_return_skip~,
+          allow_throw_skip~,
           allow_terminal_return=allow_terminal_return || allow_return_skip,
-          allow_terminal_throw=allow_terminal_throw || allow_return_skip,
+          allow_terminal_throw=allow_terminal_throw || allow_throw_skip,
         )
         if !block_result.valid {
           return LsDominanceScanResult::new(false, false)
@@ -459,6 +462,7 @@ fn ls_scan_branch_free_dominance_instrs(
           then_initialized,
           safe,
           allow_return_skip=true,
+          allow_throw_skip=true,
         )
         if !then_result.valid {
           return LsDominanceScanResult::new(false, false)
@@ -473,6 +477,7 @@ fn ls_scan_branch_free_dominance_instrs(
               else_initialized,
               safe,
               allow_return_skip=true,
+              allow_throw_skip=true,
             )
             if !else_result.valid {
               return LsDominanceScanResult::new(false, false)
@@ -496,7 +501,9 @@ fn ls_scan_branch_free_dominance_instrs(
           return LsDominanceScanResult::new(false, false)
         }
       @lib.Throw(_) =>
-        if allow_terminal_throw && instr_idx + 1 == instrs.length() {
+        if allow_throw_skip {
+          ()
+        } else if allow_terminal_throw && instr_idx + 1 == instrs.length() {
           allow_later_write_init = false
           propagates = false
         } else {
