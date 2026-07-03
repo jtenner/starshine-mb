@@ -446,6 +446,42 @@ test "optimize-casts refinalizes a broader cast after duplicating a narrower sou
 }
 
 ///|
+test "optimize-casts reuses moved narrower cast after broad then narrow roots" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_void_module(struct_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "local.get (Local 1)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "HeapType Idx 0"),
+    0,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-casts moves the best later cast to the earliest get" {
   let struct_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
