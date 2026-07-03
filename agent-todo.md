@@ -1222,9 +1222,9 @@ Preset behavior inventory:
   - Explicit non-scope / reopening surfaces: Binaryen's own `past-basic-block` arbitrary-dominance TODO, extern conversions, whole-CFG cast propagation, immediate deletion of every redundant old cast, and a fully generic EffectAnalyzer clone beyond the tested barrier families. Reopen only for new Binaryen source/lit drift, a true semantic mismatch, Starshine validation/generator/property failure, residual outside the accepted broad static-fold or wasm-smith cleanup-debris families, non-winning size direction for the accepted broad residual, or a reduction proving OC seeds the later `coalesce-locals` neighborhood drift.
 
 - [O4Z-AUDIT-LS] - Deep audit `local-subtyping`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit. Current slice started the recursive LS closeout track: direct `local.tee` assignment coverage is explicit, and Starshine now handles the first nullable-to-non-null dominance subset for straight-line bodies whose `local.get`s are all after a write and whose body has no structured-control dominance ambiguity. The non-null positive was red before implementation and now validates after narrowing; early-get fallback stays nullable.
   - Scope: local type refinement, write-site and join behavior, GC refs, call_ref and try_table shapes, interaction with optimize-casts/DAE, and validation refinalization.
-  - Deliverables: apply the common checklist; add missing local-refinement fixtures; refresh direct compare and `LS` slot evidence; document conservative join/bailout policy.
+  - Deliverables: apply the common checklist; add missing local-refinement fixtures; refresh direct compare and `LS` slot evidence; document conservative join/bailout policy. Remaining LS family groups: structured-control dominance; get/tee expression retagging; repeated refinalize/reanalyze; parameter/body-local boundaries; LS-specific GenValid profile and required four-lane signoff; ordered neighborhood evidence with optimize-casts, coalesce-locals, and local-cse.
 
 - [O4Z-AUDIT-CL] - Deep audit `coalesce-locals`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
