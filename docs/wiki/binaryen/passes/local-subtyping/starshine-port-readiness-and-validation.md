@@ -49,7 +49,7 @@ Use it with:
 ## Current local reality
 
 Starshine `local-subtyping` is an active module pass.
-The shipped implementation is narrower than Binaryen: it uses write-site evidence to narrow body locals and now has first straight-line plus branch-free `block` and root `if` non-null dominance slices, but it does not yet do full structural get-aware dominance repair, get/tee expression retagging, or iterative refinalization.
+The shipped implementation is narrower than Binaryen: it uses write-site evidence to narrow body locals and now has first straight-line plus branch-free `block`, nested block-`if`, and root `if` non-null dominance slices, but it does not yet do full structural get-aware dominance repair, get/tee expression retagging, or iterative refinalization.
 
 ## The current Starshine slice
 
@@ -57,7 +57,7 @@ The shipped slice is:
 
 1. collect write-site types from `local.set` / `local.tee`;
 2. compute a safe common reference subtype;
-3. allow nullable-to-non-null narrowing only for the current straight-line, branch-free `block`, and branch-free root `if` subset where every raw `local.get` of that body local follows a dominating write and no loop, `try_table`, branch, return, throw, or broader join/post-state case invalidates the simple proof;
+3. allow nullable-to-non-null narrowing only for the current straight-line, branch-free `block`, nested branch-free block-`if`, and branch-free root `if` subset where every raw `local.get` of that body local follows a dominating write and no loop, `try_table`, branch, return, throw, or broader join/post-state case invalidates the simple proof;
 4. rewrite body-local declarations only;
 5. rebuild the module only when a body local changes.
 
@@ -68,12 +68,12 @@ That is a valid Starshine pass, but it is only a subset of the upstream contract
 | Surface | Why it matters |
 | --- | --- |
 | `src/passes/local_subtyping.mbt:1-19` | summary and public pass description. |
-| `src/passes/local_subtyping.mbt:143-595` | subtype helpers, assignment collection, candidate narrowing, straight-line/branch-free block/root-if dominance scanning, and function rewrite. |
-| `src/passes/local_subtyping.mbt:596-627` | active module-pass entrypoint and module rebuild. |
+| `src/passes/local_subtyping.mbt:143-574` | subtype helpers, assignment collection, candidate narrowing, straight-line/branch-free block/nested-if/root-if dominance scanning, and function rewrite. |
+| `src/passes/local_subtyping.mbt:575-606` | active module-pass entrypoint and module rebuild. |
 | `src/passes/registry_test.mbt:78-82` | registry category is `module_pass`. |
 | `src/passes/optimize.mbt:284-285, 296-312` | registry entry and hot-preset inclusion. |
 | `src/passes/pass_manager.mbt:8937-8940` | active dispatcher case. |
-| `src/passes/local_subtyping_test.mbt:41-351` | active pass tests for registry lookup, the shipped narrowing cases, straight-line non-null dominance, branch-free block dominance/fallback, and branch-free root-if dominance/fallback. |
+| `src/passes/local_subtyping_test.mbt:41-406` | active pass tests for registry lookup, the shipped narrowing cases, straight-line non-null dominance, branch-free block dominance/fallback, nested branch-free block-if dominance, and branch-free root-if dominance/fallback. |
 | `src/cmd/cmd_wbtest.mbt:4376-4439` | end-to-end CLI proof for `--local-subtyping`. |
 | `src/passes/optimize_test.mbt:522-526` | preset slot proof in the late local-cleanup neighborhood. |
 
@@ -82,7 +82,7 @@ That is a valid Starshine pass, but it is only a subset of the upstream contract
 Compared with Binaryen, Starshine still lacks:
 
 - full structural get-site dominance analysis;
-- non-null fallback based on structural dominance across loops, EH regions, broader `if` join/post-state cases, and blocks with branch/return/throw flow;
+- non-null fallback based on structural dominance across loops, EH regions, broader `if` join/post-state cases, and blocks/ifs with branch/return/throw flow;
 - get/tee expression retagging after declaration narrowing;
 - repeated refinalize/reanalyze rounds;
 - broader shape coverage for parameters, structured tees, and non-null cases.
@@ -101,7 +101,7 @@ Current coverage should stay green first:
 
 Refreshed direct signoff on 2026-05-06 ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
-The current audit slices add and validate focused direct tests: `local.tee` assignments feed narrowing; a straight-line non-null write before all gets can narrow a nullable body local to a non-null child type; a branch-free `block` entered after a dominating write can contain non-null gets; a branch-free root `if` entered after a dominating write can contain non-null gets; and early gets before the write, including gets inside an earlier block or `if` arm, fall back to the nullable child type. The straight-line, block, and if non-null positives failed before implementation and now pass with optimized-module validation.
+The current audit slices add and validate focused direct tests: `local.tee` assignments feed narrowing; a straight-line non-null write before all gets can narrow a nullable body local to a non-null child type; a branch-free `block` entered after a dominating write can contain non-null gets; a branch-free nested `if` inside such a block can contain non-null gets; a branch-free root `if` entered after a dominating write can contain non-null gets; and early gets before the write, including gets inside an earlier block or `if` arm, fall back to the nullable child type. The straight-line, block, nested block-if, and root-if non-null positives failed before implementation and now pass with optimized-module validation.
 
 Then grow coverage in this order:
 
