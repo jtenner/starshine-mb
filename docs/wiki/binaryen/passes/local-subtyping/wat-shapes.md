@@ -194,7 +194,7 @@ Before:
   (drop (local.get $x)))
 ```
 
-Possible after, when the block has no branch/return/throw flow:
+Possible after, when the block has no direct branch/return/throw flow:
 
 ```wat
 (local $x (ref $A))
@@ -218,7 +218,7 @@ Before:
 (drop (local.get $x))
 ```
 
-Possible after, when the block has no branch/return/throw flow:
+Possible after, when the block has no direct branch/return/throw flow:
 
 ```wat
 (local $x (ref $A))
@@ -228,7 +228,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows this shape under `--local-subtyping`;
 - a branch-free block runs its write before the following outer get;
-- Starshine now propagates initialized state out of branch-free blocks, while still bailing on branch, return, throw, and `try_table` flow.
+- Starshine now propagates initialized state out of branch-free blocks, while still keeping direct branch/return, throw, and `try_table` post-state flow conservative.
 
 ## Shape 6b: branch flow blocks non-null block post-state propagation
 
@@ -253,7 +253,7 @@ Why it stays nullable:
 
 - the assigned heap type still narrows from `$Parent` to `$A`;
 - local Binaryen v130 does not use this branch-flow block post-state to prove non-nullability;
-- Starshine keeps the same nullable fallback by bailing out of the non-null dominance scan on unconditional `br`, `br_table`, return, throw, and `try_table` flow.
+- Starshine keeps the same nullable fallback by bailing out of the non-null dominance scan on unconditional `br`, `br_table`, direct return/post-state, throw, and `try_table` flow.
 
 ## Shape 6c: `br_if` paths that can skip a write stay nullable
 
@@ -279,6 +279,56 @@ Why it stays nullable:
 - the true branch exits the block before the write, so the later outer get can still observe the default null;
 - Starshine now treats `br_if` as a conditional-flow barrier for subsequent write initialization, rather than a full-function bailout, so earlier dominated gets can still narrow while branch-skipped writes do not prove non-null post-state.
 
+## Shape 6d: conditional `return` paths can skip later dominance paths
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(if (i32.const 0)
+  (then (return)))
+(local.set $x (local.get $p))
+(drop (local.get $x))
+```
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- the returning branch cannot reach the later write or get;
+- every path that reaches the later get has executed the non-null write;
+- Starshine now treats `return` inside copied `if` arms as a path skip for this dominance proof, while keeping direct return/post-state cases conservative.
+
+## Shape 6e: direct block `return` flow is a Starshine validator boundary
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block
+  (local.set $x (local.get $p))
+  (return))
+(drop (local.get $x))
+```
+
+Binaryen v130 narrows this direct-return shape to non-null child and the Binaryen output validates with `wasm-tools`, but current Starshine keeps the local nullable:
+
+```wat
+(local $x (ref null $A))
+```
+
+Why Starshine stays nullable for now:
+
+- the later get is syntactically after a direct `return`, so Binaryen can rely on unreachable-path reasoning;
+- Starshine's current validation pass does not yet prove that unreachable post-return `local.get` uses of non-defaultable locals are initialized;
+- this is a precise representation/tooling blocker, not an accepted semantic win: reopen when Starshine validation models Binaryen's unreachable non-defaultable-local proof or when the LS pass can safely repair/avoid those unreachable gets.
+
 ## Shape 7: loop bodies can preserve entry domination
 
 Before:
@@ -291,7 +341,7 @@ Before:
   (drop (local.get $x)))
 ```
 
-Possible after, when the loop body has no branch/return/throw flow or only a tail `br_if` backedge after the dominated get:
+Possible after, when the loop body has no direct branch/return/throw flow or only a tail `br_if` backedge after the dominated get:
 
 ```wat
 (local $x (ref $A))
@@ -317,7 +367,7 @@ Before:
   (else (drop (local.get $x))))
 ```
 
-Possible after, when the `if` arms have no branch/return/throw flow:
+Possible after, when the `if` arms have no direct branch/throw flow except the conditional-return skip subset:
 
 ```wat
 (local $x (ref $A))
@@ -368,7 +418,7 @@ Before:
     (else (drop (local.get $x)))))
 ```
 
-Possible after, when no branch/return/throw flow is present:
+Possible after, when no direct branch/return/throw flow is present:
 
 ```wat
 (local $x (ref $A))
