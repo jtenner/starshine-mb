@@ -123,7 +123,7 @@ Next evidence:
 
 `agent-todo.md` removes ACCEL003 because the OI-M row now contains the requested split, evidence references, known support gaps, next evidence, and reopening criteria.
 
-ACCEL004 remains active. The next blocker is to prove whether existing OI-M summary tooling already emits a paste-ready residual summary or to extend it narrowly.
+Follow-up `docs/wiki/raw/research/1418-2026-07-03-optimize-instructions-oi-m-residual-summary-tooling.md` completed ACCEL004. No immediate OI-M acceleration blockers remain; continue ordinary OI-M implementation work against the sub-blockers in the parity matrix.
 
 ## Validation
 

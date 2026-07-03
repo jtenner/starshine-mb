@@ -17,19 +17,7 @@
 
 ### Immediate P0 OI-M acceleration blockers
 
-The selected-child arity accelerator, fixture helper, and semantic sub-blocker split are complete after the 2026-07-03 generalized implementation and ACCEL003 parity-matrix update. Keep reporting residuals before ordinary OI-M closure claims; ACCEL004 is the remaining immediate blocker.
-
-- [O4Z-AUDIT-OI-M-ACCEL]004 - Automate OI-M fuzz/runtime residual summaries
-  - Priority: P0.
-  - Status: active tooling accelerator; repeated OI-M slices spend time manually restating direct/grouped compare counts, runtime matrix equality, profile labels, cache counts, and active raw mismatch caveats.
-  - Goal: add or extend a small reporting path so OI-M direct/grouped compare results can be summarized consistently for docs/backlog updates without manual JSON spelunking.
-  - Why: this will not prove semantic parity by itself, but it reduces recurring bookkeeping and makes mismatch classification harder to accidentally overstate.
-  - Deliverables:
-    - [ ] Identify whether `scripts/oi-parity-sweep.ts --summarize-existing` or `scripts/pass-fuzz-compare.ts` can already emit the needed OI-M summary; extend existing tooling rather than adding a shell script.
-    - [ ] Emit compared/normalized/cleanup/raw mismatch counts, validation/generator/property/command failures, Binaryen cache counts, runtime checked/unsupported/failed counts, runtime matrix summary, and per-label profile counts in a paste-ready form.
-    - [ ] Include an explicit line that raw mismatches remain agent-classified active parity evidence unless separately measured and accepted.
-    - [ ] Document the command in the OI-M/fuzzing docs or parity matrix evidence notes if the helper becomes part of ordinary OI-M signoff.
-  - Suggested tests/evidence: focused Bun/script tests if script behavior changes, one existing OI-M result directory summary, and JSON/diff checks; Moon tests not required unless Moon sources change.
+The selected-child arity accelerator, fixture helper, semantic sub-blocker split, and residual-summary tooling accelerator are complete after the 2026-07-03 generalized implementation, ACCEL003 parity-matrix update, and ACCEL004 `oi-parity-sweep --summarize-existing` extension. No immediate OI-M acceleration blockers remain; continue with ordinary OI-M closure work against the explicit sub-blockers in `docs/wiki/binaryen/passes/optimize-instructions/parity-matrix.json`.
 
 ### O4z debug startup recovery
 

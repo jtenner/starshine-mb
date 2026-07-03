@@ -29,7 +29,8 @@
     "src/passes/optimize_instructions.mbt",
     "src/passes/optimize_instructions_test.mbt",
     "src/passes/pass_manager.mbt",
-    "docs/wiki/raw/research/1417-2026-07-03-optimize-instructions-oi-m-sub-blocker-split.md"
+    "docs/wiki/raw/research/1417-2026-07-03-optimize-instructions-oi-m-sub-blocker-split.md",
+    "docs/wiki/raw/research/1418-2026-07-03-optimize-instructions-oi-m-residual-summary-tooling.md"
   ],
   "families": [
     {
@@ -4555,11 +4556,11 @@
         }
       ],
       "closeoutState": "parity-gap",
-      "releaseImpact": "Full-parity target: OI-M remains active/P0 as a tuple/multivalue behavior parity gap. The direct one-use selected-child arbitrary-arity sub-surface is covered under explicit safe preconditions, but P0 residual sub-blockers remain for multi-result non-selected siblings, multi-use/local-carried tuple producers, control/branch/EH siblings, generalized tuple-scratch reconstruction/localization, and fuzz/runtime residual classification.",
-      "remainingCloseoutWork": "Work the explicit subBlockers list before moving OI-M out of active/P0. Covered direct one-use selected-child arbitrary arity is now maintained by reopening criteria; remaining implementation/classification work is OI-M-SB002 through OI-M-SB006. Runtime-green raw mismatch lanes are supporting evidence only and cannot close OI-M or neighboring OI-G/OI-I/OI-J/OI-K rows.",
-      "nextCloseoutAction": "First finish ACCEL004 by proving or extending the existing OI-M summary tooling. Then pick a bounded implementation sub-blocker: multi-result non-selected sibling preservation, multi-use/local-carried tuple producer reduction, control/EH sibling source audit/fail-closed proof, or generalized tuple-scratch reconstruction. Add red-first tests, focused validation, grouped runtime/fuzz evidence, and docs/backlog updates.",
-      "closeoutRationale": "ACCEL003 splits OI-M into source-backed sub-blockers. The implemented direct one-use arbitrary selected-child slice narrows but does not close OI-M because multiple source-visible tuple/multivalue surfaces remain unimplemented or unclassified. Runtime equality from sampled raw-mismatch lanes is evidence, not closure.",
-      "reopenCriteria": "Keep OI-M open until every subBlocker is implemented or explicitly accepted with source-backed evidence and reopening criteria. Reopen any accepted/covered sub-surface for validation failure, runtime semantic mismatch, effect/trap ordering drift, lost tuple lanes/users, Starshine raw/canonical size loss without a measured win, Binaryen source/lit/probe evidence contradicting the acceptance, or tooling that hides raw mismatches as safe automatically.",
+      "releaseImpact": "Full-parity target: OI-M remains active/P0 as a tuple/multivalue behavior parity gap. The direct one-use selected-child arbitrary-arity sub-surface is covered under explicit safe preconditions, and residual-summary tooling is available. P0 implementation blockers remain for multi-result non-selected siblings, multi-use/local-carried tuple producers, control/branch/EH siblings, and generalized tuple-scratch reconstruction/localization.",
+      "remainingCloseoutWork": "No immediate ACCEL blockers remain. Work the explicit implementation subBlockers before moving OI-M out of active/P0: OI-M-SB002 multi-result non-selected siblings, OI-M-SB003 multi-use/local-carried tuple producers, OI-M-SB004 control/branch/EH siblings, and OI-M-SB005 generalized tuple-scratch reconstruction/localization. Use OI-M-SB006's summary helper for residual reporting. Runtime-green raw mismatch lanes are supporting evidence only and cannot close OI-M or neighboring OI-G/OI-I/OI-J/OI-K rows.",
+      "nextCloseoutAction": "Pick a bounded implementation sub-blocker: multi-result non-selected sibling preservation, multi-use/local-carried tuple producer reduction, control/EH sibling source audit/fail-closed proof, or generalized tuple-scratch reconstruction. Add red-first tests, focused validation, grouped runtime/fuzz evidence using `bun scripts/oi-parity-sweep.ts --family OI-M --out-dir <existing-or-new-out-dir> --summarize-existing`, and docs/backlog updates.",
+      "closeoutRationale": "ACCEL003 split OI-M into source-backed sub-blockers and ACCEL004 made residual summaries paste-ready. The implemented direct one-use arbitrary selected-child slice narrows but does not close OI-M because source-visible tuple/multivalue implementation blockers remain. Runtime equality from sampled raw-mismatch lanes is evidence, not closure.",
+      "reopenCriteria": "Keep OI-M open until every implementation subBlocker is implemented or explicitly accepted with source-backed evidence and reopening criteria. Reopen any accepted/covered sub-surface for validation failure, runtime semantic mismatch, effect/trap ordering drift, lost tuple lanes/users, Starshine raw/canonical size loss without a measured win, Binaryen source/lit/probe evidence contradicting the acceptance, or tooling that hides raw mismatches as safe automatically.",
       "releaseDecision": "Accepted v0.1 release boundary for current tuple/multivalue selected-lane residuals; not family-covered.",
       "acceptedBoundaryEvidence": [
         ".tmp/oi-m-runtime-effectful-count96-20260630: compared 96/96, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 96/0/0, runtime matrix all-equal for 12 exported samples, manual validation accepted 384 residual raw/canonical artifacts, aggregate Starshine deltas -6180/-2826/+56712 raw/canonical/WAT.",
@@ -4569,7 +4570,9 @@
         ".tmp/oi-m-twenty-four-result-selected-count108-20260702: compared 108/108, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 108/0/0, runtime matrix 9/9 equal exported samples, all 18 OI-M tuple labels sampled, and 108 raw output-shape mismatches retained as active parity evidence rather than closure.",
         ".tmp/oi-m-twenty-five-result-selected-count108-20260703: compared 108/108, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 108/0/0, runtime matrix 9/9 equal exported samples, all 18 OI-M tuple labels sampled, and 108 raw output-shape mismatches retained as active parity evidence rather than closure.",
         "docs/wiki/raw/research/1417-2026-07-03-optimize-instructions-oi-m-sub-blocker-split.md: ACCEL003 split OI-M into six sub-blockers with source evidence, current Starshine tests/evidence, known HOT/API support gaps, next evidence, and reopening criteria.",
-        ".tmp/oi-m-generalized-selected-count108-20260703: compared 108/108, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 108/0/0, runtime matrix 9/9 equal exported samples, all 18 OI-M tuple labels sampled, and 108 raw output-shape mismatches retained as active parity evidence rather than closure."
+        ".tmp/oi-m-generalized-selected-count108-20260703: compared 108/108, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 108/0/0, runtime matrix 9/9 equal exported samples, all 18 OI-M tuple labels sampled, and 108 raw output-shape mismatches retained as active parity evidence rather than closure.",
+        "docs/wiki/raw/research/1418-2026-07-03-optimize-instructions-oi-m-residual-summary-tooling.md: ACCEL004 extended oi-parity-sweep --summarize-existing to emit failure/cache/runtime/profile/case-label fields plus an explicit raw-mismatch caveat.",
+        "bun scripts/oi-parity-sweep.ts --family OI-M --out-dir .tmp/oi-m-generalized-selected-count108-20260703 --summarize-existing: emitted compared=108, normalized=0, cleanup=0, mismatches=108, validation/generator/property/command=0, command classes <none>, cache binaryen=108/0, runtime checked/unsupported/failed=108/0/0, matrix all-equal total=9, all 18 profile cases, case-label mismatch counts, failure dirs=108, and raw mismatch caveat."
       ],
       "subBlockers": [
         {
@@ -4667,19 +4670,20 @@
         {
           "id": "OI-M-SB006-fuzz-runtime-residual-classification",
           "title": "Fuzz/runtime residual summary and mismatch classification",
-          "status": "mismatch-needs-classification-tooling",
+          "status": "covered-tooling-helper",
           "priority": "P0 tooling accelerator",
           "scope": "Paste-ready OI-M direct/grouped compare summaries, per-label profile counts, runtime matrix results, Binaryen cache counts, and raw-mismatch caveats so residuals are not overstated as semantic parity.",
           "binaryenSourceOrProbeEvidence": [
             "This is a reporting/classification blocker, not a Binaryen transform. It consumes compare-pass, oi-parity-sweep, generated profile labels, and runtime execution evidence."
           ],
           "currentStarshineEvidence": [
-            "Recent OI-M lanes such as .tmp/oi-m-generalized-selected-direct18-20260703 and .tmp/oi-m-generalized-selected-count108-20260703 reported zero failures and runtime equality but still had raw mismatches for every case.",
-            "The parity row already records many sampled Starshine-win-candidate residuals, but ACCEL004 remains active to automate consistent summaries."
+            "scripts/lib/oi-parity-sweep.ts --summarize-existing now emits compared/normalized/cleanup/raw mismatch counts, validation/generator/property/command failures, command failure classes, Binaryen cache hit/miss counts, wasm-smith cache counts, runtime checked/unsupported/failed counts, runtime matrix outcome/summary, selected profile counts, per-label profile counts, case-label statuses, failure-dir counts, and an explicit raw-mismatch caveat.",
+            "scripts/lib/oi-parity-sweep.test.ts has red-first coverage for command classes, cache counts, runtime counts/matrix, case-label statuses, and the raw mismatch caveat.",
+            "Actual OI-M summary command `bun scripts/oi-parity-sweep.ts --family OI-M --out-dir .tmp/oi-m-generalized-selected-count108-20260703 --summarize-existing` emitted compared=108 normalized=0 cleanup=0 mismatches=108 validation/generator/property/command=0, cache binaryen=108/0, runtime checked/unsupported/failed=108/0/0, matrix=all-equal total=9, all 18 profile cases, case-label mismatch counts, failure dirs=108, and the raw mismatch caveat."
           ],
           "knownMissingHotOrApiSupport": "No Moon/HOT representation blocker; the gap is script/reporting ergonomics and agent-classified mismatch discipline.",
-          "nextEvidenceNeeded": "Inspect scripts/oi-parity-sweep.ts --summarize-existing and pass-fuzz-compare result summaries, then extend existing tooling only if compared/normalized/cleanup/raw counts, failure classes, cache counts, runtime counts/matrix, per-label counts, and raw-mismatch caveat are missing.",
-          "reopeningCriteria": "Keep open until ACCEL004 is implemented or proven already covered. Reopen if summaries omit failure/cache/runtime/profile fields, if raw mismatches are auto-classified as safe without agent evidence, or if grouped OI-M lanes become hard to audit."
+          "nextEvidenceNeeded": "Use this summary path for ordinary OI-M residual reporting. Reopen only if new result fields are needed for a future classification slice or if the summary output stops carrying the required failure/cache/runtime/profile/caveat fields.",
+          "reopeningCriteria": "Reopen if summaries omit compared/normalized/cleanup/raw counts, failure classes, Binaryen or wasm-smith cache counts, runtime checked/unsupported/failed counts, runtime matrix outcome/summary, per-label profile/case-label counts, failure-dir counts, or the explicit raw-mismatch caveat; also reopen if raw mismatches are auto-classified as safe without agent evidence."
         }
       ]
     }

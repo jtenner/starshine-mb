@@ -188,11 +188,32 @@ describe("oi parity sweep", () => {
       generatorFailureCount: 0,
       propertyFailureCount: 0,
       commandFailureCount: 0,
+      commandFailureClasses: { "binaryen:rec-group-zero": 1 },
       genValidProfile: "pass-oi-default-scalar",
       genValidSelectedProfileCounts: { "pass-oi-default-scalar": 3 },
       genValidProfileCaseCounts: {
         "oi-default-scalar:direct": 2,
         "oi-default-scalar:local-carried-add-zero": 1,
+      },
+      runtimeExecutionCounts: { checked: 3, unsupported: 0, failed: 0 },
+      runtimeExecutionMatrix: {
+        summary: {
+          total: 2,
+          equalResults: 2,
+          equalTraps: 0,
+          unsupportedRuntimes: 0,
+          nondeterministicImports: 0,
+          semanticMismatches: 0,
+        },
+        outcome: "all-equal",
+      },
+      cache: {
+        binaryenHits: 3,
+        binaryenMisses: 1,
+        binaryenFailureHits: 2,
+        binaryenFailureMisses: 0,
+        wasmSmithHits: 0,
+        wasmSmithMisses: 0,
       },
       failureDirs: ["case-a", "case-b"],
     }));
@@ -222,7 +243,11 @@ describe("oi parity sweep", () => {
     ]);
     expect(text).toContain("Result summaries:");
     expect(text).toContain("profile cases: oi-default-scalar:direct=2, oi-default-scalar:local-carried-add-zero=1");
+    expect(text).toContain("command classes: binaryen:rec-group-zero=1");
+    expect(text).toContain("cache: binaryen=3/1 binaryen-failures=2/0 wasm-smith=0/0");
+    expect(text).toContain("runtime: checked=3 unsupported=0 failed=0 matrix=all-equal total=2 equalResults=2 equalTraps=0 unsupportedRuntimes=0 nondeterministicImports=0 semanticMismatches=0");
     expect(text).toContain("case labels: oi-default-scalar:direct total=2 statuses={\"mismatch\":1,\"normalized-match\":1}; oi-default-scalar:local-carried-add-zero total=1 statuses={\"mismatch\":1}");
+    expect(text).toContain("raw mismatch caveat: raw mismatches remain agent-classified active parity evidence unless separately measured and accepted.");
   });
 
   test("summarizes transform ids when profile case labels are absent", () => {

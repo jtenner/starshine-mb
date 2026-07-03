@@ -82,6 +82,31 @@ export type OiParityCaseLabelStatusSummary = {
   statuses: Record<string, number>;
 };
 
+export type OiParityRuntimeCountsSummary = {
+  checked: number | null;
+  unsupported: number | null;
+  failed: number | null;
+};
+
+export type OiParityRuntimeMatrixSummary = {
+  outcome: string | null;
+  total: number | null;
+  equalResults: number | null;
+  equalTraps: number | null;
+  unsupportedRuntimes: number | null;
+  nondeterministicImports: number | null;
+  semanticMismatches: number | null;
+};
+
+export type OiParityCacheSummary = {
+  binaryenHits: number | null;
+  binaryenMisses: number | null;
+  binaryenFailureHits: number | null;
+  binaryenFailureMisses: number | null;
+  wasmSmithHits: number | null;
+  wasmSmithMisses: number | null;
+};
+
 export type OiParityResultSummary = {
   comparedCount: number | null;
   normalizedMatchCount: number | null;
@@ -91,9 +116,13 @@ export type OiParityResultSummary = {
   generatorFailureCount: number | null;
   propertyFailureCount: number | null;
   commandFailureCount: number | null;
+  commandFailureClasses: Record<string, number>;
   genValidProfile: string | null;
   genValidSelectedProfileCounts: Record<string, number>;
   genValidProfileCaseCounts: Record<string, number>;
+  runtimeExecutionCounts: OiParityRuntimeCountsSummary;
+  runtimeExecutionMatrix: OiParityRuntimeMatrixSummary;
+  cache: OiParityCacheSummary;
   failureDirCount: number | null;
   caseLabelStatuses: OiParityCaseLabelStatusSummary[];
 };
@@ -478,6 +507,45 @@ function countArrayField(record: Record<string, unknown>, key: string): number |
   return Array.isArray(value) ? value.length : null;
 }
 
+function summarizeRuntimeCounts(record: Record<string, unknown>): OiParityRuntimeCountsSummary {
+  const counts = asRecord(record.runtimeExecutionCounts);
+  return {
+    checked: numberField(counts, "checked"),
+    unsupported: numberField(counts, "unsupported"),
+    failed: numberField(counts, "failed"),
+  };
+}
+
+function summarizeRuntimeMatrix(record: Record<string, unknown>): OiParityRuntimeMatrixSummary {
+  const matrix = asRecord(record.runtimeExecutionMatrix);
+  const summary = asRecord(matrix.summary);
+  return {
+    outcome: stringField(matrix, "outcome"),
+    total: numberField(summary, "total"),
+    equalResults: numberField(summary, "equalResults"),
+    equalTraps: numberField(summary, "equalTraps"),
+    unsupportedRuntimes: numberField(summary, "unsupportedRuntimes"),
+    nondeterministicImports: numberField(summary, "nondeterministicImports"),
+    semanticMismatches: numberField(summary, "semanticMismatches"),
+  };
+}
+
+function summarizeCache(record: Record<string, unknown>): OiParityCacheSummary {
+  const cache = asRecord(record.cache);
+  return {
+    binaryenHits: numberField(cache, "binaryenHits"),
+    binaryenMisses: numberField(cache, "binaryenMisses"),
+    binaryenFailureHits: numberField(cache, "binaryenFailureHits"),
+    binaryenFailureMisses: numberField(cache, "binaryenFailureMisses"),
+    wasmSmithHits: numberField(cache, "wasmSmithHits"),
+    wasmSmithMisses: numberField(cache, "wasmSmithMisses"),
+  };
+}
+
+function formatNullableNumber(value: number | null): string {
+  return value === null ? "?" : value.toString();
+}
+
 function readCaseLabelStatuses(casesJsonlPath: string): OiParityCaseLabelStatusSummary[] {
   if (!fs.existsSync(casesJsonlPath)) {
     return [];
@@ -515,9 +583,13 @@ function summarizeOiParityResult(result: unknown | null, casesJsonlPath: string)
     generatorFailureCount: numberField(record, "generatorFailureCount"),
     propertyFailureCount: numberField(record, "propertyFailureCount"),
     commandFailureCount: numberField(record, "commandFailureCount"),
+    commandFailureClasses: numberMapField(record, "commandFailureClasses"),
     genValidProfile: stringField(record, "genValidProfile"),
     genValidSelectedProfileCounts: numberMapField(record, "genValidSelectedProfileCounts"),
     genValidProfileCaseCounts: numberMapField(record, "genValidProfileCaseCounts"),
+    runtimeExecutionCounts: summarizeRuntimeCounts(record),
+    runtimeExecutionMatrix: summarizeRuntimeMatrix(record),
+    cache: summarizeCache(record),
     failureDirCount: countArrayField(record, "failureDirs"),
     caseLabelStatuses: readCaseLabelStatuses(casesJsonlPath),
   };
@@ -597,10 +669,17 @@ function formatNumberMap(map: Record<string, number>): string {
 }
 
 function formatResultSummary(summary: OiParityResultSummary): string[] {
+  const runtime = summary.runtimeExecutionCounts;
+  const matrix = summary.runtimeExecutionMatrix;
+  const cache = summary.cache;
   const lines = [
     `  compared=${summary.comparedCount ?? "?"} normalized=${summary.normalizedMatchCount ?? "?"} cleanup=${summary.cleanupNormalizedMatchCount ?? "?"} mismatches=${summary.mismatchCount ?? "?"} validation=${summary.validationFailureCount ?? "?"} generator=${summary.generatorFailureCount ?? "?"} property=${summary.propertyFailureCount ?? "?"} command=${summary.commandFailureCount ?? "?"} profile=${summary.genValidProfile ?? "<none>"}`,
+    `  command classes: ${formatNumberMap(summary.commandFailureClasses)}`,
+    `  cache: binaryen=${formatNullableNumber(cache.binaryenHits)}/${formatNullableNumber(cache.binaryenMisses)} binaryen-failures=${formatNullableNumber(cache.binaryenFailureHits)}/${formatNullableNumber(cache.binaryenFailureMisses)} wasm-smith=${formatNullableNumber(cache.wasmSmithHits)}/${formatNullableNumber(cache.wasmSmithMisses)}`,
+    `  runtime: checked=${formatNullableNumber(runtime.checked)} unsupported=${formatNullableNumber(runtime.unsupported)} failed=${formatNullableNumber(runtime.failed)} matrix=${matrix.outcome ?? "?"} total=${formatNullableNumber(matrix.total)} equalResults=${formatNullableNumber(matrix.equalResults)} equalTraps=${formatNullableNumber(matrix.equalTraps)} unsupportedRuntimes=${formatNullableNumber(matrix.unsupportedRuntimes)} nondeterministicImports=${formatNullableNumber(matrix.nondeterministicImports)} semanticMismatches=${formatNullableNumber(matrix.semanticMismatches)}`,
     `  selected profiles: ${formatNumberMap(summary.genValidSelectedProfileCounts)}`,
     `  profile cases: ${formatNumberMap(summary.genValidProfileCaseCounts)}`,
+    "  raw mismatch caveat: raw mismatches remain agent-classified active parity evidence unless separately measured and accepted.",
   ];
   if (summary.caseLabelStatuses.length > 0) {
     lines.push(`  case labels: ${summary.caseLabelStatuses.map((entry) => `${entry.label} total=${entry.total} statuses=${JSON.stringify(entry.statuses)}`).join("; ")}`);
