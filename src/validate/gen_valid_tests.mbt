@@ -4597,11 +4597,13 @@ fn gen_valid_test_tuple_helper_has_effect(mod_ : Module) -> Bool {
   match mod_.code_sec {
     Some(CodeSec(funcs)) =>
       if funcs.length() > 1 {
-        let Func(_, Expr(body)) = funcs[1]
-        for instr in body {
-          match instr {
-            GlobalSet(_) => return true
-            _ => ()
+        for i = 1; i < funcs.length(); i = i + 1 {
+          let Func(_, Expr(body)) = funcs[i]
+          for instr in body {
+            match instr {
+              GlobalSet(_) => return true
+              _ => ()
+            }
           }
         }
       }
@@ -4652,6 +4654,11 @@ fn gen_valid_test_tuple_body_has_select(body : Array[Instruction]) -> Bool {
 
 ///|
 fn gen_valid_test_tuple_selected_lane_signature(mod_ : Module) -> String raise {
+  if gen_valid_test_has_func_export(mod_, "run_i32") &&
+    gen_valid_test_has_func_export(mod_, "run_i64") &&
+    gen_valid_test_tuple_helper_has_effect(mod_) {
+    return "runtime-multi-selected-effectful-lanes"
+  }
   if gen_valid_test_has_func_export(mod_, "run") {
     let instrs = gen_valid_test_first_func_instrs(mod_)
     if instrs.length() >= 8 {
@@ -4920,6 +4927,14 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
     Ok(v) => v
     Err(failure) => fail(failure.validation_error_message)
   }
+  let runtime_multi_selected_effectful = match
+    gen_valid_module_result_from_seed(
+      0x6002UL,
+      GenValidConfig::for_profile(PassOiTupleProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x5eedUL),
@@ -5004,6 +5019,10 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   @debug.assert_eq(
     gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x6001UL),
     Some("oi-tuple:runtime-effectful-scratch-localized-selected-lane"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiTupleProfile, 0x6002UL),
+    Some("oi-tuple:runtime-multi-selected-effectful-lanes"),
   )
   assert_true(
     gen_valid_test_tuple_first_block_i32_const(
@@ -5140,6 +5159,24 @@ test "OI-M tuple trigger-smoke profile selects distinct seed-indexed multivalue 
   )
   assert_true(
     gen_valid_test_has_func_export(runtime_effectful_scratch.wasm_module, "run"),
+  )
+  @debug.assert_eq(
+    gen_valid_test_tuple_selected_lane_signature(
+      runtime_multi_selected_effectful.wasm_module,
+    ),
+    "runtime-multi-selected-effectful-lanes",
+  )
+  assert_true(
+    gen_valid_test_has_func_export(
+      runtime_multi_selected_effectful.wasm_module,
+      "run_i32",
+    ),
+  )
+  assert_true(
+    gen_valid_test_has_func_export(
+      runtime_multi_selected_effectful.wasm_module,
+      "run_i64",
+    ),
   )
 }
 
