@@ -1230,6 +1230,7 @@ pub enum GenValidProfile {
   PassOiMemoryBulkProfile
   PassOiCallRefProfile
   PassOiRefGcProfile
+  PassOiGcAggregateProfile
   PassOiDescriptorGcProfile
   PassOiTupleProfile
   RandomAllProfilesProfile

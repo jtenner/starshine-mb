@@ -302,4 +302,13 @@ describe("oi parity sweep", () => {
       expect(families.has(family)).toBe(true);
     }
   });
+
+  test("checked-in OI-K row uses the dedicated aggregate profile", () => {
+    const matrix = readOiParityMatrix("docs/wiki/binaryen/passes/optimize-instructions/parity-matrix.json");
+    const row = matrix.rows.find((candidate) => candidate.family === "OI-K");
+
+    expect(row?.genValidProfiles).toContain("pass-oi-gc-aggregate");
+    expect(row?.sweep?.profile).toBe("pass-oi-gc-aggregate");
+    expect(row?.sweep?.blockedUntilProfileExists).toBe(false);
+  });
 });

@@ -5072,11 +5072,6 @@ fn optimize_instructions_try_remove_array_set_fresh_array(
         return false
       }
       let repeated_value_id = @ir.hot_child_get(func, array_id, 0)
-      if !optimize_instructions_node_effects_are_pure(
-          ctx, func, repeated_value_id,
-        ) {
-        return false
-      }
       let len_id = @ir.hot_child_get(func, array_id, 1)
       effect_operands.push(repeated_value_id)
       effect_operands.push(len_id)

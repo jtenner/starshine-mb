@@ -12,7 +12,7 @@ Implemented in this slice:
 - effectful `array.new_fixed` constructor sibling localization for the same `array.set` removal/trap surfaces;
 - effectful `array.new` repeated-value localization for the already-covered `array.len(array.new(...))` and `array.get(array.new(...), i32.const index)` surfaces.
 
-Still out of scope:
+Still out of scope for this implementation slice:
 
 - OI-J descriptor/exactness/TNH/IIT behavior;
 - OI-L shared/atomic/RMW/cmpxchg behavior;
@@ -20,7 +20,9 @@ Still out of scope:
 - multi-use aggregate producers;
 - control-shaped and multi-result operands;
 - packed fixed-array selected-sibling localization not already covered by existing packed helpers;
-- effectful repeated-value `array.set` over `array.new`, which remains fail-closed pending a dedicated source probe or explicit boundary acceptance.
+- effectful repeated-value `array.set` over `array.new`, which remained fail-closed in this slice.
+
+Terminalization follow-up: `1435` adds the dedicated local probe for effectful repeated-value `array.set(array.new(...))`. Direct Binaryen `--optimize-instructions` keeps that shape, but Binaryen `-O4 -Oz` localizes it; Starshine still fail-closes it, so it is now the single exact active OI-K behavior residual rather than merely a pending source-probe item.
 
 ## Source/probe-backed behavior
 
@@ -100,8 +102,9 @@ OI-K remains active, but narrowed further. The source-backed effect-localization
 
 The row should not be marked fully closed until:
 
-- effectful repeated-value `array.set` over `array.new` is source-backed and implemented, or explicitly recorded as a fail-closed/no-rewrite boundary with reopening criteria;
-- the effectful `array.len(array.new(...))` cleanup extension is either accepted with measured Starshine-win rationale or realigned to Binaryen output;
+- effectful repeated-value `array.set` over `array.new` is implemented, or explicitly recorded as an accepted fail-closed/O4z-only residual with reopening criteria;
 - OI-K has a dedicated aggregate profile, or closure is explicitly documented as source/test-based rather than generator-backed.
+
+Terminalization follow-up `1435` classifies the effectful `array.len(array.new(...))` cleanup as a bounded Starshine cleanup extension rather than direct Binaryen-output parity, and classifies the missing dedicated aggregate profile as tooling/coverage follow-up rather than a behavior blocker.
 
 OI-J and OI-L are unchanged and not closed by this slice.

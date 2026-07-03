@@ -23925,8 +23925,9 @@ fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
               if len != 6 {
                 return false
               }
-              if !run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+              if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
                   instrs[0],
+                  module_ctx,
                 ) {
                 return false
               }
@@ -23934,10 +23935,21 @@ fn run_hot_pipeline_optimize_instructions_is_gc_effect_localization(
                 @lib.I32Const(_) => ()
                 _ => return false
               }
-              match instrs[4] {
-                @lib.Call(_) => true
-                _ => false
+              match instrs[0] {
+                @lib.Call(_) => saw_call = true
+                _ => ()
               }
+              match instrs[4] {
+                @lib.Call(_) => saw_call = true
+                _ =>
+                  if !run_hot_pipeline_optimize_instructions_instr_is_constructor_stack_operand(
+                      instrs[4],
+                      module_ctx,
+                    ) {
+                    return false
+                  }
+              }
+              saw_call
             }
             _ => false
           }

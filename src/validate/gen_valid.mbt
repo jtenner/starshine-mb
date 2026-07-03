@@ -760,6 +760,7 @@ pub enum GenValidProfile {
   PassOiMemoryBulkProfile
   PassOiCallRefProfile
   PassOiRefGcProfile
+  PassOiGcAggregateProfile
   PassOiDescriptorGcProfile
   PassOiTupleProfile
   RandomAllProfilesProfile
@@ -925,6 +926,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PassOiMemoryBulkProfile => "pass-oi-memory-bulk"
     PassOiCallRefProfile => "pass-oi-call-ref"
     PassOiRefGcProfile => "pass-oi-ref-gc"
+    PassOiGcAggregateProfile => "pass-oi-gc-aggregate"
     PassOiDescriptorGcProfile => "pass-oi-descriptor-gc"
     PassOiTupleProfile => "pass-oi-tuple"
     RandomAllProfilesProfile => "random-all-profiles"
@@ -1281,6 +1283,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PassOiMemoryBulkProfile,
     PassOiCallRefProfile,
     PassOiRefGcProfile,
+    PassOiGcAggregateProfile,
     PassOiDescriptorGcProfile,
     PassOiTupleProfile,
     RandomAllProfilesProfile,
@@ -1390,6 +1393,8 @@ pub fn gen_valid_profile_by_name(
     "oi-memory-bulk" => Ok(PassOiMemoryBulkProfile)
     "oi-call-ref" => Ok(PassOiCallRefProfile)
     "oi-ref-gc" => Ok(PassOiRefGcProfile)
+    "oi-gc-aggregate" => Ok(PassOiGcAggregateProfile)
+    "oi-aggregate-gc" => Ok(PassOiGcAggregateProfile)
     "oi-descriptor-gc" => Ok(PassOiDescriptorGcProfile)
     "oi-desc-gc" => Ok(PassOiDescriptorGcProfile)
     "oi-tuple" => Ok(PassOiTupleProfile)
@@ -1845,6 +1850,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | PassOiMemoryBulkProfile
     | PassOiCallRefProfile
     | PassOiRefGcProfile
+    | PassOiGcAggregateProfile
     | PassOiDescriptorGcProfile
     | PassOiTupleProfile => gen_valid_oi_profile_config(profile)
     RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
@@ -2161,6 +2167,46 @@ fn gen_valid_oi_profile_config(profile : GenValidProfile) -> GenValidConfig {
           allow_subtyping_topology: true,
           allow_v128: false,
           allow_relaxed_simd: false,
+          allow_typed_body_generator: true,
+        },
+      }
+    PassOiGcAggregateProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 4,
+        max_imports: 0,
+        max_defined_funcs: 3,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 1,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 0,
+        max_results: 1,
+        max_locals: 1,
+        max_body_statements: 14,
+        max_body_depth: 2,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_globals: true,
+          allow_tags: false,
+          allow_elems: false,
+          allow_datas: false,
+          allow_ref_types: true,
+          allow_calls: true,
+          allow_call_indirect: false,
+          allow_tail_calls: false,
+          allow_branch_heavy_control: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_v128: false,
+          allow_relaxed_simd: false,
+          allow_subtyping_topology: false,
+          allow_name_custom_sections: false,
           allow_typed_body_generator: true,
         },
       }
@@ -3189,6 +3235,7 @@ fn gen_valid_is_oi_trigger_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(PassOiCallRefProfile) ||
   config == GenValidConfig::for_profile(PassOiBooleanSelectProfile) ||
   config == GenValidConfig::for_profile(PassOiRefGcProfile) ||
+  config == GenValidConfig::for_profile(PassOiGcAggregateProfile) ||
   config == GenValidConfig::for_profile(PassOiDescriptorGcProfile) ||
   config == GenValidConfig::for_profile(PassOiMemoryBulkProfile) ||
   config == GenValidConfig::for_profile(PassOiTupleProfile)
@@ -15876,6 +15923,7 @@ fn gen_valid_tuple_optimization_profile_module(
 fn gen_valid_oi_trigger_profile_case_modulus(profile : GenValidProfile) -> Int {
   match profile {
     PassOiMemoryBulkProfile => 49
+    PassOiGcAggregateProfile => 15
     PassOiTupleProfile => 21
     PassOiLocalFactsProfile => 15
     PassOiBooleanSelectProfile => 4
@@ -16073,6 +16121,28 @@ fn gen_valid_oi_call_ref_case_for_seed(seed : UInt64) -> Int {
 }
 
 ///|
+fn gen_valid_oi_gc_aggregate_case_for_seed(seed : UInt64) -> Int {
+  match seed {
+    0x5eedUL => 0
+    0x5eeeUL => 1
+    0x5eefUL => 2
+    0x5ef0UL => 3
+    0x5ef1UL => 4
+    0x5ef2UL => 5
+    0x5ef3UL => 6
+    0x5ef4UL => 7
+    0x5ef5UL => 8
+    0x5ef6UL => 9
+    0x5ef7UL => 10
+    0x5ef8UL => 11
+    0x5ef9UL => 12
+    0x5efaUL => 13
+    0x5efbUL => 14
+    _ => (seed % 15UL).to_int()
+  }
+}
+
+///|
 fn gen_valid_oi_trigger_profile_case_for_profile_seed(
   profile : GenValidProfile,
   seed : UInt64,
@@ -16084,6 +16154,7 @@ fn gen_valid_oi_trigger_profile_case_for_profile_seed(
     PassOiBooleanSelectProfile =>
       gen_valid_oi_boolean_select_case_for_seed(seed)
     PassOiCallRefProfile => gen_valid_oi_call_ref_case_for_seed(seed)
+    PassOiGcAggregateProfile => gen_valid_oi_gc_aggregate_case_for_seed(seed)
     _ =>
       (seed % gen_valid_oi_trigger_profile_case_modulus(profile).to_uint64()).to_int()
   }
@@ -16103,6 +16174,8 @@ fn gen_valid_oi_trigger_profile_for_config(
     PassOiCallRefProfile
   } else if config == GenValidConfig::for_profile(PassOiRefGcProfile) {
     PassOiRefGcProfile
+  } else if config == GenValidConfig::for_profile(PassOiGcAggregateProfile) {
+    PassOiGcAggregateProfile
   } else if config == GenValidConfig::for_profile(PassOiDescriptorGcProfile) {
     PassOiDescriptorGcProfile
   } else if config == GenValidConfig::for_profile(PassOiTupleProfile) {
@@ -16120,7 +16193,8 @@ fn gen_valid_oi_trigger_profile_case(ctx : GenValidContext) -> Int {
     | PassOiTupleProfile
     | PassOiLocalFactsProfile
     | PassOiBooleanSelectProfile
-    | PassOiCallRefProfile =>
+    | PassOiCallRefProfile
+    | PassOiGcAggregateProfile =>
       gen_valid_oi_trigger_profile_case_for_profile_seed(profile, ctx.root_seed)
     _ =>
       if ctx.use_named_streams {
@@ -16200,6 +16274,24 @@ pub fn gen_valid_oi_trigger_profile_case_label(
         1 => Some("oi-ref-gc:local-carried-null-test-cast")
         2 => Some("oi-ref-gc:branch-cast-boundaries")
         _ => Some("oi-ref-gc:direct-null-test-cast-eq")
+      }
+    PassOiGcAggregateProfile =>
+      match case {
+        0 => Some("oi-gc-aggregate:struct-get-new-pure")
+        1 => Some("oi-gc-aggregate:struct-get-new-effectful-sibling")
+        2 => Some("oi-gc-aggregate:array-get-new-fixed-pure")
+        3 => Some("oi-gc-aggregate:array-get-new-fixed-effectful-sibling")
+        4 => Some("oi-gc-aggregate:array-set-new-fixed-effectful-value")
+        5 => Some("oi-gc-aggregate:array-set-new-fixed-effectful-oob")
+        6 => Some("oi-gc-aggregate:array-new-len-pure")
+        7 => Some("oi-gc-aggregate:array-new-len-effectful")
+        8 => Some("oi-gc-aggregate:array-get-new-effectful-repeated")
+        9 => Some("oi-gc-aggregate:array-get-new-effectful-oob")
+        10 => Some("oi-gc-aggregate:array-set-new-effectful-repeated")
+        11 => Some("oi-gc-aggregate:array-set-new-effectful-repeated-and-value")
+        12 => Some("oi-gc-aggregate:dynamic-index-boundary")
+        13 => Some("oi-gc-aggregate:dynamic-length-boundary")
+        _ => Some("oi-gc-aggregate:negative-huge-length-boundary")
       }
     PassOiDescriptorGcProfile =>
       match case {
@@ -20547,6 +20639,222 @@ fn gen_valid_oi_descriptor_gc_profile_module(case : Int) -> Module {
 }
 
 ///|
+fn gen_valid_oi_gc_aggregate_effect_body(value : Int) -> Array[Instruction] {
+  [
+    Instruction::global_get(GlobalIdx::new(0U)),
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_add(),
+    Instruction::global_set(GlobalIdx::new(0U)),
+    Instruction::i32_const(I32(value)),
+  ]
+}
+
+///|
+fn gen_valid_oi_gc_aggregate_profile_body(
+  case : Int,
+  struct_idx : TypeIdx,
+  array_idx : TypeIdx,
+) -> Array[Instruction] {
+  match case {
+    0 =>
+      [
+        Instruction::i32_const(I32(10)),
+        Instruction::i32_const(I32(20)),
+        Instruction::struct_new(struct_idx),
+        Instruction::struct_get(struct_idx, U32::new(0U)),
+        Instruction::drop(),
+      ]
+    1 =>
+      [
+        Instruction::i32_const(I32(10)),
+        Instruction::call(FuncIdx::new(1U)),
+        Instruction::struct_new(struct_idx),
+        Instruction::struct_get(struct_idx, U32::new(0U)),
+        Instruction::drop(),
+      ]
+    2 =>
+      [
+        Instruction::i32_const(I32(5)),
+        Instruction::i32_const(I32(6)),
+        Instruction::array_new_fixed(array_idx, U32::new(2U)),
+        Instruction::i32_const(I32(1)),
+        Instruction::array_get(array_idx),
+        Instruction::drop(),
+      ]
+    3 =>
+      [
+        Instruction::i32_const(I32(5)),
+        Instruction::call(FuncIdx::new(1U)),
+        Instruction::array_new_fixed(array_idx, U32::new(2U)),
+        Instruction::i32_const(I32(0)),
+        Instruction::array_get(array_idx),
+        Instruction::drop(),
+      ]
+    4 =>
+      [
+        Instruction::i32_const(I32(5)),
+        Instruction::i32_const(I32(6)),
+        Instruction::array_new_fixed(array_idx, U32::new(2U)),
+        Instruction::i32_const(I32(1)),
+        Instruction::call(FuncIdx::new(2U)),
+        Instruction::array_set(array_idx),
+      ]
+    5 =>
+      [
+        Instruction::i32_const(I32(5)),
+        Instruction::i32_const(I32(6)),
+        Instruction::array_new_fixed(array_idx, U32::new(2U)),
+        Instruction::i32_const(I32(2)),
+        Instruction::call(FuncIdx::new(2U)),
+        Instruction::array_set(array_idx),
+      ]
+    6 =>
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::i32_const(I32(3)),
+        Instruction::array_new(array_idx),
+        Instruction::array_len(),
+        Instruction::drop(),
+      ]
+    7 =>
+      [
+        Instruction::call(FuncIdx::new(1U)),
+        Instruction::i32_const(I32(3)),
+        Instruction::array_new(array_idx),
+        Instruction::array_len(),
+        Instruction::drop(),
+      ]
+    8 =>
+      [
+        Instruction::call(FuncIdx::new(1U)),
+        Instruction::i32_const(I32(3)),
+        Instruction::array_new(array_idx),
+        Instruction::i32_const(I32(1)),
+        Instruction::array_get(array_idx),
+        Instruction::drop(),
+      ]
+    9 =>
+      [
+        Instruction::call(FuncIdx::new(1U)),
+        Instruction::i32_const(I32(3)),
+        Instruction::array_new(array_idx),
+        Instruction::i32_const(I32(3)),
+        Instruction::array_get(array_idx),
+        Instruction::drop(),
+      ]
+    10 =>
+      [
+        Instruction::call(FuncIdx::new(1U)),
+        Instruction::i32_const(I32(2)),
+        Instruction::array_new(array_idx),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_const(I32(9)),
+        Instruction::array_set(array_idx),
+      ]
+    11 =>
+      [
+        Instruction::call(FuncIdx::new(1U)),
+        Instruction::i32_const(I32(2)),
+        Instruction::array_new(array_idx),
+        Instruction::i32_const(I32(1)),
+        Instruction::call(FuncIdx::new(2U)),
+        Instruction::array_set(array_idx),
+      ]
+    12 =>
+      [
+        Instruction::i32_const(I32(1)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(5)),
+        Instruction::i32_const(I32(6)),
+        Instruction::array_new_fixed(array_idx, U32::new(2U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::array_get(array_idx),
+        Instruction::drop(),
+      ]
+    13 =>
+      [
+        Instruction::i32_const(I32(2)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::i32_const(I32(7)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::array_new(array_idx),
+        Instruction::array_len(),
+        Instruction::drop(),
+      ]
+    _ =>
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::i32_const(I32(-1)),
+        Instruction::array_new(array_idx),
+        Instruction::array_len(),
+        Instruction::drop(),
+      ]
+  }
+}
+
+///|
+fn gen_valid_oi_gc_aggregate_profile_module(case : Int) -> Module {
+  let run_type = TypeIdx::new(0U)
+  let effect_type = TypeIdx::new(1U)
+  let struct_idx = TypeIdx::new(2U)
+  let array_idx = TypeIdx::new(3U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], []))),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ]),
+        ),
+      ),
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([run_type, effect_type, effect_type]))
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), true),
+        Expr::new([Instruction::i32_const(I32(0))]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("run"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([ValType::i32()]),
+        Expr::new(
+          gen_valid_oi_gc_aggregate_profile_body(case, struct_idx, array_idx),
+        ),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new(gen_valid_oi_gc_aggregate_effect_body(11)),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new(gen_valid_oi_gc_aggregate_effect_body(29)),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   let config = ctx.config
   let local_facts = config ==
@@ -20555,6 +20863,8 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
     GenValidConfig::for_profile(PassOiBooleanSelectProfile)
   let call_ref = config == GenValidConfig::for_profile(PassOiCallRefProfile)
   let ref_gc = config == GenValidConfig::for_profile(PassOiRefGcProfile)
+  let gc_aggregate = config ==
+    GenValidConfig::for_profile(PassOiGcAggregateProfile)
   let descriptor_gc = config ==
     GenValidConfig::for_profile(PassOiDescriptorGcProfile)
   let memory_bulk = config ==
@@ -20572,6 +20882,9 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
   }
   if descriptor_gc {
     return gen_valid_oi_descriptor_gc_profile_module(case)
+  }
+  if gc_aggregate {
+    return gen_valid_oi_gc_aggregate_profile_module(case)
   }
   if local_facts && case == 3 {
     return gen_valid_oi_local_facts_existing_producer_module()

@@ -1867,6 +1867,10 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   )
   @debug.assert_eq(gen_valid_profile_name(PassOiRefGcProfile), "pass-oi-ref-gc")
   @debug.assert_eq(
+    gen_valid_profile_name(PassOiGcAggregateProfile),
+    "pass-oi-gc-aggregate",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(PassOiDescriptorGcProfile),
     "pass-oi-descriptor-gc",
   )
@@ -1961,6 +1965,20 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
     Some("oi-ref-gc:local-carried-null-test-cast"),
   )
 
+  let oi_gc_aggregate = GenValidConfig::for_profile(PassOiGcAggregateProfile)
+  @debug.assert_eq(
+    gen_valid_config_label(oi_gc_aggregate),
+    "pass-oi-gc-aggregate",
+  )
+  assert_true(oi_gc_aggregate.features.allow_ref_types)
+  assert_true(oi_gc_aggregate.features.allow_calls)
+  assert_true(oi_gc_aggregate.features.allow_globals)
+  assert_true(oi_gc_aggregate.max_type_defs >= 4)
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiGcAggregateProfile, 0x5eedUL),
+    Some("oi-gc-aggregate:struct-get-new-pure"),
+  )
+
   let oi_descriptor_gc = GenValidConfig::for_profile(PassOiDescriptorGcProfile)
   @debug.assert_eq(
     gen_valid_config_label(oi_descriptor_gc),
@@ -1997,6 +2015,11 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
 
   match gen_valid_profile_by_name("pass oi memory bulk") {
     Ok(profile) => @debug.assert_eq(profile, PassOiMemoryBulkProfile)
+    Err(msg) => fail(msg)
+  }
+
+  match gen_valid_profile_by_name("pass oi gc aggregate") {
+    Ok(profile) => @debug.assert_eq(profile, PassOiGcAggregateProfile)
     Err(msg) => fail(msg)
   }
 
@@ -6436,6 +6459,202 @@ test "OI-I ref-gc trigger-smoke profile selects distinct seed-indexed reference 
       gen_valid_test_first_func_instrs(direct.wasm_module),
     ),
     "direct",
+  )
+}
+
+///|
+fn gen_valid_test_instrs_have_oi_gc_aggregate_op(
+  instrs : Array[Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      StructNew(_)
+      | StructGet(_, _)
+      | ArrayNew(_)
+      | ArrayNewFixed(_, _)
+      | ArrayGet(_)
+      | ArraySet(_)
+      | ArrayLen => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_have_oi_gc_aggregate_op(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_have_oi_gc_aggregate_op(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_have_oi_gc_aggregate_op(body) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_oi_gc_aggregate_signature(
+  instrs : Array[Instruction],
+) -> String {
+  let mut has_struct_new = false
+  let mut has_struct_get = false
+  let mut has_array_new = false
+  let mut has_array_new_fixed = false
+  let mut has_array_get = false
+  let mut has_array_set = false
+  let mut has_array_len = false
+  let mut has_call = false
+  let mut has_local_get = false
+  let mut has_negative_len = false
+  for instr in instrs {
+    match instr {
+      StructNew(_) => has_struct_new = true
+      StructGet(_, _) => has_struct_get = true
+      ArrayNew(_) => has_array_new = true
+      ArrayNewFixed(_, _) => has_array_new_fixed = true
+      ArrayGet(_) => has_array_get = true
+      ArraySet(_) => has_array_set = true
+      ArrayLen => has_array_len = true
+      Call(_) => has_call = true
+      LocalGet(_) => has_local_get = true
+      I32Const(I32(value)) if value < 0 => has_negative_len = true
+      _ => ()
+    }
+  }
+  if has_struct_new && has_call {
+    "struct-effectful"
+  } else if has_struct_new && has_struct_get {
+    "struct-pure"
+  } else if has_array_new_fixed && has_array_set && has_call {
+    "array-fixed-set-effectful"
+  } else if has_array_new_fixed && has_array_get && has_local_get {
+    "array-fixed-dynamic-index"
+  } else if has_array_new_fixed && has_array_get && has_call {
+    "array-fixed-get-effectful"
+  } else if has_array_new_fixed && has_array_get {
+    "array-fixed-get-pure"
+  } else if has_array_new && has_array_set && has_call {
+    "array-new-set-effectful"
+  } else if has_array_new && has_array_get && has_call {
+    "array-new-get-effectful"
+  } else if has_array_new && has_array_len && has_local_get {
+    "array-new-dynamic-length"
+  } else if has_array_new && has_array_len && has_negative_len {
+    "array-new-negative-length"
+  } else if has_array_new && has_array_len && has_call {
+    "array-new-len-effectful"
+  } else if has_array_new && has_array_len {
+    "array-new-len-pure"
+  } else {
+    "unknown"
+  }
+}
+
+///|
+test "pass-oi-gc-aggregate profile selects validating aggregate trigger labels" {
+  let seeds = [
+    0x5eedUL, 0x5eeeUL, 0x5eefUL, 0x5ef0UL, 0x5ef1UL, 0x5ef2UL, 0x5ef3UL, 0x5ef4UL,
+    0x5ef5UL, 0x5ef6UL, 0x5ef7UL, 0x5ef8UL, 0x5ef9UL, 0x5efaUL, 0x5efbUL,
+  ]
+  let expected_labels = [
+    "oi-gc-aggregate:struct-get-new-pure", "oi-gc-aggregate:struct-get-new-effectful-sibling",
+    "oi-gc-aggregate:array-get-new-fixed-pure", "oi-gc-aggregate:array-get-new-fixed-effectful-sibling",
+    "oi-gc-aggregate:array-set-new-fixed-effectful-value", "oi-gc-aggregate:array-set-new-fixed-effectful-oob",
+    "oi-gc-aggregate:array-new-len-pure", "oi-gc-aggregate:array-new-len-effectful",
+    "oi-gc-aggregate:array-get-new-effectful-repeated", "oi-gc-aggregate:array-get-new-effectful-oob",
+    "oi-gc-aggregate:array-set-new-effectful-repeated", "oi-gc-aggregate:array-set-new-effectful-repeated-and-value",
+    "oi-gc-aggregate:dynamic-index-boundary", "oi-gc-aggregate:dynamic-length-boundary",
+    "oi-gc-aggregate:negative-huge-length-boundary",
+  ]
+  for i = 0; i < seeds.length(); i = i + 1 {
+    @debug.assert_eq(
+      gen_valid_oi_trigger_profile_case_label(
+        PassOiGcAggregateProfile,
+        seeds[i],
+      ),
+      Some(expected_labels[i]),
+    )
+    let generated = match
+      gen_valid_module_result_from_seed(
+        seeds[i],
+        GenValidConfig::for_profile(PassOiGcAggregateProfile),
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    @debug.assert_eq(generated.config_label, "pass-oi-gc-aggregate")
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    assert_true(generated.facts.uses_ref_types)
+    assert_true(
+      gen_valid_test_instrs_have_oi_gc_aggregate_op(
+        gen_valid_test_first_func_instrs(generated.wasm_module),
+      ),
+      msg="expected dedicated OI-K profile case to contain struct.* or array.* trigger opcodes",
+    )
+  }
+}
+
+///|
+test "pass-oi-gc-aggregate boundary labels are stable and distinct" {
+  let dynamic_index = match
+    gen_valid_module_result_from_seed(
+      0x5ef9UL,
+      GenValidConfig::for_profile(PassOiGcAggregateProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let dynamic_length = match
+    gen_valid_module_result_from_seed(
+      0x5efaUL,
+      GenValidConfig::for_profile(PassOiGcAggregateProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  let negative_huge = match
+    gen_valid_module_result_from_seed(
+      0x5efbUL,
+      GenValidConfig::for_profile(PassOiGcAggregateProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiGcAggregateProfile, 0x5ef9UL),
+    Some("oi-gc-aggregate:dynamic-index-boundary"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiGcAggregateProfile, 0x5efaUL),
+    Some("oi-gc-aggregate:dynamic-length-boundary"),
+  )
+  @debug.assert_eq(
+    gen_valid_oi_trigger_profile_case_label(PassOiGcAggregateProfile, 0x5efbUL),
+    Some("oi-gc-aggregate:negative-huge-length-boundary"),
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_gc_aggregate_signature(
+      gen_valid_test_first_func_instrs(dynamic_index.wasm_module),
+    ),
+    "array-fixed-dynamic-index",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_gc_aggregate_signature(
+      gen_valid_test_first_func_instrs(dynamic_length.wasm_module),
+    ),
+    "array-new-dynamic-length",
+  )
+  @debug.assert_eq(
+    gen_valid_test_oi_gc_aggregate_signature(
+      gen_valid_test_first_func_instrs(negative_huge.wasm_module),
+    ),
+    "array-new-negative-length",
   )
 }
 
