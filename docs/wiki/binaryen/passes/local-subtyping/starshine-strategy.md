@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-03
 sources:
   - ../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md
   - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
@@ -54,15 +54,15 @@ It has:
 - preset-slot coverage in the default hot optimize path.
 
 What it does **not** have yet is full Binaryen parity.
-The current implementation is a narrower subset that narrows body locals from write-site evidence, with a first straight-line dominance slice for nullable-to-non-null declaration narrowing when every observed `local.get` is after a write and no structured-control region complicates dominance.
+The current implementation is a narrower subset that narrows body locals from write-site evidence, with early nullable-to-non-null declaration narrowing when every observed `local.get` is after a dominating write in a straight-line root or inside a branch-free `block` entered after that write.
 
 ## Exact local code map today
 
 - `src/passes/local_subtyping.mbt:1-19`
   - summary and public pass description.
-- `src/passes/local_subtyping.mbt:143-314`
-  - heap subtype helpers, assignment collection, candidate narrowing, and function-local rewrite.
-- `src/passes/local_subtyping.mbt:337-362`
+- `src/passes/local_subtyping.mbt:143-451`
+  - heap subtype helpers, assignment collection, candidate narrowing, straight-line/branch-free block dominance scanning, and function-local rewrite.
+- `src/passes/local_subtyping.mbt:452-515`
   - active module-pass entrypoint and module rebuild.
 - `src/passes/registry_test.mbt:78-82`
   - registry category proof: `local-subtyping` is a module pass.
@@ -72,8 +72,8 @@ The current implementation is a narrower subset that narrows body locals from wr
   - active hot-pass dispatcher case.
 - `src/passes/optimize_test.mbt:491-495, 522-526`
   - preset honesty plus exact local-subtyping slot placement in the optimize preset.
-- `src/passes/local_subtyping_test.mbt:41-93`
-  - direct active-pass tests for registry lookup and the two shipped narrowing shapes.
+- `src/passes/local_subtyping_test.mbt:41-280`
+  - direct active-pass tests for registry lookup, write-site narrowing, tee assignments, straight-line non-null dominance, and branch-free block dominance/fallback.
 - `src/cmd/cmd_wbtest.mbt:4376-4439`
   - CLI integration test for `--local-subtyping` on wasm inputs.
 
@@ -83,7 +83,7 @@ The current Starshine code path is intentionally small:
 
 1. lift each function into HOT form;
 2. collect assignment result types from `local.set` and `local.tee`;
-3. pre-scan the raw straight-line body to decide where a nullable local may safely become non-null because reads are dominated by an earlier write;
+3. pre-scan the raw straight-line body and branch-free `block` bodies to decide where a nullable local may safely become non-null because reads are dominated by an earlier write;
 4. pick the most specific safe common reference subtype, falling back to nullable when dominance is not proven;
 5. rewrite body-local declarations only;
 6. rebuild the module if any body local changed.
@@ -94,8 +94,8 @@ That gives Starshine a real, active `local-subtyping` pass without pretending to
 
 Compared with the upstream Binaryen strategy, Starshine still lacks:
 
-- full structural get-site dominance analysis for blocks, loops, `if`, and EH bodies;
-- broad non-null fallback based on Binaryen's structural-dominance proof rather than the current straight-line subset;
+- full structural get-site dominance analysis for loops, `if`, EH bodies, and `block` bodies with branch/return/throw control flow;
+- broad non-null fallback based on Binaryen's structural-dominance proof rather than the current straight-line plus branch-free-block subset;
 - get/tee expression retagging after declaration narrowing;
 - repeated refinalize/reanalyze rounds;
 - the broader set of official test shapes around params, structured tees, non-nullability, and repeated refinement.
@@ -117,11 +117,11 @@ Current shipped coverage proves:
 
 The 2026-05-06 refreshed direct pass signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
-The newest LS audit slice adds focused coverage for direct `local.tee` assignments, straight-line nullable-to-non-null narrowing after a dominating write, and nullable fallback when a `local.get` can observe the default value before the first write. The non-null positive was red before implementation; the optimized module is validated after narrowing.
+The newest LS audit slices add focused coverage for direct `local.tee` assignments, straight-line nullable-to-non-null narrowing after a dominating write, branch-free `block` gets dominated by an earlier write, and nullable fallback when a `local.get` can observe the default value before the first write or inside an earlier block. The straight-line and block non-null positives were red before implementation; optimized modules are validated after narrowing.
 
 The next full-contract parity tests should cover:
 
-1. structured-control dominance positives and negatives beyond straight-line bodies;
+1. structured-control dominance positives and negatives beyond branch-free `block` bodies;
 2. `local.get` / `local.tee` expression retagging after declaration narrowing;
 3. repeated refinement after a pass change;
 4. parameter preservation versus body-local rewrite scope;

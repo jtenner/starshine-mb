@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-03
 sources:
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
@@ -160,7 +160,31 @@ Why it does not become non-null:
 - structural dominance fails;
 - Binaryen falls back to a nullable declaration and preserves nullable get typing.
 
-## Shape 6: gets matter, but they do not choose the LUB
+## Shape 6: branch-free blocks can preserve domination
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(local.set $x (local.get $p))
+(block
+  (drop (local.get $x)))
+```
+
+Possible after, when the block has no branch/return/throw flow:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- the assignment is non-null and dominates entry to the block;
+- the block body is branch-free in the current Starshine subset;
+- a get inside the block cannot observe the original nullable default.
+
+## Shape 7: gets matter, but they do not choose the LUB
 
 Before and after may stay the same in the important part:
 
@@ -176,7 +200,7 @@ Why this alone does not narrow:
 - assigned values drive the LUB;
 - gets are used for dominance and repair once a candidate exists.
 
-## Shape 7: repeated refinement after refinalization
+## Shape 8: repeated refinement after refinalization
 
 Before, conceptually:
 
@@ -201,7 +225,7 @@ Why iteration matters:
 - Binaryen refinalizes and reruns until stable;
 - a single declaration-only pass may miss this family.
 
-## Shape 8: parameters are preserved
+## Shape 9: parameters are preserved
 
 Before and after stay unchanged in the signature:
 
@@ -216,7 +240,7 @@ Why:
 - the rewrite loop starts at the body-local base;
 - the function ABI remains unchanged.
 
-## Shape 9: non-reference and tuple/nondefaultable locals are preserved
+## Shape 10: non-reference and tuple/nondefaultable locals are preserved
 
 Before and after stay unchanged in the important part:
 
@@ -230,7 +254,7 @@ Why:
 - nondefaultable or tuple-like shapes are not forced through the rewrite;
 - the official lit surface includes preservation coverage for this boundary.
 
-## Shape 10: neighborhood shapes matter
+## Shape 11: neighborhood shapes matter
 
 `local-subtyping` is not an isolated cleanup.
 
@@ -258,7 +282,7 @@ Starshine currently covers the basic write-site narrowing shapes, but it does no
 1. body-local reference narrowing from assigned values;
 2. sibling assignments that choose a common parent LUB;
 3. `local.tee` assignment plus expression retagging;
-4. dominated non-null positives;
+4. dominated non-null positives, including the current branch-free `block` subset;
 5. undominated nullable fallbacks;
 6. gets not acting as standalone LUB evidence;
 7. repeated refinement after refinalization;
