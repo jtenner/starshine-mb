@@ -253,9 +253,33 @@ Why it stays nullable:
 
 - the assigned heap type still narrows from `$Parent` to `$A`;
 - local Binaryen v130 does not use this branch-flow block post-state to prove non-nullability;
-- Starshine keeps the same nullable fallback by bailing out of the non-null dominance scan on `br`/`br_if`/`br_table`, return, throw, and `try_table` flow.
+- Starshine keeps the same nullable fallback by bailing out of the non-null dominance scan on unconditional `br`, `br_table`, return, throw, and `try_table` flow.
 
-## Shape 7: branch-free loops can preserve entry domination
+## Shape 6c: `br_if` paths that can skip a write stay nullable
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block $exit
+  (br_if $exit (i32.const 1))
+  (local.set $x (local.get $p)))
+(drop (local.get $x))
+```
+
+After, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref null $A))
+```
+
+Why it stays nullable:
+
+- the true branch exits the block before the write, so the later outer get can still observe the default null;
+- Starshine now treats `br_if` as a conditional-flow barrier for subsequent write initialization, rather than a full-function bailout, so earlier dominated gets can still narrow while branch-skipped writes do not prove non-null post-state.
+
+## Shape 7: loop bodies can preserve entry domination
 
 Before:
 
@@ -267,7 +291,7 @@ Before:
   (drop (local.get $x)))
 ```
 
-Possible after, when the loop body has no branch/return/throw flow:
+Possible after, when the loop body has no branch/return/throw flow or only a tail `br_if` backedge after the dominated get:
 
 ```wat
 (local $x (ref $A))
@@ -276,7 +300,8 @@ Possible after, when the loop body has no branch/return/throw flow:
 Why it rewrites:
 
 - the assignment is non-null and dominates the first loop entry;
-- the current Starshine subset only admits branch-free loop bodies, so there is no backedge that can observe a different pre-write state;
+- local Binaryen v130 narrows a loop whose body reads the local and then reaches a tail `br_if 0` backedge;
+- Starshine admits that narrow backedge subset by preserving entry initialization for gets before the `br_if`, while refusing to let writes after a `br_if` prove non-null post-state;
 - writes inside the loop are not propagated to later outer gets; a local Binaryen v130 probe for a branch-free loop write followed by an outside get kept the declaration nullable child, so Starshine keeps that source-backed fallback.
 
 ## Shape 8: branch-free `if` arms can preserve entry domination
@@ -463,7 +488,7 @@ Starshine currently covers the basic write-site narrowing shapes, but it does no
 1. body-local reference narrowing from assigned values;
 2. sibling assignments that choose a common parent LUB;
 3. `local.tee` assignment plus expression retagging;
-4. dominated non-null positives, including the current branch-free `block`, branch-free `loop`, nested branch-free block-`if`, and root-`if` subsets;
+4. dominated non-null positives, including the current branch-free `block`, branch-free `loop`, loop tail-`br_if`, nested branch-free block-`if`, and root-`if` subsets;
 5. undominated nullable fallbacks;
 6. gets not acting as standalone LUB evidence;
 7. repeated refinement after refinalization;
