@@ -879,6 +879,133 @@ fn oc_direct_dropped_refinement(
 }
 
 ///|
+fn oc_single_dropped_child(func : @ir.HotFunc, root_id : Int) -> Int? {
+  if !@ir.hot_node_is_live(func, root_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, root_id) == 1 {
+        Some(@ir.hot_child_get(func, root_id, 0))
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn oc_nullable_ref_cast_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCast(true, _, _)) => ()
+    _ => return None
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  oc_refinement_child_source_local(func, child_id, false)
+}
+
+///|
+fn oc_ref_as_non_null_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return None
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  oc_refinement_child_source_local(func, child_id, true)
+}
+
+///|
+fn oc_separate_ref_as_cast_pair(
+  func : @ir.HotFunc,
+  first_root : Int,
+  second_root : Int,
+) -> (Int, Int, Int)? {
+  let first_child = match oc_single_dropped_child(func, first_root) {
+    Some(child_id) => child_id
+    None => return None
+  }
+  let second_child = match oc_single_dropped_child(func, second_root) {
+    Some(child_id) => child_id
+    None => return None
+  }
+  match
+    (
+      oc_nullable_ref_cast_source_local(func, first_child),
+      oc_ref_as_non_null_source_local(func, second_child),
+    ) {
+    (Some(cast_local), Some(as_local)) =>
+      if cast_local == as_local {
+        return Some((cast_local, first_child, second_child))
+      }
+    _ => ()
+  }
+  match
+    (
+      oc_ref_as_non_null_source_local(func, first_child),
+      oc_nullable_ref_cast_source_local(func, second_child),
+    ) {
+    (Some(as_local), Some(cast_local)) =>
+      if as_local == cast_local {
+        return Some((as_local, second_child, first_child))
+      }
+    _ => ()
+  }
+  None
+}
+
+///|
+fn oc_build_nested_ref_as_cast_from_pair(
+  func : @ir.HotFunc,
+  source_local : Int,
+  cast_id : Int,
+  ref_as_id : Int,
+) -> Int? {
+  match @ir.hot_node_exact_instr(func, cast_id) {
+    Some(@lib.Instruction::RefCast(true, _, _)) => ()
+    _ => return None
+  }
+  match @ir.hot_node_exact_instr(func, ref_as_id) {
+    Some(@lib.Instruction::RefAsNonNull) => ()
+    _ => return None
+  }
+  let cast_ref = match oc_ref_type_from_node(func, cast_id) {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  let cast_node = @ir.hot_node_get(func, cast_id)
+  let ref_as_node = @ir.hot_node_get(func, ref_as_id)
+  let cloned_get = @ir.hot_build_local_get(func, source_local)
+  let cloned_cast = @ir.hot_build_node(
+    func,
+    cast_node.op,
+    cast_node.ty,
+    imm0=cast_node.imm0,
+    imm1=cast_node.imm1,
+    children=[cloned_get],
+  )
+  let ref_as_ty = @ir.hot_type_intern_value(
+    func,
+    @lib.ValType::ref_type(oc_ref_type_as_non_null(cast_ref)),
+  )
+  Some(
+    @ir.hot_build_node(
+      func,
+      ref_as_node.op,
+      ref_as_ty,
+      imm0=ref_as_node.imm0,
+      imm1=ref_as_node.imm1,
+      children=[cloned_cast],
+    ),
+  )
+}
+
+///|
 fn oc_clone_refinement_replacing_source_get(
   func : @ir.HotFunc,
   node_id : Int,
@@ -940,6 +1067,38 @@ fn oc_duplicate_refinement_at_get(
   }
   let replacement = @ir.hot_node_get(func, cloned_cast)
   @ir.hot_delete_node(func, cloned_cast)
+  pass_replace_node(ctx, func, get_id, replacement)
+  true
+}
+
+///|
+fn oc_duplicate_separate_ref_as_cast_at_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  get_id : Int,
+  cast_id : Int,
+  ref_as_id : Int,
+) -> Bool {
+  if !@ir.hot_node_is_live(func, get_id) {
+    return false
+  }
+  let get_node = @ir.hot_node_get(func, get_id)
+  match get_node.op {
+    @ir.HotOp::LocalGet => ()
+    _ => return false
+  }
+  let nested = match
+    oc_build_nested_ref_as_cast_from_pair(
+      func,
+      get_node.imm0,
+      cast_id,
+      ref_as_id,
+    ) {
+    Some(node_id) => node_id
+    None => return false
+  }
+  let replacement = @ir.hot_node_get(func, nested)
+  @ir.hot_delete_node(func, nested)
   pass_replace_node(ctx, func, get_id, replacement)
   true
 }
@@ -1044,6 +1203,30 @@ fn oc_early_motion_scan_region(
   let root_count = @ir.hot_region_root_count(func, region)
   for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
     let root_id = @ir.hot_region_get(func, region, root_idx)
+    if root_idx + 1 < root_count {
+      let next_root = @ir.hot_region_get(func, region, root_idx + 1)
+      match oc_separate_ref_as_cast_pair(func, root_id, next_root) {
+        Some((local_id, cast_id, ref_as_id)) =>
+          if local_id >= 0 &&
+            local_id < local_count &&
+            !seen_refinements[local_id] &&
+            pending_gets[local_id] >= 0 {
+            if oc_duplicate_separate_ref_as_cast_at_get(
+                ctx,
+                func,
+                pending_gets[local_id],
+                cast_id,
+                ref_as_id,
+              ) {
+              changed = true
+              seen_refinements[local_id] = true
+              oc_clear_pending_gets(pending_gets)
+              continue
+            }
+          }
+        None => ()
+      }
+    }
     match oc_direct_dropped_refinement(func, root_id) {
       Some((local_id, cast_id)) => {
         if local_id >= 0 && local_id < local_count {
