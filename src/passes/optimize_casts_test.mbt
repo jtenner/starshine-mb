@@ -1572,6 +1572,84 @@ test "optimize-casts combines separate nullable cast and ref.as_non_null at earl
 }
 
 ///|
+test "optimize-casts moves the deepest best cast across a three-level chain" {
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let mid = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
+  let leaf = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(1U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::abs(@lib.AbsHeapType::struct_()),
+        ),
+      )], [])),
+  )
+  let pretty = optimize_casts_run_pretty(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([base, mid, leaf, func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(3U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(
+              false,
+              @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(
+              false,
+              @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(
+              false,
+              @lib.HeapType::new(@lib.TypeIdx::new(2U)),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        )]),
+    ),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "HeapType Idx 0"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "HeapType Idx 1"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "HeapType Idx 2"),
+    4,
+    msg=pretty,
+  )
+}
+
+///|
 test "optimize-casts reuses mixed moved ref.as then nullable cast roots" {
   let nullable_struct_ref = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
