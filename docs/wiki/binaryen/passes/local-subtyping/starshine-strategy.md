@@ -76,6 +76,8 @@ The current implementation is a narrower subset that narrows body locals from wr
   - direct active-pass tests for registry lookup, write-site narrowing, tee assignments, straight-line non-null dominance, branch-free block/loop dominance/fallback, loop tail-`br_if` backedge dominance, terminal `br` / `br_table` dominated-get narrowing, branch-free block-write post-state propagation, branch-free nested block-if dominance, source-backed nullable loop/if/branch-flow/`br_if`-skipped-write post-state fallback, parameter preservation, branch-free root-if dominance/fallback, root/block terminal-return and direct return_call, direct if-arm return_call/throw/throw_ref-skip, if-arm nested block terminal-return/throw, and root/block terminal-throw/throw_ref dominance, and try_table body dominance including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and non-final body `return`/`throw`/`throw_ref`/tail-call tails with already-dominated gets.
 - `src/cmd/cmd_wbtest.mbt:4376-4439`
   - CLI integration test for `--local-subtyping` on wasm inputs.
+- `src/validate/gen_valid.mbt` and `src/validate/gen_valid_tests.mbt`
+  - dedicated `local-subtyping-all` GenValid aggregate with `local-subtyping-straight-line` and `local-subtyping-structured` trigger leaves for closeout evidence.
 
 ## What the current implementation actually does
 
@@ -125,7 +127,7 @@ The next full-contract parity tests should cover:
 2. `local.get` / `local.tee` expression retagging after declaration narrowing;
 3. repeated refinement after a pass change;
 4. broader body-local/parameter boundary coverage beyond the now-guarded source-backed parameter-preservation fixture;
-5. pass-specific GenValid profile coverage for LS assignment/dominance families.
+5. scaling the new `local-subtyping-all` GenValid aggregate from profile smoke to the required 10000-case dedicated signoff lane. Its current leaves cover straight-line local.set/local.tee dominance and branch-free block/loop/if dominated reads over nullable `anyref` body locals written with non-null `struct.new_default` values.
 
 ## Bottom line
 

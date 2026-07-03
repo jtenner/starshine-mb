@@ -60,13 +60,14 @@ The current implementation is still narrower than Binaryen, but it is not future
 
 | File | Role |
 | --- | --- |
-| `src/passes/local_subtyping.mbt` | Active owner file. Implements the current subset: helper subtype checks, write-site collection, candidate narrowing, body-local rewrite, and module rebuild.
-| `src/passes/local_subtyping_test.mbt` | Direct Starshine tests for registry status, write-site narrowing, and the current non-null dominance subsets.
-| `src/cmd/cmd_wbtest.mbt` | CLI integration test proving `--local-subtyping` runs on wasm input and writes the rewritten module.
-| `src/passes/registry_test.mbt` | Registry category proof that `local-subtyping` is a module pass.
-| `src/passes/optimize.mbt` | Registry entry and preset inclusion for `local-subtyping`.
-| `src/passes/pass_manager.mbt` | Active hot-pass dispatcher entry.
-| `src/passes/optimize_test.mbt` | Optimize-preset slot proof for the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood.
+| `src/passes/local_subtyping.mbt` | Active owner file. Implements the current subset: helper subtype checks, write-site collection, candidate narrowing, body-local rewrite, and module rebuild. |
+| `src/passes/local_subtyping_test.mbt` | Direct Starshine tests for registry status, write-site narrowing, and the current non-null dominance subsets. |
+| `src/validate/gen_valid.mbt` and `src/validate/gen_valid_tests.mbt` | Dedicated `local-subtyping-all` GenValid profile and tests. The aggregate samples straight-line and branch-free structured LS trigger modules for required closeout lanes. |
+| `src/cmd/cmd_wbtest.mbt` | CLI integration test proving `--local-subtyping` runs on wasm input and writes the rewritten module. |
+| `src/passes/registry_test.mbt` | Registry category proof that `local-subtyping` is a module pass. |
+| `src/passes/optimize.mbt` | Registry entry and preset inclusion for `local-subtyping`. |
+| `src/passes/pass_manager.mbt` | Active hot-pass dispatcher entry. |
+| `src/passes/optimize_test.mbt` | Optimize-preset slot proof for the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood. |
 
 ## Starshine phase map
 
@@ -101,6 +102,7 @@ The active Starshine tests are small but meaningful.
 | `src/passes/local_subtyping_test.mbt` local.tee fixtures | `local.tee` assignment evidence feeds narrowing, and a non-null tee assignment/use validates after non-null declaration narrowing. |
 | `src/passes/local_subtyping_test.mbt` parameter fixture | A source-backed nullable-parameter write/get guard proves the pass preserves signature params and rewrites only body locals. |
 | `src/passes/local_subtyping_test.mbt` dominance fixtures | Straight-line, branch-free block/loop, loop tail-`br_if` backedge, terminal `br` / `br_table` dominated-get, branch-free block-write post-state, nested branch-free block-if, branch-free root-if, conditional-return/direct-return_call/direct-return_call_indirect/direct-return_call_ref/direct-throw/direct-throw_ref skip, root/block terminal-return/return_call/return_call_indirect/return_call_ref, if-arm nested block terminal-return/throw, root/block terminal-throw/throw_ref, try_table body dominated-get including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and non-final body `return`/`throw`/`throw_ref`/tail-call tails with already-dominated tail gets, source-backed nullable loop/if/branch-flow/try-table-body/branch-skipped-write post-state, and direct block-return validator-boundary tests cover non-null positives and nullable fallbacks. |
+| `src/validate/gen_valid_tests.mbt` local-subtyping profile fixtures | Profile resolution, aggregate leaf sampling, and validating module generation for `local-subtyping-straight-line` and `local-subtyping-structured`. |
 | `src/cmd/cmd_wbtest.mbt:4376-4439` | The CLI path accepts `--local-subtyping` and writes an optimized wasm module. |
 | `src/passes/optimize_test.mbt:491-495` | The pass is intentionally absent from the stale `reorder-locals` gating test; that test is about neighboring local-passes not yet being scheduled in a different slot. |
 | `src/passes/optimize_test.mbt:561-568` | The optimize preset includes `local-subtyping` immediately after `optimize-casts` in the late GC/local cleanup neighborhood. |

@@ -97,7 +97,8 @@ Current coverage should stay green first:
 2. body-local narrowing to a child heap type;
 3. mixed-sibling common-parent narrowing;
 4. CLI `--local-subtyping` end-to-end replay;
-5. optimize-preset slot coverage.
+5. optimize-preset slot coverage;
+6. dedicated `local-subtyping-all` GenValid profile coverage, currently composed from `local-subtyping-straight-line` and `local-subtyping-structured` leaves that emit nullable `anyref` body locals, non-null `struct.new_default` writes, and dominated straight-line/block/loop/if reads.
 
 Refreshed direct signoff on 2026-05-06 ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
@@ -109,7 +110,7 @@ Then grow coverage in this order:
 2. `local.get` / `local.tee` expression retagging;
 3. repeated refinement after a narrowing change;
 4. broader parameter/body-local-only scope checks beyond the source-backed nullable-parameter preservation guard;
-5. an LS-specific GenValid aggregate profile for direct signoff.
+5. scale the new LS-specific `local-subtyping-all` GenValid aggregate profile through the required 10000-case dedicated direct signoff lane.
 
 ## What to avoid saying
 
