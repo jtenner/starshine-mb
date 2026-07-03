@@ -356,6 +356,7 @@ fn ls_scan_branch_free_dominance_instrs(
   ref_body_locals : Array[Bool],
   initialized : Array[Bool],
   safe : Array[Bool],
+  allow_return_skip? : Bool = false,
 ) -> Bool {
   let body_local_count = ref_body_locals.length()
   let mut allow_later_write_init = true
@@ -400,7 +401,12 @@ fn ls_scan_branch_free_dominance_instrs(
       @lib.If(_, then_body, else_body) => {
         let then_initialized = initialized.copy()
         if !ls_scan_branch_free_dominance_instrs(
-            then_body, param_count, ref_body_locals, then_initialized, safe,
+            then_body,
+            param_count,
+            ref_body_locals,
+            then_initialized,
+            safe,
+            allow_return_skip=true,
           ) {
           return false
         }
@@ -408,7 +414,12 @@ fn ls_scan_branch_free_dominance_instrs(
           Some(body) => {
             let else_initialized = initialized.copy()
             if !ls_scan_branch_free_dominance_instrs(
-                body, param_count, ref_body_locals, else_initialized, safe,
+                body,
+                param_count,
+                ref_body_locals,
+                else_initialized,
+                safe,
+                allow_return_skip=true,
               ) {
               return false
             }
@@ -417,12 +428,12 @@ fn ls_scan_branch_free_dominance_instrs(
         }
       }
       @lib.BrIf(_) => allow_later_write_init = false
+      @lib.Return => if allow_return_skip { () } else { return false }
       @lib.TryTable(_, _, _)
       | @lib.Throw(_)
       | @lib.ThrowRef
       | @lib.Br(_)
       | @lib.BrTable(_, _)
-      | @lib.Return
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
       | @lib.ReturnCallRef(_) => return false
