@@ -895,6 +895,48 @@ fn oc_ref_type_as_non_null(ref_type : @lib.RefType) -> @lib.RefType {
 }
 
 ///|
+fn oc_refinalize_marked_nullable_ref_cast(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  root_id : Int,
+  moved_refinalized_refinements : Array[Int],
+) -> Bool {
+  let cast_id = match oc_single_dropped_child(func, root_id) {
+    Some(child_id) => child_id
+    None => return false
+  }
+  if !oc_contains_local(moved_refinalized_refinements, cast_id) {
+    return false
+  }
+  let (exact, heap_type) = match @ir.hot_node_exact_instr(func, cast_id) {
+    Some(@lib.Instruction::RefCast(true, exact, heap_type)) =>
+      (exact, heap_type)
+    _ => return false
+  }
+  if @ir.hot_child_count(func, cast_id) != 1 {
+    return false
+  }
+  let non_null_target = @lib.RefType::new(false, heap_type, exact~)
+  let cast_node = @ir.hot_node_get(func, cast_id)
+  let payload_id = @ir.hot_alloc_instr_payload(
+    func,
+    @ir.HotInstrPayload::new(@lib.Instruction::ref_cast_type(non_null_target)),
+  )
+  let replacement_id = @ir.hot_build_node(
+    func,
+    cast_node.op,
+    @ir.hot_type_intern_value(func, @lib.ValType::ref_type(non_null_target)),
+    imm0=cast_node.imm0,
+    imm1=payload_id,
+    children=oc_node_children(func, cast_id),
+  )
+  let replacement = @ir.hot_node_get(func, replacement_id)
+  @ir.hot_delete_node(func, replacement_id)
+  pass_replace_node(ctx, func, cast_id, replacement)
+  true
+}
+
+///|
 fn oc_ref_cast_source_can_read_best_cast(
   module_ctx : @ir.HotModuleContext,
   func : @ir.HotFunc,
@@ -1531,6 +1573,9 @@ fn oc_early_motion_scan_region(
               ) {
               changed = true
               seen_refinements[local_id] = true
+              if !oc_contains_local(moved_refinalized_refinements, cast_id) {
+                moved_refinalized_refinements.push(cast_id)
+              }
               oc_clear_pending_gets(pending_gets, pending_get_best_refinements)
               continue
             }
@@ -1878,6 +1923,11 @@ fn oc_later_reuse_scan_region(
           if oc_retarget_local_gets(ctx, func, root_id, local_id, fresh_local) >
             0 {
             changed = true
+            if oc_refinalize_marked_nullable_ref_cast(
+                ctx, func, root_id, moved_refinalized_refinements,
+              ) {
+              changed = true
+            }
           } else {
             match marked_source_get {
               Some(source_get) =>
