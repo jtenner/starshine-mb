@@ -184,7 +184,33 @@ Why it rewrites:
 - the block body is branch-free in the current Starshine subset;
 - a get inside the block cannot observe the original nullable default.
 
-## Shape 7: gets matter, but they do not choose the LUB
+
+## Shape 7: branch-free `if` arms can preserve entry domination
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(local.set $x (local.get $p))
+(if (i32.const 1)
+  (then (drop (local.get $x)))
+  (else (drop (local.get $x))))
+```
+
+Possible after, when the `if` arms have no branch/return/throw flow:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- the assignment is non-null and dominates entry to the `if`;
+- each arm is scanned with a copy of the pre-`if` initialized state;
+- current Starshine does not propagate writes inside either arm to later outer gets.
+
+## Shape 8: gets matter, but they do not choose the LUB
 
 Before and after may stay the same in the important part:
 
@@ -200,7 +226,7 @@ Why this alone does not narrow:
 - assigned values drive the LUB;
 - gets are used for dominance and repair once a candidate exists.
 
-## Shape 8: repeated refinement after refinalization
+## Shape 9: repeated refinement after refinalization
 
 Before, conceptually:
 
@@ -225,7 +251,7 @@ Why iteration matters:
 - Binaryen refinalizes and reruns until stable;
 - a single declaration-only pass may miss this family.
 
-## Shape 9: parameters are preserved
+## Shape 10: parameters are preserved
 
 Before and after stay unchanged in the signature:
 
@@ -240,7 +266,7 @@ Why:
 - the rewrite loop starts at the body-local base;
 - the function ABI remains unchanged.
 
-## Shape 10: non-reference and tuple/nondefaultable locals are preserved
+## Shape 11: non-reference and tuple/nondefaultable locals are preserved
 
 Before and after stay unchanged in the important part:
 
@@ -254,7 +280,7 @@ Why:
 - nondefaultable or tuple-like shapes are not forced through the rewrite;
 - the official lit surface includes preservation coverage for this boundary.
 
-## Shape 11: neighborhood shapes matter
+## Shape 12: neighborhood shapes matter
 
 `local-subtyping` is not an isolated cleanup.
 
