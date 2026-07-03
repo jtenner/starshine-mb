@@ -434,6 +434,15 @@ fn ls_scan_branch_free_dominance_instrs(
           return LsDominanceScanResult::new(false, false)
         }
       }
+      @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let try_initialized = initialized.copy()
+        let try_result = ls_scan_branch_free_dominance_instrs(
+          body, param_count, ref_body_locals, try_initialized, safe,
+        )
+        if !try_result.valid {
+          return LsDominanceScanResult::new(false, false)
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         let then_initialized = initialized.copy()
         let then_result = ls_scan_branch_free_dominance_instrs(
@@ -486,8 +495,7 @@ fn ls_scan_branch_free_dominance_instrs(
         } else {
           return LsDominanceScanResult::new(false, false)
         }
-      @lib.TryTable(_, _, _)
-      | @lib.ThrowRef
+      @lib.ThrowRef
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
       | @lib.ReturnCallRef(_) => return LsDominanceScanResult::new(false, false)
