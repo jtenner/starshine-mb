@@ -377,7 +377,7 @@ test "optimize-casts duplicates later ref.cast to previous adjacent local get" {
 }
 
 ///|
-test "optimize-casts duplicates a later narrower cast into an earlier broader cast source" {
+test "optimize-casts refinalizes a broader cast after duplicating a narrower source" {
   let struct_ref = @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
   )
@@ -399,7 +399,12 @@ test "optimize-casts duplicates a later narrower cast into an earlier broader ca
   )
   @debug.assert_eq(
     optimize_casts_count_substring(pretty, "ref.cast"),
-    3,
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "HeapType Idx 0"),
+    0,
     msg=pretty,
   )
 }
