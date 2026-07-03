@@ -384,6 +384,7 @@ fn ls_scan_branch_free_dominance_instrs(
   safe : Array[Bool],
   allow_return_skip? : Bool = false,
   allow_terminal_return? : Bool = false,
+  allow_terminal_throw? : Bool = false,
 ) -> LsDominanceScanResult {
   let body_local_count = ref_body_locals.length()
   let mut allow_later_write_init = true
@@ -473,8 +474,14 @@ fn ls_scan_branch_free_dominance_instrs(
         } else {
           return LsDominanceScanResult::new(false, false)
         }
+      @lib.Throw(_) =>
+        if allow_terminal_throw && instr_idx + 1 == instrs.length() {
+          allow_later_write_init = false
+          propagates = false
+        } else {
+          return LsDominanceScanResult::new(false, false)
+        }
       @lib.TryTable(_, _, _)
-      | @lib.Throw(_)
       | @lib.ThrowRef
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
@@ -506,6 +513,7 @@ fn ls_non_null_dominated_linear_locals(
     initialized,
     safe,
     allow_terminal_return=true,
+    allow_terminal_throw=true,
   )
   if !scan_result.valid {
     for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
