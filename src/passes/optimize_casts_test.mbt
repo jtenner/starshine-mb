@@ -65,6 +65,42 @@ fn optimize_casts_void_module_with_locals(
 }
 
 ///|
+fn optimize_casts_global_void_module(
+  param_type : @lib.ValType,
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let child = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([param_type], [])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([base, child, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), true),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::new([]), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
 fn optimize_casts_two_func_void_module(
   param_type : @lib.ValType,
   body : Array[@lib.Instruction],
@@ -440,6 +476,49 @@ test "optimize-casts moves the best later cast to the earliest get" {
   @debug.assert_eq(
     optimize_casts_count_substring(pretty, "HeapType Idx 0"),
     0,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-casts feeds later narrower casts from the current best broader cast" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::struct_())),
+  )
+  let pretty = optimize_casts_run_pretty(
+    optimize_casts_global_void_module(struct_ref, [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(10)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(20)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::ref_cast(
+        false,
+        @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      ),
+      @lib.Instruction::drop(),
+      @lib.Instruction::i32_const(@lib.I32(30)),
+      @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "local.get (Local 1)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_casts_count_substring(pretty, "local.get (Local 2)"),
+    1,
     msg=pretty,
   )
 }
