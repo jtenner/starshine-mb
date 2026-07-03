@@ -554,6 +554,50 @@ fn oc_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
 }
 
 ///|
+fn oc_early_refinement_source_local(func : @ir.HotFunc, node_id : Int) -> Int? {
+  let requires_nullable_source = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefCast(_, _, _)) => false
+    Some(@lib.Instruction::RefAsNonNull) => true
+    _ => return None
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let child_id = @ir.hot_child_get(func, node_id, 0)
+  let child = @ir.hot_node_get(func, child_id)
+  match child.op {
+    @ir.HotOp::LocalGet =>
+      if oc_source_local_requires_nullable_check(
+          func, child_id, requires_nullable_source,
+        ) {
+        Some(child.imm0)
+      } else {
+        None
+      }
+    @ir.HotOp::LocalTee =>
+      if @ir.hot_child_count(func, child_id) == 1 {
+        let tee_source = @ir.hot_child_get(func, child_id, 0)
+        let source = @ir.hot_node_get(func, tee_source)
+        match source.op {
+          @ir.HotOp::LocalGet =>
+            if source.imm0 != child.imm0 &&
+              oc_source_local_requires_nullable_check(
+                func, tee_source, requires_nullable_source,
+              ) {
+              Some(source.imm0)
+            } else {
+              None
+            }
+          _ => None
+        }
+      } else {
+        None
+      }
+    _ => oc_nested_ref_as_cast_source_local(func, node_id)
+  }
+}
+
+///|
 fn oc_contains_local(locals : Array[Int], local_id : Int) -> Bool {
   for written in locals {
     if written == local_id {
@@ -904,7 +948,7 @@ fn oc_direct_dropped_refinement(
     @ir.HotOp::Drop =>
       if @ir.hot_child_count(func, root_id) == 1 {
         let child_id = @ir.hot_child_get(func, root_id, 0)
-        match oc_refinement_source_local(func, child_id) {
+        match oc_early_refinement_source_local(func, child_id) {
           Some(local_id) => Some((local_id, child_id))
           None => None
         }
