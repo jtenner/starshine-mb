@@ -1377,6 +1377,7 @@ pub struct TcState {
   reachable : Bool
   escape : TcEscape
   reachable_escape_depths : Array[Int]
+  initialized_locals : Array[Bool]
 }
 pub impl Show for TcState
 

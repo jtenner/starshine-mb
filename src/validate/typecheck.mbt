@@ -23,6 +23,7 @@ pub struct TcState {
   reachable : Bool
   escape : TcEscape
   reachable_escape_depths : Array[Int]
+  initialized_locals : Array[Bool]
 }
 
 ///|
@@ -37,6 +38,8 @@ pub impl Show for TcState with fn output(self, logger) {
   self.escape.output(logger)
   logger.write_string(", reachable_escape_depths: ")
   self.reachable_escape_depths.output(logger)
+  logger.write_string(", initialized_locals: ")
+  self.initialized_locals.output(logger)
   logger.write_char('}')
 }
 
@@ -139,6 +142,33 @@ fn TcState::merge_child_reachable_escape_depths(
 ///|
 fn TcState::push1(st : TcState, vt : ValType) -> TcState {
   st.stack.push(vt)
+  st
+}
+
+///|
+fn tc_initialized_intersection(
+  left : Array[Bool],
+  right : Array[Bool],
+) -> Array[Bool] {
+  let out : Array[Bool] = []
+  let limit = if left.length() < right.length() {
+    left.length()
+  } else {
+    right.length()
+  }
+  for idx = 0; idx < limit; idx = idx + 1 {
+    out.push(left[idx] && right[idx])
+  }
+  out
+}
+
+///|
+fn TcState::mark_local_initialized(st : TcState, idx : LocalIdx) -> TcState {
+  let LocalIdx(raw) = idx
+  let local_id = raw.reinterpret_as_int()
+  if local_id >= 0 && local_id < st.initialized_locals.length() {
+    st.initialized_locals[local_id] = true
+  }
   st
 }
 
@@ -488,7 +518,17 @@ fn typecheck_select_untyped(st : TcState) -> TcResult {
 fn typecheck_local_get(st : TcState, idx : LocalIdx) -> TcResult {
   match st.env.get_local_type(idx) {
     None => Err("invalid local index")
-    Some(vt) => Ok(st.push1(vt))
+    Some(vt) => {
+      let LocalIdx(raw) = idx
+      let local_id = raw.reinterpret_as_int()
+      if local_id < 0 || local_id >= st.initialized_locals.length() {
+        return Err("invalid local index")
+      }
+      if !st.initialized_locals[local_id] {
+        return Err("uninitialized local: \{local_id}")
+      }
+      Ok(st.push1(vt))
+    }
   }
 }
 
@@ -496,7 +536,11 @@ fn typecheck_local_get(st : TcState, idx : LocalIdx) -> TcResult {
 fn typecheck_local_set(st : TcState, idx : LocalIdx) -> TcResult {
   match st.env.get_local_type(idx) {
     None => Err("invalid local index")
-    Some(vt) => st.pop_expect(vt)
+    Some(vt) =>
+      match st.pop_expect(vt) {
+        Err(e) => Err(e)
+        Ok(st2) => Ok(st2.mark_local_initialized(idx))
+      }
   }
 }
 
@@ -508,7 +552,7 @@ fn typecheck_local_tee(st : TcState, idx : LocalIdx) -> TcResult {
       // tee pops vt then pushes vt
       match st.pop_expect(vt) {
         Err(e) => Err(e)
-        Ok(st2) => Ok(st2.push1(vt))
+        Ok(st2) => Ok(st2.mark_local_initialized(idx).push1(vt))
       }
   }
 }
@@ -642,6 +686,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     reachable: st1.reachable,
     escape: st1.escape,
     reachable_escape_depths: [],
+    initialized_locals: st1.initialized_locals.copy(),
   }
   let st_body = match Typecheck::typecheck(Expr::new(body_instrs), st_body0) {
     Err(e) => return Err(e)
@@ -661,6 +706,11 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       reachable: st.reachable,
       escape: st.escape,
       reachable_escape_depths: st.reachable_escape_depths,
+      initialized_locals: if base_reaches_merge {
+        st_body.initialized_locals
+      } else {
+        st1.initialized_locals
+      },
     }.merge_child_reachable_escape_depths(st_body)
     return Ok(out.push_types(results))
   }
@@ -671,6 +721,7 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       reachable: false,
       escape: block_escape,
       reachable_escape_depths: st.reachable_escape_depths,
+      initialized_locals: st.initialized_locals,
     }.merge_child_reachable_escape_depths(st_body),
   )
 }
@@ -712,6 +763,7 @@ fn typecheck_if(
     reachable: st1.reachable,
     escape: st1.escape,
     reachable_escape_depths: [],
+    initialized_locals: st1.initialized_locals.copy(),
   }
   let st_then = match Typecheck::typecheck(Expr::new(then_instrs), st_then0) {
     Err(e) => return Err(e)
@@ -725,6 +777,7 @@ fn typecheck_if(
     reachable: st1.reachable,
     escape: st1.escape,
     reachable_escape_depths: [],
+    initialized_locals: st1.initialized_locals.copy(),
   }
   let st_else = match Typecheck::typecheck(Expr::new(else_instrs), st_else0) {
     Err(e) => return Err(e)
@@ -751,6 +804,16 @@ fn typecheck_if(
   )
 
   if then_reach || else_reach {
+    let merged_initialized = if then_reach && else_reach {
+      tc_initialized_intersection(
+        st_then.initialized_locals,
+        st_else.initialized_locals,
+      )
+    } else if then_reach {
+      st_then.initialized_locals
+    } else {
+      st_else.initialized_locals
+    }
     let out = TcState::{
       env: st.env,
       stack: st1.stack,
@@ -760,6 +823,7 @@ fn typecheck_if(
         st.reachable_escape_depths,
         merged_child_depths,
       ),
+      initialized_locals: merged_initialized,
     }
     return Ok(out.push_types(results))
   }
@@ -772,6 +836,7 @@ fn typecheck_if(
       st.reachable_escape_depths,
       merged_child_depths,
     ),
+    initialized_locals: st.initialized_locals,
   })
 }
 
@@ -1396,6 +1461,7 @@ fn typecheck_try_table(
     reachable: st1.reachable,
     escape: st1.escape,
     reachable_escape_depths: [],
+    initialized_locals: st1.initialized_locals.copy(),
   }
 
   // body must typecheck under extended env
@@ -1426,6 +1492,7 @@ fn typecheck_try_table(
     reachable: st_body.reachable,
     escape: st_body.escape,
     reachable_escape_depths: st.reachable_escape_depths,
+    initialized_locals: st_body.initialized_locals,
   }.merge_child_reachable_escape_depths(st_body)
   Ok(out.push_types(results))
 }
@@ -1800,6 +1867,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     reachable: st1.reachable,
     escape: st1.escape,
     reachable_escape_depths: [],
+    initialized_locals: st1.initialized_locals.copy(),
   }
   let st_body = match Typecheck::typecheck(body, st_body0) {
     Err(e) => return Err(e)
@@ -1818,6 +1886,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       reachable: st.reachable,
       escape: st.escape,
       reachable_escape_depths: st.reachable_escape_depths,
+      initialized_locals: st_body.initialized_locals,
     }.merge_child_reachable_escape_depths(st_body)
     return Ok(out.push_types(results))
   }
@@ -1828,6 +1897,7 @@ fn typecheck_loop(st : TcState, bt : BlockType, body : Expr) -> TcResult {
       reachable: false,
       escape: loop_escape,
       reachable_escape_depths: st.reachable_escape_depths,
+      initialized_locals: st.initialized_locals,
     }.merge_child_reachable_escape_depths(st_body),
   )
 }
@@ -4151,24 +4221,40 @@ fn non_nullable_externref() -> ValType {
 }
 
 ///|
+fn tc_state_all_locals_initialized(env : Env) -> Array[Bool] {
+  let initialized : Array[Bool] = []
+  for run in env.locals.runs() {
+    let count = run.count.reinterpret_as_int()
+    for _i = 0; _i < count; _i = _i + 1 {
+      initialized.push(true)
+    }
+  }
+  initialized
+}
+
+///|
 pub fn make_state(env : Env, stack : Array[ValType]) -> TcState {
+  let initialized_locals = tc_state_all_locals_initialized(env)
   {
     env,
     stack: stack.copy(),
     reachable: true,
     escape: NoTcEscape,
     reachable_escape_depths: [],
+    initialized_locals,
   }
 }
 
 ///|
 pub fn make_state_owned(env : Env, stack : Array[ValType]) -> TcState {
+  let initialized_locals = tc_state_all_locals_initialized(env)
   {
     env,
     stack,
     reachable: true,
     escape: NoTcEscape,
     reachable_escape_depths: [],
+    initialized_locals,
   }
 }
 
@@ -4180,6 +4266,7 @@ pub fn tc_state_with_stack(state : TcState, stack : Array[ValType]) -> TcState {
     reachable: state.reachable,
     escape: state.escape,
     reachable_escape_depths: state.reachable_escape_depths,
+    initialized_locals: state.initialized_locals,
   }
 }
 
@@ -4194,6 +4281,7 @@ pub fn tc_state_with_owned_stack(
     reachable: state.reachable,
     escape: state.escape,
     reachable_escape_depths: state.reachable_escape_depths,
+    initialized_locals: state.initialized_locals,
   }
 }
 
@@ -4204,7 +4292,15 @@ pub fn tc_state_new(
   reachable : Bool,
   escape : TcEscape,
 ) -> TcState {
-  { env, stack, reachable, escape, reachable_escape_depths: [] }
+  let initialized_locals = tc_state_all_locals_initialized(env)
+  {
+    env,
+    stack,
+    reachable,
+    escape,
+    reachable_escape_depths: [],
+    initialized_locals,
+  }
 }
 
 ///|
@@ -4288,6 +4384,7 @@ test "tc_state_validate_end_stack accepts unreachable virtual-bottom suffixes" {
     reachable: false,
     escape: NoTcEscape,
     reachable_escape_depths: [],
+    initialized_locals: [],
   }
   let result = tc_state_validate_end_stack(state, [ValType::i32()])
   @debug.assert_eq(result, Ok(()))

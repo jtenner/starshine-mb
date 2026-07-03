@@ -1200,6 +1200,7 @@ fn validate_const_expr(
     reachable: true,
     escape: NoTcEscape,
     reachable_escape_depths: [],
+    initialized_locals: [],
   }
   let st1 = match Typecheck::typecheck(expr, st0) {
     Ok(s) => s
@@ -1369,9 +1370,6 @@ fn validate_locals_decls(env : Env, decls : Locals) -> Result[Unit, String] {
     if local_count < 0 {
       return Err("locals: negative count")
     }
-    if !has_default(vt) {
-      return Err("locals: type has no default value")
-    }
   }
   Ok(())
 }
@@ -1384,6 +1382,25 @@ fn validate_append_all_locals_from_decls(
   let all = Locals::from_types(params)
   all.append(decls)
   all
+}
+
+///|
+fn validate_initial_local_initialized(
+  params : Array[ValType],
+  decls : Locals,
+) -> Array[Bool] {
+  let initialized : Array[Bool] = []
+  for _ in params {
+    initialized.push(true)
+  }
+  for run in decls.runs() {
+    let count = run.count.reinterpret_as_int()
+    let is_defaultable = has_default(run.vt)
+    for _i = 0; _i < count; _i = _i + 1 {
+      initialized.push(is_defaultable)
+    }
+  }
+  initialized
 }
 
 ///|
@@ -1449,6 +1466,9 @@ fn validate_func_body_against_functype(
         reachable: true,
         escape: NoTcEscape,
         reachable_escape_depths: [],
+        initialized_locals: validate_initial_local_initialized(
+          params, local_decls,
+        ),
       }
       let st1 = match Typecheck::typecheck(body, st0) {
         Ok(s) => s

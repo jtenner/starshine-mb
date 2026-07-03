@@ -1981,7 +1981,7 @@ fn oc_later_reuse_scan_region(
                   None => continue
                 }
                 let fresh_ref_type = @lib.RefType::new(
-                  true,
+                  ref_type.is_nullable(),
                   ref_type.get_heap_type(),
                   exact=ref_type.is_exact(),
                 )
