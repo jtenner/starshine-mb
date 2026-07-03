@@ -40,7 +40,7 @@ The aggregate samples all leaves and records the selected leaf through the compo
 
 ## Current status
 
-The first profile slice added registration and generator tests plus tiny aggregate smokes. Focused validation passes, but the aggregate is **not** a green signoff lane yet: it deliberately includes `optimize-casts-early-motion`, and Starshine currently implements only a strict empty/`nop`/dropped nontrapping i32 pure-tree plus dropped-local-read and nontrapping pure separate-index `local.set` subset of Binaryen's earlier cast/as_non_null motion phase.
+The first profile slice added registration and generator tests plus tiny aggregate smokes. Focused validation passes. After the initialized non-defaultable-local fix, the bounded aggregate smoke is green, but the aggregate is **not** a closeout signoff lane yet: it still needs scaled direct/dedicated/broad/wasm-smith evidence, O4z neighborhood evidence, pass-local timing, and source review. Starshine also still implements only a strict empty/`nop`/dropped nontrapping i32 pure-tree plus dropped-local-read, nontrapping pure separate-index `local.set`, dropped separate-local `local.tee`, and current moved-cast/refinalization subsets of Binaryen's earlier cast/as_non_null motion phase.
 
 Current profile-smoke evidence from 2026-07-02:
 
@@ -262,5 +262,12 @@ Current separate-local tee early-motion slice evidence from 2026-07-03:
 - `moon fmt` passed; `moon test src/passes` passed `3886/3886`; `moon info` and native `src/cmd` build passed with pre-existing warnings.
 - Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-separate-tee-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
 - Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-separate-tee-smoke-20`: compared `20/20`, normalized `2`, mismatches `18`, zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification: still expected open generated parity surface, not a signoff failure.
+
+Current exact fresh-local blocker slice evidence from 2026-07-03:
+
+- Focused validation now passes after adding initialized non-defaultable-local support: `validate.mbt` `173/173`, focused OC `72/72`, `moon test src/validate` `1657/1657`, and `moon test src/passes` `3887/3887` with pre-existing warnings.
+- Regular non-profile smoke `.tmp/pass-fuzz-optimize-casts-exact-local-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, Binaryen cache `100/0`.
+- Dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-exact-local-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, Binaryen cache `98/2`. Selected leaves were `barriers=20`, `early-motion=18`, `best-cast=17`, `later-reuse=17`, `ref-as=12`, `static-folds=8`, and `neighborhood=8`.
+- Agent classification: the previous tiny aggregate residual family was dominated by Starshine's nullable fresh-local workaround. That blocker is fixed for the current initialized-carrier shape, but this is still bounded smoke evidence rather than closeout.
 
 Use the aggregate now to expose and classify remaining OC gaps. Do not report OC closeout until the required four-lane matrix, including `--gen-valid-profile optimize-casts-all`, is refreshed after the remaining transform families are either implemented or narrowly documented with reopening criteria.
