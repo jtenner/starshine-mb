@@ -43,7 +43,8 @@
     "docs/wiki/raw/research/1428-2026-07-03-optimize-instructions-oi-m-runtime-mixed-effect-trap-evidence.md",
     "docs/wiki/raw/research/1429-2026-07-03-optimize-instructions-oi-m-closeout.md",
     "docs/wiki/raw/research/1430-2026-07-03-optimize-instructions-oi-g-memory-load-store-closeout.md",
-    "docs/wiki/raw/research/1431-2026-07-03-optimize-instructions-oi-i-closeout.md"
+    "docs/wiki/raw/research/1431-2026-07-03-optimize-instructions-oi-i-closeout.md",
+    "docs/wiki/raw/research/1432-2026-07-03-optimize-instructions-oi-k-closeout.md"
   ],
   "families": [
     {
@@ -4127,7 +4128,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT with GC feature floor; allocation-trap boundaries must be replayed separately",
       "starshineStatus": "mismatch",
       "priority": "P2",
-      "blockerBoundaryReason": "OI-K is now finite for v0.1 closeout as a lower-priority GC constructor/default release boundary. Existing source/test-backed slices cover pure one-use struct.get(struct.new) including packed fields, struct.get(struct.new_default) for defaultable non-descriptor fields, array.len(array.new_fixed), array.get(array.new_fixed) including packed and pure out-of-bounds cases, array.get/array.len over small non-trapping array.new_default, array.len/array.get over small repeated-value array.new, and pure constant-index array.set removal for fresh fixed/default/repeated-value arrays. Correctness boundary 1319 keeps negative and huge array.new_default lengths to preserve allocation traps. The remaining matrix is broad GC allocation/default/effect-localization work, descriptor-bearing constructor forms, dynamic indexes/lengths, array fill/copy, and shared/atomic array operations. These are accepted v0.1 release boundaries rather than a reason to add more generator labels during closeout.",
+      "blockerBoundaryReason": "OI-K is materially narrowed after the 2026-07-03 closeout refresh, but remains active for true source-backed effect-localization behavior gaps. Represented pure/default one-use constructor/get/set subsets are covered by notes 0823-0835 plus 1319. Fresh family sweep .tmp/oi-k-closeout-count256-20260703 compared 256/256 with zero validation/generator/property/command failures, but the row still uses the non-dedicated pass-oi-ref-gc profile and sampled only OI-I labels; aggregate residual WAT contained zero struct.* or array.* constructor/get/set opcodes. Array.fill/array.copy is a source-backed Binaryen no-rewrite boundary (0836). Dynamic/negative/huge length and dynamic-index shapes remain fail-closed to preserve allocation/bounds traps. Descriptor/exactness/TNH/IIT belongs to OI-J and shared/atomic aggregates belong to OI-L. Remaining OI-K-owned work is narrow source-backed effect localization for effectful non-selected constructor fields/elements and effectful array.set/repeated-value operands where Binaryen preserves dropped effects before forwarding/removing/trapping.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0823-2026-06-20-optimize-instructions-oi-k-struct-get-new.md",
         "docs/wiki/raw/research/0824-2026-06-20-optimize-instructions-oi-k-packed-struct-get-new.md",
@@ -4143,8 +4144,11 @@
         "docs/wiki/raw/research/0835-2026-06-23-optimize-instructions-oi-k-array-set-new.md",
         "docs/wiki/raw/research/0836-2026-06-23-optimize-instructions-oi-k-array-fill-copy-boundary.md",
         "docs/wiki/raw/research/1319-2026-06-26-optimize-instructions-oi-k-array-new-default-get-large-len-boundary.md",
+        "docs/wiki/raw/research/1432-2026-07-03-optimize-instructions-oi-k-closeout.md",
         "src/passes/optimize_instructions_test.mbt focused OI-K constructor/array/default tests, added red-first in the research slices",
-        "moon test src/passes passed in the implementing OI-K slices where recorded (for example 0826 passed 2739/2739; 0833 recorded focused and pass-package validation)"
+        "moon test src/passes passed in the implementing OI-K slices where recorded (for example 0826 passed 2739/2739; 0833 recorded focused and pass-package validation)",
+        ".tmp/oi-k-closeout-count256-20260703/oi-k/OI-K-gc-constructors-fields-arrays: compared 256/256 with 113 normalized matches, 143 raw mismatches, zero validation/generator/property/command failures, Binaryen cache 256/0, runtime checked/unsupported/failed 256/0/0 with empty runtime matrix; sampled only pass-oi-ref-gc labels and residual WAT contained zero struct.* or array.* constructor/get/set opcodes (2026-07-03).",
+        "wasm-tools validate --features all accepted all 572 residual Binaryen/Starshine raw/canonical artifacts from .tmp/oi-k-closeout-count256-20260703 (2026-07-03)."
       ],
       "genValidProfiles": [
         "pass-oi-ref-gc"
@@ -4156,42 +4160,55 @@
       ],
       "sweep": {
         "enabled": true,
-        "count": 100,
+        "count": 256,
         "seed": "0x5eed",
         "profile": "pass-oi-ref-gc",
-        "blockedUntilProfileExists": false
+        "blockedUntilProfileExists": false,
+        "toolingCaveat": "No dedicated OI-K GC aggregate trigger profile exists yet; the current family sweep samples pass-oi-ref-gc OI-I labels and does not exercise struct/array constructor/get/set residuals."
       },
-      "closeoutState": "parity-gap",
-      "releaseImpact": "Full-parity target: OI-K remains a GC constructor/default/effect/dynamic behavior parity gap. Existing source/test-backed pure/default subsets are covered, but descriptor-bearing constructors, effect localization, dynamic indexes/lengths, array fill/copy, shared/atomic arrays, and broader ordering surfaces must be implemented directly or blocked explicitly.",
-      "remainingCloseoutWork": "Active full-parity behavior work remains. Preserve existing evidence, but drive the row by source-backed behavior implementation rather than release-boundary acceptance.",
-      "nextCloseoutAction": "Implement OI-K by behavior after blockers: pick one source-backed GC constructor/default/order gap, write red-first tests or an easy focused generator family, and update docs/evidence. Do not treat represented pure/default coverage as full parity.",
-      "closeoutRationale": "Prior v0.1 boundary language is superseded by full-pass parity. Focused OI-K slices are retained as covered subfamilies; the remaining behavior tail is active parity work.",
-      "reopenCriteria": "Keep open until GC constructor/default/effect/dynamic/fill/copy/shared behavior parity is implemented or a specific sub-surface is explicitly blocked by representation/tooling.",
-      "notes": "OI-K closeout uses existing source/test evidence, not fresh generator breadth. Covered represented subsets are pure one-use struct/array constructor forwarding, defaultable non-descriptor default constructors, small non-trapping default/repeated array lengths and gets, and pure fresh-array set removal. Boundary evidence includes 1319 keeping negative/huge array.new_default allocation traps and 0836 keeping array.fill/copy as a boundary. Descriptor-bearing constructor forms, effectful sibling localization, dynamic indexes/lengths, array fill/copy, and shared/atomic aggregate operations remain post-v0.1.",
+      "closeoutState": "active-narrowed-effect-localization-gap",
+      "releaseImpact": "OI-K is not closed as full Binaryen behavior parity. Current sampled GC aggregate residuals are zero because the family sweep uses a non-dedicated ref-GC profile, and represented pure/default subsets are covered, but source-backed effect-localization gaps remain OI-K-owned behavior work.",
+      "remainingCloseoutWork": "Active work is now finite: implement or explicitly approve a boundary for source-backed effect localization around effectful non-selected struct fields, effectful non-selected array.new_fixed elements, effectful array.set values, and effectful array.new repeated-value operands. Do not reopen covered pure/default subsets, Binaryen no-rewrite array.fill/copy, fail-closed dynamic/negative/huge allocation/index boundaries, OI-J descriptor/exactness/TNH/IIT, or OI-L shared/atomic surfaces unless their reopening criteria fire.",
+      "nextCloseoutAction": "Either add a small dedicated pass-oi-gc-aggregate profile that samples covered pure/default OI-K shapes plus one effect-localization candidate, or pick one source-backed effect-localization shape and implement it red-first with validation/opcode/traffic/size evidence. Do not add broad GC breadth or descriptor/TNH/IIT work in this row.",
+      "closeoutRationale": "Fresh count256 family evidence found no actual sampled OI-K aggregate residuals, and all existing represented sub-surfaces are covered or bounded. The row stays active only because source probes already show Binaryen effect-localizing some aggregate constructor/get/set shapes that Starshine intentionally keeps fail-closed until a safe localizer exists.",
+      "reopenCriteria": "Keep active/reopen for validation failure, runtime semantic mismatch, residual struct/array constructor/get/set opcodes outside covered/bounded/quarantined buckets, lost/reordered non-selected field/element effects or traps, packed signedness/masking drift, dropped allocation traps for dynamic/negative/huge lengths, dynamic index speculation, raw/canonical Starshine size loss in an implemented subset without a documented win, or descriptor/exactness/TNH/IIT evidence that must be filed under OI-J.",
+      "notes": "OI-K closeout is based primarily on source/test evidence because no dedicated OI-K generator profile exists. Covered represented subsets are pure one-use struct/array constructor forwarding, defaultable non-descriptor default constructors, small non-trapping default/repeated array lengths and gets, and pure fresh-array set removal. Boundary evidence includes 1319 for negative/huge allocation traps and 0836 for array.fill/copy no-rewrite parity. The 2026-07-03 count256 family sweep is useful mainly as a tooling limitation check: all residuals are OI-I ref-GC labels with zero aggregate opcodes, so it does not expose current sampled GC aggregate residuals.",
       "closeoutBuckets": [
         {
-          "bucket": "covered-represented-pure-constructor-subsets",
+          "bucket": "covered-represented-pure-default-constructor-subsets",
           "state": "covered-by-focused-tests-and-source-probes",
-          "evidence": "Research notes 0823 through 0835 record red-first focused tests and Binaryen probes for pure one-use struct.get(struct.new), packed struct gets, array.len(array.new_fixed), constant-index array.get(array.new_fixed) including packed and pure out-of-bounds cases, defaultable non-descriptor struct.new_default gets, array.new_default get/len, array.new repeated-value len/get, and pure fresh-array array.set removal. The notes record focused test passes and pass-package validation for implementing slices, for example 0826 passed moon test src/passes 2739/2739 and native cmd build.",
-          "nextAction": "Keep these represented pure/default subsets as covered. Reopen only for regression, validation failure, or a source-backed mismatch inside an implemented subset."
+          "evidence": "Research notes 0823 through 0835 plus 1319 record red-first focused tests and Binaryen probes for pure one-use struct.get(struct.new), packed struct gets, struct.new_default gets, array.len(array.new_fixed), constant-index array.get(array.new_fixed) including packed and pure out-of-bounds cases, defaultable non-descriptor array.new_default get/len, array.new repeated-value len/get, and pure fresh-array array.set removal. The notes record focused test passes and pass-package validation for implementing slices.",
+          "nextAction": "Keep covered. Reopen only for regression, validation failure, packed signedness drift, allocation-trap regression, or a source-backed mismatch inside an implemented subset."
         },
         {
-          "bucket": "trap-and-effect-boundaries",
-          "state": "accepted-release-boundary",
-          "evidence": "1319 fixed the allocation-trap boundary by requiring array.new_default lengths to be known non-trapping before folding constant-index gets; negative and huge lengths are preserved. Earlier OI-K notes document effectful non-selected struct/array siblings and effectful array.set values as localization boundaries because Binaryen localizes dropped effects while Starshine keeps the original shape until a safe localizer exists.",
-          "nextAction": "Accept for v0.1. Implement effect localization or broader allocation proofs only from a focused red-first slice with source-backed order/trap evidence."
+          "bucket": "binaryen-no-rewrite-boundary",
+          "state": "source-backed-no-rewrite-boundary",
+          "evidence": "0836 probes show Binaryen version_130 direct and O4z-style optimize-instructions preserving fresh-array array.fill and array.copy shapes, so Starshine preserving them is OI parity rather than a missing optimization.",
+          "nextAction": "Do not implement array.fill/copy removal under OI-K without a new Binaryen probe or an explicitly approved Starshine-win transform."
         },
         {
-          "bucket": "post-v0.1-gc-constructor-tail",
-          "state": "post-v0.1-implementation-boundary",
-          "evidence": "Remaining OI-K surface includes broader StructSet and effect/localizing field updates, descriptor-bearing constructor/default forms, dynamic-index or dynamic-length array rewrites, array.fill/array.copy, shared/atomic array operations, and GC ordering surfaces not proven by current focused tests.",
-          "nextAction": "Post-v0.1, pick one source-backed constructor/default/ordering gap and implement red-first. Do not add more generator labels during closeout unless the label directly verifies an implemented gap or release artifact blocker."
+          "bucket": "trap-and-index-fail-closed-boundaries",
+          "state": "fail-closed-correctness-boundary",
+          "evidence": "0830, 0831, 0832, 0835, and 1319 preserve dynamic, negative, and huge lengths and dynamic indexes so allocation and bounds traps are not erased. Constant out-of-bounds folds are only allowed when dropped operands are side-effect-free or already represented by a covered selected-value path.",
+          "nextAction": "Reopen only for source-backed non-trapping proof support or a regression that folds away an allocation/bounds trap."
         },
         {
-          "bucket": "finite-signoff-if-required",
-          "state": "not-recommended-for-v0.1-closeout",
-          "evidence": "There is no dedicated OI-K trigger profile; pass-oi-ref-gc primarily exercises non-descriptor OI-I labels and OI-J blocker checks. Running broad compare-pass here would mostly expand evidence without reducing the finite OI-K row.",
-          "nextAction": "Prefer no fresh signoff command for v0.1. If release policy requires one, first define a specific source-backed OI-K question from the implemented subsets and keep the count bounded; otherwise classify the row as accepted-release-boundary from existing focused source/test evidence."
+          "bucket": "effect-localization-gap",
+          "state": "active-source-backed-behavior-gap",
+          "evidence": "0823, 0826, 0827, 0832, 0833, and 0835 document Binaryen localizing effectful non-selected fields/elements or effectful set/repeated values as dropped effects before forwarding/removing/trapping. Starshine keeps these shapes unchanged to avoid dropping or reordering effects until a safe HOT/raw localizer exists.",
+          "nextAction": "This is the remaining true OI-K implementation target. Implement one exact source-backed shape red-first, preserving effect order, traps, packed signedness, allocation/bounds semantics, and validation."
+        },
+        {
+          "bucket": "quarantined-non-oi-k-surfaces",
+          "state": "quarantined",
+          "evidence": "Descriptor-bearing constructor/default forms, exactness, TNH, and IIT are OI-J; shared/atomic aggregate RMW/cmpxchg is OI-L; multi-use aggregate scalarization remains unsupported unless a future Binaryen source/probe proves an exact safe rewrite.",
+          "nextAction": "Do not use OI-K evidence to close OI-J or OI-L. Keep descriptor/exactness/TNH/IIT and shared/atomic work in their owning rows."
+        },
+        {
+          "bucket": "fresh-count256-family-sweep",
+          "state": "no-current-sampled-gc-aggregate-residuals",
+          "evidence": ".tmp/oi-k-closeout-count256-20260703 compared 256/256 with 143 residuals, all from pass-oi-ref-gc labels. Manual validation accepted all 572 residual raw/canonical artifacts. Grepping residual WAT found zero struct.new, struct.new_default, struct.get, struct.get_s, struct.get_u, array.new_fixed, array.new_default, array.new, array.len, array.get, array.get_s, array.get_u, or array.set opcodes.",
+          "nextAction": "Treat the fresh sweep as a tooling limitation and cross-family quarantine check, not as OI-K aggregate coverage. Add a dedicated OI-K profile only if it directly verifies covered subsets or the active effect-localization gap."
         }
       ]
     },
