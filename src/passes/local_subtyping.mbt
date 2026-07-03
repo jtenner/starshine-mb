@@ -442,6 +442,7 @@ fn ls_scan_branch_free_dominance_instrs(
           ref_body_locals,
           try_initialized,
           safe,
+          allow_terminal_return=true,
           allow_terminal_throw=true,
         )
         if !try_result.valid {
