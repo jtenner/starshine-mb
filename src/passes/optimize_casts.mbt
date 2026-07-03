@@ -1132,10 +1132,57 @@ fn oc_duplicate_separate_ref_as_cast_at_get(
 }
 
 ///|
-fn oc_clear_pending_gets(pending_gets : Array[Int]) -> Unit {
+fn oc_clear_pending_get(
+  pending_gets : Array[Int],
+  pending_get_best_refinements : Array[Int],
+  local_id : Int,
+) -> Unit {
+  pending_gets[local_id] = -1
+  pending_get_best_refinements[local_id] = -1
+}
+
+///|
+fn oc_clear_pending_gets(
+  pending_gets : Array[Int],
+  pending_get_best_refinements : Array[Int],
+) -> Unit {
   for i = 0; i < pending_gets.length(); i = i + 1 {
-    pending_gets[i] = -1
+    oc_clear_pending_get(pending_gets, pending_get_best_refinements, i)
   }
+}
+
+///|
+fn oc_flush_pending_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  pending_gets : Array[Int],
+  pending_get_best_refinements : Array[Int],
+  local_id : Int,
+) -> Bool {
+  let get_id = pending_gets[local_id]
+  let best_refinement = pending_get_best_refinements[local_id]
+  if get_id < 0 || best_refinement < 0 {
+    return false
+  }
+  oc_duplicate_refinement_at_get(ctx, func, get_id, best_refinement)
+}
+
+///|
+fn oc_flush_pending_gets(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  pending_gets : Array[Int],
+  pending_get_best_refinements : Array[Int],
+) -> Bool {
+  let mut changed = false
+  for local_id = 0; local_id < pending_gets.length(); local_id = local_id + 1 {
+    if oc_flush_pending_get(
+        ctx, func, pending_gets, pending_get_best_refinements, local_id,
+      ) {
+      changed = true
+    }
+  }
+  changed
 }
 
 ///|
@@ -1236,6 +1283,7 @@ fn oc_early_motion_scan_region(
   module_ctx : @ir.HotModuleContext,
   local_count : Int,
   pending_gets : Array[Int],
+  pending_get_best_refinements : Array[Int],
   pending_refinement_casts : Array[Int],
   pending_refinement_gets : Array[Int],
   seen_refinements : Array[Bool],
@@ -1262,7 +1310,7 @@ fn oc_early_motion_scan_region(
               ) {
               changed = true
               seen_refinements[local_id] = true
-              oc_clear_pending_gets(pending_gets)
+              oc_clear_pending_gets(pending_gets, pending_get_best_refinements)
               continue
             }
           }
@@ -1272,14 +1320,13 @@ fn oc_early_motion_scan_region(
     match oc_direct_dropped_refinement(func, root_id) {
       Some((local_id, cast_id)) => {
         if local_id >= 0 && local_id < local_count {
-          if !seen_refinements[local_id] && pending_gets[local_id] >= 0 {
-            if oc_duplicate_refinement_at_get(
-                ctx,
-                func,
-                pending_gets[local_id],
-                cast_id,
-              ) {
-              changed = true
+          if pending_gets[local_id] >= 0 {
+            let pending_best = pending_get_best_refinements[local_id]
+            if !seen_refinements[local_id] || pending_best >= 0 {
+              if pending_best < 0 ||
+                oc_cast_is_more_refined(module_ctx, func, cast_id, pending_best) {
+                pending_get_best_refinements[local_id] = cast_id
+              }
             }
           }
           let pending_cast = pending_refinement_casts[local_id]
@@ -1297,7 +1344,6 @@ fn oc_early_motion_scan_region(
           }
           seen_refinements[local_id] = true
         }
-        oc_clear_pending_gets(pending_gets)
         oc_clear_pending_refinements(
           pending_refinement_casts, pending_refinement_gets,
         )
@@ -1316,7 +1362,10 @@ fn oc_early_motion_scan_region(
     match oc_dropped_local_get(func, root_id) {
       Some((local_id, get_id)) => {
         if local_id >= 0 && local_id < local_count {
-          pending_gets[local_id] = get_id
+          if pending_gets[local_id] < 0 {
+            pending_gets[local_id] = get_id
+            pending_get_best_refinements[local_id] = -1
+          }
         }
         continue
       }
@@ -1325,7 +1374,14 @@ fn oc_early_motion_scan_region(
     match oc_nontrapping_pure_local_set(func, root_id) {
       Some(local_id) => {
         if local_id >= 0 && local_id < local_count {
-          pending_gets[local_id] = -1
+          if oc_flush_pending_get(
+              ctx, func, pending_gets, pending_get_best_refinements, local_id,
+            ) {
+            changed = true
+          }
+          oc_clear_pending_get(
+            pending_gets, pending_get_best_refinements, local_id,
+          )
           pending_refinement_casts[local_id] = -1
           pending_refinement_gets[local_id] = -1
           seen_refinements[local_id] = false
@@ -1337,13 +1393,23 @@ fn oc_early_motion_scan_region(
     if oc_dropped_nontrapping_pure_root(func, root_id) {
       continue
     }
-    oc_clear_pending_gets(pending_gets)
+    if oc_flush_pending_gets(
+        ctx, func, pending_gets, pending_get_best_refinements,
+      ) {
+      changed = true
+    }
+    oc_clear_pending_gets(pending_gets, pending_get_best_refinements)
     oc_clear_pending_refinements(
       pending_refinement_casts, pending_refinement_gets,
     )
     for local_id = 0; local_id < local_count; local_id = local_id + 1 {
       seen_refinements[local_id] = false
     }
+  }
+  if oc_flush_pending_gets(
+      ctx, func, pending_gets, pending_get_best_refinements,
+    ) {
+    changed = true
   }
   changed
 }
@@ -1356,6 +1422,7 @@ fn oc_early_motion_run(
 ) -> Bool {
   let local_count = @ir.hot_local_count(func)
   let pending_gets = Array::make(local_count, -1)
+  let pending_get_best_refinements = Array::make(local_count, -1)
   let pending_refinement_casts = Array::make(local_count, -1)
   let pending_refinement_gets = Array::make(local_count, -1)
   let seen_refinements = Array::make(local_count, false)
@@ -1365,6 +1432,7 @@ fn oc_early_motion_run(
     module_ctx,
     local_count,
     pending_gets,
+    pending_get_best_refinements,
     pending_refinement_casts,
     pending_refinement_gets,
     seen_refinements,
