@@ -376,14 +376,12 @@ fn ls_scan_branch_free_dominance_instrs(
             }
           None => ()
         }
-      @lib.Block(_, @lib.Expr(body)) => {
-        let block_initialized = initialized.copy()
+      @lib.Block(_, @lib.Expr(body)) =>
         if !ls_scan_branch_free_dominance_instrs(
-            body, param_count, ref_body_locals, block_initialized, safe,
+            body, param_count, ref_body_locals, initialized, safe,
           ) {
           return false
         }
-      }
       @lib.Loop(_, @lib.Expr(body)) => {
         let loop_initialized = initialized.copy()
         if !ls_scan_branch_free_dominance_instrs(
