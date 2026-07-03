@@ -355,7 +355,7 @@ Why it rewrites:
 - local Binaryen v130 narrows `.tmp/ls-probes/if-return-call-skip-before-write-get.wat`, `.tmp/ls-probes/if-return-call-indirect-skip-before-write-get.wat`, and `.tmp/ls-probes/if-return-call-ref-skip-before-write-get.wat` under `--local-subtyping`;
 - the tail-call arm cannot reach the later write or get;
 - every path that reaches the later get has executed the non-null write;
-- Starshine now treats direct `return_call`, `return_call_indirect`, and `return_call_ref` inside copied `if` arm scans like the conditional-`return` path-skip subset. This does not widen broad tail-call expression repair, `try_table` body tail-call flow, or post-state propagation.
+- Starshine now treats direct `return_call`, `return_call_indirect`, and `return_call_ref` inside copied `if` arm scans like the conditional-`return` path-skip subset. This does not widen broad tail-call expression repair or post-state propagation.
 
 ## Shape 6d-throw: direct `throw` in an `if` arm can skip a later write/get path
 
@@ -432,7 +432,7 @@ Why it rewrites:
 
 - local Binaryen v130 narrows `.tmp/ls-probes/return-call-after-dominated-get.wat`, `.tmp/ls-probes/block-terminal-return-call-after-dominated-get.wat`, `.tmp/ls-probes/return-call-indirect-after-dominated-get.wat`, `.tmp/ls-probes/block-terminal-return-call-indirect-after-dominated-get.wat`, `.tmp/ls-probes/return-call-ref-after-dominated-get.wat`, and `.tmp/ls-probes/block-terminal-return-call-ref-after-dominated-get.wat` under `--local-subtyping`;
 - the observed get appears before the terminal tail call and is dominated by the non-null write;
-- Starshine now treats direct `return_call`, `return_call_indirect`, and `return_call_ref` as non-propagating terminal return boundaries for the source-backed root/block and copied-if-arm path-skip subsets. `try_table` body tail-call flow and broad tail-call retagging remain conservative until separately probed.
+- Starshine now treats direct `return_call`, `return_call_indirect`, and `return_call_ref` as non-propagating terminal return boundaries for the source-backed root/block, copied-if-arm path-skip, and copied `try_table` body tail subsets. Broad tail-call retagging remains conservative beyond these probed declaration-narrowing cases.
 
 ## Shape 6e-a: block terminal `return` can preserve already-dominated gets inside the block
 
@@ -696,7 +696,35 @@ Why it rewrites:
 - local Binaryen v130 narrows `.tmp/ls-probes/try-table-return-before-unreachable-get-after-dominated-get.wat` under `--local-subtyping`, and also narrows the trailing-`unreachable` variant in `.tmp/ls-probes/try-table-return-before-unreachable-after-dominated-get.wat`;
 - `wasm-tools validate --features all .tmp/ls-probes/try-table-return-before-unreachable-get-after-dominated-get.nonnulllocal.wat` accepts the corresponding non-null local form, unlike the direct block-return validator-boundary family;
 - the pre-`return` get and the syntactic tail get are both dominated by the non-null write;
-- Starshine now treats direct `return` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen `return_call` forms inside `try_table`, `return_call_indirect`, `return_call_ref`, `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
+- Starshine now treats direct `return` inside a copied `try_table` body as a non-propagating terminal point but continues scanning the syntactic tail to catch any not-yet-dominated local gets. This does not propagate try-body writes outward and does not widen `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
+
+## Shape 6h-c: tail calls in a `try_table` body can preserve already-dominated gets
+
+Before:
+
+```wat
+(param $p (ref $A))
+(local $x (ref null $Parent))
+(block $h
+  (try_table (catch $e $h)
+    (local.set $x (local.get $p))
+    (drop (local.get $x))
+    (return_call $callee)))
+```
+
+The same narrow source-backed body-tail shape also applies to `return_call_indirect` after its table index operand and `return_call_ref` after its function-reference operand. A non-final syntactic tail with already-dominated `local.get`s after the tail call is also accepted, mirroring the try-body `return` tail subset.
+
+Possible after, from local Binaryen v130 evidence:
+
+```wat
+(local $x (ref $A))
+```
+
+Why it rewrites:
+
+- local Binaryen v130 narrows `.tmp/ls-probes/try-table-terminal-return-call-after-dominated-get.wat`, `.tmp/ls-probes/try-table-terminal-return-call-indirect-after-dominated-get.wat`, `.tmp/ls-probes/try-table-terminal-return-call-ref-after-dominated-get.wat`, `.tmp/ls-probes/try-table-return-call-before-unreachable-tail-get.wat`, `.tmp/ls-probes/try-table-return-call-indirect-before-unreachable-tail-get.wat`, and `.tmp/ls-probes/try-table-return-call-ref-before-unreachable-tail-get.wat` under `--local-subtyping`;
+- the observed gets before the tail call, and any syntactic tail gets after that tail call in the non-final probes, are dominated by the non-null write;
+- Starshine's scanner already treats `return_call`, `return_call_indirect`, and `return_call_ref` as return-like non-propagating terminal points inside the copied `try_table` body scan. This still does not propagate try-body writes outward and does not widen broad tail-call retagging, `throw_ref`, catch-ref/catch-all-ref post-state, or broader EH flow.
 
 ## Shape 6i: direct block `return` flow is a Starshine validator boundary
 
