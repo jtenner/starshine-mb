@@ -350,19 +350,42 @@ fn ls_body_local_idx(
 }
 
 ///|
-fn ls_non_null_dominated_linear_locals(
-  expr : @lib.Expr,
+fn ls_instrs_have_unsupported_structural_flow(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) =>
+        if ls_instrs_have_unsupported_structural_flow(body) {
+          return true
+        }
+      @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ls_scan_branch_free_dominance_instrs(
+  instrs : Array[@lib.Instruction],
   param_count : Int,
   ref_body_locals : Array[Bool],
-) -> Array[Bool] {
+  initialized : Array[Bool],
+  safe : Array[Bool],
+) -> Bool {
   let body_local_count = ref_body_locals.length()
-  let initialized : Array[Bool] = []
-  let safe : Array[Bool] = []
-  for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
-    initialized.push(false)
-    safe.push(ref_body_locals[body_idx])
-  }
-  let @lib.Expr(instrs) = expr
   for instr in instrs {
     match instr {
       @lib.LocalGet(idx) =>
@@ -381,16 +404,46 @@ fn ls_non_null_dominated_linear_locals(
             }
           None => ()
         }
-      @lib.Block(_, _)
-      | @lib.Loop(_, _)
-      | @lib.If(_, _, _)
-      | @lib.TryTable(_, _, _) =>
-        for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
-          if ref_body_locals[body_idx] {
-            ignore(safe.set(body_idx, false))
-          }
+      @lib.Block(_, @lib.Expr(body)) => {
+        if ls_instrs_have_unsupported_structural_flow(body) {
+          return false
         }
+        let block_initialized = initialized.copy()
+        if !ls_scan_branch_free_dominance_instrs(
+            body, param_count, ref_body_locals, block_initialized, safe,
+          ) {
+          return false
+        }
+      }
+      @lib.Loop(_, _) | @lib.If(_, _, _) | @lib.TryTable(_, _, _) =>
+        return false
       _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn ls_non_null_dominated_linear_locals(
+  expr : @lib.Expr,
+  param_count : Int,
+  ref_body_locals : Array[Bool],
+) -> Array[Bool] {
+  let body_local_count = ref_body_locals.length()
+  let initialized : Array[Bool] = []
+  let safe : Array[Bool] = []
+  for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
+    initialized.push(false)
+    safe.push(ref_body_locals[body_idx])
+  }
+  let @lib.Expr(instrs) = expr
+  if !ls_scan_branch_free_dominance_instrs(
+      instrs, param_count, ref_body_locals, initialized, safe,
+    ) {
+    for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
+      if ref_body_locals[body_idx] {
+        ignore(safe.set(body_idx, false))
+      }
     }
   }
   safe
