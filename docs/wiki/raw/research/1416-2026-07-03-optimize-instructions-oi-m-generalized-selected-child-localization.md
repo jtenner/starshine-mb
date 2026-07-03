@@ -69,13 +69,13 @@ Raw mismatches remain active OI-M parity evidence requiring agent classification
 
 ## Remaining OI-M work
 
-OI-M stays active/P0. Remaining work is not hidden by runtime-green raw mismatch lanes:
+OI-M stays active/P0. Remaining work is not hidden by runtime-green raw mismatch lanes. Follow-up ACCEL003 split the residual surface into explicit sub-blockers in `docs/wiki/raw/research/1417-2026-07-03-optimize-instructions-oi-m-sub-blocker-split.md` and `docs/wiki/binaryen/passes/optimize-instructions/parity-matrix.json`:
 
+- covered-under-preconditions direct one-use selected-child arbitrary arity with reopening criteria;
 - multi-result non-selected siblings;
 - multi-use tuple producers and local-carried tuple values;
 - control/branch/EH siblings and nested-region reconstruction;
 - generalized tuple-scratch reconstruction/localization beyond this direct one-use selected-child localizer;
-- broader fuzz mismatch classification and paste-ready residual summaries;
-- public/binary tuple fixture coverage where local representation/parser support allows it.
+- fuzz/runtime residual classification and paste-ready summaries.
 
 Do not infer OI-G or OI-I/OI-J/OI-K closure from this OI-M slice.

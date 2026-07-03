@@ -28,7 +28,8 @@
     "docs/wiki/binaryen/passes/optimize-instructions/fuzzing.md",
     "src/passes/optimize_instructions.mbt",
     "src/passes/optimize_instructions_test.mbt",
-    "src/passes/pass_manager.mbt"
+    "src/passes/pass_manager.mbt",
+    "docs/wiki/raw/research/1417-2026-07-03-optimize-instructions-oi-m-sub-blocker-split.md"
   ],
   "families": [
     {
@@ -4233,7 +4234,7 @@
       "binaryenOracleMode": "compare-pass normalized WAT plus pass-oi-tuple profile and forwarded selected-lane/effect/trap metamorphic transforms",
       "starshineStatus": "mismatch",
       "priority": "P0",
-      "blockerBoundaryReason": "OI-M has extensive one-off boundary research through many effect-count rows and now has a seed-indexed pass-oi-tuple trigger-smoke profile plus forwarded selected-lane, effectful-sibling, dead trap-shaped sibling, and local-carried smoke transforms. The 2026-07-03 ACCEL001/ACCEL002 slice source-audited Binaryen version_130 visitTupleExtract/getDroppedChildrenAndAppend and found no explicit selected-child arity cap, added a reusable selected-child fixture helper, and replaced Starshine's hardcoded arity-1-through-26 accepted-result-count list with a generalized non-empty selected-result predicate for direct one-use selected-child localization. This removes the artificial selected-child arity throttle, but OI-M still needs multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, broader trigger-biased existing-producer/effect/trap wrappers, broader runtime semantic execution where relevant, and source-backed tuple-scratch reconstruction before family closure. Runtime-green raw mismatch lanes are supporting evidence only and do not close OI-M or OI-G/OI-I/OI-J/OI-K.",
+      "blockerBoundaryReason": "OI-M is now split into explicit sub-blockers so agents do not treat the tuple/multivalue surface as one opaque blocker. The 2026-07-03 ACCEL001/ACCEL002 slice source-audited Binaryen version_130 visitTupleExtract/getDroppedChildrenAndAppend and found no explicit selected-child arity cap, added reusable selected-child fixture coverage, and generalized Starshine direct one-use selected-child localization to arbitrary positive scalar selected-child result arity under the documented safe preconditions. That implemented sub-surface has reopening criteria below. OI-M remains active/P0 for multi-result non-selected siblings, multi-use tuple producers/local-carried tuple values, control/branch/EH siblings, generalized tuple-scratch reconstruction/localization, and unclassified fuzz/runtime residuals. Runtime-green raw mismatch lanes are supporting evidence only and do not close OI-M or OI-G/OI-I/OI-J/OI-K.",
       "lastCheckedEvidence": [
         "docs/wiki/raw/research/0834-2026-06-21-optimize-instructions-oi-m-tuple-extract-make.md",
         "docs/wiki/raw/research/0853-2026-06-25-optimize-instructions-oi-m-multiresult-selected-boundary.md",
@@ -4554,11 +4555,11 @@
         }
       ],
       "closeoutState": "parity-gap",
-      "releaseImpact": "Full-parity target: OI-M remains a tuple/multivalue behavior parity gap. The direct one-use slices now preserve effectful/trapping single-result non-selected siblings and localize selected-child arities 2 through 26, but broader source-backed tuple-scratch reconstruction/localization remains open.",
-      "remainingCloseoutWork": "Active full-parity behavior work remains for selected-child arities 27+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/branch/EH sibling localization, randomized multivalue breadth, broader existing-producer/effect/trap selected-lane wrappers, and broader runtime execution evidence. The one-use sibling-localization and arity-2-through-26 selected-child slices are evidence, not row closure.",
-      "nextCloseoutAction": "Pick a bounded OI-M follow-up such as selected-child arity 27, multi-result non-selected sibling dropping, multi-use tuple-producer proof/boundary reduction, generalized tuple-scratch reconstruction, or control/EH sibling localization; add red-first tests and grouped runtime evidence. Do not infer OI-G, OI-I, OI-J, or OI-K closure from OI-M evidence.",
-      "closeoutRationale": "Prior v0.1 boundary language is superseded by full-pass parity. Runtime-green sampled lanes are evidence, not closure.",
-      "reopenCriteria": "Keep open until tuple/multivalue behavior parity is implemented or a sub-surface is explicitly blocked by representation/tooling.",
+      "releaseImpact": "Full-parity target: OI-M remains active/P0 as a tuple/multivalue behavior parity gap. The direct one-use selected-child arbitrary-arity sub-surface is covered under explicit safe preconditions, but P0 residual sub-blockers remain for multi-result non-selected siblings, multi-use/local-carried tuple producers, control/branch/EH siblings, generalized tuple-scratch reconstruction/localization, and fuzz/runtime residual classification.",
+      "remainingCloseoutWork": "Work the explicit subBlockers list before moving OI-M out of active/P0. Covered direct one-use selected-child arbitrary arity is now maintained by reopening criteria; remaining implementation/classification work is OI-M-SB002 through OI-M-SB006. Runtime-green raw mismatch lanes are supporting evidence only and cannot close OI-M or neighboring OI-G/OI-I/OI-J/OI-K rows.",
+      "nextCloseoutAction": "First finish ACCEL004 by proving or extending the existing OI-M summary tooling. Then pick a bounded implementation sub-blocker: multi-result non-selected sibling preservation, multi-use/local-carried tuple producer reduction, control/EH sibling source audit/fail-closed proof, or generalized tuple-scratch reconstruction. Add red-first tests, focused validation, grouped runtime/fuzz evidence, and docs/backlog updates.",
+      "closeoutRationale": "ACCEL003 splits OI-M into source-backed sub-blockers. The implemented direct one-use arbitrary selected-child slice narrows but does not close OI-M because multiple source-visible tuple/multivalue surfaces remain unimplemented or unclassified. Runtime equality from sampled raw-mismatch lanes is evidence, not closure.",
+      "reopenCriteria": "Keep OI-M open until every subBlocker is implemented or explicitly accepted with source-backed evidence and reopening criteria. Reopen any accepted/covered sub-surface for validation failure, runtime semantic mismatch, effect/trap ordering drift, lost tuple lanes/users, Starshine raw/canonical size loss without a measured win, Binaryen source/lit/probe evidence contradicting the acceptance, or tooling that hides raw mismatches as safe automatically.",
       "releaseDecision": "Accepted v0.1 release boundary for current tuple/multivalue selected-lane residuals; not family-covered.",
       "acceptedBoundaryEvidence": [
         ".tmp/oi-m-runtime-effectful-count96-20260630: compared 96/96, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 96/0/0, runtime matrix all-equal for 12 exported samples, manual validation accepted 384 residual raw/canonical artifacts, aggregate Starshine deltas -6180/-2826/+56712 raw/canonical/WAT.",
@@ -4566,7 +4567,120 @@
         ".tmp/oi-m-effectful-scratch-count108-20260701: compared 108/108, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 108/0/0, runtime matrix 9/9 equal exported samples, manual validation accepted 432 residual raw/canonical artifacts, every label raw/canonical smaller for Starshine, aggregate -2745/-713/+24520 raw/canonical/WAT.",
         "Inspected residual buckets preserve selected-lane helper calls, private-global effects, local.tee/local.set/local.get lane traffic, drops, selects, trap carriers, and constants; WAT text growth is the known block-result expression spelling rather than a measured raw/canonical size regression.",
         ".tmp/oi-m-twenty-four-result-selected-count108-20260702: compared 108/108, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 108/0/0, runtime matrix 9/9 equal exported samples, all 18 OI-M tuple labels sampled, and 108 raw output-shape mismatches retained as active parity evidence rather than closure.",
-        ".tmp/oi-m-twenty-five-result-selected-count108-20260703: compared 108/108, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 108/0/0, runtime matrix 9/9 equal exported samples, all 18 OI-M tuple labels sampled, and 108 raw output-shape mismatches retained as active parity evidence rather than closure."
+        ".tmp/oi-m-twenty-five-result-selected-count108-20260703: compared 108/108, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 108/0/0, runtime matrix 9/9 equal exported samples, all 18 OI-M tuple labels sampled, and 108 raw output-shape mismatches retained as active parity evidence rather than closure.",
+        "docs/wiki/raw/research/1417-2026-07-03-optimize-instructions-oi-m-sub-blocker-split.md: ACCEL003 split OI-M into six sub-blockers with source evidence, current Starshine tests/evidence, known HOT/API support gaps, next evidence, and reopening criteria.",
+        ".tmp/oi-m-generalized-selected-count108-20260703: compared 108/108, zero validation/generator/property/command/runtime failures, runtime checked/unsupported/failed 108/0/0, runtime matrix 9/9 equal exported samples, all 18 OI-M tuple labels sampled, and 108 raw output-shape mismatches retained as active parity evidence rather than closure."
+      ],
+      "subBlockers": [
+        {
+          "id": "OI-M-SB001-direct-one-use-selected-child-arbitrary-arity",
+          "title": "Direct one-use selected-child tuple.extract(tuple.make(...)) localization for arbitrary positive scalar selected-child arity",
+          "status": "covered-under-preconditions",
+          "priority": "P0 evidence / not a blocker while preconditions hold",
+          "scope": "Implemented only when the tuple producer is a live one-use direct TupleMake, the selected child has one or more scalar result lanes, non-selected siblings are single-result or safely droppable/preservable, and control/branch/EH/nested-region lanes are excluded.",
+          "binaryenSourceOrProbeEvidence": [
+            "Binaryen version_130 OptimizeInstructions.cpp::visitTupleExtract allocates a temp for the selected tuple result and delegates dropped-child preservation to getDroppedChildrenAndAppend; the source audit found no explicit selected-child arity cap.",
+            "Binaryen src/ir/drop.cpp::getDroppedChildrenAndAppend iterates children and preserves/drops only children with unremovable side effects before appending the selected value; no selected-child numeric cap was found.",
+            "docs/wiki/raw/research/1416-2026-07-03-optimize-instructions-oi-m-generalized-selected-child-localization.md records the source audit and generalized Starshine slice."
+          ],
+          "currentStarshineEvidence": [
+            "src/passes/optimize_instructions.mbt replaces the prior hardcoded selected-result-count list with a generalized non-empty selected-results predicate under the safe preconditions.",
+            "src/passes/optimize_instructions_test.mbt helper-backed coverage localizes arity 2, 26, former boundary 27, and stress arity 32 selected children; the arity 27 and 32 tests failed red-first before implementation and passed afterward.",
+            "Focused selected-child tests passed 30/30, focused tuple.extract tests passed 23/23, full moon test passed 7246/7246, and grouped OI-M runtime sweep .tmp/oi-m-generalized-selected-count108-20260703 compared 108/108 with zero failures and runtime matrix all-equal 9/9 while keeping 108 raw mismatches as active parity evidence."
+          ],
+          "knownMissingHotOrApiSupport": "None for this narrow direct one-use scalar selected-child localizer; broader tuple values, multi-use producers, control/EH lanes, and multi-result non-selected siblings remain outside this sub-blocker.",
+          "nextEvidenceNeeded": "Keep helper-backed boundary coverage and include this sub-surface in future OI-M residual summaries; do not spend more slices on selected-child arity alone unless a counterexample appears.",
+          "reopeningCriteria": "Reopen if any positive direct one-use scalar selected-child arity fails to localize, validation/runtime evidence fails, effect/trap order changes, a non-selected sibling is incorrectly dropped, Binaryen source/probes reveal an actual arity or ordering constraint, or fuzz produces a counterexample inside the stated preconditions."
+        },
+        {
+          "id": "OI-M-SB002-multi-result-non-selected-siblings",
+          "title": "Multi-result non-selected sibling preservation/drop decisions",
+          "status": "mismatch-needs-implementation",
+          "priority": "P0",
+          "scope": "Tuple extracts whose selected child is localizable but one or more non-selected siblings produce multiple results and may also carry effects, traps, or nested scratch traffic.",
+          "binaryenSourceOrProbeEvidence": [
+            "Binaryen visitTupleExtract delegates non-selected child handling to getDroppedChildrenAndAppend after replacing the selected lane, so source-backed behavior must be audited at the child-result/effect boundary rather than inferred from Starshine's single-result sibling helper.",
+            "docs/wiki/raw/research/1416-2026-07-03-optimize-instructions-oi-m-generalized-selected-child-localization.md explicitly keeps multi-result non-selected siblings out of the implemented preconditions."
+          ],
+          "currentStarshineEvidence": [
+            "src/passes/optimize_instructions_test.mbt contains direct-HOT boundary coverage for multi-result non-selected siblings from the 2026-07-02 sibling-localization slice.",
+            "Current Starshine localizes selected-child lanes only when non-selected siblings remain single-result or otherwise fit the existing safe preservation path; multi-result non-selected siblings remain fail-closed/active rather than silently accepted."
+          ],
+          "knownMissingHotOrApiSupport": "The current localizer lacks a source-backed scratch/reconstruction path for appending or dropping multiple non-selected sibling lanes while preserving effect/trap order around the selected value.",
+          "nextEvidenceNeeded": "Build Binaryen probes for pure, effectful, and trapping multi-result non-selected siblings on both sides of the selected child; add red-first Starshine tests that show the intended preservation/drop order; then implement a narrow helper or record a precise blocker if HOT cannot represent the required ordering.",
+          "reopeningCriteria": "Keep open until those probes/tests are implemented or a representation blocker is documented. Reopen any accepted subset for validation failure, dropped side effects, changed trap ordering, selected-value drift, or a Binaryen output shape requiring broader sibling reconstruction."
+        },
+        {
+          "id": "OI-M-SB003-multi-use-and-local-carried-tuple-producers",
+          "title": "Multi-use tuple producers and local-carried tuple values",
+          "status": "mismatch-needs-implementation",
+          "priority": "P0",
+          "scope": "Tuple extracts where the tuple value is not a one-use direct TupleMake, including local-carried tuple values, local.tee/existing producer wrappers, and producers observed by multiple extracts/users.",
+          "binaryenSourceOrProbeEvidence": [
+            "pass-oi-tuple profile and earlier OI-M research include local-carried, local.tee-produced, helper-call-produced, select-produced, and randomized existing-producer selected-lane labels, but the current direct localizer only claims the one-use direct TupleMake subset.",
+            "docs/wiki/raw/research/0834-2026-06-21-optimize-instructions-oi-m-tuple-extract-make.md and 1416 identify broader existing-producer/local-carried tuple surfaces as remaining work."
+          ],
+          "currentStarshineEvidence": [
+            "Generated OI-M profile labels such as local-carried-selected-lane, localtee-produced-selected-lane, call-produced-selected-lane, select-produced-selected-lane, and randomized-existing-effect-trap-lanes remain raw mismatches in grouped OI-M sweeps.",
+            "The current implementation requires a live one-use tuple producer to avoid duplicating effects or rewriting shared tuple values unsafely."
+          ],
+          "knownMissingHotOrApiSupport": "No documented dataflow/local tuple-value rewrite exists that can safely scalarize shared tuple producers, update all users, or preserve local-carried tuple state without changing observable effects/traps.",
+          "nextEvidenceNeeded": "Reduce one local-carried and one multi-use tuple producer probe against Binaryen, add red-first tests for the chosen subset, and decide whether implementation needs a tuple-value dataflow analysis or a narrower direct-local rewrite.",
+          "reopeningCriteria": "Keep open until multi-use/local-carried producer behavior is implemented or explicitly blocked. Reopen any accepted subset for duplicated helper calls/effects, changed trap order, stale tuple users, validation failure, runtime mismatch, or new Binaryen source evidence that the pass intentionally rewrites the shape."
+        },
+        {
+          "id": "OI-M-SB004-control-branch-eh-siblings",
+          "title": "Control, branch, EH, and nested-region tuple sibling reconstruction",
+          "status": "blocked-surface",
+          "priority": "P0",
+          "scope": "Tuple children or siblings containing structured control, branches, exception-handling constructs, or nested regions that cannot be represented as straight-line scalar scratch traffic by the current direct-HOT localizer.",
+          "binaryenSourceOrProbeEvidence": [
+            "Binaryen's generic getDroppedChildrenAndAppend helper is source-backed but does not by itself prove Starshine can reconstruct every control/EH child safely in HOT form.",
+            "The 2026-07-02 sibling-localization slice added an unsupported-control sibling fail-closed test after a red-first run showed an unsupported control sibling could be deleted."
+          ],
+          "currentStarshineEvidence": [
+            "src/passes/optimize_instructions.mbt now recursively excludes control/branch/EH/nested-region lanes in the direct localizer.",
+            "src/passes/optimize_instructions_test.mbt retains fail-closed boundary coverage so unsupported control siblings are preserved rather than optimized unsafely."
+          ],
+          "knownMissingHotOrApiSupport": "The direct localizer has no verified API path for splicing arbitrary structured control/EH siblings into the scalarized tuple-extract replacement while preserving labels, branch targets, exception edges, and result arity.",
+          "nextEvidenceNeeded": "Source-audit Binaryen control/EH tuple-extract examples, create minimal probes for branch and EH siblings, and add red-first Starshine tests for either a safe positive subset or a documented fail-closed boundary.",
+          "reopeningCriteria": "Keep blocked until a safe reconstruction API/algorithm exists or the surface is explicitly accepted. Reopen if the guard drops or reorders control/EH effects, if Binaryen source/lit tests show a narrow safe control subset worth implementing, or if HOT gains structured-splice support."
+        },
+        {
+          "id": "OI-M-SB005-generalized-tuple-scratch-reconstruction-localization",
+          "title": "Generalized tuple-scratch reconstruction/localization beyond direct selected-child extraction",
+          "status": "mismatch-needs-implementation",
+          "priority": "P0",
+          "scope": "Binaryen-style scalarization through tuple scratch locals for broader tuple/multivalue blocks, scratch-localized selected lanes, all-result lanes, selected multiple lanes, and producer wrappers not covered by the narrow direct localizer.",
+          "binaryenSourceOrProbeEvidence": [
+            "Binaryen probes for selected-child arities 2 through 32 show tuple scratch/scalar temp localization of the selected value; earlier OI-M research and optimize-instructions-multivalue.wast cover selected-lane and tuple optimization boundaries beyond the direct one-use subset.",
+            "docs/wiki/raw/research/0859-2026-06-25-optimize-instructions-oi-m-tuple-optimization-boundary.md, 1352-2026-06-27-optimize-instructions-oi-m-tuple-optimization-one-hundred-nine-effects-boundary.md, and 1416 record the broader tuple-scratch/localization gap."
+          ],
+          "currentStarshineEvidence": [
+            "pass-oi-tuple labels scratch-localized-selected-lane and effectful-scratch-localized-selected-lane are generated and sampled, but they remain raw mismatches and are classified as sampled evidence rather than family closure.",
+            "Current Starshine can localize the selected child directly but still often preserves block-result expression spelling where Binaryen scalarizes through locals."
+          ],
+          "knownMissingHotOrApiSupport": "No general tuple-scratch reconstruction helper is documented for arbitrary multivalue block/lane reconstruction, all-result materialization, multiple selected lanes, or mixed effect/trap wrapper cases.",
+          "nextEvidenceNeeded": "Choose one source-backed scratch reconstruction shape, add a red-first focused test and a small grouped OI-M runtime sweep, then either implement a reusable tuple-scratch helper or document the exact HOT representation blocker.",
+          "reopeningCriteria": "Keep open until generalized tuple-scratch reconstruction is implemented or explicitly scoped down. Reopen any accepted residual for validation/runtime failure, effect/trap count drift, Starshine raw/canonical size loss without a measured win, or Binaryen source/lit evidence requiring scalarized-local output for semantic reasons."
+        },
+        {
+          "id": "OI-M-SB006-fuzz-runtime-residual-classification",
+          "title": "Fuzz/runtime residual summary and mismatch classification",
+          "status": "mismatch-needs-classification-tooling",
+          "priority": "P0 tooling accelerator",
+          "scope": "Paste-ready OI-M direct/grouped compare summaries, per-label profile counts, runtime matrix results, Binaryen cache counts, and raw-mismatch caveats so residuals are not overstated as semantic parity.",
+          "binaryenSourceOrProbeEvidence": [
+            "This is a reporting/classification blocker, not a Binaryen transform. It consumes compare-pass, oi-parity-sweep, generated profile labels, and runtime execution evidence."
+          ],
+          "currentStarshineEvidence": [
+            "Recent OI-M lanes such as .tmp/oi-m-generalized-selected-direct18-20260703 and .tmp/oi-m-generalized-selected-count108-20260703 reported zero failures and runtime equality but still had raw mismatches for every case.",
+            "The parity row already records many sampled Starshine-win-candidate residuals, but ACCEL004 remains active to automate consistent summaries."
+          ],
+          "knownMissingHotOrApiSupport": "No Moon/HOT representation blocker; the gap is script/reporting ergonomics and agent-classified mismatch discipline.",
+          "nextEvidenceNeeded": "Inspect scripts/oi-parity-sweep.ts --summarize-existing and pass-fuzz-compare result summaries, then extend existing tooling only if compared/normalized/cleanup/raw counts, failure classes, cache counts, runtime counts/matrix, per-label counts, and raw-mismatch caveat are missing.",
+          "reopeningCriteria": "Keep open until ACCEL004 is implemented or proven already covered. Reopen if summaries omit failure/cache/runtime/profile fields, if raw mismatches are auto-classified as safe without agent evidence, or if grouped OI-M lanes become hard to audit."
+        }
       ]
     }
   ],

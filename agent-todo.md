@@ -17,19 +17,7 @@
 
 ### Immediate P0 OI-M acceleration blockers
 
-These remaining blockers sit ahead of declaring OI-M narrowed/complete. The selected-child arity accelerator and fixture helper were removed after the 2026-07-03 generalized implementation; keep splitting and reporting residuals before returning to ordinary OI-M closure claims.
-
-- [O4Z-AUDIT-OI-M-ACCEL]003 - Split and prioritize remaining OI-M semantic blockers
-  - Priority: P0.
-  - Status: active planning blocker; OI-M still aggregates several different tuple/multivalue surfaces under one broad active row.
-  - Goal: turn remaining OI-M work into concrete sub-blockers with source evidence, safe preconditions, and reopening criteria so agents stop treating all tuple/multivalue gaps as one giant surface.
-  - Why: arbitrary direct one-use selected-child arity is now implemented, but multi-result non-selected siblings, multi-use tuple producers, control/EH siblings, and generalized tuple-scratch reconstruction have different safety requirements. Splitting them will make implementation and blocker acceptance faster.
-  - Deliverables:
-    - [ ] Update the OI-M row in `parity-matrix.json` with explicit sub-blockers for implemented arbitrary direct one-use selected-child arity/reopening criteria, multi-result non-selected siblings, multi-use tuple producers, control/branch/EH siblings, generalized tuple-scratch reconstruction/localization, and fuzz mismatch classification.
-    - [ ] For each sub-blocker, cite Binaryen source/probe evidence, current Starshine boundary tests, known missing HOT representation/API support if any, and the next evidence needed to implement or accept the blocker.
-    - [ ] Keep OI-M active/P0 unless every sub-blocker is implemented or explicitly accepted with evidence-backed reopening criteria.
-    - [ ] State clearly that runtime-green raw mismatch lanes are supporting evidence only and do not close OI-M or OI-G/OI-I/OI-J/OI-K.
-  - Suggested tests/evidence: docs/schema review, `python3 -m json.tool docs/wiki/binaryen/passes/optimize-instructions/parity-matrix.json`, and no Moon tests unless executable fixtures or pass behavior change.
+The selected-child arity accelerator, fixture helper, and semantic sub-blocker split are complete after the 2026-07-03 generalized implementation and ACCEL003 parity-matrix update. Keep reporting residuals before ordinary OI-M closure claims; ACCEL004 is the remaining immediate blocker.
 
 - [O4Z-AUDIT-OI-M-ACCEL]004 - Automate OI-M fuzz/runtime residual summaries
   - Priority: P0.
