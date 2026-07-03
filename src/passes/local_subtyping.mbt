@@ -350,6 +350,32 @@ fn ls_body_local_idx(
 }
 
 ///|
+priv struct LsDominanceScanResult {
+  valid : Bool
+  propagates : Bool
+}
+
+///|
+fn LsDominanceScanResult::new(
+  valid : Bool,
+  propagates : Bool,
+) -> LsDominanceScanResult {
+  { valid, propagates }
+}
+
+///|
+fn ls_copy_bool_state(dst : Array[Bool], src : Array[Bool]) -> Unit {
+  let limit = if dst.length() < src.length() {
+    dst.length()
+  } else {
+    src.length()
+  }
+  for idx = 0; idx < limit; idx = idx + 1 {
+    ignore(dst.set(idx, src[idx]))
+  }
+}
+
+///|
 fn ls_scan_branch_free_dominance_instrs(
   instrs : Array[@lib.Instruction],
   param_count : Int,
@@ -357,9 +383,10 @@ fn ls_scan_branch_free_dominance_instrs(
   initialized : Array[Bool],
   safe : Array[Bool],
   allow_return_skip? : Bool = false,
-) -> Bool {
+) -> LsDominanceScanResult {
   let body_local_count = ref_body_locals.length()
   let mut allow_later_write_init = true
+  let mut propagates = true
   for instr in instrs {
     match instr {
       @lib.LocalGet(idx) =>
@@ -379,68 +406,78 @@ fn ls_scan_branch_free_dominance_instrs(
           None => ()
         }
       @lib.Block(_, @lib.Expr(body)) => {
-        let block_initialized = if allow_later_write_init {
-          initialized
-        } else {
-          initialized.copy()
+        let block_initialized = initialized.copy()
+        let block_result = ls_scan_branch_free_dominance_instrs(
+          body, param_count, ref_body_locals, block_initialized, safe,
+        )
+        if !block_result.valid {
+          return LsDominanceScanResult::new(false, false)
         }
-        if !ls_scan_branch_free_dominance_instrs(
-            body, param_count, ref_body_locals, block_initialized, safe,
-          ) {
-          return false
+        if allow_later_write_init && block_result.propagates {
+          ls_copy_bool_state(initialized, block_initialized)
         }
       }
       @lib.Loop(_, @lib.Expr(body)) => {
         let loop_initialized = initialized.copy()
-        if !ls_scan_branch_free_dominance_instrs(
-            body, param_count, ref_body_locals, loop_initialized, safe,
-          ) {
-          return false
+        let loop_result = ls_scan_branch_free_dominance_instrs(
+          body, param_count, ref_body_locals, loop_initialized, safe,
+        )
+        if !loop_result.valid {
+          return LsDominanceScanResult::new(false, false)
         }
       }
       @lib.If(_, then_body, else_body) => {
         let then_initialized = initialized.copy()
-        if !ls_scan_branch_free_dominance_instrs(
-            then_body,
-            param_count,
-            ref_body_locals,
-            then_initialized,
-            safe,
-            allow_return_skip=true,
-          ) {
-          return false
+        let then_result = ls_scan_branch_free_dominance_instrs(
+          then_body,
+          param_count,
+          ref_body_locals,
+          then_initialized,
+          safe,
+          allow_return_skip=true,
+        )
+        if !then_result.valid {
+          return LsDominanceScanResult::new(false, false)
         }
         match else_body {
           Some(body) => {
             let else_initialized = initialized.copy()
-            if !ls_scan_branch_free_dominance_instrs(
-                body,
-                param_count,
-                ref_body_locals,
-                else_initialized,
-                safe,
-                allow_return_skip=true,
-              ) {
-              return false
+            let else_result = ls_scan_branch_free_dominance_instrs(
+              body,
+              param_count,
+              ref_body_locals,
+              else_initialized,
+              safe,
+              allow_return_skip=true,
+            )
+            if !else_result.valid {
+              return LsDominanceScanResult::new(false, false)
             }
           }
           None => ()
         }
       }
       @lib.BrIf(_) => allow_later_write_init = false
-      @lib.Return => if allow_return_skip { () } else { return false }
+      @lib.Br(_) | @lib.BrTable(_, _) => {
+        allow_later_write_init = false
+        propagates = false
+      }
+      @lib.Return =>
+        if allow_return_skip {
+          ()
+        } else {
+          return LsDominanceScanResult::new(false, false)
+        }
       @lib.TryTable(_, _, _)
       | @lib.Throw(_)
       | @lib.ThrowRef
-      | @lib.Br(_)
-      | @lib.BrTable(_, _)
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_) => return false
+      | @lib.ReturnCallRef(_) => return LsDominanceScanResult::new(false, false)
       _ => ()
     }
   }
-  true
+  LsDominanceScanResult::new(true, propagates)
 }
 
 ///|
@@ -457,9 +494,10 @@ fn ls_non_null_dominated_linear_locals(
     safe.push(ref_body_locals[body_idx])
   }
   let @lib.Expr(instrs) = expr
-  if !ls_scan_branch_free_dominance_instrs(
-      instrs, param_count, ref_body_locals, initialized, safe,
-    ) {
+  let scan_result = ls_scan_branch_free_dominance_instrs(
+    instrs, param_count, ref_body_locals, initialized, safe,
+  )
+  if !scan_result.valid {
     for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
       if ref_body_locals[body_idx] {
         ignore(safe.set(body_idx, false))
