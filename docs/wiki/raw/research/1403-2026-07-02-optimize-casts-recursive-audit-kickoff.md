@@ -986,9 +986,22 @@ Acceptance basis:
 
 Decision: no compare normalizer is added for this family because the output difference is an intentional, measured Starshine improvement and because a broad normalizer for `ref.test` folds could hide unrelated future GC/ref-test drift. Future broad lanes may count this exact family as accepted closeout evidence only when all residuals are the same guaranteed-true fresh exact-struct `heap2local-ref` fold and the size direction remains non-regressive. Reopen the broad lane for any additional family, any non-`heap2local-ref` mismatch, a Starshine validation/generator/property failure, or a size-losing version of the fold.
 
+## Slice 50 wasm-smith unreachable-control debris decision
+
+This slice made the explicit closeout decision for the single explicit wasm-smith raw mismatch from Slice 47: accept the supplementary `--normalize unreachable-control-debris` replay as the OC wasm-smith lane rather than changing `optimize-casts` to align an incidental cleanup-debris shape.
+
+Acceptance basis:
+
+- Scope: raw `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000` had exactly one mismatch, `case-009332-wasm-smith`, with zero Starshine validation/generator/property failures.
+- Shape: the normalized WAT diff is only `drop(unreachable)` immediately before a following `unreachable`; no `ref.cast`, `ref.as_non_null`, `ref.test`, fresh carrier local, or GC/local-flow rewrite differs.
+- Tooling: `scripts/lib/pass-fuzz-compare-task.test.ts` already guards the `unreachable-control-debris` normalizer for this adjacent `drop(unreachable)` shape, so this is not a new ad hoc normalizer.
+- Replay: `.tmp/pass-fuzz-optimize-casts-wasm-smith-after-exact-local-10000-unreachable-normalized` requested `10000`, compared `9956`, had `9955` ordinary normalized matches, `1` cleanup-normalized match, `0` remaining mismatches, zero validation/generator/property failures, and the same `44` Binaryen/oracle command-failure classes.
+
+Decision: the explicit wasm-smith lane is accepted for OC closeout with `--normalize unreachable-control-debris`. Reopen the lane for any raw mismatch that involves OC-owned cast/refinement behavior, any residual after the normalizer, any Starshine validation/generator/property failure, or a new Starshine command-failure class after Binaryen/oracle tool failures are excluded. The remaining OC audit work is now source/docs review and deciding whether any still-documented broader local-flow gaps are reasonable non-goals or require another source-backed implementation slice.
+
 ## Recommended next implementation slices
 
-1. Decide whether to explicitly accept the wasm-smith `drop(unreachable)` cleanup-normalized mismatch or implement/align the incidental unreachable cleanup before claiming the wasm-smith lane.
+1. Perform the final OC source/docs review against the `version_130` source/lit inventory and current Starshine tests. Decide which still-documented broader local-flow gaps are reasonable non-goals with reopening criteria versus implementation work.
 2. Treat the O4z GC/local neighborhood raw/canonical drift as localized to `coalesce-locals` by Slice 45; only reopen OC for that repro if a reduced diff shows the drift was seeded before the `coalesce-locals` slot.
-3. If new residuals appear outside the documented static-fold win, broaden strict early motion one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
-4. Do not claim final OC parity until the required four-lane matrix, O4z slot/neighborhood evidence, pass-local timing, wasm-smith residual treatment, and source/docs review are complete.
+3. If the source/docs review finds an unimplemented reasonable OC family, broaden strict early motion or later reuse one source-backed window at a time only with paired barriers; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
+4. Do not claim final OC parity until the source/docs review either closes or explicitly scopes every remaining local-flow gap and the docs/backlog state match that decision.
