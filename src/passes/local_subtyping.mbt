@@ -384,6 +384,14 @@ fn ls_scan_branch_free_dominance_instrs(
           return false
         }
       }
+      @lib.Loop(_, @lib.Expr(body)) => {
+        let loop_initialized = initialized.copy()
+        if !ls_scan_branch_free_dominance_instrs(
+            body, param_count, ref_body_locals, loop_initialized, safe,
+          ) {
+          return false
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         let then_initialized = initialized.copy()
         if !ls_scan_branch_free_dominance_instrs(
@@ -403,8 +411,7 @@ fn ls_scan_branch_free_dominance_instrs(
           None => ()
         }
       }
-      @lib.Loop(_, _)
-      | @lib.TryTable(_, _, _)
+      @lib.TryTable(_, _, _)
       | @lib.Throw(_)
       | @lib.ThrowRef
       | @lib.Br(_)
