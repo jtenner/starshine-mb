@@ -510,7 +510,7 @@ fn ls_scan_branch_free_dominance_instrs(
         } else {
           return LsDominanceScanResult::new(false, false)
         }
-      @lib.Throw(_) =>
+      @lib.Throw(_) | @lib.ThrowRef =>
         if allow_throw_skip {
           ()
         } else if allow_terminal_throw &&
@@ -520,7 +520,6 @@ fn ls_scan_branch_free_dominance_instrs(
         } else {
           return LsDominanceScanResult::new(false, false)
         }
-      @lib.ThrowRef => return LsDominanceScanResult::new(false, false)
       _ => ()
     }
   }
