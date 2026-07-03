@@ -739,6 +739,28 @@ Validation for this slice:
 
 This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader nested/control early motion beyond independent same-region scans, broader `move-cast-*` chains beyond the current best-selection/refinalization/materialized-reuse/source-feed/separate-local-tee/nested-region subsets, richer mixed `ref.cast`/`ref.as_non_null` chains, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
 
+## Slice 35 tee-alias later-reuse result
+
+The thirty-fifth recursive slice broadened the source-backed Binaryen `local-tee` later-reuse family:
+
+- a `ref.cast(local.tee y (local.get x))` now records that the computed cast value can serve later reads of both the original source local `x` and the separate tee destination local `y`;
+- when those alias facts materialize, they share one fresh refined carrier local instead of wrapping the same cast twice;
+- the existing repeated-cast source protection, same-local write barriers, strict early-motion self-tee exclusions, and nullable-fresh-local workaround remain unchanged.
+
+Before implementation, the new fixture retargeted only the later `local.get y` and left the later `local.get x` on the original local. `src/passes/optimize_casts.mbt` now pre-collects local.tee source aliases for later-reuse fact recording without treating that alias as a refinement-root blocker during same-root source retargeting. This keeps direct repeated casts conservative while allowing the source-backed `local-tee` shape to feed both locals. It also reuses an existing fresh local for the same best-cast node when multiple locals alias the same computed value.
+
+Validation for this slice:
+
+- `moon test --package jtenner/starshine/passes --file optimize_casts_test.mbt` failed red-first on `optimize-casts reuses a tee-fed cast for source and destination locals` before implementation (`65/66` passed), then passed `66/66` after implementation.
+- `moon fmt` passed.
+- `moon test src/passes` passed `3881/3881`.
+- `moon info` passed with pre-existing warnings.
+- `moon build --target native --release src/cmd` passed with pre-existing warnings and produced `_build/native/release/build/cmd/cmd.exe`.
+- Regular direct smoke `.tmp/pass-fuzz-optimize-casts-tee-alias-smoke-100`: compared/normalized `100/100`, zero validation/generator/property/command failures, zero mismatches, and Binaryen cache `100/0`.
+- Tiny dedicated aggregate smoke `.tmp/pass-fuzz-optimize-casts-genvalid-all-after-tee-alias-smoke-20`: compared `20/20`, normalized `2`, left `18` raw mismatches, had zero validation/generator/property/command failures, and Binaryen cache `20/0`. Selected leaves were `best-cast=6`, `early-motion=5`, `barriers=3`, `later-reuse=3`, `static-folds=2`, and `neighborhood=1`. Agent classification remains expected open generated parity surface, not signoff.
+
+This still is not OC closeout. Open transform/evidence gaps remain: exact non-null body locals, broader local.tee/write variants beyond the current same-root alias and separate-local early-motion subsets, broader nested/control early motion beyond independent same-region scans, broader `move-cast-*` chains beyond the current best-selection/refinalization/materialized-reuse/source-feed/separate-local-tee/nested-region subsets, richer mixed `ref.cast`/`ref.as_non_null` chains, broader best-cast/subtype coverage, adjacent-block reuse beyond branch-free root/source subsets, calls/effects/traps/control barriers, dedicated-profile compare/classification at closeout scale, larger direct compare refresh, wasm-smith/random-all lanes, O4z slot evidence, and pass-local timing.
+
 ## Recommended next implementation slices
 
 1. Broaden strict early motion one source-backed window at a time only with paired barriers: for example, investigate a narrow `ref.as_non_null` variant across nonconstant pure separate-index `local.set`, or switch to best-cast/adjacent-block local-flow coverage; keep calls/effects/traps/`call_ref`/same-local-write/`local.tee`/nonlinear-control negatives before any implementation.
