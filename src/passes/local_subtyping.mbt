@@ -386,6 +386,7 @@ fn ls_scan_branch_free_dominance_instrs(
   allow_throw_skip? : Bool = false,
   allow_terminal_return? : Bool = false,
   allow_terminal_throw? : Bool = false,
+  allow_non_final_return_tail? : Bool = false,
   allow_non_final_throw_tail? : Bool = false,
 ) -> LsDominanceScanResult {
   let body_local_count = ref_body_locals.length()
@@ -422,6 +423,7 @@ fn ls_scan_branch_free_dominance_instrs(
           allow_throw_skip~,
           allow_terminal_return=allow_terminal_return || allow_return_skip,
           allow_terminal_throw=allow_terminal_throw || allow_throw_skip,
+          allow_non_final_return_tail~,
           allow_non_final_throw_tail~,
         )
         if !block_result.valid {
@@ -450,6 +452,7 @@ fn ls_scan_branch_free_dominance_instrs(
           safe,
           allow_terminal_return=true,
           allow_terminal_throw=true,
+          allow_non_final_return_tail=true,
           allow_non_final_throw_tail=true,
         )
         if !try_result.valid {
@@ -497,7 +500,8 @@ fn ls_scan_branch_free_dominance_instrs(
       @lib.Return =>
         if allow_return_skip {
           ()
-        } else if allow_terminal_return && instr_idx + 1 == instrs.length() {
+        } else if allow_terminal_return &&
+          (allow_non_final_return_tail || instr_idx + 1 == instrs.length()) {
           allow_later_write_init = false
           propagates = false
         } else {
