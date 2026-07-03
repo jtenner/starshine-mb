@@ -32,12 +32,26 @@ Binaryen localizes the twenty-four-result call into a tuple scratch local, extra
 
 ## Starshine coverage
 
-Added direct-HOT boundary/status coverage in `src/passes/optimize_instructions_test.mbt`:
+The 2026-07-02 arity-24 implementation slice changed the direct-HOT boundary coverage into positive coverage in `src/passes/optimize_instructions_test.mbt`:
 
-- `optimize-instructions intentionally keeps tuple.extract with multi-result selected twenty-fourth child-lane boundary`
+- `optimize-instructions localizes twenty-fourth lane from twenty-four-result selected tuple child`
 
-The test asserts Starshine keeps `TupleExtract` index `23`, the `TupleMake`, and the twenty-four-result selected `Call` unchanged. This is boundary-only evidence, not an implementation slice.
+The positive test failed red-first because Starshine kept `TupleExtract`, then passed after `src/passes/optimize_instructions.mbt` admitted selected-child result count 24. The test asserts the replacement is a block with 24 stack-pop-order `local.set` roots and a final `local.get` for the selected twenty-fourth lane.
+
+The same slice added the next source-backed boundary test:
+
+- `optimize-instructions intentionally keeps tuple.extract with multi-result selected twenty-fifth child-lane boundary`
+
+## Validation and fuzz evidence
+
+- Red-first: `moon test --package jtenner/starshine/passes --file optimize_instructions_test.mbt --filter '*twenty-fourth lane*'` failed 0/1 before implementation because the shape stayed `TupleExtract`.
+- Post-fix focused twenty-fourth lane test passed 1/1.
+- New next-boundary test `optimize-instructions intentionally keeps tuple.extract with multi-result selected twenty-fifth child-lane boundary` passed 1/1.
+- Focused `*tuple.extract*` tests passed 24/24 and full `optimize_instructions_test.mbt` passed 639/639.
+- `moon fmt`, `moon info`, full `moon test` (7241/7241), and native `src/cmd` build passed with pre-existing warnings.
+- Direct `.tmp/oi-m-twenty-four-result-selected-direct18-20260702` compared 18/18 with 18 raw mismatches, zero validation/generator/property/command failures, Binaryen cache 18/0, runtime checked/unsupported/failed 18/0/0, and runtime matrix all-equal 1/1.
+- Grouped `.tmp/oi-m-twenty-four-result-selected-count108-20260702` compared 108/108 with 108 raw mismatches, zero validation/generator/property/command failures, Binaryen cache 108/0, runtime checked/unsupported/failed 108/0/0, runtime matrix all-equal 9/9, and all 18 OI-M tuple labels sampled.
 
 ## Status
 
-Starshine's current tuple.extract OI localizer now supports direct one-use selected children through arity 23. This twenty-fourth child-lane shape is the next source-backed selected-child tuple-scratch boundary after the 2026-07-02 arity-23 slice. Reopen this boundary when implementing arity-24 selected-child localization, when adding public/binary tuple fixture coverage for this shape, or if a future Binaryen source/oracle refresh stops localizing it.
+Starshine's current tuple.extract OI localizer now supports direct one-use selected children through arity 24. This note is retained as source/probe history, not an active direct one-use arity-24 blocker. Remaining OI-M work includes selected-child arities 25+, multi-result non-selected siblings, multi-use tuple producers, generalized tuple-scratch reconstruction/localization, control/EH sibling localization, broader randomized/runtime evidence, and public/binary tuple fixture coverage where representable. Reopen this boundary if the arity-24 implementation regresses, if broader wrappers show an effect/trap/validation hazard, if Binaryen source/oracle behavior changes, or if the direct-HOT proof cannot be lifted to public tuple fixtures.
