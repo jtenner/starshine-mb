@@ -4296,7 +4296,8 @@ fn optimize_instructions_try_fold_tuple_extract_tuple_make(
     | 22
     | 23
     | 24
-    | 25 => ()
+    | 25
+    | 26 => ()
     _ => return false
   }
   let mut has_effectful_sibling = false
